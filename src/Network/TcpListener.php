@@ -23,6 +23,9 @@ final class TcpListener
     private int $closedBytesRead = 0;
     private int $closedBytesWritten = 0;
 
+    /** @var resource|null */
+    private mixed $stream;
+
     /** @var array<int, Connection> */
     private array $connections = [];
 
@@ -31,12 +34,13 @@ final class TcpListener
 
     /** @param resource $stream */
     private function __construct(
-        private mixed $stream,
+        mixed $stream,
         private readonly string $address,
         private readonly ListenerOptions $options,
         private readonly ConnectionLimits $connectionLimits,
         private readonly ?TlsOptions $tls,
     ) {
+        $this->stream = $stream;
     }
 
     public static function bind(
@@ -156,7 +160,6 @@ final class TcpListener
         if ($this->closed) {
             throw new LogicException('Closed listener cannot be started.');
         }
-
         if ($this->loop !== null) {
             throw new LogicException('Listener is already attached to an event loop.');
         }
@@ -171,7 +174,6 @@ final class TcpListener
         if ($this->closed) {
             return;
         }
-
         $this->acceptPaused = true;
         $this->syncAcceptWatcher();
     }
@@ -181,7 +183,6 @@ final class TcpListener
         if ($this->closed) {
             return;
         }
-
         $this->acceptPaused = false;
         $this->syncAcceptWatcher();
     }
@@ -222,7 +223,10 @@ final class TcpListener
 
     private function handleAccept(): void
     {
-        if ($this->closed || $this->loop === null || $this->connectionCallback === null) {
+        $loop = $this->loop;
+        $callback = $this->connectionCallback;
+        $listener = $this->stream;
+        if ($this->closed || $loop === null || $callback === null || !is_resource($listener)) {
             return;
         }
 
@@ -232,7 +236,7 @@ final class TcpListener
             }
 
             $peer = null;
-            $client = @stream_socket_accept($this->stream, 0, $peer);
+            $client = @stream_socket_accept($listener, 0, $peer);
             if (!is_resource($client)) {
                 break;
             }
@@ -250,11 +254,16 @@ final class TcpListener
 
             $id = get_resource_id($client);
             $this->handshakes[$id] = TlsHandshake::start(
-                $this->loop,
+                $loop,
                 $client,
                 $this->tls,
                 function (mixed $stream, ?string $protocol) use ($id, $peerAddress, $localAddress): void {
                     unset($this->handshakes[$id]);
+                    if (!is_resource($stream)) {
+                        ++$this->rejectedConnections;
+                        $this->syncAcceptWatcher();
+                        return;
+                    }
                     $this->activateConnection($stream, $peerAddress, $localAddress, $protocol);
                     $this->syncAcceptWatcher();
                 },
@@ -272,14 +281,20 @@ final class TcpListener
     /** @param resource $stream */
     private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
     {
-        if ($this->loop === null || $this->connectionCallback === null) {
+        $loop = $this->loop;
+        $callback = $this->connectionCallback;
+        if (!is_resource($stream)) {
+            ++$this->rejectedConnections;
+            return;
+        }
+        if ($loop === null || $callback === null) {
             @fclose($stream);
             ++$this->rejectedConnections;
             return;
         }
 
         $connection = new Connection(
-            $this->loop,
+            $loop,
             $stream,
             $this->connectionLimits,
             $peer,
@@ -297,7 +312,7 @@ final class TcpListener
         });
 
         try {
-            ($this->connectionCallback)($connection);
+            $callback($connection);
         } catch (Throwable $throwable) {
             try {
                 $connection->abort();
@@ -310,15 +325,17 @@ final class TcpListener
 
     private function syncAcceptWatcher(): void
     {
+        $loop = $this->loop;
+        $stream = $this->stream;
         $shouldWatch = !$this->closed
             && !$this->acceptPaused
-            && $this->loop !== null
-            && is_resource($this->stream)
+            && $loop !== null
+            && is_resource($stream)
             && $this->load() < $this->options->maxConnections;
 
         if ($shouldWatch && $this->acceptWatcher === null) {
-            $this->acceptWatcher = $this->loop->onReadable(
-                $this->stream,
+            $this->acceptWatcher = $loop->onReadable(
+                $stream,
                 function (): void {
                     $this->handleAccept();
                 },
@@ -326,8 +343,8 @@ final class TcpListener
             return;
         }
 
-        if (!$shouldWatch && $this->acceptWatcher !== null && $this->loop !== null) {
-            $this->loop->cancel($this->acceptWatcher);
+        if (!$shouldWatch && $this->acceptWatcher !== null && $loop !== null) {
+            $loop->cancel($this->acceptWatcher);
             $this->acceptWatcher = null;
         }
     }
