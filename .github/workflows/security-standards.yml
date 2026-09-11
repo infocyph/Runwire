@@ -17,9 +17,6 @@ jobs:
       contents: read
     with:
       php_versions: '["8.4","8.5"]'
-      php_extensions: "memcached, pdo"
-      integration_services: '["postgres","memcached"]'
+      php_extensions: "pcntl, posix, openssl, sockets"
+      integration_services: '[]'
       service_topologies: '{}'
-      service_db_name: "phpforge"
-      service_db_user: "phpforge"
-      service_password: "Phpforge_123!"
