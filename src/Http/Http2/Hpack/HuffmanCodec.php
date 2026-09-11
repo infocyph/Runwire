@@ -84,6 +84,9 @@ final class HuffmanCodec
                 if ($symbol === 256) {
                     throw new HpackException('HPACK Huffman EOS symbol is forbidden in encoded strings.');
                 }
+                if ($symbol < 0 || $symbol > 255) {
+                    throw new HpackException('Invalid HPACK Huffman symbol.');
+                }
                 if (strlen($output) >= $maxOutputBytes) {
                     throw new HpackException('HPACK Huffman output exceeds configured limit.');
                 }

@@ -10,11 +10,11 @@ final class FrameWriter
     {
         $length = strlen($frame->payload);
 
-        return chr(($length >> 16) & 0xFF)
-            . chr(($length >> 8) & 0xFF)
-            . chr($length & 0xFF)
-            . chr($frame->type)
-            . chr($frame->flags)
+        return self::byte(($length >> 16) & 0xFF)
+            . self::byte(($length >> 8) & 0xFF)
+            . self::byte($length & 0xFF)
+            . self::byte($frame->type)
+            . self::byte($frame->flags)
             . pack('N', $frame->streamId & 0x7FFF_FFFF)
             . $frame->payload;
     }
@@ -59,5 +59,14 @@ final class FrameWriter
             0,
             pack('NN', $lastStreamId & 0x7FFF_FFFF, $error->value) . $debug,
         );
+    }
+
+    private static function byte(int $value): string
+    {
+        if ($value < 0 || $value > 0xFF) {
+            throw new \InvalidArgumentException('HTTP/2 frame byte must be between 0 and 255.');
+        }
+
+        return chr($value);
     }
 }

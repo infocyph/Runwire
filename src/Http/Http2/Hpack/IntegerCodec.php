@@ -46,17 +46,17 @@ final class IntegerCodec
 
         $maxPrefix = (1 << $prefixBits) - 1;
         if ($value < $maxPrefix) {
-            return chr($prefixMask | $value);
+            return self::byte($prefixMask | $value);
         }
 
-        $encoded = chr($prefixMask | $maxPrefix);
+        $encoded = self::byte($prefixMask | $maxPrefix);
         $value -= $maxPrefix;
         while ($value >= 128) {
-            $encoded .= chr(($value & 0x7F) | 0x80);
+            $encoded .= self::byte(($value & 0x7F) | 0x80);
             $value >>= 7;
         }
 
-        return $encoded . chr($value);
+        return $encoded . self::byte($value);
     }
 
     private static function validatePrefix(int $bits): void
@@ -64,5 +64,14 @@ final class IntegerCodec
         if ($bits < 1 || $bits > 8) {
             throw new \InvalidArgumentException('HPACK integer prefix width must be between 1 and 8 bits.');
         }
+    }
+
+    private static function byte(int $value): string
+    {
+        if ($value < 0 || $value > 0xFF) {
+            throw new \InvalidArgumentException('HPACK encoded byte must be between 0 and 255.');
+        }
+
+        return chr($value);
     }
 }

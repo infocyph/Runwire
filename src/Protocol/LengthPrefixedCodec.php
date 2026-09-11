@@ -107,9 +107,18 @@ final class LengthPrefixedCodec implements FrameCodecInterface
     private function encodeLength(int $length): string
     {
         return match ($this->format) {
-            LengthPrefixFormat::UINT8 => chr($length),
+            LengthPrefixFormat::UINT8 => self::encodeUint8($length),
             LengthPrefixFormat::UINT16_BE => pack('n', $length),
             LengthPrefixFormat::UINT32_BE => pack('N', $length),
         };
+    }
+
+    private static function encodeUint8(int $length): string
+    {
+        if ($length < 0 || $length > 0xFF) {
+            throw new CodecException('UINT8 length prefix must be between 0 and 255.');
+        }
+
+        return chr($length);
     }
 }
