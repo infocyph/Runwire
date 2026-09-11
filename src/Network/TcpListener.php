@@ -76,7 +76,7 @@ final class TcpListener
         $context = stream_context_create($contextOptions);
         $errno = 0;
         $error = '';
-        $stream = @stream_socket_server(
+        $stream = stream_socket_server(
             $uri,
             $errno,
             $error,
@@ -92,8 +92,12 @@ final class TcpListener
             ));
         }
 
-        @stream_set_blocking($stream, false);
-        $boundAddress = @stream_socket_get_name($stream, false);
+        if (!stream_set_blocking($stream, false)) {
+            fclose($stream);
+
+            throw new ListenerException(sprintf('Unable to make TCP listener "%s" non-blocking.', $address));
+        }
+        $boundAddress = stream_socket_get_name($stream, false);
 
         return new self(
             $stream,
@@ -159,7 +163,7 @@ final class TcpListener
         }
         $this->handshakes = [];
         if (is_resource($this->stream)) {
-            @fclose($this->stream);
+            fclose($this->stream);
         }
         $this->stream = null;
         $this->connectionCallback = null;
@@ -255,7 +259,7 @@ final class TcpListener
             return;
         }
         if ($loop === null || $callback === null) {
-            @fclose($stream);
+            fclose($stream);
             ++$this->rejectedConnections;
 
             return;
@@ -272,7 +276,7 @@ final class TcpListener
         );
         $id = spl_object_id($connection);
         $this->connections[$id] = $connection;
-        $connection->onClose(function (Connection $closed, CloseReason $reason) use ($id): void {
+        $connection->onClose(function (Connection $closed) use ($id): void {
             $this->closedBytesRead += $closed->bytesRead();
             $this->closedBytesWritten += $closed->bytesWritten();
             unset($this->connections[$id]);
@@ -307,14 +311,19 @@ final class TcpListener
             }
 
             $peer = null;
-            $client = @stream_socket_accept($listener, 0, $peer);
+            $client = stream_socket_accept($listener, 0, $peer);
             if (!is_resource($client)) {
                 break;
             }
 
-            @stream_set_blocking($client, false);
+            if (!stream_set_blocking($client, false)) {
+                fclose($client);
+                ++$this->rejectedConnections;
+
+                continue;
+            }
             ++$this->acceptedConnections;
-            $local = @stream_socket_get_name($client, false);
+            $local = stream_socket_get_name($client, false);
             $peerAddress = is_string($peer) ? $peer : null;
             $localAddress = is_string($local) ? $local : null;
 
