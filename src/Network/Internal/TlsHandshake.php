@@ -81,7 +81,7 @@ final class TlsHandshake
         if ($this->finished || !is_resource($stream)) {
             return;
         }
-        $result = @stream_socket_enable_crypto($stream, true, $this->options->method());
+        $result = stream_socket_enable_crypto($stream, true, $this->options->method());
         if ($result === 0) {
             return;
         }
@@ -103,7 +103,11 @@ final class TlsHandshake
         if ($this->finished || !is_resource($stream)) {
             return;
         }
-        @stream_set_blocking($stream, false);
+        if (!stream_set_blocking($stream, false)) {
+            $this->fail();
+
+            return;
+        }
         $this->timeoutTimer = $this->loop->delay($this->options->handshakeTimeoutSeconds, function (): void {
             $this->timeoutTimer = null;
             $this->fail();
@@ -121,7 +125,7 @@ final class TlsHandshake
         $stream = $this->stream;
         $this->finish();
         if (is_resource($stream)) {
-            @fclose($stream);
+            fclose($stream);
         }
         ($this->onFailure)();
     }
