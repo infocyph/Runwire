@@ -27,7 +27,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
     $runtimePid = pcntl_fork();
     expect($runtimePid)->toBeGreaterThanOrEqual(0);
     if ($runtimePid === 0) {
-        $server = Server::httpFactory($address, static function ($context): callable {
+        $server = Server::httpFactory($address, static function (): callable {
             return static function (HttpRequest $request, ResponseWriterInterface $writer): void {
                 $request->body->onEnd(static fn () => $writer->end('runwire-native-ok'));
             };
@@ -40,7 +40,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
     $client = false;
     try {
         for ($attempt = 0; $attempt < 100; ++$attempt) {
-            $client = @stream_socket_client('tcp://' . $address, $errno, $error, 0.05);
+            $client = stream_socket_client('tcp://' . $address, $errno, $error, 0.05);
             if (is_resource($client)) {
                 break;
             }
@@ -63,7 +63,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
         if (is_resource($client)) {
             fclose($client);
         }
-        @posix_kill($runtimePid, SIGTERM);
+        posix_kill($runtimePid, SIGTERM);
     }
 
     $status = 0;
@@ -77,7 +77,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
         usleep(20_000);
     }
     if ($reaped !== $runtimePid) {
-        @posix_kill($runtimePid, SIGKILL);
+        posix_kill($runtimePid, SIGKILL);
         pcntl_waitpid($runtimePid, $status);
     }
 

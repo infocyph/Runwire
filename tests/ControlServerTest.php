@@ -13,7 +13,9 @@ it('serves bounded runtime control over a protected unix socket', function (): v
     if ($resultFile === false) {
         throw new RuntimeException('Unable to allocate control result file.');
     }
-    @unlink($socket);
+    if (file_exists($socket)) {
+        unlink($socket);
+    }
 
     $clientPid = pcntl_fork();
     if ($clientPid === -1) {
@@ -27,7 +29,7 @@ it('serves bounded runtime control over a protected unix socket', function (): v
             do {
                 $errno = 0;
                 $error = '';
-                $stream = @stream_socket_client('unix://' . $socket, $errno, $error, 0.2);
+                $stream = stream_socket_client('unix://' . $socket, $errno, $error, 0.2);
                 if (is_resource($stream)) {
                     break;
                 }
@@ -65,7 +67,7 @@ it('serves bounded runtime control over a protected unix socket', function (): v
                 throw new RuntimeException('Control socket was not created.');
             }
 
-            $oversized = @stream_socket_client('unix://' . $socket, $errno, $error, 1.0);
+            $oversized = stream_socket_client('unix://' . $socket, $errno, $error, 1.0);
             if (!is_resource($oversized)) {
                 throw new RuntimeException('Unable to connect oversized-request client.');
             }
@@ -122,7 +124,7 @@ it('serves bounded runtime control over a protected unix socket', function (): v
                     $read = [$stop];
                     $write = [];
                     $except = [];
-                    @stream_select($read, $write, $except, 1, 0);
+                    stream_select($read, $write, $except, 1, 0);
                     $context->consumeStopWake();
                 }
             },
@@ -151,8 +153,12 @@ it('serves bounded runtime control over a protected unix socket', function (): v
             ->and(file_exists($socket))->toBeFalse()
             ->and($supervisor->status()->workers)->toBe([]);
     } finally {
-        @unlink($socket);
-        @unlink($resultFile);
+        if (file_exists($socket)) {
+            unlink($socket);
+        }
+        if (file_exists($resultFile)) {
+            unlink($resultFile);
+        }
     }
 });
 

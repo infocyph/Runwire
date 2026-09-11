@@ -30,7 +30,9 @@ it('rejects TLS configuration for Unix stream servers', function (): void {
         $server = StreamServer::unix('/tmp/runwire.sock', static fn () => new LineCodec(), static function (): void {});
         expect(fn () => $server->withTls($tls))->toThrow(LogicException::class);
     } finally {
-        @unlink($certificate);
+        if (file_exists($certificate)) {
+            unlink($certificate);
+        }
     }
 });
 

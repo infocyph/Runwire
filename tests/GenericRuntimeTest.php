@@ -62,7 +62,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
     $udp = false;
     try {
         for ($attempt = 0; $attempt < 100; ++$attempt) {
-            $tcp = @stream_socket_client('tcp://' . $tcpAddress, $errno, $error, 0.05);
+            $tcp = stream_socket_client('tcp://' . $tcpAddress, $errno, $error, 0.05);
             if (is_resource($tcp)) {
                 break;
             }
@@ -89,7 +89,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
         if (is_resource($udp)) {
             fclose($udp);
         }
-        @posix_kill($pid, SIGTERM);
+        posix_kill($pid, SIGTERM);
     }
 
     $status = 0;
@@ -103,7 +103,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
         usleep(20_000);
     }
     if ($reaped !== $pid) {
-        @posix_kill($pid, SIGKILL);
+        posix_kill($pid, SIGKILL);
         pcntl_waitpid($pid, $status);
     }
 
@@ -136,7 +136,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
     try {
         for ($attempt = 0; $attempt < 150; ++$attempt) {
             if (file_exists($path)) {
-                $client = @stream_socket_client('unix://' . $path, $errno, $error, 0.05);
+                $client = stream_socket_client('unix://' . $path, $errno, $error, 0.05);
                 if (is_resource($client)) {
                     break;
                 }
@@ -153,7 +153,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
         if (is_resource($client)) {
             fclose($client);
         }
-        @posix_kill($pid, SIGTERM);
+        posix_kill($pid, SIGTERM);
     }
 
     $status = 0;
@@ -167,7 +167,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
         usleep(20_000);
     }
     if ($reaped !== $pid) {
-        @posix_kill($pid, SIGKILL);
+        posix_kill($pid, SIGKILL);
         pcntl_waitpid($pid, $status);
     }
 

@@ -181,7 +181,7 @@ it('emits 100 Continue before the final response', function (): void {
 it('enforces declared response Content-Length', function (): void {
     expect(fn () => runwireHttpExchange(
         "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n",
-        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+        static function (HttpRequest $_request, ResponseWriterInterface $writer): void {
             $writer->start(200, new Headers([new HeaderField('Content-Length', '2')]));
             $writer->end('abc');
         },

@@ -91,7 +91,9 @@ it('restarts a crashed worker within the configured restart budget', function ()
 
         expect((int) file_get_contents($counter))->toBeGreaterThanOrEqual(2);
     } finally {
-        @unlink($counter);
+        if (file_exists($counter)) {
+            unlink($counter);
+        }
     }
 });
 
@@ -101,7 +103,7 @@ it('fails the supervisor when a worker exhausts its restart budget', function ()
     $supervisor->group(WorkerGroup::callbacks(
         name: 'failing',
         count: 1,
-        factory: static function (WorkerContext $context): void {
+        factory: static function (): void {
             throw new RuntimeException('always fails');
         },
         restartPolicy: new RestartPolicy(
@@ -159,6 +161,8 @@ it('performs a rolling generation reload after replacement readiness', function 
         $observed = file($generations, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         expect($observed)->toContain('1')->toContain('2');
     } finally {
-        @unlink($generations);
+        if (file_exists($generations)) {
+            unlink($generations);
+        }
     }
 });

@@ -35,7 +35,7 @@ it('recycles one worker after replacement readiness and restores normal restart 
         }
         if ($readyCount === 2) {
             $pid = $event->pid;
-            $loop->delay(0.04, static function () use ($pid): void { @posix_kill($pid, SIGKILL); });
+            $loop->delay(0.04, static function () use ($pid): void { posix_kill($pid, SIGKILL); });
             return;
         }
         if ($readyCount === 3) {
@@ -49,8 +49,10 @@ it('recycles one worker after replacement readiness and restores normal restart 
         factory: static function (WorkerContext $context): void {
             $stop = $context->stopStream();
             while (!$context->stopping()) {
-                $read = [$stop]; $write = []; $except = [];
-                @stream_select($read, $write, $except, 1, 0);
+                $read = [$stop];
+                $write = [];
+                $except = [];
+                stream_select($read, $write, $except, 1, 0);
                 $context->consumeStopWake();
             }
         },

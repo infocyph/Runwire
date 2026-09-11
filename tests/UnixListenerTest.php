@@ -48,6 +48,8 @@ it('never removes an ordinary file when stale-socket cleanup is requested', func
         ))->toThrow(ListenerException::class);
         expect(file_get_contents($path))->toBe('keep');
     } finally {
-        @unlink($path);
+        if (file_exists($path)) {
+            unlink($path);
+        }
     }
 });

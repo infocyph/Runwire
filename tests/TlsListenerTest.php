@@ -28,9 +28,15 @@ function runwireTlsFiles(): array
 
 function cleanupRunwireTlsFiles(string $directory, string $certificateFile, string $keyFile): void
 {
-    @unlink($certificateFile);
-    @unlink($keyFile);
-    @rmdir($directory);
+    if (file_exists($certificateFile)) {
+        unlink($certificateFile);
+    }
+    if (file_exists($keyFile)) {
+        unlink($keyFile);
+    }
+    if (is_dir($directory)) {
+        rmdir($directory);
+    }
 }
 
 it('bounds stalled TLS handshakes', function (): void {
