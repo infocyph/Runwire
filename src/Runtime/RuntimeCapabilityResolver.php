@@ -32,6 +32,7 @@ final class RuntimeCapabilityResolver
             ownsWorkerPool: true,
             supportsFork: $environment->supportsFork,
             supportsSignals: $environment->supportsSignals,
+            supportsAsyncIo: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );
@@ -43,8 +44,6 @@ final class RuntimeCapabilityResolver
             driver: RuntimeDriver::FPM,
             persistentProcess: true,
             persistentApplication: false,
-            ownsListener: true,
-            ownsWorkerPool: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: false,
         );
@@ -56,9 +55,6 @@ final class RuntimeCapabilityResolver
             driver: RuntimeDriver::FRANKENPHP,
             persistentProcess: true,
             persistentApplication: false,
-            ownsListener: true,
-            ownsEventLoop: true,
-            ownsWorkerPool: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: false,
         );
@@ -70,9 +66,6 @@ final class RuntimeCapabilityResolver
             driver: RuntimeDriver::SWOOLE,
             persistentProcess: true,
             persistentApplication: true,
-            ownsListener: true,
-            ownsEventLoop: true,
-            ownsWorkerPool: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );
@@ -84,9 +77,6 @@ final class RuntimeCapabilityResolver
             driver: RuntimeDriver::ROADRUNNER,
             persistentProcess: true,
             persistentApplication: true,
-            ownsListener: true,
-            ownsEventLoop: true,
-            ownsWorkerPool: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );

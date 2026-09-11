@@ -24,6 +24,7 @@ it('reports native ownership without claiming protocol engines before they are w
         ->and($capabilities->ownsEventLoop)->toBeTrue()
         ->and($capabilities->ownsWorkerPool)->toBeTrue()
         ->and($capabilities->supportsFork)->toBeTrue()
+        ->and($capabilities->supportsAsyncIo)->toBeTrue()
         ->and($capabilities->supportsHttp1)->toBeFalse()
         ->and($capabilities->supportsHttp2)->toBeFalse();
 });
@@ -38,6 +39,6 @@ it('keeps fpm request-bound application state non-persistent', function (): void
 
     expect($capabilities->persistentProcess)->toBeTrue()
         ->and($capabilities->persistentApplication)->toBeFalse()
-        ->and($capabilities->ownsListener)->toBeTrue()
-        ->and($capabilities->ownsWorkerPool)->toBeTrue();
+        ->and($capabilities->ownsListener)->toBeFalse()
+        ->and($capabilities->ownsWorkerPool)->toBeFalse();
 });
