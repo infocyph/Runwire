@@ -75,9 +75,9 @@ final class ControlServer
             ),
             $limits,
         );
-        $this->listener->start($loop, function (Connection $connection): void {
-            $session = new FramedConnection(
-                $this->loop,
+        $this->listener->start($loop, function (Connection $connection) use ($loop): void {
+            new FramedConnection(
+                $loop,
                 $connection,
                 new LineCodec("\n", $this->options->maxRequestBytes),
                 function (string $frame, FramedConnection $session): void {
@@ -114,6 +114,7 @@ final class ControlServer
             $this->respondError($session, 'invalid_request', 'Control request must be a JSON object.');
             return;
         }
+        /** @var array<string, mixed> $request */
         if (($request['version'] ?? null) !== self::PROTOCOL_VERSION) {
             $this->respondError($session, 'unsupported_version', 'Unsupported control protocol version.');
             return;
