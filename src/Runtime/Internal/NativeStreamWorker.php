@@ -35,8 +35,8 @@ final class NativeStreamWorker
             $sessions[$id] = $session;
             $connection->onClose(static function () use (&$sessions, $id, $loop, $state): void {
                 unset($sessions[$id]);
-                if ($state->isStopping() && $sessions === []) {
-                    $loop->stop();
+                if ($sessions === []) {
+                    $state->stopLoopIfStopping($loop);
                 }
             });
         });
