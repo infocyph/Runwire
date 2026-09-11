@@ -36,6 +36,18 @@ it('frames and finishes HTTP/3 responses without transport coupling', function (
         ->and($transport->finished)->toBe([0]);
 });
 
+it('closes retained response writers when their HTTP/3 stream is discarded', function (): void {
+    $limits = new Http3Limits();
+    $scheduler = new ResponseScheduler(new ConnectionState($limits), $limits, new Http3SchedulerTransport());
+    $writer = $scheduler->writer(0, 'GET', static function (): void {});
+
+    $scheduler->discardStream(0);
+    $result = $writer->write('orphan');
+
+    expect($result->state)->toBe(WriteState::CLOSED)
+        ->and($scheduler->responsePending(0))->toBeFalse();
+});
+
 it('retains exact unsent bytes across partial QUIC writes', function (): void {
     $limits = new Http3Limits(
         maxPendingResponseBytesPerStream: 256,
