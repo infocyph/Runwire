@@ -155,6 +155,7 @@ jobs:
             tests/Http3ResponseSchedulerTest.php \
             tests/PhpQuicTransportTest.php \
             tests/PhpQuicFacadeTest.php \
+            tests/PhpQuicHttp3ConnectionTest.php \
             tests/QpackTest.php \
             tests/RuntimeCapabilitiesTest.php \
             tests/RuntimeEnvironmentProbeTest.php
