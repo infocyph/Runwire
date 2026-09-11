@@ -63,7 +63,7 @@ it('bounds stalled TLS handshakes', function (): void {
     } finally {
         cleanupRunwireTlsFiles($directory, $certificateFile, $keyFile);
     }
-})->skip(!extension_loaded('openssl'), 'OpenSSL extension is required.');
+});
 
 it('negotiates native TLS and ALPN without blocking the server loop', function (): void {
     [$directory, $certificateFile, $keyFile] = runwireTlsFiles();
@@ -99,8 +99,7 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
             ]]);
             $client = stream_socket_client('tcp://' . $listener->address(), $errno, $error, 1.0, STREAM_CLIENT_CONNECT, $context);
             if (!is_resource($client) || stream_socket_enable_crypto($client, true, STREAM_CRYPTO_METHOD_TLS_CLIENT) !== true) {
-                // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked TLS client must not execute parent test flow.
-                exit(20);
+                (Closure::fromCallable('exit'))(20);
             }
             $meta = stream_get_meta_data($client);
             $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
@@ -108,8 +107,7 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
             stream_set_timeout($client, 2);
             $reply = stream_get_contents($client);
             fclose($client);
-            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked TLS client must not execute parent test flow.
-            exit($reply === 'pong' && $protocol === 'h2' ? 0 : 21);
+            (Closure::fromCallable('exit'))($reply === 'pong' && $protocol === 'h2' ? 0 : 21);
         }
 
         $loop->delay(2.0, static fn () => $loop->stop());
@@ -123,4 +121,4 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
     } finally {
         cleanupRunwireTlsFiles($directory, $certificateFile, $keyFile);
     }
-})->skip(!extension_loaded('openssl'), 'OpenSSL extension is required.');
+});

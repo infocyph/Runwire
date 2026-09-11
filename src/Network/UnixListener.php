@@ -187,10 +187,12 @@ final class UnixListener
     {
         if (!stream_set_blocking($stream, false)) {
             self::discardListener($stream, $path);
+
             throw new ListenerException(sprintf('Unable to make Unix listener "%s" non-blocking.', $path));
         }
         if ($options->permissions !== null && !chmod($path, $options->permissions)) {
             self::discardListener($stream, $path);
+
             throw new ListenerException(sprintf('Unable to set Unix socket permissions on "%s".', $path));
         }
     }

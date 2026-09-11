@@ -121,7 +121,8 @@ it('drains an active HTTP/1.1 exchange without accepting another request', funct
     $session = NativeHttpConnection::attach(
         $loop,
         $connection,
-        static function (HttpRequest $_request, ResponseWriterInterface $response) use (&$writer, &$requests): void {
+        static function (HttpRequest $request, ResponseWriterInterface $response) use (&$writer, &$requests): void {
+            expect($request->target)->toBe('/one');
             ++$requests;
             $writer = $response;
         },

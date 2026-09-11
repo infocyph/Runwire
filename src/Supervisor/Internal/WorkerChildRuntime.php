@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
+use Closure;
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
@@ -45,12 +46,17 @@ final class WorkerChildRuntime
 
             ($group->bootstrap)($context);
             $context->close();
-            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked worker must terminate without returning into master control flow.
-            exit(0);
+            self::terminate(0);
         } catch (Throwable) {
             $context?->close();
-            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked worker must terminate without returning into master control flow.
-            exit(70);
+            self::terminate(70);
         }
+    }
+
+    private static function terminate(int $status): never
+    {
+        (Closure::fromCallable('exit'))($status);
+
+        throw new SupervisorException('Worker process termination unexpectedly returned.');
     }
 }

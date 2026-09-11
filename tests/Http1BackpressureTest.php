@@ -93,7 +93,8 @@ it('exposes response pressure relief through the version-neutral writer', functi
     ));
     $drained = false;
 
-    new Http1Connection($loop, $connection, new Http1Limits(maxResponseChunkBytes: 4_096), static function (HttpRequest $_request, ResponseWriterInterface $writer) use (&$drained, $loop): void {
+    new Http1Connection($loop, $connection, new Http1Limits(maxResponseChunkBytes: 4_096), static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$drained, $loop): void {
+        expect($request->target)->toBe('/pressure');
         $writer->start();
         for ($index = 0; $index < 20; ++$index) {
             $result = $writer->write(str_repeat('z', 4_096));

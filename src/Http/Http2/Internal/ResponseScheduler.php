@@ -17,6 +17,7 @@ use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\WriteResult;
 use Infocyph\Runwire\Network\WriteState;
+use LogicException;
 
 final class ResponseScheduler
 {
@@ -148,7 +149,7 @@ final class ResponseScheduler
     {
         return new Http2ResponseWriter(
             $method,
-            fn(int $_status, array $headers) => $this->sendHeaders($stream, $headers),
+            fn(int $status, array $headers) => $this->sendHeaders($stream, $status, $headers),
             fn(string $data, bool $end) => $this->queueData($stream, $data, $end),
             function (Closure $callback) use ($stream): void {
                 $stream->drainCallback = $callback;
@@ -386,11 +387,15 @@ final class ResponseScheduler
     }
 
     /** @param list<array{0: string, 1: string}> $headers */
-    private function sendHeaders(Http2Stream $stream, array $headers): WriteResult
+    private function sendHeaders(Http2Stream $stream, int $status, array $headers): WriteResult
     {
         if (!$stream->localOpen()) {
             return $this->closedResult();
         }
+        if (($headers[0] ?? null) !== [':status', (string) $status]) {
+            throw new LogicException('HTTP/2 response status pseudo-header is inconsistent.');
+        }
+
         $frames = $this->headerFrames($stream, $headers);
         if ($frames === null) {
             return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
