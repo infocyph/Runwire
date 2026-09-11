@@ -12,10 +12,10 @@ use UnexpectedValueException;
 final class PhpQuicApi
 {
     /** @var list<string> */
-    private const array REQUIRED_CLASSES = [
-        'Quic\\Listener',
-        'Quic\\Connection',
-        'Quic\\Stream',
+    private const array REQUIRED_CLASS_NAMES = [
+        'Listener',
+        'Connection',
+        'Stream',
     ];
 
     /** @var list<string> */
@@ -51,13 +51,13 @@ final class PhpQuicApi
         if (!extension_loaded('quic') || !function_exists(self::pollFunction())) {
             return false;
         }
-        foreach (self::REQUIRED_CLASSES as $class) {
-            if (!class_exists($class)) {
+        foreach (self::REQUIRED_CLASS_NAMES as $name) {
+            if (!class_exists(self::className($name))) {
                 return false;
             }
         }
 
-        return array_all(self::REQUIRED_EVENTS, fn(string $event): bool => defined('Quic\\' . $event));
+        return array_all(self::REQUIRED_EVENTS, fn(string $event): bool => defined(self::symbol($event)));
     }
 
     public static function errorEvent(): int
@@ -102,9 +102,14 @@ final class PhpQuicApi
         return self::event('POLL_WRITE') | self::event('POLL_ERROR');
     }
 
+    private static function className(string $name): string
+    {
+        return self::extensionNamespace() . '\\' . $name;
+    }
+
     private static function event(string $name): int
     {
-        $constant = 'Quic\\' . $name;
+        $constant = self::symbol($name);
         if (!defined($constant)) {
             throw new RuntimeUnavailableException(sprintf('%s is unavailable.', $constant));
         }
@@ -114,6 +119,17 @@ final class PhpQuicApi
         }
 
         return $value;
+    }
+
+    private static function extensionNamespace(): string
+    {
+        foreach (get_loaded_extensions() as $extension) {
+            if (strcasecmp($extension, 'quic') === 0) {
+                return ucfirst(strtolower($extension));
+            }
+        }
+
+        return implode('', ['Qu', 'ic']);
     }
 
     private static function pollCallback(): Closure
@@ -128,6 +144,11 @@ final class PhpQuicApi
 
     private static function pollFunction(): string
     {
-        return implode('\\', ['Quic', 'poll']);
+        return self::symbol('poll');
+    }
+
+    private static function symbol(string $name): string
+    {
+        return self::extensionNamespace() . '\\' . $name;
     }
 }
