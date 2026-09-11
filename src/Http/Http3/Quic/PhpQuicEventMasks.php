@@ -15,12 +15,19 @@ final readonly class PhpQuicEventMasks
         public int $acceptStream,
         public int $error,
     ) {
-        foreach (get_object_vars($this) as $name => $mask) {
+        $masks = [
+            'read' => $read,
+            'write' => $write,
+            'acceptConnection' => $acceptConnection,
+            'acceptStream' => $acceptStream,
+            'error' => $error,
+        ];
+        foreach ($masks as $name => $mask) {
             if ($mask <= 0 || ($mask & ($mask - 1)) !== 0) {
                 throw new InvalidArgumentException(sprintf('%s must be a positive single-bit QUIC event mask.', $name));
             }
         }
-        if (count(array_unique(get_object_vars($this))) !== 5) {
+        if (count(array_unique($masks)) !== count($masks)) {
             throw new InvalidArgumentException('QUIC event masks must be distinct.');
         }
     }

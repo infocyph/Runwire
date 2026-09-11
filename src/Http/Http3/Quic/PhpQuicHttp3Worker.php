@@ -21,10 +21,6 @@ final class PhpQuicHttp3Worker
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     private readonly Closure $handler;
 
-    private readonly Http3Limits $limits;
-
-    private readonly PhpQuicListener $listener;
-
     private readonly PhpQuicHttp3Poller $poller;
 
     private bool $accepting = true;
@@ -34,9 +30,9 @@ final class PhpQuicHttp3Worker
 
     /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
     public function __construct(
-        PhpQuicListener $listener,
+        private readonly PhpQuicListener $listener,
         callable $handler,
-        Http3Limits $limits,
+        private readonly Http3Limits $limits,
         int $connectionLimit,
         ?PhpQuicHttp3Poller $poller = null,
     ) {
@@ -48,8 +44,6 @@ final class PhpQuicHttp3Worker
         $handlerClosure = Closure::fromCallable($handler);
         $this->connectionLimit = $connectionLimit;
         $this->handler = $handlerClosure;
-        $this->limits = $limits;
-        $this->listener = $listener;
         $this->poller = $poller ?? new PhpQuicHttp3Poller(PhpQuicEventMasks::native());
     }
 

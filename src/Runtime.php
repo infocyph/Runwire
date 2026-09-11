@@ -167,20 +167,6 @@ final class Runtime
         $this->supervisor?->stop($force);
     }
 
-    private function assertNativeHttp3Available(): void
-    {
-        foreach ($this->servers as $server) {
-            if (!$server instanceof Server || $server->http3 === null) {
-                continue;
-            }
-            if ($this->selection?->capabilities->supportsQuic !== true) {
-                throw new RuntimeUnavailableException(
-                    'Native HTTP/3 is configured, but the required QUIC runtime capability is unavailable.',
-                );
-            }
-        }
-    }
-
     private static function closeBound(
         BoundServer|BoundStreamServer|BoundDatagramServer $target,
         bool $master,
@@ -238,6 +224,20 @@ final class Runtime
             permissions: $options->permissions,
             unlinkOnClose: $options->unlinkOnClose,
         );
+    }
+
+    private function assertNativeHttp3Available(): void
+    {
+        foreach ($this->servers as $server) {
+            if (!$server instanceof Server || $server->http3 === null) {
+                continue;
+            }
+            if ($this->selection?->capabilities->supportsQuic !== true) {
+                throw new RuntimeUnavailableException(
+                    'Native HTTP/3 is configured, but the required QUIC runtime capability is unavailable.',
+                );
+            }
+        }
     }
 
     /** @return array<string, BoundServer|BoundStreamServer|BoundDatagramServer> */
@@ -320,7 +320,7 @@ final class Runtime
                 readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
             ));
-            if ($target instanceof BoundServer && $definition->http3 !== null) {
+            if ($target instanceof BoundServer && $target->definition->http3 !== null) {
                 $this->registerHttp3Group($supervisor, $bound, $target);
             }
         }

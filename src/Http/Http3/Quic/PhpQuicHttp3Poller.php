@@ -11,26 +11,25 @@ use UnexpectedValueException;
 
 final readonly class PhpQuicHttp3Poller
 {
-    public PhpQuicEventMasks $events;
-
-    /** @var Closure(array<int, array{0: object, 1: int}>, ?float): array<int, int> */
+    /** @var Closure(array<int, array{0: object, 1: int}>, ?float): mixed */
     private Closure $pollCallback;
 
     /** @param callable(array<int, array{0: object, 1: int}>, ?float): array<int, int>|null $poll */
-    public function __construct(PhpQuicEventMasks $events, ?callable $poll = null)
+    public function __construct(public PhpQuicEventMasks $events, ?callable $poll = null)
     {
-        $this->events = $events;
-        $callback = $poll ?? static fn(array $items, ?float $timeout): array => PhpQuicApi::poll($items, $timeout);
-        /** @var Closure(array<int, array{0: object, 1: int}>, ?float): array<int, int> $closure */
+        $callback = $poll ?? PhpQuicApi::poll(...);
+        /** @var Closure(array<int, array{0: object, 1: int}>, ?float): mixed $closure */
         $closure = Closure::fromCallable($callback);
         $this->pollCallback = $closure;
     }
 
+    /** @param array<int, int> $ready */
     public function listenerAcceptReady(PhpQuicListener $listener, array $ready): bool
     {
         return $this->objectReady($listener->object(), $ready, $this->events->acceptConnection);
     }
 
+    /** @param array<int, int> $ready */
     public function listenerErrorReady(PhpQuicListener $listener, array $ready): bool
     {
         return $this->objectReady($listener->object(), $ready, $this->events->error);
@@ -46,35 +45,67 @@ final readonly class PhpQuicHttp3Poller
         bool $acceptConnections,
         ?float $timeoutSeconds,
     ): array {
-        if ($timeoutSeconds !== null && (!is_finite($timeoutSeconds) || $timeoutSeconds < 0)) {
-            throw new InvalidArgumentException('HTTP/3 QUIC poll timeout must be finite and non-negative.');
+        self::validateTimeout($timeoutSeconds);
+        $items = $this->buildPollItems($listener, $connections, $acceptConnections);
+        if ($items === []) {
+            return [];
         }
 
+        return self::normalizeReady(($this->pollCallback)($items, $timeoutSeconds), $items);
+    }
+
+    /**
+     * @param list<PhpQuicHttp3Connection> $connections
+     * @return array<int, array{0: object, 1: int}>
+     */
+    private function buildPollItems(?PhpQuicListener $listener, array $connections, bool $acceptConnections): array
+    {
         $items = [];
         if ($listener !== null) {
             $mask = $this->events->error | ($acceptConnections ? $this->events->acceptConnection : 0);
             $this->putPollItem($items, $listener->object(), $mask);
         }
         foreach ($connections as $connection) {
-            foreach ($connection->pollItems($this->events) as $key => $item) {
-                if (isset($items[$key]) && $items[$key][0] !== $item[0]) {
-                    throw new LogicException('QUIC poll object id collision detected.');
-                }
-                $items[$key] = $item;
-            }
-        }
-        if ($items === []) {
-            return [];
+            $this->mergePollItems($items, $connection->pollItems($this->events));
         }
 
-        $ready = ($this->pollCallback)($items, $timeoutSeconds);
+        return $items;
+    }
+
+    /**
+     * @param array<int, array{0: object, 1: int}> $items
+     * @param array<int, array{0: object, 1: int}> $incoming
+     */
+    private function mergePollItems(array &$items, array $incoming): void
+    {
+        foreach ($incoming as $key => $item) {
+            if (isset($items[$key]) && $items[$key][0] !== $item[0]) {
+                throw new LogicException('QUIC poll object id collision detected.');
+            }
+            $items[$key] = $item;
+        }
+    }
+
+    /**
+     * @param mixed $ready
+     * @param array<int, array{0: object, 1: int}> $items
+     * @return array<int, int>
+     */
+    private static function normalizeReady(mixed $ready, array $items): array
+    {
+        if (!is_array($ready)) {
+            throw new UnexpectedValueException('HTTP/3 QUIC poll callback returned an invalid readiness map.');
+        }
+
+        $normalized = [];
         foreach ($ready as $key => $mask) {
             if (!is_int($key) || !is_int($mask) || !isset($items[$key])) {
                 throw new UnexpectedValueException('HTTP/3 QUIC poll callback returned an invalid readiness map.');
             }
+            $normalized[$key] = $mask;
         }
 
-        return $ready;
+        return $normalized;
     }
 
     /** @param array<int, int> $ready */
@@ -87,5 +118,12 @@ final readonly class PhpQuicHttp3Poller
     private function putPollItem(array &$items, object $object, int $events): void
     {
         $items[spl_object_id($object)] = [$object, $events];
+    }
+
+    private static function validateTimeout(?float $timeoutSeconds): void
+    {
+        if ($timeoutSeconds !== null && (!is_finite($timeoutSeconds) || $timeoutSeconds < 0)) {
+            throw new InvalidArgumentException('HTTP/3 QUIC poll timeout must be finite and non-negative.');
+        }
     }
 }

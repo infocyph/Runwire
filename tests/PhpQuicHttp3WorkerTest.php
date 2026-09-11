@@ -40,7 +40,7 @@ function workerQuicStream(int $id, bool $bidirectional): object
 
         public function reset(int $errorCode = 0): void {}
 
-        public function write(string $data, bool $fin = false): int
+        public function write(string $data): int
         {
             return strlen($data);
         }

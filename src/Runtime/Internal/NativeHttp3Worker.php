@@ -53,7 +53,7 @@ final class NativeHttp3Worker
         $parts = parse_url($uri);
         $host = is_array($parts) ? ($parts['host'] ?? null) : null;
         $port = is_array($parts) ? ($parts['port'] ?? null) : null;
-        if (!is_string($host) || $host === '' || !is_int($port) || $port < 1 || $port > 65_535) {
+        if (!is_string($host) || $host === '' || !is_int($port) || $port < 1) {
             throw new ListenerException(sprintf('Unable to derive HTTP/3 QUIC endpoint from TCP address "%s".', $address));
         }
 
