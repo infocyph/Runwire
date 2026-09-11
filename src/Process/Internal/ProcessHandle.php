@@ -23,9 +23,9 @@ final class ProcessHandle
             return;
         }
 
-        $status = @proc_get_status($this->resource);
+        $status = proc_get_status($this->resource);
         if ($status['running']) {
-            @proc_terminate($this->resource, SIGKILL);
+            proc_terminate($this->resource, SIGKILL);
         }
     }
 
@@ -38,7 +38,7 @@ final class ProcessHandle
         $resource = $this->resource;
         $this->resource = null;
 
-        return @proc_close($resource);
+        return proc_close($resource);
     }
 
     /** @return resource */
