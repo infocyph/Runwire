@@ -22,12 +22,16 @@ final class DatagramListener
     private int $bytesRead = 0;
     private int $bytesWritten = 0;
 
+    /** @var resource|null */
+    private mixed $stream;
+
     /** @param resource $stream */
     private function __construct(
-        private mixed $stream,
+        mixed $stream,
         private readonly string $address,
         private readonly DatagramOptions $options,
     ) {
+        $this->stream = $stream;
     }
 
     public static function bind(string $address, ?DatagramOptions $options = null): self
@@ -123,14 +127,15 @@ final class DatagramListener
 
     public function sendTo(string $payload, string $peerAddress): DatagramWriteResult
     {
-        if ($this->closed || !is_resource($this->stream)) {
+        $stream = $this->stream;
+        if ($this->closed || !is_resource($stream)) {
             return new DatagramWriteResult(DatagramWriteState::CLOSED);
         }
         if (strlen($payload) > $this->options->maxDatagramBytes) {
             return new DatagramWriteResult(DatagramWriteState::REJECTED_LIMIT);
         }
 
-        $written = @stream_socket_sendto($this->stream, $payload, 0, $peerAddress);
+        $written = @stream_socket_sendto($stream, $payload, 0, $peerAddress);
         if ($written === false) {
             return new DatagramWriteResult(DatagramWriteState::ERROR);
         }
@@ -162,13 +167,15 @@ final class DatagramListener
 
     private function handleReadable(): void
     {
-        if ($this->closed || $this->paused || $this->callback === null || !is_resource($this->stream)) {
+        $callback = $this->callback;
+        $stream = $this->stream;
+        if ($this->closed || $this->paused || $callback === null || !is_resource($stream)) {
             return;
         }
 
         for ($count = 0; $count < $this->options->receiveBatchSize; ++$count) {
             $peer = null;
-            $payload = @stream_socket_recvfrom($this->stream, $this->options->maxDatagramBytes + 1, 0, $peer);
+            $payload = @stream_socket_recvfrom($stream, $this->options->maxDatagramBytes + 1, 0, $peer);
             if ($payload === false) {
                 break;
             }
@@ -183,9 +190,9 @@ final class DatagramListener
 
             ++$this->receivedDatagrams;
             $this->bytesRead += strlen($payload);
-            $local = @stream_socket_get_name($this->stream, false);
+            $local = @stream_socket_get_name($stream, false);
             try {
-                ($this->callback)(new Datagram(
+                $callback(new Datagram(
                     $payload,
                     $peer,
                     is_string($local) ? $local : null,
@@ -199,13 +206,15 @@ final class DatagramListener
 
     private function syncWatcher(): void
     {
-        $shouldWatch = !$this->closed && !$this->paused && $this->loop !== null && is_resource($this->stream);
+        $loop = $this->loop;
+        $stream = $this->stream;
+        $shouldWatch = !$this->closed && !$this->paused && $loop !== null && is_resource($stream);
         if ($shouldWatch && $this->readWatcher === null) {
-            $this->readWatcher = $this->loop->onReadable($this->stream, fn () => $this->handleReadable());
+            $this->readWatcher = $loop->onReadable($stream, fn () => $this->handleReadable());
             return;
         }
-        if (!$shouldWatch && $this->readWatcher !== null && $this->loop !== null) {
-            $this->loop->cancel($this->readWatcher);
+        if (!$shouldWatch && $this->readWatcher !== null && $loop !== null) {
+            $loop->cancel($this->readWatcher);
             $this->readWatcher = null;
         }
     }
