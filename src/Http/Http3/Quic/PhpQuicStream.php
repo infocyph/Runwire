@@ -22,11 +22,11 @@ final readonly class PhpQuicStream
     /** @var Closure(int): ?string */
     private Closure $readCallback;
 
-    /** @var Closure(): ?int */
-    private Closure $resetCodeCallback;
-
     /** @var Closure(int): void */
     private Closure $resetCallback;
+
+    /** @var Closure(): ?int */
+    private Closure $resetCodeCallback;
 
     /** @var Closure(string, bool): int */
     private Closure $writeCallback;
@@ -45,12 +45,12 @@ final readonly class PhpQuicStream
         /** @var Closure(int): ?string $read */
         $read = self::callback($this->stream, 'read');
         $this->readCallback = $read;
-        /** @var Closure(): ?int $resetCode */
-        $resetCode = self::callback($this->stream, 'getResetCode');
-        $this->resetCodeCallback = $resetCode;
         /** @var Closure(int): void $reset */
         $reset = self::callback($this->stream, 'reset');
         $this->resetCallback = $reset;
+        /** @var Closure(): ?int $resetCode */
+        $resetCode = self::callback($this->stream, 'getResetCode');
+        $this->resetCodeCallback = $resetCode;
         /** @var Closure(string, bool): int $write */
         $write = self::callback($this->stream, 'write');
         $this->writeCallback = $write;
