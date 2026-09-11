@@ -6,5 +6,15 @@ namespace Infocyph\Runwire\Runtime\Internal;
 
 final class WorkerStopState
 {
-    public bool $stopping = false;
+    private bool $stopping = false;
+
+    public function isStopping(): bool
+    {
+        return $this->stopping;
+    }
+
+    public function stop(): void
+    {
+        $this->stopping = true;
+    }
 }
