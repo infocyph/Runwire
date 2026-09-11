@@ -9,9 +9,7 @@ use Infocyph\Runwire\Supervisor\WorkerState;
 
 final class ChildRecord
 {
-    /**
-     * @param resource $readyStream
-     */
+    /** @param resource $readyStream */
     public function __construct(
         public WorkerGroup $group,
         public int $slot,
@@ -23,6 +21,7 @@ final class ChildRecord
         public int $readyWatcherId,
         public int $readyTimerId,
         public ?int $replacesPid = null,
+        public bool $recycleReplacement = false,
         public WorkerState $state = WorkerState::STARTING,
         public bool $expectedStop = false,
         public ?int $killTimerId = null,

@@ -34,6 +34,7 @@ final class RuntimeCapabilityResolver
             supportsSignals: $environment->supportsSignals,
             supportsAsyncIo: true,
             supportsGracefulReload: $environment->supportsSignals,
+            supportsWorkerRecycle: $environment->supportsSignals,
             supportsHttp1: true,
             supportsHttp2: true,
             ownsHttp1Wire: true,

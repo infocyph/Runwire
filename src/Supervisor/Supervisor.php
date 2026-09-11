@@ -8,8 +8,10 @@ use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\Internal\ChildRecord;
+use Infocyph\Runwire\Supervisor\Internal\LifecycleEmitter;
 use Infocyph\Runwire\Supervisor\Internal\RestartTracker;
 use Infocyph\Runwire\Supervisor\Internal\SignalBridge;
+use Infocyph\Runwire\Supervisor\Internal\SupervisorStatusBuilder;
 use LogicException;
 use Throwable;
 
@@ -32,6 +34,9 @@ final class Supervisor
     private array $restartTimers = [];
 
     private bool $started = false;
+    private readonly int $masterPid;
+    private ?int $startedAtNs = null;
+    private ?float $startedAtUnix = null;
     private bool $running = false;
     private bool $stopping = false;
     private bool $reloading = false;
@@ -41,12 +46,23 @@ final class Supervisor
 
     private RestartTracker $restartTracker;
     private SignalBridge $signalBridge;
+    private LifecycleEmitter $events;
 
     public function __construct(?LoopInterface $loop = null)
     {
         $this->loop = $loop ?? new SelectLoop();
+        $this->masterPid = posix_getpid();
         $this->restartTracker = new RestartTracker();
         $this->signalBridge = new SignalBridge($this->loop);
+        $this->events = new LifecycleEmitter();
+    }
+
+    /** @param callable(SupervisorEvent): void $listener */
+    public function onEvent(callable $listener): self
+    {
+        $this->events->listen($listener);
+
+        return $this;
     }
 
     public function group(WorkerGroup $group): self
@@ -77,6 +93,9 @@ final class Supervisor
 
         $this->started = true;
         $this->running = true;
+        $this->startedAtNs = hrtime(true);
+        $this->startedAtUnix = microtime(true);
+        $this->emit(new SupervisorEvent(SupervisorEventType::SUPERVISOR_STARTING, $this->now()));
 
         try {
             $this->signalBridge->open($this->processSignals(...));
@@ -88,6 +107,7 @@ final class Supervisor
             $this->running = false;
             $this->forceCleanupChildren();
             $this->signalBridge->close();
+            $this->emit(new SupervisorEvent(SupervisorEventType::SUPERVISOR_STOPPED, $this->now()));
         }
 
         if ($this->failure !== null) {
@@ -113,6 +133,7 @@ final class Supervisor
 
         $this->stopping = true;
         $this->reloadQueued = false;
+        $this->emit(new SupervisorEvent(SupervisorEventType::SUPERVISOR_STOPPING, $this->now()));
         $this->cancelRestartTimers();
 
         foreach ($this->children as $record) {
@@ -139,43 +160,61 @@ final class Supervisor
         $this->beginReload();
     }
 
-    public function status(): SupervisorStatus
+    public function recycle(string $group, int $slot): bool
     {
-        $workers = [];
-
-        foreach ($this->children as $record) {
-            $workers[] = new WorkerStatus(
-                group: $record->group->name,
-                slot: $record->slot,
-                pid: $record->pid,
-                generation: $record->generation,
-                state: $record->state,
-                restartCount: $record->restartCount,
-                startedAtMonotonic: $record->startedAtNs / self::NANOS_PER_SECOND,
-            );
+        $definition = $this->groups[$group] ?? null;
+        if ($definition === null) {
+            throw new LogicException(sprintf('Unknown worker group "%s".', $group));
+        }
+        if ($slot < 0 || $slot >= $definition->count) {
+            throw new LogicException(sprintf('Worker slot %d is outside group "%s".', $slot, $group));
+        }
+        if (!$this->running || $this->stopping || $this->reloading) {
+            return false;
         }
 
-        usort(
-            $workers,
-            static fn (WorkerStatus $left, WorkerStatus $right): int => [
-                $left->group,
-                $left->slot,
-                $left->generation,
-                $left->pid,
-            ] <=> [
-                $right->group,
-                $right->slot,
-                $right->generation,
-                $right->pid,
-            ],
+        $oldPid = $this->currentSlots[$group][$slot] ?? null;
+        $old = $oldPid === null ? null : ($this->children[$oldPid] ?? null);
+        if ($old === null || $old->state !== WorkerState::READY || $this->hasReplacementFor($oldPid)) {
+            return false;
+        }
+
+        $this->emit(new SupervisorEvent(
+            SupervisorEventType::WORKER_RECYCLE_STARTED,
+            $this->now(),
+            group: $group,
+            slot: $slot,
+            pid: $oldPid,
+            generation: $this->generation,
+        ));
+        $this->spawnWorker(
+            group: $definition,
+            slot: $slot,
+            generation: $this->generation,
+            restartCount: $this->restartTracker->count($group, $slot),
+            replacesPid: $oldPid,
+            setCurrent: false,
+            recycleReplacement: true,
         );
 
-        return new SupervisorStatus(
+        return true;
+    }
+
+    public function status(): SupervisorStatus
+    {
+        return SupervisorStatusBuilder::build(
+            masterPid: $this->masterPid,
+            startedAtNs: $this->startedAtNs,
+            startedAtUnix: $this->startedAtUnix,
             running: $this->running,
             stopping: $this->stopping,
             reloading: $this->reloading,
+            reloadQueued: $this->reloadQueued,
             generation: $this->generation,
-            workers: $workers,
+            children: $this->children,
+            currentSlots: $this->currentSlots,
+            pendingRestartCount: count($this->restartTimers),
+            lifecycleListenerFailures: $this->events->listenerFailures(),
         );
     }
 
@@ -192,6 +231,11 @@ final class Supervisor
     {
         $this->reloading = true;
         ++$this->generation;
+        $this->emit(new SupervisorEvent(
+            SupervisorEventType::RELOAD_STARTED,
+            $this->now(),
+            generation: $this->generation,
+        ));
 
         foreach ($this->groups as $group) {
             for ($slot = 0; $slot < $group->count; ++$slot) {
@@ -223,6 +267,7 @@ final class Supervisor
         int $restartCount,
         ?int $replacesPid,
         bool $setCurrent,
+        bool $recycleReplacement = false,
     ): void {
         $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if ($pair === false) {
@@ -281,9 +326,21 @@ final class Supervisor
             readyWatcherId: $readyWatcherId,
             readyTimerId: $readyTimerId,
             replacesPid: $replacesPid,
+            recycleReplacement: $recycleReplacement,
         );
 
         $this->children[$pid] = $record;
+        $this->emit(new SupervisorEvent(
+            SupervisorEventType::WORKER_SPAWNED,
+            $this->now(),
+            group: $group->name,
+            slot: $slot,
+            pid: $pid,
+            generation: $generation,
+            state: WorkerState::STARTING,
+            restartCount: $restartCount,
+            replacesPid: $replacesPid,
+        ));
 
         if ($setCurrent) {
             $this->currentSlots[$group->name][$slot] = $pid;
@@ -297,16 +354,18 @@ final class Supervisor
     {
         $this->normalizeChildProcess();
 
-        $context = new WorkerContext(
-            group: $group->name,
-            slot: $slot,
-            generation: $generation,
-            pid: posix_getpid(),
-            parentPid: posix_getppid(),
-            readyStream: $childReady,
-        );
+        $context = null;
 
         try {
+            $context = new WorkerContext(
+                group: $group->name,
+                slot: $slot,
+                generation: $generation,
+                pid: posix_getpid(),
+                parentPid: posix_getppid(),
+                readyStream: $childReady,
+            );
+
             pcntl_async_signals(true);
             $stopHandler = static function () use ($context): void {
                 $context->requestStop();
@@ -321,8 +380,10 @@ final class Supervisor
             }
 
             ($group->bootstrap)($context);
+            $context->close();
             exit(0);
         } catch (Throwable) {
+            $context?->close();
             exit(70);
         }
     }
@@ -356,11 +417,15 @@ final class Supervisor
         if (is_string($payload) && str_contains($payload, 'R')) {
             $record->state = WorkerState::READY;
             $this->closeReadyChannel($record);
+            $this->emitWorker(SupervisorEventType::WORKER_READY, $record);
 
             if ($record->replacesPid !== null) {
+                $replacedPid = $record->replacesPid;
                 $this->currentSlots[$record->group->name][$record->slot] = $record->pid;
+                $record->replacesPid = null;
+                $record->recycleReplacement = false;
 
-                $old = $this->children[$record->replacesPid] ?? null;
+                $old = $this->children[$replacedPid] ?? null;
                 if ($old !== null) {
                     $this->stopChild($old, WorkerState::DRAINING, false);
                 }
@@ -397,8 +462,12 @@ final class Supervisor
 
     private function stopChild(ChildRecord $record, WorkerState $state, bool $force): void
     {
+        $firstRequest = !$record->expectedStop;
         $record->expectedStop = true;
         $record->state = $state;
+        if ($firstRequest) {
+            $this->emitWorker(SupervisorEventType::WORKER_STOP_REQUESTED, $record);
+        }
         $signal = $force ? SIGKILL : SIGTERM;
         @posix_kill($record->pid, $signal);
 
@@ -416,9 +485,7 @@ final class Supervisor
         );
     }
 
-    /**
-     * @param list<int> $signals
-     */
+    /** @param list<int> $signals */
     private function processSignals(array $signals): void
     {
         if (in_array(SIGCHLD, $signals, true)) {
@@ -427,7 +494,6 @@ final class Supervisor
 
         if (in_array(SIGTERM, $signals, true) || in_array(SIGINT, $signals, true)) {
             $this->stop();
-
             return;
         }
 
@@ -446,7 +512,6 @@ final class Supervisor
                 $this->handleChildExit($pid, $status);
                 continue;
             }
-
             if ($pid === 0) {
                 return;
             }
@@ -455,10 +520,8 @@ final class Supervisor
             if ($error === PCNTL_EINTR) {
                 continue;
             }
-
             if ($error === PCNTL_ECHILD) {
                 $this->reconcileNoChildren();
-
                 return;
             }
 
@@ -474,14 +537,23 @@ final class Supervisor
         }
 
         $this->closeReadyChannel($record);
-
         if ($record->killTimerId !== null) {
             $this->loop->cancel($record->killTimerId);
             $record->killTimerId = null;
         }
+        if (!$record->expectedStop) {
+            $record->state = WorkerState::FAILED;
+        }
+
+        $this->emitWorker(
+            SupervisorEventType::WORKER_EXITED,
+            $record,
+            exitCode: pcntl_wifexited($status) ? pcntl_wexitstatus($status) : null,
+            termSignal: pcntl_wifsignaled($status) ? pcntl_wtermsig($status) : null,
+            expected: $record->expectedStop,
+        );
 
         unset($this->children[$pid]);
-
         if (($this->currentSlots[$record->group->name][$record->slot] ?? null) === $pid) {
             unset($this->currentSlots[$record->group->name][$record->slot]);
         }
@@ -490,13 +562,11 @@ final class Supervisor
             if ($this->children === []) {
                 $this->loop->stop();
             }
-
             return;
         }
 
         if ($record->expectedStop || $this->hasReplacementFor($pid)) {
             $this->checkReloadCompletion();
-
             return;
         }
 
@@ -512,13 +582,27 @@ final class Supervisor
 
         $attempt = $this->restartTracker->nextAttempt($record->group, $record->slot);
         if ($attempt === null) {
+            $currentPid = $this->currentSlots[$record->group->name][$record->slot] ?? null;
+            if ($record->recycleReplacement && $currentPid !== null && isset($this->children[$currentPid])) {
+                return;
+            }
             $this->fail(new SupervisorException(sprintf(
                 'Restart budget exhausted for worker group "%s".',
                 $record->group->name,
             )));
-
             return;
         }
+
+        $this->emit(new SupervisorEvent(
+            SupervisorEventType::WORKER_RESTART_SCHEDULED,
+            $this->now(),
+            group: $record->group->name,
+            slot: $record->slot,
+            generation: max($record->generation, $this->generation),
+            restartCount: $attempt->count,
+            restartDelaySeconds: $attempt->delaySeconds,
+            replacesPid: $record->replacesPid,
+        ));
 
         $this->restartTimers[$key] = $this->loop->delay(
             $attempt->delaySeconds,
@@ -535,6 +619,7 @@ final class Supervisor
                     restartCount: $attempt->count,
                     replacesPid: $record->replacesPid,
                     setCurrent: $record->replacesPid === null,
+                    recycleReplacement: $record->recycleReplacement,
                 );
             },
         );
@@ -561,10 +646,7 @@ final class Supervisor
             for ($slot = 0; $slot < $group->count; ++$slot) {
                 $pid = $this->currentSlots[$group->name][$slot] ?? null;
                 $record = $pid !== null ? ($this->children[$pid] ?? null) : null;
-
-                if ($record === null
-                    || $record->generation !== $this->generation
-                    || $record->state !== WorkerState::READY) {
+                if ($record === null || $record->generation !== $this->generation || $record->state !== WorkerState::READY) {
                     return;
                 }
             }
@@ -577,6 +659,11 @@ final class Supervisor
         }
 
         $this->reloading = false;
+        $this->emit(new SupervisorEvent(
+            SupervisorEventType::RELOAD_COMPLETED,
+            $this->now(),
+            generation: $this->generation,
+        ));
 
         if ($this->reloadQueued) {
             $this->reloadQueued = false;
@@ -589,7 +676,6 @@ final class Supervisor
         foreach ($this->restartTimers as $timerId) {
             $this->loop->cancel($timerId);
         }
-
         $this->restartTimers = [];
     }
 
@@ -608,7 +694,6 @@ final class Supervisor
         $orphans = $this->children;
         $this->children = [];
         $this->currentSlots = [];
-
         foreach ($orphans as $record) {
             $this->closeReadyChannel($record);
             if ($record->killTimerId !== null) {
@@ -618,7 +703,6 @@ final class Supervisor
 
         if ($this->stopping) {
             $this->loop->stop();
-
             return;
         }
 
@@ -628,27 +712,56 @@ final class Supervisor
     private function forceCleanupChildren(): void
     {
         $this->cancelRestartTimers();
-
         foreach ($this->children as $record) {
             @posix_kill($record->pid, SIGKILL);
         }
-
         foreach (array_keys($this->children) as $pid) {
             do {
                 $status = 0;
                 $result = pcntl_waitpid($pid, $status);
             } while ($result === -1 && pcntl_get_last_error() === PCNTL_EINTR);
         }
-
         foreach ($this->children as $record) {
             $this->closeReadyChannel($record);
             if ($record->killTimerId !== null) {
                 $this->loop->cancel($record->killTimerId);
             }
         }
-
         $this->children = [];
         $this->currentSlots = [];
+    }
+
+    private function now(): float
+    {
+        return hrtime(true) / self::NANOS_PER_SECOND;
+    }
+
+    private function emit(SupervisorEvent $event): void
+    {
+        $this->events->emit($event);
+    }
+
+    private function emitWorker(
+        SupervisorEventType $type,
+        ChildRecord $record,
+        ?int $exitCode = null,
+        ?int $termSignal = null,
+        ?bool $expected = null,
+    ): void {
+        $this->emit(new SupervisorEvent(
+            type: $type,
+            atMonotonic: $this->now(),
+            group: $record->group->name,
+            slot: $record->slot,
+            pid: $record->pid,
+            generation: $record->generation,
+            state: $record->state,
+            restartCount: $record->restartCount,
+            exitCode: $exitCode,
+            termSignal: $termSignal,
+            expected: $expected,
+            replacesPid: $record->replacesPid,
+        ));
     }
 
     private function slotKey(string $group, int $slot): string

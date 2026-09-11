@@ -14,6 +14,9 @@ final readonly class WorkerStatus
         public WorkerState $state,
         public int $restartCount,
         public float $startedAtMonotonic,
+        public float $ageSeconds,
+        public bool $current,
+        public ?int $replacesPid = null,
     ) {
     }
 }

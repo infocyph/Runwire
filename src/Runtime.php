@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Closure;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\TcpListener;
@@ -19,6 +20,7 @@ use Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe;
 use Infocyph\Runwire\Runtime\RuntimeSelection;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\Supervisor\Supervisor;
+use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Infocyph\Runwire\Supervisor\SupervisorStatus;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
@@ -31,6 +33,9 @@ final class Runtime
     private bool $started = false;
     private ?Supervisor $supervisor = null;
     private ?RuntimeSelection $selection = null;
+
+    /** @var list<Closure(SupervisorEvent): void> */
+    private array $lifecycleListeners = [];
 
     private function __construct(
         private readonly RuntimeOptions $options,
@@ -64,6 +69,29 @@ final class Runtime
     public function selection(): ?RuntimeSelection
     {
         return $this->selection;
+    }
+
+    /** @param callable(SupervisorEvent): void $listener */
+    public function onEvent(callable $listener): self
+    {
+        $closure = Closure::fromCallable($listener);
+        $this->lifecycleListeners[] = $closure;
+        $this->supervisor?->onEvent($closure);
+
+        return $this;
+    }
+
+    public function recycle(string $serverName, int $slot): bool
+    {
+        $server = $this->servers[$serverName] ?? null;
+        if ($server === null) {
+            throw new LogicException(sprintf('Unknown server "%s".', $serverName));
+        }
+        if ($this->supervisor === null) {
+            return false;
+        }
+
+        return $this->supervisor->recycle(self::serverGroupName($server), $slot);
     }
 
     public function run(): void
@@ -161,6 +189,9 @@ final class Runtime
     private function buildSupervisor(array $bound): Supervisor
     {
         $supervisor = new Supervisor();
+        foreach ($this->lifecycleListeners as $listener) {
+            $supervisor->onEvent($listener);
+        }
         foreach ($bound as $name => $target) {
             $definition = $target->definition;
             $supervisor->group(WorkerGroup::callbacks(
@@ -184,6 +215,17 @@ final class Runtime
             ));
         }
         return $supervisor;
+    }
+
+    private static function serverGroupName(Server|StreamServer|DatagramServer $server): string
+    {
+        $prefix = match (true) {
+            $server instanceof Server => 'http',
+            $server instanceof StreamServer => $server->transport->value,
+            $server instanceof DatagramServer => 'udp',
+        };
+
+        return $prefix . ':' . $server->name;
     }
 
     private static function groupPrefix(BoundServer|BoundStreamServer|BoundDatagramServer $target): string
