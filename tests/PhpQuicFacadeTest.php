@@ -50,11 +50,12 @@ function fakePhpQuicFacadeStream(int $id, bool $bidirectional): object
 }
 
 it('reports php-quic availability from runtime symbols instead of a hard dependency', function (): void {
+    $poll = implode('\\', ['Quic', 'poll']);
     $expected = extension_loaded('quic')
         && class_exists('Quic\\Listener')
         && class_exists('Quic\\Connection')
         && class_exists('Quic\\Stream')
-        && is_callable('Quic\\poll')
+        && function_exists($poll)
         && defined('Quic\\POLL_READ')
         && defined('Quic\\POLL_WRITE')
         && defined('Quic\\POLL_ACCEPT_CONNECTION')
@@ -72,6 +73,8 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
 
         /** @var list<array{0: int, 1: string, 2: bool}> */
         public array $closed = [];
+
+        public ?bool $openedBidirectional = null;
 
         private ?object $accepted;
 
@@ -100,6 +103,8 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
 
         public function openStream(bool $bidirectional = true): object
         {
+            $this->openedBidirectional = $bidirectional;
+
             return $this->localStream;
         }
 
@@ -115,7 +120,8 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
         ->and($connection->negotiatedAlpn())->toBe('h3')
         ->and($connection->acceptStream()?->id())->toBe(0)
         ->and($connection->acceptStream())->toBeNull()
-        ->and($connection->openStream(false)->id())->toBe(3);
+        ->and($connection->openStream(false)->id())->toBe(3)
+        ->and($raw->openedBidirectional)->toBeFalse();
 
     $connection->close(0x100, 'done');
     expect($raw->closed)->toBe([[0x100, 'done', true]]);
@@ -124,6 +130,8 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
 it('wraps listener acceptance and immediately makes accepted connections non-blocking', function (): void {
     $connection = new class {
         public bool $blocking = true;
+
+        public ?bool $openedBidirectional = null;
 
         public function acceptStream(): ?object
         {
@@ -139,6 +147,8 @@ it('wraps listener acceptance and immediately makes accepted connections non-blo
 
         public function openStream(bool $bidirectional = true): object
         {
+            $this->openedBidirectional = $bidirectional;
+
             return fakePhpQuicFacadeStream(3, false);
         }
 

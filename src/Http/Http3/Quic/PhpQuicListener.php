@@ -10,38 +10,19 @@ use InvalidArgumentException;
 use Throwable;
 use UnexpectedValueException;
 
-final class PhpQuicListener
+final readonly class PhpQuicListener
 {
-    private readonly Closure $acceptCallback;
+    private Closure $acceptCallback;
 
-    private readonly Closure $closeCallback;
+    private Closure $closeCallback;
 
-    private readonly object $listener;
+    private Closure $setBlockingCallback;
 
-    private readonly Closure $setBlockingCallback;
-
-    public function __construct(object $listener)
+    public function __construct(private object $listener)
     {
-        $this->listener = $listener;
-        $this->acceptCallback = self::callback($listener, 'accept');
-        $this->closeCallback = self::callback($listener, 'close');
-        $this->setBlockingCallback = self::callback($listener, 'setBlocking');
-    }
-
-    public function accept(): ?PhpQuicConnection
-    {
-        $connection = ($this->acceptCallback)();
-        if ($connection === null) {
-            return null;
-        }
-        if (!is_object($connection)) {
-            throw new UnexpectedValueException('php-quic listener accept() returned an invalid connection.');
-        }
-
-        $wrapped = new PhpQuicConnection($connection);
-        $wrapped->setNonBlocking();
-
-        return $wrapped;
+        $this->acceptCallback = self::callback($this->listener, 'accept');
+        $this->closeCallback = self::callback($this->listener, 'close');
+        $this->setBlockingCallback = self::callback($this->listener, 'setBlocking');
     }
 
     /** @param array<string, mixed> $options */
@@ -64,8 +45,27 @@ final class PhpQuicListener
                 $exception,
             );
         }
+        if (!is_object($listener)) {
+            throw new ListenerException('Quic\\Listener construction returned an invalid listener.');
+        }
 
         $wrapped = new self($listener);
+        $wrapped->setNonBlocking();
+
+        return $wrapped;
+    }
+
+    public function accept(): ?PhpQuicConnection
+    {
+        $connection = ($this->acceptCallback)();
+        if ($connection === null) {
+            return null;
+        }
+        if (!is_object($connection)) {
+            throw new UnexpectedValueException('php-quic listener accept() returned an invalid connection.');
+        }
+
+        $wrapped = new PhpQuicConnection($connection);
         $wrapped->setNonBlocking();
 
         return $wrapped;
@@ -93,7 +93,19 @@ final class PhpQuicListener
             throw new InvalidArgumentException(sprintf('php-quic listener object must provide %s().', $method));
         }
 
-        return Closure::fromCallable($callable);
+        return $object->{$method}(...);
+    }
+
+    private static function supportsH3(mixed $alpn): bool
+    {
+        if (is_string($alpn)) {
+            return in_array('h3', array_map(trim(...), explode(',', $alpn)), true);
+        }
+        if (!is_array($alpn)) {
+            return false;
+        }
+
+        return array_any($alpn, fn(mixed $protocol): bool => $protocol === 'h3');
     }
 
     /** @param array<string, mixed> $options */
@@ -120,23 +132,5 @@ final class PhpQuicListener
         if (isset($options['reuse_port']) && !is_bool($options['reuse_port'])) {
             throw new InvalidArgumentException('HTTP/3 QUIC reuse_port option must be boolean.');
         }
-    }
-
-    private static function supportsH3(mixed $alpn): bool
-    {
-        if (is_string($alpn)) {
-            return in_array('h3', array_map('trim', explode(',', $alpn)), true);
-        }
-        if (!is_array($alpn)) {
-            return false;
-        }
-
-        foreach ($alpn as $protocol) {
-            if ($protocol === 'h3') {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

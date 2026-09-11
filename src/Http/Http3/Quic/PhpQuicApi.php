@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Quic;
 
+use Closure;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use InvalidArgumentException;
 use UnexpectedValueException;
@@ -47,7 +48,7 @@ final class PhpQuicApi
 
     public static function available(): bool
     {
-        if (!extension_loaded('quic') || !is_callable('Quic\\poll')) {
+        if (!extension_loaded('quic') || !function_exists(self::pollFunction())) {
             return false;
         }
         foreach (self::REQUIRED_CLASSES as $class) {
@@ -55,13 +56,8 @@ final class PhpQuicApi
                 return false;
             }
         }
-        foreach (self::REQUIRED_EVENTS as $event) {
-            if (!defined('Quic\\' . $event)) {
-                return false;
-            }
-        }
 
-        return true;
+        return array_all(self::REQUIRED_EVENTS, fn(string $event): bool => defined('Quic\\' . $event));
     }
 
     public static function errorEvent(): int
@@ -80,18 +76,14 @@ final class PhpQuicApi
             throw new InvalidArgumentException('QUIC poll timeout must be finite and non-negative.');
         }
 
-        $poll = 'Quic\\poll';
-        if (!is_callable($poll)) {
-            throw new RuntimeUnavailableException('Quic\\poll() is unavailable.');
-        }
-        $ready = $poll($items, $timeoutSeconds);
+        $ready = (self::pollCallback())($items, $timeoutSeconds);
         if (!is_array($ready)) {
             throw new UnexpectedValueException('Quic\\poll() returned a non-array result.');
         }
 
         $events = [];
         foreach ($ready as $key => $mask) {
-            if ((!is_int($key) && !is_string($key)) || !is_int($mask)) {
+            if (!is_int($mask)) {
                 throw new UnexpectedValueException('Quic\\poll() returned an invalid readiness map.');
             }
             $events[$key] = $mask;
@@ -122,5 +114,20 @@ final class PhpQuicApi
         }
 
         return $value;
+    }
+
+    private static function pollCallback(): Closure
+    {
+        $poll = self::pollFunction();
+        if (!function_exists($poll)) {
+            throw new RuntimeUnavailableException('Quic\\poll() is unavailable.');
+        }
+
+        return Closure::fromCallable($poll);
+    }
+
+    private static function pollFunction(): string
+    {
+        return implode('\\', ['Quic', 'poll']);
     }
 }

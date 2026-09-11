@@ -8,48 +8,45 @@ use Closure;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
-final class PhpQuicStream
+final readonly class PhpQuicStream
 {
     /** @var Closure(): void */
-    private readonly Closure $endCallback;
+    private Closure $endCallback;
 
     /** @var Closure(): int */
-    private readonly Closure $idCallback;
+    private Closure $idCallback;
 
     /** @var Closure(): bool */
-    private readonly Closure $isBidirectionalCallback;
+    private Closure $isBidirectionalCallback;
 
     /** @var Closure(int): ?string */
-    private readonly Closure $readCallback;
+    private Closure $readCallback;
 
     /** @var Closure(int): void */
-    private readonly Closure $resetCallback;
-
-    private readonly object $stream;
+    private Closure $resetCallback;
 
     /** @var Closure(string, bool): int */
-    private readonly Closure $writeCallback;
+    private Closure $writeCallback;
 
-    public function __construct(object $stream)
+    public function __construct(private object $stream)
     {
-        $this->stream = $stream;
         /** @var Closure(): void $end */
-        $end = self::callback($stream, 'end');
+        $end = self::callback($this->stream, 'end');
         $this->endCallback = $end;
         /** @var Closure(): int $id */
-        $id = self::callback($stream, 'getId');
+        $id = self::callback($this->stream, 'getId');
         $this->idCallback = $id;
         /** @var Closure(): bool $bidirectional */
-        $bidirectional = self::callback($stream, 'isBidirectional');
+        $bidirectional = self::callback($this->stream, 'isBidirectional');
         $this->isBidirectionalCallback = $bidirectional;
         /** @var Closure(int): ?string $read */
-        $read = self::callback($stream, 'read');
+        $read = self::callback($this->stream, 'read');
         $this->readCallback = $read;
         /** @var Closure(int): void $reset */
-        $reset = self::callback($stream, 'reset');
+        $reset = self::callback($this->stream, 'reset');
         $this->resetCallback = $reset;
         /** @var Closure(string, bool): int $write */
-        $write = self::callback($stream, 'write');
+        $write = self::callback($this->stream, 'write');
         $this->writeCallback = $write;
     }
 
@@ -113,6 +110,6 @@ final class PhpQuicStream
             throw new InvalidArgumentException(sprintf('php-quic stream object must provide %s().', $method));
         }
 
-        return Closure::fromCallable($callable);
+        return $object->{$method}(...);
     }
 }

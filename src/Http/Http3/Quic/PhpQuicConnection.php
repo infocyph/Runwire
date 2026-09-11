@@ -8,28 +8,25 @@ use Closure;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
-final class PhpQuicConnection
+final readonly class PhpQuicConnection
 {
-    private readonly Closure $acceptStreamCallback;
+    private Closure $acceptStreamCallback;
 
-    private readonly Closure $closeCallback;
+    private Closure $closeCallback;
 
-    private readonly object $connection;
+    private Closure $negotiatedAlpnCallback;
 
-    private readonly Closure $negotiatedAlpnCallback;
+    private Closure $openStreamCallback;
 
-    private readonly Closure $openStreamCallback;
+    private Closure $setBlockingCallback;
 
-    private readonly Closure $setBlockingCallback;
-
-    public function __construct(object $connection)
+    public function __construct(private object $connection)
     {
-        $this->connection = $connection;
-        $this->acceptStreamCallback = self::callback($connection, 'acceptStream');
-        $this->closeCallback = self::callback($connection, 'close');
-        $this->negotiatedAlpnCallback = self::callback($connection, 'getNegotiatedAlpn');
-        $this->openStreamCallback = self::callback($connection, 'openStream');
-        $this->setBlockingCallback = self::callback($connection, 'setBlocking');
+        $this->acceptStreamCallback = self::callback($this->connection, 'acceptStream');
+        $this->closeCallback = self::callback($this->connection, 'close');
+        $this->negotiatedAlpnCallback = self::callback($this->connection, 'getNegotiatedAlpn');
+        $this->openStreamCallback = self::callback($this->connection, 'openStream');
+        $this->setBlockingCallback = self::callback($this->connection, 'setBlocking');
     }
 
     public function acceptStream(): ?PhpQuicStream
@@ -91,6 +88,6 @@ final class PhpQuicConnection
             throw new InvalidArgumentException(sprintf('php-quic connection object must provide %s().', $method));
         }
 
-        return Closure::fromCallable($callable);
+        return $object->{$method}(...);
     }
 }
