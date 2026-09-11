@@ -480,12 +480,8 @@ final class Connection
 
     private function invoke(?Closure $callback): void
     {
-        if ($callback === null) {
-            return;
-        }
-
         try {
-            $callback($this);
+            $callback?->__invoke($this);
         } catch (Throwable $throwable) {
             try {
                 $this->abort();
