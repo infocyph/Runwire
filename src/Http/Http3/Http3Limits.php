@@ -22,29 +22,29 @@ final readonly class Http3Limits
         public int $maxRequestStreamsPerConnection = 10_000,
         public int $maxPeerUnidirectionalStreamsPerConnection = 1_024,
         public int $maxPendingQpackDecoderBytes = 65_536,
-        public int $maxControlStreamBytesPerTick = 65_536,
+        public int $maxControlBytesPerTick = 65_536,
+        public int $maxPendingResponseBytesPerStream = 1_048_576,
+        public int $responseLowWatermarkBytes = 262_144,
+        public int $responseHighWatermarkBytes = 786_432,
+        public int $maxPendingResponseBytesPerConnection = 8_388_608,
+        public int $maxQpackEncoderQueueBytes = 1_048_576,
+        public int $maxResponseFramePayloadBytes = 16_384,
+        public int $maxWritesPerFlush = 128,
     ) {
         foreach ([
             'maxFramePayloadBytes' => $maxFramePayloadBytes,
-            'maxFieldSectionBytes' => $maxFieldSectionBytes,
-            'maxHeaderFields' => $maxHeaderFields,
             'qpackMaxTableCapacity' => $qpackMaxTableCapacity,
             'qpackMaxBlockedStreams' => $qpackMaxBlockedStreams,
             'maxBlockedFieldSectionBytes' => $maxBlockedFieldSectionBytes,
             'maxBlockedRequestStreamBytes' => $maxBlockedRequestStreamBytes,
-            'maxBodyBytes' => $maxBodyBytes,
-            'maxPendingBodyBytesPerStream' => $maxPendingBodyBytesPerStream,
-            'maxConcurrentRequestStreams' => $maxConcurrentRequestStreams,
-            'maxRequestStreamsPerConnection' => $maxRequestStreamsPerConnection,
-            'maxPeerUnidirectionalStreamsPerConnection' => $maxPeerUnidirectionalStreamsPerConnection,
-            'maxPendingQpackDecoderBytes' => $maxPendingQpackDecoderBytes,
-            'maxControlStreamBytesPerTick' => $maxControlStreamBytesPerTick,
+            'bodyLowWatermarkBytes' => $bodyLowWatermarkBytes,
         ] as $name => $value) {
             if ($value < 0) {
                 throw new \InvalidArgumentException(sprintf('%s cannot be negative.', $name));
             }
         }
         foreach ([
+            'maxFieldSectionBytes' => $maxFieldSectionBytes,
             'maxHeaderFields' => $maxHeaderFields,
             'maxBodyBytes' => $maxBodyBytes,
             'maxPendingBodyBytesPerStream' => $maxPendingBodyBytesPerStream,
@@ -52,22 +52,43 @@ final readonly class Http3Limits
             'maxRequestStreamsPerConnection' => $maxRequestStreamsPerConnection,
             'maxPeerUnidirectionalStreamsPerConnection' => $maxPeerUnidirectionalStreamsPerConnection,
             'maxPendingQpackDecoderBytes' => $maxPendingQpackDecoderBytes,
-            'maxControlStreamBytesPerTick' => $maxControlStreamBytesPerTick,
+            'maxControlBytesPerTick' => $maxControlBytesPerTick,
+            'maxPendingResponseBytesPerStream' => $maxPendingResponseBytesPerStream,
+            'maxPendingResponseBytesPerConnection' => $maxPendingResponseBytesPerConnection,
+            'maxQpackEncoderQueueBytes' => $maxQpackEncoderQueueBytes,
+            'maxResponseFramePayloadBytes' => $maxResponseFramePayloadBytes,
+            'maxWritesPerFlush' => $maxWritesPerFlush,
         ] as $name => $value) {
-            if ($value === 0) {
+            if ($value <= 0) {
                 throw new \InvalidArgumentException(sprintf('%s must be positive.', $name));
             }
         }
-        if ($maxConcurrentRequestStreams > $maxRequestStreamsPerConnection) {
-            throw new \InvalidArgumentException(
-                'HTTP/3 concurrent request stream limit cannot exceed the per-connection stream limit.',
-            );
-        }
-        if ($bodyLowWatermarkBytes < 0
-            || $bodyLowWatermarkBytes >= $bodyHighWatermarkBytes
+        if ($bodyLowWatermarkBytes >= $bodyHighWatermarkBytes
             || $bodyHighWatermarkBytes > $maxPendingBodyBytesPerStream) {
             throw new \InvalidArgumentException(
                 'HTTP/3 body watermarks must satisfy 0 <= low < high <= max pending body bytes.',
+            );
+        }
+        if ($responseLowWatermarkBytes < 0
+            || $responseLowWatermarkBytes >= $responseHighWatermarkBytes
+            || $responseHighWatermarkBytes > $maxPendingResponseBytesPerStream) {
+            throw new \InvalidArgumentException(
+                'HTTP/3 response watermarks must satisfy 0 <= low < high <= max pending response bytes.',
+            );
+        }
+        if ($maxPendingResponseBytesPerStream > $maxPendingResponseBytesPerConnection) {
+            throw new \InvalidArgumentException(
+                'Per-stream HTTP/3 pending response limit cannot exceed the connection aggregate limit.',
+            );
+        }
+        if ($maxQpackEncoderQueueBytes > $maxPendingResponseBytesPerConnection) {
+            throw new \InvalidArgumentException(
+                'HTTP/3 QPACK encoder queue limit cannot exceed the connection aggregate response limit.',
+            );
+        }
+        if ($maxResponseFramePayloadBytes > $maxPendingResponseBytesPerStream) {
+            throw new \InvalidArgumentException(
+                'HTTP/3 response frame payload limit cannot exceed the per-stream pending response limit.',
             );
         }
     }
