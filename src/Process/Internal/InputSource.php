@@ -38,7 +38,7 @@ final class InputSource
             }
 
             $this->stream = $input;
-            $this->streamWasBlocked = $meta['blocked'];
+            $this->streamWasBlocked = array_key_exists('blocked', $meta) ? (bool) $meta['blocked'] : null;
             if (!stream_set_blocking($this->stream, false)) {
                 throw new ProcessException('Unable to make process stdin stream non-blocking.');
             }

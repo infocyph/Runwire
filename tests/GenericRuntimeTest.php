@@ -104,7 +104,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
     }
     if ($reaped !== $pid) {
         posix_kill($pid, SIGKILL);
-        pcntl_waitpid($pid, $status);
+        $reaped = pcntl_waitpid($pid, $status);
     }
 
     expect($reaped)->toBe($pid)
@@ -168,7 +168,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
     }
     if ($reaped !== $pid) {
         posix_kill($pid, SIGKILL);
-        pcntl_waitpid($pid, $status);
+        $reaped = pcntl_waitpid($pid, $status);
     }
 
     expect($reaped)->toBe($pid)->and(file_exists($path))->toBeFalse();
