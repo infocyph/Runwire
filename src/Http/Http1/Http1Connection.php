@@ -70,7 +70,9 @@ final class Http1Connection
         private readonly Http1Limits $limits,
         callable $handler,
     ) {
-        $this->handler = Closure::fromCallable($handler);
+        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
+        $handlerClosure = Closure::fromCallable($handler);
+        $this->handler = $handlerClosure;
         $this->requestHeadValidator = new RequestHeadValidator();
         $this->chunkSizeDecoder = new ChunkSizeDecoder();
         $connection->onData(function (): void { $this->pump(); });
@@ -210,40 +212,49 @@ final class Http1Connection
         ++$this->requestCount;
         $this->keepAlive = !$this->draining
             && !$head->closeRequested
-            && $this->requestCount < $this->limits->maxRequestsPerConnection;
-        $this->waitingResponse = false;
+            && $this->requestCount < $this->limits->maxKeepAliveRequests;
+        $this->bodyReceived = 0;
+        $this->discardBody = false;
         $this->responseEnded = false;
         $this->responseCloseAfter = false;
-        $this->discardBody = false;
-        $this->bodyReceived = 0;
-        $this->remainingBody = $this->head->contentLength;
-        $this->remainingChunk = 0;
-        $this->trailerFields = [];
-        $this->trailerBytes = 0;
-        $this->trailerCount = 0;
-
         $this->body = new StreamingRequestBody(
             $this->limits->bodyLowWatermarkBytes,
             $this->limits->bodyHighWatermarkBytes,
             $this->limits->maxPendingBodyBytes,
-            function (): void {
-                $this->bodyPressured = true;
-                $this->syncReadPause();
-            },
             function (): void {
                 $this->bodyPressured = false;
                 $this->syncReadPause();
                 $this->schedulePump();
             },
         );
-
         $this->writer = new Http1ResponseWriter(
             $this->connection,
             $this->limits,
             $this->method,
             $this->keepAlive,
-            fn (bool $closeAfter) => $this->handleResponseEnd($closeAfter),
+            function (bool $closeAfter): void {
+                $this->handleResponseEnd($closeAfter);
+            },
         );
+
+        if ($head->chunked) {
+            $this->state = ParserState::CHUNK_SIZE;
+            $this->armBodyTimer();
+        } elseif ($head->contentLength > 0) {
+            $this->remainingBody = $head->contentLength;
+            $this->state = ParserState::FIXED_BODY;
+            $this->armBodyTimer();
+        } else {
+            $this->body->finish();
+            $this->state = ParserState::WAIT_RESPONSE;
+        }
+
+        if ($head->expectContinue && ($head->chunked || $head->contentLength > 0)) {
+            $result = $this->connection->write("HTTP/1.1 100 Continue\r\n\r\n");
+            if (!$result->accepted()) {
+                throw new ParseFailure(503, 'Unable to queue 100 Continue response.');
+            }
+        }
 
         $request = new HttpRequest(
             $this->method,
@@ -255,64 +266,51 @@ final class Http1Connection
             $this->connection->localAddress(),
             $this->connection->isEncrypted(),
         );
-
-        $this->armBodyTimer();
-        if ($head->expectContinue && $this->headHasBody($head->chunked, $head->contentLength)) {
-            $continue = $this->connection->write("HTTP/1.1 100 Continue\r\n\r\n");
-            if (!$continue->accepted()) {
-                throw new ParseFailure(503, 'Unable to send 100 Continue.');
-            }
-        }
-
+        $body = $this->body;
         try {
             ($this->handler)($request, $this->writer);
         } catch (Throwable $failure) {
-            $this->body?->cancel();
+            $body->cancel();
             $this->connection->abort(CloseReason::LOCAL_ABORT);
             throw $failure;
         }
 
-        if ($head->chunked) {
-            $this->state = ParserState::CHUNK_SIZE;
-            return;
+        if ($this->body === $body && $body->ended() && !$this->responseEnded) {
+            $this->waitingResponse = true;
+            $this->state = ParserState::WAIT_RESPONSE;
+            $this->syncReadPause();
         }
-        if (($head->contentLength ?? 0) > 0) {
-            $this->state = ParserState::FIXED_BODY;
-            return;
-        }
-        $this->finishBody();
-    }
-
-    private function headHasBody(bool $chunked, ?int $contentLength): bool
-    {
-        return $chunked || ($contentLength ?? 0) > 0;
     }
 
     private function consumeFixedBody(): bool
     {
-        if ($this->remainingBody <= 0) {
+        if ($this->remainingBody === 0) {
             $this->finishBody();
             return true;
         }
-        return $this->consumeBodyBytes(
-            $this->remainingBody,
-            function (int $bytes): void {
-                $this->remainingBody -= $bytes;
-                if ($this->remainingBody === 0) {
-                    $this->finishBody();
-                }
-            },
-        );
+        return $this->consumeBodyBytes($this->remainingBody, function (int $bytes): void {
+            $this->remainingBody -= $bytes;
+            if ($this->remainingBody === 0) {
+                $this->finishBody();
+            }
+        });
     }
 
     private function parseChunkSizeLine(): bool
     {
-        $line = $this->readLine($this->limits->maxChunkMetadataBytes, 400);
+        $line = $this->readLine($this->limits->maxChunkLineBytes, 400);
         if ($line === null) {
             return false;
         }
-        $size = $this->chunkSizeDecoder->decode($line, $this->limits->maxBodyBytes, $this->bodyReceived);
+        $size = $this->chunkSizeDecoder->decode(
+            $line,
+            $this->limits->maxBodyBytes,
+            $this->bodyReceived,
+        );
         if ($size === 0) {
+            $this->trailerFields = [];
+            $this->trailerBytes = 0;
+            $this->trailerCount = 0;
             $this->state = ParserState::TRAILERS;
             return true;
         }
@@ -323,19 +321,16 @@ final class Http1Connection
 
     private function consumeChunkData(): bool
     {
-        if ($this->remainingChunk <= 0) {
+        if ($this->remainingChunk === 0) {
             $this->state = ParserState::CHUNK_CRLF;
             return true;
         }
-        return $this->consumeBodyBytes(
-            $this->remainingChunk,
-            function (int $bytes): void {
-                $this->remainingChunk -= $bytes;
-                if ($this->remainingChunk === 0) {
-                    $this->state = ParserState::CHUNK_CRLF;
-                }
-            },
-        );
+        return $this->consumeBodyBytes($this->remainingChunk, function (int $bytes): void {
+            $this->remainingChunk -= $bytes;
+            if ($this->remainingChunk === 0) {
+                $this->state = ParserState::CHUNK_CRLF;
+            }
+        });
     }
 
     private function consumeChunkCrlf(): bool
@@ -344,7 +339,7 @@ final class Http1Connection
             return false;
         }
         if ($this->takeBytes(2) !== "\r\n") {
-            throw new ParseFailure(400, 'HTTP chunk data is missing the required CRLF.');
+            throw new ParseFailure(400, 'Chunk data is not followed by CRLF.');
         }
         $this->state = ParserState::CHUNK_SIZE;
         return true;
@@ -600,8 +595,8 @@ final class Http1Connection
         $this->waitingResponse = false;
         $this->bodyPressured = false;
         $this->syncReadPause();
-
         $this->body?->cancel();
+
         if ($this->writer !== null && $this->writer->isStarted()) {
             $this->connection->abort(CloseReason::PROTOCOL_ERROR);
             return;

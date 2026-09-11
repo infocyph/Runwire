@@ -27,6 +27,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /** @var Closure(bool): void */
     private readonly Closure $onEnd;
 
+    /** @param callable(bool): void $onEnd */
     public function __construct(
         private readonly Connection $connection,
         private readonly Http1Limits $limits,
@@ -35,16 +36,13 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         callable $onEnd,
     ) {
         $this->closeAfter = !$keepAlive;
-        $this->onEnd = Closure::fromCallable($onEnd);
+        /** @var Closure(bool): void $onEndClosure */
+        $onEndClosure = Closure::fromCallable($onEnd);
+        $this->onEnd = $onEndClosure;
     }
 
     public function isStarted(): bool { return $this->started; }
     public function isEnded(): bool { return $this->ended; }
-
-    public function forceCloseAfterResponse(): void
-    {
-        $this->closeAfter = true;
-    }
 
     public function onDrain(callable $callback): self
     {
@@ -115,33 +113,23 @@ final class Http1ResponseWriter implements ResponseWriterInterface
             return $this->closedResult();
         }
         if ($chunk === '') {
-            return $this->started ? $this->connection->write('') : $this->start();
+            return $this->writeEmpty();
         }
         if (strlen($chunk) > $this->limits->maxResponseChunkBytes) {
             return $this->limitResult();
         }
-        if (!$this->started) {
-            $start = $this->start();
-            if (!$start->accepted()) {
-                return $start;
-            }
+
+        $start = $this->startIfNeeded();
+        if ($start !== null && !$start->accepted()) {
+            return $start;
         }
         if ($this->bodySuppressed) {
             $this->bodyBytes += strlen($chunk);
             return $this->connection->write('');
         }
-        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
-            throw new LogicException('HTTP response body exceeds declared Content-Length.');
-        }
 
-        $wire = $this->chunked
-            ? dechex(strlen($chunk)) . "\r\n" . $chunk . "\r\n"
-            : $chunk;
-        $result = $this->connection->write($wire);
-        if ($result->accepted()) {
-            $this->bodyBytes += strlen($chunk);
-        }
-        return $result;
+        $this->assertWithinContentLength($chunk);
+        return $this->writeBodyChunk($chunk);
     }
 
     public function end(string $finalChunk = ''): WriteResult
@@ -153,35 +141,83 @@ final class Http1ResponseWriter implements ResponseWriterInterface
             return $this->limitResult();
         }
 
-        if (!$this->started) {
-            $headers = new Headers([new HeaderField('content-length', (string) strlen($finalChunk))]);
-            $start = $this->start(200, $headers);
-            if (!$start->accepted()) {
-                return $start;
-            }
+        $start = $this->startForEndIfNeeded($finalChunk);
+        if ($start !== null && !$start->accepted()) {
+            return $start;
         }
-
         if ($this->bodySuppressed) {
             $this->bodyBytes += strlen($finalChunk);
             return $this->finish($this->connection->write(''));
         }
-
         if ($this->contentLength !== null) {
-            if ($this->bodyBytes + strlen($finalChunk) !== $this->contentLength) {
-                if ($finalChunk !== '' && $this->bodyBytes + strlen($finalChunk) > $this->contentLength) {
-                    throw new LogicException('HTTP response body exceeds declared Content-Length.');
-                }
-                if ($this->bodyBytes + strlen($finalChunk) < $this->contentLength) {
-                    throw new LogicException('HTTP response body is shorter than declared Content-Length.');
-                }
-            }
-            $result = $finalChunk === '' ? $this->connection->write('') : $this->connection->write($finalChunk);
-            if ($result->accepted()) {
-                $this->bodyBytes += strlen($finalChunk);
-            }
-            return $this->finish($result);
+            return $this->endFixedLength($finalChunk);
         }
 
+        return $this->endChunked($finalChunk);
+    }
+
+    private function writeEmpty(): WriteResult
+    {
+        return $this->started ? $this->connection->write('') : $this->start();
+    }
+
+    private function startIfNeeded(): ?WriteResult
+    {
+        return $this->started ? null : $this->start();
+    }
+
+    private function startForEndIfNeeded(string $finalChunk): ?WriteResult
+    {
+        if ($this->started) {
+            return null;
+        }
+
+        return $this->start(200, new Headers([
+            new HeaderField('content-length', (string) strlen($finalChunk)),
+        ]));
+    }
+
+    private function assertWithinContentLength(string $chunk): void
+    {
+        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
+            throw new LogicException('HTTP response body exceeds declared Content-Length.');
+        }
+    }
+
+    private function writeBodyChunk(string $chunk): WriteResult
+    {
+        $wire = $this->chunked
+            ? dechex(strlen($chunk)) . "\r\n" . $chunk . "\r\n"
+            : $chunk;
+        $result = $this->connection->write($wire);
+        if ($result->accepted()) {
+            $this->bodyBytes += strlen($chunk);
+        }
+        return $result;
+    }
+
+    private function endFixedLength(string $finalChunk): WriteResult
+    {
+        $next = $this->bodyBytes + strlen($finalChunk);
+        if ($next !== $this->contentLength) {
+            throw new LogicException(
+                $next > $this->contentLength
+                    ? 'HTTP response body exceeds declared Content-Length.'
+                    : 'HTTP response body is shorter than declared Content-Length.',
+            );
+        }
+
+        $result = $finalChunk === ''
+            ? $this->connection->write('')
+            : $this->connection->write($finalChunk);
+        if ($result->accepted()) {
+            $this->bodyBytes += strlen($finalChunk);
+        }
+        return $this->finish($result);
+    }
+
+    private function endChunked(string $finalChunk): WriteResult
+    {
         $wire = $finalChunk === ''
             ? "0\r\n\r\n"
             : dechex(strlen($finalChunk)) . "\r\n" . $finalChunk . "\r\n0\r\n\r\n";
