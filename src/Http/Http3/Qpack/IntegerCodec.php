@@ -30,17 +30,17 @@ final class IntegerCodec
 
         $maxPrefix = (1 << $prefixBits) - 1;
         if ($value < $maxPrefix) {
-            return chr($prefixMask | $value);
+            return self::byte($prefixMask | $value);
         }
 
-        $encoded = chr($prefixMask | $maxPrefix);
+        $encoded = self::byte($prefixMask | $maxPrefix);
         $value -= $maxPrefix;
         while ($value >= 128) {
-            $encoded .= chr(($value & 0x7F) | 0x80);
+            $encoded .= self::byte(($value & 0x7F) | 0x80);
             $value >>= 7;
         }
 
-        return $encoded . chr($value);
+        return $encoded . self::byte($value);
     }
 
     /** @return array{0: int, 1: int}|null */
@@ -72,6 +72,15 @@ final class IntegerCodec
         }
 
         return null;
+    }
+
+    private static function byte(int $value): string
+    {
+        if ($value < 0 || $value > 255) {
+            throw new \LogicException('QPACK byte value is outside the octet range.');
+        }
+
+        return chr($value);
     }
 
     private static function validatePrefix(int $bits): void
