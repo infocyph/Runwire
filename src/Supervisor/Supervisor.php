@@ -364,7 +364,7 @@ final class Supervisor
         $this->cancelRestartTimers();
 
         foreach ($this->children as $record) {
-            @posix_kill($record->pid, SIGKILL);
+            posix_kill($record->pid, SIGKILL);
         }
 
         foreach (array_keys($this->children) as $pid) {
@@ -439,7 +439,7 @@ final class Supervisor
             return;
         }
 
-        $payload = @fread($stream, 16);
+        $payload = fread($stream, 16);
         if (is_string($payload) && str_contains($payload, 'R')) {
             $record->state = WorkerState::READY;
             ReadinessChannel::close($this->loop, $record);
@@ -613,13 +613,18 @@ final class Supervisor
         bool $setCurrent,
         bool $recycleReplacement = false,
     ): void {
-        $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if ($pair === false) {
             throw new SupervisorException('Unable to create worker readiness channel.');
         }
 
         [$parentReady, $childReady] = $pair;
-        stream_set_blocking($parentReady, false);
+        if (!stream_set_blocking($parentReady, false)) {
+            fclose($parentReady);
+            fclose($childReady);
+
+            throw new SupervisorException('Unable to configure worker readiness channel.');
+        }
 
         $pid = pcntl_fork();
         if ($pid === -1) {
@@ -656,7 +661,7 @@ final class Supervisor
                 }
 
                 $record->state = WorkerState::FAILED;
-                @posix_kill($pid, SIGKILL);
+                posix_kill($pid, SIGKILL);
             },
         );
 
@@ -701,7 +706,7 @@ final class Supervisor
             $this->emitWorker(SupervisorEventType::WORKER_STOP_REQUESTED, $record);
         }
         $signal = $force ? SIGKILL : SIGTERM;
-        @posix_kill($record->pid, $signal);
+        posix_kill($record->pid, $signal);
 
         if ($force || $record->killTimerId !== null) {
             return;
@@ -711,7 +716,7 @@ final class Supervisor
             $record->group->shutdownTimeoutSeconds,
             function () use ($record): void {
                 if (isset($this->children[$record->pid])) {
-                    @posix_kill($record->pid, SIGKILL);
+                    posix_kill($record->pid, SIGKILL);
                 }
             },
         );
