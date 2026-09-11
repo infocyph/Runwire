@@ -109,7 +109,7 @@ it('buffers frames behind blocked QPACK state and resumes in order', function ()
         ->and($stream->body()->read())->toBe('queued');
 });
 
-it('defers FIN while QPACK is blocked and completes after unblocking', function (): void {
+it('defers FIN while QPACK is blocked and rejects later stream bytes', function (): void {
     $encoder = new Encoder(220, 1, dynamicTableCapacity: 220);
     $decoder = new Decoder(220, 1);
     $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
@@ -120,6 +120,13 @@ it('defers FIN while QPACK is blocked and completes after unblocking', function 
     $stream->push(FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
     $stream->finish();
     expect($stream->finished())->toBeFalse();
+
+    try {
+        $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, 'late')));
+        test()->fail('Bytes after HTTP/3 stream FIN should fail even while QPACK is blocked.');
+    } catch (Http3Exception $exception) {
+        expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
+    }
 
     $ready = $decoder->pushEncoderInstructions($instructions);
     $stream->resume($ready[0]->section);

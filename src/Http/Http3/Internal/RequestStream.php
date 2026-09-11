@@ -34,7 +34,7 @@ final class RequestStream
 
     private bool $cancelled = false;
 
-    private bool $finPending = false;
+    private bool $finReceived = false;
 
     private bool $finished = false;
 
@@ -105,12 +105,15 @@ final class RequestStream
     public function finish(): void
     {
         $this->assertOpen();
+        if ($this->finReceived) {
+            throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 request stream FIN was already received.');
+        }
+
+        $this->finReceived = true;
         if ($this->parser->bufferedBytes() > 0) {
             throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
         }
         if ($this->blocked) {
-            $this->finPending = true;
-
             return;
         }
 
@@ -135,6 +138,9 @@ final class RequestStream
     public function push(string $bytes): void
     {
         $this->assertOpen();
+        if ($this->finReceived) {
+            throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 request bytes arrived after stream FIN.');
+        }
 
         foreach ($this->parser->push($bytes) as $frame) {
             if ($this->blocked) {
@@ -178,8 +184,7 @@ final class RequestStream
             $this->processFrame($frame);
         }
 
-        if ($this->finPending && !$this->blocked) {
-            $this->finPending = false;
+        if ($this->finReceived && !$this->blocked) {
             $this->completeFinish();
         }
     }
