@@ -25,6 +25,7 @@ final readonly class Server
 
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
+     * @param callable(WorkerContext): callable|null $workerHandlerFactory
      */
     public function __construct(
         public string $name,
@@ -62,10 +63,17 @@ final readonly class Server
             }
         }
 
-        $this->handler = Closure::fromCallable($handler);
-        $this->workerHandlerFactory = $workerHandlerFactory === null
-            ? null
-            : Closure::fromCallable($workerHandlerFactory);
+        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
+        $handlerClosure = Closure::fromCallable($handler);
+        $this->handler = $handlerClosure;
+
+        if ($workerHandlerFactory === null) {
+            $this->workerHandlerFactory = null;
+        } else {
+            /** @var Closure(WorkerContext): callable $factoryClosure */
+            $factoryClosure = Closure::fromCallable($workerHandlerFactory);
+            $this->workerHandlerFactory = $factoryClosure;
+        }
     }
 
     /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
@@ -74,9 +82,7 @@ final readonly class Server
         return new self($name, $address, $handler);
     }
 
-    /**
-     * @param callable(WorkerContext): callable(HttpRequest, ResponseWriterInterface): void $factory
-     */
+    /** @param callable(WorkerContext): callable $factory */
     public static function httpFactory(string $address, callable $factory, string $name = 'web'): self
     {
         return new self(
@@ -105,7 +111,6 @@ final readonly class Server
             $this->workerHandlerFactory,
         );
     }
-
 
     public function withWorkerConnectionLimit(int $limit): self
     {
@@ -145,10 +150,7 @@ final readonly class Server
         );
     }
 
-    /**
-     * Run this factory inside each forked worker before the listener starts accepting traffic.
-     * The factory must return the version-neutral HTTP request handler for that worker.
-     */
+    /** @param callable(WorkerContext): callable $factory */
     public function withWorkerHandlerFactory(callable $factory): self
     {
         return new self(
@@ -180,6 +182,8 @@ final readonly class Server
             throw new InvalidArgumentException('Worker HTTP handler factory must return a callable handler.');
         }
 
-        return Closure::fromCallable($handler);
+        /** @var Closure(HttpRequest, ResponseWriterInterface): void $closure */
+        $closure = Closure::fromCallable($handler);
+        return $closure;
     }
 }

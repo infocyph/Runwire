@@ -14,6 +14,7 @@ final readonly class WorkerGroup
     /** @var Closure(WorkerContext): void */
     public Closure $bootstrap;
 
+    /** @param callable(WorkerContext): void $bootstrap */
     public function __construct(
         public string $name,
         public int $count,
@@ -42,9 +43,12 @@ final readonly class WorkerGroup
             throw new InvalidArgumentException('Worker shutdown timeout must be finite and positive.');
         }
 
-        $this->bootstrap = Closure::fromCallable($bootstrap);
+        /** @var Closure(WorkerContext): void $closure */
+        $closure = Closure::fromCallable($bootstrap);
+        $this->bootstrap = $closure;
     }
 
+    /** @param callable(WorkerContext): void $factory */
     public static function callbacks(
         string $name,
         int $count,

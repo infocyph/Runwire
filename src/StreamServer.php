@@ -29,6 +29,7 @@ final readonly class StreamServer
     /**
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
+     * @param callable(WorkerContext): callable|null $workerHandlerFactory
      */
     public function __construct(
         public string $name,
@@ -72,18 +73,36 @@ final readonly class StreamServer
             throw new LogicException('Unix listener options are only valid for Unix stream servers.');
         }
 
-        $this->codecFactory = Closure::fromCallable($codecFactory);
-        $this->handler = Closure::fromCallable($handler);
-        $this->workerHandlerFactory = $workerHandlerFactory === null ? null : Closure::fromCallable($workerHandlerFactory);
+        /** @var Closure(): FrameCodecInterface $codecClosure */
+        $codecClosure = Closure::fromCallable($codecFactory);
+        $this->codecFactory = $codecClosure;
+
+        /** @var Closure(string, FramedConnection): void $handlerClosure */
+        $handlerClosure = Closure::fromCallable($handler);
+        $this->handler = $handlerClosure;
+
+        if ($workerHandlerFactory === null) {
+            $this->workerHandlerFactory = null;
+        } else {
+            /** @var Closure(WorkerContext): callable $factoryClosure */
+            $factoryClosure = Closure::fromCallable($workerHandlerFactory);
+            $this->workerHandlerFactory = $factoryClosure;
+        }
     }
 
-    /** @param callable(): FrameCodecInterface $codecFactory @param callable(string, FramedConnection): void $handler */
+    /**
+     * @param callable(): FrameCodecInterface $codecFactory
+     * @param callable(string, FramedConnection): void $handler
+     */
     public static function tcp(string $address, callable $codecFactory, callable $handler, string $name = 'stream'): self
     {
         return new self($name, StreamTransport::TCP, $address, $codecFactory, $handler);
     }
 
-    /** @param callable(): FrameCodecInterface $codecFactory @param callable(string, FramedConnection): void $handler */
+    /**
+     * @param callable(): FrameCodecInterface $codecFactory
+     * @param callable(string, FramedConnection): void $handler
+     */
     public static function unix(string $path, callable $codecFactory, callable $handler, string $name = 'stream'): self
     {
         return new self($name, StreamTransport::UNIX, $path, $codecFactory, $handler, unix: new UnixListenerOptions());
@@ -109,7 +128,6 @@ final readonly class StreamServer
             $this->workerHandlerFactory,
         );
     }
-
 
     public function withWorkerConnectionLimit(int $limit): self
     {
@@ -195,6 +213,7 @@ final readonly class StreamServer
         );
     }
 
+    /** @param callable(WorkerContext): callable $factory */
     public function withWorkerHandlerFactory(callable $factory): self
     {
         return new self(
@@ -218,11 +237,7 @@ final readonly class StreamServer
 
     public function codec(): FrameCodecInterface
     {
-        $codec = ($this->codecFactory)();
-        if (!$codec instanceof FrameCodecInterface) {
-            throw new InvalidArgumentException('Stream codec factory must return FrameCodecInterface.');
-        }
-        return $codec;
+        return ($this->codecFactory)();
     }
 
     /** @return Closure(string, FramedConnection): void */
@@ -235,7 +250,9 @@ final readonly class StreamServer
         if (!is_callable($handler)) {
             throw new InvalidArgumentException('Worker stream handler factory must return a callable handler.');
         }
-        return Closure::fromCallable($handler);
+        /** @var Closure(string, FramedConnection): void $closure */
+        $closure = Closure::fromCallable($handler);
+        return $closure;
     }
 
     private static function validateName(string $name): void

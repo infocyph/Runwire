@@ -19,7 +19,10 @@ final readonly class DatagramServer
     /** @var Closure(WorkerContext): callable|null */
     private ?Closure $workerHandlerFactory;
 
-    /** @param callable(Datagram, DatagramListener): void $handler */
+    /**
+     * @param callable(Datagram, DatagramListener): void $handler
+     * @param callable(WorkerContext): callable|null $workerHandlerFactory
+     */
     public function __construct(
         public string $name,
         public string $address,
@@ -44,8 +47,18 @@ final readonly class DatagramServer
                 throw new InvalidArgumentException('Worker timeouts must be finite and positive.');
             }
         }
-        $this->handler = Closure::fromCallable($handler);
-        $this->workerHandlerFactory = $workerHandlerFactory === null ? null : Closure::fromCallable($workerHandlerFactory);
+
+        /** @var Closure(Datagram, DatagramListener): void $handlerClosure */
+        $handlerClosure = Closure::fromCallable($handler);
+        $this->handler = $handlerClosure;
+
+        if ($workerHandlerFactory === null) {
+            $this->workerHandlerFactory = null;
+        } else {
+            /** @var Closure(WorkerContext): callable $factoryClosure */
+            $factoryClosure = Closure::fromCallable($workerHandlerFactory);
+            $this->workerHandlerFactory = $factoryClosure;
+        }
     }
 
     /** @param callable(Datagram, DatagramListener): void $handler */
@@ -68,6 +81,7 @@ final readonly class DatagramServer
         );
     }
 
+    /** @param callable(WorkerContext): callable $factory */
     public function withWorkerHandlerFactory(callable $factory): self
     {
         return new self(
@@ -92,6 +106,8 @@ final readonly class DatagramServer
         if (!is_callable($handler)) {
             throw new InvalidArgumentException('Worker datagram handler factory must return a callable handler.');
         }
-        return Closure::fromCallable($handler);
+        /** @var Closure(Datagram, DatagramListener): void $closure */
+        $closure = Closure::fromCallable($handler);
+        return $closure;
     }
 }
