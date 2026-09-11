@@ -13,9 +13,9 @@ final class ResponseStream
 
     public ?Closure $drainCallback = null;
 
-    public bool $endPending = false;
-
     public bool $ended = false;
+
+    public bool $endPending = false;
 
     public bool $transportPressured = false;
 
