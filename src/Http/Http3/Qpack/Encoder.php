@@ -138,15 +138,6 @@ final class Encoder
         }
     }
 
-    private function canReference(int $absoluteIndex, bool $sectionBlocking): bool
-    {
-        if ($absoluteIndex + 1 <= $this->knownReceivedCount) {
-            return true;
-        }
-
-        return $sectionBlocking || $this->blockedSections < $this->peerMaxBlockedStreams;
-    }
-
     private function cancel(int $streamId): void
     {
         foreach ($this->outstanding[$streamId] ?? [] as $section) {
@@ -154,6 +145,15 @@ final class Encoder
         }
 
         unset($this->outstanding[$streamId]);
+    }
+
+    private function canReference(int $absoluteIndex, bool $sectionBlocking): bool
+    {
+        if ($absoluteIndex + 1 <= $this->knownReceivedCount) {
+            return true;
+        }
+
+        return $sectionBlocking || $this->blockedSections < $this->peerMaxBlockedStreams;
     }
 
     /** @param array<int, int> $references */
