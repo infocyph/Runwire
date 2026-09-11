@@ -76,10 +76,7 @@ final class ResponseScheduler
                 continue;
             }
 
-            $streamProgress = $this->flushRequest($stream);
-            if (!$stream->ended && (!$stream->outbound->isEmpty() || $stream->endPending)) {
-                $this->flushQueue[$stream->id] = true;
-            }
+            $streamProgress = $this->flushResponseStream($stream);
             if ($streamProgress) {
                 ++$writes;
                 $stalled = 0;
@@ -132,6 +129,7 @@ final class ResponseScheduler
         }
     }
 
+    /** @param list<array{0: string, 1: string}> $headers */
     private function appendHeader(
         ResponseStream $stream,
         Encoder $encoder,
@@ -285,6 +283,16 @@ final class ResponseScheduler
         }
 
         return true;
+    }
+
+    private function flushResponseStream(ResponseStream $stream): bool
+    {
+        $progress = $this->flushRequest($stream);
+        if (!$stream->ended && (!$stream->outbound->isEmpty() || $stream->endPending)) {
+            $this->flushQueue[$stream->id] = true;
+        }
+
+        return $progress;
     }
 
     private function headerLimit(): int

@@ -9,7 +9,6 @@ use Infocyph\Runwire\Http\Http3\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
-use Infocyph\Runwire\Http\Http3\Internal\Http3TransportInterface;
 use Infocyph\Runwire\Http\Http3\Internal\ResponseScheduler;
 use Infocyph\Runwire\Http\Http3\SettingIdentifier;
 use Infocyph\Runwire\Http\Http3\Settings;
@@ -17,54 +16,7 @@ use Infocyph\Runwire\Http\Http3\SettingsCodec;
 use Infocyph\Runwire\Http\Http3\StreamType;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Network\WriteState;
-
-final class Http3SchedulerTransport implements Http3TransportInterface
-{
-    /** @var array<int, string> */
-    public array $requestBytes = [];
-
-    /** @var list<int> */
-    public array $finished = [];
-
-    public bool $blocked = false;
-
-    public int $maxWriteBytes = PHP_INT_MAX;
-
-    public string $qpackBytes = '';
-
-    public function finishRequestStream(int $streamId): void
-    {
-        $this->finished[] = $streamId;
-    }
-
-    public function writeQpackEncoder(string $bytes): int
-    {
-        return $this->write($bytes, function (string $accepted): void {
-            $this->qpackBytes .= $accepted;
-        });
-    }
-
-    public function writeRequestStream(int $streamId, string $bytes): int
-    {
-        return $this->write($bytes, function (string $accepted) use ($streamId): void {
-            $this->requestBytes[$streamId] = ($this->requestBytes[$streamId] ?? '') . $accepted;
-        });
-    }
-
-    private function write(string $bytes, Closure $accept): int
-    {
-        if ($this->blocked) {
-            return 0;
-        }
-
-        $length = min(strlen($bytes), $this->maxWriteBytes);
-        if ($length > 0) {
-            $accept(substr($bytes, 0, $length));
-        }
-
-        return $length;
-    }
-}
+use Infocyph\Runwire\Tests\Fixtures\Http3SchedulerTransport;
 
 it('frames and finishes HTTP/3 responses without transport coupling', function (): void {
     $limits = new Http3Limits();
