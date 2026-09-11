@@ -6,7 +6,6 @@ namespace Infocyph\Runwire\Supervisor;
 
 use RuntimeException;
 
-// phpcs:disable Generic.PHP.NoSilencedErrors.Discouraged -- Wake-channel system calls intentionally suppress expected transient warnings and validate state explicitly.
 final class WorkerContext
 {
     private bool $ready = false;
@@ -34,21 +33,24 @@ final class WorkerContext
         mixed $readyStream,
     ) {
         $this->readyStream = $readyStream;
-        $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if (!is_array($pair) || count($pair) !== 2) {
             throw new RuntimeException('Unable to create worker stop wake channel.');
         }
 
         [$this->stopRead, $this->stopWrite] = $pair;
-        @stream_set_blocking($this->stopRead, false);
-        @stream_set_blocking($this->stopWrite, false);
+        if (!stream_set_blocking($this->stopRead, false) || !stream_set_blocking($this->stopWrite, false)) {
+            $this->close();
+
+            throw new RuntimeException('Unable to configure worker stop wake channel.');
+        }
     }
 
     public function close(): void
     {
         foreach (['readyStream', 'stopRead', 'stopWrite'] as $property) {
             if (is_resource($this->{$property})) {
-                @fclose($this->{$property});
+                fclose($this->{$property});
             }
             $this->{$property} = null;
         }
@@ -61,7 +63,7 @@ final class WorkerContext
         }
 
         do {
-            $chunk = @fread($this->stopRead, 8_192);
+            $chunk = fread($this->stopRead, 8_192);
         } while (is_string($chunk) && $chunk !== '');
     }
 
@@ -71,14 +73,16 @@ final class WorkerContext
             return;
         }
 
-        $this->ready = true;
-
         if (is_resource($this->readyStream)) {
-            @fwrite($this->readyStream, 'R');
-            @fclose($this->readyStream);
+            $written = fwrite($this->readyStream, 'R');
+            if ($written !== 1) {
+                throw new RuntimeException('Unable to signal worker readiness.');
+            }
+            fclose($this->readyStream);
         }
 
         $this->readyStream = null;
+        $this->ready = true;
     }
 
     public function requestStop(): void
@@ -89,7 +93,7 @@ final class WorkerContext
 
         $this->stopping = true;
         if (is_resource($this->stopWrite)) {
-            @fwrite($this->stopWrite, 'S');
+            fwrite($this->stopWrite, 'S');
         }
     }
 
