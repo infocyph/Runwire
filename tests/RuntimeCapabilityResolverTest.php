@@ -29,8 +29,8 @@ it('reports only native capabilities whose implementation is wired', function ()
         ->and($capabilities->supportsTlsAlpn)->toBeTrue()
         ->and($capabilities->supportsHttp1)->toBeTrue()
         ->and($capabilities->ownsHttp1Wire)->toBeTrue()
-        ->and($capabilities->supportsHttp2)->toBeFalse()
-        ->and($capabilities->ownsHttp2Wire)->toBeFalse();
+        ->and($capabilities->supportsHttp2)->toBeTrue()
+        ->and($capabilities->ownsHttp2Wire)->toBeTrue();
 });
 
 it('keeps fpm request-bound application state non-persistent', function (): void {
