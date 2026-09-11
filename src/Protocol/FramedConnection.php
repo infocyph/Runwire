@@ -77,6 +77,7 @@ final class FramedConnection
         $this->connection->abort($reason);
     }
 
+
     private function decodeAndDispatch(string $bytes): void
     {
         try {
@@ -84,6 +85,9 @@ final class FramedConnection
             if (count($frames) > $this->maxFramesPerTick) {
                 throw new CodecException('Frame codec exceeded the requested per-tick decode limit.');
             }
+        } catch (CodecException) {
+            $this->connection->abort(CloseReason::PROTOCOL_ERROR);
+            return;
         } catch (Throwable $failure) {
             $this->connection->abort(CloseReason::PROTOCOL_ERROR);
             throw $failure;

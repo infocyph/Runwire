@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire;
 
 use Closure;
+use Infocyph\Runwire\Control\ControlOptions;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\TcpListener;
@@ -33,6 +34,7 @@ final class Runtime
     private bool $started = false;
     private ?Supervisor $supervisor = null;
     private ?RuntimeSelection $selection = null;
+    private ?ControlOptions $controlOptions = null;
 
     /** @var list<Closure(SupervisorEvent): void> */
     private array $lifecycleListeners = [];
@@ -63,6 +65,17 @@ final class Runtime
         }
 
         $this->servers[$server->name] = $server;
+        return $this;
+    }
+
+    public function control(ControlOptions $options): self
+    {
+        if ($this->started) {
+            throw new LogicException('Runtime topology is frozen after run() starts.');
+        }
+
+        $this->controlOptions = $options;
+
         return $this;
     }
 
@@ -189,6 +202,9 @@ final class Runtime
     private function buildSupervisor(array $bound): Supervisor
     {
         $supervisor = new Supervisor();
+        if ($this->controlOptions !== null) {
+            $supervisor->control($this->controlOptions);
+        }
         foreach ($this->lifecycleListeners as $listener) {
             $supervisor->onEvent($listener);
         }

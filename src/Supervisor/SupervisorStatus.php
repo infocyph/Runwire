@@ -8,6 +8,7 @@ final readonly class SupervisorStatus
 {
     /** @param list<WorkerStatus> $workers */
     public function __construct(
+        public string $runtimeId,
         public int $masterPid,
         public ?float $startedAtUnix,
         public float $uptimeSeconds,

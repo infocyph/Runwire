@@ -17,6 +17,7 @@ final class SupervisorStatusBuilder
      * @param array<string, array<int, int>> $currentSlots
      */
     public static function build(
+        string $runtimeId,
         int $masterPid,
         ?int $startedAtNs,
         ?float $startedAtUnix,
@@ -72,6 +73,7 @@ final class SupervisorStatusBuilder
         $started = $startedAtNs === null ? null : $startedAtNs / self::NANOS_PER_SECOND;
 
         return new SupervisorStatus(
+            runtimeId: $runtimeId,
             masterPid: $masterPid,
             startedAtUnix: $startedAtUnix,
             uptimeSeconds: $started === null ? 0.0 : max(0.0, $now - $started),

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Control\ControlOptions;
+use Infocyph\Runwire\Control\ControlServer;
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -35,6 +37,7 @@ final class Supervisor
 
     private bool $started = false;
     private readonly int $masterPid;
+    private readonly string $runtimeId;
     private ?int $startedAtNs = null;
     private ?float $startedAtUnix = null;
     private bool $running = false;
@@ -47,14 +50,28 @@ final class Supervisor
     private RestartTracker $restartTracker;
     private SignalBridge $signalBridge;
     private LifecycleEmitter $events;
+    private ?ControlOptions $controlOptions = null;
+    private ?ControlServer $controlServer = null;
 
     public function __construct(?LoopInterface $loop = null)
     {
         $this->loop = $loop ?? new SelectLoop();
         $this->masterPid = posix_getpid();
+        $this->runtimeId = bin2hex(random_bytes(16));
         $this->restartTracker = new RestartTracker();
         $this->signalBridge = new SignalBridge($this->loop);
         $this->events = new LifecycleEmitter();
+    }
+
+    public function control(ControlOptions $options): self
+    {
+        if ($this->started) {
+            throw new LogicException('Supervisor topology is frozen after run() starts.');
+        }
+
+        $this->controlOptions = $options;
+
+        return $this;
     }
 
     /** @param callable(SupervisorEvent): void $listener */
@@ -98,6 +115,10 @@ final class Supervisor
         $this->emit(new SupervisorEvent(SupervisorEventType::SUPERVISOR_STARTING, $this->now()));
 
         try {
+            if ($this->controlOptions !== null) {
+                $this->controlServer = new ControlServer($this->controlOptions);
+                $this->controlServer->open($this->loop, $this);
+            }
             $this->signalBridge->open($this->processSignals(...));
             $this->spawnInitialWorkers();
             $this->loop->run();
@@ -107,6 +128,8 @@ final class Supervisor
             $this->running = false;
             $this->forceCleanupChildren();
             $this->signalBridge->close();
+            $this->controlServer?->close();
+            $this->controlServer = null;
             $this->emit(new SupervisorEvent(SupervisorEventType::SUPERVISOR_STOPPED, $this->now()));
         }
 
@@ -203,6 +226,7 @@ final class Supervisor
     public function status(): SupervisorStatus
     {
         return SupervisorStatusBuilder::build(
+            runtimeId: $this->runtimeId,
             masterPid: $this->masterPid,
             startedAtNs: $this->startedAtNs,
             startedAtUnix: $this->startedAtUnix,
@@ -390,6 +414,7 @@ final class Supervisor
 
     private function normalizeChildProcess(): void
     {
+        $this->controlServer?->closeInheritedInChild();
         $this->signalBridge->normalizeChild();
         $this->closeInheritedReadyStreams();
     }
@@ -485,7 +510,9 @@ final class Supervisor
         );
     }
 
-    /** @param list<int> $signals */
+    /**
+     * @param list<int> $signals
+     */
     private function processSignals(array $signals): void
     {
         if (in_array(SIGCHLD, $signals, true)) {
@@ -494,6 +521,7 @@ final class Supervisor
 
         if (in_array(SIGTERM, $signals, true) || in_array(SIGINT, $signals, true)) {
             $this->stop();
+
             return;
         }
 
@@ -512,6 +540,7 @@ final class Supervisor
                 $this->handleChildExit($pid, $status);
                 continue;
             }
+
             if ($pid === 0) {
                 return;
             }
@@ -520,8 +549,10 @@ final class Supervisor
             if ($error === PCNTL_EINTR) {
                 continue;
             }
+
             if ($error === PCNTL_ECHILD) {
                 $this->reconcileNoChildren();
+
                 return;
             }
 
@@ -537,10 +568,12 @@ final class Supervisor
         }
 
         $this->closeReadyChannel($record);
+
         if ($record->killTimerId !== null) {
             $this->loop->cancel($record->killTimerId);
             $record->killTimerId = null;
         }
+
         if (!$record->expectedStop) {
             $record->state = WorkerState::FAILED;
         }
@@ -554,6 +587,7 @@ final class Supervisor
         );
 
         unset($this->children[$pid]);
+
         if (($this->currentSlots[$record->group->name][$record->slot] ?? null) === $pid) {
             unset($this->currentSlots[$record->group->name][$record->slot]);
         }
@@ -562,11 +596,13 @@ final class Supervisor
             if ($this->children === []) {
                 $this->loop->stop();
             }
+
             return;
         }
 
         if ($record->expectedStop || $this->hasReplacementFor($pid)) {
             $this->checkReloadCompletion();
+
             return;
         }
 
@@ -586,10 +622,12 @@ final class Supervisor
             if ($record->recycleReplacement && $currentPid !== null && isset($this->children[$currentPid])) {
                 return;
             }
+
             $this->fail(new SupervisorException(sprintf(
                 'Restart budget exhausted for worker group "%s".',
                 $record->group->name,
             )));
+
             return;
         }
 
@@ -646,7 +684,10 @@ final class Supervisor
             for ($slot = 0; $slot < $group->count; ++$slot) {
                 $pid = $this->currentSlots[$group->name][$slot] ?? null;
                 $record = $pid !== null ? ($this->children[$pid] ?? null) : null;
-                if ($record === null || $record->generation !== $this->generation || $record->state !== WorkerState::READY) {
+
+                if ($record === null
+                    || $record->generation !== $this->generation
+                    || $record->state !== WorkerState::READY) {
                     return;
                 }
             }
@@ -676,6 +717,7 @@ final class Supervisor
         foreach ($this->restartTimers as $timerId) {
             $this->loop->cancel($timerId);
         }
+
         $this->restartTimers = [];
     }
 
@@ -694,6 +736,7 @@ final class Supervisor
         $orphans = $this->children;
         $this->children = [];
         $this->currentSlots = [];
+
         foreach ($orphans as $record) {
             $this->closeReadyChannel($record);
             if ($record->killTimerId !== null) {
@@ -703,6 +746,7 @@ final class Supervisor
 
         if ($this->stopping) {
             $this->loop->stop();
+
             return;
         }
 
@@ -712,21 +756,25 @@ final class Supervisor
     private function forceCleanupChildren(): void
     {
         $this->cancelRestartTimers();
+
         foreach ($this->children as $record) {
             @posix_kill($record->pid, SIGKILL);
         }
+
         foreach (array_keys($this->children) as $pid) {
             do {
                 $status = 0;
                 $result = pcntl_waitpid($pid, $status);
             } while ($result === -1 && pcntl_get_last_error() === PCNTL_EINTR);
         }
+
         foreach ($this->children as $record) {
             $this->closeReadyChannel($record);
             if ($record->killTimerId !== null) {
                 $this->loop->cancel($record->killTimerId);
             }
         }
+
         $this->children = [];
         $this->currentSlots = [];
     }
