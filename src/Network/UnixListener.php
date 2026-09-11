@@ -46,7 +46,7 @@ final class UnixListener
         private readonly ConnectionLimits $connectionLimits,
     ) {
         $this->stream = $stream;
-        $inode = @fileinode($path);
+        $inode = fileinode($path);
         $this->socketInode = is_int($inode) ? $inode : null;
     }
 
@@ -67,10 +67,10 @@ final class UnixListener
             if (!$options->removeStaleSocket) {
                 throw new ListenerException(sprintf('Unix socket path already exists: %s', $path));
             }
-            if (@filetype($path) !== 'socket') {
+            if (filetype($path) !== 'socket') {
                 throw new ListenerException(sprintf('Refusing to remove non-socket Unix path: %s', $path));
             }
-            if (!@unlink($path)) {
+            if (!unlink($path)) {
                 throw new ListenerException(sprintf('Unable to remove existing Unix socket path: %s', $path));
             }
         }
@@ -83,7 +83,7 @@ final class UnixListener
         ]);
         $errno = 0;
         $error = '';
-        $stream = @stream_socket_server(
+        $stream = stream_socket_server(
             'unix://' . $path,
             $errno,
             $error,
@@ -98,10 +98,19 @@ final class UnixListener
                 $errno,
             ));
         }
-        @stream_set_blocking($stream, false);
-        if ($options->permissions !== null && !@chmod($path, $options->permissions)) {
-            @fclose($stream);
-            @unlink($path);
+        if (!stream_set_blocking($stream, false)) {
+            fclose($stream);
+            if (file_exists($path)) {
+                unlink($path);
+            }
+
+            throw new ListenerException(sprintf('Unable to make Unix listener "%s" non-blocking.', $path));
+        }
+        if ($options->permissions !== null && !chmod($path, $options->permissions)) {
+            fclose($stream);
+            if (file_exists($path)) {
+                unlink($path);
+            }
 
             throw new ListenerException(sprintf('Unable to set Unix socket permissions on "%s".', $path));
         }
@@ -154,7 +163,7 @@ final class UnixListener
         $this->closed = true;
         $this->syncAcceptWatcher();
         if (is_resource($this->stream)) {
-            @fclose($this->stream);
+            fclose($this->stream);
         }
         $this->stream = null;
         $this->connectionCallback = null;
@@ -238,11 +247,16 @@ final class UnixListener
                 break;
             }
             $peer = null;
-            $client = @stream_socket_accept($listener, 0, $peer);
+            $client = stream_socket_accept($listener, 0, $peer);
             if (!is_resource($client)) {
                 break;
             }
-            @stream_set_blocking($client, false);
+            if (!stream_set_blocking($client, false)) {
+                fclose($client);
+                ++$this->rejectedConnections;
+
+                continue;
+            }
             ++$this->acceptedConnections;
             $connection = new Connection(
                 $loop,
@@ -253,7 +267,7 @@ final class UnixListener
             );
             $id = spl_object_id($connection);
             $this->connections[$id] = $connection;
-            $connection->onClose(function (Connection $closed, CloseReason $reason) use ($id): void {
+            $connection->onClose(function (Connection $closed) use ($id): void {
                 $this->closedBytesRead += $closed->bytesRead();
                 $this->closedBytesWritten += $closed->bytesWritten();
                 unset($this->connections[$id]);
@@ -300,9 +314,9 @@ final class UnixListener
         if (!$this->options->unlinkOnClose || !file_exists($this->path)) {
             return;
         }
-        $inode = @fileinode($this->path);
+        $inode = fileinode($this->path);
         if ($this->socketInode !== null && $inode === $this->socketInode) {
-            @unlink($this->path);
+            unlink($this->path);
         }
     }
 }
