@@ -9,6 +9,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use InvalidArgumentException;
+use RuntimeException;
 use Throwable;
 
 final class Connection
@@ -81,7 +82,9 @@ final class Connection
             $limits->lifetimeTimeoutSeconds,
             fn(CloseReason $reason) => $this->finalize($reason),
         );
-        @stream_set_blocking($stream, false);
+        if (!stream_set_blocking($stream, false)) {
+            throw new RuntimeException('Unable to configure connection stream as non-blocking.');
+        }
         $this->syncReadWatcher();
     }
 
@@ -283,7 +286,7 @@ final class Connection
                 return new WriteResult(WriteState::CLOSED, 0);
             }
             $attempt = max(0, min($length, $this->limits->maxWriteBytesPerTick));
-            $written = @fwrite($stream, $data, $attempt);
+            $written = fwrite($stream, $data, $attempt);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
 
@@ -339,7 +342,7 @@ final class Connection
         $this->timeouts->cancel();
 
         if (is_resource($this->stream)) {
-            @fclose($this->stream);
+            fclose($this->stream);
         }
         $this->stream = null;
         $this->receiveBuffer->clear();
@@ -392,7 +395,7 @@ final class Connection
                 $this->limits->maxReadBytesPerTick - $readThisTick,
                 $capacity,
             ));
-            $chunk = @fread($stream, $length);
+            $chunk = fread($stream, $length);
             if ($chunk === false) {
                 $this->finalize(CloseReason::READ_ERROR);
 
@@ -449,7 +452,7 @@ final class Connection
                 break;
             }
 
-            $written = @fwrite($stream, $chunk);
+            $written = fwrite($stream, $chunk);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
 
