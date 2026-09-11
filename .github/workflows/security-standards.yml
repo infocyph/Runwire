@@ -17,6 +17,115 @@ jobs:
       contents: read
     with:
       php_versions: '["8.4","8.5"]'
+      # QUIC intentionally stays out of the normal PHPForge extension list.
+      # This lane proves Runwire remains installable and testable without
+      # native HTTP/3 capability. The dedicated http3-quic job below installs
+      # and validates the optional extension against OpenSSL 3.5+.
       php_extensions: "pcntl, posix, openssl, sockets, event"
       integration_services: '[]'
       service_topologies: '{}'
+
+  http3-quic:
+    name: "HTTP/3 + QUIC - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    container: "php:${{ matrix.php-version }}-cli"
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Checkout php-quic
+        uses: actions/checkout@v7
+        with:
+          repository: mikepultz/php-quic
+          ref: main
+          path: .ci/php-quic
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            autoconf \
+            build-essential \
+            ca-certificates \
+            git \
+            libssl-dev \
+            pkg-config \
+            unzip
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Verify OpenSSL QUIC baseline
+        shell: bash
+        run: |
+          php -r 'echo OPENSSL_VERSION_TEXT, PHP_EOL;'
+          pkg-config --modversion libssl
+          pkg-config --atleast-version=3.5.0 libssl || {
+            echo "::error::Runwire native HTTP/3 requires OpenSSL 3.5+ for the current php-quic server adapter."
+            exit 1
+          }
+
+      - name: Build and enable QUIC extension
+        shell: bash
+        working-directory: .ci/php-quic
+        run: |
+          phpize
+          ./configure --with-quic
+          make -j"$(nproc)"
+          make install
+          docker-php-ext-enable quic
+
+      - name: Verify QUIC API
+        shell: bash
+        run: |
+          php --ri quic
+          php -r '
+          $valid = extension_loaded("quic")
+              && class_exists("Quic\\Listener")
+              && class_exists("Quic\\Connection")
+              && class_exists("Quic\\Stream")
+              && function_exists("Quic\\poll");
+          if (!$valid) {
+              fwrite(STDERR, "Required php-quic API is unavailable.\n");
+              exit(1);
+          }
+          '
+
+      - name: Install Composer
+        shell: bash
+        run: |
+          php -r 'copy("https://getcomposer.org/installer", "/tmp/composer-setup.php");'
+          php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+          rm -f /tmp/composer-setup.php
+          composer --version
+
+      - name: Install Runwire dependencies
+        shell: bash
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Verify Runwire QUIC capability detection
+        shell: bash
+        run: |
+          php -r '
+          require "vendor/autoload.php";
+          $environment = (new Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe())->probe();
+          if (!$environment->supportsQuic) {
+              fwrite(STDERR, "Runwire did not detect the installed QUIC capability.\n");
+              exit(1);
+          }
+          '
+
+      - name: Run focused HTTP/3 protocol tests
+        shell: bash
+        run: |
+          vendor/bin/pest \
+            tests/Http3FrameTest.php \
+            tests/QpackTest.php \
+            tests/RuntimeCapabilitiesTest.php \
+            tests/RuntimeEnvironmentProbeTest.php
