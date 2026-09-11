@@ -93,9 +93,67 @@ final class PhpQuicHttp3Connection
         return $this->connection;
     }
 
+    /** @param array<int, int> $ready */
+    public function handleReady(array $ready, PhpQuicEventMasks $events): void
+    {
+        if ($this->closed) {
+            return;
+        }
+
+        try {
+            if ($this->connectionErrored($ready, $events)) {
+                $this->closeObservedConnection();
+
+                return;
+            }
+            if ($this->objectReady($ready, $this->connection->object(), $events->acceptStream)) {
+                $this->acceptAvailableStreams();
+            }
+            $this->assertCriticalStreamsOpen($ready, $events);
+            $this->drainReadyStreams($ready, $events);
+            $this->queueDecoderInstructions();
+            $this->flush();
+            $this->cleanupFinishedRequests();
+        } catch (Http3Exception $exception) {
+            $this->abort($exception);
+            throw $exception;
+        }
+    }
+
     public function peerStream(int $streamId): ?PhpQuicStream
     {
         return $this->peerStreams[$streamId] ?? null;
+    }
+
+    /** @return array<int, array{0: object, 1: int}> */
+    public function pollItems(PhpQuicEventMasks $events): array
+    {
+        if ($this->closed) {
+            return [];
+        }
+
+        $items = [];
+        $this->putPollItem($items, $this->connection->object(), $events->acceptStream | $events->error);
+        $this->putPollItem($items, $this->controlStream->object(), $this->criticalEvents($this->controlPending !== '', $events));
+        $this->putPollItem($items, $this->qpackDecoderStream->object(), $this->criticalEvents($this->qpackDecoderPending !== '', $events));
+        $this->putPollItem(
+            $items,
+            $this->transport->qpackEncoderObject(),
+            $this->criticalEvents($this->transport->qpackEncoderPreamblePending() || $this->scheduler->qpackPending(), $events),
+        );
+
+        foreach ($this->peerStreams as $streamId => $stream) {
+            $mask = $events->error;
+            if (!isset($this->requestStreams[$streamId]) || !$this->requestPressured($streamId)) {
+                $mask |= $events->read;
+            }
+            if (isset($this->requestStreams[$streamId]) && $this->scheduler->responsePending($streamId)) {
+                $mask |= $events->write;
+            }
+            $this->putPollItem($items, $stream->object(), $mask);
+        }
+
+        return $items;
     }
 
     public function pump(): void
@@ -124,15 +182,7 @@ final class PhpQuicHttp3Connection
         }
 
         $this->connection->close($exception->errorCode->value, substr($exception->getMessage(), 0, 256), true);
-        $this->closed = true;
-        foreach (array_keys($this->requestStreams) as $streamId) {
-            $this->session->cancelRequestStream($streamId);
-            $this->scheduler->discardStream($streamId);
-            $this->transport->releaseRequestStream($streamId);
-        }
-        $this->peerStreams = [];
-        $this->requestStreams = [];
-        $this->peerFinishedRequests = [];
+        $this->closeObservedConnection();
     }
 
     private function acceptAvailableStreams(): void
@@ -144,6 +194,20 @@ final class PhpQuicHttp3Connection
             }
 
             $this->registerPeerStream($stream);
+        }
+    }
+
+    /** @param array<int, int> $ready */
+    private function assertCriticalStreamsOpen(array $ready, PhpQuicEventMasks $events): void
+    {
+        foreach ([
+            $this->controlStream->object(),
+            $this->qpackDecoderStream->object(),
+            $this->transport->qpackEncoderObject(),
+        ] as $stream) {
+            if ($this->objectReady($ready, $stream, $events->error)) {
+                throw new Http3Exception(ErrorCode::CLOSED_CRITICAL_STREAM, 'A local HTTP/3 critical stream was closed.');
+            }
         }
     }
 
@@ -170,11 +234,68 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    private function closeObservedConnection(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+
+        $this->closed = true;
+        foreach (array_keys($this->requestStreams) as $streamId) {
+            $this->session->cancelRequestStream($streamId);
+            $this->scheduler->discardStream($streamId);
+            $this->transport->releaseRequestStream($streamId);
+        }
+        $this->peerStreams = [];
+        $this->requestStreams = [];
+        $this->peerFinishedRequests = [];
+    }
+
+    /** @param array<int, int> $ready */
+    private function connectionErrored(array $ready, PhpQuicEventMasks $events): bool
+    {
+        return $this->objectReady($ready, $this->connection->object(), $events->error);
+    }
+
+    private function criticalEvents(bool $writePending, PhpQuicEventMasks $events): int
+    {
+        return $events->error | ($writePending ? $events->write : 0);
+    }
+
     private function drainReadableStreams(): void
     {
         $reads = 0;
         $bytes = 0;
         foreach (array_keys($this->peerStreams) as $streamId) {
+            if ($reads >= $this->limits->maxReadsPerPump || $bytes >= $this->limits->maxInboundBytesPerPump) {
+                return;
+            }
+
+            [$streamReads, $streamBytes] = $this->drainStream(
+                $streamId,
+                $this->limits->maxReadsPerPump - $reads,
+                $this->limits->maxInboundBytesPerPump - $bytes,
+            );
+            $reads += $streamReads;
+            $bytes += $streamBytes;
+        }
+    }
+
+    /** @param array<int, int> $ready */
+    private function drainReadyStreams(array $ready, PhpQuicEventMasks $events): void
+    {
+        $reads = 0;
+        $bytes = 0;
+        foreach ($this->peerStreams as $streamId => $stream) {
+            $mask = $ready[spl_object_id($stream->object())] ?? 0;
+            if (($mask & ($events->read | $events->error)) === 0) {
+                continue;
+            }
+            if (isset($this->requestStreams[$streamId]) && $stream->resetCode() !== null) {
+                $this->cancelRequestStream($streamId);
+
+                continue;
+            }
             if ($reads >= $this->limits->maxReadsPerPump || $bytes >= $this->limits->maxInboundBytesPerPump) {
                 return;
             }
@@ -267,6 +388,12 @@ final class PhpQuicHttp3Connection
         return substr($pending, $written);
     }
 
+    /** @param array<int, int> $ready */
+    private function objectReady(array $ready, object $object, int $event): bool
+    {
+        return (($ready[spl_object_id($object)] ?? 0) & $event) !== 0;
+    }
+
     private function openCriticalStream(string $name): PhpQuicStream
     {
         $stream = $this->connection->openStream(false);
@@ -278,6 +405,12 @@ final class PhpQuicHttp3Connection
         }
 
         return $stream;
+    }
+
+    /** @param array<int, array{0: object, 1: int}> $items */
+    private function putPollItem(array &$items, object $object, int $events): void
+    {
+        $items[spl_object_id($object)] = [$object, $events];
     }
 
     private function queueDecoderInstructions(): void

@@ -6,9 +6,11 @@ use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameWriter;
+use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicConnection;
+use Infocyph\Runwire\Http\Http3\Quic\PhpQuicEventMasks;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Connection;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -173,6 +175,50 @@ it('pumps a client request through the shared HTTP contract and flushes the HTTP
         ->and($decoderRaw->written)->not->toBe('');
 });
 
+it('builds an injectable QUIC poll set and handles only ready request streams', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $encoder = new Encoder(0, 0);
+    $requestRaw = fakeHttp3ConnectionStream(0, true, [
+        FrameWriter::encode(new Frame(FrameType::HEADERS->value, $encoder->encode([
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.com'],
+            [':path', '/ready'],
+        ], 0)->block)),
+        null,
+    ]);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$requestRaw],
+    );
+    $requests = [];
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$requests): void {
+            $requests[] = $request;
+            $writer->end('ready');
+        },
+    );
+
+    $initial = $connection->pollItems($events);
+    expect($initial[spl_object_id($connectionRaw)][1] & $events->acceptStream)->not->toBe(0);
+
+    $connection->handleReady([spl_object_id($connectionRaw) => $events->acceptStream], $events);
+    $withRequest = $connection->pollItems($events);
+    expect($withRequest[spl_object_id($requestRaw)][1] & $events->read)->not->toBe(0);
+
+    $connection->handleReady([spl_object_id($requestRaw) => $events->read], $events);
+
+    expect($requests)->toHaveCount(1)
+        ->and($requests[0]->target)->toBe('/ready')
+        ->and($requestRaw->ended)->toBeTrue()
+        ->and($connection->activeRequestStreams())->toBe(0);
+});
+
 it('cancels request state when the peer resets a QUIC request stream', function (): void {
     $requestRaw = fakeHttp3ConnectionStream(0, true, [null]);
     $requestRaw->peerResetCode = 0x10c;
@@ -195,6 +241,24 @@ it('cancels request state when the peer resets a QUIC request stream', function 
         ->and($connection->closed())->toBeFalse();
 });
 
+it('treats connection poll errors as transport closure without sending a second close', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [],
+    );
+    $connection = new PhpQuicHttp3Connection(new PhpQuicConnection($connectionRaw), static function (): void {});
+
+    $connection->handleReady([spl_object_id($connectionRaw) => $events->error], $events);
+
+    expect($connection->closed())->toBeTrue()
+        ->and($connectionRaw->closed)->toBe([]);
+});
+
 it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', function (): void {
     $invalidPeer = fakeHttp3ConnectionStream(1, true);
     $connectionRaw = fakeHttp3ConnectionRaw(
@@ -210,7 +274,7 @@ it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', 
         static function (): void {},
     );
 
-    expect(fn() => $connection->pump())->toThrow(\Infocyph\Runwire\Http\Http3\Http3Exception::class)
+    expect(fn() => $connection->pump())->toThrow(Http3Exception::class)
         ->and($connection->closed())->toBeTrue()
         ->and($connectionRaw->closed)->toHaveCount(1);
 });

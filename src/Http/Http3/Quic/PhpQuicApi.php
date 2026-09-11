@@ -27,14 +27,24 @@ final class PhpQuicApi
         'POLL_ERROR',
     ];
 
+    public static function acceptConnectionEvent(): int
+    {
+        return self::event('POLL_ACCEPT_CONNECTION');
+    }
+
     public static function acceptConnectionEvents(): int
     {
-        return self::event('POLL_ACCEPT_CONNECTION') | self::event('POLL_ERROR');
+        return self::acceptConnectionEvent() | self::errorEvent();
+    }
+
+    public static function acceptStreamEvent(): int
+    {
+        return self::event('POLL_ACCEPT_STREAM');
     }
 
     public static function acceptStreamEvents(): int
     {
-        return self::event('POLL_ACCEPT_STREAM') | self::event('POLL_ERROR');
+        return self::acceptStreamEvent() | self::errorEvent();
     }
 
     public static function assertAvailable(): void
@@ -92,14 +102,24 @@ final class PhpQuicApi
         return $events;
     }
 
+    public static function readEvent(): int
+    {
+        return self::event('POLL_READ');
+    }
+
     public static function readEvents(): int
     {
-        return self::event('POLL_READ') | self::event('POLL_ERROR');
+        return self::readEvent() | self::errorEvent();
+    }
+
+    public static function writeEvent(): int
+    {
+        return self::event('POLL_WRITE');
     }
 
     public static function writeEvents(): int
     {
-        return self::event('POLL_WRITE') | self::event('POLL_ERROR');
+        return self::writeEvent() | self::errorEvent();
     }
 
     private static function className(string $name): string
