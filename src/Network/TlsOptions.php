@@ -40,11 +40,6 @@ final readonly class TlsOptions
         }
     }
 
-    public function method(): int
-    {
-        return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);
-    }
-
     /** @return array<string, mixed> */
     public function context(): array
     {
@@ -59,5 +54,10 @@ final readonly class TlsOptions
             'disable_compression' => true,
             ...($this->alpnProtocols === [] ? [] : ['alpn_protocols' => implode(',', $this->alpnProtocols)]),
         ];
+    }
+
+    public function method(): int
+    {
+        return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);
     }
 }

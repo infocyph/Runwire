@@ -17,11 +17,11 @@ use LogicException;
 
 final readonly class StreamServer
 {
-    /** @var Closure(string, FramedConnection): void */
-    private Closure $handler;
-
     /** @var Closure(): FrameCodecInterface */
     private Closure $codecFactory;
+
+    /** @var Closure(string, FramedConnection): void */
+    private Closure $handler;
 
     /** @var Closure(WorkerContext): callable|null */
     private ?Closure $workerHandlerFactory;
@@ -87,28 +87,25 @@ final readonly class StreamServer
         return new self($name, StreamTransport::UNIX, $path, $codecFactory, $handler, unix: new UnixListenerOptions());
     }
 
-    public function withWorkers(int $workers): self
+    public function codec(): FrameCodecInterface
     {
-        return new self(
-            $this->name,
-            $this->transport,
-            $this->address,
-            $this->codecFactory,
-            $this->handler,
-            $workers,
-            $this->workerConnectionLimit,
-            $this->listener,
-            $this->connection,
-            $this->tls,
-            $this->unix,
-            $this->maxFramesPerTick,
-            $this->workerReadyTimeoutSeconds,
-            $this->workerShutdownTimeoutSeconds,
-            $this->workerHandlerFactory,
-        );
+        return ($this->codecFactory)();
     }
 
-    public function withWorkerConnectionLimit(int $limit): self
+    /** @return Closure(string, FramedConnection): void */
+    public function handlerFor(WorkerContext $context): Closure
+    {
+        if ($this->workerHandlerFactory === null) {
+            return $this->handler;
+        }
+        $handler = ($this->workerHandlerFactory)($context);
+        /** @var Closure(string, FramedConnection): void $closure */
+        $closure = Closure::fromCallable($handler);
+
+        return $closure;
+    }
+
+    public function withMaxFramesPerTick(int $maxFramesPerTick): self
     {
         return new self(
             $this->name,
@@ -117,12 +114,12 @@ final readonly class StreamServer
             $this->codecFactory,
             $this->handler,
             $this->workers,
-            $limit,
+            $this->workerConnectionLimit,
             $this->listener,
             $this->connection,
             $this->tls,
             $this->unix,
-            $this->maxFramesPerTick,
+            $maxFramesPerTick,
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
@@ -171,7 +168,7 @@ final readonly class StreamServer
         );
     }
 
-    public function withMaxFramesPerTick(int $maxFramesPerTick): self
+    public function withWorkerConnectionLimit(int $limit): self
     {
         return new self(
             $this->name,
@@ -180,12 +177,12 @@ final readonly class StreamServer
             $this->codecFactory,
             $this->handler,
             $this->workers,
-            $this->workerConnectionLimit,
+            $limit,
             $this->listener,
             $this->connection,
             $this->tls,
             $this->unix,
-            $maxFramesPerTick,
+            $this->maxFramesPerTick,
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
@@ -214,21 +211,25 @@ final readonly class StreamServer
         );
     }
 
-    public function codec(): FrameCodecInterface
+    public function withWorkers(int $workers): self
     {
-        return ($this->codecFactory)();
-    }
-
-    /** @return Closure(string, FramedConnection): void */
-    public function handlerFor(WorkerContext $context): Closure
-    {
-        if ($this->workerHandlerFactory === null) {
-            return $this->handler;
-        }
-        $handler = ($this->workerHandlerFactory)($context);
-        /** @var Closure(string, FramedConnection): void $closure */
-        $closure = Closure::fromCallable($handler);
-        return $closure;
+        return new self(
+            $this->name,
+            $this->transport,
+            $this->address,
+            $this->codecFactory,
+            $this->handler,
+            $workers,
+            $this->workerConnectionLimit,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $this->unix,
+            $this->maxFramesPerTick,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
     }
 
     private static function validateCore(
@@ -253,6 +254,13 @@ final readonly class StreamServer
         }
     }
 
+    private static function validateName(string $name): void
+    {
+        if ($name === '' || strlen($name) > 96 || preg_match('/^[A-Za-z0-9._-]+$/D', $name) !== 1) {
+            throw new InvalidArgumentException('Server name must be 1-96 safe identifier characters.');
+        }
+    }
+
     private static function validateTimeouts(float $ready, float $shutdown): void
     {
         foreach ([$ready, $shutdown] as $seconds) {
@@ -272,13 +280,6 @@ final readonly class StreamServer
         }
         if ($transport === StreamTransport::TCP && $unix !== null) {
             throw new LogicException('Unix listener options are only valid for Unix stream servers.');
-        }
-    }
-
-    private static function validateName(string $name): void
-    {
-        if ($name === '' || strlen($name) > 96 || preg_match('/^[A-Za-z0-9._-]+$/D', $name) !== 1) {
-            throw new InvalidArgumentException('Server name must be 1-96 safe identifier characters.');
         }
     }
 }

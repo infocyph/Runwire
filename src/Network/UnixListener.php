@@ -12,22 +12,31 @@ use Throwable;
 
 final class UnixListener
 {
-    private ?LoopInterface $loop = null;
-    private ?Closure $connectionCallback = null;
-    private ?int $acceptWatcher = null;
-    private bool $acceptPaused = false;
-    private bool $closed = false;
-    private int $acceptedConnections = 0;
-    private int $rejectedConnections = 0;
-    private int $closedBytesRead = 0;
-    private int $closedBytesWritten = 0;
-    private ?int $socketInode = null;
+    private readonly ?int $socketInode;
 
-    /** @var resource|null */
-    private mixed $stream;
+    private int $acceptedConnections = 0;
+
+    private bool $acceptPaused = false;
+
+    private ?int $acceptWatcher = null;
+
+    private bool $closed = false;
+
+    private int $closedBytesRead = 0;
+
+    private int $closedBytesWritten = 0;
+
+    private ?Closure $connectionCallback = null;
 
     /** @var array<int, Connection> */
     private array $connections = [];
+
+    private ?LoopInterface $loop = null;
+
+    private int $rejectedConnections = 0;
+
+    /** @var resource|null */
+    private mixed $stream;
 
     /** @param resource $stream */
     private function __construct(
@@ -93,20 +102,18 @@ final class UnixListener
         if ($options->permissions !== null && !@chmod($path, $options->permissions)) {
             @fclose($stream);
             @unlink($path);
+
             throw new ListenerException(sprintf('Unable to set Unix socket permissions on "%s".', $path));
         }
 
         return new self($stream, $path, $options, $connectionLimits);
     }
 
-    public function path(): string
+    public function abortConnections(): void
     {
-        return $this->path;
-    }
-
-    public function activeConnections(): int
-    {
-        return count($this->connections);
+        foreach ($this->connections as $connection) {
+            $connection->abort();
+        }
     }
 
     public function acceptedConnections(): int
@@ -114,9 +121,9 @@ final class UnixListener
         return $this->acceptedConnections;
     }
 
-    public function rejectedConnections(): int
+    public function activeConnections(): int
     {
-        return $this->rejectedConnections;
+        return count($this->connections);
     }
 
     public function bytesRead(): int
@@ -125,6 +132,7 @@ final class UnixListener
         foreach ($this->connections as $connection) {
             $total += $connection->bytesRead();
         }
+
         return $total;
     }
 
@@ -134,51 +142,8 @@ final class UnixListener
         foreach ($this->connections as $connection) {
             $total += $connection->bytesWritten();
         }
+
         return $total;
-    }
-
-    public function maxConnections(): int
-    {
-        return $this->options->listener->maxConnections;
-    }
-
-    public function isAccepting(): bool
-    {
-        return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
-    }
-
-    public function isClosed(): bool
-    {
-        return $this->closed;
-    }
-
-    /** @param callable(Connection): void $onConnection */
-    public function start(LoopInterface $loop, callable $onConnection): void
-    {
-        if ($this->closed) {
-            throw new LogicException('Closed Unix listener cannot be started.');
-        }
-        if ($this->loop !== null) {
-            throw new LogicException('Unix listener is already attached to an event loop.');
-        }
-        $this->loop = $loop;
-        $this->connectionCallback = Closure::fromCallable($onConnection);
-        $this->syncAcceptWatcher();
-    }
-
-    public function pauseAccepting(): void
-    {
-        $this->acceptPaused = true;
-        $this->syncAcceptWatcher();
-    }
-
-    public function resumeAccepting(): void
-    {
-        if ($this->closed) {
-            return;
-        }
-        $this->acceptPaused = false;
-        $this->syncAcceptWatcher();
     }
 
     public function close(bool $unlinkPath = true): void
@@ -206,11 +171,58 @@ final class UnixListener
         }
     }
 
-    public function abortConnections(): void
+    public function isAccepting(): bool
     {
-        foreach ($this->connections as $connection) {
-            $connection->abort();
+        return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->closed;
+    }
+
+    public function maxConnections(): int
+    {
+        return $this->options->listener->maxConnections;
+    }
+
+    public function path(): string
+    {
+        return $this->path;
+    }
+
+    public function pauseAccepting(): void
+    {
+        $this->acceptPaused = true;
+        $this->syncAcceptWatcher();
+    }
+
+    public function rejectedConnections(): int
+    {
+        return $this->rejectedConnections;
+    }
+
+    public function resumeAccepting(): void
+    {
+        if ($this->closed) {
+            return;
         }
+        $this->acceptPaused = false;
+        $this->syncAcceptWatcher();
+    }
+
+    /** @param callable(Connection): void $onConnection */
+    public function start(LoopInterface $loop, callable $onConnection): void
+    {
+        if ($this->closed) {
+            throw new LogicException('Closed Unix listener cannot be started.');
+        }
+        if ($this->loop !== null) {
+            throw new LogicException('Unix listener is already attached to an event loop.');
+        }
+        $this->loop = $loop;
+        $this->connectionCallback = Closure::fromCallable($onConnection);
+        $this->syncAcceptWatcher();
     }
 
     private function handleAccept(): void
@@ -256,6 +268,7 @@ final class UnixListener
                 } catch (Throwable) {
                     // Preserve the originating connection callback failure.
                 }
+
                 throw $failure;
             }
         }
@@ -272,7 +285,8 @@ final class UnixListener
             && is_resource($stream)
             && count($this->connections) < $this->options->listener->maxConnections;
         if ($shouldWatch && $this->acceptWatcher === null) {
-            $this->acceptWatcher = $loop->onReadable($stream, fn () => $this->handleAccept());
+            $this->acceptWatcher = $loop->onReadable($stream, fn() => $this->handleAccept());
+
             return;
         }
         if (!$shouldWatch && $this->acceptWatcher !== null && $loop !== null) {

@@ -57,7 +57,7 @@ final class SupervisorStatusBuilder
 
         usort(
             $workers,
-            static fn (WorkerStatus $left, WorkerStatus $right): int => [
+            static fn(WorkerStatus $left, WorkerStatus $right): int => [
                 $left->group,
                 $left->slot,
                 $left->generation,

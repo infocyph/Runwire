@@ -9,6 +9,7 @@ use InvalidArgumentException;
 final readonly class HeaderField
 {
     public string $name;
+
     public string $value;
 
     public function __construct(string $name, string $value)

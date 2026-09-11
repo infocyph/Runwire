@@ -6,6 +6,4 @@ namespace Infocyph\Runwire\Exception;
 
 use RuntimeException;
 
-final class SupervisorException extends RuntimeException
-{
-}
+final class SupervisorException extends RuntimeException {}

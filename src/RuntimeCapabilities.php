@@ -27,8 +27,7 @@ final readonly class RuntimeCapabilities
         public bool $supportsWebsocket = false,
         public bool $supportsOpcache = false,
         public bool $supportsOpcacheCli = false,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, bool|string>

@@ -9,14 +9,25 @@ use Infocyph\Runwire\Process\IoMode;
 
 final class OutputSink
 {
-    private string $capture = '';
     private int $bytes = 0;
+
+    private string $capture = '';
+
     private bool $truncated = false;
 
     public function __construct(
         private readonly IoMode $mode,
         private readonly ?Closure $consumer,
-    ) {
+    ) {}
+
+    public function bytes(): int
+    {
+        return $this->bytes;
+    }
+
+    public function capture(): string
+    {
+        return $this->capture;
     }
 
     public function consume(string $chunk, int $acceptedBytes): void
@@ -36,22 +47,13 @@ final class OutputSink
 
         if ($this->mode === IoMode::CAPTURE) {
             $this->capture .= $accepted;
+
             return;
         }
 
         if ($this->mode === IoMode::STREAM && $this->consumer !== null) {
             ($this->consumer)($accepted);
         }
-    }
-
-    public function capture(): string
-    {
-        return $this->capture;
-    }
-
-    public function bytes(): int
-    {
-        return $this->bytes;
     }
 
     public function truncated(): bool

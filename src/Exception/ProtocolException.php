@@ -6,6 +6,4 @@ namespace Infocyph\Runwire\Exception;
 
 use RuntimeException;
 
-class ProtocolException extends RuntimeException
-{
-}
+class ProtocolException extends RuntimeException {}

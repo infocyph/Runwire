@@ -20,6 +20,5 @@ final readonly class SupervisorEvent
         public ?bool $expected = null,
         public ?float $restartDelaySeconds = null,
         public ?int $replacesPid = null,
-    ) {
-    }
+    ) {}
 }

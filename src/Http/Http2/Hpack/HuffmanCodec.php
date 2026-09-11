@@ -17,6 +17,30 @@ final class HuffmanCodec
         }
     }
 
+    public function decode(string $encoded, int $maxOutputBytes): string
+    {
+        if ($maxOutputBytes < 0) {
+            throw new \InvalidArgumentException('HPACK Huffman output limit cannot be negative.');
+        }
+
+        $buffer = 0;
+        $bits = 0;
+        $output = '';
+        $length = strlen($encoded);
+
+        for ($index = 0; $index < $length; ++$index) {
+            $buffer = ($buffer << 8) | ord($encoded[$index]);
+            $bits += 8;
+            $this->consume($buffer, $bits, $output, $maxOutputBytes);
+        }
+
+        if ($bits > 7 || ($bits > 0 && $buffer !== (1 << $bits) - 1)) {
+            throw new HpackException('Invalid HPACK Huffman padding.');
+        }
+
+        return $output;
+    }
+
     public function encode(string $value): string
     {
         $buffer = 0;
@@ -46,30 +70,6 @@ final class HuffmanCodec
         return $output;
     }
 
-    public function decode(string $encoded, int $maxOutputBytes): string
-    {
-        if ($maxOutputBytes < 0) {
-            throw new \InvalidArgumentException('HPACK Huffman output limit cannot be negative.');
-        }
-
-        $buffer = 0;
-        $bits = 0;
-        $output = '';
-        $length = strlen($encoded);
-
-        for ($index = 0; $index < $length; ++$index) {
-            $buffer = ($buffer << 8) | ord($encoded[$index]);
-            $bits += 8;
-            $this->consume($buffer, $bits, $output, $maxOutputBytes);
-        }
-
-        if ($bits > 7 || ($bits > 0 && $buffer !== (1 << $bits) - 1)) {
-            throw new HpackException('Invalid HPACK Huffman padding.');
-        }
-
-        return $output;
-    }
-
     private function consume(int &$buffer, int &$bits, string &$output, int $maxOutputBytes): void
     {
         while ($bits >= 5) {
@@ -94,6 +94,7 @@ final class HuffmanCodec
                 $bits -= $length;
                 $buffer &= $bits === 0 ? 0 : ((1 << $bits) - 1);
                 $matched = true;
+
                 break;
             }
             if ($matched) {
@@ -102,6 +103,7 @@ final class HuffmanCodec
             if ($bits >= 30) {
                 throw new HpackException('Invalid HPACK Huffman code.');
             }
+
             return;
         }
     }

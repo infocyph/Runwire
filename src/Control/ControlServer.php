@@ -24,16 +24,25 @@ final class ControlServer
     public const int PROTOCOL_VERSION = 1;
 
     private ?UnixListener $listener = null;
+
     private ?LoopInterface $loop = null;
+
     private ?Supervisor $supervisor = null;
 
-    public function __construct(private readonly ControlOptions $options)
+    public function __construct(private readonly ControlOptions $options) {}
+
+    public function close(bool $unlinkPath = true): void
     {
+        $this->listener?->abortConnections();
+        $this->listener?->close($unlinkPath);
+        $this->listener = null;
+        $this->loop = null;
+        $this->supervisor = null;
     }
 
-    public function path(): string
+    public function closeInheritedInChild(): void
     {
-        return $this->options->path;
+        $this->close(false);
     }
 
     public function open(LoopInterface $loop, Supervisor $supervisor): void
@@ -88,18 +97,26 @@ final class ControlServer
         });
     }
 
-    public function close(bool $unlinkPath = true): void
+    public function path(): string
     {
-        $this->listener?->abortConnections();
-        $this->listener?->close($unlinkPath);
-        $this->listener = null;
-        $this->loop = null;
-        $this->supervisor = null;
+        return $this->options->path;
     }
 
-    public function closeInheritedInChild(): void
+    /** @return array<string, mixed> */
+    private static function workerArray(WorkerStatus $worker): array
     {
-        $this->close(false);
+        return [
+            'group' => $worker->group,
+            'slot' => $worker->slot,
+            'pid' => $worker->pid,
+            'generation' => $worker->generation,
+            'state' => $worker->state->value,
+            'restart_count' => $worker->restartCount,
+            'started_at_monotonic' => $worker->startedAtMonotonic,
+            'age_seconds' => $worker->ageSeconds,
+            'current' => $worker->current,
+            'replaces_pid' => $worker->replacesPid,
+        ];
     }
 
     private function handle(string $frame, FramedConnection $session): void
@@ -108,24 +125,29 @@ final class ControlServer
             $request = json_decode($frame, true, 16, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             $this->respondError($session, 'invalid_json', 'Control request must be valid JSON.');
+
             return;
         }
         if (!is_array($request) || array_is_list($request)) {
             $this->respondError($session, 'invalid_request', 'Control request must be a JSON object.');
+
             return;
         }
         /** @var array<string, mixed> $request */
         if (($request['version'] ?? null) !== self::PROTOCOL_VERSION) {
             $this->respondError($session, 'unsupported_version', 'Unsupported control protocol version.');
+
             return;
         }
         $action = $request['action'] ?? null;
         if (!is_string($action)) {
             $this->respondError($session, 'invalid_request', 'Control action must be a string.');
+
             return;
         }
         if ($action !== 'status' && !$this->matchesRuntime($request['runtime_id'] ?? null)) {
             $this->respondError($session, 'runtime_mismatch', 'Control request runtime identity does not match.');
+
             return;
         }
 
@@ -138,13 +160,11 @@ final class ControlServer
         };
     }
 
-    private function reload(FramedConnection $session): void
+    private function matchesRuntime(mixed $runtimeId): bool
     {
-        $this->supervisor?->reload();
-        $this->respond($session, [
-            'accepted' => true,
-            'generation' => $this->supervisor?->status()->generation,
-        ]);
+        $expected = $this->supervisor?->status()->runtimeId;
+
+        return is_string($runtimeId) && is_string($expected) && hash_equals($expected, $runtimeId);
     }
 
     /** @param array<string, mixed> $request */
@@ -154,6 +174,7 @@ final class ControlServer
         $slot = $request['slot'] ?? null;
         if (!is_string($group) || !is_int($slot)) {
             $this->respondError($session, 'invalid_request', 'Recycle requires string group and integer slot.');
+
             return;
         }
 
@@ -161,25 +182,19 @@ final class ControlServer
             $accepted = $this->supervisor?->recycle($group, $slot) ?? false;
         } catch (LogicException $error) {
             $this->respondError($session, 'invalid_target', $error->getMessage());
+
             return;
         }
         $this->respond($session, ['accepted' => $accepted]);
     }
 
-    /** @param array<string, mixed> $request */
-    private function stop(array $request, FramedConnection $session): void
+    private function reload(FramedConnection $session): void
     {
-        $force = $request['force'] ?? false;
-        if (!is_bool($force)) {
-            $this->respondError($session, 'invalid_request', 'Stop force flag must be boolean.');
-            return;
-        }
-
-        $this->respond($session, ['accepted' => true, 'force' => $force]);
-        $session->closeGracefully();
-        $this->loop?->defer(function () use ($force): void {
-            $this->supervisor?->stop($force);
-        });
+        $this->supervisor?->reload();
+        $this->respond($session, [
+            'accepted' => true,
+            'generation' => $this->supervisor?->status()->generation,
+        ]);
     }
 
     /** @param array<string, mixed> $data */
@@ -201,34 +216,6 @@ final class ControlServer
             'runtime_id' => $this->supervisor?->status()->runtimeId,
             'error' => ['code' => $code, 'message' => $message],
         ]);
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function write(FramedConnection $session, array $payload): void
-    {
-        try {
-            $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-        } catch (JsonException) {
-            $session->abort();
-            return;
-        }
-        if (strlen($json) > $this->options->maxResponseBytes) {
-            $json = sprintf(
-                '{"version":%d,"ok":false,"error":{"code":"response_too_large","message":"Control response exceeded configured limit."}}',
-                self::PROTOCOL_VERSION,
-            );
-        }
-
-        $result = $session->transport()->write($json . "\n");
-        if ($result->state === WriteState::REJECTED_LIMIT || $result->state === WriteState::CLOSED) {
-            $session->abort();
-        }
-    }
-
-    private function matchesRuntime(mixed $runtimeId): bool
-    {
-        $expected = $this->supervisor?->status()->runtimeId;
-        return is_string($runtimeId) && is_string($expected) && hash_equals($expected, $runtimeId);
     }
 
     /** @return array<string, mixed> */
@@ -258,20 +245,43 @@ final class ControlServer
         ];
     }
 
-    /** @return array<string, mixed> */
-    private static function workerArray(WorkerStatus $worker): array
+    /** @param array<string, mixed> $request */
+    private function stop(array $request, FramedConnection $session): void
     {
-        return [
-            'group' => $worker->group,
-            'slot' => $worker->slot,
-            'pid' => $worker->pid,
-            'generation' => $worker->generation,
-            'state' => $worker->state->value,
-            'restart_count' => $worker->restartCount,
-            'started_at_monotonic' => $worker->startedAtMonotonic,
-            'age_seconds' => $worker->ageSeconds,
-            'current' => $worker->current,
-            'replaces_pid' => $worker->replacesPid,
-        ];
+        $force = $request['force'] ?? false;
+        if (!is_bool($force)) {
+            $this->respondError($session, 'invalid_request', 'Stop force flag must be boolean.');
+
+            return;
+        }
+
+        $this->respond($session, ['accepted' => true, 'force' => $force]);
+        $session->closeGracefully();
+        $this->loop?->defer(function () use ($force): void {
+            $this->supervisor?->stop($force);
+        });
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function write(FramedConnection $session, array $payload): void
+    {
+        try {
+            $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        } catch (JsonException) {
+            $session->abort();
+
+            return;
+        }
+        if (strlen($json) > $this->options->maxResponseBytes) {
+            $json = sprintf(
+                '{"version":%d,"ok":false,"error":{"code":"response_too_large","message":"Control response exceeded configured limit."}}',
+                self::PROTOCOL_VERSION,
+            );
+        }
+
+        $result = $session->transport()->write($json . "\n");
+        if ($result->state === WriteState::REJECTED_LIMIT || $result->state === WriteState::CLOSED) {
+            $session->abort();
+        }
     }
 }

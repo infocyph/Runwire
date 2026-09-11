@@ -10,15 +10,10 @@ use Throwable;
 
 final class LifecycleEmitter
 {
-    /** @var list<Closure(SupervisorEvent): void> */
-    private array $listeners = [];
     private int $listenerFailures = 0;
 
-    /** @param callable(SupervisorEvent): void $listener */
-    public function listen(callable $listener): void
-    {
-        $this->listeners[] = Closure::fromCallable($listener);
-    }
+    /** @var list<Closure(SupervisorEvent): void> */
+    private array $listeners = [];
 
     public function emit(SupervisorEvent $event): void
     {
@@ -29,6 +24,12 @@ final class LifecycleEmitter
                 ++$this->listenerFailures;
             }
         }
+    }
+
+    /** @param callable(SupervisorEvent): void $listener */
+    public function listen(callable $listener): void
+    {
+        $this->listeners[] = Closure::fromCallable($listener);
     }
 
     public function listenerFailures(): int

@@ -19,6 +19,25 @@ final class FrameWriter
             . $frame->payload;
     }
 
+    public static function goAway(int $lastStreamId, ErrorCode $error, string $debug = ''): Frame
+    {
+        return new Frame(
+            FrameType::GOAWAY->value,
+            0,
+            0,
+            pack('NN', $lastStreamId & 0x7FFF_FFFF, $error->value) . $debug,
+        );
+    }
+
+    public static function rstStream(int $streamId, ErrorCode $error): Frame
+    {
+        if ($streamId === 0) {
+            throw new \InvalidArgumentException('RST_STREAM requires a non-zero stream ID.');
+        }
+
+        return new Frame(FrameType::RST_STREAM->value, 0, $streamId, pack('N', $error->value));
+    }
+
     /** @param array<int, int> $settings */
     public static function settings(array $settings = [], bool $ack = false): Frame
     {
@@ -40,25 +59,6 @@ final class FrameWriter
         }
 
         return new Frame(FrameType::WINDOW_UPDATE->value, 0, $streamId, pack('N', $increment));
-    }
-
-    public static function rstStream(int $streamId, ErrorCode $error): Frame
-    {
-        if ($streamId === 0) {
-            throw new \InvalidArgumentException('RST_STREAM requires a non-zero stream ID.');
-        }
-
-        return new Frame(FrameType::RST_STREAM->value, 0, $streamId, pack('N', $error->value));
-    }
-
-    public static function goAway(int $lastStreamId, ErrorCode $error, string $debug = ''): Frame
-    {
-        return new Frame(
-            FrameType::GOAWAY->value,
-            0,
-            0,
-            pack('NN', $lastStreamId & 0x7FFF_FFFF, $error->value) . $debug,
-        );
     }
 
     private static function byte(int $value): string

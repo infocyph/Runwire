@@ -10,10 +10,10 @@ use InvalidArgumentException;
 final readonly class RuntimeEnvironment
 {
     /** @var list<RuntimeDriver> */
-    private array $hostedDrivers;
+    private array $availableDrivers;
 
     /** @var list<RuntimeDriver> */
-    private array $availableDrivers;
+    private array $hostedDrivers;
 
     /**
      * @param list<RuntimeDriver> $hostedDrivers
@@ -42,22 +42,12 @@ final readonly class RuntimeEnvironment
         ]);
     }
 
-    public function isHostedBy(RuntimeDriver $driver): bool
+    /**
+     * @return list<RuntimeDriver>
+     */
+    public function availableDrivers(): array
     {
-        return in_array($driver, $this->hostedDrivers, true);
-    }
-
-    public function isAvailable(RuntimeDriver $driver): bool
-    {
-        return in_array($driver, $this->availableDrivers, true);
-    }
-
-    public function nativeEligible(): bool
-    {
-        return $this->sapi === 'cli'
-            && $this->supportsFork
-            && $this->supportsSignals
-            && $this->supportsPosix;
+        return $this->availableDrivers;
     }
 
     /**
@@ -68,12 +58,22 @@ final readonly class RuntimeEnvironment
         return $this->hostedDrivers;
     }
 
-    /**
-     * @return list<RuntimeDriver>
-     */
-    public function availableDrivers(): array
+    public function isAvailable(RuntimeDriver $driver): bool
     {
-        return $this->availableDrivers;
+        return in_array($driver, $this->availableDrivers, true);
+    }
+
+    public function isHostedBy(RuntimeDriver $driver): bool
+    {
+        return in_array($driver, $this->hostedDrivers, true);
+    }
+
+    public function nativeEligible(): bool
+    {
+        return $this->sapi === 'cli'
+            && $this->supportsFork
+            && $this->supportsSignals
+            && $this->supportsPosix;
     }
 
     /**

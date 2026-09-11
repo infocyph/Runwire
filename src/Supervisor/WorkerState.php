@@ -6,9 +6,13 @@ namespace Infocyph\Runwire\Supervisor;
 
 enum WorkerState: string
 {
-    case STARTING = 'starting';
-    case READY = 'ready';
     case DRAINING = 'draining';
-    case STOPPING = 'stopping';
+
     case FAILED = 'failed';
+
+    case READY = 'ready';
+
+    case STARTING = 'starting';
+
+    case STOPPING = 'stopping';
 }

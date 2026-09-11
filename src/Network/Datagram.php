@@ -10,6 +10,5 @@ final readonly class Datagram
         public string $payload,
         public string $peerAddress,
         public ?string $localAddress,
-    ) {
-    }
+    ) {}
 }

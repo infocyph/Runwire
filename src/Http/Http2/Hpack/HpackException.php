@@ -6,6 +6,4 @@ namespace Infocyph\Runwire\Http\Http2\Hpack;
 
 use RuntimeException;
 
-final class HpackException extends RuntimeException
-{
-}
+final class HpackException extends RuntimeException {}

@@ -8,16 +8,16 @@ use Infocyph\Runwire\Network\WriteResult;
 
 interface ResponseWriterInterface
 {
-    public function start(int $status = 200, ?Headers $headers = null): WriteResult;
-
-    public function write(string $chunk): WriteResult;
-
     public function end(string $finalChunk = ''): WriteResult;
+
+    public function isEnded(): bool;
+
+    public function isStarted(): bool;
 
     /** @param callable(self): void $callback */
     public function onDrain(callable $callback): self;
 
-    public function isStarted(): bool;
+    public function start(int $status = 200, ?Headers $headers = null): WriteResult;
 
-    public function isEnded(): bool;
+    public function write(string $chunk): WriteResult;
 }

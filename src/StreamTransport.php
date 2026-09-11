@@ -7,5 +7,6 @@ namespace Infocyph\Runwire;
 enum StreamTransport: string
 {
     case TCP = 'tcp';
+
     case UNIX = 'unix';
 }

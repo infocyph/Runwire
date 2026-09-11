@@ -40,14 +40,6 @@ final class RequestHeadValidator
         );
     }
 
-    private function validateHost(Headers $headers): void
-    {
-        $host = $headers->all('host');
-        if (count($host) !== 1 || trim($host[0]) === '') {
-            throw new ParseFailure(400, 'HTTP/1.1 requires exactly one non-empty Host field.');
-        }
-    }
-
     /** @return list<int> */
     private function contentLengths(Headers $headers): array
     {
@@ -99,5 +91,13 @@ final class RequestHeadValidator
         }
 
         return $tokens;
+    }
+
+    private function validateHost(Headers $headers): void
+    {
+        $host = $headers->all('host');
+        if (count($host) !== 1 || trim($host[0]) === '') {
+            throw new ParseFailure(400, 'HTTP/1.1 requires exactly one non-empty Host field.');
+        }
     }
 }

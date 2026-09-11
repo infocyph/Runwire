@@ -7,7 +7,9 @@ namespace Infocyph\Runwire\Http\Http2\Hpack;
 final class Decoder
 {
     private readonly DynamicTable $dynamic;
+
     private readonly HuffmanCodec $huffman;
+
     private int $allowedDynamicTableBytes;
 
     public function __construct(
@@ -21,17 +23,6 @@ final class Decoder
         $this->allowedDynamicTableBytes = $maxDynamicTableBytes;
         $this->dynamic = new DynamicTable($maxDynamicTableBytes);
         $this->huffman = new HuffmanCodec();
-    }
-
-    public function setAllowedDynamicTableBytes(int $bytes): void
-    {
-        if ($bytes < 0) {
-            throw new \InvalidArgumentException('HPACK dynamic table allowance cannot be negative.');
-        }
-        $this->allowedDynamicTableBytes = $bytes;
-        if ($this->dynamic->maxBytes() > $bytes) {
-            $this->dynamic->setMaxBytes($bytes);
-        }
     }
 
     /** @return list<array{0: string, 1: string}> */
@@ -53,6 +44,7 @@ final class Decoder
                 [$name, $value] = $this->entry($index);
                 $this->append($headers, $headerBytes, $name, $value);
                 $sawHeader = true;
+
                 continue;
             }
 
@@ -62,6 +54,7 @@ final class Decoder
                 $this->append($headers, $headerBytes, $name, $value);
                 $this->dynamic->add($name, $value);
                 $sawHeader = true;
+
                 continue;
             }
 
@@ -74,6 +67,7 @@ final class Decoder
                     throw new HpackException('HPACK dynamic table size update exceeds the advertised limit.');
                 }
                 $this->dynamic->setMaxBytes($size);
+
                 continue;
             }
 
@@ -94,6 +88,31 @@ final class Decoder
     public function dynamicTableCount(): int
     {
         return $this->dynamic->count();
+    }
+
+    public function setAllowedDynamicTableBytes(int $bytes): void
+    {
+        if ($bytes < 0) {
+            throw new \InvalidArgumentException('HPACK dynamic table allowance cannot be negative.');
+        }
+        $this->allowedDynamicTableBytes = $bytes;
+        if ($this->dynamic->maxBytes() > $bytes) {
+            $this->dynamic->setMaxBytes($bytes);
+        }
+    }
+
+    /** @param list<array{0: string, 1: string}> $headers */
+    private function append(array &$headers, int &$headerBytes, string $name, string $value): void
+    {
+        if (count($headers) >= $this->maxHeaderCount) {
+            throw new HpackException('HPACK header count exceeds configured limit.');
+        }
+        $size = 32 + strlen($name) + strlen($value);
+        if ($size > $this->maxHeaderListBytes - $headerBytes) {
+            throw new HpackException('HPACK decoded header list exceeds configured byte limit.');
+        }
+        $headers[] = [$name, $value];
+        $headerBytes += $size;
     }
 
     private function decodeName(string $block, int &$offset, int $prefixBits, int $headerBytes): string
@@ -123,6 +142,7 @@ final class Decoder
             if ($length > $maxOutputBytes) {
                 throw new HpackException('HPACK string exceeds configured header-list limit.');
             }
+
             return $encoded;
         }
 
@@ -143,21 +163,8 @@ final class Decoder
                 return $entry;
             }
         }
-        throw new HpackException(sprintf('Invalid HPACK table index %d.', $index));
-    }
 
-    /** @param list<array{0: string, 1: string}> $headers */
-    private function append(array &$headers, int &$headerBytes, string $name, string $value): void
-    {
-        if (count($headers) >= $this->maxHeaderCount) {
-            throw new HpackException('HPACK header count exceeds configured limit.');
-        }
-        $size = 32 + strlen($name) + strlen($value);
-        if ($size > $this->maxHeaderListBytes - $headerBytes) {
-            throw new HpackException('HPACK decoded header list exceeds configured byte limit.');
-        }
-        $headers[] = [$name, $value];
-        $headerBytes += $size;
+        throw new HpackException(sprintf('Invalid HPACK table index %d.', $index));
     }
 
     private function remainingHeaderBytes(int $used, int $nameBytes): int

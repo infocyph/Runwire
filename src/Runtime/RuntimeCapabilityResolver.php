@@ -21,6 +21,28 @@ final class RuntimeCapabilityResolver
         };
     }
 
+    private function fpm(RuntimeEnvironment $environment): RuntimeCapabilities
+    {
+        return new RuntimeCapabilities(
+            driver: RuntimeDriver::FPM,
+            persistentProcess: true,
+            persistentApplication: false,
+            supportsOpcache: $environment->opcacheAvailable,
+            supportsOpcacheCli: false,
+        );
+    }
+
+    private function frankenPhp(RuntimeEnvironment $environment): RuntimeCapabilities
+    {
+        return new RuntimeCapabilities(
+            driver: RuntimeDriver::FRANKENPHP,
+            persistentProcess: true,
+            persistentApplication: false,
+            supportsOpcache: $environment->opcacheAvailable,
+            supportsOpcacheCli: false,
+        );
+    }
+
     private function native(RuntimeEnvironment $environment): RuntimeCapabilities
     {
         return new RuntimeCapabilities(
@@ -45,32 +67,10 @@ final class RuntimeCapabilityResolver
         );
     }
 
-    private function fpm(RuntimeEnvironment $environment): RuntimeCapabilities
+    private function roadRunner(RuntimeEnvironment $environment): RuntimeCapabilities
     {
         return new RuntimeCapabilities(
-            driver: RuntimeDriver::FPM,
-            persistentProcess: true,
-            persistentApplication: false,
-            supportsOpcache: $environment->opcacheAvailable,
-            supportsOpcacheCli: false,
-        );
-    }
-
-    private function frankenPhp(RuntimeEnvironment $environment): RuntimeCapabilities
-    {
-        return new RuntimeCapabilities(
-            driver: RuntimeDriver::FRANKENPHP,
-            persistentProcess: true,
-            persistentApplication: false,
-            supportsOpcache: $environment->opcacheAvailable,
-            supportsOpcacheCli: false,
-        );
-    }
-
-    private function swoole(RuntimeEnvironment $environment): RuntimeCapabilities
-    {
-        return new RuntimeCapabilities(
-            driver: RuntimeDriver::SWOOLE,
+            driver: RuntimeDriver::ROADRUNNER,
             persistentProcess: true,
             persistentApplication: true,
             supportsOpcache: $environment->opcacheAvailable,
@@ -78,10 +78,10 @@ final class RuntimeCapabilityResolver
         );
     }
 
-    private function roadRunner(RuntimeEnvironment $environment): RuntimeCapabilities
+    private function swoole(RuntimeEnvironment $environment): RuntimeCapabilities
     {
         return new RuntimeCapabilities(
-            driver: RuntimeDriver::ROADRUNNER,
+            driver: RuntimeDriver::SWOOLE,
             persistentProcess: true,
             persistentApplication: true,
             supportsOpcache: $environment->opcacheAvailable,

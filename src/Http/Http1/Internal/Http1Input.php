@@ -10,9 +10,7 @@ final class Http1Input
 {
     private string $buffer = '';
 
-    public function __construct(private readonly Connection $connection)
-    {
-    }
+    public function __construct(private readonly Connection $connection) {}
 
     public function availableBytes(): int
     {
@@ -45,7 +43,8 @@ final class Http1Input
             throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
         }
         $line = substr($this->buffer, 0, $position);
-        $this->buffer = (string) substr($this->buffer, $position + 2);
+        $this->buffer = substr($this->buffer, $position + 2);
+
         return $line;
     }
 
@@ -57,12 +56,13 @@ final class Http1Input
         $fromBuffer = min($bytes, strlen($this->buffer));
         $data = $fromBuffer > 0 ? substr($this->buffer, 0, $fromBuffer) : '';
         if ($fromBuffer > 0) {
-            $this->buffer = (string) substr($this->buffer, $fromBuffer);
+            $this->buffer = substr($this->buffer, $fromBuffer);
         }
         $remaining = $bytes - $fromBuffer;
         if ($remaining > 0) {
             $data .= $this->connection->read($remaining);
         }
+
         return $data;
     }
 }

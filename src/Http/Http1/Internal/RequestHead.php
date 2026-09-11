@@ -11,6 +11,5 @@ final readonly class RequestHead
         public bool $chunked,
         public bool $expectContinue,
         public bool $closeRequested,
-    ) {
-    }
+    ) {}
 }

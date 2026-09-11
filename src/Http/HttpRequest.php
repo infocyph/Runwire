@@ -15,6 +15,5 @@ final readonly class HttpRequest
         public ?string $peerAddress = null,
         public ?string $localAddress = null,
         public bool $encrypted = false,
-    ) {
-    }
+    ) {}
 }

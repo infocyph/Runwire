@@ -45,6 +45,36 @@ final readonly class ProcessPolicy
         self::validateCwdRoots($allowedCwdRoots);
     }
 
+    /** @param list<string> $roots */
+    private static function validateCwdRoots(array $roots): void
+    {
+        foreach ($roots as $root) {
+            if ($root === '' || str_contains($root, "\0")) {
+                throw new InvalidArgumentException('Allowed cwd roots must be non-empty strings without NUL bytes.');
+            }
+        }
+    }
+
+    /** @param list<string> $keys */
+    private static function validateEnvironmentKeys(array $keys): void
+    {
+        foreach ($keys as $key) {
+            if ($key === '' || str_contains($key, '=') || str_contains($key, "\0")) {
+                throw new InvalidArgumentException('Allowed environment keys must be valid non-empty names.');
+            }
+        }
+    }
+
+    /** @param list<string> $executables */
+    private static function validateExecutables(array $executables): void
+    {
+        foreach ($executables as $executable) {
+            if ($executable === '' || str_contains($executable, "\0")) {
+                throw new InvalidArgumentException('Allowed executable paths must be non-empty strings without NUL bytes.');
+            }
+        }
+    }
+
     /** @param array<string, int> $limits */
     private static function validateIntegerLimits(array $limits): void
     {
@@ -71,36 +101,6 @@ final readonly class ProcessPolicy
         }
         if ($maxTimeoutSeconds <= 0) {
             throw new InvalidArgumentException('maxTimeoutSeconds must be positive.');
-        }
-    }
-
-    /** @param list<string> $executables */
-    private static function validateExecutables(array $executables): void
-    {
-        foreach ($executables as $executable) {
-            if ($executable === '' || str_contains($executable, "\0")) {
-                throw new InvalidArgumentException('Allowed executable paths must be non-empty strings without NUL bytes.');
-            }
-        }
-    }
-
-    /** @param list<string> $keys */
-    private static function validateEnvironmentKeys(array $keys): void
-    {
-        foreach ($keys as $key) {
-            if ($key === '' || str_contains($key, '=') || str_contains($key, "\0")) {
-                throw new InvalidArgumentException('Allowed environment keys must be valid non-empty names.');
-            }
-        }
-    }
-
-    /** @param list<string> $roots */
-    private static function validateCwdRoots(array $roots): void
-    {
-        foreach ($roots as $root) {
-            if ($root === '' || str_contains($root, "\0")) {
-                throw new InvalidArgumentException('Allowed cwd roots must be non-empty strings without NUL bytes.');
-            }
         }
     }
 }

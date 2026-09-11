@@ -21,25 +21,31 @@ use Infocyph\Runwire\Network\WriteState;
 final class ResponseScheduler
 {
     private const int OUTBOUND_FRAME_SIZE = 16_384;
+
     private const int WIRE_CHUNK_BYTES = self::OUTBOUND_FRAME_SIZE + 9;
 
-    private readonly ByteQueue $wireQueue;
-    /** @var Closure(int): ?Http2Stream */
-    private readonly Closure $streamLookup;
-    /** @var Closure(Http2Stream): void */
-    private readonly Closure $cleanupClosed;
-    /** @var Closure(): void */
-    private readonly Closure $readyCallback;
     /** @var Closure(Http2Stream): void */
     private readonly Closure $activityCallback;
+
+    /** @var Closure(Http2Stream): void */
+    private readonly Closure $cleanupClosed;
+
+    /** @var Closure(): void */
+    private readonly Closure $readyCallback;
+
+    /** @var Closure(int): ?Http2Stream */
+    private readonly Closure $streamLookup;
+
+    private readonly ByteQueue $wireQueue;
 
     /** @var array<int, true> */
     private array $flushQueue = [];
 
+    private int $pendingStreamBytes = 0;
+
     /** @var array<int, true> */
     private array $pressuredStreams = [];
 
-    private int $pendingStreamBytes = 0;
     private bool $transportPressured = false;
 
     /**
@@ -72,23 +78,23 @@ final class ResponseScheduler
         $activityClosure = Closure::fromCallable($activityCallback);
         $this->activityCallback = $activityClosure;
         $this->wireQueue = new ByteQueue();
-        $connection->onDrain(fn () => $this->handleTransportDrain());
+        $connection->onDrain(fn() => $this->handleTransportDrain());
     }
 
-    public function writer(Http2Stream $stream, string $method, callable $onEnd): Http2ResponseWriter
+    public function cleanup(): void
     {
-        return new Http2ResponseWriter(
-            $method,
-            fn (int $status, array $headers) => $this->sendHeaders($stream, $headers),
-            fn (string $data, bool $end) => $this->queueData($stream, $data, $end),
-            function (Closure $callback) use ($stream): void { $stream->drainCallback = $callback; },
-            $onEnd,
-        );
+        $this->wireQueue->clear();
+        $this->flushQueue = [];
+        $this->pressuredStreams = [];
+        $this->pendingStreamBytes = 0;
+        $this->transportPressured = false;
     }
 
-    public function sendControl(Frame $frame): WriteResult
+    public function discardStream(Http2Stream $stream): void
     {
-        return $this->sendFrame($frame);
+        $bytes = $stream->outbound->bytes();
+        $this->pendingStreamBytes = max(0, $this->pendingStreamBytes - $bytes);
+        unset($this->flushQueue[$stream->id], $this->pressuredStreams[$stream->id]);
     }
 
     public function flush(): void
@@ -112,6 +118,7 @@ final class ResponseScheduler
             if ($progress) {
                 ++$frames;
                 $stalled = 0;
+
                 continue;
             }
             if (++$stalled >= count($this->flushQueue) + 1) {
@@ -122,16 +129,9 @@ final class ResponseScheduler
         $this->relieveStreams();
     }
 
-    public function discardStream(Http2Stream $stream): void
+    public function sendControl(Frame $frame): WriteResult
     {
-        $bytes = $stream->outbound->bytes();
-        $this->pendingStreamBytes = max(0, $this->pendingStreamBytes - $bytes);
-        unset($this->flushQueue[$stream->id], $this->pressuredStreams[$stream->id]);
-    }
-
-    public function wireIdle(): bool
-    {
-        return $this->wireQueue->isEmpty();
+        return $this->sendFrame($frame);
     }
 
     public function transportPressured(): bool
@@ -139,118 +139,21 @@ final class ResponseScheduler
         return $this->transportPressured;
     }
 
-    public function cleanup(): void
+    public function wireIdle(): bool
     {
-        $this->wireQueue->clear();
-        $this->flushQueue = [];
-        $this->pressuredStreams = [];
-        $this->pendingStreamBytes = 0;
-        $this->transportPressured = false;
+        return $this->wireQueue->isEmpty();
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
-    private function sendHeaders(Http2Stream $stream, array $headers): WriteResult
+    public function writer(Http2Stream $stream, string $method, callable $onEnd): Http2ResponseWriter
     {
-        if (!$stream->localOpen()) {
-            return $this->closedResult();
-        }
-        $frames = $this->headerFrames($stream, $headers);
-        if ($frames === null) {
-            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
-        }
-
-        $pressured = false;
-        foreach ($frames as $frame) {
-            $result = $this->sendFrame($frame);
-            if (!$result->accepted()) {
-                return $result;
-            }
-            $pressured = $pressured || $result->pressured();
-        }
-
-        ($this->activityCallback)($stream);
-        return new WriteResult(
-            $pressured ? WriteState::PRESSURED : WriteState::ACCEPTED,
-            $stream->outbound->bytes(),
-        );
-    }
-
-    /**
-     * @param list<array{0: string, 1: string}> $headers
-     * @return list<Frame>|null
-     */
-    private function headerFrames(Http2Stream $stream, array $headers): ?array
-    {
-        $bytes = 0;
-        foreach ($headers as [$name, $value]) {
-            $bytes += 32 + strlen($name) + strlen($value);
-        }
-        $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
-        if ($bytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
-            return null;
-        }
-
-        $block = $this->encoder->encode($headers);
-        if (strlen($block) > $this->limits->maxHeaderBlockBytes) {
-            return null;
-        }
-
-        $frameSize = max(1, min($this->peerSettings->maxFrameSize, self::OUTBOUND_FRAME_SIZE));
-        $chunks = str_split($block, $frameSize) ?: [''];
-        $frames = [];
-        foreach ($chunks as $index => $chunk) {
-            $last = $index === count($chunks) - 1;
-            $type = $index === 0 ? FrameType::HEADERS : FrameType::CONTINUATION;
-            $frames[] = new Frame($type->value, $last ? 0x4 : 0, $stream->id, $chunk);
-        }
-        return $frames;
-    }
-
-    private function queueData(Http2Stream $stream, string $data, bool $end): WriteResult
-    {
-        if (!$stream->localOpen()) {
-            return $this->closedResult();
-        }
-        if (!$this->fitsResponseLimits($stream, strlen($data))) {
-            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
-        }
-
-        if ($data !== '') {
-            $stream->outbound->append($data);
-            $this->pendingStreamBytes += strlen($data);
-        }
-        $stream->endPending = $stream->endPending || $end;
-        if ($data !== '' || $end) {
-            $this->flushQueue[$stream->id] = true;
-        }
-        $this->flush();
-        ($this->activityCallback)($stream);
-
-        return $this->streamWriteResult($stream);
-    }
-
-    private function fitsResponseLimits(Http2Stream $stream, int $bytes): bool
-    {
-        if ($bytes > $this->limits->maxPendingResponseBytesPerStream - $stream->outbound->bytes()) {
-            return false;
-        }
-        return $bytes <= $this->limits->maxPendingResponseBytesPerConnection
-            - $this->pendingStreamBytes
-            - $this->wireQueue->bytes();
-    }
-
-    private function streamWriteResult(Http2Stream $stream): WriteResult
-    {
-        $pressured = $stream->outbound->bytes() >= $this->limits->responseHighWatermarkBytes
-            || $this->transportPressured
-            || !$this->wireQueue->isEmpty();
-        if ($pressured) {
-            $stream->writePressured = true;
-            $this->pressuredStreams[$stream->id] = true;
-        }
-        return new WriteResult(
-            $pressured ? WriteState::PRESSURED : WriteState::ACCEPTED,
-            $stream->outbound->bytes(),
+        return new Http2ResponseWriter(
+            $method,
+            fn(int $status, array $headers) => $this->sendHeaders($stream, $headers),
+            fn(string $data, bool $end) => $this->queueData($stream, $data, $end),
+            function (Closure $callback) use ($stream): void {
+                $stream->drainCallback = $callback;
+            },
+            $onEnd,
         );
     }
 
@@ -266,15 +169,36 @@ final class ResponseScheduler
             && !$this->blocked();
     }
 
-    private function nextStream(): ?Http2Stream
+    private function closedResult(): WriteResult
     {
-        $streamId = array_key_first($this->flushQueue);
-        if ($streamId === null) {
-            return null;
+        return new WriteResult(WriteState::CLOSED, 0);
+    }
+
+    private function fitsResponseLimits(Http2Stream $stream, int $bytes): bool
+    {
+        if ($bytes > $this->limits->maxPendingResponseBytesPerStream - $stream->outbound->bytes()) {
+            return false;
         }
-        unset($this->flushQueue[$streamId]);
-        $stream = ($this->streamLookup)($streamId);
-        return $stream instanceof Http2Stream && $stream->localOpen() ? $stream : null;
+
+        return $bytes <= $this->limits->maxPendingResponseBytesPerConnection
+            - $this->pendingStreamBytes
+            - $this->wireQueue->bytes();
+    }
+
+    private function flushEnd(Http2Stream $stream): bool
+    {
+        if (!$stream->endPending) {
+            return false;
+        }
+        $result = $this->sendFrame(new Frame(FrameType::DATA->value, 0x1, $stream->id));
+        if (!$result->accepted()) {
+            return false;
+        }
+        $stream->endPending = false;
+        $stream->localEnd();
+        ($this->cleanupClosed)($stream);
+
+        return true;
     }
 
     private function flushOne(Http2Stream $stream): bool
@@ -307,49 +231,27 @@ final class ResponseScheduler
             $stream->localEnd();
             ($this->cleanupClosed)($stream);
         }
+
         return true;
     }
 
-    private function flushEnd(Http2Stream $stream): bool
+    private function flushWireChunk(): bool
     {
-        if (!$stream->endPending) {
-            return false;
-        }
-        $result = $this->sendFrame(new Frame(FrameType::DATA->value, 0x1, $stream->id));
+        $chunk = $this->wireQueue->front(min(self::WIRE_CHUNK_BYTES, $this->wireQueue->bytes()));
+        $result = $this->connection->write($chunk);
         if (!$result->accepted()) {
+            $this->transportPressured = true;
+
             return false;
         }
-        $stream->endPending = false;
-        $stream->localEnd();
-        ($this->cleanupClosed)($stream);
-        return true;
-    }
-
-    private function sendFrame(Frame $frame): WriteResult
-    {
-        $wire = FrameWriter::encode($frame);
-        if (!$this->wireQueue->isEmpty()) {
-            return $this->queueWire($wire);
-        }
-        $result = $this->connection->write($wire);
-        if ($result->state === WriteState::REJECTED_LIMIT) {
-            return $this->queueWire($wire);
-        }
+        $this->wireQueue->discard(strlen($chunk));
         if ($result->pressured()) {
             $this->transportPressured = true;
-        }
-        return $result;
-    }
 
-    private function queueWire(string $wire): WriteResult
-    {
-        if (strlen($wire) > $this->limits->maxWireQueueBytes - $this->wireQueue->bytes()) {
-            $this->connection->abort(CloseReason::WRITE_ERROR);
-            return $this->closedResult();
+            return false;
         }
-        $this->wireQueue->append($wire);
-        $this->transportPressured = true;
-        return new WriteResult(WriteState::PRESSURED, $this->wireQueue->bytes());
+
+        return true;
     }
 
     private function handleTransportDrain(): void
@@ -365,20 +267,84 @@ final class ResponseScheduler
         ($this->readyCallback)();
     }
 
-    private function flushWireChunk(): bool
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @return list<Frame>|null
+     */
+    private function headerFrames(Http2Stream $stream, array $headers): ?array
     {
-        $chunk = $this->wireQueue->front(min(self::WIRE_CHUNK_BYTES, $this->wireQueue->bytes()));
-        $result = $this->connection->write($chunk);
-        if (!$result->accepted()) {
-            $this->transportPressured = true;
-            return false;
+        $bytes = 0;
+        foreach ($headers as [$name, $value]) {
+            $bytes += 32 + strlen($name) + strlen($value);
         }
-        $this->wireQueue->discard(strlen($chunk));
-        if ($result->pressured()) {
-            $this->transportPressured = true;
-            return false;
+        $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
+        if ($bytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
+            return null;
         }
-        return true;
+
+        $block = $this->encoder->encode($headers);
+        if (strlen($block) > $this->limits->maxHeaderBlockBytes) {
+            return null;
+        }
+
+        $frameSize = max(1, min($this->peerSettings->maxFrameSize, self::OUTBOUND_FRAME_SIZE));
+        $chunks = str_split($block, $frameSize) ?: [''];
+        $frames = [];
+        foreach ($chunks as $index => $chunk) {
+            $last = $index === count($chunks) - 1;
+            $type = $index === 0 ? FrameType::HEADERS : FrameType::CONTINUATION;
+            $frames[] = new Frame($type->value, $last ? 0x4 : 0, $stream->id, $chunk);
+        }
+
+        return $frames;
+    }
+
+    private function nextStream(): ?Http2Stream
+    {
+        $streamId = array_key_first($this->flushQueue);
+        if ($streamId === null) {
+            return null;
+        }
+        unset($this->flushQueue[$streamId]);
+        $stream = ($this->streamLookup)($streamId);
+
+        return $stream instanceof Http2Stream && $stream->localOpen() ? $stream : null;
+    }
+
+    private function queueData(Http2Stream $stream, string $data, bool $end): WriteResult
+    {
+        if (!$stream->localOpen()) {
+            return $this->closedResult();
+        }
+        if (!$this->fitsResponseLimits($stream, strlen($data))) {
+            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
+        }
+
+        if ($data !== '') {
+            $stream->outbound->append($data);
+            $this->pendingStreamBytes += strlen($data);
+        }
+        $stream->endPending = $stream->endPending || $end;
+        if ($data !== '' || $end) {
+            $this->flushQueue[$stream->id] = true;
+        }
+        $this->flush();
+        ($this->activityCallback)($stream);
+
+        return $this->streamWriteResult($stream);
+    }
+
+    private function queueWire(string $wire): WriteResult
+    {
+        if (strlen($wire) > $this->limits->maxWireQueueBytes - $this->wireQueue->bytes()) {
+            $this->connection->abort(CloseReason::WRITE_ERROR);
+
+            return $this->closedResult();
+        }
+        $this->wireQueue->append($wire);
+        $this->transportPressured = true;
+
+        return new WriteResult(WriteState::PRESSURED, $this->wireQueue->bytes());
     }
 
     private function relieveStreams(): void
@@ -390,6 +356,7 @@ final class ResponseScheduler
             $stream = ($this->streamLookup)($streamId);
             if (!$stream instanceof Http2Stream) {
                 unset($this->pressuredStreams[$streamId]);
+
                 continue;
             }
             if ($stream->outbound->bytes() > $this->limits->responseLowWatermarkBytes) {
@@ -401,8 +368,64 @@ final class ResponseScheduler
         }
     }
 
-    private function closedResult(): WriteResult
+    private function sendFrame(Frame $frame): WriteResult
     {
-        return new WriteResult(WriteState::CLOSED, 0);
+        $wire = FrameWriter::encode($frame);
+        if (!$this->wireQueue->isEmpty()) {
+            return $this->queueWire($wire);
+        }
+        $result = $this->connection->write($wire);
+        if ($result->state === WriteState::REJECTED_LIMIT) {
+            return $this->queueWire($wire);
+        }
+        if ($result->pressured()) {
+            $this->transportPressured = true;
+        }
+
+        return $result;
+    }
+
+    /** @param list<array{0: string, 1: string}> $headers */
+    private function sendHeaders(Http2Stream $stream, array $headers): WriteResult
+    {
+        if (!$stream->localOpen()) {
+            return $this->closedResult();
+        }
+        $frames = $this->headerFrames($stream, $headers);
+        if ($frames === null) {
+            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
+        }
+
+        $pressured = false;
+        foreach ($frames as $frame) {
+            $result = $this->sendFrame($frame);
+            if (!$result->accepted()) {
+                return $result;
+            }
+            $pressured = $pressured || $result->pressured();
+        }
+
+        ($this->activityCallback)($stream);
+
+        return new WriteResult(
+            $pressured ? WriteState::PRESSURED : WriteState::ACCEPTED,
+            $stream->outbound->bytes(),
+        );
+    }
+
+    private function streamWriteResult(Http2Stream $stream): WriteResult
+    {
+        $pressured = $stream->outbound->bytes() >= $this->limits->responseHighWatermarkBytes
+            || $this->transportPressured
+            || !$this->wireQueue->isEmpty();
+        if ($pressured) {
+            $stream->writePressured = true;
+            $this->pressuredStreams[$stream->id] = true;
+        }
+
+        return new WriteResult(
+            $pressured ? WriteState::PRESSURED : WriteState::ACCEPTED,
+            $stream->outbound->bytes(),
+        );
     }
 }

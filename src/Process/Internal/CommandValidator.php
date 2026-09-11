@@ -10,9 +10,7 @@ use Infocyph\Runwire\Process\ProcessPolicy;
 
 final readonly class CommandValidator
 {
-    public function __construct(private ProcessPolicy $policy)
-    {
-    }
+    public function __construct(private ProcessPolicy $policy) {}
 
     public function validate(Command $command): PreparedCommand
     {
@@ -43,32 +41,6 @@ final readonly class CommandValidator
             environment: $environment,
             cwd: $cwd,
         );
-    }
-
-    private function executable(string $executable): string
-    {
-        if (!str_starts_with($executable, DIRECTORY_SEPARATOR)) {
-            throw new ProcessStartException('Executable path must be absolute.');
-        }
-
-        $resolved = realpath($executable);
-        if ($resolved === false || !is_file($resolved) || !is_executable($resolved)) {
-            throw new ProcessStartException(sprintf('Executable "%s" is unavailable or not executable.', $executable));
-        }
-
-        $allowed = $this->policy->allowedExecutables;
-        if ($allowed === null) {
-            return $resolved;
-        }
-
-        foreach ($allowed as $candidate) {
-            $candidateResolved = realpath($candidate);
-            if ($candidateResolved !== false && hash_equals($candidateResolved, $resolved)) {
-                return $resolved;
-            }
-        }
-
-        throw new ProcessStartException(sprintf('Executable "%s" is not allowed by process policy.', $executable));
     }
 
     /**
@@ -102,6 +74,27 @@ final readonly class CommandValidator
         }
 
         return $arguments;
+    }
+
+    private function cwd(?string $cwd): ?string
+    {
+        if ($cwd === null) {
+            return null;
+        }
+
+        $resolved = realpath($cwd);
+        if ($resolved === false || !is_dir($resolved)) {
+            throw new ProcessStartException(sprintf('Working directory "%s" does not exist.', $cwd));
+        }
+
+        foreach ($this->policy->allowedCwdRoots as $root) {
+            $rootResolved = realpath($root);
+            if ($rootResolved !== false && $this->inside($resolved, $rootResolved)) {
+                return $resolved;
+            }
+        }
+
+        throw new ProcessStartException(sprintf('Working directory "%s" is outside allowed roots.', $cwd));
     }
 
     /**
@@ -139,25 +132,30 @@ final readonly class CommandValidator
         return $environment;
     }
 
-    private function cwd(?string $cwd): ?string
+    private function executable(string $executable): string
     {
-        if ($cwd === null) {
-            return null;
+        if (!str_starts_with($executable, DIRECTORY_SEPARATOR)) {
+            throw new ProcessStartException('Executable path must be absolute.');
         }
 
-        $resolved = realpath($cwd);
-        if ($resolved === false || !is_dir($resolved)) {
-            throw new ProcessStartException(sprintf('Working directory "%s" does not exist.', $cwd));
+        $resolved = realpath($executable);
+        if ($resolved === false || !is_file($resolved) || !is_executable($resolved)) {
+            throw new ProcessStartException(sprintf('Executable "%s" is unavailable or not executable.', $executable));
         }
 
-        foreach ($this->policy->allowedCwdRoots as $root) {
-            $rootResolved = realpath($root);
-            if ($rootResolved !== false && $this->inside($resolved, $rootResolved)) {
+        $allowed = $this->policy->allowedExecutables;
+        if ($allowed === null) {
+            return $resolved;
+        }
+
+        foreach ($allowed as $candidate) {
+            $candidateResolved = realpath($candidate);
+            if ($candidateResolved !== false && hash_equals($candidateResolved, $resolved)) {
                 return $resolved;
             }
         }
 
-        throw new ProcessStartException(sprintf('Working directory "%s" is outside allowed roots.', $cwd));
+        throw new ProcessStartException(sprintf('Executable "%s" is not allowed by process policy.', $executable));
     }
 
     private function inside(string $path, string $root): bool

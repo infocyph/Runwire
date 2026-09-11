@@ -9,8 +9,7 @@ final readonly class WriteResult
     public function __construct(
         public WriteState $state,
         public int $bufferedBytes,
-    ) {
-    }
+    ) {}
 
     public function accepted(): bool
     {

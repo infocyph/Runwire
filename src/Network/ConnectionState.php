@@ -6,7 +6,9 @@ namespace Infocyph\Runwire\Network;
 
 enum ConnectionState: string
 {
-    case OPEN = 'open';
-    case DRAINING = 'draining';
     case CLOSED = 'closed';
+
+    case DRAINING = 'draining';
+
+    case OPEN = 'open';
 }

@@ -7,7 +7,10 @@ namespace Infocyph\Runwire\Process;
 enum IoMode: string
 {
     case CAPTURE = 'capture';
-    case STREAM = 'stream';
+
     case INHERIT = 'inherit';
+
     case NULL = 'null';
+
+    case STREAM = 'stream';
 }

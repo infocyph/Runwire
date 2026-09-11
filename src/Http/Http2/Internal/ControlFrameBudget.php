@@ -10,8 +10,9 @@ use Infocyph\Runwire\Loop\LoopInterface;
 
 final class ControlFrameBudget
 {
-    private float $windowStartedAt;
     private int $count = 0;
+
+    private float $windowStartedAt;
 
     public function __construct(
         private readonly LoopInterface $loop,

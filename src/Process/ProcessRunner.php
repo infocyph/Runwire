@@ -13,14 +13,17 @@ use Infocyph\Runwire\Process\Internal\PreparedCommand;
 use Infocyph\Runwire\Process\Internal\ProcessHandle;
 use Throwable;
 
-final class ProcessRunner
+final readonly class ProcessRunner
 {
-    private const int NANOS_PER_SECOND = 1_000_000_000;
     private const int IO_CHUNK_BYTES = 65_536;
+
+    private const int NANOS_PER_SECOND = 1_000_000_000;
+
     private const int POLL_MICROS = 50_000;
 
-    private readonly ProcessPolicy $policy;
-    private readonly CommandValidator $validator;
+    private ProcessPolicy $policy;
+
+    private CommandValidator $validator;
 
     public function __construct(?ProcessPolicy $policy = null)
     {
@@ -45,6 +48,7 @@ final class ProcessRunner
             return $this->execute($prepared, $handle, $pipes, $input, $stdout, $stderr);
         } catch (Throwable $exception) {
             $handle->abort();
+
             throw $exception;
         } finally {
             $input->close();
@@ -53,47 +57,87 @@ final class ProcessRunner
         }
     }
 
-    /** @return array{0: resource, 1: array<int, resource>} */
-    private function start(PreparedCommand $prepared): array
+    private static function closure(?callable $consumer): ?Closure
     {
-        $command = $prepared->command;
-        $descriptors = [
-            0 => $command->stdin === null ? ['file', '/dev/null', 'r'] : ['pipe', 'r'],
-            1 => $this->outputDescriptor($command->stdoutMode, STDOUT),
-            2 => $this->outputDescriptor($command->stderrMode, STDERR),
-        ];
-        $pipes = [];
-        $process = @proc_open(
-            $prepared->argv,
-            $descriptors,
-            $pipes,
-            $prepared->cwd,
-            $prepared->environment,
-            ['bypass_shell' => true],
-        );
+        return $consumer === null ? null : Closure::fromCallable($consumer);
+    }
 
-        if (!is_resource($process)) {
-            throw new ProcessStartException('Unable to start child process.');
+    /** @param array<int, resource> $pipes */
+    private function closePipe(array &$pipes, int $index): void
+    {
+        if (isset($pipes[$index]) && is_resource($pipes[$index])) {
+            @fclose($pipes[$index]);
         }
+        unset($pipes[$index]);
+    }
 
-        foreach ($pipes as $pipe) {
-            @stream_set_blocking($pipe, false);
+    /** @param array<int, resource> $pipes */
+    private function closePipes(array &$pipes): void
+    {
+        foreach (array_keys($pipes) as $index) {
+            $this->closePipe($pipes, $index);
         }
-
-        return [$process, $pipes];
     }
 
     /**
-     * @param resource $inherit
-     * @return resource|array{0: string, 1: string, 2?: string}
+     * @param resource $process
+     * @return array{0: TerminationReason, 1: ?int}
      */
-    private function outputDescriptor(IoMode $mode, mixed $inherit): mixed
+    private function enforceDeadline(mixed $process, TerminationReason $reason, ?int $terminationDeadline, int $deadline, Command $command, int $now): array
     {
-        return match ($mode) {
-            IoMode::CAPTURE, IoMode::STREAM => ['pipe', 'w'],
-            IoMode::INHERIT => $inherit,
-            IoMode::NULL => ['file', '/dev/null', 'w'],
-        };
+        if ($terminationDeadline !== null || $now < $deadline) {
+            return [$reason, $terminationDeadline];
+        }
+        @proc_terminate($process, SIGTERM);
+
+        return [TerminationReason::TIMEOUT, $now + $this->secondsToNanos($command->terminationGraceSeconds)];
+    }
+
+    /** @param resource $process */
+    private function enforceKill(mixed $process, ?int $terminationDeadline, bool $killSent, int $now): bool
+    {
+        if ($killSent || $terminationDeadline === null || $now < $terminationDeadline) {
+            return $killSent;
+        }
+        @proc_terminate($process, SIGKILL);
+
+        return true;
+    }
+
+    /**
+     * @param resource $process
+     * @return array{0: TerminationReason, 1: ?int}
+     */
+    private function enforceOutputLimit(
+        mixed $process,
+        bool $overflowed,
+        bool $running,
+        TerminationReason $reason,
+        ?int $terminationDeadline,
+        Command $command,
+    ): array {
+        if (!$overflowed
+            || $command->overflowPolicy !== OutputOverflowPolicy::TERMINATE
+            || $terminationDeadline !== null
+            || !$running) {
+            return [$reason, $terminationDeadline];
+        }
+
+        @proc_terminate($process, SIGTERM);
+
+        return [
+            TerminationReason::OUTPUT_LIMIT,
+            (int) hrtime(true) + $this->secondsToNanos($command->terminationGraceSeconds),
+        ];
+    }
+
+    private function ensureProcessFunctions(): void
+    {
+        foreach (['proc_open', 'proc_get_status', 'proc_terminate', 'proc_close'] as $function) {
+            if (!function_exists($function)) {
+                throw new ProcessStartException(sprintf('Required process function "%s" is unavailable or disabled.', $function));
+            }
+        }
     }
 
     /** @param array<int, resource> $pipes */
@@ -169,52 +213,16 @@ final class ProcessRunner
     }
 
     /**
-     * @param resource $process
-     * @return array{0: TerminationReason, 1: ?int}
+     * @param array{command: string, pid: int, running: bool, signaled: bool, stopped: bool, exitcode: int, termsig: int, stopsig: int}|null $status
      */
-    private function enforceDeadline(mixed $process, TerminationReason $reason, ?int $terminationDeadline, int $deadline, Command $command, int $now): array
+    private function exitCode(?array $status, mixed $closeCode): ?int
     {
-        if ($terminationDeadline !== null || $now < $deadline) {
-            return [$reason, $terminationDeadline];
-        }
-        @proc_terminate($process, SIGTERM);
-        return [TerminationReason::TIMEOUT, $now + $this->secondsToNanos($command->terminationGraceSeconds)];
-    }
-
-    /** @param resource $process */
-    private function enforceKill(mixed $process, ?int $terminationDeadline, bool $killSent, int $now): bool
-    {
-        if ($killSent || $terminationDeadline === null || $now < $terminationDeadline) {
-            return $killSent;
-        }
-        @proc_terminate($process, SIGKILL);
-        return true;
-    }
-
-    /**
-     * @param resource $process
-     * @return array{0: TerminationReason, 1: ?int}
-     */
-    private function enforceOutputLimit(
-        mixed $process,
-        bool $overflowed,
-        bool $running,
-        TerminationReason $reason,
-        ?int $terminationDeadline,
-        Command $command,
-    ): array {
-        if (!$overflowed
-            || $command->overflowPolicy !== OutputOverflowPolicy::TERMINATE
-            || $terminationDeadline !== null
-            || !$running) {
-            return [$reason, $terminationDeadline];
+        $statusCode = $status === null ? -1 : $status['exitcode'];
+        if ($statusCode >= 0) {
+            return $statusCode;
         }
 
-        @proc_terminate($process, SIGTERM);
-        return [
-            TerminationReason::OUTPUT_LIMIT,
-            (int) hrtime(true) + $this->secondsToNanos($command->terminationGraceSeconds),
-        ];
+        return is_int($closeCode) && $closeCode >= 0 ? $closeCode : null;
     }
 
     /** @param array<int, resource> $pipes */
@@ -224,7 +232,35 @@ final class ProcessRunner
             return false;
         }
         $hasOutputPipes = isset($pipes[1]) || isset($pipes[2]);
+
         return !$hasOutputPipes || ($postExitDeadline !== null && $now >= $postExitDeadline);
+    }
+
+    /**
+     * @param resource $inherit
+     * @return resource|array{0: string, 1: string, 2?: string}
+     */
+    private function outputDescriptor(IoMode $mode, mixed $inherit): mixed
+    {
+        return match ($mode) {
+            IoMode::CAPTURE, IoMode::STREAM => ['pipe', 'w'],
+            IoMode::INHERIT => $inherit,
+            IoMode::NULL => ['file', '/dev/null', 'w'],
+        };
+    }
+
+    private function pollMicros(int $now, ?int ...$deadlines): int
+    {
+        $micros = self::POLL_MICROS;
+        foreach ($deadlines as $deadline) {
+            if ($deadline === null || $deadline <= 0) {
+                continue;
+            }
+            $until = max(0, $deadline - $now);
+            $micros = min($micros, (int) ceil($until / 1_000));
+        }
+
+        return max(0, $micros);
     }
 
     /** @param array<int, resource> $pipes */
@@ -236,9 +272,64 @@ final class ProcessRunner
         $chunk = $input->pull(self::IO_CHUNK_BYTES);
         if ($chunk === null) {
             $this->closePipe($pipes, 0);
+
             return;
         }
         $buffer = $chunk;
+    }
+
+    /** @param list<resource> $read */
+    private function readInputResource(array $read, ?int $inputResourceId, InputSource $input, string &$buffer): void
+    {
+        if ($inputResourceId === null || $buffer !== '') {
+            return;
+        }
+        foreach ($read as $resource) {
+            if (get_resource_id($resource) !== $inputResourceId) {
+                continue;
+            }
+            $chunk = $input->pull(self::IO_CHUNK_BYTES);
+            if ($chunk !== null) {
+                $buffer = $chunk;
+            }
+
+            return;
+        }
+    }
+
+    /**
+     * @param list<resource> $read
+     * @param array<int, resource> $pipes
+     */
+    private function readOutputs(array $read, array &$pipes, OutputSink $stdout, OutputSink $stderr, int $limit, int &$accepted): bool
+    {
+        $overflowed = false;
+        foreach ([1 => $stdout, 2 => $stderr] as $index => $sink) {
+            if (!isset($pipes[$index]) || !in_array($pipes[$index], $read, true)) {
+                continue;
+            }
+            $chunk = @fread($pipes[$index], self::IO_CHUNK_BYTES);
+            if ($chunk === false || ($chunk === '' && feof($pipes[$index]))) {
+                $this->closePipe($pipes, $index);
+
+                continue;
+            }
+            if ($chunk === '') {
+                continue;
+            }
+            $remaining = max(0, $limit - $accepted);
+            $allowed = min(strlen($chunk), $remaining);
+            $sink->consume($chunk, $allowed);
+            $accepted += $allowed;
+            $overflowed = $overflowed || $allowed < strlen($chunk);
+        }
+
+        return $overflowed;
+    }
+
+    private function secondsToNanos(float $seconds): int
+    {
+        return (int) round($seconds * self::NANOS_PER_SECOND);
     }
 
     /**
@@ -265,7 +356,45 @@ final class ProcessRunner
         if (isset($pipes[0]) && $stdinBuffer !== '' && is_resource($pipes[0])) {
             $write[] = $pipes[0];
         }
+
         return [$read, $write, $inputResourceId];
+    }
+
+    /** @return array{0: resource, 1: array<int, resource>} */
+    private function start(PreparedCommand $prepared): array
+    {
+        $command = $prepared->command;
+        $descriptors = [
+            0 => $command->stdin === null ? ['file', '/dev/null', 'r'] : ['pipe', 'r'],
+            1 => $this->outputDescriptor($command->stdoutMode, STDOUT),
+            2 => $this->outputDescriptor($command->stderrMode, STDERR),
+        ];
+        $pipes = [];
+        $process = @proc_open(
+            $prepared->argv,
+            $descriptors,
+            $pipes,
+            $prepared->cwd,
+            $prepared->environment,
+            ['bypass_shell' => true],
+        );
+
+        if (!is_resource($process)) {
+            throw new ProcessStartException('Unable to start child process.');
+        }
+
+        foreach ($pipes as $pipe) {
+            @stream_set_blocking($pipe, false);
+        }
+
+        return [$process, $pipes];
+    }
+
+    private function validateConsumer(IoMode $mode, ?callable $consumer, string $stream): void
+    {
+        if ($mode === IoMode::STREAM && $consumer === null) {
+            throw new ProcessStartException(sprintf('%s STREAM mode requires a consumer callback.', $stream));
+        }
     }
 
     /**
@@ -278,6 +407,7 @@ final class ProcessRunner
             if ($micros > 0) {
                 usleep($micros);
             }
+
             return;
         }
         $except = null;
@@ -291,24 +421,6 @@ final class ProcessRunner
         }
     }
 
-    /** @param list<resource> $read */
-    private function readInputResource(array $read, ?int $inputResourceId, InputSource $input, string &$buffer): void
-    {
-        if ($inputResourceId === null || $buffer !== '') {
-            return;
-        }
-        foreach ($read as $resource) {
-            if (get_resource_id($resource) !== $inputResourceId) {
-                continue;
-            }
-            $chunk = $input->pull(self::IO_CHUNK_BYTES);
-            if ($chunk !== null) {
-                $buffer = $chunk;
-            }
-            return;
-        }
-    }
-
     /**
      * @param list<resource> $write
      * @param array<int, resource> $pipes
@@ -319,115 +431,21 @@ final class ProcessRunner
             if ($buffer === '' && $input->eof()) {
                 $this->closePipe($pipes, 0);
             }
+
             return;
         }
         $written = @fwrite($pipes[0], $buffer);
         if ($written === false) {
             $this->closePipe($pipes, 0);
             $buffer = '';
+
             return;
         }
         if ($written > 0) {
-            $buffer = (string) substr($buffer, $written);
+            $buffer = substr($buffer, $written);
         }
         if ($buffer === '' && $input->eof()) {
             $this->closePipe($pipes, 0);
         }
-    }
-
-    /**
-     * @param list<resource> $read
-     * @param array<int, resource> $pipes
-     */
-    private function readOutputs(array $read, array &$pipes, OutputSink $stdout, OutputSink $stderr, int $limit, int &$accepted): bool
-    {
-        $overflowed = false;
-        foreach ([1 => $stdout, 2 => $stderr] as $index => $sink) {
-            if (!isset($pipes[$index]) || !in_array($pipes[$index], $read, true)) {
-                continue;
-            }
-            $chunk = @fread($pipes[$index], self::IO_CHUNK_BYTES);
-            if ($chunk === false || ($chunk === '' && feof($pipes[$index]))) {
-                $this->closePipe($pipes, $index);
-                continue;
-            }
-            if ($chunk === '') {
-                continue;
-            }
-            $remaining = max(0, $limit - $accepted);
-            $allowed = min(strlen($chunk), $remaining);
-            $sink->consume($chunk, $allowed);
-            $accepted += $allowed;
-            $overflowed = $overflowed || $allowed < strlen($chunk);
-        }
-        return $overflowed;
-    }
-
-    private function pollMicros(int $now, ?int ...$deadlines): int
-    {
-        $micros = self::POLL_MICROS;
-        foreach ($deadlines as $deadline) {
-            if ($deadline === null || $deadline <= 0) {
-                continue;
-            }
-            $until = max(0, $deadline - $now);
-            $micros = min($micros, (int) ceil($until / 1_000));
-        }
-        return max(0, $micros);
-    }
-
-    /**
-     * @param array{command: string, pid: int, running: bool, signaled: bool, stopped: bool, exitcode: int, termsig: int, stopsig: int}|null $status
-     */
-    private function exitCode(?array $status, mixed $closeCode): ?int
-    {
-        $statusCode = $status === null ? -1 : $status['exitcode'];
-        if ($statusCode >= 0) {
-            return $statusCode;
-        }
-        return is_int($closeCode) && $closeCode >= 0 ? $closeCode : null;
-    }
-
-    private function ensureProcessFunctions(): void
-    {
-        foreach (['proc_open', 'proc_get_status', 'proc_terminate', 'proc_close'] as $function) {
-            if (!function_exists($function)) {
-                throw new ProcessStartException(sprintf('Required process function "%s" is unavailable or disabled.', $function));
-            }
-        }
-    }
-
-    private function validateConsumer(IoMode $mode, ?callable $consumer, string $stream): void
-    {
-        if ($mode === IoMode::STREAM && $consumer === null) {
-            throw new ProcessStartException(sprintf('%s STREAM mode requires a consumer callback.', $stream));
-        }
-    }
-
-    /** @param array<int, resource> $pipes */
-    private function closePipe(array &$pipes, int $index): void
-    {
-        if (isset($pipes[$index]) && is_resource($pipes[$index])) {
-            @fclose($pipes[$index]);
-        }
-        unset($pipes[$index]);
-    }
-
-    /** @param array<int, resource> $pipes */
-    private function closePipes(array &$pipes): void
-    {
-        foreach (array_keys($pipes) as $index) {
-            $this->closePipe($pipes, $index);
-        }
-    }
-
-    private function secondsToNanos(float $seconds): int
-    {
-        return (int) round($seconds * self::NANOS_PER_SECOND);
-    }
-
-    private static function closure(?callable $consumer): ?Closure
-    {
-        return $consumer === null ? null : Closure::fromCallable($consumer);
     }
 }

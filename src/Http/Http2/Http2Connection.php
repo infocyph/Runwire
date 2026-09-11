@@ -25,25 +25,40 @@ final class Http2Connection
 {
     public const string CLIENT_PREFACE = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
-    private readonly FrameParser $parser;
-    private readonly PeerSettings $peerSettings;
-    private readonly Encoder $encoder;
-    private readonly FlowController $flow;
     private readonly ControlFrameBudget $controlBudget;
-    private readonly ResponseScheduler $output;
-    private readonly RequestStreamProcessor $requests;
+
+    private readonly Encoder $encoder;
+
+    private readonly FlowController $flow;
+
     /** @var Closure(HttpRequest, Http2ResponseWriter): void */
     private readonly Closure $handler;
 
-    private string $preface = '';
-    private bool $prefaceComplete = false;
-    private bool $firstFrame = true;
-    private bool $settingsAcked = false;
+    private readonly ResponseScheduler $output;
+
+    private readonly FrameParser $parser;
+
+    private readonly PeerSettings $peerSettings;
+
+    private readonly RequestStreamProcessor $requests;
+
     private bool $closed = false;
+
     private bool $draining = false;
-    private bool $errorClosePending = false;
-    private ?int $settingsAckTimer = null;
+
     private ?int $drainTimer = null;
+
+    private bool $errorClosePending = false;
+
+    private bool $firstFrame = true;
+
+    private string $preface = '';
+
+    private bool $prefaceComplete = false;
+
+    private bool $settingsAcked = false;
+
+    private ?int $settingsAckTimer;
 
     /** @param callable(HttpRequest, Http2ResponseWriter): void $handler */
     public function __construct(
@@ -68,10 +83,10 @@ final class Http2Connection
             peerSettings: $this->peerSettings,
             encoder: $this->encoder,
             flow: $this->flow,
-            streamLookup: fn (int $id): ?Http2Stream => $streamLookup->stream($id),
-            cleanupClosed: fn (Http2Stream $stream) => $this->cleanupClosed($stream),
-            readyCallback: fn () => $this->handleOutputReady(),
-            activityCallback: fn (Http2Stream $stream) => $this->touch($stream),
+            streamLookup: fn(int $id): ?Http2Stream => $streamLookup->stream($id),
+            cleanupClosed: fn(Http2Stream $stream) => $this->cleanupClosed($stream),
+            readyCallback: fn() => $this->handleOutputReady(),
+            activityCallback: fn(Http2Stream $stream) => $this->touch($stream),
         );
 
         $this->requests = new RequestStreamProcessor(
@@ -82,18 +97,23 @@ final class Http2Connection
             flow: $this->flow,
             output: $this->output,
             handler: $this->handler,
-            connectionFailure: fn (ErrorCode $code, string $message) => $this->failConnection($code, $message),
-            streamFailure: fn (StreamError $error) => $this->handleStreamError($error),
-            streamRemoved: fn () => $this->finishDrainIfReady(),
+            connectionFailure: fn(ErrorCode $code, string $message) => $this->failConnection($code, $message),
+            streamFailure: fn(StreamError $error) => $this->handleStreamError($error),
+            streamRemoved: fn() => $this->finishDrainIfReady(),
         );
         $streamLookup->attach($this->requests);
 
-        $connection->onData(fn () => $this->pump());
-        $connection->onEof(fn () => $this->handleEof());
-        $connection->onClose(fn () => $this->cleanup());
+        $connection->onData(fn() => $this->pump());
+        $connection->onEof(fn() => $this->handleEof());
+        $connection->onClose(fn() => $this->cleanup());
 
         $this->output->sendControl(FrameWriter::settings(PeerSettings::local($limits)));
         $this->armSettingsAckTimer();
+    }
+
+    public function activeStreams(): int
+    {
+        return $this->requests->count();
     }
 
     public function drain(): void
@@ -119,44 +139,57 @@ final class Http2Connection
         });
     }
 
-    public function activeStreams(): int
-    {
-        return $this->requests->count();
-    }
-
     public function lastClientStreamId(): int
     {
         return $this->requests->lastClientStreamId();
     }
 
-    private function pump(): void
+    private function acceptSettingsAck(Frame $frame): void
     {
-        if ($this->closed) {
-            return;
+        if ($frame->payload !== '') {
+            throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 SETTINGS ACK must have an empty payload.');
         }
+        $this->settingsAcked = true;
+        $this->cancelTimer($this->settingsAckTimer);
+        $this->settingsAckTimer = null;
+    }
 
-        try {
-            $data = $this->connection->read();
-            if ($data === '') {
-                return;
+    private function armSettingsAckTimer(): void
+    {
+        $this->settingsAckTimer = $this->loop->delay($this->limits->headerBlockTimeoutSeconds, function (): void {
+            $this->settingsAckTimer = null;
+            if (!$this->closed && !$this->settingsAcked) {
+                $this->failConnection(ErrorCode::SETTINGS_TIMEOUT, 'Peer did not acknowledge server SETTINGS in time.');
             }
+        });
+    }
 
-            $data = $this->consumePreface($data);
-            if ($data === '' || !$this->prefaceComplete) {
-                return;
-            }
+    private function cancelRuntimeTimers(): void
+    {
+        $this->cancelTimer($this->settingsAckTimer);
+        $this->cancelTimer($this->drainTimer);
+        $this->settingsAckTimer = null;
+        $this->drainTimer = null;
+    }
 
-            foreach ($this->parser->push($data) as $frame) {
-                if ($this->closed) {
-                    break;
-                }
-                $this->processFrameSafely($frame);
-            }
-        } catch (ConnectionError $error) {
-            $this->failConnection($error->errorCode, $error->getMessage());
-        } catch (Throwable $error) {
-            $this->failConnection(ErrorCode::INTERNAL_ERROR, $error->getMessage());
+    private function cancelTimer(?int $timer): void
+    {
+        if ($timer !== null) {
+            $this->loop->cancel($timer);
         }
+    }
+
+    private function cleanup(): void
+    {
+        $this->closed = true;
+        $this->cancelRuntimeTimers();
+        $this->requests->cleanup();
+        $this->output->cleanup();
+    }
+
+    private function cleanupClosed(Http2Stream $stream): void
+    {
+        $this->requests->cleanupIfClosed($stream);
     }
 
     private function consumePreface(string $data): string
@@ -171,6 +204,7 @@ final class Http2Connection
         if (!str_starts_with(self::CLIENT_PREFACE, $this->preface)) {
             $this->closed = true;
             $this->connection->abort(CloseReason::PROTOCOL_ERROR);
+
             return '';
         }
         if (strlen($this->preface) < strlen(self::CLIENT_PREFACE)) {
@@ -178,85 +212,84 @@ final class Http2Connection
         }
 
         $this->prefaceComplete = true;
+
         return substr($data, $take);
     }
 
-    private function processFrameSafely(Frame $frame): void
+    private function failConnection(ErrorCode $code, string $message): void
     {
-        try {
-            if ($this->requests->hasOpenHeaderBlock() && $frame->knownType() !== FrameType::CONTINUATION) {
-                throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 header block was interrupted before END_HEADERS.');
-            }
-            if ($this->firstFrame) {
-                $this->validateFirstFrame($frame);
-                $this->firstFrame = false;
-            }
-
-            $this->controlBudget->consume($frame->knownType());
-            $this->processFrame($frame);
-        } catch (StreamError $error) {
-            $this->handleStreamError($error);
-        }
-    }
-
-    private function validateFirstFrame(Frame $frame): void
-    {
-        if ($frame->knownType() !== FrameType::SETTINGS || $frame->streamId !== 0 || $frame->hasFlag(0x1)) {
-            throw new ConnectionError(
-                ErrorCode::PROTOCOL_ERROR,
-                'First peer HTTP/2 frame must be non-ACK SETTINGS on stream zero.',
-            );
-        }
-    }
-
-    private function processFrame(Frame $frame): void
-    {
-        match ($frame->knownType()) {
-            FrameType::DATA => $this->requests->handleData($frame),
-            FrameType::HEADERS => $this->requests->handleHeaders($frame),
-            FrameType::PRIORITY => $this->handlePriority($frame),
-            FrameType::RST_STREAM => $this->handleReset($frame),
-            FrameType::SETTINGS => $this->handleSettings($frame),
-            FrameType::PUSH_PROMISE => throw new ConnectionError(
-                ErrorCode::PROTOCOL_ERROR,
-                'Clients cannot send PUSH_PROMISE to an HTTP/2 server.',
-            ),
-            FrameType::PING => $this->handlePing($frame),
-            FrameType::GOAWAY => $this->handleGoAway($frame),
-            FrameType::WINDOW_UPDATE => $this->handleWindowUpdate($frame),
-            FrameType::CONTINUATION => $this->requests->handleContinuation($frame),
-            null => null,
-        };
-    }
-
-    private function handleSettings(Frame $frame): void
-    {
-        if ($frame->streamId !== 0) {
-            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 SETTINGS must use stream zero.');
-        }
-        if ($frame->hasFlag(0x1)) {
-            $this->acceptSettingsAck($frame);
+        if ($this->closed) {
             return;
         }
 
-        $delta = $this->peerSettings->apply($frame->payload);
-        $this->flow->applyInitialWindowDelta($this->requests->streams(), $delta);
-        $this->encoder->setPeerMaxDynamicTableBytes(min(
-            $this->peerSettings->headerTableSize,
-            $this->limits->maxDynamicTableBytes,
+        $this->closed = true;
+        $this->cancelRuntimeTimers();
+        $this->requests->cleanup();
+
+        if (!$this->prefaceComplete) {
+            $this->connection->abort(CloseReason::PROTOCOL_ERROR);
+
+            return;
+        }
+
+        $result = $this->output->sendControl(FrameWriter::goAway(
+            $this->requests->lastClientStreamId(),
+            $code,
+            substr($message, 0, 128),
         ));
-        $this->output->sendControl(FrameWriter::settings(ack: true));
-        $this->output->flush();
+        if ($result->state === WriteState::CLOSED) {
+            $this->connection->abort(CloseReason::PROTOCOL_ERROR);
+
+            return;
+        }
+        if ($this->output->wireIdle()) {
+            $this->connection->closeGracefully();
+
+            return;
+        }
+
+        $this->errorClosePending = true;
     }
 
-    private function acceptSettingsAck(Frame $frame): void
+    private function finishDrainIfReady(): void
     {
-        if ($frame->payload !== '') {
-            throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 SETTINGS ACK must have an empty payload.');
+        if (!$this->draining || $this->closed || $this->requests->count() !== 0 || !$this->output->wireIdle()) {
+            return;
         }
-        $this->settingsAcked = true;
-        $this->cancelTimer($this->settingsAckTimer);
-        $this->settingsAckTimer = null;
+
+        $this->cancelTimer($this->drainTimer);
+        $this->drainTimer = null;
+        $this->connection->closeGracefully();
+    }
+
+    private function handleEof(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        $this->closed = true;
+        $this->cleanup();
+    }
+
+    private function handleGoAway(Frame $frame): void
+    {
+        if ($frame->streamId !== 0) {
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 GOAWAY must use stream zero.');
+        }
+        if (strlen($frame->payload) < 8) {
+            throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 GOAWAY payload must contain at least eight bytes.');
+        }
+    }
+
+    private function handleOutputReady(): void
+    {
+        if ($this->errorClosePending && $this->output->wireIdle()) {
+            $this->errorClosePending = false;
+            $this->connection->closeGracefully();
+
+            return;
+        }
+        $this->finishDrainIfReady();
     }
 
     private function handlePing(Frame $frame): void
@@ -269,16 +302,6 @@ final class Http2Connection
         }
         if (!$frame->hasFlag(0x1)) {
             $this->output->sendControl(new Frame(FrameType::PING->value, 0x1, 0, $frame->payload));
-        }
-    }
-
-    private function handleGoAway(Frame $frame): void
-    {
-        if ($frame->streamId !== 0) {
-            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 GOAWAY must use stream zero.');
-        }
-        if (strlen($frame->payload) < 8) {
-            throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 GOAWAY payload must contain at least eight bytes.');
         }
     }
 
@@ -316,9 +339,44 @@ final class Http2Connection
             if ($frame->streamId > $this->requests->lastClientStreamId()) {
                 throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'RST_STREAM received for an idle stream.');
             }
+
             return;
         }
         $this->requests->reset($stream);
+    }
+
+    private function handleSettings(Frame $frame): void
+    {
+        if ($frame->streamId !== 0) {
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 SETTINGS must use stream zero.');
+        }
+        if ($frame->hasFlag(0x1)) {
+            $this->acceptSettingsAck($frame);
+
+            return;
+        }
+
+        $delta = $this->peerSettings->apply($frame->payload);
+        $this->flow->applyInitialWindowDelta($this->requests->streams(), $delta);
+        $this->encoder->setPeerMaxDynamicTableBytes(min(
+            $this->peerSettings->headerTableSize,
+            $this->limits->maxDynamicTableBytes,
+        ));
+        $this->output->sendControl(FrameWriter::settings(ack: true));
+        $this->output->flush();
+    }
+
+    private function handleStreamError(StreamError $error): void
+    {
+        if ($this->closed) {
+            return;
+        }
+
+        $this->output->sendControl(FrameWriter::rstStream($error->streamId, $error->errorCode));
+        $stream = $this->requests->stream($error->streamId);
+        if ($stream !== null) {
+            $this->requests->reset($stream);
+        }
     }
 
     private function handleWindowUpdate(Frame $frame): void
@@ -336,6 +394,7 @@ final class Http2Connection
         if ($frame->streamId === 0) {
             $this->flow->updateConnectionSend($increment);
             $this->output->flush();
+
             return;
         }
 
@@ -344,6 +403,7 @@ final class Http2Connection
             if ($frame->streamId > $this->requests->lastClientStreamId()) {
                 throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'WINDOW_UPDATE received for an idle stream.');
             }
+
             return;
         }
         $this->flow->updateStreamSend($stream, $increment);
@@ -351,22 +411,72 @@ final class Http2Connection
         $this->output->flush();
     }
 
-    private function handleStreamError(StreamError $error): void
+    private function processFrame(Frame $frame): void
+    {
+        match ($frame->knownType()) {
+            FrameType::DATA => $this->requests->handleData($frame),
+            FrameType::HEADERS => $this->requests->handleHeaders($frame),
+            FrameType::PRIORITY => $this->handlePriority($frame),
+            FrameType::RST_STREAM => $this->handleReset($frame),
+            FrameType::SETTINGS => $this->handleSettings($frame),
+            FrameType::PUSH_PROMISE => throw new ConnectionError(
+                ErrorCode::PROTOCOL_ERROR,
+                'Clients cannot send PUSH_PROMISE to an HTTP/2 server.',
+            ),
+            FrameType::PING => $this->handlePing($frame),
+            FrameType::GOAWAY => $this->handleGoAway($frame),
+            FrameType::WINDOW_UPDATE => $this->handleWindowUpdate($frame),
+            FrameType::CONTINUATION => $this->requests->handleContinuation($frame),
+            null => null,
+        };
+    }
+
+    private function processFrameSafely(Frame $frame): void
+    {
+        try {
+            if ($this->requests->hasOpenHeaderBlock() && $frame->knownType() !== FrameType::CONTINUATION) {
+                throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 header block was interrupted before END_HEADERS.');
+            }
+            if ($this->firstFrame) {
+                $this->validateFirstFrame($frame);
+                $this->firstFrame = false;
+            }
+
+            $this->controlBudget->consume($frame->knownType());
+            $this->processFrame($frame);
+        } catch (StreamError $error) {
+            $this->handleStreamError($error);
+        }
+    }
+
+    private function pump(): void
     {
         if ($this->closed) {
             return;
         }
 
-        $this->output->sendControl(FrameWriter::rstStream($error->streamId, $error->errorCode));
-        $stream = $this->requests->stream($error->streamId);
-        if ($stream !== null) {
-            $this->requests->reset($stream);
-        }
-    }
+        try {
+            $data = $this->connection->read();
+            if ($data === '') {
+                return;
+            }
 
-    private function cleanupClosed(Http2Stream $stream): void
-    {
-        $this->requests->cleanupIfClosed($stream);
+            $data = $this->consumePreface($data);
+            if ($data === '' || !$this->prefaceComplete) {
+                return;
+            }
+
+            foreach ($this->parser->push($data) as $frame) {
+                if ($this->closed) {
+                    break;
+                }
+                $this->processFrameSafely($frame);
+            }
+        } catch (ConnectionError $error) {
+            $this->failConnection($error->errorCode, $error->getMessage());
+        } catch (Throwable $error) {
+            $this->failConnection(ErrorCode::INTERNAL_ERROR, $error->getMessage());
+        }
     }
 
     private function touch(Http2Stream $stream): void
@@ -374,98 +484,13 @@ final class Http2Connection
         $this->requests->touch($stream);
     }
 
-    private function handleOutputReady(): void
+    private function validateFirstFrame(Frame $frame): void
     {
-        if ($this->errorClosePending && $this->output->wireIdle()) {
-            $this->errorClosePending = false;
-            $this->connection->closeGracefully();
-            return;
-        }
-        $this->finishDrainIfReady();
-    }
-
-    private function finishDrainIfReady(): void
-    {
-        if (!$this->draining || $this->closed || $this->requests->count() !== 0 || !$this->output->wireIdle()) {
-            return;
-        }
-
-        $this->cancelTimer($this->drainTimer);
-        $this->drainTimer = null;
-        $this->connection->closeGracefully();
-    }
-
-    private function armSettingsAckTimer(): void
-    {
-        $this->settingsAckTimer = $this->loop->delay($this->limits->headerBlockTimeoutSeconds, function (): void {
-            $this->settingsAckTimer = null;
-            if (!$this->closed && !$this->settingsAcked) {
-                $this->failConnection(ErrorCode::SETTINGS_TIMEOUT, 'Peer did not acknowledge server SETTINGS in time.');
-            }
-        });
-    }
-
-    private function handleEof(): void
-    {
-        if ($this->closed) {
-            return;
-        }
-        $this->closed = true;
-        $this->cleanup();
-    }
-
-    private function failConnection(ErrorCode $code, string $message): void
-    {
-        if ($this->closed) {
-            return;
-        }
-
-        $this->closed = true;
-        $this->cancelRuntimeTimers();
-        $this->requests->cleanup();
-
-        if (!$this->prefaceComplete) {
-            $this->connection->abort(CloseReason::PROTOCOL_ERROR);
-            return;
-        }
-
-        $result = $this->output->sendControl(FrameWriter::goAway(
-            $this->requests->lastClientStreamId(),
-            $code,
-            substr($message, 0, 128),
-        ));
-        if ($result->state === WriteState::CLOSED) {
-            $this->connection->abort(CloseReason::PROTOCOL_ERROR);
-            return;
-        }
-        if ($this->output->wireIdle()) {
-            $this->connection->closeGracefully();
-            return;
-        }
-
-        $this->errorClosePending = true;
-    }
-
-    private function cleanup(): void
-    {
-        $this->closed = true;
-        $this->cancelRuntimeTimers();
-        $this->requests->cleanup();
-        $this->output->cleanup();
-    }
-
-    private function cancelRuntimeTimers(): void
-    {
-        $this->cancelTimer($this->settingsAckTimer);
-        $this->cancelTimer($this->drainTimer);
-        $this->settingsAckTimer = null;
-        $this->drainTimer = null;
-    }
-
-    private function cancelTimer(?int $timer): void
-    {
-        if ($timer !== null) {
-            $this->loop->cancel($timer);
+        if ($frame->knownType() !== FrameType::SETTINGS || $frame->streamId !== 0 || $frame->hasFlag(0x1)) {
+            throw new ConnectionError(
+                ErrorCode::PROTOCOL_ERROR,
+                'First peer HTTP/2 frame must be non-ACK SETTINGS on stream zero.',
+            );
         }
     }
 }

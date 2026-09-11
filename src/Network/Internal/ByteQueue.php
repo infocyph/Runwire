@@ -10,14 +10,14 @@ final class ByteQueue
 {
     private const int COMPACT_HEAD = 64;
 
-    /** @var array<int, string> */
-    private array $chunks = [];
-    private int $head = 0;
-    private int $headOffset = 0;
     private int $bytes = 0;
 
-    public function bytes(): int { return $this->bytes; }
-    public function isEmpty(): bool { return $this->bytes === 0; }
+    /** @var array<int, string> */
+    private array $chunks = [];
+
+    private int $head = 0;
+
+    private int $headOffset = 0;
 
     public function append(string $bytes): void
     {
@@ -26,6 +26,61 @@ final class ByteQueue
         }
         $this->chunks[] = $bytes;
         $this->bytes += strlen($bytes);
+    }
+
+    public function bytes(): int
+    {
+        return $this->bytes;
+    }
+
+    public function clear(): void
+    {
+        $this->chunks = [];
+        $this->head = 0;
+        $this->headOffset = 0;
+        $this->bytes = 0;
+    }
+
+    public function discard(int $bytes): void
+    {
+        if ($bytes < 0 || $bytes > $this->bytes) {
+            throw new InvalidArgumentException('Discard length exceeds queued bytes.');
+        }
+        $remaining = $bytes;
+        while ($remaining > 0 && isset($this->chunks[$this->head])) {
+            $available = strlen($this->chunks[$this->head]) - $this->headOffset;
+            if ($remaining < $available) {
+                $this->headOffset += $remaining;
+                $this->bytes -= $remaining;
+
+                return;
+            }
+            $remaining -= $available;
+            $this->bytes -= $available;
+            unset($this->chunks[$this->head]);
+            ++$this->head;
+            $this->headOffset = 0;
+        }
+        $this->compact();
+    }
+
+    public function front(int $maxBytes): string
+    {
+        if ($maxBytes <= 0 || $this->bytes === 0 || !isset($this->chunks[$this->head])) {
+            return '';
+        }
+        $chunk = $this->chunks[$this->head];
+        $available = strlen($chunk) - $this->headOffset;
+        $length = min($maxBytes, $available);
+
+        return $this->headOffset === 0 && $length === $available
+            ? $chunk
+            : substr($chunk, $this->headOffset, $length);
+    }
+
+    public function isEmpty(): bool
+    {
+        return $this->bytes === 0;
     }
 
     public function read(int $maxBytes): string
@@ -51,49 +106,6 @@ final class ByteQueue
         }
 
         return count($parts) === 1 ? $parts[0] : implode('', $parts);
-    }
-
-    public function front(int $maxBytes): string
-    {
-        if ($maxBytes <= 0 || $this->bytes === 0 || !isset($this->chunks[$this->head])) {
-            return '';
-        }
-        $chunk = $this->chunks[$this->head];
-        $available = strlen($chunk) - $this->headOffset;
-        $length = min($maxBytes, $available);
-        return $this->headOffset === 0 && $length === $available
-            ? $chunk
-            : substr($chunk, $this->headOffset, $length);
-    }
-
-    public function discard(int $bytes): void
-    {
-        if ($bytes < 0 || $bytes > $this->bytes) {
-            throw new InvalidArgumentException('Discard length exceeds queued bytes.');
-        }
-        $remaining = $bytes;
-        while ($remaining > 0 && isset($this->chunks[$this->head])) {
-            $available = strlen($this->chunks[$this->head]) - $this->headOffset;
-            if ($remaining < $available) {
-                $this->headOffset += $remaining;
-                $this->bytes -= $remaining;
-                return;
-            }
-            $remaining -= $available;
-            $this->bytes -= $available;
-            unset($this->chunks[$this->head]);
-            ++$this->head;
-            $this->headOffset = 0;
-        }
-        $this->compact();
-    }
-
-    public function clear(): void
-    {
-        $this->chunks = [];
-        $this->head = 0;
-        $this->headOffset = 0;
-        $this->bytes = 0;
     }
 
     private function compact(): void

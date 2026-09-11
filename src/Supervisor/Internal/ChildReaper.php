@@ -8,6 +8,17 @@ use Infocyph\Runwire\Exception\SupervisorException;
 
 final class ChildReaper
 {
+    public static function exitCode(int $status): ?int
+    {
+        if (!pcntl_wifexited($status)) {
+            return null;
+        }
+
+        $exitCode = pcntl_wexitstatus($status);
+
+        return is_int($exitCode) ? $exitCode : null;
+    }
+
     /**
      * @param callable(int, int): void $onExit
      * @param callable(): void $onNoChildren
@@ -23,6 +34,7 @@ final class ChildReaper
                     throw new SupervisorException('waitpid returned a non-integer child status.');
                 }
                 $onExit($pid, $status);
+
                 continue;
             }
 
@@ -37,29 +49,12 @@ final class ChildReaper
 
             if ($error === PCNTL_ECHILD) {
                 $onNoChildren();
+
                 return;
             }
 
             throw new SupervisorException(sprintf('waitpid failed with PCNTL error %d.', $error));
         }
-    }
-
-    public static function waitFor(int $pid): void
-    {
-        do {
-            $status = 0;
-            $result = pcntl_waitpid($pid, $status);
-        } while ($result === -1 && pcntl_get_last_error() === PCNTL_EINTR);
-    }
-
-    public static function exitCode(int $status): ?int
-    {
-        if (!pcntl_wifexited($status)) {
-            return null;
-        }
-
-        $exitCode = pcntl_wexitstatus($status);
-        return is_int($exitCode) ? $exitCode : null;
     }
 
     public static function termSignal(int $status): ?int
@@ -69,6 +64,15 @@ final class ChildReaper
         }
 
         $signal = pcntl_wtermsig($status);
+
         return is_int($signal) ? $signal : null;
+    }
+
+    public static function waitFor(int $pid): void
+    {
+        do {
+            $status = 0;
+            $result = pcntl_waitpid($pid, $status);
+        } while ($result === -1 && pcntl_get_last_error() === PCNTL_EINTR);
     }
 }

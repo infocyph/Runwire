@@ -16,6 +16,5 @@ final readonly class RuntimeSelection
         public RuntimeDriver $driver,
         public RuntimeCapabilities $capabilities,
         public array $warnings = [],
-    ) {
-    }
+    ) {}
 }

@@ -6,9 +6,11 @@ namespace Infocyph\Runwire\Protocol;
 
 enum LengthPrefixFormat: int
 {
-    case UINT8 = 1;
     case UINT16_BE = 2;
+
     case UINT32_BE = 4;
+
+    case UINT8 = 1;
 
     public function maximum(): int
     {

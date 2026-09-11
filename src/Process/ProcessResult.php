@@ -17,7 +17,13 @@ final readonly class ProcessResult
         public TerminationReason $terminationReason,
         public ?int $terminationSignal,
         public float $durationSeconds,
-    ) {
+    ) {}
+
+    public function outputLimitExceeded(): bool
+    {
+        return $this->terminationReason === TerminationReason::OUTPUT_LIMIT
+            || $this->stdoutTruncated
+            || $this->stderrTruncated;
     }
 
     public function successful(): bool
@@ -28,12 +34,5 @@ final readonly class ProcessResult
     public function timedOut(): bool
     {
         return $this->terminationReason === TerminationReason::TIMEOUT;
-    }
-
-    public function outputLimitExceeded(): bool
-    {
-        return $this->terminationReason === TerminationReason::OUTPUT_LIMIT
-            || $this->stdoutTruncated
-            || $this->stderrTruncated;
     }
 }

@@ -13,13 +13,12 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
 
-final class NativeHttpConnection
+final readonly class NativeHttpConnection
 {
     private function __construct(
-        private readonly Http1Connection|Http2Connection $protocol,
-        public readonly ProtocolVersion $version,
-    ) {
-    }
+        private Http1Connection|Http2Connection $protocol,
+        public ProtocolVersion $version,
+    ) {}
 
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
@@ -49,6 +48,7 @@ final class NativeHttpConnection
         }
 
         $connection->abort(CloseReason::PROTOCOL_ERROR);
+
         return null;
     }
 

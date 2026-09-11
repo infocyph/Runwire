@@ -13,8 +13,7 @@ final readonly class RuntimeSelector
     public function __construct(
         private RuntimeDriverResolver $driverResolver = new RuntimeDriverResolver(),
         private RuntimeCapabilityResolver $capabilityResolver = new RuntimeCapabilityResolver(),
-    ) {
-    }
+    ) {}
 
     public function select(RuntimeOptions $options, RuntimeEnvironment $environment): RuntimeSelection
     {

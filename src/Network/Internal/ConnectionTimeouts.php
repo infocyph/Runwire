@@ -10,12 +10,14 @@ use Infocyph\Runwire\Network\CloseReason;
 
 final class ConnectionTimeouts
 {
-    private ?int $idleTimer = null;
-    private ?int $lifetimeTimer = null;
-    private float $lastActivityAt;
-
     /** @var Closure(CloseReason): void */
     private readonly Closure $onTimeout;
+
+    private ?int $idleTimer = null;
+
+    private float $lastActivityAt;
+
+    private ?int $lifetimeTimer = null;
 
     /** @param callable(CloseReason): void $onTimeout */
     public function __construct(
@@ -32,11 +34,6 @@ final class ConnectionTimeouts
         $this->armLifetime($lifetimeTimeoutSeconds);
     }
 
-    public function touch(): void
-    {
-        $this->lastActivityAt = $this->loop->now();
-    }
-
     public function cancel(): void
     {
         foreach ([$this->idleTimer, $this->lifetimeTimer] as $handle) {
@@ -46,6 +43,11 @@ final class ConnectionTimeouts
         }
         $this->idleTimer = null;
         $this->lifetimeTimer = null;
+    }
+
+    public function touch(): void
+    {
+        $this->lastActivityAt = $this->loop->now();
     }
 
     private function armIdle(?float $delay): void
@@ -64,6 +66,7 @@ final class ConnectionTimeouts
             $remaining = $limit - ($this->loop->now() - $this->lastActivityAt);
             if ($remaining <= 0) {
                 ($this->onTimeout)(CloseReason::IDLE_TIMEOUT);
+
                 return;
             }
 

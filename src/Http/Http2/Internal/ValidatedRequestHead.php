@@ -13,6 +13,5 @@ final readonly class ValidatedRequestHead
         public string $target,
         public Headers $headers,
         public ?int $contentLength,
-    ) {
-    }
+    ) {}
 }

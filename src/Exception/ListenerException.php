@@ -6,6 +6,4 @@ namespace Infocyph\Runwire\Exception;
 
 use RuntimeException;
 
-final class ListenerException extends RuntimeException
-{
-}
+final class ListenerException extends RuntimeException {}

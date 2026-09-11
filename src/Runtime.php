@@ -30,22 +30,25 @@ use LogicException;
 
 final class Runtime
 {
-    /** @var array<string, Server|StreamServer|DatagramServer> */
-    private array $servers = [];
-    private bool $started = false;
-    private ?Supervisor $supervisor = null;
-    private ?RuntimeSelection $selection = null;
     private ?ControlOptions $controlOptions = null;
 
     /** @var list<Closure(SupervisorEvent): void> */
     private array $lifecycleListeners = [];
 
+    private ?RuntimeSelection $selection = null;
+
+    /** @var array<string, Server|StreamServer|DatagramServer> */
+    private array $servers = [];
+
+    private bool $started = false;
+
+    private ?Supervisor $supervisor = null;
+
     private function __construct(
         private readonly RuntimeOptions $options,
         private readonly RuntimeEnvironmentProbe $environmentProbe,
         private readonly RuntimeSelector $selector,
-    ) {
-    }
+    ) {}
 
     public static function create(?RuntimeOptions $options = null): self
     {
@@ -55,20 +58,6 @@ final class Runtime
             new RuntimeSelector(),
         );
     }
-
-    public function listen(Server|StreamServer|DatagramServer $server): self
-    {
-        if ($this->started) {
-            throw new LogicException('Runtime topology is frozen after run() starts.');
-        }
-        if (isset($this->servers[$server->name])) {
-            throw new LogicException(sprintf('Server "%s" is already registered.', $server->name));
-        }
-
-        $this->servers[$server->name] = $server;
-        return $this;
-    }
-
 
     public function control(ControlOptions $options): self
     {
@@ -81,9 +70,18 @@ final class Runtime
         return $this;
     }
 
-    public function selection(): ?RuntimeSelection
+    public function listen(Server|StreamServer|DatagramServer $server): self
     {
-        return $this->selection;
+        if ($this->started) {
+            throw new LogicException('Runtime topology is frozen after run() starts.');
+        }
+        if (isset($this->servers[$server->name])) {
+            throw new LogicException(sprintf('Server "%s" is already registered.', $server->name));
+        }
+
+        $this->servers[$server->name] = $server;
+
+        return $this;
     }
 
     /** @param callable(SupervisorEvent): void $listener */
@@ -109,6 +107,11 @@ final class Runtime
         return $this->supervisor->recycle(self::serverGroupName($server), $slot);
     }
 
+    public function reload(): void
+    {
+        $this->supervisor?->reload();
+    }
+
     public function run(): void
     {
         if ($this->started) {
@@ -128,6 +131,7 @@ final class Runtime
         }
 
         $bound = $this->bindServers();
+
         try {
             $this->supervisor = $this->buildSupervisor($bound);
             $this->supervisor->run();
@@ -139,14 +143,9 @@ final class Runtime
         }
     }
 
-    public function stop(bool $force = false): void
+    public function selection(): ?RuntimeSelection
     {
-        $this->supervisor?->stop($force);
-    }
-
-    public function reload(): void
-    {
-        $this->supervisor?->reload();
+        return $this->selection;
     }
 
     public function status(): ?SupervisorStatus
@@ -154,10 +153,70 @@ final class Runtime
         return $this->supervisor?->status();
     }
 
+    public function stop(bool $force = false): void
+    {
+        $this->supervisor?->stop($force);
+    }
+
+    private static function closeBound(
+        BoundServer|BoundStreamServer|BoundDatagramServer $target,
+        bool $master,
+    ): void {
+        if ($target instanceof BoundStreamServer && $target->listener instanceof UnixListener) {
+            $target->listener->close($master);
+
+            return;
+        }
+        $target->listener->close();
+    }
+
+    private static function groupPrefix(BoundServer|BoundStreamServer|BoundDatagramServer $target): string
+    {
+        return match (true) {
+            $target instanceof BoundServer => 'http',
+            $target instanceof BoundStreamServer => $target->definition->transport->value,
+            $target instanceof BoundDatagramServer => 'udp',
+        };
+    }
+
+    private static function serverGroupName(Server|StreamServer|DatagramServer $server): string
+    {
+        $prefix = match (true) {
+            $server instanceof Server => 'http',
+            $server instanceof StreamServer => $server->transport->value,
+            $server instanceof DatagramServer => 'udp',
+        };
+
+        return $prefix . ':' . $server->name;
+    }
+
+    private static function workerListenerOptions(ListenerOptions $options, int $workerLimit): ListenerOptions
+    {
+        return new ListenerOptions(
+            backlog: $options->backlog,
+            maxConnections: min($options->maxConnections, $workerLimit),
+            acceptBatchSize: $options->acceptBatchSize,
+            socketContext: $options->socketContext,
+        );
+    }
+
+    private static function workerUnixOptions(StreamServer $server): UnixListenerOptions
+    {
+        $options = $server->unix ?? new UnixListenerOptions(listener: $server->listener);
+
+        return new UnixListenerOptions(
+            listener: self::workerListenerOptions($options->listener, $server->workerConnectionLimit),
+            removeStaleSocket: $options->removeStaleSocket,
+            permissions: $options->permissions,
+            unlinkOnClose: $options->unlinkOnClose,
+        );
+    }
+
     /** @return array<string, BoundServer|BoundStreamServer|BoundDatagramServer> */
     private function bindServers(): array
     {
         $bound = [];
+
         try {
             foreach ($this->servers as $name => $server) {
                 $bound[$name] = match (true) {
@@ -172,11 +231,13 @@ final class Runtime
                     ),
                 };
             }
+
             return $bound;
         } catch (\Throwable $error) {
             foreach ($bound as $target) {
                 self::closeBound($target, true);
             }
+
             throw $error;
         }
     }
@@ -232,59 +293,7 @@ final class Runtime
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
             ));
         }
+
         return $supervisor;
-    }
-
-    private static function serverGroupName(Server|StreamServer|DatagramServer $server): string
-    {
-        $prefix = match (true) {
-            $server instanceof Server => 'http',
-            $server instanceof StreamServer => $server->transport->value,
-            $server instanceof DatagramServer => 'udp',
-        };
-
-        return $prefix . ':' . $server->name;
-    }
-
-    private static function groupPrefix(BoundServer|BoundStreamServer|BoundDatagramServer $target): string
-    {
-        return match (true) {
-            $target instanceof BoundServer => 'http',
-            $target instanceof BoundStreamServer => $target->definition->transport->value,
-            $target instanceof BoundDatagramServer => 'udp',
-        };
-    }
-
-
-    private static function workerListenerOptions(ListenerOptions $options, int $workerLimit): ListenerOptions
-    {
-        return new ListenerOptions(
-            backlog: $options->backlog,
-            maxConnections: min($options->maxConnections, $workerLimit),
-            acceptBatchSize: $options->acceptBatchSize,
-            socketContext: $options->socketContext,
-        );
-    }
-
-    private static function workerUnixOptions(StreamServer $server): UnixListenerOptions
-    {
-        $options = $server->unix ?? new UnixListenerOptions(listener: $server->listener);
-        return new UnixListenerOptions(
-            listener: self::workerListenerOptions($options->listener, $server->workerConnectionLimit),
-            removeStaleSocket: $options->removeStaleSocket,
-            permissions: $options->permissions,
-            unlinkOnClose: $options->unlinkOnClose,
-        );
-    }
-
-    private static function closeBound(
-        BoundServer|BoundStreamServer|BoundDatagramServer $target,
-        bool $master,
-    ): void {
-        if ($target instanceof BoundStreamServer && $target->listener instanceof UnixListener) {
-            $target->listener->close($master);
-            return;
-        }
-        $target->listener->close();
     }
 }

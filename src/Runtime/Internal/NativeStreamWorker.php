@@ -22,6 +22,7 @@ final class NativeStreamWorker
         $bound->listener->start($loop, function (Connection $connection) use ($loop, $bound, $handler, &$sessions, $state): void {
             if ($state->isStopping()) {
                 $connection->closeGracefully();
+
                 return;
             }
             $session = new FramedConnection(
@@ -65,6 +66,7 @@ final class NativeStreamWorker
     {
         if ($bound->listener instanceof UnixListener) {
             $bound->listener->close(false);
+
             return;
         }
         $bound->listener->close();

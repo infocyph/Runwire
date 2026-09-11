@@ -58,30 +58,15 @@ final readonly class Command
         return $this->copy(arguments: $arguments);
     }
 
-    /** @param array<string, string> $environment */
-    public function environment(array $environment): self
-    {
-        return $this->copy(environment: $environment);
-    }
-
     public function cwd(?string $cwd): self
     {
         return $this->copy(cwd: $cwd, replaceCwd: true);
     }
 
-    public function stdin(mixed $stdin): self
+    /** @param array<string, string> $environment */
+    public function environment(array $environment): self
     {
-        return $this->copy(stdin: $stdin, replaceStdin: true);
-    }
-
-    public function output(IoMode $stdout, IoMode $stderr): self
-    {
-        return $this->copy(stdoutMode: $stdout, stderrMode: $stderr);
-    }
-
-    public function timeout(float $seconds): self
-    {
-        return $this->copy(timeoutSeconds: $seconds);
+        return $this->copy(environment: $environment);
     }
 
     public function maxOutputBytes(int $bytes): self
@@ -89,14 +74,29 @@ final readonly class Command
         return $this->copy(maxOutputBytes: $bytes);
     }
 
-    public function terminationGrace(float $seconds): self
+    public function output(IoMode $stdout, IoMode $stderr): self
     {
-        return $this->copy(terminationGraceSeconds: $seconds);
+        return $this->copy(stdoutMode: $stdout, stderrMode: $stderr);
     }
 
     public function overflowPolicy(OutputOverflowPolicy $policy): self
     {
         return $this->copy(overflowPolicy: $policy);
+    }
+
+    public function stdin(mixed $stdin): self
+    {
+        return $this->copy(stdin: $stdin, replaceStdin: true);
+    }
+
+    public function terminationGrace(float $seconds): self
+    {
+        return $this->copy(terminationGraceSeconds: $seconds);
+    }
+
+    public function timeout(float $seconds): self
+    {
+        return $this->copy(timeoutSeconds: $seconds);
     }
 
     /**

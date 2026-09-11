@@ -10,16 +10,17 @@ use OverflowException;
 
 final class TimerQueue
 {
-    private const int NANOS_PER_SECOND = 1_000_000_000;
     private const int COMPACTION_FLOOR = 64;
 
-    /** @var array<int, array{deadline: int, interval: int, callback: Closure}> */
-    private array $timers = [];
+    private const int NANOS_PER_SECOND = 1_000_000_000;
+
+    private int $cancelledEntries = 0;
 
     /** @var list<array{id: int, deadline: int}> */
     private array $heap = [];
 
-    private int $cancelledEntries = 0;
+    /** @var array<int, array{deadline: int, interval: int, callback: Closure}> */
+    private array $timers = [];
 
     public function addDelay(int $id, float $seconds, Closure $callback): void
     {
@@ -45,22 +46,31 @@ final class TimerQueue
         return true;
     }
 
+    public function consumeOneShot(int $id): void
+    {
+        unset($this->timers[$id]);
+    }
+
     public function hasTimers(): bool
     {
         return $this->timers !== [];
     }
 
-    /**
-     * @return array{deadline: int, interval: int, callback: Closure}|null
-     */
-    public function timer(int $id): ?array
+    public function nextDeadline(): ?int
     {
-        return $this->timers[$id] ?? null;
-    }
+        while (($entry = $this->peek()) !== null) {
+            $timer = $this->timers[$entry['id']] ?? null;
+            if ($timer !== null && $timer['deadline'] === $entry['deadline']) {
+                return $entry['deadline'];
+            }
 
-    public function consumeOneShot(int $id): void
-    {
-        unset($this->timers[$id]);
+            $this->pop();
+            if ($timer === null && $this->cancelledEntries > 0) {
+                --$this->cancelledEntries;
+            }
+        }
+
+        return null;
     }
 
     public function rescheduleRepeat(int $id): void
@@ -108,21 +118,12 @@ final class TimerQueue
         return $due;
     }
 
-    public function nextDeadline(): ?int
+    /**
+     * @return array{deadline: int, interval: int, callback: Closure}|null
+     */
+    public function timer(int $id): ?array
     {
-        while (($entry = $this->peek()) !== null) {
-            $timer = $this->timers[$entry['id']] ?? null;
-            if ($timer !== null && $timer['deadline'] === $entry['deadline']) {
-                return $entry['deadline'];
-            }
-
-            $this->pop();
-            if ($timer === null && $this->cancelledEntries > 0) {
-                --$this->cancelledEntries;
-            }
-        }
-
-        return null;
+        return $this->timers[$id] ?? null;
     }
 
     private function add(int $id, float $seconds, int $interval, Closure $callback): void
@@ -143,6 +144,32 @@ final class TimerQueue
         $this->push($id, $deadline);
     }
 
+    private function compactIfNeeded(): void
+    {
+        $heapSize = count($this->heap);
+        if ($this->cancelledEntries < self::COMPACTION_FLOOR
+            || $this->cancelledEntries * 2 < $heapSize) {
+            return;
+        }
+
+        $this->heap = [];
+        foreach ($this->timers as $id => $timer) {
+            $this->push($id, $timer['deadline']);
+        }
+
+        $this->cancelledEntries = 0;
+    }
+
+    /**
+     * @param array{id: int, deadline: int} $left
+     * @param array{id: int, deadline: int} $right
+     */
+    private function less(array $left, array $right): bool
+    {
+        return $left['deadline'] < $right['deadline']
+            || ($left['deadline'] === $right['deadline'] && $left['id'] < $right['id']);
+    }
+
     private function nextRepeatDeadline(int $previousDeadline, int $interval, int $now): int
     {
         if ($previousDeadline > PHP_INT_MAX - $interval) {
@@ -160,62 +187,6 @@ final class TimerQueue
         }
 
         return $previousDeadline + ($missed * $interval);
-    }
-
-    private function secondsToNanoseconds(float $seconds, bool $allowZero): int
-    {
-        if (!is_finite($seconds) || $seconds < 0 || (!$allowZero && $seconds <= 0)) {
-            throw new InvalidArgumentException(
-                $allowZero
-                    ? 'Timer delay must be a finite non-negative number.'
-                    : 'Repeating timer interval must be a finite positive number.',
-            );
-        }
-
-        if ($seconds > PHP_INT_MAX / self::NANOS_PER_SECOND) {
-            throw new OverflowException('Timer duration exceeds the platform integer range.');
-        }
-
-        $nanoseconds = (int) round($seconds * self::NANOS_PER_SECOND);
-        if (!$allowZero && $nanoseconds === 0) {
-            throw new InvalidArgumentException('Repeating timer interval is below timer resolution.');
-        }
-
-        return $nanoseconds;
-    }
-
-    private function compactIfNeeded(): void
-    {
-        $heapSize = count($this->heap);
-        if ($this->cancelledEntries < self::COMPACTION_FLOOR
-            || $this->cancelledEntries * 2 < $heapSize) {
-            return;
-        }
-
-        $this->heap = [];
-        foreach ($this->timers as $id => $timer) {
-            $this->push($id, $timer['deadline']);
-        }
-
-        $this->cancelledEntries = 0;
-    }
-
-    private function push(int $id, int $deadline): void
-    {
-        $entry = ['id' => $id, 'deadline' => $deadline];
-        $index = count($this->heap);
-
-        while ($index > 0) {
-            $parent = intdiv($index - 1, 2);
-            if (!$this->less($entry, $this->heap[$parent])) {
-                break;
-            }
-
-            $this->heap[$index] = $this->heap[$parent];
-            $index = $parent;
-        }
-
-        $this->heap[$index] = $entry;
     }
 
     /**
@@ -244,6 +215,46 @@ final class TimerQueue
         $this->siftDown($last);
 
         return $root;
+    }
+
+    private function push(int $id, int $deadline): void
+    {
+        $entry = ['id' => $id, 'deadline' => $deadline];
+        $index = count($this->heap);
+
+        while ($index > 0) {
+            $parent = intdiv($index - 1, 2);
+            if (!$this->less($entry, $this->heap[$parent])) {
+                break;
+            }
+
+            $this->heap[$index] = $this->heap[$parent];
+            $index = $parent;
+        }
+
+        $this->heap[$index] = $entry;
+    }
+
+    private function secondsToNanoseconds(float $seconds, bool $allowZero): int
+    {
+        if (!is_finite($seconds) || $seconds < 0 || (!$allowZero && $seconds <= 0)) {
+            throw new InvalidArgumentException(
+                $allowZero
+                    ? 'Timer delay must be a finite non-negative number.'
+                    : 'Repeating timer interval must be a finite positive number.',
+            );
+        }
+
+        if ($seconds > PHP_INT_MAX / self::NANOS_PER_SECOND) {
+            throw new OverflowException('Timer duration exceeds the platform integer range.');
+        }
+
+        $nanoseconds = (int) round($seconds * self::NANOS_PER_SECOND);
+        if (!$allowZero && $nanoseconds === 0) {
+            throw new InvalidArgumentException('Repeating timer interval is below timer resolution.');
+        }
+
+        return $nanoseconds;
     }
 
     /**
@@ -275,15 +286,5 @@ final class TimerQueue
         }
 
         $this->heap[$index] = $entry;
-    }
-
-    /**
-     * @param array{id: int, deadline: int} $left
-     * @param array{id: int, deadline: int} $right
-     */
-    private function less(array $left, array $right): bool
-    {
-        return $left['deadline'] < $right['deadline']
-            || ($left['deadline'] === $right['deadline'] && $left['id'] < $right['id']);
     }
 }

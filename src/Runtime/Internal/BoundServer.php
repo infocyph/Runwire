@@ -12,6 +12,5 @@ final readonly class BoundServer
     public function __construct(
         public Server $definition,
         public TcpListener $listener,
-    ) {
-    }
+    ) {}
 }

@@ -6,9 +6,10 @@ namespace Infocyph\Runwire\Http\Http2\Hpack;
 
 final class DynamicTable
 {
+    private int $bytes = 0;
+
     /** @var list<array{0: string, 1: string, 2: int}> */
     private array $entries = [];
-    private int $bytes = 0;
 
     public function __construct(private int $maxBytes)
     {
@@ -17,18 +18,19 @@ final class DynamicTable
         }
     }
 
-    public function setMaxBytes(int $bytes): void
+    public function add(string $name, string $value): void
     {
-        if ($bytes < 0) {
-            throw new \InvalidArgumentException('HPACK dynamic table size cannot be negative.');
-        }
-        $this->maxBytes = $bytes;
-        $this->evict();
-    }
+        $size = 32 + strlen($name) + strlen($value);
+        if ($size > $this->maxBytes) {
+            $this->entries = [];
+            $this->bytes = 0;
 
-    public function maxBytes(): int
-    {
-        return $this->maxBytes;
+            return;
+        }
+
+        array_unshift($this->entries, [$name, $value, $size]);
+        $this->bytes += $size;
+        $this->evict();
     }
 
     public function bytes(): int
@@ -41,18 +43,15 @@ final class DynamicTable
         return count($this->entries);
     }
 
-    public function add(string $name, string $value): void
+    public function exactIndex(string $name, string $value): ?int
     {
-        $size = 32 + strlen($name) + strlen($value);
-        if ($size > $this->maxBytes) {
-            $this->entries = [];
-            $this->bytes = 0;
-            return;
+        foreach ($this->entries as $offset => $entry) {
+            if ($entry[0] === $name && $entry[1] === $value) {
+                return $offset + 1;
+            }
         }
 
-        array_unshift($this->entries, [$name, $value, $size]);
-        $this->bytes += $size;
-        $this->evict();
+        return null;
     }
 
     /** @return array{0: string, 1: string}|null */
@@ -66,14 +65,9 @@ final class DynamicTable
         return [$name, $value];
     }
 
-    public function exactIndex(string $name, string $value): ?int
+    public function maxBytes(): int
     {
-        foreach ($this->entries as $offset => $entry) {
-            if ($entry[0] === $name && $entry[1] === $value) {
-                return $offset + 1;
-            }
-        }
-        return null;
+        return $this->maxBytes;
     }
 
     public function nameIndex(string $name): ?int
@@ -83,7 +77,17 @@ final class DynamicTable
                 return $offset + 1;
             }
         }
+
         return null;
+    }
+
+    public function setMaxBytes(int $bytes): void
+    {
+        if ($bytes < 0) {
+            throw new \InvalidArgumentException('HPACK dynamic table size cannot be negative.');
+        }
+        $this->maxBytes = $bytes;
+        $this->evict();
     }
 
     private function evict(): void

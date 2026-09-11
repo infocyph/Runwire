@@ -6,6 +6,20 @@ namespace Infocyph\Runwire\Loop;
 
 interface LoopInterface
 {
+    public function cancel(int $id): bool;
+
+    /**
+     * @param callable(int): void $callback
+     */
+    public function defer(callable $callback): int;
+
+    /**
+     * @param callable(int): void $callback
+     */
+    public function delay(float $seconds, callable $callback): int;
+
+    public function now(): float;
+
     /**
      * @param resource $stream
      * @param callable(resource, int): void $callback
@@ -21,23 +35,9 @@ interface LoopInterface
     /**
      * @param callable(int): void $callback
      */
-    public function delay(float $seconds, callable $callback): int;
-
-    /**
-     * @param callable(int): void $callback
-     */
     public function repeat(float $interval, callable $callback): int;
-
-    /**
-     * @param callable(int): void $callback
-     */
-    public function defer(callable $callback): int;
-
-    public function cancel(int $id): bool;
 
     public function run(): void;
 
     public function stop(): void;
-
-    public function now(): float;
 }

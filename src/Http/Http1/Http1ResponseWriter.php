@@ -16,16 +16,22 @@ use LogicException;
 
 final class Http1ResponseWriter implements ResponseWriterInterface
 {
-    private bool $started = false;
-    private bool $ended = false;
-    private bool $chunked = false;
-    private bool $bodySuppressed = false;
-    private bool $closeAfter;
-    private ?int $contentLength = null;
-    private int $bodyBytes = 0;
-
     /** @var Closure(bool): void */
     private readonly Closure $onEnd;
+
+    private int $bodyBytes = 0;
+
+    private bool $bodySuppressed = false;
+
+    private bool $chunked = false;
+
+    private bool $closeAfter;
+
+    private ?int $contentLength = null;
+
+    private bool $ended = false;
+
+    private bool $started = false;
 
     /** @param callable(bool): void $onEnd */
     public function __construct(
@@ -41,12 +47,44 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         $this->onEnd = $onEndClosure;
     }
 
-    public function isStarted(): bool { return $this->started; }
-    public function isEnded(): bool { return $this->ended; }
+    public function end(string $finalChunk = ''): WriteResult
+    {
+        if ($this->ended) {
+            return $this->closedResult();
+        }
+        if (strlen($finalChunk) > $this->limits->maxResponseChunkBytes) {
+            return $this->limitResult();
+        }
+
+        $start = $this->startForEndIfNeeded($finalChunk);
+        if ($start !== null && !$start->accepted()) {
+            return $start;
+        }
+        if ($this->bodySuppressed) {
+            $this->bodyBytes += strlen($finalChunk);
+
+            return $this->finish($this->connection->write(''));
+        }
+        if ($this->contentLength !== null) {
+            return $this->endFixedLength($finalChunk);
+        }
+
+        return $this->endChunked($finalChunk);
+    }
 
     public function forceCloseAfterResponse(): void
     {
         $this->closeAfter = true;
+    }
+
+    public function isEnded(): bool
+    {
+        return $this->ended;
+    }
+
+    public function isStarted(): bool
+    {
+        return $this->started;
     }
 
     public function onDrain(callable $callback): self
@@ -81,7 +119,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         if ($status === 204 && $contentLength !== null) {
             $fields = array_values(array_filter(
                 $fields,
-                static fn (HeaderField $field): bool => $field->name !== 'content-length',
+                static fn(HeaderField $field): bool => $field->name !== 'content-length',
             ));
             $contentLength = null;
         }
@@ -93,7 +131,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         if ($closeAfter) {
             $fields = array_values(array_filter(
                 $fields,
-                static fn (HeaderField $field): bool => $field->name !== 'connection',
+                static fn(HeaderField $field): bool => $field->name !== 'connection',
             ));
             $fields[] = new HeaderField('connection', 'close');
         }
@@ -130,207 +168,13 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         }
         if ($this->bodySuppressed) {
             $this->bodyBytes += strlen($chunk);
+
             return $this->connection->write('');
         }
 
         $this->assertWithinContentLength($chunk);
+
         return $this->writeBodyChunk($chunk);
-    }
-
-    public function end(string $finalChunk = ''): WriteResult
-    {
-        if ($this->ended) {
-            return $this->closedResult();
-        }
-        if (strlen($finalChunk) > $this->limits->maxResponseChunkBytes) {
-            return $this->limitResult();
-        }
-
-        $start = $this->startForEndIfNeeded($finalChunk);
-        if ($start !== null && !$start->accepted()) {
-            return $start;
-        }
-        if ($this->bodySuppressed) {
-            $this->bodyBytes += strlen($finalChunk);
-            return $this->finish($this->connection->write(''));
-        }
-        if ($this->contentLength !== null) {
-            return $this->endFixedLength($finalChunk);
-        }
-
-        return $this->endChunked($finalChunk);
-    }
-
-    private function writeEmpty(): WriteResult
-    {
-        return $this->started ? $this->connection->write('') : $this->start();
-    }
-
-    private function startIfNeeded(): ?WriteResult
-    {
-        return $this->started ? null : $this->start();
-    }
-
-    private function startForEndIfNeeded(string $finalChunk): ?WriteResult
-    {
-        if ($this->started) {
-            return null;
-        }
-
-        return $this->start(200, new Headers([
-            new HeaderField('content-length', (string) strlen($finalChunk)),
-        ]));
-    }
-
-    private function assertWithinContentLength(string $chunk): void
-    {
-        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
-            throw new LogicException('HTTP response body exceeds declared Content-Length.');
-        }
-    }
-
-    private function writeBodyChunk(string $chunk): WriteResult
-    {
-        $wire = $this->chunked
-            ? dechex(strlen($chunk)) . "\r\n" . $chunk . "\r\n"
-            : $chunk;
-        $result = $this->connection->write($wire);
-        if ($result->accepted()) {
-            $this->bodyBytes += strlen($chunk);
-        }
-        return $result;
-    }
-
-    private function endFixedLength(string $finalChunk): WriteResult
-    {
-        $next = $this->bodyBytes + strlen($finalChunk);
-        if ($next !== $this->contentLength) {
-            throw new LogicException(
-                $next > $this->contentLength
-                    ? 'HTTP response body exceeds declared Content-Length.'
-                    : 'HTTP response body is shorter than declared Content-Length.',
-            );
-        }
-
-        $result = $finalChunk === ''
-            ? $this->connection->write('')
-            : $this->connection->write($finalChunk);
-        if ($result->accepted()) {
-            $this->bodyBytes += strlen($finalChunk);
-        }
-        return $this->finish($result);
-    }
-
-    private function endChunked(string $finalChunk): WriteResult
-    {
-        $wire = $finalChunk === ''
-            ? "0\r\n\r\n"
-            : dechex(strlen($finalChunk)) . "\r\n" . $finalChunk . "\r\n0\r\n\r\n";
-        $result = $this->connection->write($wire);
-        if ($result->accepted()) {
-            $this->bodyBytes += strlen($finalChunk);
-        }
-        return $this->finish($result);
-    }
-
-    /** @return array{0: list<HeaderField>, 1: ?int, 2: bool} */
-    private function normalizeHeaders(Headers $headers): array
-    {
-        $fields = [];
-        $contentLengths = [];
-        $close = false;
-        foreach ($headers->fields() as $field) {
-            if ($field->name === 'transfer-encoding') {
-                throw new InvalidArgumentException('Response Transfer-Encoding is owned by Runwire.');
-            }
-            if ($field->name === 'content-length') {
-                $contentLengths[] = $this->parseContentLength(trim($field->value));
-            }
-            if ($field->name === 'connection' && $this->hasToken($field->value, 'close')) {
-                $close = true;
-            }
-            $fields[] = $field;
-        }
-
-        if (count($fields) > $this->limits->maxResponseHeaderCount) {
-            throw new InvalidArgumentException('Response header count exceeds configured limit.');
-        }
-        if ($contentLengths !== [] && count(array_unique($contentLengths)) !== 1) {
-            throw new InvalidArgumentException('Conflicting response Content-Length fields.');
-        }
-        return [$fields, $contentLengths[0] ?? null, $close];
-    }
-
-    /** @param list<HeaderField> $fields */
-    private function serializeHead(int $status, array $fields): string
-    {
-        $statusLine = 'HTTP/1.1 ' . $status . ' ' . self::reasonPhrase($status) . "\r\n";
-        $parts = [$statusLine];
-        $bytes = strlen($statusLine);
-
-        foreach ($fields as $field) {
-            $line = $field->name . ': ' . $field->value . "\r\n";
-            $bytes += strlen($line);
-            if ($bytes > $this->limits->maxResponseHeaderBytes) {
-                throw new InvalidArgumentException('Response headers exceed configured byte limit.');
-            }
-            $parts[] = $line;
-        }
-
-        $bytes += 2;
-        if ($bytes > $this->limits->maxResponseHeaderBytes) {
-            throw new InvalidArgumentException('Response headers exceed configured byte limit.');
-        }
-        $parts[] = "\r\n";
-
-        return implode('', $parts);
-    }
-
-    private function parseContentLength(string $value): int
-    {
-        if ($value === '' || preg_match('/^[0-9]+$/D', $value) !== 1) {
-            throw new InvalidArgumentException('Invalid response Content-Length.');
-        }
-
-        $normalized = ltrim($value, '0');
-        $normalized = $normalized === '' ? '0' : $normalized;
-        $max = (string) PHP_INT_MAX;
-        if (strlen($normalized) > strlen($max)
-            || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
-            throw new InvalidArgumentException('Response Content-Length exceeds platform range.');
-        }
-
-        return (int) $normalized;
-    }
-
-    private function finish(WriteResult $result): WriteResult
-    {
-        if (!$result->accepted()) {
-            return $result;
-        }
-        $this->ended = true;
-        ($this->onEnd)($this->closeAfter);
-        return $result;
-    }
-
-    private function closedResult(): WriteResult
-    {
-        return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
-    }
-
-    private function limitResult(): WriteResult
-    {
-        return new WriteResult(WriteState::REJECTED_LIMIT, $this->connection->pendingWriteBytes());
-    }
-
-    private function hasToken(string $value, string $token): bool
-    {
-        foreach (explode(',', strtolower($value)) as $part) {
-            if (trim($part) === $token) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static function reasonPhrase(int $status): string
@@ -363,5 +207,177 @@ final class Http1ResponseWriter implements ResponseWriterInterface
             504 => 'Gateway Timeout',
             default => 'Status',
         };
+    }
+
+    private function assertWithinContentLength(string $chunk): void
+    {
+        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
+            throw new LogicException('HTTP response body exceeds declared Content-Length.');
+        }
+    }
+
+    private function closedResult(): WriteResult
+    {
+        return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
+    }
+
+    private function endChunked(string $finalChunk): WriteResult
+    {
+        $wire = $finalChunk === ''
+            ? "0\r\n\r\n"
+            : dechex(strlen($finalChunk)) . "\r\n" . $finalChunk . "\r\n0\r\n\r\n";
+        $result = $this->connection->write($wire);
+        if ($result->accepted()) {
+            $this->bodyBytes += strlen($finalChunk);
+        }
+
+        return $this->finish($result);
+    }
+
+    private function endFixedLength(string $finalChunk): WriteResult
+    {
+        $next = $this->bodyBytes + strlen($finalChunk);
+        if ($next !== $this->contentLength) {
+            throw new LogicException(
+                $next > $this->contentLength
+                    ? 'HTTP response body exceeds declared Content-Length.'
+                    : 'HTTP response body is shorter than declared Content-Length.',
+            );
+        }
+
+        $result = $finalChunk === ''
+            ? $this->connection->write('')
+            : $this->connection->write($finalChunk);
+        if ($result->accepted()) {
+            $this->bodyBytes += strlen($finalChunk);
+        }
+
+        return $this->finish($result);
+    }
+
+    private function finish(WriteResult $result): WriteResult
+    {
+        if (!$result->accepted()) {
+            return $result;
+        }
+        $this->ended = true;
+        ($this->onEnd)($this->closeAfter);
+
+        return $result;
+    }
+
+    private function hasToken(string $value, string $token): bool
+    {
+        return array_any(explode(',', strtolower($value)), fn($part) => trim($part) === $token);
+    }
+
+    private function limitResult(): WriteResult
+    {
+        return new WriteResult(WriteState::REJECTED_LIMIT, $this->connection->pendingWriteBytes());
+    }
+
+    /** @return array{0: list<HeaderField>, 1: ?int, 2: bool} */
+    private function normalizeHeaders(Headers $headers): array
+    {
+        $fields = [];
+        $contentLengths = [];
+        $close = false;
+        foreach ($headers->fields() as $field) {
+            if ($field->name === 'transfer-encoding') {
+                throw new InvalidArgumentException('Response Transfer-Encoding is owned by Runwire.');
+            }
+            if ($field->name === 'content-length') {
+                $contentLengths[] = $this->parseContentLength(trim($field->value));
+            }
+            if ($field->name === 'connection' && $this->hasToken($field->value, 'close')) {
+                $close = true;
+            }
+            $fields[] = $field;
+        }
+
+        if (count($fields) > $this->limits->maxResponseHeaderCount) {
+            throw new InvalidArgumentException('Response header count exceeds configured limit.');
+        }
+        if ($contentLengths !== [] && count(array_unique($contentLengths)) !== 1) {
+            throw new InvalidArgumentException('Conflicting response Content-Length fields.');
+        }
+
+        return [$fields, $contentLengths[0] ?? null, $close];
+    }
+
+    private function parseContentLength(string $value): int
+    {
+        if ($value === '' || preg_match('/^[0-9]+$/D', $value) !== 1) {
+            throw new InvalidArgumentException('Invalid response Content-Length.');
+        }
+
+        $normalized = ltrim($value, '0');
+        $normalized = $normalized === '' ? '0' : $normalized;
+        $max = (string) PHP_INT_MAX;
+        if (strlen($normalized) > strlen($max)
+            || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
+            throw new InvalidArgumentException('Response Content-Length exceeds platform range.');
+        }
+
+        return (int) $normalized;
+    }
+
+    /** @param list<HeaderField> $fields */
+    private function serializeHead(int $status, array $fields): string
+    {
+        $statusLine = 'HTTP/1.1 ' . $status . ' ' . self::reasonPhrase($status) . "\r\n";
+        $parts = [$statusLine];
+        $bytes = strlen($statusLine);
+
+        foreach ($fields as $field) {
+            $line = $field->name . ': ' . $field->value . "\r\n";
+            $bytes += strlen($line);
+            if ($bytes > $this->limits->maxResponseHeaderBytes) {
+                throw new InvalidArgumentException('Response headers exceed configured byte limit.');
+            }
+            $parts[] = $line;
+        }
+
+        $bytes += 2;
+        if ($bytes > $this->limits->maxResponseHeaderBytes) {
+            throw new InvalidArgumentException('Response headers exceed configured byte limit.');
+        }
+        $parts[] = "\r\n";
+
+        return implode('', $parts);
+    }
+
+    private function startForEndIfNeeded(string $finalChunk): ?WriteResult
+    {
+        if ($this->started) {
+            return null;
+        }
+
+        return $this->start(200, new Headers([
+            new HeaderField('content-length', (string) strlen($finalChunk)),
+        ]));
+    }
+
+    private function startIfNeeded(): ?WriteResult
+    {
+        return $this->started ? null : $this->start();
+    }
+
+    private function writeBodyChunk(string $chunk): WriteResult
+    {
+        $wire = $this->chunked
+            ? dechex(strlen($chunk)) . "\r\n" . $chunk . "\r\n"
+            : $chunk;
+        $result = $this->connection->write($wire);
+        if ($result->accepted()) {
+            $this->bodyBytes += strlen($chunk);
+        }
+
+        return $result;
+    }
+
+    private function writeEmpty(): WriteResult
+    {
+        return $this->started ? $this->connection->write('') : $this->start();
     }
 }

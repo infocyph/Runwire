@@ -16,11 +16,6 @@ final class RestartTracker
     /** @var array<string, list<int>> */
     private array $history = [];
 
-    public function register(WorkerGroup $group): void
-    {
-        $this->counts[$group->name] = array_fill(0, $group->count, 0);
-    }
-
     public function count(string $group, int $slot): int
     {
         return $this->counts[$group][$slot] ?? 0;
@@ -49,6 +44,11 @@ final class RestartTracker
         );
     }
 
+    public function register(WorkerGroup $group): void
+    {
+        $this->counts[$group->name] = array_fill(0, $group->count, 0);
+    }
+
     /** @return list<int> */
     private function recentHistory(WorkerGroup $group, int $now): array
     {
@@ -57,7 +57,7 @@ final class RestartTracker
 
         return array_values(array_filter(
             $this->history[$group->name] ?? [],
-            static fn (int $timestamp): bool => $timestamp >= $cutoff,
+            static fn(int $timestamp): bool => $timestamp >= $cutoff,
         ));
     }
 }

@@ -11,12 +11,14 @@ use InvalidArgumentException;
 
 final class TlsHandshake
 {
-    private ?int $readWatcher = null;
-    private ?int $timeoutTimer = null;
     private bool $finished = false;
+
+    private ?int $readWatcher = null;
 
     /** @var resource|null */
     private mixed $stream;
+
+    private ?int $timeoutTimer = null;
 
     /**
      * @param resource $stream
@@ -59,7 +61,10 @@ final class TlsHandshake
             $successClosure,
             $failureClosure,
         );
-        $loop->defer(function () use ($handshake): void { $handshake->begin(); });
+        $loop->defer(function () use ($handshake): void {
+            $handshake->begin();
+        });
+
         return $handshake;
     }
 
@@ -68,20 +73,6 @@ final class TlsHandshake
         if (!$this->finished) {
             $this->fail();
         }
-    }
-
-    private function begin(): void
-    {
-        $stream = $this->stream;
-        if ($this->finished || !is_resource($stream)) {
-            return;
-        }
-        @stream_set_blocking($stream, false);
-        $this->timeoutTimer = $this->loop->delay($this->options->handshakeTimeoutSeconds, function (): void {
-            $this->timeoutTimer = null;
-            $this->fail();
-        });
-        $this->readWatcher = $this->loop->onReadable($stream, function (): void { $this->attempt(); });
     }
 
     private function attempt(): void
@@ -96,6 +87,7 @@ final class TlsHandshake
         }
         if ($result === false) {
             $this->fail();
+
             return;
         }
 
@@ -103,6 +95,22 @@ final class TlsHandshake
         $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
         $this->finish();
         ($this->onSuccess)($stream, is_string($protocol) ? $protocol : null);
+    }
+
+    private function begin(): void
+    {
+        $stream = $this->stream;
+        if ($this->finished || !is_resource($stream)) {
+            return;
+        }
+        @stream_set_blocking($stream, false);
+        $this->timeoutTimer = $this->loop->delay($this->options->handshakeTimeoutSeconds, function (): void {
+            $this->timeoutTimer = null;
+            $this->fail();
+        });
+        $this->readWatcher = $this->loop->onReadable($stream, function (): void {
+            $this->attempt();
+        });
     }
 
     private function fail(): void

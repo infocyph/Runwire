@@ -13,6 +13,5 @@ final readonly class BoundStreamServer
     public function __construct(
         public StreamServer $definition,
         public TcpListener|UnixListener $listener,
-    ) {
-    }
+    ) {}
 }

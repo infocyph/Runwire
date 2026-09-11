@@ -8,12 +8,9 @@ use InvalidArgumentException;
 
 final class RawCodec implements FrameCodecInterface
 {
-    public function push(string $bytes, int $maxFrames = 256): array
+    public function bufferedBytes(): int
     {
-        if ($maxFrames <= 0) {
-            throw new InvalidArgumentException('Maximum frames per decode must be positive.');
-        }
-        return $bytes === '' ? [] : [$bytes];
+        return 0;
     }
 
     public function encode(string $frame): string
@@ -21,12 +18,14 @@ final class RawCodec implements FrameCodecInterface
         return $frame;
     }
 
-    public function bufferedBytes(): int
+    public function push(string $bytes, int $maxFrames = 256): array
     {
-        return 0;
+        if ($maxFrames <= 0) {
+            throw new InvalidArgumentException('Maximum frames per decode must be positive.');
+        }
+
+        return $bytes === '' ? [] : [$bytes];
     }
 
-    public function reset(): void
-    {
-    }
+    public function reset(): void {}
 }

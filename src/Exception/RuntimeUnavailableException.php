@@ -6,6 +6,4 @@ namespace Infocyph\Runwire\Exception;
 
 use RuntimeException;
 
-final class RuntimeUnavailableException extends RuntimeException
-{
-}
+final class RuntimeUnavailableException extends RuntimeException {}

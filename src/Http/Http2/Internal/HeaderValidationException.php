@@ -6,6 +6,4 @@ namespace Infocyph\Runwire\Http\Http2\Internal;
 
 use RuntimeException;
 
-final class HeaderValidationException extends RuntimeException
-{
-}
+final class HeaderValidationException extends RuntimeException {}

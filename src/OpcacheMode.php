@@ -7,7 +7,10 @@ namespace Infocyph\Runwire;
 enum OpcacheMode: string
 {
     case AUTO = 'auto';
-    case ON = 'on';
+
     case OFF = 'off';
+
+    case ON = 'on';
+
     case REQUIRED = 'required';
 }

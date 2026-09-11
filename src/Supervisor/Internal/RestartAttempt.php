@@ -9,6 +9,5 @@ final readonly class RestartAttempt
     public function __construct(
         public int $count,
         public float $delaySeconds,
-    ) {
-    }
+    ) {}
 }

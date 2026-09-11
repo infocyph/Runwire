@@ -9,18 +9,25 @@ use Infocyph\Runwire\Exception\ProcessException;
 
 final class InputSource
 {
-    private ?string $string = null;
-    private int $offset = 0;
-    private mixed $stream = null;
-    private ?Closure $producer = null;
-    private bool $eof = false;
-    private ?bool $streamWasBlocked = null;
     private int $bytesProduced = 0;
+
+    private bool $eof = false;
+
+    private int $offset = 0;
+
+    private ?Closure $producer = null;
+
+    private mixed $stream = null;
+
+    private ?bool $streamWasBlocked = null;
+
+    private ?string $string = null;
 
     public function __construct(mixed $input, private readonly int $maxBytes)
     {
         if (is_string($input)) {
             $this->string = $input;
+
             return;
         }
 
@@ -33,30 +40,34 @@ final class InputSource
             $this->stream = $input;
             $this->streamWasBlocked = $meta['blocked'];
             @stream_set_blocking($this->stream, false);
+
             return;
         }
 
         if (is_callable($input)) {
             $this->producer = Closure::fromCallable($input);
+
             return;
         }
 
         $this->eof = true;
     }
 
-    public function isResource(): bool
+    public function close(): void
     {
-        return is_resource($this->stream);
-    }
-
-    public function resource(): mixed
-    {
-        return $this->stream;
+        if (is_resource($this->stream) && $this->streamWasBlocked !== null) {
+            @stream_set_blocking($this->stream, $this->streamWasBlocked);
+        }
     }
 
     public function eof(): bool
     {
         return $this->eof;
+    }
+
+    public function isResource(): bool
+    {
+        return is_resource($this->stream);
     }
 
     public function pull(int $maxBytes): ?string
@@ -71,6 +82,7 @@ final class InputSource
         $chunk = $this->read($maxBytes);
         if ($chunk === null) {
             $this->eof = true;
+
             return null;
         }
 
@@ -86,11 +98,9 @@ final class InputSource
         return $chunk;
     }
 
-    public function close(): void
+    public function resource(): mixed
     {
-        if (is_resource($this->stream) && $this->streamWasBlocked !== null) {
-            @stream_set_blocking($this->stream, $this->streamWasBlocked);
-        }
+        return $this->stream;
     }
 
     private function read(int $maxBytes): ?string
@@ -104,33 +114,8 @@ final class InputSource
         if ($this->producer !== null) {
             return $this->readProducer($maxBytes);
         }
+
         return null;
-    }
-
-    private function readString(int $maxBytes): ?string
-    {
-        if ($this->string === null || $this->offset >= strlen($this->string)) {
-            return null;
-        }
-        $chunk = substr($this->string, $this->offset, $maxBytes);
-        $this->offset += strlen($chunk);
-        return $chunk;
-    }
-
-    private function readStream(int $maxBytes): ?string
-    {
-        if (!is_resource($this->stream)) {
-            return null;
-        }
-        $length = max(1, $maxBytes);
-        $chunk = @fread($this->stream, $length);
-        if ($chunk === false) {
-            throw new ProcessException('Unable to read process stdin stream.');
-        }
-        if ($chunk === '' && feof($this->stream)) {
-            return null;
-        }
-        return $chunk;
     }
 
     private function readProducer(int $maxBytes): ?string
@@ -148,6 +133,35 @@ final class InputSource
         if (strlen($chunk) > $maxBytes) {
             throw new ProcessException('stdin producer returned a chunk larger than requested.');
         }
+
+        return $chunk;
+    }
+
+    private function readStream(int $maxBytes): ?string
+    {
+        if (!is_resource($this->stream)) {
+            return null;
+        }
+        $length = max(1, $maxBytes);
+        $chunk = @fread($this->stream, $length);
+        if ($chunk === false) {
+            throw new ProcessException('Unable to read process stdin stream.');
+        }
+        if ($chunk === '' && feof($this->stream)) {
+            return null;
+        }
+
+        return $chunk;
+    }
+
+    private function readString(int $maxBytes): ?string
+    {
+        if ($this->string === null || $this->offset >= strlen($this->string)) {
+            return null;
+        }
+        $chunk = substr($this->string, $this->offset, $maxBytes);
+        $this->offset += strlen($chunk);
+
         return $chunk;
     }
 }

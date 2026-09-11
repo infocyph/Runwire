@@ -20,10 +20,9 @@ final class FrameParser
         $this->buffer = new ByteQueue();
     }
 
-    public function setMaxFrameSize(int $bytes): void
+    public function bufferedBytes(): int
     {
-        $this->validateMaxFrameSize($bytes);
-        $this->maxFrameSize = $bytes;
+        return $this->buffer->bytes();
     }
 
     /** @return list<Frame> */
@@ -59,9 +58,10 @@ final class FrameParser
         return $frames;
     }
 
-    public function bufferedBytes(): int
+    public function setMaxFrameSize(int $bytes): void
     {
-        return $this->buffer->bytes();
+        $this->validateMaxFrameSize($bytes);
+        $this->maxFrameSize = $bytes;
     }
 
     private function readHeader(): bool

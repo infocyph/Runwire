@@ -12,15 +12,23 @@ use Throwable;
 
 final class DatagramListener
 {
-    private ?LoopInterface $loop = null;
-    private ?Closure $callback = null;
-    private ?int $readWatcher = null;
-    private bool $paused = false;
-    private bool $closed = false;
-    private int $receivedDatagrams = 0;
-    private int $rejectedDatagrams = 0;
     private int $bytesRead = 0;
+
     private int $bytesWritten = 0;
+
+    private ?Closure $callback = null;
+
+    private bool $closed = false;
+
+    private ?LoopInterface $loop = null;
+
+    private bool $paused = false;
+
+    private ?int $readWatcher = null;
+
+    private int $receivedDatagrams = 0;
+
+    private int $rejectedDatagrams = 0;
 
     /** @var resource|null */
     private mixed $stream;
@@ -65,16 +73,6 @@ final class DatagramListener
         return $this->address;
     }
 
-    public function receivedDatagrams(): int
-    {
-        return $this->receivedDatagrams;
-    }
-
-    public function rejectedDatagrams(): int
-    {
-        return $this->rejectedDatagrams;
-    }
-
     public function bytesRead(): int
     {
         return $this->bytesRead;
@@ -85,9 +83,19 @@ final class DatagramListener
         return $this->bytesWritten;
     }
 
-    public function isReceiving(): bool
+    public function close(): void
     {
-        return !$this->closed && !$this->paused && $this->readWatcher !== null;
+        if ($this->closed) {
+            return;
+        }
+        $this->closed = true;
+        $this->syncWatcher();
+        if (is_resource($this->stream)) {
+            @fclose($this->stream);
+        }
+        $this->stream = null;
+        $this->callback = null;
+        $this->loop = null;
     }
 
     public function isClosed(): bool
@@ -95,25 +103,25 @@ final class DatagramListener
         return $this->closed;
     }
 
-    /** @param callable(Datagram, self): void $callback */
-    public function start(LoopInterface $loop, callable $callback): void
+    public function isReceiving(): bool
     {
-        if ($this->closed) {
-            throw new LogicException('Closed datagram listener cannot be started.');
-        }
-        if ($this->loop !== null) {
-            throw new LogicException('Datagram listener is already attached to an event loop.');
-        }
-
-        $this->loop = $loop;
-        $this->callback = Closure::fromCallable($callback);
-        $this->syncWatcher();
+        return !$this->closed && !$this->paused && $this->readWatcher !== null;
     }
 
     public function pause(): void
     {
         $this->paused = true;
         $this->syncWatcher();
+    }
+
+    public function receivedDatagrams(): int
+    {
+        return $this->receivedDatagrams;
+    }
+
+    public function rejectedDatagrams(): int
+    {
+        return $this->rejectedDatagrams;
     }
 
     public function resume(): void
@@ -150,19 +158,19 @@ final class DatagramListener
         return new DatagramWriteResult(DatagramWriteState::SENT, $written);
     }
 
-    public function close(): void
+    /** @param callable(Datagram, self): void $callback */
+    public function start(LoopInterface $loop, callable $callback): void
     {
         if ($this->closed) {
-            return;
+            throw new LogicException('Closed datagram listener cannot be started.');
         }
-        $this->closed = true;
+        if ($this->loop !== null) {
+            throw new LogicException('Datagram listener is already attached to an event loop.');
+        }
+
+        $this->loop = $loop;
+        $this->callback = Closure::fromCallable($callback);
         $this->syncWatcher();
-        if (is_resource($this->stream)) {
-            @fclose($this->stream);
-        }
-        $this->stream = null;
-        $this->callback = null;
-        $this->loop = null;
     }
 
     private function handleReadable(): void
@@ -181,16 +189,19 @@ final class DatagramListener
             }
             if (!is_string($peer) || $peer === '') {
                 ++$this->rejectedDatagrams;
+
                 continue;
             }
             if (strlen($payload) > $this->options->maxDatagramBytes) {
                 ++$this->rejectedDatagrams;
+
                 continue;
             }
 
             ++$this->receivedDatagrams;
             $this->bytesRead += strlen($payload);
             $local = @stream_socket_get_name($stream, false);
+
             try {
                 $callback(new Datagram(
                     $payload,
@@ -199,6 +210,7 @@ final class DatagramListener
                 ), $this);
             } catch (Throwable $failure) {
                 $this->close();
+
                 throw $failure;
             }
         }
@@ -210,7 +222,8 @@ final class DatagramListener
         $stream = $this->stream;
         $shouldWatch = !$this->closed && !$this->paused && $loop !== null && is_resource($stream);
         if ($shouldWatch && $this->readWatcher === null) {
-            $this->readWatcher = $loop->onReadable($stream, fn () => $this->handleReadable());
+            $this->readWatcher = $loop->onReadable($stream, fn() => $this->handleReadable());
+
             return;
         }
         if (!$shouldWatch && $this->readWatcher !== null && $loop !== null) {

@@ -17,6 +17,5 @@ final readonly class PreparedCommand
         public array $argv,
         public array $environment,
         public ?string $cwd,
-    ) {
-    }
+    ) {}
 }

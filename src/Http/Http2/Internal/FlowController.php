@@ -10,21 +10,28 @@ use Infocyph\Runwire\Http\Http2\FrameWriter;
 
 final class FlowController
 {
-    private int $connectionSendWindow = 65_535;
     private int $connectionReceiveWindow = 65_535;
+
+    private int $connectionSendWindow = 65_535;
+
+    /** @param array<int, Http2Stream> $streams */
+    public function applyInitialWindowDelta(array $streams, int $delta): void
+    {
+        foreach ($streams as $stream) {
+            if ($stream->state === \Infocyph\Runwire\Http\Http2\StreamState::CLOSED) {
+                continue;
+            }
+            $next = $stream->sendWindow + $delta;
+            if ($next > 0x7FFF_FFFF || $next < -0x7FFF_FFFF) {
+                throw new ConnectionError(ErrorCode::FLOW_CONTROL_ERROR, 'HTTP/2 stream send window overflow after SETTINGS update.');
+            }
+            $stream->sendWindow = $next;
+        }
+    }
 
     public function availableSend(Http2Stream $stream): int
     {
         return max(0, min($this->connectionSendWindow, $stream->sendWindow));
-    }
-
-    public function consumeSend(Http2Stream $stream, int $bytes): void
-    {
-        if ($bytes < 0 || $bytes > $this->availableSend($stream)) {
-            throw new \LogicException('HTTP/2 outbound flow-control accounting underflow.');
-        }
-        $this->connectionSendWindow -= $bytes;
-        $stream->sendWindow -= $bytes;
     }
 
     public function consumeConnectionReceive(int $bytes): void
@@ -50,6 +57,15 @@ final class FlowController
         }
     }
 
+    public function consumeSend(Http2Stream $stream, int $bytes): void
+    {
+        if ($bytes < 0 || $bytes > $this->availableSend($stream)) {
+            throw new \LogicException('HTTP/2 outbound flow-control accounting underflow.');
+        }
+        $this->connectionSendWindow -= $bytes;
+        $stream->sendWindow -= $bytes;
+    }
+
     /** @return list<Frame> */
     public function creditReceive(?Http2Stream $stream, int $bytes): array
     {
@@ -68,6 +84,7 @@ final class FlowController
             $stream->receiveWindow += $bytes;
             $frames[] = FrameWriter::windowUpdate($stream->id, $bytes);
         }
+
         return $frames;
     }
 
@@ -91,20 +108,5 @@ final class FlowController
             throw new StreamError($stream->id, ErrorCode::FLOW_CONTROL_ERROR, 'HTTP/2 stream send window overflow.');
         }
         $stream->sendWindow += $increment;
-    }
-
-    /** @param array<int, Http2Stream> $streams */
-    public function applyInitialWindowDelta(array $streams, int $delta): void
-    {
-        foreach ($streams as $stream) {
-            if ($stream->state === \Infocyph\Runwire\Http\Http2\StreamState::CLOSED) {
-                continue;
-            }
-            $next = $stream->sendWindow + $delta;
-            if ($next > 0x7FFF_FFFF || $next < -0x7FFF_FFFF) {
-                throw new ConnectionError(ErrorCode::FLOW_CONTROL_ERROR, 'HTTP/2 stream send window overflow after SETTINGS update.');
-            }
-            $stream->sendWindow = $next;
-        }
     }
 }

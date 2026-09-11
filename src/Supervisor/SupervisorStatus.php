@@ -23,6 +23,5 @@ final readonly class SupervisorStatus
         public int $pendingRestartCount,
         public int $lifecycleListenerFailures,
         public array $workers,
-    ) {
-    }
+    ) {}
 }

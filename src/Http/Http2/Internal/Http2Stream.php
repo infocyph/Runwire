@@ -12,31 +12,53 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 
 final class Http2Stream
 {
-    public StreamState $state = StreamState::IDLE;
-    public int $sendWindow;
-    public int $receiveWindow;
-    public int $receivedBodyBytes = 0;
-    public ?int $declaredContentLength = null;
-    public bool $discardInbound = false;
-    public bool $endPending = false;
-    public bool $headersReceived = false;
-    public bool $trailersReceived = false;
-    public bool $writePressured = false;
-    public bool $dispatching = false;
     public readonly ByteQueue $outbound;
-    public ?Http2ResponseWriter $writer = null;
+
+    public ?int $declaredContentLength = null;
+
+    public bool $discardInbound = false;
+
+    public bool $dispatching = false;
+
     public ?Closure $drainCallback = null;
+
+    public bool $endPending = false;
+
+    public bool $headersReceived = false;
+
     public ?int $idleTimer = null;
+
+    public int $receivedBodyBytes = 0;
+
+    public StreamState $state = StreamState::IDLE;
+
+    public bool $trailersReceived = false;
+
+    public bool $writePressured = false;
+
+    public ?Http2ResponseWriter $writer = null;
 
     public function __construct(
         public readonly int $id,
         public readonly StreamingRequestBody $body,
-        int $sendWindow,
-        int $receiveWindow,
+        public int $sendWindow,
+        public int $receiveWindow,
     ) {
-        $this->sendWindow = $sendWindow;
-        $this->receiveWindow = $receiveWindow;
         $this->outbound = new ByteQueue();
+    }
+
+    public function localEnd(): void
+    {
+        $this->state = match ($this->state) {
+            StreamState::OPEN => StreamState::HALF_CLOSED_LOCAL,
+            StreamState::HALF_CLOSED_REMOTE => StreamState::CLOSED,
+            default => $this->state,
+        };
+    }
+
+    public function localOpen(): bool
+    {
+        return $this->state === StreamState::OPEN || $this->state === StreamState::HALF_CLOSED_REMOTE;
     }
 
     public function open(bool $remoteEnded): void
@@ -54,13 +76,9 @@ final class Http2Stream
         };
     }
 
-    public function localEnd(): void
+    public function remoteOpen(): bool
     {
-        $this->state = match ($this->state) {
-            StreamState::OPEN => StreamState::HALF_CLOSED_LOCAL,
-            StreamState::HALF_CLOSED_REMOTE => StreamState::CLOSED,
-            default => $this->state,
-        };
+        return $this->state === StreamState::OPEN || $this->state === StreamState::HALF_CLOSED_LOCAL;
     }
 
     public function reset(): void
@@ -69,15 +87,5 @@ final class Http2Stream
         $this->outbound->clear();
         $this->endPending = false;
         $this->body->cancel();
-    }
-
-    public function remoteOpen(): bool
-    {
-        return $this->state === StreamState::OPEN || $this->state === StreamState::HALF_CLOSED_LOCAL;
-    }
-
-    public function localOpen(): bool
-    {
-        return $this->state === StreamState::OPEN || $this->state === StreamState::HALF_CLOSED_REMOTE;
     }
 }

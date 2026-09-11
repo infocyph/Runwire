@@ -21,6 +21,7 @@ final class NativeHttpWorker
         $bound->listener->start($loop, function (Connection $connection) use ($loop, $bound, $handler, &$sessions, $state): void {
             if ($state->isStopping()) {
                 $connection->closeGracefully();
+
                 return;
             }
 

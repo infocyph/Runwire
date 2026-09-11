@@ -6,9 +6,13 @@ namespace Infocyph\Runwire\Network;
 
 enum DatagramWriteState: string
 {
-    case SENT = 'sent';
-    case WOULD_BLOCK = 'would_block';
-    case REJECTED_LIMIT = 'rejected_limit';
     case CLOSED = 'closed';
+
     case ERROR = 'error';
+
+    case REJECTED_LIMIT = 'rejected_limit';
+
+    case SENT = 'sent';
+
+    case WOULD_BLOCK = 'would_block';
 }

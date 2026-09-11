@@ -6,6 +6,4 @@ namespace Infocyph\Runwire\Exception;
 
 use RuntimeException;
 
-class ProcessException extends RuntimeException
-{
-}
+class ProcessException extends RuntimeException {}

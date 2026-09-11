@@ -12,6 +12,5 @@ final readonly class BoundDatagramServer
     public function __construct(
         public DatagramServer $definition,
         public DatagramListener $listener,
-    ) {
-    }
+    ) {}
 }

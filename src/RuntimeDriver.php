@@ -7,9 +7,14 @@ namespace Infocyph\Runwire;
 enum RuntimeDriver: string
 {
     case AUTO = 'auto';
-    case NATIVE = 'native';
+
     case FPM = 'fpm';
+
     case FRANKENPHP = 'frankenphp';
-    case SWOOLE = 'swoole';
+
+    case NATIVE = 'native';
+
     case ROADRUNNER = 'roadrunner';
+
+    case SWOOLE = 'swoole';
 }

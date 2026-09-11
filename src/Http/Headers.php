@@ -6,14 +6,8 @@ namespace Infocyph\Runwire\Http;
 
 final readonly class Headers
 {
-    /** @var list<HeaderField> */
-    private array $fields;
-
     /** @param list<HeaderField> $fields */
-    public function __construct(array $fields = [])
-    {
-        $this->fields = $fields;
-    }
+    public function __construct(private array $fields = []) {}
 
     /**
      * @param array<string, string|list<string>> $headers
@@ -26,13 +20,8 @@ final readonly class Headers
                 $fields[] = new HeaderField($name, $value);
             }
         }
-        return new self($fields);
-    }
 
-    /** @return list<HeaderField> */
-    public function fields(): array
-    {
-        return $this->fields;
+        return new self($fields);
     }
 
     /** @return list<string> */
@@ -45,7 +34,14 @@ final readonly class Headers
                 $values[] = $field->value;
             }
         }
+
         return $values;
+    }
+
+    /** @return list<HeaderField> */
+    public function fields(): array
+    {
+        return $this->fields;
     }
 
     public function first(string $name): ?string
@@ -56,6 +52,7 @@ final readonly class Headers
                 return $field->value;
             }
         }
+
         return null;
     }
 

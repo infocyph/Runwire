@@ -16,7 +16,9 @@ use Throwable;
 final class FramedConnection
 {
     private readonly Closure $frameHandler;
+
     private bool $pumping = false;
+
     private bool $pumpScheduled = false;
 
     /** @param callable(string, self): void $onFrame */
@@ -42,19 +44,19 @@ final class FramedConnection
         });
     }
 
-    public function transport(): Connection
+    public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
-        return $this->connection;
+        $this->connection->abort($reason);
+    }
+
+    public function closeGracefully(): void
+    {
+        $this->connection->closeGracefully();
     }
 
     public function codec(): FrameCodecInterface
     {
         return $this->codec;
-    }
-
-    public function send(string $frame): WriteResult
-    {
-        return $this->connection->write($this->codec->encode($frame));
     }
 
     /** @param callable(self): void $callback */
@@ -64,19 +66,19 @@ final class FramedConnection
         $this->connection->onDrain(function () use ($consumer): void {
             $consumer($this);
         });
+
         return $this;
     }
 
-    public function closeGracefully(): void
+    public function send(string $frame): WriteResult
     {
-        $this->connection->closeGracefully();
+        return $this->connection->write($this->codec->encode($frame));
     }
 
-    public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
+    public function transport(): Connection
     {
-        $this->connection->abort($reason);
+        return $this->connection;
     }
-
 
     private function decodeAndDispatch(string $bytes): void
     {
@@ -87,9 +89,11 @@ final class FramedConnection
             }
         } catch (CodecException) {
             $this->connection->abort(CloseReason::PROTOCOL_ERROR);
+
             return;
         } catch (Throwable $failure) {
             $this->connection->abort(CloseReason::PROTOCOL_ERROR);
+
             throw $failure;
         }
 
@@ -106,6 +110,7 @@ final class FramedConnection
             return;
         }
         $this->pumping = true;
+
         try {
             foreach ($frames as $frame) {
                 if ($this->connection->state() === ConnectionState::CLOSED) {
@@ -119,6 +124,7 @@ final class FramedConnection
             } catch (Throwable) {
                 // Preserve the originating frame-handler failure.
             }
+
             throw $failure;
         } finally {
             $this->pumping = false;

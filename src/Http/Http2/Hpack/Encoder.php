@@ -6,10 +6,6 @@ namespace Infocyph\Runwire\Http\Http2\Hpack;
 
 final class Encoder
 {
-    private readonly DynamicTable $dynamic;
-    private readonly HuffmanCodec $huffman;
-    private ?int $pendingTableSize = null;
-
     /** @var array<string, true> */
     private const array NEVER_INDEX = [
         'authorization' => true,
@@ -17,6 +13,12 @@ final class Encoder
         'set-cookie' => true,
         'proxy-authorization' => true,
     ];
+
+    private readonly DynamicTable $dynamic;
+
+    private readonly HuffmanCodec $huffman;
+
+    private ?int $pendingTableSize = null;
 
     public function __construct(int $maxDynamicTableBytes = 4_096)
     {
@@ -27,16 +29,9 @@ final class Encoder
         $this->huffman = new HuffmanCodec();
     }
 
-    public function setPeerMaxDynamicTableBytes(int $bytes): void
+    public function dynamicTableBytes(): int
     {
-        if ($bytes < 0) {
-            throw new \InvalidArgumentException('HPACK peer table size cannot be negative.');
-        }
-        if ($bytes === $this->dynamic->maxBytes()) {
-            return;
-        }
-        $this->dynamic->setMaxBytes($bytes);
-        $this->pendingTableSize = $bytes;
+        return $this->dynamic->bytes();
     }
 
     /** @param list<array{0: string, 1: string}> $headers */
@@ -53,6 +48,7 @@ final class Encoder
             $exact = $this->exactIndex($name, $value);
             if ($exact !== null) {
                 $encoded .= IntegerCodec::encode($exact, 7, 0x80);
+
                 continue;
             }
 
@@ -73,9 +69,16 @@ final class Encoder
         return $encoded;
     }
 
-    public function dynamicTableBytes(): int
+    public function setPeerMaxDynamicTableBytes(int $bytes): void
     {
-        return $this->dynamic->bytes();
+        if ($bytes < 0) {
+            throw new \InvalidArgumentException('HPACK peer table size cannot be negative.');
+        }
+        if ($bytes === $this->dynamic->maxBytes()) {
+            return;
+        }
+        $this->dynamic->setMaxBytes($bytes);
+        $this->pendingTableSize = $bytes;
     }
 
     private function encodeString(string $value, bool $useHuffman): string

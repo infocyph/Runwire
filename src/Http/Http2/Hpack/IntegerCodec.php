@@ -59,13 +59,6 @@ final class IntegerCodec
         return $encoded . self::byte($value);
     }
 
-    private static function validatePrefix(int $bits): void
-    {
-        if ($bits < 1 || $bits > 8) {
-            throw new \InvalidArgumentException('HPACK integer prefix width must be between 1 and 8 bits.');
-        }
-    }
-
     private static function byte(int $value): string
     {
         if ($value < 0 || $value > 0xFF) {
@@ -73,5 +66,12 @@ final class IntegerCodec
         }
 
         return chr($value);
+    }
+
+    private static function validatePrefix(int $bits): void
+    {
+        if ($bits < 1 || $bits > 8) {
+            throw new \InvalidArgumentException('HPACK integer prefix width must be between 1 and 8 bits.');
+        }
     }
 }

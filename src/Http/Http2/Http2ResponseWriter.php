@@ -15,20 +15,27 @@ use LogicException;
 
 final class Http2ResponseWriter implements ResponseWriterInterface
 {
-    private bool $started = false;
-    private bool $ended = false;
-    private bool $bodySuppressed = false;
-    private ?int $contentLength = null;
-    private int $bodyBytes = 0;
+    /** @var Closure(): void */
+    private readonly Closure $onEnd;
+
+    /** @var Closure(Closure(): void): void */
+    private readonly Closure $registerDrain;
+
+    /** @var Closure(string, bool): WriteResult */
+    private readonly Closure $sendData;
 
     /** @var Closure(int, list<array{0: string, 1: string}>): WriteResult */
     private readonly Closure $sendHeaders;
-    /** @var Closure(string, bool): WriteResult */
-    private readonly Closure $sendData;
-    /** @var Closure(Closure(): void): void */
-    private readonly Closure $registerDrain;
-    /** @var Closure(): void */
-    private readonly Closure $onEnd;
+
+    private int $bodyBytes = 0;
+
+    private bool $bodySuppressed = false;
+
+    private ?int $contentLength = null;
+
+    private bool $ended = false;
+
+    private bool $started = false;
 
     /**
      * @param callable(int, list<array{0: string, 1: string}>): WriteResult $sendHeaders
@@ -47,84 +54,6 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         $this->sendData = Closure::fromCallable($sendData);
         $this->registerDrain = Closure::fromCallable($registerDrain);
         $this->onEnd = Closure::fromCallable($onEnd);
-    }
-
-    public function isStarted(): bool { return $this->started; }
-    public function isEnded(): bool { return $this->ended; }
-
-    public function onDrain(callable $callback): self
-    {
-        $consumer = Closure::fromCallable($callback);
-        ($this->registerDrain)(function () use ($consumer): void {
-            if (!$this->ended) {
-                $consumer($this);
-            }
-        });
-        return $this;
-    }
-
-    public function start(int $status = 200, ?Headers $headers = null): WriteResult
-    {
-        if ($this->ended) {
-            return $this->closedResult();
-        }
-        if ($this->started) {
-            throw new LogicException('HTTP response has already started.');
-        }
-        if ($status < 200 || $status > 599) {
-            throw new InvalidArgumentException('Final HTTP response status must be between 200 and 599.');
-        }
-
-        [$fields, $contentLength] = $this->normalizeHeaders($headers ?? new Headers());
-        $bodySuppressed = $this->requestMethod === 'HEAD' || $status === 204 || $status === 304;
-        if ($status === 204 && $contentLength !== null) {
-            $fields = array_values(array_filter($fields, static fn (HeaderField $field): bool => $field->name !== 'content-length'));
-            $contentLength = null;
-        }
-
-        /** @var list<array{0: string, 1: string}> $block */
-        $block = [[':status', (string) $status]];
-        foreach ($fields as $field) {
-            $block[] = [$field->name, $field->value];
-        }
-        $result = ($this->sendHeaders)($status, $block);
-        if (!$result->accepted()) {
-            return $result;
-        }
-
-        $this->started = true;
-        $this->bodySuppressed = $bodySuppressed;
-        $this->contentLength = $contentLength;
-        return $result;
-    }
-
-    public function write(string $chunk): WriteResult
-    {
-        if ($this->ended) {
-            return $this->closedResult();
-        }
-        if (!$this->started) {
-            $start = $this->start();
-            if (!$start->accepted()) {
-                return $start;
-            }
-        }
-        if ($chunk === '') {
-            return ($this->sendData)('', false);
-        }
-        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
-            throw new LogicException('HTTP response body exceeds declared Content-Length.');
-        }
-        if ($this->bodySuppressed) {
-            $this->bodyBytes += strlen($chunk);
-            return ($this->sendData)('', false);
-        }
-
-        $result = ($this->sendData)($chunk, false);
-        if ($result->accepted()) {
-            $this->bodyBytes += strlen($chunk);
-        }
-        return $result;
     }
 
     public function end(string $finalChunk = ''): WriteResult
@@ -154,6 +83,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
 
         if ($this->bodySuppressed) {
             $this->bodyBytes += strlen($finalChunk);
+
             return $this->finish(($this->sendData)('', true));
         }
 
@@ -161,7 +91,113 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         if ($result->accepted()) {
             $this->bodyBytes += strlen($finalChunk);
         }
+
         return $this->finish($result);
+    }
+
+    public function isEnded(): bool
+    {
+        return $this->ended;
+    }
+
+    public function isStarted(): bool
+    {
+        return $this->started;
+    }
+
+    public function onDrain(callable $callback): self
+    {
+        $consumer = Closure::fromCallable($callback);
+        ($this->registerDrain)(function () use ($consumer): void {
+            if (!$this->ended) {
+                $consumer($this);
+            }
+        });
+
+        return $this;
+    }
+
+    public function start(int $status = 200, ?Headers $headers = null): WriteResult
+    {
+        if ($this->ended) {
+            return $this->closedResult();
+        }
+        if ($this->started) {
+            throw new LogicException('HTTP response has already started.');
+        }
+        if ($status < 200 || $status > 599) {
+            throw new InvalidArgumentException('Final HTTP response status must be between 200 and 599.');
+        }
+
+        [$fields, $contentLength] = $this->normalizeHeaders($headers ?? new Headers());
+        $bodySuppressed = $this->requestMethod === 'HEAD' || $status === 204 || $status === 304;
+        if ($status === 204 && $contentLength !== null) {
+            $fields = array_values(array_filter($fields, static fn(HeaderField $field): bool => $field->name !== 'content-length'));
+            $contentLength = null;
+        }
+
+        /** @var list<array{0: string, 1: string}> $block */
+        $block = [[':status', (string) $status]];
+        foreach ($fields as $field) {
+            $block[] = [$field->name, $field->value];
+        }
+        $result = ($this->sendHeaders)($status, $block);
+        if (!$result->accepted()) {
+            return $result;
+        }
+
+        $this->started = true;
+        $this->bodySuppressed = $bodySuppressed;
+        $this->contentLength = $contentLength;
+
+        return $result;
+    }
+
+    public function write(string $chunk): WriteResult
+    {
+        if ($this->ended) {
+            return $this->closedResult();
+        }
+        if (!$this->started) {
+            $start = $this->start();
+            if (!$start->accepted()) {
+                return $start;
+            }
+        }
+        if ($chunk === '') {
+            return ($this->sendData)('', false);
+        }
+        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
+            throw new LogicException('HTTP response body exceeds declared Content-Length.');
+        }
+        if ($this->bodySuppressed) {
+            $this->bodyBytes += strlen($chunk);
+
+            return ($this->sendData)('', false);
+        }
+
+        $result = ($this->sendData)($chunk, false);
+        if ($result->accepted()) {
+            $this->bodyBytes += strlen($chunk);
+        }
+
+        return $result;
+    }
+
+    private function closedResult(): WriteResult
+    {
+        return new WriteResult(WriteState::CLOSED, 0);
+    }
+
+    private function finish(WriteResult $result): WriteResult
+    {
+        if (!$result->accepted()) {
+            return $result;
+        }
+        $this->ended = true;
+        ($this->onEnd)();
+
+        return $result;
     }
 
     /** @return array{0: list<HeaderField>, 1: ?int} */
@@ -197,21 +233,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         if (strlen($normalized) > strlen($max) || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
             throw new InvalidArgumentException('Response Content-Length exceeds platform integer range.');
         }
+
         return (int) $normalized;
-    }
-
-    private function finish(WriteResult $result): WriteResult
-    {
-        if (!$result->accepted()) {
-            return $result;
-        }
-        $this->ended = true;
-        ($this->onEnd)();
-        return $result;
-    }
-
-    private function closedResult(): WriteResult
-    {
-        return new WriteResult(WriteState::CLOSED, 0);
     }
 }

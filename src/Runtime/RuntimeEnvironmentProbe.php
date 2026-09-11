@@ -30,20 +30,46 @@ final class RuntimeEnvironmentProbe
         );
     }
 
-    /** @return list<RuntimeDriver> */
-    private function hostedDrivers(string $sapi): array
+    private static function iniFlag(string $name): bool
     {
-        $drivers = [];
-        if ($this->isFrankenPhpHosted($sapi)) {
-            $drivers[] = RuntimeDriver::FRANKENPHP;
+        $value = ini_get($name);
+
+        if ($value === false) {
+            return false;
         }
-        if ($this->isRoadRunnerHosted()) {
-            $drivers[] = RuntimeDriver::ROADRUNNER;
-        }
-        if ($this->isFpmHosted($sapi)) {
-            $drivers[] = RuntimeDriver::FPM;
-        }
-        return $drivers;
+
+        return filter_var($value, FILTER_VALIDATE_BOOL);
+    }
+
+    /** @return array{0: bool, 1: bool, 2: bool} */
+    private static function opcacheState(string $sapi): array
+    {
+        $available = function_exists('opcache_get_status');
+        $cliEnabled = $available && self::iniFlag('opcache.enable_cli');
+        $enabled = $available
+            && self::iniFlag('opcache.enable')
+            && ($sapi !== 'cli' || $cliEnabled);
+
+        return [$available, $enabled, $cliEnabled];
+    }
+
+    private static function supportsFork(): bool
+    {
+        return function_exists('pcntl_fork') && function_exists('pcntl_waitpid');
+    }
+
+    private static function supportsPosix(): bool
+    {
+        return extension_loaded('posix')
+            && function_exists('posix_getpid')
+            && function_exists('posix_kill');
+    }
+
+    private static function supportsSignals(): bool
+    {
+        return function_exists('pcntl_signal')
+            && function_exists('pcntl_async_signals')
+            && function_exists('posix_kill');
     }
 
     /** @return list<RuntimeDriver> */
@@ -60,37 +86,30 @@ final class RuntimeEnvironmentProbe
         if (extension_loaded('swoole') || extension_loaded('openswoole')) {
             $drivers[] = RuntimeDriver::SWOOLE;
         }
+
         return $drivers;
     }
 
-    private static function supportsFork(): bool
+    /** @return list<RuntimeDriver> */
+    private function hostedDrivers(string $sapi): array
     {
-        return function_exists('pcntl_fork') && function_exists('pcntl_waitpid');
+        $drivers = [];
+        if ($this->isFrankenPhpHosted($sapi)) {
+            $drivers[] = RuntimeDriver::FRANKENPHP;
+        }
+        if ($this->isRoadRunnerHosted()) {
+            $drivers[] = RuntimeDriver::ROADRUNNER;
+        }
+        if ($this->isFpmHosted($sapi)) {
+            $drivers[] = RuntimeDriver::FPM;
+        }
+
+        return $drivers;
     }
 
-    private static function supportsSignals(): bool
+    private function isFpmHosted(string $sapi): bool
     {
-        return function_exists('pcntl_signal')
-            && function_exists('pcntl_async_signals')
-            && function_exists('posix_kill');
-    }
-
-    private static function supportsPosix(): bool
-    {
-        return extension_loaded('posix')
-            && function_exists('posix_getpid')
-            && function_exists('posix_kill');
-    }
-
-    /** @return array{0: bool, 1: bool, 2: bool} */
-    private static function opcacheState(string $sapi): array
-    {
-        $available = function_exists('opcache_get_status');
-        $cliEnabled = $available && self::iniFlag('opcache.enable_cli');
-        $enabled = $available
-            && self::iniFlag('opcache.enable')
-            && ($sapi !== 'cli' || $cliEnabled);
-        return [$available, $enabled, $cliEnabled];
+        return str_contains(strtolower($sapi), 'fpm');
     }
 
     private function isFrankenPhpHosted(string $sapi): bool
@@ -107,21 +126,5 @@ final class RuntimeEnvironmentProbe
         $mode = $_SERVER['RR_MODE'] ?? getenv('RR_MODE');
 
         return is_string($mode) && $mode !== '';
-    }
-
-    private function isFpmHosted(string $sapi): bool
-    {
-        return str_contains(strtolower($sapi), 'fpm');
-    }
-
-    private static function iniFlag(string $name): bool
-    {
-        $value = ini_get($name);
-
-        if ($value === false) {
-            return false;
-        }
-
-        return filter_var($value, FILTER_VALIDATE_BOOL);
     }
 }

@@ -10,6 +10,7 @@ use Infocyph\Runwire\Http\Http2\Http2Limits;
 final class PendingHeaderBlock
 {
     private string $block;
+
     private int $continuations = 0;
 
     public function __construct(

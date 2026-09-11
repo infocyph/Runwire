@@ -17,6 +17,5 @@ final readonly class WorkerStatus
         public float $ageSeconds,
         public bool $current,
         public ?int $replacesPid = null,
-    ) {
-    }
+    ) {}
 }

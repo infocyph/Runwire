@@ -28,13 +28,13 @@ final readonly class Frame
         }
     }
 
-    public function knownType(): ?FrameType
-    {
-        return FrameType::tryFrom($this->type);
-    }
-
     public function hasFlag(int $flag): bool
     {
         return ($this->flags & $flag) === $flag;
+    }
+
+    public function knownType(): ?FrameType
+    {
+        return FrameType::tryFrom($this->type);
     }
 }

@@ -17,14 +17,16 @@ final class ProcessHandle
         $this->resource = $resource;
     }
 
-    /** @return resource */
-    public function resource(): mixed
+    public function abort(): void
     {
         if (!is_resource($this->resource)) {
-            throw new ProcessException('Child process handle is unavailable.');
+            return;
         }
 
-        return $this->resource;
+        $status = @proc_get_status($this->resource);
+        if ($status['running']) {
+            @proc_terminate($this->resource, SIGKILL);
+        }
     }
 
     public function close(): ?int
@@ -39,15 +41,13 @@ final class ProcessHandle
         return @proc_close($resource);
     }
 
-    public function abort(): void
+    /** @return resource */
+    public function resource(): mixed
     {
         if (!is_resource($this->resource)) {
-            return;
+            throw new ProcessException('Child process handle is unavailable.');
         }
 
-        $status = @proc_get_status($this->resource);
-        if ($status['running']) {
-            @proc_terminate($this->resource, SIGKILL);
-        }
+        return $this->resource;
     }
 }

@@ -13,24 +13,32 @@ use Throwable;
 
 final class TcpListener
 {
-    private ?LoopInterface $loop = null;
-    private ?Closure $connectionCallback = null;
-    private ?int $acceptWatcher = null;
-    private bool $acceptPaused = false;
-    private bool $closed = false;
     private int $acceptedConnections = 0;
-    private int $rejectedConnections = 0;
+
+    private bool $acceptPaused = false;
+
+    private ?int $acceptWatcher = null;
+
+    private bool $closed = false;
+
     private int $closedBytesRead = 0;
+
     private int $closedBytesWritten = 0;
 
-    /** @var resource|null */
-    private mixed $stream;
+    private ?Closure $connectionCallback = null;
 
     /** @var array<int, Connection> */
     private array $connections = [];
 
     /** @var array<int, TlsHandshake> */
     private array $handshakes = [];
+
+    private ?LoopInterface $loop = null;
+
+    private int $rejectedConnections = 0;
+
+    /** @var resource|null */
+    private mixed $stream;
 
     /** @param resource $stream */
     private function __construct(
@@ -96,19 +104,11 @@ final class TcpListener
         );
     }
 
-    public function address(): string
+    public function abortConnections(): void
     {
-        return $this->address;
-    }
-
-    public function activeConnections(): int
-    {
-        return count($this->connections);
-    }
-
-    public function pendingHandshakes(): int
-    {
-        return count($this->handshakes);
+        foreach ($this->connections as $connection) {
+            $connection->abort();
+        }
     }
 
     public function acceptedConnections(): int
@@ -116,9 +116,14 @@ final class TcpListener
         return $this->acceptedConnections;
     }
 
-    public function rejectedConnections(): int
+    public function activeConnections(): int
     {
-        return $this->rejectedConnections;
+        return count($this->connections);
+    }
+
+    public function address(): string
+    {
+        return $this->address;
     }
 
     public function bytesRead(): int
@@ -127,6 +132,7 @@ final class TcpListener
         foreach ($this->connections as $connection) {
             $total += $connection->bytesRead();
         }
+
         return $total;
     }
 
@@ -136,55 +142,8 @@ final class TcpListener
         foreach ($this->connections as $connection) {
             $total += $connection->bytesWritten();
         }
+
         return $total;
-    }
-
-    public function maxConnections(): int
-    {
-        return $this->options->maxConnections;
-    }
-
-    public function isClosed(): bool
-    {
-        return $this->closed;
-    }
-
-    public function isAccepting(): bool
-    {
-        return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
-    }
-
-    /** @param callable(Connection): void $onConnection */
-    public function start(LoopInterface $loop, callable $onConnection): void
-    {
-        if ($this->closed) {
-            throw new LogicException('Closed listener cannot be started.');
-        }
-        if ($this->loop !== null) {
-            throw new LogicException('Listener is already attached to an event loop.');
-        }
-
-        $this->loop = $loop;
-        $this->connectionCallback = Closure::fromCallable($onConnection);
-        $this->syncAcceptWatcher();
-    }
-
-    public function pauseAccepting(): void
-    {
-        if ($this->closed) {
-            return;
-        }
-        $this->acceptPaused = true;
-        $this->syncAcceptWatcher();
-    }
-
-    public function resumeAccepting(): void
-    {
-        if ($this->closed) {
-            return;
-        }
-        $this->acceptPaused = false;
-        $this->syncAcceptWatcher();
     }
 
     public function close(): void
@@ -214,10 +173,122 @@ final class TcpListener
         }
     }
 
-    public function abortConnections(): void
+    public function isAccepting(): bool
     {
-        foreach ($this->connections as $connection) {
-            $connection->abort();
+        return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->closed;
+    }
+
+    public function maxConnections(): int
+    {
+        return $this->options->maxConnections;
+    }
+
+    public function pauseAccepting(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        $this->acceptPaused = true;
+        $this->syncAcceptWatcher();
+    }
+
+    public function pendingHandshakes(): int
+    {
+        return count($this->handshakes);
+    }
+
+    public function rejectedConnections(): int
+    {
+        return $this->rejectedConnections;
+    }
+
+    public function resumeAccepting(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        $this->acceptPaused = false;
+        $this->syncAcceptWatcher();
+    }
+
+    /** @param callable(Connection): void $onConnection */
+    public function start(LoopInterface $loop, callable $onConnection): void
+    {
+        if ($this->closed) {
+            throw new LogicException('Closed listener cannot be started.');
+        }
+        if ($this->loop !== null) {
+            throw new LogicException('Listener is already attached to an event loop.');
+        }
+
+        $this->loop = $loop;
+        $this->connectionCallback = Closure::fromCallable($onConnection);
+        $this->syncAcceptWatcher();
+    }
+
+    private static function normalizeAddress(string $address): string
+    {
+        if (str_contains($address, '://')) {
+            if (!str_starts_with($address, 'tcp://')) {
+                throw new ListenerException('TcpListener accepts only tcp:// addresses.');
+            }
+
+            return $address;
+        }
+
+        return 'tcp://' . $address;
+    }
+
+    /** @param resource $stream */
+    private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
+    {
+        $loop = $this->loop;
+        $callback = $this->connectionCallback;
+        if (!is_resource($stream)) {
+            ++$this->rejectedConnections;
+
+            return;
+        }
+        if ($loop === null || $callback === null) {
+            @fclose($stream);
+            ++$this->rejectedConnections;
+
+            return;
+        }
+
+        $connection = new Connection(
+            $loop,
+            $stream,
+            $this->connectionLimits,
+            $peer,
+            $local,
+            $protocol,
+            $this->tls !== null,
+        );
+        $id = spl_object_id($connection);
+        $this->connections[$id] = $connection;
+        $connection->onClose(function (Connection $closed, CloseReason $reason) use ($id): void {
+            $this->closedBytesRead += $closed->bytesRead();
+            $this->closedBytesWritten += $closed->bytesWritten();
+            unset($this->connections[$id]);
+            $this->syncAcceptWatcher();
+        });
+
+        try {
+            $callback($connection);
+        } catch (Throwable $throwable) {
+            try {
+                $connection->abort();
+            } catch (Throwable) {
+                // Preserve the originating connection callback failure.
+            }
+
+            throw $throwable;
         }
     }
 
@@ -249,6 +320,7 @@ final class TcpListener
 
             if ($this->tls === null) {
                 $this->activateConnection($client, $peerAddress, $localAddress, null);
+
                 continue;
             }
 
@@ -262,6 +334,7 @@ final class TcpListener
                     if (!is_resource($stream)) {
                         ++$this->rejectedConnections;
                         $this->syncAcceptWatcher();
+
                         return;
                     }
                     $this->activateConnection($stream, $peerAddress, $localAddress, $protocol);
@@ -278,49 +351,9 @@ final class TcpListener
         $this->syncAcceptWatcher();
     }
 
-    /** @param resource $stream */
-    private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
+    private function load(): int
     {
-        $loop = $this->loop;
-        $callback = $this->connectionCallback;
-        if (!is_resource($stream)) {
-            ++$this->rejectedConnections;
-            return;
-        }
-        if ($loop === null || $callback === null) {
-            @fclose($stream);
-            ++$this->rejectedConnections;
-            return;
-        }
-
-        $connection = new Connection(
-            $loop,
-            $stream,
-            $this->connectionLimits,
-            $peer,
-            $local,
-            $protocol,
-            $this->tls !== null,
-        );
-        $id = spl_object_id($connection);
-        $this->connections[$id] = $connection;
-        $connection->onClose(function (Connection $closed, CloseReason $reason) use ($id): void {
-            $this->closedBytesRead += $closed->bytesRead();
-            $this->closedBytesWritten += $closed->bytesWritten();
-            unset($this->connections[$id]);
-            $this->syncAcceptWatcher();
-        });
-
-        try {
-            $callback($connection);
-        } catch (Throwable $throwable) {
-            try {
-                $connection->abort();
-            } catch (Throwable) {
-                // Preserve the originating connection callback failure.
-            }
-            throw $throwable;
-        }
+        return count($this->connections) + count($this->handshakes);
     }
 
     private function syncAcceptWatcher(): void
@@ -340,6 +373,7 @@ final class TcpListener
                     $this->handleAccept();
                 },
             );
+
             return;
         }
 
@@ -347,22 +381,5 @@ final class TcpListener
             $loop->cancel($this->acceptWatcher);
             $this->acceptWatcher = null;
         }
-    }
-
-    private function load(): int
-    {
-        return count($this->connections) + count($this->handshakes);
-    }
-
-    private static function normalizeAddress(string $address): string
-    {
-        if (str_contains($address, '://')) {
-            if (!str_starts_with($address, 'tcp://')) {
-                throw new ListenerException('TcpListener accepts only tcp:// addresses.');
-            }
-            return $address;
-        }
-
-        return 'tcp://' . $address;
     }
 }

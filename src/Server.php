@@ -93,17 +93,31 @@ final readonly class Server
         );
     }
 
-    public function withWorkers(int $workers): self
+    /** @return Closure(HttpRequest, ResponseWriterInterface): void */
+    public function handlerFor(WorkerContext $context): Closure
+    {
+        if ($this->workerHandlerFactory === null) {
+            return $this->handler;
+        }
+
+        $handler = ($this->workerHandlerFactory)($context);
+        /** @var Closure(HttpRequest, ResponseWriterInterface): void $closure */
+        $closure = Closure::fromCallable($handler);
+
+        return $closure;
+    }
+
+    public function withTls(?TlsOptions $tls): self
     {
         return new self(
             $this->name,
             $this->address,
             $this->handler,
-            $workers,
+            $this->workers,
             $this->workerConnectionLimit,
             $this->listener,
             $this->connection,
-            $this->tls,
+            $tls,
             $this->http1,
             $this->http2,
             $this->workerReadyTimeoutSeconds,
@@ -123,25 +137,6 @@ final readonly class Server
             $this->listener,
             $this->connection,
             $this->tls,
-            $this->http1,
-            $this->http2,
-            $this->workerReadyTimeoutSeconds,
-            $this->workerShutdownTimeoutSeconds,
-            $this->workerHandlerFactory,
-        );
-    }
-
-    public function withTls(?TlsOptions $tls): self
-    {
-        return new self(
-            $this->name,
-            $this->address,
-            $this->handler,
-            $this->workers,
-            $this->workerConnectionLimit,
-            $this->listener,
-            $this->connection,
-            $tls,
             $this->http1,
             $this->http2,
             $this->workerReadyTimeoutSeconds,
@@ -170,16 +165,22 @@ final readonly class Server
         );
     }
 
-    /** @return Closure(HttpRequest, ResponseWriterInterface): void */
-    public function handlerFor(WorkerContext $context): Closure
+    public function withWorkers(int $workers): self
     {
-        if ($this->workerHandlerFactory === null) {
-            return $this->handler;
-        }
-
-        $handler = ($this->workerHandlerFactory)($context);
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $closure */
-        $closure = Closure::fromCallable($handler);
-        return $closure;
+        return new self(
+            $this->name,
+            $this->address,
+            $this->handler,
+            $workers,
+            $this->workerConnectionLimit,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $this->http1,
+            $this->http2,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
     }
 }

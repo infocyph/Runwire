@@ -26,37 +26,9 @@ final class LineCodec implements FrameCodecInterface
         }
     }
 
-    public function push(string $bytes, int $maxFrames = 256): array
+    public function bufferedBytes(): int
     {
-        if ($maxFrames <= 0) {
-            throw new InvalidArgumentException('Maximum frames per decode must be positive.');
-        }
-        if ($bytes !== '') {
-            $this->buffer .= $bytes;
-        }
-
-        $frames = [];
-        $delimiterBytes = strlen($this->delimiter);
-        while (count($frames) < $maxFrames && ($offset = strpos($this->buffer, $this->delimiter)) !== false) {
-            if ($offset > $this->maxFrameBytes) {
-                throw new CodecException('Line-delimited frame exceeds the configured limit.');
-            }
-
-            $wireBytes = $offset + $delimiterBytes;
-            $frames[] = substr($this->buffer, 0, $this->includeDelimiter ? $wireBytes : $offset);
-            $this->buffer = (string) substr($this->buffer, $wireBytes);
-        }
-
-        $nextDelimiter = strpos($this->buffer, $this->delimiter);
-        if ($nextDelimiter !== false) {
-            if ($nextDelimiter > $this->maxFrameBytes) {
-                throw new CodecException('Line-delimited frame exceeds the configured limit.');
-            }
-        } elseif ($this->payloadBytesBeforePossibleDelimiter() > $this->maxFrameBytes) {
-            throw new CodecException('Line-delimited frame exceeds the configured limit.');
-        }
-
-        return $frames;
+        return strlen($this->buffer);
     }
 
     public function encode(string $frame): string
@@ -75,9 +47,37 @@ final class LineCodec implements FrameCodecInterface
         return $payload . $this->delimiter;
     }
 
-    public function bufferedBytes(): int
+    public function push(string $bytes, int $maxFrames = 256): array
     {
-        return strlen($this->buffer);
+        if ($maxFrames <= 0) {
+            throw new InvalidArgumentException('Maximum frames per decode must be positive.');
+        }
+        if ($bytes !== '') {
+            $this->buffer .= $bytes;
+        }
+
+        $frames = [];
+        $delimiterBytes = strlen($this->delimiter);
+        while (count($frames) < $maxFrames && ($offset = strpos($this->buffer, $this->delimiter)) !== false) {
+            if ($offset > $this->maxFrameBytes) {
+                throw new CodecException('Line-delimited frame exceeds the configured limit.');
+            }
+
+            $wireBytes = $offset + $delimiterBytes;
+            $frames[] = substr($this->buffer, 0, $this->includeDelimiter ? $wireBytes : $offset);
+            $this->buffer = substr($this->buffer, $wireBytes);
+        }
+
+        $nextDelimiter = strpos($this->buffer, $this->delimiter);
+        if ($nextDelimiter !== false) {
+            if ($nextDelimiter > $this->maxFrameBytes) {
+                throw new CodecException('Line-delimited frame exceeds the configured limit.');
+            }
+        } elseif ($this->payloadBytesBeforePossibleDelimiter() > $this->maxFrameBytes) {
+            throw new CodecException('Line-delimited frame exceeds the configured limit.');
+        }
+
+        return $frames;
     }
 
     public function reset(): void

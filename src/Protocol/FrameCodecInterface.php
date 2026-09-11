@@ -6,12 +6,12 @@ namespace Infocyph\Runwire\Protocol;
 
 interface FrameCodecInterface
 {
-    /** @return list<string> */
-    public function push(string $bytes, int $maxFrames = 256): array;
+    public function bufferedBytes(): int;
 
     public function encode(string $frame): string;
 
-    public function bufferedBytes(): int;
+    /** @return list<string> */
+    public function push(string $bytes, int $maxFrames = 256): array;
 
     public function reset(): void;
 }

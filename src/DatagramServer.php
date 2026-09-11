@@ -67,18 +67,17 @@ final readonly class DatagramServer
         return new self($name, $address, $handler);
     }
 
-    public function withWorkers(int $workers): self
+    /** @return Closure(Datagram, DatagramListener): void */
+    public function handlerFor(WorkerContext $context): Closure
     {
-        return new self(
-            $this->name,
-            $this->address,
-            $this->handler,
-            $workers,
-            $this->options,
-            $this->workerReadyTimeoutSeconds,
-            $this->workerShutdownTimeoutSeconds,
-            $this->workerHandlerFactory,
-        );
+        if ($this->workerHandlerFactory === null) {
+            return $this->handler;
+        }
+        $handler = ($this->workerHandlerFactory)($context);
+        /** @var Closure(Datagram, DatagramListener): void $closure */
+        $closure = Closure::fromCallable($handler);
+
+        return $closure;
     }
 
     /** @param callable(WorkerContext): callable $factory */
@@ -96,15 +95,17 @@ final readonly class DatagramServer
         );
     }
 
-    /** @return Closure(Datagram, DatagramListener): void */
-    public function handlerFor(WorkerContext $context): Closure
+    public function withWorkers(int $workers): self
     {
-        if ($this->workerHandlerFactory === null) {
-            return $this->handler;
-        }
-        $handler = ($this->workerHandlerFactory)($context);
-        /** @var Closure(Datagram, DatagramListener): void $closure */
-        $closure = Closure::fromCallable($handler);
-        return $closure;
+        return new self(
+            $this->name,
+            $this->address,
+            $this->handler,
+            $workers,
+            $this->options,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
     }
 }
