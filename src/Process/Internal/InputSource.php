@@ -122,7 +122,8 @@ final class InputSource
         if (!is_resource($this->stream)) {
             return null;
         }
-        $chunk = @fread($this->stream, $maxBytes);
+        $length = max(1, $maxBytes);
+        $chunk = @fread($this->stream, $length);
         if ($chunk === false) {
             throw new ProcessException('Unable to read process stdin stream.');
         }
