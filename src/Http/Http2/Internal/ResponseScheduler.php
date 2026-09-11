@@ -24,9 +24,13 @@ final class ResponseScheduler
     private const int WIRE_CHUNK_BYTES = self::OUTBOUND_FRAME_SIZE + 9;
 
     private readonly ByteQueue $wireQueue;
+    /** @var Closure(int): ?Http2Stream */
     private readonly Closure $streamLookup;
+    /** @var Closure(Http2Stream): void */
     private readonly Closure $cleanupClosed;
+    /** @var Closure(): void */
     private readonly Closure $readyCallback;
+    /** @var Closure(Http2Stream): void */
     private readonly Closure $activityCallback;
 
     /** @var array<int, true> */
@@ -55,10 +59,18 @@ final class ResponseScheduler
         callable $readyCallback,
         callable $activityCallback,
     ) {
-        $this->streamLookup = Closure::fromCallable($streamLookup);
-        $this->cleanupClosed = Closure::fromCallable($cleanupClosed);
-        $this->readyCallback = Closure::fromCallable($readyCallback);
-        $this->activityCallback = Closure::fromCallable($activityCallback);
+        /** @var Closure(int): ?Http2Stream $lookupClosure */
+        $lookupClosure = Closure::fromCallable($streamLookup);
+        $this->streamLookup = $lookupClosure;
+        /** @var Closure(Http2Stream): void $cleanupClosure */
+        $cleanupClosure = Closure::fromCallable($cleanupClosed);
+        $this->cleanupClosed = $cleanupClosure;
+        /** @var Closure(): void $readyClosure */
+        $readyClosure = Closure::fromCallable($readyCallback);
+        $this->readyCallback = $readyClosure;
+        /** @var Closure(Http2Stream): void $activityClosure */
+        $activityClosure = Closure::fromCallable($activityCallback);
+        $this->activityCallback = $activityClosure;
         $this->wireQueue = new ByteQueue();
         $connection->onDrain(fn () => $this->handleTransportDrain());
     }
@@ -163,7 +175,10 @@ final class ResponseScheduler
         );
     }
 
-    /** @param list<array{0: string, 1: string}> $headers @return list<Frame>|null */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @return list<Frame>|null
+     */
     private function headerFrames(Http2Stream $stream, array $headers): ?array
     {
         $bytes = 0;
@@ -180,7 +195,8 @@ final class ResponseScheduler
             return null;
         }
 
-        $chunks = str_split($block, min($this->peerSettings->maxFrameSize, self::OUTBOUND_FRAME_SIZE)) ?: [''];
+        $frameSize = max(1, min($this->peerSettings->maxFrameSize, self::OUTBOUND_FRAME_SIZE));
+        $chunks = str_split($block, $frameSize) ?: [''];
         $frames = [];
         foreach ($chunks as $index => $chunk) {
             $last = $index === count($chunks) - 1;
