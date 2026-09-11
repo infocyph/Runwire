@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Loop;
 
 use Closure;
+use Infocyph\Runwire\Loop\Internal\TimerQueue;
 use InvalidArgumentException;
 use LogicException;
 use OverflowException;
@@ -14,11 +15,11 @@ final class SelectLoop implements LoopInterface
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
     private const int MICROS_PER_SECOND = 1_000_000;
-    private const int TIMER_COMPACTION_FLOOR = 64;
     private const int SELECT_ERROR_BACKOFF_MICROS = 1_000;
 
     private int $nextId = 1;
     private bool $running = false;
+    private TimerQueue $timers;
 
     /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
     private array $readWatchers = [];
@@ -32,16 +33,13 @@ final class SelectLoop implements LoopInterface
     /** @var array<int, int> */
     private array $writeIndex = [];
 
-    /** @var array<int, array{deadline: int, interval: int, callback: Closure}> */
-    private array $timers = [];
-
-    /** @var list<array{id: int, deadline: int}> */
-    private array $timerHeap = [];
-
-    private int $cancelledTimerEntries = 0;
-
     /** @var array<int, Closure> */
     private array $deferred = [];
+
+    public function __construct()
+    {
+        $this->timers = new TimerQueue();
+    }
 
     public function onReadable(mixed $stream, callable $callback): int
     {
@@ -55,14 +53,18 @@ final class SelectLoop implements LoopInterface
 
     public function delay(float $seconds, callable $callback): int
     {
-        return $this->scheduleTimer($seconds, 0, $callback);
+        $id = $this->allocateId();
+        $this->timers->addDelay($id, $seconds, Closure::fromCallable($callback));
+
+        return $id;
     }
 
     public function repeat(float $interval, callable $callback): int
     {
-        $intervalNs = $this->secondsToNanoseconds($interval, false);
+        $id = $this->allocateId();
+        $this->timers->addRepeat($id, $interval, Closure::fromCallable($callback));
 
-        return $this->scheduleTimer($interval, $intervalNs, $callback);
+        return $id;
     }
 
     public function defer(callable $callback): int
@@ -75,35 +77,21 @@ final class SelectLoop implements LoopInterface
 
     public function cancel(int $id): bool
     {
-        if (isset($this->readWatchers[$id])) {
-            $resourceId = $this->readWatchers[$id]['resource_id'];
-            unset($this->readWatchers[$id], $this->readIndex[$resourceId]);
-
+        if ($this->cancelWatcher($id, true) || $this->cancelWatcher($id, false)) {
             return true;
         }
 
-        if (isset($this->writeWatchers[$id])) {
-            $resourceId = $this->writeWatchers[$id]['resource_id'];
-            unset($this->writeWatchers[$id], $this->writeIndex[$resourceId]);
-
+        if ($this->timers->cancel($id)) {
             return true;
         }
 
-        if (isset($this->timers[$id])) {
-            unset($this->timers[$id]);
-            ++$this->cancelledTimerEntries;
-            $this->compactTimerHeapIfNeeded();
-
-            return true;
+        if (!isset($this->deferred[$id])) {
+            return false;
         }
 
-        if (isset($this->deferred[$id])) {
-            unset($this->deferred[$id]);
+        unset($this->deferred[$id]);
 
-            return true;
-        }
-
-        return false;
+        return true;
     }
 
     public function run(): void
@@ -151,7 +139,6 @@ final class SelectLoop implements LoopInterface
 
         $resourceId = get_resource_id($stream);
         $index = $readable ? $this->readIndex : $this->writeIndex;
-
         if (isset($index[$resourceId])) {
             throw new InvalidArgumentException(sprintf(
                 'Stream %d already has a %s watcher.',
@@ -178,26 +165,23 @@ final class SelectLoop implements LoopInterface
         return $id;
     }
 
-    private function scheduleTimer(float $seconds, int $intervalNs, callable $callback): int
+    private function cancelWatcher(int $id, bool $readable): bool
     {
-        $delayNs = $this->secondsToNanoseconds($seconds, true);
-        $now = hrtime(true);
+        $watcher = $readable
+            ? ($this->readWatchers[$id] ?? null)
+            : ($this->writeWatchers[$id] ?? null);
 
-        if ($delayNs > PHP_INT_MAX - $now) {
-            throw new OverflowException('Timer deadline exceeds the platform integer range.');
+        if ($watcher === null) {
+            return false;
         }
 
-        $id = $this->allocateId();
-        $deadline = $now + $delayNs;
+        if ($readable) {
+            unset($this->readWatchers[$id], $this->readIndex[$watcher['resource_id']]);
+        } else {
+            unset($this->writeWatchers[$id], $this->writeIndex[$watcher['resource_id']]);
+        }
 
-        $this->timers[$id] = [
-            'deadline' => $deadline,
-            'interval' => $intervalNs,
-            'callback' => Closure::fromCallable($callback),
-        ];
-        $this->heapPush($id, $deadline);
-
-        return $id;
+        return true;
     }
 
     private function runDeferredBatch(): void
@@ -206,9 +190,7 @@ final class SelectLoop implements LoopInterface
             return;
         }
 
-        $ids = array_keys($this->deferred);
-
-        foreach ($ids as $id) {
+        foreach (array_keys($this->deferred) as $id) {
             if (!isset($this->deferred[$id])) {
                 continue;
             }
@@ -225,59 +207,25 @@ final class SelectLoop implements LoopInterface
 
     private function runDueTimers(): void
     {
-        if ($this->timerHeap === []) {
-            return;
-        }
-
-        $now = hrtime(true);
-        $due = [];
-
-        while (($next = $this->heapPeek()) !== null && $next['deadline'] <= $now) {
-            $entry = $this->heapPop();
-            if ($entry === null) {
-                break;
-            }
-
-            $id = $entry['id'];
-            $timer = $this->timers[$id] ?? null;
-
-            if ($timer === null || $timer['deadline'] !== $entry['deadline']) {
-                if ($timer === null && $this->cancelledTimerEntries > 0) {
-                    --$this->cancelledTimerEntries;
-                }
-
-                continue;
-            }
-
-            $due[] = $id;
-        }
-
-        foreach ($due as $id) {
-            $timer = $this->timers[$id] ?? null;
+        foreach ($this->timers->takeDue() as $id) {
+            $timer = $this->timers->timer($id);
             if ($timer === null) {
                 continue;
             }
 
             if ($timer['interval'] === 0) {
-                unset($this->timers[$id]);
-                $timer['callback']($id);
-            } else {
-                try {
-                    $timer['callback']($id);
-                } catch (Throwable $throwable) {
-                    unset($this->timers[$id]);
-                    throw $throwable;
-                }
+                $this->timers->consumeOneShot($id);
+            }
 
-                if (isset($this->timers[$id])) {
-                    $deadline = $this->nextRepeatDeadline(
-                        previousDeadline: $timer['deadline'],
-                        interval: $timer['interval'],
-                        now: hrtime(true),
-                    );
-                    $this->timers[$id]['deadline'] = $deadline;
-                    $this->heapPush($id, $deadline);
-                }
+            try {
+                $timer['callback']($id);
+            } catch (Throwable $throwable) {
+                $this->timers->cancel($id);
+                throw $throwable;
+            }
+
+            if ($timer['interval'] !== 0) {
+                $this->timers->rescheduleRepeat($id);
             }
 
             if (!$this->running) {
@@ -289,7 +237,6 @@ final class SelectLoop implements LoopInterface
     private function poll(): void
     {
         [$read, $write] = $this->selectStreams();
-
         if ($read === [] && $write === []) {
             $this->sleepUntilNextTimer();
 
@@ -301,22 +248,18 @@ final class SelectLoop implements LoopInterface
         $result = @stream_select($read, $write, $except, $seconds, $microseconds);
 
         if ($result === false) {
-            $removed = $this->pruneClosedWatchers();
-            if ($removed === 0) {
+            if ($this->pruneClosedWatchers() === 0) {
                 usleep(self::SELECT_ERROR_BACKOFF_MICROS);
             }
 
             return;
         }
 
-        if ($result === 0) {
-            return;
-        }
-
-        $this->dispatchReady($read, true);
-
-        if ($this->running) {
-            $this->dispatchReady($write, false);
+        if ($result > 0) {
+            $this->dispatchReady($read, true);
+            if ($this->running) {
+                $this->dispatchReady($write, false);
+            }
         }
     }
 
@@ -351,9 +294,9 @@ final class SelectLoop implements LoopInterface
             }
 
             $resourceId = get_resource_id($stream);
-            $index = $readable ? $this->readIndex : $this->writeIndex;
-            $id = $index[$resourceId] ?? null;
-
+            $id = $readable
+                ? ($this->readIndex[$resourceId] ?? null)
+                : ($this->writeIndex[$resourceId] ?? null);
             if ($id === null) {
                 continue;
             }
@@ -361,13 +304,11 @@ final class SelectLoop implements LoopInterface
             $watcher = $readable
                 ? ($this->readWatchers[$id] ?? null)
                 : ($this->writeWatchers[$id] ?? null);
-
             if ($watcher === null) {
                 continue;
             }
 
             $watcher['callback']($stream, $id);
-
             if (!$this->running) {
                 return;
             }
@@ -376,18 +317,19 @@ final class SelectLoop implements LoopInterface
 
     private function pruneClosedWatchers(): int
     {
+        $removed = $this->pruneClosedDirection(true);
+
+        return $removed + $this->pruneClosedDirection(false);
+    }
+
+    private function pruneClosedDirection(bool $readable): int
+    {
+        $watchers = $readable ? $this->readWatchers : $this->writeWatchers;
         $removed = 0;
 
-        foreach ($this->readWatchers as $id => $watcher) {
+        foreach ($watchers as $id => $watcher) {
             if (!is_resource($watcher['stream'])) {
-                unset($this->readWatchers[$id], $this->readIndex[$watcher['resource_id']]);
-                ++$removed;
-            }
-        }
-
-        foreach ($this->writeWatchers as $id => $watcher) {
-            if (!is_resource($watcher['stream'])) {
-                unset($this->writeWatchers[$id], $this->writeIndex[$watcher['resource_id']]);
+                $this->cancelWatcher($id, $readable);
                 ++$removed;
             }
         }
@@ -404,16 +346,20 @@ final class SelectLoop implements LoopInterface
             return [0, 0];
         }
 
-        $deadline = $this->nextTimerDeadline();
+        $deadline = $this->timers->nextDeadline();
         if ($deadline === null) {
             return [null, 0];
         }
 
         $remaining = max(0, $deadline - hrtime(true));
-        $seconds = intdiv($remaining, self::NANOS_PER_SECOND);
-        $microseconds = intdiv($remaining % self::NANOS_PER_SECOND, 1_000);
 
-        return [$seconds, min($microseconds, self::MICROS_PER_SECOND - 1)];
+        return [
+            intdiv($remaining, self::NANOS_PER_SECOND),
+            min(
+                intdiv($remaining % self::NANOS_PER_SECOND, 1_000),
+                self::MICROS_PER_SECOND - 1,
+            ),
+        ];
     }
 
     private function sleepUntilNextTimer(): void
@@ -422,7 +368,7 @@ final class SelectLoop implements LoopInterface
             return;
         }
 
-        $deadline = $this->nextTimerDeadline();
+        $deadline = $this->timers->nextDeadline();
         if ($deadline === null) {
             return;
         }
@@ -432,78 +378,18 @@ final class SelectLoop implements LoopInterface
             return;
         }
 
-        $seconds = intdiv($remaining, self::NANOS_PER_SECOND);
-        $nanoseconds = $remaining % self::NANOS_PER_SECOND;
-        @time_nanosleep($seconds, $nanoseconds);
-    }
-
-    private function nextTimerDeadline(): ?int
-    {
-        while (($entry = $this->heapPeek()) !== null) {
-            $timer = $this->timers[$entry['id']] ?? null;
-
-            if ($timer !== null && $timer['deadline'] === $entry['deadline']) {
-                return $entry['deadline'];
-            }
-
-            $this->heapPop();
-            if ($timer === null && $this->cancelledTimerEntries > 0) {
-                --$this->cancelledTimerEntries;
-            }
-        }
-
-        return null;
-    }
-
-    private function nextRepeatDeadline(int $previousDeadline, int $interval, int $now): int
-    {
-        if ($previousDeadline > PHP_INT_MAX - $interval) {
-            throw new OverflowException('Repeating timer deadline exceeds the platform integer range.');
-        }
-
-        $next = $previousDeadline + $interval;
-        if ($next > $now) {
-            return $next;
-        }
-
-        $missed = intdiv($now - $previousDeadline, $interval) + 1;
-
-        if ($missed > intdiv(PHP_INT_MAX - $previousDeadline, $interval)) {
-            throw new OverflowException('Repeating timer deadline exceeds the platform integer range.');
-        }
-
-        return $previousDeadline + ($missed * $interval);
+        @time_nanosleep(
+            intdiv($remaining, self::NANOS_PER_SECOND),
+            $remaining % self::NANOS_PER_SECOND,
+        );
     }
 
     private function hasReferences(): bool
     {
         return $this->readWatchers !== []
             || $this->writeWatchers !== []
-            || $this->timers !== []
+            || $this->timers->hasTimers()
             || $this->deferred !== [];
-    }
-
-    private function secondsToNanoseconds(float $seconds, bool $allowZero): int
-    {
-        if (!is_finite($seconds) || $seconds < 0 || (!$allowZero && $seconds <= 0)) {
-            throw new InvalidArgumentException(
-                $allowZero
-                    ? 'Timer delay must be a finite non-negative number.'
-                    : 'Repeating timer interval must be a finite positive number.',
-            );
-        }
-
-        if ($seconds > PHP_INT_MAX / self::NANOS_PER_SECOND) {
-            throw new OverflowException('Timer duration exceeds the platform integer range.');
-        }
-
-        $nanoseconds = (int) round($seconds * self::NANOS_PER_SECOND);
-
-        if (!$allowZero && $nanoseconds === 0) {
-            throw new InvalidArgumentException('Repeating timer interval is below timer resolution.');
-        }
-
-        return $nanoseconds;
     }
 
     private function allocateId(): int
@@ -513,103 +399,5 @@ final class SelectLoop implements LoopInterface
         }
 
         return $this->nextId++;
-    }
-
-    private function compactTimerHeapIfNeeded(): void
-    {
-        $heapSize = count($this->timerHeap);
-
-        if ($this->cancelledTimerEntries < self::TIMER_COMPACTION_FLOOR
-            || $this->cancelledTimerEntries * 2 < $heapSize) {
-            return;
-        }
-
-        $this->timerHeap = [];
-        foreach ($this->timers as $id => $timer) {
-            $this->heapPush($id, $timer['deadline']);
-        }
-
-        $this->cancelledTimerEntries = 0;
-    }
-
-    private function heapPush(int $id, int $deadline): void
-    {
-        $entry = ['id' => $id, 'deadline' => $deadline];
-        $index = count($this->timerHeap);
-
-        while ($index > 0) {
-            $parent = intdiv($index - 1, 2);
-            if (!$this->heapLess($entry, $this->timerHeap[$parent])) {
-                break;
-            }
-
-            $this->timerHeap[$index] = $this->timerHeap[$parent];
-            $index = $parent;
-        }
-
-        $this->timerHeap[$index] = $entry;
-    }
-
-    /**
-     * @return array{id: int, deadline: int}|null
-     */
-    private function heapPeek(): ?array
-    {
-        return $this->timerHeap[0] ?? null;
-    }
-
-    /**
-     * @return array{id: int, deadline: int}|null
-     */
-    private function heapPop(): ?array
-    {
-        if ($this->timerHeap === []) {
-            return null;
-        }
-
-        $root = $this->timerHeap[0];
-        $last = array_pop($this->timerHeap);
-
-        if ($this->timerHeap === []) {
-            return $root;
-        }
-
-        $size = count($this->timerHeap);
-        $index = 0;
-
-        while (true) {
-            $left = ($index * 2) + 1;
-            if ($left >= $size) {
-                break;
-            }
-
-            $right = $left + 1;
-            $child = $left;
-
-            if ($right < $size && $this->heapLess($this->timerHeap[$right], $this->timerHeap[$left])) {
-                $child = $right;
-            }
-
-            if (!$this->heapLess($this->timerHeap[$child], $last)) {
-                break;
-            }
-
-            $this->timerHeap[$index] = $this->timerHeap[$child];
-            $index = $child;
-        }
-
-        $this->timerHeap[$index] = $last;
-
-        return $root;
-    }
-
-    /**
-     * @param array{id: int, deadline: int} $left
-     * @param array{id: int, deadline: int} $right
-     */
-    private function heapLess(array $left, array $right): bool
-    {
-        return $left['deadline'] < $right['deadline']
-            || ($left['deadline'] === $right['deadline'] && $left['id'] < $right['id']);
     }
 }
