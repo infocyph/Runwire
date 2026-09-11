@@ -178,10 +178,6 @@ final readonly class Server
         }
 
         $handler = ($this->workerHandlerFactory)($context);
-        if (!is_callable($handler)) {
-            throw new InvalidArgumentException('Worker HTTP handler factory must return a callable handler.');
-        }
-
         /** @var Closure(HttpRequest, ResponseWriterInterface): void $closure */
         $closure = Closure::fromCallable($handler);
         return $closure;
