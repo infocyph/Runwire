@@ -27,6 +27,7 @@ final readonly class RuntimeEnvironment
         public bool $supportsSignals = false,
         public bool $supportsPosix = false,
         public bool $supportsOpenSsl = false,
+        public bool $supportsQuic = false,
         public bool $opcacheAvailable = false,
         public bool $opcacheEnabled = false,
         public bool $opcacheCliEnabled = false,
@@ -42,17 +43,13 @@ final readonly class RuntimeEnvironment
         ]);
     }
 
-    /**
-     * @return list<RuntimeDriver>
-     */
+    /** @return list<RuntimeDriver> */
     public function availableDrivers(): array
     {
         return $this->availableDrivers;
     }
 
-    /**
-     * @return list<RuntimeDriver>
-     */
+    /** @return list<RuntimeDriver> */
     public function hostedDrivers(): array
     {
         return $this->hostedDrivers;
