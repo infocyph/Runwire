@@ -29,6 +29,32 @@ Recommended tagline:
 
 > A high-performance process and network runtime for PHP.
 
+## Implementation tracker
+
+Last updated: **2026-09-11**
+
+| Milestone | Status | Evidence |
+| --- | --- | --- |
+| Package scaffold + runtime/OPcache contracts | ✅ Landed | `9cec0d5`, `3f790c8` |
+| Loop contract + bounded `SelectLoop` | ✅ Landed | `1fcf144`, `1d11784` |
+| Prefork supervisor + worker lifecycle/generations | ✅ Landed | `8f39872` |
+| Structured `ProcessRunner` + bounded concurrent pipe I/O | ✅ Landed | `c149d34` |
+| TCP/TLS listener + connection lifecycle + backpressure | 🔄 Active | next implementation slice |
+| Version-neutral HTTP transport + HTTP/1.1 engine | ⬜ Pending | — |
+| Webrick native Runwire adapter contract | ⬜ Pending | — |
+| HTTP/2 frames + streams + HPACK + flow control + ALPN | ⬜ Pending | — |
+| HTTP/1.1 ↔ HTTP/2 parity + abuse/fault acceptance | ⬜ Pending | — |
+| Foundation native server + persistent host-driver integration | ⬜ Pending | — |
+| Omnibus/boundary integrations + aggregate soak/QA/benchmarks | ⬜ Pending | — |
+| Runwire 1.0 + Foundation 3 final release acceptance | ⬜ Pending | — |
+
+Tracker semantics:
+
+- **Landed** means the implementation slice is committed and has focused validation; it does not mean every release-gate/soak/integration item for that area is complete.
+- **Active** is the current implementation slice.
+- **Pending** has not started as a substantive implementation slice.
+- Sections **41.17** and **43** remain the authoritative release-completion gates.
+
 ---
 
 # 1. Core ownership
