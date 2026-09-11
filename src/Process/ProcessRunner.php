@@ -98,13 +98,17 @@ final class ProcessRunner
     }
 
     /**
-     * @param resource $process
+     * @param resource|null $process
      * @param array<int, resource> $pipes
      */
     private function execute(PreparedCommand $prepared, mixed &$process, array &$pipes, InputSource $input, OutputSink $stdout, OutputSink $stderr): ProcessResult
     {
+        if (!is_resource($process)) {
+            throw new ProcessException('Child process handle is unavailable.');
+        }
+        $child = $process;
         $command = $prepared->command;
-        $startedAt = hrtime(true);
+        $startedAt = (int) hrtime(true);
         $deadline = $startedAt + $this->secondsToNanos($command->timeoutSeconds);
         $terminationDeadline = null;
         $postExitDeadline = null;
@@ -112,27 +116,26 @@ final class ProcessRunner
         $killSent = false;
         $outputAccepted = 0;
         $stdinBuffer = '';
+        /** @var array{command: string, pid: int, running: bool, signaled: bool, stopped: bool, exitcode: int, termsig: int, stopsig: int}|null $terminalStatus */
         $terminalStatus = null;
 
         while (true) {
-            $now = hrtime(true);
-            $status = @proc_get_status($process);
-            if (!is_array($status)) {
-                throw new ProcessException('Unable to inspect child process status.');
-            }
-            if (!$status['running']) {
+            $now = (int) hrtime(true);
+            $status = @proc_get_status($child);
+            $running = $status['running'];
+            if (!$running) {
                 $terminalStatus ??= $status;
             }
 
-            if ($status['running']) {
-                [$reason, $terminationDeadline] = $this->enforceDeadline($process, $reason, $terminationDeadline, $deadline, $command, $now);
-                $killSent = $this->enforceKill($process, $terminationDeadline, $killSent, $now);
+            if ($running) {
+                [$reason, $terminationDeadline] = $this->enforceDeadline($child, $reason, $terminationDeadline, $deadline, $command, $now);
+                $killSent = $this->enforceKill($child, $terminationDeadline, $killSent, $now);
             } else {
                 $postExitDeadline ??= $now + $this->secondsToNanos($this->policy->postExitDrainSeconds);
                 $this->closePipe($pipes, 0);
             }
 
-            if ($this->finished($status['running'], $pipes, $postExitDeadline, $now)) {
+            if ($this->finished($running, $pipes, $postExitDeadline, $now)) {
                 break;
             }
 
@@ -142,19 +145,21 @@ final class ProcessRunner
             $this->readInputResource($read, $inputResourceId, $input, $stdinBuffer);
             $this->writeInput($write, $pipes, $stdinBuffer, $input);
             $overflowed = $this->readOutputs($read, $pipes, $stdout, $stderr, $command->maxOutputBytes, $outputAccepted);
-
-            if ($overflowed && $command->overflowPolicy === OutputOverflowPolicy::TERMINATE && $terminationDeadline === null && $status['running']) {
-                $reason = TerminationReason::OUTPUT_LIMIT;
-                @proc_terminate($process, SIGTERM);
-                $terminationDeadline = hrtime(true) + $this->secondsToNanos($command->terminationGraceSeconds);
-            }
+            [$reason, $terminationDeadline] = $this->enforceOutputLimit(
+                $child,
+                $overflowed,
+                $running,
+                $reason,
+                $terminationDeadline,
+                $command,
+            );
         }
 
-        $closeCode = @proc_close($process);
+        $closeCode = @proc_close($child);
         $process = null;
         $exitCode = $this->exitCode($terminalStatus, $closeCode);
-        $signal = is_array($terminalStatus) && ($terminalStatus['signaled'] ?? false)
-            ? (int) ($terminalStatus['termsig'] ?? 0)
+        $signal = $terminalStatus !== null && $terminalStatus['signaled']
+            ? $terminalStatus['termsig']
             : null;
 
         return new ProcessResult(
@@ -167,11 +172,14 @@ final class ProcessRunner
             stderrTruncated: $stderr->truncated(),
             terminationReason: $reason,
             terminationSignal: $signal === 0 ? null : $signal,
-            durationSeconds: (hrtime(true) - $startedAt) / self::NANOS_PER_SECOND,
+            durationSeconds: ((int) hrtime(true) - $startedAt) / self::NANOS_PER_SECOND,
         );
     }
 
-    /** @param resource $process @return array{TerminationReason, ?int} */
+    /**
+     * @param resource $process
+     * @return array{0: TerminationReason, 1: ?int}
+     */
     private function enforceDeadline(mixed $process, TerminationReason $reason, ?int $terminationDeadline, int $deadline, Command $command, int $now): array
     {
         if ($terminationDeadline !== null || $now < $deadline) {
@@ -189,6 +197,32 @@ final class ProcessRunner
         }
         @proc_terminate($process, SIGKILL);
         return true;
+    }
+
+    /**
+     * @param resource $process
+     * @return array{0: TerminationReason, 1: ?int}
+     */
+    private function enforceOutputLimit(
+        mixed $process,
+        bool $overflowed,
+        bool $running,
+        TerminationReason $reason,
+        ?int $terminationDeadline,
+        Command $command,
+    ): array {
+        if (!$overflowed
+            || $command->overflowPolicy !== OutputOverflowPolicy::TERMINATE
+            || $terminationDeadline !== null
+            || !$running) {
+            return [$reason, $terminationDeadline];
+        }
+
+        @proc_terminate($process, SIGTERM);
+        return [
+            TerminationReason::OUTPUT_LIMIT,
+            (int) hrtime(true) + $this->secondsToNanos($command->terminationGraceSeconds),
+        ];
     }
 
     /** @param array<int, resource> $pipes */
@@ -215,7 +249,10 @@ final class ProcessRunner
         $buffer = $chunk;
     }
 
-    /** @param array<int, resource> $pipes @return array{list<resource>, list<resource>, ?int} */
+    /**
+     * @param array<int, resource> $pipes
+     * @return array{0: list<resource>, 1: list<resource>, 2: ?int}
+     */
     private function selectSets(array $pipes, InputSource $input, string $stdinBuffer): array
     {
         $read = [];
@@ -239,7 +276,10 @@ final class ProcessRunner
         return [$read, $write, $inputResourceId];
     }
 
-    /** @param list<resource> $read @param list<resource> $write */
+    /**
+     * @param list<resource> $read
+     * @param list<resource> $write
+     */
     private function waitForIo(array &$read, array &$write, int $micros): void
     {
         if ($read === [] && $write === []) {
@@ -277,7 +317,10 @@ final class ProcessRunner
         }
     }
 
-    /** @param list<resource> $write @param array<int, resource> $pipes */
+    /**
+     * @param list<resource> $write
+     * @param array<int, resource> $pipes
+     */
     private function writeInput(array $write, array &$pipes, string &$buffer, InputSource $input): void
     {
         if (!isset($pipes[0]) || !in_array($pipes[0], $write, true)) {
@@ -300,7 +343,10 @@ final class ProcessRunner
         }
     }
 
-    /** @param list<resource> $read @param array<int, resource> $pipes */
+    /**
+     * @param list<resource> $read
+     * @param array<int, resource> $pipes
+     */
     private function readOutputs(array $read, array &$pipes, OutputSink $stdout, OutputSink $stderr, int $limit, int &$accepted): bool
     {
         $overflowed = false;
@@ -338,10 +384,12 @@ final class ProcessRunner
         return max(0, $micros);
     }
 
-    /** @param array<string, mixed>|null $status */
+    /**
+     * @param array{command: string, pid: int, running: bool, signaled: bool, stopped: bool, exitcode: int, termsig: int, stopsig: int}|null $status
+     */
     private function exitCode(?array $status, mixed $closeCode): ?int
     {
-        $statusCode = is_array($status) ? (int) ($status['exitcode'] ?? -1) : -1;
+        $statusCode = $status === null ? -1 : $status['exitcode'];
         if ($statusCode >= 0) {
             return $statusCode;
         }
@@ -377,18 +425,18 @@ final class ProcessRunner
     private function closePipes(array &$pipes): void
     {
         foreach (array_keys($pipes) as $index) {
-            $this->closePipe($pipes, (int) $index);
+            $this->closePipe($pipes, $index);
         }
     }
 
-    /** @param resource $process */
+    /** @param resource|null $process */
     private function abort(mixed $process): void
     {
         if (!is_resource($process)) {
             return;
         }
         $status = @proc_get_status($process);
-        if (is_array($status) && ($status['running'] ?? false)) {
+        if ($status['running']) {
             @proc_terminate($process, SIGKILL);
         }
     }
