@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Process;
 
 use Closure;
-use Infocyph\Runwire\Exception\ProcessException;
 use Infocyph\Runwire\Exception\ProcessStartException;
 use Infocyph\Runwire\Process\Internal\CommandValidator;
 use Infocyph\Runwire\Process\Internal\InputSource;
 use Infocyph\Runwire\Process\Internal\OutputSink;
 use Infocyph\Runwire\Process\Internal\PreparedCommand;
+use Infocyph\Runwire\Process\Internal\ProcessHandle;
 use Throwable;
 
 final class ProcessRunner
@@ -36,21 +36,20 @@ final class ProcessRunner
         $this->validateConsumer($command->stderrMode, $stderrConsumer, 'stderr');
 
         [$process, $pipes] = $this->start($prepared);
+        $handle = new ProcessHandle($process);
         $input = new InputSource($command->stdin, $this->policy->maxStdinBytes);
         $stdout = new OutputSink($command->stdoutMode, self::closure($stdoutConsumer));
         $stderr = new OutputSink($command->stderrMode, self::closure($stderrConsumer));
 
         try {
-            return $this->execute($prepared, $process, $pipes, $input, $stdout, $stderr);
+            return $this->execute($prepared, $handle, $pipes, $input, $stdout, $stderr);
         } catch (Throwable $exception) {
-            $this->abort($process);
+            $handle->abort();
             throw $exception;
         } finally {
             $input->close();
             $this->closePipes($pipes);
-            if (is_resource($process)) {
-                @proc_close($process);
-            }
+            $handle->close();
         }
     }
 
@@ -97,17 +96,10 @@ final class ProcessRunner
         };
     }
 
-    /**
-     * @param resource $process
-     * @param-out null $process
-     * @param array<int, resource> $pipes
-     */
-    private function execute(PreparedCommand $prepared, mixed &$process, array &$pipes, InputSource $input, OutputSink $stdout, OutputSink $stderr): ProcessResult
+    /** @param array<int, resource> $pipes */
+    private function execute(PreparedCommand $prepared, ProcessHandle $process, array &$pipes, InputSource $input, OutputSink $stdout, OutputSink $stderr): ProcessResult
     {
-        if (!is_resource($process)) {
-            throw new ProcessException('Child process handle is unavailable.');
-        }
-        $child = $process;
+        $child = $process->resource();
         $command = $prepared->command;
         $startedAt = (int) hrtime(true);
         $deadline = $startedAt + $this->secondsToNanos($command->timeoutSeconds);
@@ -156,8 +148,7 @@ final class ProcessRunner
             );
         }
 
-        $closeCode = @proc_close($child);
-        $process = null;
+        $closeCode = $process->close();
         $exitCode = $this->exitCode($terminalStatus, $closeCode);
         $signal = $terminalStatus !== null && $terminalStatus['signaled']
             ? $terminalStatus['termsig']
@@ -427,18 +418,6 @@ final class ProcessRunner
     {
         foreach (array_keys($pipes) as $index) {
             $this->closePipe($pipes, $index);
-        }
-    }
-
-    /** @param resource|null $process */
-    private function abort(mixed $process): void
-    {
-        if (!is_resource($process)) {
-            return;
-        }
-        $status = @proc_get_status($process);
-        if ($status['running']) {
-            @proc_terminate($process, SIGKILL);
         }
     }
 
