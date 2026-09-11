@@ -19,6 +19,8 @@ final class DatagramListener
     private bool $closed = false;
     private int $receivedDatagrams = 0;
     private int $rejectedDatagrams = 0;
+    private int $bytesRead = 0;
+    private int $bytesWritten = 0;
 
     /** @param resource $stream */
     private function __construct(
@@ -67,6 +69,26 @@ final class DatagramListener
     public function rejectedDatagrams(): int
     {
         return $this->rejectedDatagrams;
+    }
+
+    public function bytesRead(): int
+    {
+        return $this->bytesRead;
+    }
+
+    public function bytesWritten(): int
+    {
+        return $this->bytesWritten;
+    }
+
+    public function isReceiving(): bool
+    {
+        return !$this->closed && !$this->paused && $this->readWatcher !== null;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->closed;
     }
 
     /** @param callable(Datagram, self): void $callback */
@@ -118,6 +140,7 @@ final class DatagramListener
         if ($written !== strlen($payload)) {
             return new DatagramWriteResult(DatagramWriteState::ERROR, $written);
         }
+        $this->bytesWritten += $written;
 
         return new DatagramWriteResult(DatagramWriteState::SENT, $written);
     }
@@ -159,6 +182,7 @@ final class DatagramListener
             }
 
             ++$this->receivedDatagrams;
+            $this->bytesRead += strlen($payload);
             $local = @stream_socket_get_name($this->stream, false);
             try {
                 ($this->callback)(new Datagram(

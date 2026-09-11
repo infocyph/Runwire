@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\Control\ControlOptions;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Network\DatagramListener;
+use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Network\UnixListenerOptions;
@@ -67,6 +68,7 @@ final class Runtime
         $this->servers[$server->name] = $server;
         return $this;
     }
+
 
     public function control(ControlOptions $options): self
     {
@@ -161,7 +163,7 @@ final class Runtime
                 $bound[$name] = match (true) {
                     $server instanceof Server => new BoundServer(
                         $server,
-                        TcpListener::bind($server->address, $server->listener, $server->connection, $server->tls),
+                        TcpListener::bind($server->address, self::workerListenerOptions($server->listener, $server->workerConnectionLimit), $server->connection, $server->tls),
                     ),
                     $server instanceof StreamServer => $this->bindStreamServer($server),
                     $server instanceof DatagramServer => new BoundDatagramServer(
@@ -184,13 +186,13 @@ final class Runtime
         $listener = match ($server->transport) {
             StreamTransport::TCP => TcpListener::bind(
                 $server->address,
-                $server->listener,
+                self::workerListenerOptions($server->listener, $server->workerConnectionLimit),
                 $server->connection,
                 $server->tls,
             ),
             StreamTransport::UNIX => UnixListener::bind(
                 $server->address,
-                $server->unix ?? new UnixListenerOptions(listener: $server->listener),
+                self::workerUnixOptions($server),
                 $server->connection,
             ),
         };
@@ -251,6 +253,28 @@ final class Runtime
             $target instanceof BoundStreamServer => $target->definition->transport->value,
             $target instanceof BoundDatagramServer => 'udp',
         };
+    }
+
+
+    private static function workerListenerOptions(ListenerOptions $options, int $workerLimit): ListenerOptions
+    {
+        return new ListenerOptions(
+            backlog: $options->backlog,
+            maxConnections: min($options->maxConnections, $workerLimit),
+            acceptBatchSize: $options->acceptBatchSize,
+            socketContext: $options->socketContext,
+        );
+    }
+
+    private static function workerUnixOptions(StreamServer $server): UnixListenerOptions
+    {
+        $options = $server->unix ?? new UnixListenerOptions(listener: $server->listener);
+        return new UnixListenerOptions(
+            listener: self::workerListenerOptions($options->listener, $server->workerConnectionLimit),
+            removeStaleSocket: $options->removeStaleSocket,
+            permissions: $options->permissions,
+            unlinkOnClose: $options->unlinkOnClose,
+        );
     }
 
     private static function closeBound(

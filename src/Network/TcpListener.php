@@ -20,6 +20,8 @@ final class TcpListener
     private bool $closed = false;
     private int $acceptedConnections = 0;
     private int $rejectedConnections = 0;
+    private int $closedBytesRead = 0;
+    private int $closedBytesWritten = 0;
 
     /** @var array<int, Connection> */
     private array $connections = [];
@@ -113,6 +115,34 @@ final class TcpListener
     public function rejectedConnections(): int
     {
         return $this->rejectedConnections;
+    }
+
+    public function bytesRead(): int
+    {
+        $total = $this->closedBytesRead;
+        foreach ($this->connections as $connection) {
+            $total += $connection->bytesRead();
+        }
+        return $total;
+    }
+
+    public function bytesWritten(): int
+    {
+        $total = $this->closedBytesWritten;
+        foreach ($this->connections as $connection) {
+            $total += $connection->bytesWritten();
+        }
+        return $total;
+    }
+
+    public function maxConnections(): int
+    {
+        return $this->options->maxConnections;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->closed;
     }
 
     public function isAccepting(): bool
@@ -259,7 +289,9 @@ final class TcpListener
         );
         $id = spl_object_id($connection);
         $this->connections[$id] = $connection;
-        $connection->onClose(function () use ($id): void {
+        $connection->onClose(function (Connection $closed, CloseReason $reason) use ($id): void {
+            $this->closedBytesRead += $closed->bytesRead();
+            $this->closedBytesWritten += $closed->bytesWritten();
             unset($this->connections[$id]);
             $this->syncAcceptWatcher();
         });

@@ -19,6 +19,8 @@ final class UnixListener
     private bool $closed = false;
     private int $acceptedConnections = 0;
     private int $rejectedConnections = 0;
+    private int $closedBytesRead = 0;
+    private int $closedBytesWritten = 0;
     private ?int $socketInode = null;
 
     /** @var array<int, Connection> */
@@ -113,6 +115,39 @@ final class UnixListener
         return $this->rejectedConnections;
     }
 
+    public function bytesRead(): int
+    {
+        $total = $this->closedBytesRead;
+        foreach ($this->connections as $connection) {
+            $total += $connection->bytesRead();
+        }
+        return $total;
+    }
+
+    public function bytesWritten(): int
+    {
+        $total = $this->closedBytesWritten;
+        foreach ($this->connections as $connection) {
+            $total += $connection->bytesWritten();
+        }
+        return $total;
+    }
+
+    public function maxConnections(): int
+    {
+        return $this->options->listener->maxConnections;
+    }
+
+    public function isAccepting(): bool
+    {
+        return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->closed;
+    }
+
     /** @param callable(Connection): void $onConnection */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
@@ -199,7 +234,9 @@ final class UnixListener
             );
             $id = spl_object_id($connection);
             $this->connections[$id] = $connection;
-            $connection->onClose(function () use ($id): void {
+            $connection->onClose(function (Connection $closed, CloseReason $reason) use ($id): void {
+                $this->closedBytesRead += $closed->bytesRead();
+                $this->closedBytesWritten += $closed->bytesWritten();
                 unset($this->connections[$id]);
                 $this->syncAcceptWatcher();
             });

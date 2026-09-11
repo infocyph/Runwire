@@ -37,6 +37,7 @@ final readonly class StreamServer
         callable $codecFactory,
         callable $handler,
         public int $workers = 1,
+        public int $workerConnectionLimit = 10_000,
         public ListenerOptions $listener = new ListenerOptions(),
         public ConnectionLimits $connection = new ConnectionLimits(),
         public ?TlsOptions $tls = null,
@@ -52,6 +53,9 @@ final readonly class StreamServer
         }
         if ($workers < 1 || $workers > 1_024) {
             throw new InvalidArgumentException('Stream server worker count must be between 1 and 1024.');
+        }
+        if ($workerConnectionLimit < 1 || $workerConnectionLimit > 1_000_000) {
+            throw new InvalidArgumentException('Worker connection limit must be between 1 and 1000000.');
         }
         if ($maxFramesPerTick <= 0 || $maxFramesPerTick > 65_536) {
             throw new InvalidArgumentException('Maximum frames per tick must be between 1 and 65536.');
@@ -94,6 +98,29 @@ final readonly class StreamServer
             $this->codecFactory,
             $this->handler,
             $workers,
+            $this->workerConnectionLimit,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $this->unix,
+            $this->maxFramesPerTick,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
+    }
+
+
+    public function withWorkerConnectionLimit(int $limit): self
+    {
+        return new self(
+            $this->name,
+            $this->transport,
+            $this->address,
+            $this->codecFactory,
+            $this->handler,
+            $this->workers,
+            $limit,
             $this->listener,
             $this->connection,
             $this->tls,
@@ -114,6 +141,7 @@ final readonly class StreamServer
             $this->codecFactory,
             $this->handler,
             $this->workers,
+            $this->workerConnectionLimit,
             $this->listener,
             $this->connection,
             $tls,
@@ -134,6 +162,7 @@ final readonly class StreamServer
             $this->codecFactory,
             $this->handler,
             $this->workers,
+            $this->workerConnectionLimit,
             $this->listener,
             $this->connection,
             $this->tls,
@@ -154,6 +183,7 @@ final readonly class StreamServer
             $this->codecFactory,
             $this->handler,
             $this->workers,
+            $this->workerConnectionLimit,
             $this->listener,
             $this->connection,
             $this->tls,
@@ -174,6 +204,7 @@ final readonly class StreamServer
             $this->codecFactory,
             $this->handler,
             $this->workers,
+            $this->workerConnectionLimit,
             $this->listener,
             $this->connection,
             $this->tls,
