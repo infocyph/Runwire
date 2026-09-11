@@ -128,9 +128,7 @@ final class SelectLoop implements LoopInterface
         return hrtime(true) / self::NANOS_PER_SECOND;
     }
 
-    /**
-     * @param resource $stream
-     */
+    /** @param resource $stream */
     private function watch(mixed $stream, callable $callback, bool $readable): int
     {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
@@ -191,18 +189,27 @@ final class SelectLoop implements LoopInterface
         }
 
         foreach (array_keys($this->deferred) as $id) {
-            if (!isset($this->deferred[$id])) {
+            $callback = $this->takeDeferred($id);
+            if ($callback === null) {
                 continue;
             }
-
-            $callback = $this->deferred[$id];
-            unset($this->deferred[$id]);
             $callback($id);
 
             if (!$this->running) {
                 return;
             }
         }
+    }
+
+    private function takeDeferred(int $id): ?Closure
+    {
+        $callback = $this->deferred[$id] ?? null;
+        if ($callback === null) {
+            return null;
+        }
+        unset($this->deferred[$id]);
+
+        return $callback;
     }
 
     private function runDueTimers(): void
@@ -239,7 +246,6 @@ final class SelectLoop implements LoopInterface
         [$read, $write] = $this->selectStreams();
         if ($read === [] && $write === []) {
             $this->sleepUntilNextTimer();
-
             return;
         }
 
@@ -251,7 +257,6 @@ final class SelectLoop implements LoopInterface
             if ($this->pruneClosedWatchers() === 0) {
                 usleep(self::SELECT_ERROR_BACKOFF_MICROS);
             }
-
             return;
         }
 
@@ -263,9 +268,7 @@ final class SelectLoop implements LoopInterface
         }
     }
 
-    /**
-     * @return array{0: list<resource>, 1: list<resource>}
-     */
+    /** @return array{0: list<resource>, 1: list<resource>} */
     private function selectStreams(): array
     {
         $this->pruneClosedWatchers();
@@ -283,9 +286,7 @@ final class SelectLoop implements LoopInterface
         return [$read, $write];
     }
 
-    /**
-     * @param list<resource> $ready
-     */
+    /** @param list<resource> $ready */
     private function dispatchReady(array $ready, bool $readable): void
     {
         foreach ($ready as $stream) {
@@ -337,9 +338,7 @@ final class SelectLoop implements LoopInterface
         return $removed;
     }
 
-    /**
-     * @return array{0: ?int, 1: int}
-     */
+    /** @return array{0: ?int, 1: int} */
     private function selectTimeout(): array
     {
         if ($this->deferred !== []) {
@@ -351,7 +350,7 @@ final class SelectLoop implements LoopInterface
             return [null, 0];
         }
 
-        $remaining = max(0, $deadline - hrtime(true));
+        $remaining = (int) max(0, $deadline - hrtime(true));
 
         return [
             intdiv($remaining, self::NANOS_PER_SECOND),
