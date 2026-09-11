@@ -8,6 +8,7 @@ use Infocyph\Runwire\Http\Http2\FrameType;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
+use Infocyph\Runwire\Http\Http2\Internal\HeaderValidationException;
 use Infocyph\Runwire\Http\Http2\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -132,7 +133,7 @@ it('rejects invalid HTTP/2 pseudo-header and connection-field combinations', fun
     ];
 
     foreach ($invalid as $fields) {
-        expect(fn () => $validator->request($fields))->toThrow(Throwable::class);
+        expect(fn () => $validator->request($fields))->toThrow(HeaderValidationException::class);
     }
-    expect(fn () => $validator->trailers([[':path', '/']]))->toThrow(Throwable::class);
+    expect(fn () => $validator->trailers([[':path', '/']]))->toThrow(HeaderValidationException::class);
 });

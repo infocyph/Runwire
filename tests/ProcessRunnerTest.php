@@ -28,9 +28,14 @@ it('supports bounded string resource and producer stdin', function (): void {
     fwrite($resource, 'resource');
     rewind($resource);
     $chunks = ['pro', 'ducer', null];
+    $producer = static function (int $maxBytes) use (&$chunks): ?string {
+        $chunk = array_shift($chunks);
+
+        return $chunk === null ? null : substr($chunk, 0, $maxBytes);
+    };
     expect($echo('string'))->toBe('string')
         ->and($echo($resource))->toBe('resource')
-        ->and($echo(static fn (int $max): ?string => array_shift($chunks)))->toBe('producer');
+        ->and($echo($producer))->toBe('producer');
     fclose($resource);
 });
 
@@ -85,7 +90,9 @@ it('enforces executable environment cwd and command resource policy', function (
         'maxTerminationGraceSeconds' => 0.5,
     ]);
     $command = Command::executable(PHP_BINARY, ['-r', 'echo getenv("RUNWIRE_TEST")."|".getcwd();'])
-        ->environment(['RUNWIRE_TEST' => 'yes'])->cwd($root);
+        ->environment(['RUNWIRE_TEST' => 'yes'])
+        ->cwd($root)
+        ->terminationGrace(0.5);
     expect($runner->run($command)->stdout)->toBe('yes|' . realpath($root));
     expect(fn () => $runner->run($command->environment(['DENIED' => 'x'])))->toThrow(ProcessStartException::class)
         ->and(fn () => $runner->run($command->terminationGrace(1.0)))->toThrow(ProcessStartException::class);

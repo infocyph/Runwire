@@ -56,7 +56,12 @@ it('validates and applies peer settings with initial-window delta', function ():
 });
 
 it('builds bounded local settings from HTTP/2 limits', function (): void {
-    $limits = new Http2Limits(maxConcurrentStreams: 32, maxPendingBodyBytesPerStream: 32_768);
+    $limits = new Http2Limits(
+        maxConcurrentStreams: 32,
+        maxPendingBodyBytesPerStream: 32_768,
+        bodyLowWatermarkBytes: 8_192,
+        bodyHighWatermarkBytes: 24_576,
+    );
     $settings = PeerSettings::local($limits);
 
     expect($settings)->not->toHaveKey(PeerSettings::ENABLE_PUSH)
