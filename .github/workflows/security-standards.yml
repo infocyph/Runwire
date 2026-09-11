@@ -17,6 +17,6 @@ jobs:
       contents: read
     with:
       php_versions: '["8.4","8.5"]'
-      php_extensions: "pcntl, posix, openssl, sockets"
+      php_extensions: "pcntl, posix, openssl, sockets, event"
       integration_services: '[]'
       service_topologies: '{}'
