@@ -51,6 +51,12 @@ final class ResponseScheduler
         }
 
         $this->pendingResponseBytes = max(0, $this->pendingResponseBytes - $stream->outbound->bytes());
+        $stream->outbound->clear();
+        $stream->drainCallback = null;
+        $stream->ended = true;
+        $stream->endPending = false;
+        $stream->transportPressured = false;
+        $stream->writePressured = false;
         unset($this->flushQueue[$streamId], $this->streams[$streamId]);
     }
 
@@ -94,6 +100,18 @@ final class ResponseScheduler
         }
 
         $this->relieveStreams();
+    }
+
+    public function qpackPending(): bool
+    {
+        return !$this->qpackEncoderQueue->isEmpty();
+    }
+
+    public function responsePending(int $streamId): bool
+    {
+        $stream = $this->streams[$streamId] ?? null;
+
+        return $stream !== null && (!$stream->outbound->isEmpty() || $stream->endPending);
     }
 
     /** @param callable(): void $onEnd */
