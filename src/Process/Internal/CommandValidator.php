@@ -86,10 +86,6 @@ final readonly class CommandValidator
         }
 
         foreach ($arguments as $argument) {
-            if (!is_string($argument)) {
-                throw new ProcessStartException('Every process argument must be a string.');
-            }
-
             $bytes = strlen($argument);
             if (str_contains($argument, "\0")) {
                 throw new ProcessStartException('Process arguments cannot contain NUL bytes.');
@@ -122,10 +118,6 @@ final readonly class CommandValidator
         $totalBytes = 0;
 
         foreach ($environment as $name => $value) {
-            if (!is_string($name) || !is_string($value)) {
-                throw new ProcessStartException('Environment names and values must be strings.');
-            }
-
             if ($name === '' || str_contains($name, '=') || str_contains($name, "\0")) {
                 throw new ProcessStartException(sprintf('Invalid environment variable name "%s".', $name));
             }

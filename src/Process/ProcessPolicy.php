@@ -29,7 +29,7 @@ final readonly class ProcessPolicy
         public float $maxTerminationGraceSeconds = 10.0,
         public float $postExitDrainSeconds = 0.25,
     ) {
-        foreach ([
+        self::validateIntegerLimits([
             'maxArgumentCount' => $maxArgumentCount,
             'maxArgumentBytes' => $maxArgumentBytes,
             'maxArgvBytes' => $maxArgvBytes,
@@ -38,12 +38,28 @@ final readonly class ProcessPolicy
             'maxEnvironmentBytes' => $maxEnvironmentBytes,
             'maxStdinBytes' => $maxStdinBytes,
             'maxOutputBytes' => $maxOutputBytes,
-        ] as $name => $value) {
+        ]);
+        self::validateTimeLimits($maxTimeoutSeconds, $maxTerminationGraceSeconds, $postExitDrainSeconds);
+        self::validateExecutables($allowedExecutables ?? []);
+        self::validateEnvironmentKeys($allowedEnvironmentKeys);
+        self::validateCwdRoots($allowedCwdRoots);
+    }
+
+    /** @param array<string, int> $limits */
+    private static function validateIntegerLimits(array $limits): void
+    {
+        foreach ($limits as $name => $value) {
             if ($value < 0) {
                 throw new InvalidArgumentException(sprintf('%s cannot be negative.', $name));
             }
         }
+    }
 
+    private static function validateTimeLimits(
+        float $maxTimeoutSeconds,
+        float $maxTerminationGraceSeconds,
+        float $postExitDrainSeconds,
+    ): void {
         foreach ([
             'maxTimeoutSeconds' => $maxTimeoutSeconds,
             'maxTerminationGraceSeconds' => $maxTerminationGraceSeconds,
@@ -53,25 +69,36 @@ final readonly class ProcessPolicy
                 throw new InvalidArgumentException(sprintf('%s must be finite and non-negative.', $name));
             }
         }
-
         if ($maxTimeoutSeconds <= 0) {
             throw new InvalidArgumentException('maxTimeoutSeconds must be positive.');
         }
+    }
 
-        foreach ($allowedExecutables ?? [] as $executable) {
-            if (!is_string($executable) || $executable === '' || str_contains($executable, "\0")) {
+    /** @param list<string> $executables */
+    private static function validateExecutables(array $executables): void
+    {
+        foreach ($executables as $executable) {
+            if ($executable === '' || str_contains($executable, "\0")) {
                 throw new InvalidArgumentException('Allowed executable paths must be non-empty strings without NUL bytes.');
             }
         }
+    }
 
-        foreach ($allowedEnvironmentKeys as $key) {
-            if (!is_string($key) || $key === '' || str_contains($key, '=') || str_contains($key, "\0")) {
+    /** @param list<string> $keys */
+    private static function validateEnvironmentKeys(array $keys): void
+    {
+        foreach ($keys as $key) {
+            if ($key === '' || str_contains($key, '=') || str_contains($key, "\0")) {
                 throw new InvalidArgumentException('Allowed environment keys must be valid non-empty names.');
             }
         }
+    }
 
-        foreach ($allowedCwdRoots as $root) {
-            if (!is_string($root) || $root === '' || str_contains($root, "\0")) {
+    /** @param list<string> $roots */
+    private static function validateCwdRoots(array $roots): void
+    {
+        foreach ($roots as $root) {
+            if ($root === '' || str_contains($root, "\0")) {
                 throw new InvalidArgumentException('Allowed cwd roots must be non-empty strings without NUL bytes.');
             }
         }

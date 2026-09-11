@@ -31,7 +31,7 @@ final readonly class TlsOptions
             throw new InvalidArgumentException('TLS handshake timeout must be finite and positive.');
         }
         foreach ($alpnProtocols as $protocol) {
-            if (!is_string($protocol) || $protocol === '' || strlen($protocol) > 255 || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
+            if ($protocol === '' || strlen($protocol) > 255 || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
                 throw new InvalidArgumentException('Every ALPN protocol must be a non-empty string of at most 255 bytes.');
             }
         }

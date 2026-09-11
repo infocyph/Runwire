@@ -79,9 +79,27 @@ final class LengthPrefixedCodec implements FrameCodecInterface
     {
         return match ($this->format) {
             LengthPrefixFormat::UINT8 => ord($prefix[0]),
-            LengthPrefixFormat::UINT16_BE => unpack('nlength', $prefix)['length'],
-            LengthPrefixFormat::UINT32_BE => unpack('Nlength', $prefix)['length'],
+            LengthPrefixFormat::UINT16_BE => self::decodeUint16($prefix),
+            LengthPrefixFormat::UINT32_BE => self::decodeUint32($prefix),
         };
+    }
+
+    private static function decodeUint16(string $prefix): int
+    {
+        $decoded = unpack('nlength', $prefix);
+        if ($decoded === false) {
+            throw new CodecException('Unable to decode UINT16 length prefix.');
+        }
+        return $decoded['length'];
+    }
+
+    private static function decodeUint32(string $prefix): int
+    {
+        $decoded = unpack('Nlength', $prefix);
+        if ($decoded === false) {
+            throw new CodecException('Unable to decode UINT32 length prefix.');
+        }
+        return $decoded['length'];
     }
 
     private function encodeLength(int $length): string

@@ -28,7 +28,7 @@ final class RestartTracker
 
     public function nextAttempt(WorkerGroup $group, int $slot): ?RestartAttempt
     {
-        $now = hrtime(true);
+        $now = (int) hrtime(true);
         $history = $this->recentHistory($group, $now);
 
         if (count($history) >= $group->restartPolicy->maxRestarts) {
@@ -49,9 +49,7 @@ final class RestartTracker
         );
     }
 
-    /**
-     * @return list<int>
-     */
+    /** @return list<int> */
     private function recentHistory(WorkerGroup $group, int $now): array
     {
         $window = (int) round($group->restartPolicy->windowSeconds * self::NANOS_PER_SECOND);

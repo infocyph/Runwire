@@ -26,12 +26,12 @@ final class InputSource
 
         if (is_resource($input)) {
             $meta = stream_get_meta_data($input);
-            if (($meta['stream_type'] ?? '') === '') {
+            if ($meta['stream_type'] === '') {
                 throw new ProcessException('stdin resource must be a stream.');
             }
 
             $this->stream = $input;
-            $this->streamWasBlocked = (bool) ($meta['blocked'] ?? true);
+            $this->streamWasBlocked = $meta['blocked'];
             @stream_set_blocking($this->stream, false);
             return;
         }
@@ -61,6 +61,9 @@ final class InputSource
 
     public function pull(int $maxBytes): ?string
     {
+        if ($maxBytes <= 0) {
+            throw new ProcessException('stdin pull size must be positive.');
+        }
         if ($this->eof) {
             return null;
         }
@@ -93,45 +96,57 @@ final class InputSource
     private function read(int $maxBytes): ?string
     {
         if ($this->string !== null) {
-            if ($this->offset >= strlen($this->string)) {
-                return null;
-            }
-
-            $chunk = substr($this->string, $this->offset, $maxBytes);
-            $this->offset += strlen($chunk);
-            return $chunk;
+            return $this->readString($maxBytes);
         }
-
         if (is_resource($this->stream)) {
-            $chunk = @fread($this->stream, $maxBytes);
-            if ($chunk === false) {
-                throw new ProcessException('Unable to read process stdin stream.');
-            }
-
-            if ($chunk === '' && feof($this->stream)) {
-                return null;
-            }
-
-            return $chunk;
+            return $this->readStream($maxBytes);
         }
-
         if ($this->producer !== null) {
-            $chunk = ($this->producer)($maxBytes);
-            if ($chunk === null || $chunk === '') {
-                return null;
-            }
-
-            if (!is_string($chunk)) {
-                throw new ProcessException('stdin producer must return a string, empty string or null.');
-            }
-
-            if (strlen($chunk) > $maxBytes) {
-                throw new ProcessException('stdin producer returned a chunk larger than requested.');
-            }
-
-            return $chunk;
+            return $this->readProducer($maxBytes);
         }
-
         return null;
+    }
+
+    private function readString(int $maxBytes): ?string
+    {
+        if ($this->string === null || $this->offset >= strlen($this->string)) {
+            return null;
+        }
+        $chunk = substr($this->string, $this->offset, $maxBytes);
+        $this->offset += strlen($chunk);
+        return $chunk;
+    }
+
+    private function readStream(int $maxBytes): ?string
+    {
+        if (!is_resource($this->stream)) {
+            return null;
+        }
+        $chunk = @fread($this->stream, $maxBytes);
+        if ($chunk === false) {
+            throw new ProcessException('Unable to read process stdin stream.');
+        }
+        if ($chunk === '' && feof($this->stream)) {
+            return null;
+        }
+        return $chunk;
+    }
+
+    private function readProducer(int $maxBytes): ?string
+    {
+        if ($this->producer === null) {
+            return null;
+        }
+        $chunk = ($this->producer)($maxBytes);
+        if ($chunk === null || $chunk === '') {
+            return null;
+        }
+        if (!is_string($chunk)) {
+            throw new ProcessException('stdin producer must return a string, empty string or null.');
+        }
+        if (strlen($chunk) > $maxBytes) {
+            throw new ProcessException('stdin producer returned a chunk larger than requested.');
+        }
+        return $chunk;
     }
 }
