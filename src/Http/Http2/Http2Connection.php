@@ -10,6 +10,7 @@ use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Http\Http2\Internal\ControlFrameBudget;
 use Infocyph\Runwire\Http\Http2\Internal\FlowController;
 use Infocyph\Runwire\Http\Http2\Internal\Http2Stream;
+use Infocyph\Runwire\Http\Http2\Internal\RequestStreamLookup;
 use Infocyph\Runwire\Http\Http2\Internal\RequestStreamProcessor;
 use Infocyph\Runwire\Http\Http2\Internal\ResponseScheduler;
 use Infocyph\Runwire\Http\Http2\Internal\StreamError;
@@ -44,26 +45,30 @@ final class Http2Connection
     private ?int $settingsAckTimer = null;
     private ?int $drainTimer = null;
 
+    /** @param callable(HttpRequest, Http2ResponseWriter): void $handler */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
         private readonly Http2Limits $limits,
         callable $handler,
     ) {
-        $this->handler = Closure::fromCallable($handler);
+        /** @var Closure(HttpRequest, Http2ResponseWriter): void $handlerClosure */
+        $handlerClosure = Closure::fromCallable($handler);
+        $this->handler = $handlerClosure;
         $this->parser = new FrameParser($limits->maxInboundFrameSize);
         $this->peerSettings = new PeerSettings();
         $this->encoder = new Encoder($limits->maxDynamicTableBytes);
         $this->flow = new FlowController();
         $this->controlBudget = new ControlFrameBudget($loop, $limits->maxControlFramesPerSecond);
 
+        $streamLookup = new RequestStreamLookup();
         $this->output = new ResponseScheduler(
             connection: $connection,
             limits: $limits,
             peerSettings: $this->peerSettings,
             encoder: $this->encoder,
             flow: $this->flow,
-            streamLookup: fn (int $id): ?Http2Stream => $this->requests->stream($id),
+            streamLookup: fn (int $id): ?Http2Stream => $streamLookup->stream($id),
             cleanupClosed: fn (Http2Stream $stream) => $this->cleanupClosed($stream),
             readyCallback: fn () => $this->handleOutputReady(),
             activityCallback: fn (Http2Stream $stream) => $this->touch($stream),
@@ -81,6 +86,7 @@ final class Http2Connection
             streamFailure: fn (StreamError $error) => $this->handleStreamError($error),
             streamRemoved: fn () => $this->finishDrainIfReady(),
         );
+        $streamLookup->attach($this->requests);
 
         $connection->onData(fn () => $this->pump());
         $connection->onEof(fn () => $this->handleEof());
@@ -285,7 +291,12 @@ final class Http2Connection
             throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 PRIORITY payload must contain exactly five bytes.');
         }
 
-        $dependency = unpack('N', substr($frame->payload, 0, 4))[1] & 0x7FFF_FFFF;
+        /** @var array{1: int}|false $decoded */
+        $decoded = unpack('N', substr($frame->payload, 0, 4));
+        if ($decoded === false) {
+            throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'Unable to decode HTTP/2 PRIORITY dependency.');
+        }
+        $dependency = $decoded[1] & 0x7FFF_FFFF;
         if ($dependency === $frame->streamId) {
             throw new StreamError($frame->streamId, ErrorCode::PROTOCOL_ERROR, 'HTTP/2 stream cannot depend on itself.');
         }
@@ -316,7 +327,12 @@ final class Http2Connection
             throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 WINDOW_UPDATE payload must be four bytes.');
         }
 
-        $increment = unpack('N', $frame->payload)[1] & 0x7FFF_FFFF;
+        /** @var array{1: int}|false $decoded */
+        $decoded = unpack('N', $frame->payload);
+        if ($decoded === false) {
+            throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'Unable to decode HTTP/2 WINDOW_UPDATE payload.');
+        }
+        $increment = $decoded[1] & 0x7FFF_FFFF;
         if ($frame->streamId === 0) {
             $this->flow->updateConnectionSend($increment);
             $this->output->flush();
