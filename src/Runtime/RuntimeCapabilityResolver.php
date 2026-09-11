@@ -59,9 +59,12 @@ final class RuntimeCapabilityResolver
             supportsWorkerRecycle: $environment->supportsSignals,
             supportsHttp1: true,
             supportsHttp2: true,
+            supportsHttp3: $environment->supportsQuic,
             ownsHttp1Wire: true,
             ownsHttp2Wire: true,
+            ownsHttp3Wire: $environment->supportsQuic,
             supportsTlsAlpn: $environment->supportsOpenSsl,
+            supportsQuic: $environment->supportsQuic,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );
