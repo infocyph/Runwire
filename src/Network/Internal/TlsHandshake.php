@@ -72,23 +72,25 @@ final class TlsHandshake
 
     private function begin(): void
     {
-        if ($this->finished || !is_resource($this->stream)) {
+        $stream = $this->stream;
+        if ($this->finished || !is_resource($stream)) {
             return;
         }
-        @stream_set_blocking($this->stream, false);
+        @stream_set_blocking($stream, false);
         $this->timeoutTimer = $this->loop->delay($this->options->handshakeTimeoutSeconds, function (): void {
             $this->timeoutTimer = null;
             $this->fail();
         });
-        $this->readWatcher = $this->loop->onReadable($this->stream, function (): void { $this->attempt(); });
+        $this->readWatcher = $this->loop->onReadable($stream, function (): void { $this->attempt(); });
     }
 
     private function attempt(): void
     {
-        if ($this->finished || !is_resource($this->stream)) {
+        $stream = $this->stream;
+        if ($this->finished || !is_resource($stream)) {
             return;
         }
-        $result = @stream_socket_enable_crypto($this->stream, true, $this->options->method());
+        $result = @stream_socket_enable_crypto($stream, true, $this->options->method());
         if ($result === 0) {
             return;
         }
@@ -97,9 +99,8 @@ final class TlsHandshake
             return;
         }
 
-        $meta = stream_get_meta_data($this->stream);
+        $meta = stream_get_meta_data($stream);
         $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
-        $stream = $this->stream;
         $this->finish();
         ($this->onSuccess)($stream, is_string($protocol) ? $protocol : null);
     }
