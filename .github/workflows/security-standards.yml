@@ -153,6 +153,8 @@ jobs:
             tests/Http3ResponseWriterTest.php \
             tests/Http3SessionTest.php \
             tests/Http3ResponseSchedulerTest.php \
+            tests/PhpQuicTransportTest.php \
+            tests/PhpQuicFacadeTest.php \
             tests/QpackTest.php \
             tests/RuntimeCapabilitiesTest.php \
             tests/RuntimeEnvironmentProbeTest.php

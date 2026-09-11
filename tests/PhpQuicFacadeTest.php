@@ -6,6 +6,49 @@ use Infocyph\Runwire\Http\Http3\Quic\PhpQuicApi;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicConnection;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
 
+function fakePhpQuicFacadeStream(int $id, bool $bidirectional): object
+{
+    return new class($id, $bidirectional) {
+        public bool $ended = false;
+
+        public function __construct(
+            private readonly int $id,
+            private readonly bool $bidirectional,
+        ) {}
+
+        public function end(): void
+        {
+            $this->ended = true;
+        }
+
+        public function getId(): int
+        {
+            return $this->id;
+        }
+
+        public function isBidirectional(): bool
+        {
+            return $this->bidirectional;
+        }
+
+        public function read(int $length): ?string
+        {
+            return $length > 0 ? '' : null;
+        }
+
+        public function reset(int $errorCode = 0): void {}
+
+        public function write(string $data, bool $fin = false): int
+        {
+            if ($fin) {
+                $this->ended = true;
+            }
+
+            return strlen($data);
+        }
+    };
+}
+
 it('reports php-quic availability from runtime symbols instead of a hard dependency', function (): void {
     $expected = extension_loaded('quic')
         && class_exists('Quic\\Listener')
@@ -22,8 +65,8 @@ it('reports php-quic availability from runtime symbols instead of a hard depende
 });
 
 it('wraps accepted and locally opened php-quic streams and enforces non-blocking connections', function (): void {
-    $peerStream = fakePhpQuicStream(0, true);
-    $localStream = fakePhpQuicStream(3, false);
+    $peerStream = fakePhpQuicFacadeStream(0, true);
+    $localStream = fakePhpQuicFacadeStream(3, false);
     $raw = new class($peerStream, $localStream) {
         public bool $blocking = true;
 
@@ -96,7 +139,7 @@ it('wraps listener acceptance and immediately makes accepted connections non-blo
 
         public function openStream(bool $bidirectional = true): object
         {
-            return fakePhpQuicStream(3, false);
+            return fakePhpQuicFacadeStream(3, false);
         }
 
         public function setBlocking(bool $blocking): void
