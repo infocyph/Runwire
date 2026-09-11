@@ -1384,66 +1384,9 @@ Those can integrate above/beside Runwire where appropriate.
 
 ---
 
-# 41. 1.0 completion gate
+# 41. Runtime drivers, host engines & OPcache
 
-Runwire 1.0 is release-ready only when all of the following are true:
-
-- [ ] runtime topology is instance-owned and freezeable;
-- [ ] select-based event loop is correct and bounded;
-- [ ] optional faster loop backend has parity if shipped;
-- [ ] TCP server/connection lifecycle is production-safe;
-- [ ] output/input backpressure is proven under slow-client tests;
-- [ ] HTTP/1.1 transport passes framing/smuggling/slow-client limits;
-- [ ] Webrick native Runwire adapter passes parity tests;
-- [ ] Foundation can serve its compiled web runtime through Runwire with a fresh application execution scope per request;
-- [ ] trusted prefork supervision handles restart/reload/shutdown/reaping without zombies;
-- [ ] Foundation app resources are created after fork in children, not leaked from master;
-- [ ] structured ProcessRunner has no implicit shell path and enforces configured bounds;
-- [ ] timeout/output/deadlock process tests pass;
-- [ ] Omnibus process-worker supervision can delegate generic OS process mechanics to Runwire without moving queue semantics;
-- [ ] Pathwise and ReqShield boundaries are documented without adding Runwire dependencies to those packages;
-- [ ] untrusted-code guidance explicitly requires a separate runtime/OS isolation boundary;
-- [ ] PHP 8.4/8.5 QA/static/security suites are green;
-- [ ] soak/fault tests show no unbounded memory/FD/child-state growth;
-- [ ] benchmark evidence against Workerman is recorded without benchmark-only shortcuts;
-- [ ] Foundation 3 final release consumes released `infocyph/runwire:^1.0`.
-
----
-
-# 42. Immediate implementation handoff
-
-Start with the process/runtime skeleton, not HTTP conveniences:
-
-```text
-RuntimeCapabilities
-    ↓
-Loop contract + SelectLoop
-    ↓
-Supervisor + WorkerGroup + child lifecycle
-    ↓
-Process Command/Runner + bounded pipe I/O
-    ↓
-TCP Listener + Connection + backpressure
-    ↓
-HTTP/1 transport
-    ↓
-Webrick adapter
-    ↓
-Foundation native server
-```
-
-The first implementation milestone should prove two independent uses before broadening the API:
-
-1. a supervised multi-worker TCP echo/HTTP fixture; and
-2. a structured bounded child command execution fixture.
-
-That validates both halves of Runwire's identity—the server runtime and the former ProcessGuard process-security/runtime scope—without pulling Foundation-specific behavior into the package.
-
----
-
-# Runtime drivers, host engines & OPcache
-
-## 1. Runtime selection model
+## 41.1 Runtime selection model
 
 Runwire must support these runtime driver values:
 
@@ -1471,7 +1414,7 @@ Runwire must not pretend these engines have identical capabilities. Each driver 
 
 ---
 
-## 2. OPcache is orthogonal
+## 41.2 OPcache is orthogonal
 
 Do **not** add `opcache` to the runtime-driver enum.
 
@@ -1510,7 +1453,7 @@ For CLI-oriented `native`, `swoole`, and typical RoadRunner PHP workers, documen
 
 ---
 
-## 3. Public API direction
+## 41.3 Public API direction
 
 Keep runtime selection small and explicit.
 
@@ -1558,7 +1501,7 @@ Exact Foundation environment naming remains Foundation-owned.
 
 ---
 
-## 4. Driver contract
+## 41.4 Driver contract
 
 Introduce one narrow internal/public integration contract rather than branching through the whole codebase.
 
@@ -1592,7 +1535,7 @@ Do not force host-specific request objects into the common application API. Norm
 
 ---
 
-## 5. Runtime capability model
+## 41.5 Runtime capability model
 
 Every driver must report capabilities instead of relying on runtime-name conditionals throughout consumers.
 
@@ -1623,7 +1566,7 @@ Foundation/Webrick should consume capabilities where behavior genuinely differs;
 
 ---
 
-## 6. `auto` detection
+## 41.6 `auto` detection
 
 `auto` must be conservative and deterministic.
 
@@ -1651,7 +1594,7 @@ Do not silently fall back from an explicitly requested runtime to another runtim
 
 ---
 
-## 7. Native driver
+## 41.7 Native driver
 
 `native` is Runwire's full first-party server/runtime implementation from the canonical launch plan.
 
@@ -1672,7 +1615,7 @@ On Unix, `pcntl`/`posix` unlock the full prefork/signal model. Capability detect
 
 ---
 
-## 8. FPM driver
+## 41.8 FPM driver
 
 FPM already owns process pools, graceful process management, UIDs/GIDs, FastCGI listeners and per-request dispatch. Runwire must not duplicate those responsibilities.
 
@@ -1702,7 +1645,7 @@ This lets an application use Runwire APIs consistently without requiring the Run
 
 ---
 
-## 9. FrankenPHP driver
+## 41.9 FrankenPHP driver
 
 Support both host shapes when detectable:
 
@@ -1733,7 +1676,7 @@ FrankenPHP remains an optional host integration; Runwire must not depend on the 
 
 ---
 
-## 10. Swoole/OpenSwoole driver
+## 41.10 Swoole/OpenSwoole driver
 
 Swoole/OpenSwoole owns its server, event loop, workers and coroutine system. Runwire must adapt rather than compete.
 
@@ -1752,7 +1695,7 @@ Support may target Swoole/OpenSwoole through capability adapters; exact package/
 
 ---
 
-## 11. RoadRunner driver
+## 41.11 RoadRunner driver
 
 RoadRunner owns the external server/process manager and dispatches work to PHP workers.
 
@@ -1781,7 +1724,7 @@ Requirements:
 
 ---
 
-## 12. Unified option passing
+## 41.12 Unified option passing
 
 The user's selected driver should change **hosting behavior**, not application APIs.
 
@@ -1841,7 +1784,7 @@ Do not copy every host server's complete configuration DSL into Runwire. Expose 
 
 ---
 
-## 13. Foundation integration
+## 41.13 Foundation integration
 
 Foundation should expose one runtime selector and keep its application graph independent of the selected host.
 
@@ -1874,7 +1817,7 @@ Webrick should need only the Runwire transport/runtime adapter for the Foundatio
 
 ---
 
-## 14. Testing matrix
+## 41.14 Testing matrix
 
 Runwire 1.0 release acceptance should add driver-specific tests.
 
@@ -1912,7 +1855,7 @@ Keep the full native network/supervisor/backpressure/security acceptance from th
 
 ---
 
-## 15. Benchmark matrix
+## 41.15 Benchmark matrix
 
 Record separate measurements for:
 
@@ -1941,7 +1884,7 @@ Do not combine these into one misleading headline benchmark. Attribute host runt
 
 ---
 
-## 16. Dependency policy
+## 41.16 Dependency policy
 
 Core Runwire must remain installable for the native/FPM baseline without requiring all optional runtimes.
 
@@ -1957,7 +1900,7 @@ The core package should fail only when the caller explicitly selects a runtime w
 
 ---
 
-## 17. Completion gate extension
+## 41.17 Completion gate extension
 
 Runwire 1.0/Foundation 3 launch additionally requires:
 
@@ -1976,4 +1919,63 @@ Runwire 1.0/Foundation 3 launch additionally requires:
 - [ ] benchmarks attribute Runwire adapter overhead separately for every supported host;
 - [ ] Foundation can select the runtime through trusted config/CLI without changing Webrick application semantics.
 
-This section is part of the Runwire 1.0 launch gate and must be reconciled into the consolidated canonical plan before release.
+This section is part of the canonical Runwire 1.0 launch gate.
+
+---
+
+# 42. 1.0 completion gate
+
+Runwire 1.0 is release-ready only when all of the following are true:
+
+- [ ] runtime topology is instance-owned and freezeable;
+- [ ] select-based event loop is correct and bounded;
+- [ ] optional faster loop backend has parity if shipped;
+- [ ] TCP server/connection lifecycle is production-safe;
+- [ ] output/input backpressure is proven under slow-client tests;
+- [ ] HTTP/1.1 transport passes framing/smuggling/slow-client limits;
+- [ ] Webrick native Runwire adapter passes parity tests;
+- [ ] Foundation can serve its compiled web runtime through Runwire with a fresh application execution scope per request;
+- [ ] trusted prefork supervision handles restart/reload/shutdown/reaping without zombies;
+- [ ] Foundation app resources are created after fork in children, not leaked from master;
+- [ ] structured ProcessRunner has no implicit shell path and enforces configured bounds;
+- [ ] timeout/output/deadlock process tests pass;
+- [ ] Omnibus process-worker supervision can delegate generic OS process mechanics to Runwire without moving queue semantics;
+- [ ] Pathwise and ReqShield boundaries are documented without adding Runwire dependencies to those packages;
+- [ ] untrusted-code guidance explicitly requires a separate runtime/OS isolation boundary;
+- [ ] PHP 8.4/8.5 QA/static/security suites are green;
+- [ ] soak/fault tests show no unbounded memory/FD/child-state growth;
+- [ ] benchmark evidence against Workerman is recorded without benchmark-only shortcuts;
+- [ ] Foundation 3 final release consumes released `infocyph/runwire:^1.0`.
+
+---
+
+# 43. Immediate implementation handoff
+
+Start with the process/runtime skeleton, not HTTP conveniences:
+
+```text
+RuntimeCapabilities
+    ↓
+Loop contract + SelectLoop
+    ↓
+Supervisor + WorkerGroup + child lifecycle
+    ↓
+Process Command/Runner + bounded pipe I/O
+    ↓
+TCP Listener + Connection + backpressure
+    ↓
+HTTP/1 transport
+    ↓
+Webrick adapter
+    ↓
+Foundation native server
+```
+
+The first implementation milestone should prove two independent uses before broadening the API:
+
+1. a supervised multi-worker TCP echo/HTTP fixture; and
+2. a structured bounded child command execution fixture.
+
+That validates both halves of Runwire's identity—the server runtime and the former ProcessGuard process-security/runtime scope—without pulling Foundation-specific behavior into the package.
+
+---
