@@ -71,6 +71,7 @@ final class StaticTable
         ['www-authenticate', ''],
     ];
 
+    /** @return array{0: string, 1: string}|null */
     public static function get(int $index): ?array
     {
         return $index >= 1 && $index <= count(self::ENTRIES) ? self::ENTRIES[$index - 1] : null;

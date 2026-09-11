@@ -10,6 +10,8 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 final class FrameParser
 {
     private readonly ByteQueue $buffer;
+
+    /** @var array{length: int, type: int, flags: int, stream_id: int}|null */
     private ?array $pending = null;
 
     public function __construct(private int $maxFrameSize = 16_384)
@@ -36,16 +38,20 @@ final class FrameParser
             if ($this->pending === null && !$this->readHeader()) {
                 break;
             }
-            $length = $this->pending['length'];
-            if ($this->buffer->bytes() < $length) {
+
+            $pending = $this->pending;
+            if ($pending === null) {
                 break;
             }
-            $payload = $this->buffer->read($length);
+            if ($this->buffer->bytes() < $pending['length']) {
+                break;
+            }
+
             $frames[] = new Frame(
-                type: $this->pending['type'],
-                flags: $this->pending['flags'],
-                streamId: $this->pending['stream_id'],
-                payload: $payload,
+                type: $pending['type'],
+                flags: $pending['flags'],
+                streamId: $pending['stream_id'],
+                payload: $this->buffer->read($pending['length']),
             );
             $this->pending = null;
         }
@@ -63,12 +69,19 @@ final class FrameParser
         if ($this->buffer->bytes() < 9) {
             return false;
         }
+
         $header = $this->buffer->read(9);
         $length = (ord($header[0]) << 16) | (ord($header[1]) << 8) | ord($header[2]);
         if ($length > $this->maxFrameSize) {
             throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 frame exceeds the configured inbound frame limit.');
         }
-        $streamWord = unpack('N', substr($header, 5, 4))[1];
+
+        $decoded = unpack('Nstream', substr($header, 5, 4));
+        if ($decoded === false) {
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'Unable to decode HTTP/2 frame stream identifier.');
+        }
+
+        $streamWord = (int) $decoded['stream'];
         $this->pending = [
             'length' => $length,
             'type' => ord($header[3]),

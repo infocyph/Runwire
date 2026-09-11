@@ -39,9 +39,7 @@ final class Encoder
         $this->pendingTableSize = $bytes;
     }
 
-    /**
-     * @param list<array{0: string, 1: string}> $headers
-     */
+    /** @param list<array{0: string, 1: string}> $headers */
     public function encode(array $headers, bool $useHuffman = true): string
     {
         $encoded = '';
@@ -50,12 +48,8 @@ final class Encoder
             $this->pendingTableSize = null;
         }
 
-        foreach ($headers as $header) {
-            if (!isset($header[0], $header[1]) || !is_string($header[0]) || !is_string($header[1])) {
-                throw new \InvalidArgumentException('HPACK encoder headers must be [name, value] string pairs.');
-            }
-            $name = strtolower($header[0]);
-            $value = $header[1];
+        foreach ($headers as [$rawName, $value]) {
+            $name = strtolower($rawName);
             $exact = $this->exactIndex($name, $value);
             if ($exact !== null) {
                 $encoded .= IntegerCodec::encode($exact, 7, 0x80);

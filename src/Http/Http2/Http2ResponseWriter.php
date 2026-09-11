@@ -25,11 +25,17 @@ final class Http2ResponseWriter implements ResponseWriterInterface
     private readonly Closure $sendHeaders;
     /** @var Closure(string, bool): WriteResult */
     private readonly Closure $sendData;
-    /** @var Closure(Closure): void */
+    /** @var Closure(Closure(): void): void */
     private readonly Closure $registerDrain;
     /** @var Closure(): void */
     private readonly Closure $onEnd;
 
+    /**
+     * @param callable(int, list<array{0: string, 1: string}>): WriteResult $sendHeaders
+     * @param callable(string, bool): WriteResult $sendData
+     * @param callable(Closure(): void): void $registerDrain
+     * @param callable(): void $onEnd
+     */
     public function __construct(
         private readonly string $requestMethod,
         callable $sendHeaders,
@@ -76,6 +82,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
             $contentLength = null;
         }
 
+        /** @var list<array{0: string, 1: string}> $block */
         $block = [[':status', (string) $status]];
         foreach ($fields as $field) {
             $block[] = [$field->name, $field->value];

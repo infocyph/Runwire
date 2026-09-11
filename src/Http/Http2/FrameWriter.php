@@ -19,6 +19,7 @@ final class FrameWriter
             . $frame->payload;
     }
 
+    /** @param array<int, int> $settings */
     public static function settings(array $settings = [], bool $ack = false): Frame
     {
         if ($ack) {
