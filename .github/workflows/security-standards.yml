@@ -121,7 +121,9 @@ jobs:
 
       - name: Install Runwire dependencies
         shell: bash
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          composer install --no-interaction --prefer-dist --no-progress
 
       - name: Verify Runwire QUIC capability detection
         shell: bash
@@ -139,8 +141,9 @@ jobs:
         shell: bash
         run: |
           test -d tests
-          test -f pest.xml
+          test -f vendor/infocyph/phpforge/resources/pest.xml
           vendor/bin/pest \
+            --configuration=vendor/infocyph/phpforge/resources/pest.xml \
             tests/Http3FrameTest.php \
             tests/Http3ControlStreamTest.php \
             tests/QpackTest.php \
