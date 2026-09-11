@@ -5,25 +5,24 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3;
 
 use Closure;
+use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
-use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
-use LogicException;
 
 final class Http3Session
 {
-    /** @var array<int, true> */
-    private array $dispatchedRequestStreams = [];
-
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     private readonly Closure $handler;
 
-    /** @var array<int, true> */
-    private array $pendingRequestStreams = [];
-
     /** @var Closure(int, string): ResponseWriterInterface */
     private readonly Closure $writerFactory;
+
+    /** @var array<int, true> */
+    private array $dispatchedRequestStreams = [];
+
+    /** @var array<int, true> */
+    private array $pendingRequestStreams = [];
 
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
@@ -103,10 +102,6 @@ final class Http3Session
             }
 
             $writer = ($this->writerFactory)($streamId, $head->method);
-            if (!$writer instanceof ResponseWriterInterface) {
-                throw new LogicException('HTTP/3 writer factory must return ResponseWriterInterface.');
-            }
-
             unset($this->pendingRequestStreams[$streamId]);
             $this->dispatchedRequestStreams[$streamId] = true;
             ($this->handler)(new HttpRequest(

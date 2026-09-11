@@ -38,7 +38,7 @@ final class InputSource
             }
 
             $this->stream = $input;
-            $this->streamWasBlocked = array_key_exists('blocked', $meta) ? (bool) $meta['blocked'] : null;
+            $this->streamWasBlocked = self::blockedState($meta);
             if (!stream_set_blocking($this->stream, false)) {
                 throw new ProcessException('Unable to make process stdin stream non-blocking.');
             }
@@ -103,6 +103,14 @@ final class InputSource
     public function resource(): mixed
     {
         return $this->stream;
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private static function blockedState(array $metadata): ?bool
+    {
+        $blocked = $metadata['blocked'] ?? null;
+
+        return is_bool($blocked) ? $blocked : null;
     }
 
     private function read(int $maxBytes): ?string

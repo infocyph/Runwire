@@ -29,7 +29,7 @@ it('writes HTTP/3 response semantics through transport-neutral callbacks', funct
 
             return http3Accepted();
         },
-        static function (Closure $callback): void {},
+        static function (): void {},
         static function () use (&$ended): void {
             ++$ended;
         },
@@ -55,13 +55,13 @@ it('suppresses HTTP/3 bodies where HTTP semantics forbid them', function (string
     $dataFrames = [];
     $writer = new Http3ResponseWriter(
         $method,
-        static fn(int $status, array $fields): WriteResult => http3Accepted(),
+        static fn(): WriteResult => http3Accepted(),
         static function (string $data, bool $fin) use (&$dataFrames): WriteResult {
             $dataFrames[] = [$data, $fin];
 
             return http3Accepted();
         },
-        static function (Closure $callback): void {},
+        static function (): void {},
         static function (): void {},
     );
 
@@ -82,8 +82,8 @@ it('preserves pressure and drain signaling without transport coupling', function
     $calls = 0;
     $writer = new Http3ResponseWriter(
         'GET',
-        static fn(int $status, array $fields): WriteResult => http3Accepted(),
-        static fn(string $data, bool $fin): WriteResult => new WriteResult(WriteState::PRESSURED, 128),
+        static fn(): WriteResult => http3Accepted(),
+        static fn(): WriteResult => new WriteResult(WriteState::PRESSURED, 128),
         static function (Closure $callback) use (&$drain): void {
             $drain = $callback;
         },
@@ -104,9 +104,9 @@ it('preserves pressure and drain signaling without transport coupling', function
 it('rejects invalid HTTP/3 response framing metadata before transport writes', function (): void {
     $writer = new Http3ResponseWriter(
         'GET',
-        static fn(int $status, array $fields): WriteResult => http3Accepted(),
-        static fn(string $data, bool $fin): WriteResult => http3Accepted(),
-        static function (Closure $callback): void {},
+        static fn(): WriteResult => http3Accepted(),
+        static fn(): WriteResult => http3Accepted(),
+        static function (): void {},
         static function (): void {},
     );
 

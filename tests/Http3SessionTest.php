@@ -20,11 +20,15 @@ use Infocyph\Runwire\Network\WriteState;
 
 function http3SessionWriter(int $streamId, string $method): ResponseWriterInterface
 {
+    if ($streamId < 0) {
+        throw new InvalidArgumentException('HTTP/3 stream id cannot be negative.');
+    }
+
     return new Http3ResponseWriter(
         $method,
-        static fn(int $status, array $fields): WriteResult => new WriteResult(WriteState::ACCEPTED, 0),
-        static fn(string $data, bool $fin): WriteResult => new WriteResult(WriteState::ACCEPTED, 0),
-        static function (Closure $callback): void {},
+        static fn(): WriteResult => new WriteResult(WriteState::ACCEPTED, 0),
+        static fn(): WriteResult => new WriteResult(WriteState::ACCEPTED, 0),
+        static function (): void {},
         static function (): void {},
     );
 }
