@@ -25,6 +25,7 @@ it('reports native ownership without claiming protocol engines before they are w
         ->and($capabilities->ownsWorkerPool)->toBeTrue()
         ->and($capabilities->supportsFork)->toBeTrue()
         ->and($capabilities->supportsAsyncIo)->toBeTrue()
+        ->and($capabilities->supportsGracefulReload)->toBeTrue()
         ->and($capabilities->supportsHttp1)->toBeFalse()
         ->and($capabilities->supportsHttp2)->toBeFalse();
 });

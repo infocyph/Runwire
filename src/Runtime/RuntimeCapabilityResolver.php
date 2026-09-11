@@ -33,6 +33,7 @@ final class RuntimeCapabilityResolver
             supportsFork: $environment->supportsFork,
             supportsSignals: $environment->supportsSignals,
             supportsAsyncIo: true,
+            supportsGracefulReload: $environment->supportsSignals,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );
