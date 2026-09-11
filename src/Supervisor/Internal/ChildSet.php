@@ -9,6 +9,22 @@ use Infocyph\Runwire\Supervisor\WorkerState;
 
 final class ChildSet
 {
+    /**
+     * @param array<string, WorkerGroup> $groups
+     * @return list<array{0: WorkerGroup, 1: int}>
+     */
+    public static function slots(array $groups): array
+    {
+        $slots = [];
+        foreach ($groups as $group) {
+            for ($slot = 0; $slot < $group->count; ++$slot) {
+                $slots[] = [$group, $slot];
+            }
+        }
+
+        return $slots;
+    }
+
     /** @param array<int, ChildRecord> $children */
     public static function hasReplacementFor(array $children, int $pid): bool
     {
@@ -32,16 +48,14 @@ final class ChildSet
         array $children,
         int $generation,
     ): bool {
-        foreach ($groups as $group) {
-            for ($slot = 0; $slot < $group->count; ++$slot) {
-                $pid = $currentSlots[$group->name][$slot] ?? null;
-                $record = $pid !== null ? ($children[$pid] ?? null) : null;
+        foreach (self::slots($groups) as [$group, $slot]) {
+            $pid = $currentSlots[$group->name][$slot] ?? null;
+            $record = $pid !== null ? ($children[$pid] ?? null) : null;
 
-                if ($record === null
-                    || $record->generation !== $generation
-                    || $record->state !== WorkerState::READY) {
-                    return false;
-                }
+            if ($record === null
+                || $record->generation !== $generation
+                || $record->state !== WorkerState::READY) {
+                return false;
             }
         }
 
