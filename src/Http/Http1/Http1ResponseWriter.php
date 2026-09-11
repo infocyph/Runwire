@@ -41,6 +41,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     public function isStarted(): bool { return $this->started; }
     public function isEnded(): bool { return $this->ended; }
 
+    public function forceCloseAfterResponse(): void
+    {
+        $this->closeAfter = true;
+    }
+
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);
