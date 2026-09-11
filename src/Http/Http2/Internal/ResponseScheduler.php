@@ -148,7 +148,7 @@ final class ResponseScheduler
     {
         return new Http2ResponseWriter(
             $method,
-            fn(int $status, array $headers) => $this->sendHeaders($stream, $headers),
+            fn(int $_status, array $headers) => $this->sendHeaders($stream, $headers),
             fn(string $data, bool $end) => $this->queueData($stream, $data, $end),
             function (Closure $callback) use ($stream): void {
                 $stream->drainCallback = $callback;

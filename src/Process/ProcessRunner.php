@@ -66,7 +66,7 @@ final readonly class ProcessRunner
     private function closePipe(array &$pipes, int $index): void
     {
         if (isset($pipes[$index]) && is_resource($pipes[$index])) {
-            @fclose($pipes[$index]);
+            fclose($pipes[$index]);
         }
         unset($pipes[$index]);
     }
@@ -88,7 +88,7 @@ final readonly class ProcessRunner
         if ($terminationDeadline !== null || $now < $deadline) {
             return [$reason, $terminationDeadline];
         }
-        @proc_terminate($process, SIGTERM);
+        proc_terminate($process, SIGTERM);
 
         return [TerminationReason::TIMEOUT, $now + $this->secondsToNanos($command->terminationGraceSeconds)];
     }
@@ -99,7 +99,7 @@ final readonly class ProcessRunner
         if ($killSent || $terminationDeadline === null || $now < $terminationDeadline) {
             return $killSent;
         }
-        @proc_terminate($process, SIGKILL);
+        proc_terminate($process, SIGKILL);
 
         return true;
     }
@@ -123,7 +123,7 @@ final readonly class ProcessRunner
             return [$reason, $terminationDeadline];
         }
 
-        @proc_terminate($process, SIGTERM);
+        proc_terminate($process, SIGTERM);
 
         return [
             TerminationReason::OUTPUT_LIMIT,
@@ -158,7 +158,7 @@ final readonly class ProcessRunner
 
         while (true) {
             $now = (int) hrtime(true);
-            $status = @proc_get_status($child);
+            $status = proc_get_status($child);
             $running = $status['running'];
             if (!$running) {
                 $terminalStatus ??= $status;
@@ -308,7 +308,7 @@ final readonly class ProcessRunner
             if (!isset($pipes[$index]) || !in_array($pipes[$index], $read, true)) {
                 continue;
             }
-            $chunk = @fread($pipes[$index], self::IO_CHUNK_BYTES);
+            $chunk = fread($pipes[$index], self::IO_CHUNK_BYTES);
             if ($chunk === false || ($chunk === '' && feof($pipes[$index]))) {
                 $this->closePipe($pipes, $index);
 
@@ -370,7 +370,7 @@ final readonly class ProcessRunner
             2 => $this->outputDescriptor($command->stderrMode, STDERR),
         ];
         $pipes = [];
-        $process = @proc_open(
+        $process = proc_open(
             $prepared->argv,
             $descriptors,
             $pipes,
@@ -384,7 +384,7 @@ final readonly class ProcessRunner
         }
 
         foreach ($pipes as $pipe) {
-            @stream_set_blocking($pipe, false);
+            stream_set_blocking($pipe, false);
         }
 
         return [$process, $pipes];
@@ -413,7 +413,7 @@ final readonly class ProcessRunner
         $except = null;
         $seconds = intdiv($micros, 1_000_000);
         $remainingMicros = $micros % 1_000_000;
-        $result = @stream_select($read, $write, $except, $seconds, $remainingMicros);
+        $result = stream_select($read, $write, $except, $seconds, $remainingMicros);
         if ($result === false) {
             usleep(1_000);
             $read = [];
@@ -434,7 +434,7 @@ final readonly class ProcessRunner
 
             return;
         }
-        $written = @fwrite($pipes[0], $buffer);
+        $written = fwrite($pipes[0], $buffer);
         if ($written === false) {
             $this->closePipe($pipes, 0);
             $buffer = '';

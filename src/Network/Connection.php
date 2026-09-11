@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Network;
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
+use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use InvalidArgumentException;
 use RuntimeException;
@@ -350,18 +351,7 @@ final class Connection
 
         $callbacks = $this->closeCallbacks;
         $this->closeCallbacks = [];
-        $firstFailure = null;
-        foreach ($callbacks as $callback) {
-            try {
-                $callback($this, $reason);
-            } catch (Throwable $throwable) {
-                $firstFailure ??= $throwable;
-            }
-        }
-
-        if ($firstFailure !== null) {
-            throw $firstFailure;
-        }
+        ConnectionCallbackDispatcher::dispatch($callbacks, $this, $reason);
     }
 
     private function handleReadable(): void

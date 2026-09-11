@@ -209,7 +209,7 @@ final class SelectLoop implements LoopInterface
 
         [$seconds, $microseconds] = $this->selectTimeout();
         $except = null;
-        $result = @stream_select($read, $write, $except, $seconds, $microseconds);
+        $result = stream_select($read, $write, $except, $seconds, $microseconds);
 
         if ($result === false) {
             if ($this->pruneClosedWatchers() === 0) {
@@ -355,7 +355,7 @@ final class SelectLoop implements LoopInterface
             return;
         }
 
-        @time_nanosleep(
+        time_nanosleep(
             intdiv($remaining, self::NANOS_PER_SECOND),
             $remaining % self::NANOS_PER_SECOND,
         );

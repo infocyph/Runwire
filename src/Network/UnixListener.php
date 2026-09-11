@@ -57,63 +57,11 @@ final class UnixListener
     ): self {
         $options ??= new UnixListenerOptions();
         $connectionLimits ??= new ConnectionLimits();
-        if ($path === '' || $path[0] !== '/') {
-            throw new ListenerException('Unix socket path must be absolute.');
-        }
-        if (strlen($path) > 100) {
-            throw new ListenerException('Unix socket path is too long for portable sockaddr_un usage.');
-        }
-        if (file_exists($path) || is_link($path)) {
-            if (!$options->removeStaleSocket) {
-                throw new ListenerException(sprintf('Unix socket path already exists: %s', $path));
-            }
-            if (filetype($path) !== 'socket') {
-                throw new ListenerException(sprintf('Refusing to remove non-socket Unix path: %s', $path));
-            }
-            if (!unlink($path)) {
-                throw new ListenerException(sprintf('Unable to remove existing Unix socket path: %s', $path));
-            }
-        }
 
-        $context = stream_context_create([
-            'socket' => [
-                ...$options->listener->socketContext,
-                'backlog' => $options->listener->backlog,
-            ],
-        ]);
-        $errno = 0;
-        $error = '';
-        $stream = stream_socket_server(
-            'unix://' . $path,
-            $errno,
-            $error,
-            STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
-            $context,
-        );
-        if (!is_resource($stream)) {
-            throw new ListenerException(sprintf(
-                'Unable to bind Unix listener "%s": %s (%d).',
-                $path,
-                $error !== '' ? $error : 'unknown error',
-                $errno,
-            ));
-        }
-        if (!stream_set_blocking($stream, false)) {
-            fclose($stream);
-            if (file_exists($path)) {
-                unlink($path);
-            }
-
-            throw new ListenerException(sprintf('Unable to make Unix listener "%s" non-blocking.', $path));
-        }
-        if ($options->permissions !== null && !chmod($path, $options->permissions)) {
-            fclose($stream);
-            if (file_exists($path)) {
-                unlink($path);
-            }
-
-            throw new ListenerException(sprintf('Unable to set Unix socket permissions on "%s".', $path));
-        }
+        self::validatePath($path);
+        self::preparePath($path, $options);
+        $stream = self::openListener($path, $options);
+        self::configureListener($stream, $path, $options);
 
         return new self($stream, $path, $options, $connectionLimits);
     }
@@ -232,6 +180,84 @@ final class UnixListener
         $this->loop = $loop;
         $this->connectionCallback = Closure::fromCallable($onConnection);
         $this->syncAcceptWatcher();
+    }
+
+    /** @param resource $stream */
+    private static function configureListener(mixed $stream, string $path, UnixListenerOptions $options): void
+    {
+        if (!stream_set_blocking($stream, false)) {
+            self::discardListener($stream, $path);
+            throw new ListenerException(sprintf('Unable to make Unix listener "%s" non-blocking.', $path));
+        }
+        if ($options->permissions !== null && !chmod($path, $options->permissions)) {
+            self::discardListener($stream, $path);
+            throw new ListenerException(sprintf('Unable to set Unix socket permissions on "%s".', $path));
+        }
+    }
+
+    /** @param resource $stream */
+    private static function discardListener(mixed $stream, string $path): void
+    {
+        fclose($stream);
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+
+    /** @return resource */
+    private static function openListener(string $path, UnixListenerOptions $options): mixed
+    {
+        $context = stream_context_create([
+            'socket' => [
+                ...$options->listener->socketContext,
+                'backlog' => $options->listener->backlog,
+            ],
+        ]);
+        $errno = 0;
+        $error = '';
+        $stream = stream_socket_server(
+            'unix://' . $path,
+            $errno,
+            $error,
+            STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+            $context,
+        );
+        if (!is_resource($stream)) {
+            throw new ListenerException(sprintf(
+                'Unable to bind Unix listener "%s": %s (%d).',
+                $path,
+                $error !== '' ? $error : 'unknown error',
+                $errno,
+            ));
+        }
+
+        return $stream;
+    }
+
+    private static function preparePath(string $path, UnixListenerOptions $options): void
+    {
+        if (!file_exists($path) && !is_link($path)) {
+            return;
+        }
+        if (!$options->removeStaleSocket) {
+            throw new ListenerException(sprintf('Unix socket path already exists: %s', $path));
+        }
+        if (filetype($path) !== 'socket') {
+            throw new ListenerException(sprintf('Refusing to remove non-socket Unix path: %s', $path));
+        }
+        if (!unlink($path)) {
+            throw new ListenerException(sprintf('Unable to remove existing Unix socket path: %s', $path));
+        }
+    }
+
+    private static function validatePath(string $path): void
+    {
+        if ($path === '' || $path[0] !== '/') {
+            throw new ListenerException('Unix socket path must be absolute.');
+        }
+        if (strlen($path) > 100) {
+            throw new ListenerException('Unix socket path is too long for portable sockaddr_un usage.');
+        }
     }
 
     private function handleAccept(): void
