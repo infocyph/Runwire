@@ -9,8 +9,11 @@ use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Http1\Internal\ChunkSizeDecoder;
+use Infocyph\Runwire\Http\Http1\Internal\Http1Input;
+use Infocyph\Runwire\Http\Http1\Internal\Http1Syntax;
 use Infocyph\Runwire\Http\Http1\Internal\ParseFailure;
 use Infocyph\Runwire\Http\Http1\Internal\ParserState;
+use Infocyph\Runwire\Http\Http1\Internal\RequestHead;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHeadValidator;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\ProtocolVersion;
@@ -24,7 +27,6 @@ use Throwable;
 final class Http1Connection
 {
     private ParserState $state = ParserState::REQUEST_LINE;
-    private string $buffer = '';
     private string $method = '';
     private string $target = '';
 
@@ -59,6 +61,8 @@ final class Http1Connection
     private ?Http1ResponseWriter $writer = null;
     private readonly RequestHeadValidator $requestHeadValidator;
     private readonly ChunkSizeDecoder $chunkSizeDecoder;
+    private readonly Http1Input $input;
+    private readonly Http1Syntax $syntax;
 
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     private readonly Closure $handler;
@@ -75,6 +79,8 @@ final class Http1Connection
         $this->handler = $handlerClosure;
         $this->requestHeadValidator = new RequestHeadValidator();
         $this->chunkSizeDecoder = new ChunkSizeDecoder();
+        $this->input = new Http1Input($connection);
+        $this->syntax = new Http1Syntax();
         $connection->onData(function (): void { $this->pump(); });
         $connection->onEof(function (): void { $this->handleEof(); });
         $connection->onClose(function (): void { $this->cleanup(); });
@@ -113,7 +119,7 @@ final class Http1Connection
         $this->pumpScheduled = false;
 
         try {
-            for ($steps = 0; $steps < $this->limits->maxParserStepsPerTick && !$this->closed; ++$steps) {
+            for ($steps = 0; $steps < $this->limits->maxParserStepsPerTick; ++$steps) {
                 if (!$this->step()) {
                     return;
                 }
@@ -145,29 +151,22 @@ final class Http1Connection
 
     private function parseRequestLine(): bool
     {
-        if ($this->buffer === '' && $this->connection->receivedBytes() === 0) {
+        if ($this->input->availableBytes() === 0) {
             return false;
         }
         $this->armHeaderTimer();
-        $line = $this->readLine($this->limits->maxRequestLineBytes, 414);
+        $line = $this->input->readLine($this->limits->maxRequestLineBytes, 414);
         if ($line === null) {
             return false;
         }
-        if (preg_match("/^([!#$%&'*+.^_`|~0-9A-Za-z-]+) ([^\\x00-\\x20\\x7F]+) HTTP\\/1\\.1$/D", $line, $matches) !== 1) {
-            throw new ParseFailure(400, 'Malformed HTTP/1.1 request line.');
-        }
-        $this->method = $matches[1];
-        $this->target = $matches[2];
-        if (str_contains($this->target, '#')) {
-            throw new ParseFailure(400, 'HTTP request-target must not contain a fragment.');
-        }
+        [$this->method, $this->target] = $this->syntax->requestLine($line);
         $this->state = ParserState::HEADERS;
         return true;
     }
 
     private function parseHeaderLine(): bool
     {
-        $line = $this->readLine($this->limits->maxHeaderLineBytes, 431);
+        $line = $this->input->readLine($this->limits->maxHeaderLineBytes, 431);
         if ($line === null) {
             return false;
         }
@@ -181,26 +180,11 @@ final class Http1Connection
             $this->dispatchRequest();
             return true;
         }
-        if ($line[0] === ' ' || $line[0] === "\t") {
-            throw new ParseFailure(400, 'Obsolete folded HTTP headers are rejected.');
-        }
-        $colon = strpos($line, ':');
-        if ($colon === false || $colon === 0) {
-            throw new ParseFailure(400, 'Malformed HTTP header line.');
-        }
         ++$this->headerCount;
         if ($this->headerCount > $this->limits->maxHeaderCount) {
             throw new ParseFailure(431, 'Request header count exceeds configured limit.');
         }
-
-        try {
-            $this->headerFields[] = new HeaderField(
-                substr($line, 0, $colon),
-                trim(substr($line, $colon + 1), " \t"),
-            );
-        } catch (\InvalidArgumentException $exception) {
-            throw new ParseFailure(400, $exception->getMessage());
-        }
+        $this->headerFields[] = $this->syntax->headerField($line);
         return true;
     }
 
@@ -217,58 +201,26 @@ final class Http1Connection
         $this->discardBody = false;
         $this->responseEnded = false;
         $this->responseCloseAfter = false;
-        $this->body = new StreamingRequestBody(
-            $this->limits->bodyLowWatermarkBytes,
-            $this->limits->bodyHighWatermarkBytes,
-            $this->limits->maxPendingBodyBytes,
-            function (): void {
-                $this->bodyPressured = false;
-                $this->syncReadPause();
-                $this->schedulePump();
-            },
-        );
-        $this->writer = new Http1ResponseWriter(
-            $this->connection,
-            $this->limits,
-            $this->method,
-            $this->keepAlive,
-            function (bool $closeAfter): void {
-                $this->handleResponseEnd($closeAfter);
-            },
-        );
 
-        if ($head->chunked) {
-            $this->state = ParserState::CHUNK_SIZE;
-            $this->armBodyTimer();
-        } elseif ($head->contentLength > 0) {
-            $this->remainingBody = $head->contentLength;
-            $this->state = ParserState::FIXED_BODY;
-            $this->armBodyTimer();
-        } else {
-            $this->body->finish();
-            $this->state = ParserState::WAIT_RESPONSE;
-        }
-
-        if ($head->expectContinue && ($head->chunked || $head->contentLength > 0)) {
-            $result = $this->connection->write("HTTP/1.1 100 Continue\r\n\r\n");
-            if (!$result->accepted()) {
-                throw new ParseFailure(503, 'Unable to queue 100 Continue response.');
-            }
-        }
+        $body = $this->createBody();
+        $writer = $this->createWriter();
+        $this->body = $body;
+        $this->writer = $writer;
+        $this->configureRequestBody($head, $body);
+        $this->sendContinueIfNeeded($head);
 
         $request = new HttpRequest(
             $this->method,
             $this->target,
             ProtocolVersion::HTTP_1_1,
             $headers,
-            $this->body,
+            $body,
             $this->connection->peerAddress(),
             $this->connection->localAddress(),
             $this->connection->isEncrypted(),
         );
-        $body = $this->body;
         try {
-            ($this->handler)($request, $this->writer);
+            ($this->handler)($request, $writer);
         } catch (Throwable $failure) {
             $body->cancel();
             $this->connection->abort(CloseReason::LOCAL_ABORT);
@@ -279,6 +231,62 @@ final class Http1Connection
             $this->waitingResponse = true;
             $this->state = ParserState::WAIT_RESPONSE;
             $this->syncReadPause();
+        }
+    }
+
+    private function createBody(): StreamingRequestBody
+    {
+        return new StreamingRequestBody(
+            $this->limits->bodyLowWatermarkBytes,
+            $this->limits->bodyHighWatermarkBytes,
+            $this->limits->maxPendingBodyBytes,
+            function (): void {
+                $this->bodyPressured = false;
+                $this->syncReadPause();
+                $this->schedulePump();
+            },
+        );
+    }
+
+    private function createWriter(): Http1ResponseWriter
+    {
+        return new Http1ResponseWriter(
+            $this->connection,
+            $this->limits,
+            $this->method,
+            $this->keepAlive,
+            function (bool $closeAfter): void {
+                $this->handleResponseEnd($closeAfter);
+            },
+        );
+    }
+
+    private function configureRequestBody(RequestHead $head, StreamingRequestBody $body): void
+    {
+        if ($head->chunked) {
+            $this->state = ParserState::CHUNK_SIZE;
+            $this->armBodyTimer();
+            return;
+        }
+        if ($head->contentLength > 0) {
+            $this->remainingBody = $head->contentLength;
+            $this->state = ParserState::FIXED_BODY;
+            $this->armBodyTimer();
+            return;
+        }
+
+        $body->finish();
+        $this->state = ParserState::WAIT_RESPONSE;
+    }
+
+    private function sendContinueIfNeeded(RequestHead $head): void
+    {
+        if (!$head->expectContinue || (!$head->chunked && $head->contentLength === 0)) {
+            return;
+        }
+        $result = $this->connection->write("HTTP/1.1 100 Continue\r\n\r\n");
+        if (!$result->accepted()) {
+            throw new ParseFailure(503, 'Unable to queue 100 Continue response.');
         }
     }
 
@@ -298,7 +306,7 @@ final class Http1Connection
 
     private function parseChunkSizeLine(): bool
     {
-        $line = $this->readLine($this->limits->maxChunkLineBytes, 400);
+        $line = $this->input->readLine($this->limits->maxChunkLineBytes, 400);
         if ($line === null) {
             return false;
         }
@@ -335,10 +343,10 @@ final class Http1Connection
 
     private function consumeChunkCrlf(): bool
     {
-        if ($this->availableBytes() < 2) {
+        if ($this->input->availableBytes() < 2) {
             return false;
         }
-        if ($this->takeBytes(2) !== "\r\n") {
+        if ($this->input->take(2) !== "\r\n") {
             throw new ParseFailure(400, 'Chunk data is not followed by CRLF.');
         }
         $this->state = ParserState::CHUNK_SIZE;
@@ -347,7 +355,7 @@ final class Http1Connection
 
     private function parseTrailerLine(): bool
     {
-        $line = $this->readLine($this->limits->maxHeaderLineBytes, 431);
+        $line = $this->input->readLine($this->limits->maxHeaderLineBytes, 431);
         if ($line === null) {
             return false;
         }
@@ -359,33 +367,18 @@ final class Http1Connection
             $this->finishBody(new Headers($this->trailerFields));
             return true;
         }
-        if ($line[0] === ' ' || $line[0] === "\t") {
-            throw new ParseFailure(400, 'Obsolete folded trailers are rejected.');
-        }
-        $colon = strpos($line, ':');
-        if ($colon === false || $colon === 0) {
-            throw new ParseFailure(400, 'Malformed trailer field.');
-        }
         ++$this->trailerCount;
         if ($this->trailerCount > $this->limits->maxHeaderCount) {
             throw new ParseFailure(431, 'Request trailer count exceeds configured limit.');
         }
-        try {
-            $field = new HeaderField(substr($line, 0, $colon), trim(substr($line, $colon + 1), " \t"));
-        } catch (\InvalidArgumentException $exception) {
-            throw new ParseFailure(400, $exception->getMessage());
-        }
-        if (in_array($field->name, ['content-length', 'transfer-encoding', 'host'], true)) {
-            throw new ParseFailure(400, 'Framing and routing fields are forbidden in trailers.');
-        }
-        $this->trailerFields[] = $field;
+        $this->trailerFields[] = $this->syntax->trailerField($line);
         return true;
     }
 
     /** @param callable(int): void $after */
     private function consumeBodyBytes(int $remaining, callable $after): bool
     {
-        if ($this->availableBytes() === 0) {
+        if ($this->input->availableBytes() === 0) {
             return false;
         }
         if (!$this->discardBody && $this->body !== null && $this->body->capacity() <= 0) {
@@ -395,11 +388,11 @@ final class Http1Connection
         }
 
         $capacity = $this->discardBody || $this->body === null ? 65_536 : $this->body->capacity();
-        $length = min($remaining, 65_536, $capacity, $this->availableBytes());
+        $length = min($remaining, 65_536, $capacity, $this->input->availableBytes());
         if ($length <= 0) {
             return false;
         }
-        $chunk = $this->takeBytes($length);
+        $chunk = $this->input->take($length);
         $bytes = strlen($chunk);
         $this->bodyReceived += $bytes;
         if ($this->bodyReceived > $this->limits->maxBodyBytes) {
@@ -489,56 +482,9 @@ final class Http1Connection
         $this->body = null;
         $this->writer = null;
         $this->syncReadPause();
-        if ($this->availableBytes() > 0) {
+        if ($this->input->availableBytes() > 0) {
             $this->schedulePump();
         }
-    }
-
-    private function readLine(int $maxBytes, int $tooLongStatus): ?string
-    {
-        while (($position = strpos($this->buffer, "\r\n")) === false) {
-            if (strlen($this->buffer) > $maxBytes) {
-                throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
-            }
-            $remaining = $maxBytes + 2 - strlen($this->buffer);
-            if ($remaining <= 0 || $this->connection->receivedBytes() === 0) {
-                return null;
-            }
-            $chunk = $this->connection->read(min(4_096, $remaining));
-            if ($chunk === '') {
-                return null;
-            }
-            $this->buffer .= $chunk;
-        }
-
-        if ($position > $maxBytes) {
-            throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
-        }
-        $line = substr($this->buffer, 0, $position);
-        $this->buffer = (string) substr($this->buffer, $position + 2);
-        return $line;
-    }
-
-    private function takeBytes(int $bytes): string
-    {
-        if ($bytes <= 0) {
-            return '';
-        }
-        $fromBuffer = min($bytes, strlen($this->buffer));
-        $data = $fromBuffer > 0 ? substr($this->buffer, 0, $fromBuffer) : '';
-        if ($fromBuffer > 0) {
-            $this->buffer = (string) substr($this->buffer, $fromBuffer);
-        }
-        $remaining = $bytes - $fromBuffer;
-        if ($remaining > 0) {
-            $data .= $this->connection->read($remaining);
-        }
-        return $data;
-    }
-
-    private function availableBytes(): int
-    {
-        return strlen($this->buffer) + $this->connection->receivedBytes();
     }
 
     private function armHeaderTimer(): void
@@ -619,10 +565,10 @@ final class Http1Connection
         if ($this->closed) {
             return;
         }
-        if ($this->state !== ParserState::REQUEST_LINE || $this->buffer !== '' || $this->connection->receivedBytes() > 0) {
+        if ($this->state !== ParserState::REQUEST_LINE || $this->input->availableBytes() > 0) {
             $this->pump();
         }
-        if (!$this->closed && ($this->state !== ParserState::REQUEST_LINE || $this->buffer !== '')) {
+        if (!$this->closed && ($this->state !== ParserState::REQUEST_LINE || $this->input->bufferedBytes() > 0)) {
             $this->fail(400);
         }
     }
