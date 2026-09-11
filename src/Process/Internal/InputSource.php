@@ -7,7 +7,6 @@ namespace Infocyph\Runwire\Process\Internal;
 use Closure;
 use Infocyph\Runwire\Exception\ProcessException;
 
-// phpcs:disable Generic.PHP.NoSilencedErrors.Discouraged -- Non-blocking stream calls intentionally suppress expected warnings and validate return values.
 final class InputSource
 {
     private int $bytesProduced = 0;
@@ -40,7 +39,9 @@ final class InputSource
 
             $this->stream = $input;
             $this->streamWasBlocked = $meta['blocked'];
-            @stream_set_blocking($this->stream, false);
+            if (!stream_set_blocking($this->stream, false)) {
+                throw new ProcessException('Unable to make process stdin stream non-blocking.');
+            }
 
             return;
         }
@@ -57,7 +58,7 @@ final class InputSource
     public function close(): void
     {
         if (is_resource($this->stream) && $this->streamWasBlocked !== null) {
-            @stream_set_blocking($this->stream, $this->streamWasBlocked);
+            stream_set_blocking($this->stream, $this->streamWasBlocked);
         }
     }
 
@@ -144,7 +145,7 @@ final class InputSource
             return null;
         }
         $length = max(1, $maxBytes);
-        $chunk = @fread($this->stream, $length);
+        $chunk = fread($this->stream, $length);
         if ($chunk === false) {
             throw new ProcessException('Unable to read process stdin stream.');
         }
