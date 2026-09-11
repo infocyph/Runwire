@@ -61,6 +61,17 @@ jobs:
             unzip
           rm -rf /var/lib/apt/lists/*
 
+      - name: Build Runwire process extensions
+        shell: bash
+        run: |
+          docker-php-ext-install -j"$(nproc)" pcntl posix
+          php -r '
+          if (!extension_loaded("pcntl") || !extension_loaded("posix")) {
+              fwrite(STDERR, "Runwire process extensions are unavailable.\n");
+              exit(1);
+          }
+          '
+
       - name: Verify OpenSSL QUIC baseline
         shell: bash
         run: |
