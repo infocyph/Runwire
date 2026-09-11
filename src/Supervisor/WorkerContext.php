@@ -10,10 +10,10 @@ final class WorkerContext
 {
     private bool $ready = false;
 
+    private bool $stopping = false;
+
     /** @var resource|null */
     private mixed $readyStream;
-
-    private bool $stopping = false;
 
     /** @var resource|null */
     private mixed $stopRead = null;
@@ -43,27 +43,6 @@ final class WorkerContext
         @stream_set_blocking($this->stopWrite, false);
     }
 
-    public function close(): void
-    {
-        foreach (['readyStream', 'stopRead', 'stopWrite'] as $property) {
-            if (is_resource($this->{$property})) {
-                @fclose($this->{$property});
-            }
-            $this->{$property} = null;
-        }
-    }
-
-    public function consumeStopWake(): void
-    {
-        if (!is_resource($this->stopRead)) {
-            return;
-        }
-
-        while (is_string($chunk = @fread($this->stopRead, 8_192)) && $chunk !== '') {
-            // Drain all pending wake bytes before returning to normal control flow.
-        }
-    }
-
     public function ready(): void
     {
         if ($this->ready) {
@@ -73,23 +52,11 @@ final class WorkerContext
         $this->ready = true;
 
         if (is_resource($this->readyStream)) {
-            @fwrite($this->readyStream, 'R');
+            @fwrite($this->readyStream, "R");
             @fclose($this->readyStream);
         }
 
         $this->readyStream = null;
-    }
-
-    public function requestStop(): void
-    {
-        if ($this->stopping) {
-            return;
-        }
-
-        $this->stopping = true;
-        if (is_resource($this->stopWrite)) {
-            @fwrite($this->stopWrite, 'S');
-        }
     }
 
     public function stopping(): bool
@@ -105,5 +72,38 @@ final class WorkerContext
         }
 
         return $this->stopRead;
+    }
+
+    public function consumeStopWake(): void
+    {
+        if (!is_resource($this->stopRead)) {
+            return;
+        }
+
+        do {
+            $chunk = @fread($this->stopRead, 8_192);
+        } while (is_string($chunk) && $chunk !== '');
+    }
+
+    public function requestStop(): void
+    {
+        if ($this->stopping) {
+            return;
+        }
+
+        $this->stopping = true;
+        if (is_resource($this->stopWrite)) {
+            @fwrite($this->stopWrite, "S");
+        }
+    }
+
+    public function close(): void
+    {
+        foreach (['readyStream', 'stopRead', 'stopWrite'] as $property) {
+            if (is_resource($this->{$property})) {
+                @fclose($this->{$property});
+            }
+            $this->{$property} = null;
+        }
     }
 }

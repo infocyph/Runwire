@@ -33,12 +33,12 @@ final class InputSource
 
         if (is_resource($input)) {
             $meta = stream_get_meta_data($input);
-            if ($meta['stream_type'] === '') {
+            if (($meta['stream_type'] ?? '') === '') {
                 throw new ProcessException('stdin resource must be a stream.');
             }
 
             $this->stream = $input;
-            $this->streamWasBlocked = $meta['blocked'];
+            $this->streamWasBlocked = isset($meta['blocked']) ? (bool) $meta['blocked'] : null;
             @stream_set_blocking($this->stream, false);
 
             return;

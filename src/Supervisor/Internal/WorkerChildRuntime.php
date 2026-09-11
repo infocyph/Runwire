@@ -45,9 +45,11 @@ final class WorkerChildRuntime
 
             ($group->bootstrap)($context);
             $context->close();
+            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked worker must terminate without returning into master control flow.
             exit(0);
         } catch (Throwable) {
             $context?->close();
+            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked worker must terminate without returning into master control flow.
             exit(70);
         }
     }
