@@ -11,47 +11,15 @@ final class RuntimeEnvironmentProbe
     public function probe(): RuntimeEnvironment
     {
         $sapi = PHP_SAPI;
-        $supportsFork = function_exists('pcntl_fork') && function_exists('pcntl_waitpid');
-        $supportsSignals = function_exists('pcntl_signal')
-            && function_exists('pcntl_async_signals')
-            && function_exists('posix_kill');
-        $supportsPosix = extension_loaded('posix')
-            && function_exists('posix_getpid')
-            && function_exists('posix_kill');
-
-        $hosted = [];
-        $available = [];
-
-        if ($this->isFrankenPhpHosted($sapi)) {
-            $hosted[] = RuntimeDriver::FRANKENPHP;
-        }
-
-        if ($this->isRoadRunnerHosted()) {
-            $hosted[] = RuntimeDriver::ROADRUNNER;
-        }
-
-        if ($this->isFpmHosted($sapi)) {
-            $hosted[] = RuntimeDriver::FPM;
-        }
-
-        if ($sapi === 'cli' && $supportsFork && $supportsSignals && $supportsPosix) {
-            $available[] = RuntimeDriver::NATIVE;
-        }
-
-        if (extension_loaded('swoole') || extension_loaded('openswoole')) {
-            $available[] = RuntimeDriver::SWOOLE;
-        }
-
-        $opcacheAvailable = function_exists('opcache_get_status');
-        $opcacheCliEnabled = $opcacheAvailable && self::iniFlag('opcache.enable_cli');
-        $opcacheEnabled = $opcacheAvailable
-            && self::iniFlag('opcache.enable')
-            && ($sapi !== 'cli' || $opcacheCliEnabled);
+        $supportsFork = self::supportsFork();
+        $supportsSignals = self::supportsSignals();
+        $supportsPosix = self::supportsPosix();
+        [$opcacheAvailable, $opcacheEnabled, $opcacheCliEnabled] = self::opcacheState($sapi);
 
         return new RuntimeEnvironment(
             sapi: $sapi,
-            hostedDrivers: $hosted,
-            availableDrivers: $available,
+            hostedDrivers: $this->hostedDrivers($sapi),
+            availableDrivers: $this->availableDrivers($sapi, $supportsFork, $supportsSignals, $supportsPosix),
             supportsFork: $supportsFork,
             supportsSignals: $supportsSignals,
             supportsPosix: $supportsPosix,
@@ -60,6 +28,69 @@ final class RuntimeEnvironmentProbe
             opcacheEnabled: $opcacheEnabled,
             opcacheCliEnabled: $opcacheCliEnabled,
         );
+    }
+
+    /** @return list<RuntimeDriver> */
+    private function hostedDrivers(string $sapi): array
+    {
+        $drivers = [];
+        if ($this->isFrankenPhpHosted($sapi)) {
+            $drivers[] = RuntimeDriver::FRANKENPHP;
+        }
+        if ($this->isRoadRunnerHosted()) {
+            $drivers[] = RuntimeDriver::ROADRUNNER;
+        }
+        if ($this->isFpmHosted($sapi)) {
+            $drivers[] = RuntimeDriver::FPM;
+        }
+        return $drivers;
+    }
+
+    /** @return list<RuntimeDriver> */
+    private function availableDrivers(
+        string $sapi,
+        bool $supportsFork,
+        bool $supportsSignals,
+        bool $supportsPosix,
+    ): array {
+        $drivers = [];
+        if ($sapi === 'cli' && $supportsFork && $supportsSignals && $supportsPosix) {
+            $drivers[] = RuntimeDriver::NATIVE;
+        }
+        if (extension_loaded('swoole') || extension_loaded('openswoole')) {
+            $drivers[] = RuntimeDriver::SWOOLE;
+        }
+        return $drivers;
+    }
+
+    private static function supportsFork(): bool
+    {
+        return function_exists('pcntl_fork') && function_exists('pcntl_waitpid');
+    }
+
+    private static function supportsSignals(): bool
+    {
+        return function_exists('pcntl_signal')
+            && function_exists('pcntl_async_signals')
+            && function_exists('posix_kill');
+    }
+
+    private static function supportsPosix(): bool
+    {
+        return extension_loaded('posix')
+            && function_exists('posix_getpid')
+            && function_exists('posix_kill');
+    }
+
+    /** @return array{0: bool, 1: bool, 2: bool} */
+    private static function opcacheState(string $sapi): array
+    {
+        $available = function_exists('opcache_get_status');
+        $cliEnabled = $available && self::iniFlag('opcache.enable_cli');
+        $enabled = $available
+            && self::iniFlag('opcache.enable')
+            && ($sapi !== 'cli' || $cliEnabled);
+        return [$available, $enabled, $cliEnabled];
     }
 
     private function isFrankenPhpHosted(string $sapi): bool

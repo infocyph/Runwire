@@ -16,11 +16,11 @@ final class NativeStreamWorker
     {
         $loop = new SelectLoop();
         $sessions = [];
-        $stopping = false;
+        $state = new WorkerStopState();
         $handler = $bound->definition->handlerFor($context);
 
-        $bound->listener->start($loop, function (Connection $connection) use ($loop, $bound, $handler, &$sessions, &$stopping): void {
-            if ($stopping) {
+        $bound->listener->start($loop, function (Connection $connection) use ($loop, $bound, $handler, &$sessions, $state): void {
+            if ($state->stopping) {
                 $connection->closeGracefully();
                 return;
             }
@@ -33,20 +33,20 @@ final class NativeStreamWorker
             );
             $id = spl_object_id($connection);
             $sessions[$id] = $session;
-            $connection->onClose(static function () use (&$sessions, $id, $loop, &$stopping): void {
+            $connection->onClose(static function () use (&$sessions, $id, $loop, $state): void {
                 unset($sessions[$id]);
-                if ($stopping && $sessions === []) {
+                if ($state->stopping && $sessions === []) {
                     $loop->stop();
                 }
             });
         });
 
-        $loop->onReadable($context->stopStream(), function () use ($context, $bound, $loop, &$sessions, &$stopping): void {
+        $loop->onReadable($context->stopStream(), function () use ($context, $bound, $loop, &$sessions, $state): void {
             $context->consumeStopWake();
-            if ($stopping) {
+            if ($state->stopping) {
                 return;
             }
-            $stopping = true;
+            $state->stopping = true;
             self::closeWorkerListener($bound);
             foreach ($sessions as $session) {
                 $session->closeGracefully();

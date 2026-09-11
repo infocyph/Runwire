@@ -86,20 +86,22 @@ final class LengthPrefixedCodec implements FrameCodecInterface
 
     private static function decodeUint16(string $prefix): int
     {
-        $decoded = unpack('nlength', $prefix);
-        if ($decoded === false) {
-            throw new CodecException('Unable to decode UINT16 length prefix.');
-        }
-        return $decoded['length'];
+        return self::decodedLength(unpack('nlength', $prefix), 'UINT16');
     }
 
     private static function decodeUint32(string $prefix): int
     {
-        $decoded = unpack('Nlength', $prefix);
-        if ($decoded === false) {
-            throw new CodecException('Unable to decode UINT32 length prefix.');
+        return self::decodedLength(unpack('Nlength', $prefix), 'UINT32');
+    }
+
+    /** @param array<string, mixed>|false $decoded */
+    private static function decodedLength(array|false $decoded, string $format): int
+    {
+        $length = $decoded === false ? null : ($decoded['length'] ?? null);
+        if (!is_int($length)) {
+            throw new CodecException(sprintf('Unable to decode %s length prefix.', $format));
         }
-        return $decoded['length'];
+        return $length;
     }
 
     private function encodeLength(int $length): string

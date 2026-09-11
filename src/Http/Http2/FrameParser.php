@@ -77,11 +77,11 @@ final class FrameParser
         }
 
         $decoded = unpack('Nstream', substr($header, 5, 4));
-        if ($decoded === false) {
+        $streamWord = $decoded === false ? null : ($decoded['stream'] ?? null);
+        if (!is_int($streamWord)) {
             throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'Unable to decode HTTP/2 frame stream identifier.');
         }
 
-        $streamWord = (int) $decoded['stream'];
         $this->pending = [
             'length' => $length,
             'type' => ord($header[3]),
