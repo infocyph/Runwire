@@ -30,9 +30,14 @@ final class PeerSettings
 
         $previousInitial = $this->initialWindowSize;
         for ($offset = 0, $length = strlen($payload); $offset < $length; $offset += 6) {
-            $identifier = unpack('n', substr($payload, $offset, 2))[1];
-            $value = unpack('N', substr($payload, $offset + 2, 4))[1];
-            $this->applyOne($identifier, $value);
+            /** @var array{1: int}|false $identifierData */
+            $identifierData = unpack('n', substr($payload, $offset, 2));
+            /** @var array{1: int}|false $valueData */
+            $valueData = unpack('N', substr($payload, $offset + 2, 4));
+            if ($identifierData === false || $valueData === false) {
+                throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'Unable to decode HTTP/2 SETTINGS payload.');
+            }
+            $this->applyOne($identifierData[1], $valueData[1]);
         }
 
         return $this->initialWindowSize - $previousInitial;
