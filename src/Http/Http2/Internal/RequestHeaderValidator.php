@@ -4,195 +4,43 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
-use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Internal\HeaderValidationException as CommonHeaderValidationException;
+use Infocyph\Runwire\Http\Internal\RequestHeaderValidator as CommonRequestHeaderValidator;
 
-final class RequestHeaderValidator
+final readonly class RequestHeaderValidator
 {
-    /** @var array<string, true> */
-    private const array FORBIDDEN = [
-        'connection' => true,
-        'proxy-connection' => true,
-        'keep-alive' => true,
-        'transfer-encoding' => true,
-        'upgrade' => true,
-    ];
+    private CommonRequestHeaderValidator $validator;
+
+    public function __construct()
+    {
+        $this->validator = new CommonRequestHeaderValidator('HTTP/2');
+    }
 
     /** @param list<array{0: string, 1: string}> $fields */
     public function request(array $fields): ValidatedRequestHead
     {
-        [$pseudo, $regular] = $this->split($fields, true);
-        $method = $pseudo[':method'] ?? null;
-        if ($method === null || $method === '') {
-            throw new HeaderValidationException('HTTP/2 request is missing :method.');
+        try {
+            $head = $this->validator->request($fields);
+        } catch (CommonHeaderValidationException $exception) {
+            throw new HeaderValidationException($exception->getMessage(), previous: $exception);
         }
 
-        [$target, $authority] = $this->requestTarget($method, $pseudo);
-        $regular = $this->normalizeAuthority($authority, $regular);
-
-        return new ValidatedRequestHead($method, $target, $regular, $this->contentLength($regular));
+        return new ValidatedRequestHead(
+            $head->method,
+            $head->target,
+            $head->headers,
+            $head->contentLength,
+        );
     }
 
     /** @param list<array{0: string, 1: string}> $fields */
     public function trailers(array $fields): Headers
     {
-        [, $regular] = $this->split($fields, false);
-
-        foreach (['content-length', 'host'] as $forbidden) {
-            if ($regular->has($forbidden)) {
-                throw new HeaderValidationException(sprintf('HTTP/2 trailer field "%s" is not permitted.', $forbidden));
-            }
-        }
-
-        return $regular;
-    }
-
-    /** @param array<string, string> $pseudo */
-    private function addPseudo(
-        array &$pseudo,
-        string $name,
-        string $value,
-        bool $allowPseudo,
-        bool $sawRegular,
-    ): void {
-        if (!$allowPseudo || $sawRegular) {
-            throw new HeaderValidationException('HTTP/2 pseudo-headers must precede regular headers and are forbidden in trailers.');
-        }
-        if (!in_array($name, [':method', ':scheme', ':authority', ':path'], true)) {
-            throw new HeaderValidationException(sprintf('Unsupported HTTP/2 pseudo-header "%s".', $name));
-        }
-        if (isset($pseudo[$name])) {
-            throw new HeaderValidationException(sprintf('Duplicate HTTP/2 pseudo-header "%s".', $name));
-        }
-        if ($this->invalidValue($value)) {
-            throw new HeaderValidationException('Invalid control character in HTTP/2 pseudo-header value.');
-        }
-        $pseudo[$name] = $value;
-    }
-
-    private function contentLength(Headers $headers): ?int
-    {
-        $values = $headers->all('content-length');
-        if ($values === []) {
-            return null;
-        }
-        $parsed = array_map($this->parseLength(...), $values);
-        if (count(array_unique($parsed, SORT_REGULAR)) > 1) {
-            throw new HeaderValidationException('Conflicting HTTP/2 Content-Length fields are forbidden.');
-        }
-
-        return $parsed[0];
-    }
-
-    private function invalidValue(string $value): bool
-    {
-        return preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', $value) === 1;
-    }
-
-    private function normalizeAuthority(?string $authority, Headers $regular): Headers
-    {
-        $hostValues = $regular->all('host');
-        if (count($hostValues) > 1) {
-            throw new HeaderValidationException('HTTP/2 request must not contain multiple Host fields.');
-        }
-        if ($authority !== null && isset($hostValues[0]) && strcasecmp(trim($authority), trim($hostValues[0])) !== 0) {
-            throw new HeaderValidationException('HTTP/2 :authority conflicts with Host.');
-        }
-        if ($authority === null || $hostValues !== []) {
-            return $regular;
-        }
-
-        return new Headers([new HeaderField('host', $authority), ...$regular->fields()]);
-    }
-
-    private function parseLength(string $value): int
-    {
-        $value = trim($value);
-        if ($value === '' || preg_match('/^[0-9]+$/D', $value) !== 1) {
-            throw new HeaderValidationException('Invalid HTTP/2 Content-Length.');
-        }
-        $normalized = ltrim($value, '0');
-        $normalized = $normalized === '' ? '0' : $normalized;
-        $max = (string) PHP_INT_MAX;
-        if (strlen($normalized) > strlen($max) || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
-            throw new HeaderValidationException('HTTP/2 Content-Length exceeds platform integer range.');
-        }
-
-        return (int) $normalized;
-    }
-
-    private function regularField(string $name, string $value): HeaderField
-    {
-        if (isset(self::FORBIDDEN[$name])) {
-            throw new HeaderValidationException(sprintf('Connection-specific HTTP/2 field "%s" is forbidden.', $name));
-        }
-        if ($name === 'te' && strtolower(trim($value)) !== 'trailers') {
-            throw new HeaderValidationException('HTTP/2 TE field may contain only "trailers".');
-        }
-
         try {
-            return new HeaderField($name, $value);
-        } catch (\InvalidArgumentException $exception) {
+            return $this->validator->trailers($fields);
+        } catch (CommonHeaderValidationException $exception) {
             throw new HeaderValidationException($exception->getMessage(), previous: $exception);
-        }
-    }
-
-    /**
-     * @param array<string, string> $pseudo
-     * @return array{0: string, 1: ?string}
-     */
-    private function requestTarget(string $method, array $pseudo): array
-    {
-        $authority = $pseudo[':authority'] ?? null;
-        if (strcasecmp($method, 'CONNECT') === 0) {
-            if ($authority === null || $authority === '' || isset($pseudo[':scheme']) || isset($pseudo[':path'])) {
-                throw new HeaderValidationException('HTTP/2 CONNECT requires :authority and forbids :scheme/:path.');
-            }
-
-            return [$authority, $authority];
-        }
-
-        $scheme = $pseudo[':scheme'] ?? null;
-        $path = $pseudo[':path'] ?? null;
-        if ($scheme === null || $scheme === '' || $path === null || $path === '') {
-            throw new HeaderValidationException('HTTP/2 request requires non-empty :scheme and :path.');
-        }
-        if (str_contains($path, '#')) {
-            throw new HeaderValidationException('HTTP/2 :path must not contain a fragment.');
-        }
-
-        return [$path, $authority];
-    }
-
-    /**
-     * @param list<array{0: string, 1: string}> $fields
-     * @return array{array<string, string>, Headers}
-     */
-    private function split(array $fields, bool $allowPseudo): array
-    {
-        $pseudo = [];
-        $regular = [];
-        $sawRegular = false;
-
-        foreach ($fields as [$name, $value]) {
-            $this->validateName($name);
-            if (str_starts_with($name, ':')) {
-                $this->addPseudo($pseudo, $name, $value, $allowPseudo, $sawRegular);
-
-                continue;
-            }
-
-            $sawRegular = true;
-            $regular[] = $this->regularField($name, $value);
-        }
-
-        return [$pseudo, new Headers($regular)];
-    }
-
-    private function validateName(string $name): void
-    {
-        if ($name === '' || strtolower($name) !== $name) {
-            throw new HeaderValidationException('HTTP/2 header field names must be lowercase and non-empty.');
         }
     }
 }
