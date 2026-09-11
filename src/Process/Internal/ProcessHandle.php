@@ -36,8 +36,7 @@ final class ProcessHandle
         $resource = $this->resource;
         $this->resource = null;
 
-        $exitCode = @proc_close($resource);
-        return is_int($exitCode) ? $exitCode : null;
+        return @proc_close($resource);
     }
 
     public function abort(): void
