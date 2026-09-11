@@ -54,8 +54,8 @@ final class SignalBridge
             pcntl_signal($signal, SIG_DFL);
         }
 
-        if (function_exists('pcntl_sigprocmask')) {
-            @pcntl_sigprocmask(SIG_SETMASK, []);
+        if (function_exists('pcntl_sigprocmask') && !pcntl_sigprocmask(SIG_SETMASK, [])) {
+            throw new SupervisorException('Unable to reset child signal mask.');
         }
 
         $this->closeStreams();
@@ -102,7 +102,7 @@ final class SignalBridge
     private function drain(mixed $stream): void
     {
         while (is_resource($stream)) {
-            $chunk = @fread($stream, 8_192);
+            $chunk = fread($stream, 8_192);
             if (!is_string($chunk) || $chunk === '' || strlen($chunk) < 8_192) {
                 return;
             }
@@ -132,14 +132,17 @@ final class SignalBridge
 
     private function openWakeChannel(): void
     {
-        $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if ($pair === false) {
             throw new SupervisorException('Unable to create supervisor wake channel.');
         }
 
         [$this->read, $this->write] = $pair;
-        stream_set_blocking($this->read, false);
-        stream_set_blocking($this->write, false);
+        if (!stream_set_blocking($this->read, false) || !stream_set_blocking($this->write, false)) {
+            $this->closeStreams();
+
+            throw new SupervisorException('Unable to configure supervisor wake channel.');
+        }
 
         $this->watcherId = $this->loop->onReadable(
             $this->read,
@@ -167,7 +170,7 @@ final class SignalBridge
     private function wake(): void
     {
         if (is_resource($this->write)) {
-            @fwrite($this->write, "\0");
+            fwrite($this->write, "\0");
         }
     }
 }
