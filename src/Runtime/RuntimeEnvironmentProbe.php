@@ -24,6 +24,7 @@ final class RuntimeEnvironmentProbe
             supportsSignals: $supportsSignals,
             supportsPosix: $supportsPosix,
             supportsOpenSsl: extension_loaded('openssl'),
+            supportsQuic: self::supportsQuic(),
             opcacheAvailable: $opcacheAvailable,
             opcacheEnabled: $opcacheEnabled,
             opcacheCliEnabled: $opcacheCliEnabled,
@@ -63,6 +64,15 @@ final class RuntimeEnvironmentProbe
         return extension_loaded('posix')
             && function_exists('posix_getpid')
             && function_exists('posix_kill');
+    }
+
+    private static function supportsQuic(): bool
+    {
+        return extension_loaded('quic')
+            && class_exists('Quic\\Listener')
+            && class_exists('Quic\\Connection')
+            && class_exists('Quic\\Stream')
+            && function_exists('Quic\\poll');
     }
 
     private static function supportsSignals(): bool
