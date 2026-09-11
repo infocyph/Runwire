@@ -53,7 +53,7 @@ final class DatagramListener
         $context = stream_context_create(['socket' => $options->socketContext]);
         $errno = 0;
         $error = '';
-        $stream = @stream_socket_server($uri, $errno, $error, STREAM_SERVER_BIND, $context);
+        $stream = stream_socket_server($uri, $errno, $error, STREAM_SERVER_BIND, $context);
         if (!is_resource($stream)) {
             throw new ListenerException(sprintf(
                 'Unable to bind UDP listener "%s": %s (%d).',
@@ -62,8 +62,12 @@ final class DatagramListener
                 $errno,
             ));
         }
-        @stream_set_blocking($stream, false);
-        $bound = @stream_socket_get_name($stream, false);
+        if (!stream_set_blocking($stream, false)) {
+            fclose($stream);
+
+            throw new ListenerException(sprintf('Unable to make UDP listener "%s" non-blocking.', $address));
+        }
+        $bound = stream_socket_get_name($stream, false);
 
         return new self($stream, is_string($bound) ? $bound : $address, $options);
     }
@@ -91,7 +95,7 @@ final class DatagramListener
         $this->closed = true;
         $this->syncWatcher();
         if (is_resource($this->stream)) {
-            @fclose($this->stream);
+            fclose($this->stream);
         }
         $this->stream = null;
         $this->callback = null;
@@ -143,7 +147,7 @@ final class DatagramListener
             return new DatagramWriteResult(DatagramWriteState::REJECTED_LIMIT);
         }
 
-        $written = @stream_socket_sendto($stream, $payload, 0, $peerAddress);
+        $written = stream_socket_sendto($stream, $payload, 0, $peerAddress);
         if ($written === false) {
             return new DatagramWriteResult(DatagramWriteState::ERROR);
         }
@@ -183,7 +187,7 @@ final class DatagramListener
 
         for ($count = 0; $count < $this->options->receiveBatchSize; ++$count) {
             $peer = null;
-            $payload = @stream_socket_recvfrom($stream, $this->options->maxDatagramBytes + 1, 0, $peer);
+            $payload = stream_socket_recvfrom($stream, $this->options->maxDatagramBytes + 1, 0, $peer);
             if ($payload === false) {
                 break;
             }
@@ -200,7 +204,7 @@ final class DatagramListener
 
             ++$this->receivedDatagrams;
             $this->bytesRead += strlen($payload);
-            $local = @stream_socket_get_name($stream, false);
+            $local = stream_socket_get_name($stream, false);
 
             try {
                 $callback(new Datagram(
