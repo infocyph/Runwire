@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Network\Internal;
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\TlsOptions;
+use InvalidArgumentException;
 
 final class TlsHandshake
 {
@@ -14,20 +15,28 @@ final class TlsHandshake
     private ?int $timeoutTimer = null;
     private bool $finished = false;
 
+    /** @var resource|null */
+    private mixed $stream;
+
     /**
      * @param resource $stream
-     * @param callable(resource, ?string): void $onSuccess
-     * @param callable(): void $onFailure
+     * @param Closure(resource, ?string): void $onSuccess
+     * @param Closure(): void $onFailure
      */
     private function __construct(
         private readonly LoopInterface $loop,
-        private mixed $stream,
+        mixed $stream,
         private readonly TlsOptions $options,
         private readonly Closure $onSuccess,
         private readonly Closure $onFailure,
     ) {
+        $this->stream = $stream;
     }
 
+    /**
+     * @param callable(resource, ?string): void $onSuccess
+     * @param callable(): void $onFailure
+     */
     public static function start(
         LoopInterface $loop,
         mixed $stream,
@@ -35,12 +44,20 @@ final class TlsHandshake
         callable $onSuccess,
         callable $onFailure,
     ): self {
+        if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
+            throw new InvalidArgumentException('TLS handshake requires a live stream resource.');
+        }
+        /** @var Closure(resource, ?string): void $successClosure */
+        $successClosure = Closure::fromCallable($onSuccess);
+        /** @var Closure(): void $failureClosure */
+        $failureClosure = Closure::fromCallable($onFailure);
+
         $handshake = new self(
             $loop,
             $stream,
             $options,
-            Closure::fromCallable($onSuccess),
-            Closure::fromCallable($onFailure),
+            $successClosure,
+            $failureClosure,
         );
         $loop->defer(function () use ($handshake): void { $handshake->begin(); });
         return $handshake;
