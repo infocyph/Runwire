@@ -103,9 +103,6 @@ final readonly class DatagramServer
             return $this->handler;
         }
         $handler = ($this->workerHandlerFactory)($context);
-        if (!is_callable($handler)) {
-            throw new InvalidArgumentException('Worker datagram handler factory must return a callable handler.');
-        }
         /** @var Closure(Datagram, DatagramListener): void $closure */
         $closure = Closure::fromCallable($handler);
         return $closure;
