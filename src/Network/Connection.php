@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Network;
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
+use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use InvalidArgumentException;
 use Throwable;
 
@@ -20,15 +21,13 @@ final class Connection
     private ?CloseReason $drainReason = null;
     private ?int $readWatcher = null;
     private ?int $writeWatcher = null;
-    private ?int $idleTimer = null;
-    private ?int $lifetimeTimer = null;
     private bool $manualReadPause = false;
     private bool $pressureReadPause = false;
     private bool $writePressured = false;
     private bool $peerReadClosed = false;
     private int $bytesRead = 0;
     private int $bytesWritten = 0;
-    private float $lastActivityAt;
+    private readonly ConnectionTimeouts $timeouts;
     private ?Closure $dataCallback = null;
     private ?Closure $drainCallback = null;
     private ?Closure $eofCallback = null;
@@ -36,12 +35,15 @@ final class Connection
     /** @var list<Closure> */
     private array $closeCallbacks = [];
 
+    /** @var resource|null */
+    private mixed $stream;
+
     /**
      * @param resource $stream
      */
     public function __construct(
         private readonly LoopInterface $loop,
-        private mixed $stream,
+        mixed $stream,
         private readonly ConnectionLimits $limits = new ConnectionLimits(),
         private readonly ?string $peerAddress = null,
         private readonly ?string $localAddress = null,
@@ -52,14 +54,18 @@ final class Connection
             throw new InvalidArgumentException('Connection requires a live stream resource.');
         }
 
+        $this->stream = $stream;
         $this->id = get_resource_id($stream);
         $this->receiveBuffer = new ByteQueue();
         $this->sendBuffer = new ByteQueue();
-        $this->lastActivityAt = $loop->now();
-        @stream_set_blocking($this->stream, false);
+        $this->timeouts = new ConnectionTimeouts(
+            $loop,
+            $limits->idleTimeoutSeconds,
+            $limits->lifetimeTimeoutSeconds,
+            fn (CloseReason $reason) => $this->finalize($reason),
+        );
+        @stream_set_blocking($stream, false);
         $this->syncReadWatcher();
-        $this->armIdleTimer($limits->idleTimeoutSeconds);
-        $this->armLifetimeTimer($limits->lifetimeTimeoutSeconds);
     }
 
     public function id(): int
@@ -233,8 +239,13 @@ final class Connection
         }
 
         if ($this->sendBuffer->isEmpty()) {
-            $attempt = min($length, $this->limits->maxWriteBytesPerTick);
-            $written = @fwrite($this->stream, $data, $attempt);
+            $stream = $this->stream;
+            if (!is_resource($stream)) {
+                $this->finalize(CloseReason::WRITE_ERROR);
+                return new WriteResult(WriteState::CLOSED, 0);
+            }
+            $attempt = max(0, min($length, $this->limits->maxWriteBytesPerTick));
+            $written = @fwrite($stream, $data, $attempt);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
                 return new WriteResult(WriteState::CLOSED, 0);
@@ -242,7 +253,7 @@ final class Connection
 
             if ($written > 0) {
                 $this->bytesWritten += $written;
-                $this->touch();
+                $this->timeouts->touch();
                 if ($written === $length) {
                     return $this->writeResult();
                 }
@@ -282,6 +293,12 @@ final class Connection
             return;
         }
 
+        $stream = $this->stream;
+        if (!is_resource($stream)) {
+            $this->finalize(CloseReason::READ_ERROR);
+            return;
+        }
+
         $readThisTick = 0;
         $received = false;
         $sawEof = false;
@@ -294,19 +311,19 @@ final class Connection
                 break;
             }
 
-            $length = min(
+            $length = max(1, min(
                 $this->limits->readChunkBytes,
                 $this->limits->maxReadBytesPerTick - $readThisTick,
                 $capacity,
-            );
-            $chunk = @fread($this->stream, $length);
+            ));
+            $chunk = @fread($stream, $length);
             if ($chunk === false) {
                 $this->finalize(CloseReason::READ_ERROR);
                 return;
             }
 
             if ($chunk === '') {
-                $sawEof = feof($this->stream);
+                $sawEof = feof($stream);
                 break;
             }
 
@@ -315,7 +332,7 @@ final class Connection
             $this->bytesRead += $bytes;
             $readThisTick += $bytes;
             $received = true;
-            $this->touch();
+            $this->timeouts->touch();
 
             if ($this->receiveBuffer->bytes() >= $this->limits->receiveHighWatermarkBytes) {
                 $this->pressureReadPause = true;
@@ -339,6 +356,12 @@ final class Connection
             return;
         }
 
+        $stream = $this->stream;
+        if (!is_resource($stream)) {
+            $this->finalize(CloseReason::WRITE_ERROR);
+            return;
+        }
+
         $writtenThisTick = 0;
         while (!$this->sendBuffer->isEmpty() && $writtenThisTick < $this->limits->maxWriteBytesPerTick) {
             $chunk = $this->sendBuffer->front($this->limits->maxWriteBytesPerTick - $writtenThisTick);
@@ -346,7 +369,7 @@ final class Connection
                 break;
             }
 
-            $written = @fwrite($this->stream, $chunk);
+            $written = @fwrite($stream, $chunk);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
                 return;
@@ -359,7 +382,7 @@ final class Connection
             $this->sendBuffer->discard($written);
             $this->bytesWritten += $written;
             $writtenThisTick += $written;
-            $this->touch();
+            $this->timeouts->touch();
         }
 
         $this->updateWritePressure();
@@ -394,15 +417,16 @@ final class Connection
 
     private function syncReadWatcher(): void
     {
+        $stream = $this->stream;
         $shouldWatch = $this->state === ConnectionState::OPEN
             && !$this->manualReadPause
             && !$this->pressureReadPause
             && !$this->peerReadClosed
-            && is_resource($this->stream);
+            && is_resource($stream);
 
         if ($shouldWatch && $this->readWatcher === null) {
             $this->readWatcher = $this->loop->onReadable(
-                $this->stream,
+                $stream,
                 function (): void {
                     $this->handleReadable();
                 },
@@ -418,13 +442,14 @@ final class Connection
 
     private function syncWriteWatcher(): void
     {
+        $stream = $this->stream;
         $shouldWatch = $this->state !== ConnectionState::CLOSED
             && !$this->sendBuffer->isEmpty()
-            && is_resource($this->stream);
+            && is_resource($stream);
 
         if ($shouldWatch && $this->writeWatcher === null) {
             $this->writeWatcher = $this->loop->onWritable(
-                $this->stream,
+                $stream,
                 function (): void {
                     $this->handleWritable();
                 },
@@ -471,38 +496,6 @@ final class Connection
         }
     }
 
-    private function touch(): void
-    {
-        $this->lastActivityAt = $this->loop->now();
-    }
-
-    private function armIdleTimer(?float $delay): void
-    {
-        if ($delay === null) {
-            return;
-        }
-
-        $this->idleTimer = $this->loop->delay($delay, function (): void {
-            $this->idleTimer = null;
-            if ($this->state === ConnectionState::CLOSED) {
-                return;
-            }
-
-            $limit = $this->limits->idleTimeoutSeconds;
-            if ($limit === null) {
-                return;
-            }
-
-            $remaining = $limit - ($this->loop->now() - $this->lastActivityAt);
-            if ($remaining <= 0) {
-                $this->finalize(CloseReason::IDLE_TIMEOUT);
-                return;
-            }
-
-            $this->armIdleTimer($remaining);
-        });
-    }
-
     private function beginDrain(CloseReason $reason): void
     {
         if ($this->state !== ConnectionState::OPEN) {
@@ -518,20 +511,6 @@ final class Connection
         }
     }
 
-    private function armLifetimeTimer(?float $seconds): void
-    {
-        if ($seconds === null) {
-            return;
-        }
-
-        $this->lifetimeTimer = $this->loop->delay($seconds, function (): void {
-            $this->lifetimeTimer = null;
-            if ($this->state !== ConnectionState::CLOSED) {
-                $this->finalize(CloseReason::LIFETIME_TIMEOUT);
-            }
-        });
-    }
-
     private function finalize(CloseReason $reason): void
     {
         if ($this->state === ConnectionState::CLOSED) {
@@ -540,12 +519,13 @@ final class Connection
 
         $this->state = ConnectionState::CLOSED;
         $this->closeReason = $reason;
-        foreach ([$this->readWatcher, $this->writeWatcher, $this->idleTimer, $this->lifetimeTimer] as $handle) {
+        foreach ([$this->readWatcher, $this->writeWatcher] as $handle) {
             if ($handle !== null) {
                 $this->loop->cancel($handle);
             }
         }
-        $this->readWatcher = $this->writeWatcher = $this->idleTimer = $this->lifetimeTimer = null;
+        $this->readWatcher = $this->writeWatcher = null;
+        $this->timeouts->cancel();
 
         if (is_resource($this->stream)) {
             @fclose($this->stream);
