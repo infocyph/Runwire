@@ -98,7 +98,8 @@ final class ProcessRunner
     }
 
     /**
-     * @param resource|null $process
+     * @param resource $process
+     * @param-out null $process
      * @param array<int, resource> $pipes
      */
     private function execute(PreparedCommand $prepared, mixed &$process, array &$pipes, InputSource $input, OutputSink $stdout, OutputSink $stderr): ProcessResult
