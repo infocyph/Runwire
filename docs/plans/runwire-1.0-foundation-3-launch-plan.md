@@ -431,7 +431,6 @@ Runwire 1.0 native HTTP has two release-required wire protocols:
 ```text
 HTTP/1.1  REQUIRED
 HTTP/2    REQUIRED
-HTTP/3    FUTURE / NON-BLOCKING FOR 1.0
 ```
 
 Standards baseline:
@@ -745,14 +744,6 @@ WebSocket over HTTP/2 using RFC 8441 extended CONNECT is a valid future/optional
 Its absence must not block core HTTP/2 request/response support.
 
 ---
-
-## 10.12 HTTP/3 future boundary
-
-Design the common HTTP transport and Webrick adapter so HTTP/3 can be added later without changing application semantics.
-
-Do not attempt to model HTTP/3 as merely another TCP frame codec. HTTP/3 requires QUIC/UDP/TLS 1.3 transport semantics, independent stream behavior and QPACK. It is intentionally outside the Runwire 1.0/Foundation 3 release gate.
-
-Keep public transport contracts version-neutral enough that a future HTTP/3 driver can normalize into the same Webrick-facing request/response model.
 
 ---
 
@@ -1933,7 +1924,6 @@ supports_graceful_reload
 supports_worker_recycle
 supports_http1
 supports_http2
-supports_http3
 owns_http1_wire
 owns_http2_wire
 supports_tls_alpn
@@ -2315,7 +2305,52 @@ This section is part of the canonical Runwire 1.0 launch gate.
 
 ---
 
-# 42. 1.0 completion gate
+# 42. Future plan after Runwire 1.0
+
+The following items are intentionally outside the Runwire 1.0 / Foundation 3 launch gate. They must not leak into current 1.0 capability promises, completion criteria, or implementation blockers.
+
+## 42.1 HTTP/3 / QUIC
+
+HTTP/3 is the next native HTTP protocol target after Runwire 1.0 stabilizes HTTP/1.1 and HTTP/2.
+
+Future ownership remains consistent:
+
+```text
+HTTP/1.1 -> TCP/TLS -> Runwire HTTP/1 engine
+HTTP/2   -> TCP/TLS -> Runwire HTTP/2 engine
+HTTP/3   -> QUIC/UDP/TLS 1.3 -> future Runwire HTTP/3 engine
+```
+
+The future HTTP/3 implementation must normalize into the same version-neutral Runwire HTTP transport consumed by Webrick so Foundation application semantics do not change.
+
+Future HTTP/3 work should cover, after a dedicated design/review pass:
+
+- QUIC transport over UDP rather than pretending HTTP/3 is another TCP framing layer;
+- TLS 1.3 handshake and QUIC cryptographic integration through a mature, supportable implementation path;
+- bidirectional and unidirectional QUIC stream lifecycle;
+- HTTP/3 control streams and SETTINGS;
+- QPACK encoder/decoder and blocked-stream accounting;
+- connection-level and stream-level flow control/backpressure;
+- connection IDs, migration/rebinding policy where supported;
+- graceful connection drain and GOAWAY semantics;
+- cancellation/reset/STOP_SENDING handling;
+- 0-RTT policy and replay-safety boundaries;
+- bounded QPACK dynamic-table/header-list state;
+- stream-count, control-frame and CPU/work amplification limits;
+- QUIC/HTTP/3 abuse/flood resistance and memory ceilings;
+- optional HTTP Datagrams/WebTransport only through later explicit capability work;
+- future `supports_http3` / `owns_http3_wire` capability reporting only once implemented and production-ready;
+- host-driver passthrough semantics when FrankenPHP, RoadRunner or another host terminates HTTP/3 outside Runwire;
+- HTTP/1.1 / HTTP/2 / HTTP/3 Webrick application-semantic parity;
+- dedicated interoperability, soak and benchmark suites.
+
+Do not select a QUIC dependency, extension, FFI binding, sidecar, or implementation strategy in the 1.0 plan merely to reserve HTTP/3. That choice requires a separate post-1.0 security, portability, maintenance and performance evaluation.
+
+HTTP/3 must not block Runwire 1.0.
+
+---
+
+# 43. 1.0 completion gate
 
 Runwire 1.0 is release-ready only when all of the following are true:
 
@@ -2347,7 +2382,7 @@ Runwire 1.0 is release-ready only when all of the following are true:
 
 ---
 
-# 43. Immediate implementation handoff
+# 44. Immediate implementation handoff
 
 Start with the process/runtime skeleton, not HTTP conveniences:
 
