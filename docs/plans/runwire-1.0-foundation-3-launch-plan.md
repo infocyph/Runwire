@@ -54,7 +54,9 @@ Runwire owns generic runtime mechanics that remain meaningful without Foundation
 - input/output buffering and backpressure;
 - connection limits and idle timeouts;
 - low-level protocol framing/codec contracts;
-- HTTP/1.1 wire parsing/serialization required for a native HTTP server;
+- HTTP/1.1 and HTTP/2 wire parsing/serialization required for the native HTTP server;
+- TLS ALPN negotiation for `h2` / `http/1.1` in native TLS mode;
+- HTTP/2 connection/stream state, HPACK, multiplexing, flow control, graceful drain and abuse limits;
 - process/runtime status snapshots and generic lifecycle events;
 - safe structured process command execution;
 - executable/environment/cwd/output/time policy;
@@ -363,7 +365,7 @@ Requirements:
 
 ---
 
-# 10. HTTP/1.1 wire protocol for Foundation/Webrick
+# 10. Native HTTP/1.1 + HTTP/2 protocol stack for Foundation/Webrick
 
 Runwire must own only the **wire/server transport** aspects necessary to receive and send HTTP.
 
@@ -422,11 +424,335 @@ At minimum cover:
 
 Do not expose partially parsed attacker-controlled structures as trusted application input.
 
-## 10.2 HTTP/2
+## 10.2 Protocol targets and standards baseline
 
-HTTP/2 is not required for Runwire 1.0/Foundation 3 launch unless implementation evidence shows it can be completed without delaying correctness/security acceptance.
+Runwire 1.0 native HTTP has two release-required wire protocols:
 
-Design protocol contracts so HTTP/2 can be added later without changing Webrick application semantics.
+```text
+HTTP/1.1  REQUIRED
+HTTP/2    REQUIRED
+HTTP/3    FUTURE / NON-BLOCKING FOR 1.0
+```
+
+Standards baseline:
+
+- HTTP semantics: RFC 9110;
+- HTTP/1.1 message syntax/routing: RFC 9112;
+- HTTP/2: RFC 9113;
+- HPACK: RFC 7541;
+- TLS ALPN: RFC 7301;
+- extensible HTTP priorities: RFC 9218 where/when priority signaling is consumed;
+- WebSocket over HTTP/2 extended CONNECT: RFC 8441 if/when that optional integration is enabled.
+
+Do not implement against obsolete RFC 7540 behavior where RFC 9113 intentionally changed/deprecated it. In particular, the old RFC 7540 dependency-tree priority scheme is deprecated and HTTP/1.1 Upgrade-to-`h2c` is not a required production path.
+
+The common Runwire HTTP transport contract must prevent Webrick/Foundation from caring whether the request arrived through HTTP/1.1 or an HTTP/2 stream.
+
+```text
+HTTP/1.1 connection/request ─┐
+                             ├─ Runwire HTTP transport request/response contract -> Webrick
+HTTP/2 connection/stream ────┘
+```
+
+Application routing, middleware, authentication, validation and response semantics remain above the wire protocol.
+
+---
+
+## 10.3 HTTP/2 negotiation and connection startup
+
+Native TLS listeners must support ALPN negotiation between at least:
+
+```text
+h2
+http/1.1
+```
+
+When both are enabled, Runwire should advertise both and prefer `h2` according to configured protocol order while remaining interoperable with HTTP/1.1 clients.
+
+Required behavior:
+
+- ALPN-selected `h2` enters the HTTP/2 connection state machine directly;
+- ALPN-selected `http/1.1` enters the HTTP/1.1 parser;
+- unknown/unsupported negotiated protocols fail clearly;
+- TLS handshake timeout is bounded;
+- no protocol sniffing ambiguity after ALPN establishes the protocol;
+- protocol choice is immutable for that TCP/TLS connection.
+
+Cleartext HTTP/2 policy:
+
+- prior-knowledge `h2c` may be supported as an explicit opt-in native listener capability;
+- HTTP/1.1 `Upgrade: h2c` is not required for 1.0 and should not be the default because RFC 9113 deprecates that upgrade path;
+- production documentation should recommend TLS + ALPN for public HTTP/2 service.
+
+The HTTP/2 client connection preface and first SETTINGS exchange must be validated before application streams are accepted.
+
+---
+
+## 10.4 HTTP/2 frame engine
+
+Implement an incremental binary frame parser/writer with strict bounds. It must not require buffering an arbitrary connection payload before decoding frames.
+
+Required frame support/handling:
+
+```text
+DATA
+HEADERS
+PRIORITY          protocol-compatible handling; legacy priority semantics are deprecated
+RST_STREAM
+SETTINGS
+PUSH_PROMISE      parse/protocol handling as required; server push is not a 1.0 app feature
+PING
+GOAWAY
+WINDOW_UPDATE
+CONTINUATION
+unknown extension frames according to RFC 9113 rules
+```
+
+Requirements:
+
+- validate the fixed frame header before allocating payload storage;
+- enforce peer/local maximum frame size before payload growth;
+- validate stream-ID rules for each frame type;
+- validate frame-specific length/flag combinations;
+- SETTINGS ACK and value rules are enforced;
+- PING payload length is enforced;
+- WINDOW_UPDATE increment zero/overflow is rejected correctly;
+- HEADERS/PUSH_PROMISE continuation blocks remain contiguous until END_HEADERS as required;
+- an unfinished header block cannot grow without a configured byte/frame/time ceiling;
+- unknown extension frames can be skipped without copying into unbounded buffers;
+- protocol errors are mapped to stream or connection failure according to RFC 9113 rather than crashing the worker.
+
+No application code receives raw frame parser internals.
+
+---
+
+## 10.5 HTTP/2 stream state and multiplexing
+
+Each HTTP/2 exchange is an explicit connection-owned stream with a state machine covering the RFC-defined lifecycle, conceptually:
+
+```text
+idle
+reserved (where applicable)
+open
+half-closed local
+half-closed remote
+closed
+```
+
+Requirements:
+
+- client-initiated stream identifiers are validated and monotonic;
+- closed stream state is released promptly without losing protocol bookkeeping required to reject invalid reuse;
+- maximum concurrent streams is locally bounded regardless of peer behavior;
+- one stalled stream cannot block unrelated streams at the Runwire scheduler/application-dispatch layer;
+- stream cancellation propagates to the request/body producer where safe;
+- stream completion performs deterministic buffer/body/application callback cleanup;
+- connection close cancels/cleans every remaining stream exactly once;
+- stream objects do not become Foundation request scopes; they only carry transport state.
+
+Runwire must distinguish:
+
+```text
+connection lifetime
+    ├─ stream 1 -> application execution A
+    ├─ stream 3 -> application execution B
+    └─ stream 5 -> application execution C
+```
+
+Foundation/Webrick must create separate logical request execution state for every stream even when streams overlap on one connection.
+
+---
+
+## 10.6 HPACK header compression
+
+Provide a dedicated HPACK implementation/component rather than mixing compression-table state into the general HTTP/2 connection class.
+
+Conceptual internal split:
+
+```text
+Http2
+ ├─ FrameParser / FrameWriter
+ ├─ ConnectionState
+ ├─ StreamState
+ ├─ FlowController
+ └─ Hpack
+      ├─ Decoder
+      ├─ Encoder
+      ├─ DynamicTable
+      └─ Huffman decoder/encoder where implemented
+```
+
+HPACK requirements:
+
+- decoder dynamic table is connection-local;
+- encoder dynamic table is connection-local;
+- table size honors peer SETTINGS while also respecting a Runwire hard ceiling;
+- dynamic table updates are validated in the correct header-block position;
+- decoded header-list bytes/count are bounded independently from compressed bytes;
+- compressed input cannot cause unbounded decompressed allocation;
+- malformed integer/Huffman/string encodings fail deterministically;
+- Huffman decode has bounded work/output and rejects invalid terminal padding/state;
+- sensitive headers may use never-indexed encoding according to Runwire/Webrick policy;
+- HPACK state is destroyed with its owning connection and never shared globally across clients.
+
+Do not optimize HPACK by creating mutable global tables.
+
+---
+
+## 10.7 HTTP/2 request-header and pseudo-header validation
+
+Before mapping an HTTP/2 request into the common Runwire HTTP request transport, validate HTTP/2-specific field semantics.
+
+At minimum:
+
+- header field names obey HTTP/2 lowercase requirements;
+- pseudo-header fields appear before regular fields;
+- pseudo-header fields are not duplicated;
+- only request-appropriate pseudo-headers are accepted;
+- required `:method`, `:scheme`, `:path`, `:authority` combinations are validated according to request form/CONNECT semantics;
+- connection-specific HTTP/1.x fields are rejected where HTTP/2 forbids them;
+- `TE` is accepted only with the HTTP/2-permitted `trailers` value;
+- header-list count and decoded bytes remain under local hard ceilings even when the peer advertises larger values;
+- trailers are represented distinctly from initial request headers;
+- authority/host normalization does not create two conflicting routing authorities.
+
+HTTP/2 transport validation must not duplicate Webrick application validation.
+
+---
+
+## 10.8 HTTP/2 flow control and backpressure
+
+HTTP/2 flow control must compose with Runwire's existing connection backpressure instead of becoming a parallel unbounded buffering system.
+
+Runwire must track both:
+
+```text
+connection flow-control window
+stream flow-control window
+```
+
+Required behavior:
+
+- never transmit DATA beyond the peer-advertised connection or stream window;
+- inbound WINDOW_UPDATE changes credit without bypassing configured memory ceilings;
+- inbound DATA consumes receive credit before being accepted into application buffers;
+- replenish receive windows based on actual downstream consumption strategy, not simply because bytes were read from the socket;
+- per-stream outbound queues are bounded;
+- aggregate HTTP/2 connection outbound queue is bounded;
+- per-stream inbound/request-body buffering is bounded;
+- one slow stream cannot consume the entire connection/worker memory budget;
+- control frames required for protocol progress are not deadlocked behind DATA backpressure;
+- stream cancellation releases queued buffers and application body resources promptly.
+
+The implementation should use a simple fair scheduler initially. Do not implement a complex priority tree that RFC 9113 has deprecated.
+
+If RFC 9218 priority signals are later consumed, isolate them behind a scheduling policy so the core stream/flow-control state machine remains correct without them.
+
+---
+
+## 10.9 HTTP/2 graceful drain, reload and shutdown
+
+HTTP/2 must integrate with Runwire worker generations and graceful reload.
+
+Required drain sequence conceptually:
+
+```text
+worker enters draining
+      ↓
+stop accepting new connections where appropriate
+      ↓
+send GOAWAY with an appropriate last processed stream ID
+      ↓
+refuse/reject new streams beyond drain boundary
+      ↓
+allow active streams to complete within grace deadline
+      ↓
+close connection
+      ↓
+Runwire supervisor may terminate worker after deadline
+```
+
+Requirements:
+
+- GOAWAY state is explicit and idempotent;
+- multiple shutdown/reload requests do not corrupt last-stream accounting;
+- active streams have a bounded drain deadline;
+- client disconnect during drain cleans stream/application state;
+- graceful worker reload must not silently drop already accepted streams without the configured policy/deadline;
+- force termination remains available after grace expiration.
+
+PING may be used for protocol liveness/diagnostics but must not become an unbounded heartbeat flood.
+
+---
+
+## 10.10 HTTP/2 security and abuse resistance
+
+HTTP/2 expands the resource-amplification surface because many logical streams and control frames share one TCP connection. Release acceptance must therefore include explicit abuse controls.
+
+Bound/configure at minimum:
+
+```text
+max concurrent streams
+max total streams created per connection / bounded churn policy
+max frame size accepted under protocol limits
+max compressed header-block bytes
+max CONTINUATION frames per header block
+max decoded header-list bytes
+max decoded header count
+max HPACK dynamic-table bytes
+max pending request-body bytes per stream
+max pending response bytes per stream
+max pending aggregate bytes per connection
+max SETTINGS/PING/RST_STREAM/WINDOW_UPDATE/control-frame rate or work budget
+header-block completion timeout
+stream idle/request timeout
+connection idle/lifetime policy
+```
+
+Specific adversarial cases to cover:
+
+- rapid open/reset stream churn (HTTP/2 Rapid Reset style behavior);
+- RST_STREAM floods that repeatedly force expensive application setup/cleanup;
+- SETTINGS floods/ACK churn;
+- PING floods;
+- WINDOW_UPDATE floods/overflow attempts;
+- endless or excessive CONTINUATION/header blocks;
+- HPACK compression/decompression bombs;
+- oversized dynamic-table requests;
+- streams opened beyond the advertised/local concurrency ceiling;
+- invalid/reused/decreasing stream IDs;
+- empty-frame/control-frame CPU amplification;
+- request bodies that stall after headers;
+- outbound clients that stop reading while many streams are active.
+
+Abuse limits should count **work/state pressure**, not only raw socket bytes. Exceeding an abuse threshold should fail the affected stream when safe or send GOAWAY/close the connection when the connection itself is abusive.
+
+Runwire must avoid retaining attacker-controlled closed-stream objects indefinitely merely to remember historical state; use compact bounded bookkeeping sufficient for protocol correctness.
+
+---
+
+## 10.11 HTTP/2 server push and extended protocols
+
+Do not make HTTP/2 server push a Runwire 1.0 application feature. Runwire should remain protocol-correct around peer SETTINGS and must not emit PUSH_PROMISE from normal application responses in 1.0. This avoids committing Webrick/Foundation to an obsolete/poorly deployed application API.
+
+WebSocket over HTTP/2 using RFC 8441 extended CONNECT is a valid future/optional capability. If implemented in 1.0, it must:
+
+- be capability-negotiated;
+- reuse HTTP/2 stream flow control/backpressure;
+- map the established stream into Runwire's WebSocket wire layer without creating a second TCP socket abstraction;
+- preserve independent cleanup from sibling streams.
+
+Its absence must not block core HTTP/2 request/response support.
+
+---
+
+## 10.12 HTTP/3 future boundary
+
+Design the common HTTP transport and Webrick adapter so HTTP/3 can be added later without changing application semantics.
+
+Do not attempt to model HTTP/3 as merely another TCP frame codec. HTTP/3 requires QUIC/UDP/TLS 1.3 transport semantics, independent stream behavior and QPACK. It is intentionally outside the Runwire 1.0/Foundation 3 release gate.
+
+Keep public transport contracts version-neutral enough that a future HTTP/3 driver can normalize into the same Webrick-facing request/response model.
 
 ---
 
@@ -860,9 +1186,9 @@ Webrick will add a native Runwire runtime adapter.
 Recommended flow:
 
 ```text
-Runwire HTTP/1 connection/parser
+Runwire HTTP/1.1 connection or HTTP/2 connection/stream
         ↓
-Runwire HTTP request transport object
+Runwire version-neutral HTTP request transport object
         ↓
 Webrick RunwireRuntimeAdapter
         ↓
@@ -1014,6 +1340,10 @@ Events/counters should cover:
 - connection accept/close/reject;
 - input/output bytes;
 - parser/protocol error;
+- HTTP/2 active streams / stream open-close-reset counts;
+- HTTP/2 GOAWAY / connection-vs-stream protocol failures;
+- HTTP/2 flow-control stalls and backpressure transitions;
+- HPACK decoded/compressed header bytes and bounded table size (without logging header values);
 - backpressure transitions;
 - process command start/exit/timeout;
 - supervisor failure.
@@ -1061,6 +1391,8 @@ Release-blocking invariants:
 - no implicit `/bin/sh -c` for normal structured commands;
 - no unbounded network input/output buffers;
 - no unbounded request headers/body buffering;
+- no unbounded HTTP/2 stream/frame/header-block/HPACK state;
+- HTTP/2 stream/control-frame churn cannot create unbounded CPU or retained state;
 - no process-global mutable runtime topology;
 - no cross-connection/request application state stored by Runwire;
 - no worker child accidentally uses application DB/cache/broker connections created before fork;
@@ -1086,6 +1418,9 @@ Where available, add or integrate bounded resource policy progressively.
 - network connections;
 - network buffers;
 - header/body framing;
+- HTTP/2 concurrent streams, stream churn and frame/control work budgets;
+- HTTP/2 compressed/decompressed header blocks and HPACK tables;
+- HTTP/2 per-stream + aggregate connection buffering/flow-control state;
 - idle timeouts;
 - restart frequency/budget.
 
@@ -1106,6 +1441,10 @@ Performance rules:
 - buffer growth is bounded/geometric rather than repeated quadratic concatenation;
 - avoid unnecessary request copies between Runwire and Webrick;
 - body streaming rather than full buffering for large payloads;
+- HTTP/2 parser operates incrementally without whole-connection copies;
+- HTTP/2 stream scheduling prevents one stream from starving all siblings;
+- HPACK dynamic tables remain connection-local and bounded;
+- avoid per-frame object/allocation churn on the hottest paths where a simpler bounded representation benchmarks better;
 - cached header serialization only when immutable and measured useful;
 - `hrtime`/diagnostics only when needed and low overhead;
 - no benchmark-only code path.
@@ -1121,8 +1460,9 @@ Compare at least:
 - single-process raw TCP echo;
 - multi-worker raw TCP echo;
 - minimal HTTP plaintext response;
-- keep-alive HTTP;
-- small dynamic Webrick route;
+- keep-alive HTTP/1.1;
+- multiplexed HTTP/2 where the comparator supports it;
+- small dynamic Webrick route over HTTP/1.1 and HTTP/2;
 - concurrent connections;
 - slow clients;
 - large streaming response;
@@ -1143,7 +1483,9 @@ Record:
 - errors/timeouts;
 - reload capacity dip.
 
-Do not make public “faster than Workerman” claims unless repeatable measurements support them.
+Workerman remains the process/runtime and HTTP/1.x reference baseline. If the selected Workerman comparison build does not provide equivalent native HTTP/2 wire support, use a mature HTTP/2-capable host from the supported Runwire driver matrix (for example FrankenPHP, Swoole/OpenSwoole or RoadRunner where its front server exposes HTTP/2) as the protocol-level comparison rather than inventing a false Workerman HTTP/2 comparison.
+
+Do not make public “faster than Workerman” or HTTP/2 performance claims unless repeatable measurements support them.
 
 ---
 
@@ -1177,6 +1519,8 @@ Do not make public “faster than Workerman” claims unless repeatable measurem
 
 ## 34.3 HTTP tests
 
+### HTTP/1.1
+
 - request line/header parsing;
 - duplicate headers;
 - Content-Length;
@@ -1190,8 +1534,35 @@ Do not make public “faster than Workerman” claims unless repeatable measurem
 - body limit;
 - streamed request body;
 - fixed/chunked/streamed response;
-- HEAD semantics at transport boundary coordinated with Webrick;
-- Webrick adapter parity against SAPI/Workerman adapters.
+- HEAD semantics at transport boundary coordinated with Webrick.
+
+### HTTP/2
+
+- TLS ALPN chooses `h2` / `http/1.1` correctly;
+- connection preface;
+- SETTINGS + ACK validation;
+- all required frame parse/write paths;
+- fragmented frame reads/writes;
+- HEADERS + CONTINUATION assembly;
+- pseudo-header and lowercase-header validation;
+- HPACK indexed/literal/dynamic-table cases;
+- HPACK Huffman valid/invalid/bounded decode;
+- decompressed header-list hard ceiling;
+- concurrent stream state transitions;
+- stream-ID monotonicity/reuse failures;
+- connection + stream flow-control windows;
+- WINDOW_UPDATE errors/overflow;
+- per-stream and aggregate backpressure;
+- RST_STREAM cleanup;
+- GOAWAY graceful drain;
+- connection-level vs stream-level protocol errors;
+- rapid reset/open-close churn;
+- SETTINGS/PING/RST_STREAM/WINDOW_UPDATE flood budgets;
+- CONTINUATION/header-block flood limits;
+- slow body on one stream while sibling streams progress;
+- many slow readers with bounded worker memory;
+- HTTP/1.1 vs HTTP/2 parity through the same Webrick route/middleware/response semantics;
+- Webrick adapter parity against host/SAPI adapters where applicable.
 
 ## 34.4 Supervisor tests
 
@@ -1245,7 +1616,9 @@ Do not make public “faster than Workerman” claims unless repeatable measurem
 
 Run production-style soak tests:
 
-- sustained keep-alive HTTP traffic;
+- sustained keep-alive HTTP/1.1 traffic;
+- sustained multiplexed HTTP/2 traffic with mixed stream lifetimes;
+- HTTP/2 reset/control-frame/header-block abuse under bounded policy;
 - connection churn;
 - slow readers/writers;
 - mixed small/streaming responses;
@@ -1298,6 +1671,7 @@ Runwire\Server / Listener
 Runwire\Loop contract
 Runwire\Connection
 Runwire\Protocol contract
+Runwire\Http\ProtocolVersion / version-neutral HTTP transport contract
 Runwire\Supervisor
 Runwire\WorkerGroup / worker lifecycle values
 Runwire\Process\Command
@@ -1318,7 +1692,9 @@ Before 1.0 release document:
 
 - architecture/lifetime model;
 - native TCP server quick start;
-- native HTTP + Webrick integration;
+- native HTTP/1.1 + HTTP/2 + Webrick integration;
+- HTTP/2 ALPN, stream/flow-control/HPACK/security-limit tuning;
+- HTTP/2 graceful GOAWAY/drain and abuse-protection behavior;
 - Foundation 3 serving model;
 - Omnibus worker-pool integration;
 - structured process runner;
@@ -1342,16 +1718,18 @@ Recommended cross-repo execution order:
 
 ```text
 1. Runwire process + supervisor primitives
-2. Runwire loop + TCP connection layer
-3. Runwire HTTP/1 transport
-4. Webrick RunwireRuntimeAdapter
-5. Foundation native serve integration
-6. Runwire/Omnibus process-supervision integration
-7. Pathwise/ReqShield boundary docs/tests alignment
-8. aggregate security + persistent-runtime acceptance
-9. performance comparison + tuning
-10. Runwire 1.0 release
-11. Foundation 3 final release acceptance
+2. Runwire loop + TCP/TLS connection layer
+3. Version-neutral HTTP transport contract + HTTP/1.1 engine
+4. Webrick RunwireRuntimeAdapter against the common HTTP transport
+5. HTTP/2 frame/stream/HPACK/flow-control engine + TLS ALPN
+6. HTTP/1.1↔HTTP/2 Webrick parity + protocol abuse/fault acceptance
+7. Foundation native serve integration
+8. Runwire/Omnibus process-supervision integration
+9. Pathwise/ReqShield boundary docs/tests alignment
+10. aggregate security + persistent-runtime acceptance
+11. HTTP/1.1 + HTTP/2 performance comparison + tuning
+12. Runwire 1.0 release
+13. Foundation 3 final release acceptance
 ```
 
 The Foundation integration may develop against `dev-main@dev`/development branch only while Runwire 1.0 is unreleased; final Foundation 3 release must consume a released `^1.0` constraint.
@@ -1553,8 +1931,12 @@ supports_async_io
 supports_coroutines
 supports_graceful_reload
 supports_worker_recycle
+supports_http1
 supports_http2
 supports_http3
+owns_http1_wire
+owns_http2_wire
+supports_tls_alpn
 supports_websocket
 supports_opcache
 supports_opcache_cli
@@ -1603,7 +1985,9 @@ It owns:
 - listener bind/accept;
 - pure-PHP/select or optional event backend;
 - HTTP/1.1 wire parser/serializer;
-- connection state/backpressure;
+- HTTP/2 frame/stream/HPACK/flow-control engine;
+- TLS ALPN negotiation for `h2` / `http/1.1`;
+- connection state/backpressure across HTTP/1.1 and multiplexed HTTP/2;
 - prefork/process supervisor where supported;
 - wait/reap/signals/reload;
 - generic supervised tasks;
@@ -1639,7 +2023,8 @@ Requirements:
 - no Runwire prefork worker supervisor;
 - request cleanup always executes;
 - Runwire process-execution APIs remain independently usable where policy permits;
-- transport/runtime capability snapshot clearly marks persistent application state as false for ordinary FPM request mode.
+- transport/runtime capability snapshot clearly marks persistent application state as false for ordinary FPM request mode;
+- if an upstream web server terminates HTTP/2 before FastCGI, `supports_http2` may describe end-to-end deployment capability while `owns_http2_wire` remains false for the FPM driver.
 
 This lets an application use Runwire APIs consistently without requiring the Runwire-native server.
 
@@ -1668,7 +2053,8 @@ FrankenPHP keeps application code resident and repeatedly invokes a worker handl
 - never retain request/auth/session/DB execution state across requests;
 - integrate worker restart/reload hooks when exposed;
 - do not start a nested Runwire event loop or process pool;
-- preserve host-owned threads/workers.
+- preserve host-owned threads/workers;
+- report HTTP/1.1/HTTP/2 capability separately from wire ownership; FrankenPHP may terminate HTTP/2 itself while Runwire adapts the resulting request rather than reparsing frames.
 
 Runwire must document that globals, statics and in-memory state can persist in worker mode and therefore application/framework reset discipline is mandatory.
 
@@ -1689,7 +2075,8 @@ Requirements:
 - never run the Runwire native `stream_select()` loop inside the Swoole server loop;
 - never create a parallel Runwire prefork supervisor for host HTTP workers;
 - expose coroutine/async capability without requiring Foundation to become coroutine-coupled;
-- document and test persistent static/global state isolation.
+- document and test persistent static/global state isolation;
+- report HTTP/2 support/wire ownership truthfully according to the active Swoole/OpenSwoole server path instead of nesting the native Runwire HTTP/2 engine.
 
 Support may target Swoole/OpenSwoole through capability adapters; exact package/extension compatibility should be isolated from the core runtime API.
 
@@ -1720,7 +2107,8 @@ Requirements:
 - map worker stop/recycle/reset behavior into generic Runwire lifecycle signals;
 - do not bind a second HTTP listener;
 - do not fork a second HTTP worker pool underneath RoadRunner;
-- keep RoadRunner packages optional/suggested unless selected adapter code intrinsically requires a separate integration package.
+- keep RoadRunner packages optional/suggested unless selected adapter code intrinsically requires a separate integration package;
+- distinguish HTTP/2 accepted/terminated by the RoadRunner front server from Runwire native HTTP/2 wire ownership.
 
 ---
 
@@ -1824,6 +2212,7 @@ Runwire 1.0 release acceptance should add driver-specific tests.
 ### Common contract
 
 - same application handler semantics across all available drivers;
+- HTTP/1.1/HTTP/2 capability reporting distinguishes end-to-end support from Runwire wire ownership;
 - startup/request/shutdown ordering;
 - guaranteed request cleanup;
 - structured runtime capabilities;
@@ -1872,7 +2261,8 @@ Runwire native/optional event backend
 For each available environment measure:
 
 - cold start/boot;
-- warm request throughput;
+- warm request throughput over HTTP/1.1 and HTTP/2 where supported;
+- HTTP/2 multiplexing behavior at multiple concurrent-stream levels;
 - p50/p95/p99 latency;
 - memory per worker/process/thread where measurable;
 - persistent memory growth;
@@ -1908,7 +2298,9 @@ Runwire 1.0/Foundation 3 launch additionally requires:
 - [ ] OPcache is modeled separately as `auto|on|off|required`;
 - [ ] capability detection distinguishes installed from actively hosted runtime;
 - [ ] explicit runtime selection fails fast rather than silently falling back;
-- [ ] native mode remains a complete first-party server implementation;
+- [ ] native mode remains a complete first-party HTTP/1.1 + HTTP/2 server implementation;
+- [ ] native TLS mode negotiates `h2` / `http/1.1` through ALPN;
+- [ ] host-driver capability reporting distinguishes `supports_http2` from `owns_http2_wire`;
 - [ ] host modes do not start competing event loops/listeners/process pools;
 - [ ] FPM request-bound behavior is tested;
 - [ ] FrankenPHP classic + worker-mode lifecycle is documented/tested where available;
@@ -1933,6 +2325,12 @@ Runwire 1.0 is release-ready only when all of the following are true:
 - [ ] TCP server/connection lifecycle is production-safe;
 - [ ] output/input backpressure is proven under slow-client tests;
 - [ ] HTTP/1.1 transport passes framing/smuggling/slow-client limits;
+- [ ] HTTP/2 transport passes RFC 9113 framing/stream/SETTINGS/GOAWAY/flow-control acceptance;
+- [ ] HPACK is bounded, connection-local and passes malformed/Huffman/compression-amplification tests;
+- [ ] HTTP/2 Rapid Reset-style stream churn, control-frame floods and CONTINUATION/header-block abuse remain bounded;
+- [ ] multiplexed streams preserve independent backpressure, cancellation and Foundation request state;
+- [ ] native TLS ALPN negotiates HTTP/2/HTTP/1.1 correctly;
+- [ ] HTTP/1.1 and HTTP/2 requests have Webrick application-semantic parity;
 - [ ] Webrick native Runwire adapter passes parity tests;
 - [ ] Foundation can serve its compiled web runtime through Runwire with a fresh application execution scope per request;
 - [ ] trusted prefork supervision handles restart/reload/shutdown/reaping without zombies;
@@ -1962,19 +2360,24 @@ Supervisor + WorkerGroup + child lifecycle
     ↓
 Process Command/Runner + bounded pipe I/O
     ↓
-TCP Listener + Connection + backpressure
+TCP/TLS Listener + Connection + backpressure
     ↓
-HTTP/1 transport
+Version-neutral HTTP transport + HTTP/1.1
     ↓
-Webrick adapter
+Webrick adapter contract
+    ↓
+HTTP/2 frames + streams + HPACK + flow control + ALPN
+    ↓
+HTTP/1.1 / HTTP/2 parity + abuse acceptance
     ↓
 Foundation native server
 ```
 
 The first implementation milestone should prove two independent uses before broadening the API:
 
-1. a supervised multi-worker TCP echo/HTTP fixture; and
-2. a structured bounded child command execution fixture.
+1. a supervised multi-worker TCP echo + HTTP/1.1 fixture;
+2. the same Webrick handler exercised over native HTTP/2 with multiplexed streams and bounded flow control; and
+3. a structured bounded child command execution fixture.
 
 That validates both halves of Runwire's identity—the server runtime and the former ProcessGuard process-security/runtime scope—without pulling Foundation-specific behavior into the package.
 
