@@ -66,17 +66,22 @@ final class ConnectionState
     public function finishPeerUnidirectional(int $streamId): void
     {
         $stream = $this->peerUnidirectionalStreams[$streamId] ?? null;
-        if ($stream === null || $stream->type() === null) {
+        if ($stream === null) {
+            return;
+        }
+
+        $typeValue = $stream->type();
+        if ($typeValue === null) {
             unset($this->peerUnidirectionalStreams[$streamId]);
 
             return;
         }
 
-        $type = StreamType::tryFrom($stream->type());
+        $type = StreamType::tryFrom($typeValue);
         if (in_array($type, [StreamType::CONTROL, StreamType::QPACK_ENCODER, StreamType::QPACK_DECODER], true)) {
             throw new Http3Exception(
                 ErrorCode::CLOSED_CRITICAL_STREAM,
-                sprintf('HTTP/3 critical peer stream 0x%x was closed.', $stream->type()),
+                sprintf('HTTP/3 critical peer stream 0x%x was closed.', $typeValue),
             );
         }
 
@@ -122,14 +127,15 @@ final class ConnectionState
     {
         $stream = $this->peerUnidirectionalStreams[$streamId] ?? $this->createPeerUnidirectional($streamId);
         $payload = $stream->push($bytes);
-        if ($stream->type() === null) {
+        $type = $stream->type();
+        if ($type === null) {
             return;
         }
         if (!$stream->claimed()) {
-            $this->claimPeerUnidirectional($stream);
+            $this->claimPeerUnidirectional($stream, $type);
         }
 
-        $this->processPeerUnidirectionalPayload($stream->type(), $payload);
+        $this->processPeerUnidirectionalPayload($type, $payload);
     }
 
     public function pushRequestStream(int $streamId, string $bytes): RequestStream
@@ -173,9 +179,9 @@ final class ConnectionState
         return $this->encoder?->takeEncoderInstructions() ?? '';
     }
 
-    private function claimPeerUnidirectional(PeerUnidirectionalStream $stream): void
+    private function claimPeerUnidirectional(PeerUnidirectionalStream $stream, int $typeValue): void
     {
-        $type = StreamType::tryFrom($stream->type());
+        $type = StreamType::tryFrom($typeValue);
         if ($type === StreamType::PUSH) {
             throw new Http3Exception(
                 ErrorCode::STREAM_CREATION_ERROR,
