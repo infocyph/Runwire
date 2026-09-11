@@ -15,15 +15,9 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 
 final class PhpQuicHttp3Connection
 {
-    private bool $closed = false;
-
     private readonly PhpQuicStream $controlStream;
 
-    private string $controlPending;
-
     private readonly PhpQuicStream $qpackDecoderStream;
-
-    private string $qpackDecoderPending;
 
     private readonly ResponseScheduler $scheduler;
 
@@ -33,14 +27,20 @@ final class PhpQuicHttp3Connection
 
     private readonly PhpQuicTransport $transport;
 
-    /** @var array<int, PhpQuicStream> */
-    private array $peerStreams = [];
+    private bool $closed = false;
 
-    /** @var array<int, true> */
-    private array $requestStreams = [];
+    private string $controlPending;
 
     /** @var array<int, true> */
     private array $peerFinishedRequests = [];
+
+    /** @var array<int, PhpQuicStream> */
+    private array $peerStreams = [];
+
+    private string $qpackDecoderPending;
+
+    /** @var array<int, true> */
+    private array $requestStreams = [];
 
     /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
     public function __construct(
