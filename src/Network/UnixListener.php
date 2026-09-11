@@ -23,16 +23,20 @@ final class UnixListener
     private int $closedBytesWritten = 0;
     private ?int $socketInode = null;
 
+    /** @var resource|null */
+    private mixed $stream;
+
     /** @var array<int, Connection> */
     private array $connections = [];
 
     /** @param resource $stream */
     private function __construct(
-        private mixed $stream,
+        mixed $stream,
         private readonly string $path,
         private readonly UnixListenerOptions $options,
         private readonly ConnectionLimits $connectionLimits,
     ) {
+        $this->stream = $stream;
         $inode = @fileinode($path);
         $this->socketInode = is_int($inode) ? $inode : null;
     }
@@ -211,7 +215,10 @@ final class UnixListener
 
     private function handleAccept(): void
     {
-        if ($this->closed || $this->loop === null || $this->connectionCallback === null) {
+        $loop = $this->loop;
+        $callback = $this->connectionCallback;
+        $listener = $this->stream;
+        if ($this->closed || $loop === null || $callback === null || !is_resource($listener)) {
             return;
         }
         for ($accepted = 0; $accepted < $this->options->listener->acceptBatchSize; ++$accepted) {
@@ -219,14 +226,14 @@ final class UnixListener
                 break;
             }
             $peer = null;
-            $client = @stream_socket_accept($this->stream, 0, $peer);
+            $client = @stream_socket_accept($listener, 0, $peer);
             if (!is_resource($client)) {
                 break;
             }
             @stream_set_blocking($client, false);
             ++$this->acceptedConnections;
             $connection = new Connection(
-                $this->loop,
+                $loop,
                 $client,
                 $this->connectionLimits,
                 is_string($peer) && $peer !== '' ? $peer : null,
@@ -242,7 +249,7 @@ final class UnixListener
             });
 
             try {
-                ($this->connectionCallback)($connection);
+                $callback($connection);
             } catch (Throwable $failure) {
                 try {
                     $connection->abort();
@@ -257,17 +264,19 @@ final class UnixListener
 
     private function syncAcceptWatcher(): void
     {
+        $loop = $this->loop;
+        $stream = $this->stream;
         $shouldWatch = !$this->closed
             && !$this->acceptPaused
-            && $this->loop !== null
-            && is_resource($this->stream)
+            && $loop !== null
+            && is_resource($stream)
             && count($this->connections) < $this->options->listener->maxConnections;
         if ($shouldWatch && $this->acceptWatcher === null) {
-            $this->acceptWatcher = $this->loop->onReadable($this->stream, fn () => $this->handleAccept());
+            $this->acceptWatcher = $loop->onReadable($stream, fn () => $this->handleAccept());
             return;
         }
-        if (!$shouldWatch && $this->acceptWatcher !== null && $this->loop !== null) {
-            $this->loop->cancel($this->acceptWatcher);
+        if (!$shouldWatch && $this->acceptWatcher !== null && $loop !== null) {
+            $loop->cancel($this->acceptWatcher);
             $this->acceptWatcher = null;
         }
     }
