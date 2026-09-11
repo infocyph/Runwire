@@ -147,6 +147,7 @@ jobs:
             tests/Http3FrameTest.php \
             tests/Http3ControlStreamTest.php \
             tests/Http3RequestStreamTest.php \
+            tests/Http3ConnectionStateTest.php \
             tests/QpackTest.php \
             tests/RuntimeCapabilitiesTest.php \
             tests/RuntimeEnvironmentProbeTest.php
