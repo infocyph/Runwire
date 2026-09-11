@@ -112,8 +112,9 @@ it('exposes response pressure relief through the version-neutral writer', functi
 
     fwrite($client, "GET /pressure HTTP/1.1\r\nHost: x\r\n\r\n");
     $loop->onReadable($client, static function ($stream): void {
-        while (($chunk = fread($stream, 65_536)) !== '' && $chunk !== false) {
-        }
+        do {
+            $chunk = fread($stream, 65_536);
+        } while ($chunk !== '' && $chunk !== false);
     });
     $loop->delay(1.0, static fn () => $loop->stop());
     $loop->run();

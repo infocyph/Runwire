@@ -84,7 +84,9 @@ it('bounds the send queue and signals drain after pressure clears', function ():
         $loop->stop();
     });
     $loop->onReadable($peer, static function ($stream): void {
-        while (($chunk = fread($stream, 65_536)) !== '' && $chunk !== false) {}
+        do {
+            $chunk = fread($stream, 65_536);
+        } while ($chunk !== '' && $chunk !== false);
     });
     $loop->delay(1.0, static fn () => $loop->stop());
     $loop->run();

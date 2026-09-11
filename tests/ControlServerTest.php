@@ -100,9 +100,11 @@ it('serves bounded runtime control over a protected unix socket', function (): v
                 compact('mode', 'status', 'stale', 'stop'),
                 JSON_THROW_ON_ERROR,
             ));
+            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked control client must not execute supervisor parent flow.
             exit(0);
         } catch (Throwable $error) {
             file_put_contents($resultFile, json_encode(['error' => $error->getMessage()], JSON_THROW_ON_ERROR));
+            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked control client must not execute supervisor parent flow.
             exit(1);
         }
     }

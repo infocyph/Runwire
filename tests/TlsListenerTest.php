@@ -92,13 +92,17 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
                 'alpn_protocols' => 'h2,http/1.1',
             ]]);
             $client = stream_socket_client('tcp://' . $listener->address(), $errno, $error, 1.0, STREAM_CLIENT_CONNECT, $context);
-            if (!is_resource($client) || stream_socket_enable_crypto($client, true, STREAM_CRYPTO_METHOD_TLS_CLIENT) !== true) { exit(20); }
+            if (!is_resource($client) || stream_socket_enable_crypto($client, true, STREAM_CRYPTO_METHOD_TLS_CLIENT) !== true) {
+                // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked TLS client must not execute parent test flow.
+                exit(20);
+            }
             $meta = stream_get_meta_data($client);
             $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
             fwrite($client, 'ping');
             stream_set_timeout($client, 2);
             $reply = stream_get_contents($client);
             fclose($client);
+            // phpcs:ignore PHPForge.PHP.ForbiddenFunctions.Found -- Forked TLS client must not execute parent test flow.
             exit($reply === 'pong' && $protocol === 'h2' ? 0 : 21);
         }
 
