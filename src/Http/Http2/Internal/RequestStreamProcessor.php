@@ -457,7 +457,9 @@ final class RequestStreamProcessor
         if ($length - $offset < 5) {
             throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 HEADERS priority fields are truncated.');
         }
-        $dependency = unpack('N', substr($payload, $offset, 4))[1] & 0x7FFF_FFFF;
+        /** @var array{1: int} $decoded */
+        $decoded = unpack('N', substr($payload, $offset, 4));
+        $dependency = $decoded[1] & 0x7FFF_FFFF;
         if ($dependency === $frame->streamId) {
             throw new StreamError($frame->streamId, ErrorCode::PROTOCOL_ERROR, 'HTTP/2 stream cannot depend on itself.');
         }
