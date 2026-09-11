@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
-use Closure;
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
@@ -55,8 +54,6 @@ final class WorkerChildRuntime
 
     private static function terminate(int $status): never
     {
-        (Closure::fromCallable('exit'))($status);
-
-        throw new SupervisorException('Worker process termination unexpectedly returned.');
+        (\exit(...))($status);
     }
 }
