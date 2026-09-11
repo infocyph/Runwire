@@ -16,6 +16,7 @@ use Infocyph\Runwire\Runtime\Internal\BoundDatagramServer;
 use Infocyph\Runwire\Runtime\Internal\BoundServer;
 use Infocyph\Runwire\Runtime\Internal\BoundStreamServer;
 use Infocyph\Runwire\Runtime\Internal\NativeDatagramWorker;
+use Infocyph\Runwire\Runtime\Internal\NativeHttp3Worker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttpWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeStreamWorker;
 use Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe;
@@ -104,7 +105,14 @@ final class Runtime
             return false;
         }
 
-        return $this->supervisor->recycle(self::serverGroupName($server), $slot);
+        $recycled = $this->supervisor->recycle(self::serverGroupName($server), $slot);
+        if (!$server instanceof Server || $server->http3 === null) {
+            return $recycled;
+        }
+
+        $http3Recycled = $this->supervisor->recycle(self::http3GroupName($server), $slot);
+
+        return $recycled && $http3Recycled;
     }
 
     public function reload(): void
@@ -129,6 +137,7 @@ final class Runtime
                 $this->selection->driver->value,
             ));
         }
+        $this->assertNativeHttp3Available();
 
         $bound = $this->bindServers();
 
@@ -158,6 +167,20 @@ final class Runtime
         $this->supervisor?->stop($force);
     }
 
+    private function assertNativeHttp3Available(): void
+    {
+        foreach ($this->servers as $server) {
+            if (!$server instanceof Server || $server->http3 === null) {
+                continue;
+            }
+            if ($this->selection?->capabilities->supportsQuic !== true) {
+                throw new RuntimeUnavailableException(
+                    'Native HTTP/3 is configured, but the required QUIC runtime capability is unavailable.',
+                );
+            }
+        }
+    }
+
     private static function closeBound(
         BoundServer|BoundStreamServer|BoundDatagramServer $target,
         bool $master,
@@ -177,6 +200,11 @@ final class Runtime
             $target instanceof BoundStreamServer => $target->definition->transport->value,
             $target instanceof BoundDatagramServer => 'udp',
         };
+    }
+
+    private static function http3GroupName(Server $server): string
+    {
+        return 'http3:' . $server->name;
     }
 
     private static function serverGroupName(Server|StreamServer|DatagramServer $server): string
@@ -292,8 +320,31 @@ final class Runtime
                 readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
             ));
+            if ($target instanceof BoundServer && $definition->http3 !== null) {
+                $this->registerHttp3Group($supervisor, $bound, $target);
+            }
         }
 
         return $supervisor;
+    }
+
+    /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
+    private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
+    {
+        $definition = $target->definition;
+        $tcpAddress = $target->listener->address();
+        $supervisor->group(WorkerGroup::callbacks(
+            name: self::http3GroupName($definition),
+            count: $definition->workers,
+            factory: function (WorkerContext $context) use ($bound, $definition, $tcpAddress): void {
+                foreach ($bound as $candidate) {
+                    self::closeBound($candidate, false);
+                }
+                NativeHttp3Worker::run($context, $definition, $tcpAddress);
+            },
+            automaticReady: false,
+            readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
+            shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
+        ));
     }
 }
