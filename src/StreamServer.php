@@ -1,0 +1,216 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire;
+
+use Closure;
+use Infocyph\Runwire\Network\ConnectionLimits;
+use Infocyph\Runwire\Network\ListenerOptions;
+use Infocyph\Runwire\Network\TlsOptions;
+use Infocyph\Runwire\Network\UnixListenerOptions;
+use Infocyph\Runwire\Protocol\FrameCodecInterface;
+use Infocyph\Runwire\Protocol\FramedConnection;
+use Infocyph\Runwire\Supervisor\WorkerContext;
+use InvalidArgumentException;
+use LogicException;
+
+final readonly class StreamServer
+{
+    /** @var Closure(string, FramedConnection): void */
+    private Closure $handler;
+
+    /** @var Closure(): FrameCodecInterface */
+    private Closure $codecFactory;
+
+    /** @var Closure(WorkerContext): callable|null */
+    private ?Closure $workerHandlerFactory;
+
+    /**
+     * @param callable(): FrameCodecInterface $codecFactory
+     * @param callable(string, FramedConnection): void $handler
+     */
+    public function __construct(
+        public string $name,
+        public StreamTransport $transport,
+        public string $address,
+        callable $codecFactory,
+        callable $handler,
+        public int $workers = 1,
+        public ListenerOptions $listener = new ListenerOptions(),
+        public ConnectionLimits $connection = new ConnectionLimits(),
+        public ?TlsOptions $tls = null,
+        public ?UnixListenerOptions $unix = null,
+        public int $maxFramesPerTick = 256,
+        public float $workerReadyTimeoutSeconds = 10.0,
+        public float $workerShutdownTimeoutSeconds = 30.0,
+        ?callable $workerHandlerFactory = null,
+    ) {
+        self::validateName($name);
+        if ($address === '') {
+            throw new InvalidArgumentException('Stream server address cannot be empty.');
+        }
+        if ($workers < 1 || $workers > 1_024) {
+            throw new InvalidArgumentException('Stream server worker count must be between 1 and 1024.');
+        }
+        if ($maxFramesPerTick <= 0 || $maxFramesPerTick > 65_536) {
+            throw new InvalidArgumentException('Maximum frames per tick must be between 1 and 65536.');
+        }
+        foreach ([$workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds] as $seconds) {
+            if (!is_finite($seconds) || $seconds <= 0) {
+                throw new InvalidArgumentException('Worker timeouts must be finite and positive.');
+            }
+        }
+        if ($transport === StreamTransport::UNIX && $tls !== null) {
+            throw new LogicException('TLS is only supported for TCP stream servers.');
+        }
+        if ($transport === StreamTransport::TCP && $unix !== null) {
+            throw new LogicException('Unix listener options are only valid for Unix stream servers.');
+        }
+
+        $this->codecFactory = Closure::fromCallable($codecFactory);
+        $this->handler = Closure::fromCallable($handler);
+        $this->workerHandlerFactory = $workerHandlerFactory === null ? null : Closure::fromCallable($workerHandlerFactory);
+    }
+
+    /** @param callable(): FrameCodecInterface $codecFactory @param callable(string, FramedConnection): void $handler */
+    public static function tcp(string $address, callable $codecFactory, callable $handler, string $name = 'stream'): self
+    {
+        return new self($name, StreamTransport::TCP, $address, $codecFactory, $handler);
+    }
+
+    /** @param callable(): FrameCodecInterface $codecFactory @param callable(string, FramedConnection): void $handler */
+    public static function unix(string $path, callable $codecFactory, callable $handler, string $name = 'stream'): self
+    {
+        return new self($name, StreamTransport::UNIX, $path, $codecFactory, $handler, unix: new UnixListenerOptions());
+    }
+
+    public function withWorkers(int $workers): self
+    {
+        return new self(
+            $this->name,
+            $this->transport,
+            $this->address,
+            $this->codecFactory,
+            $this->handler,
+            $workers,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $this->unix,
+            $this->maxFramesPerTick,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
+    }
+
+    public function withTls(?TlsOptions $tls): self
+    {
+        return new self(
+            $this->name,
+            $this->transport,
+            $this->address,
+            $this->codecFactory,
+            $this->handler,
+            $this->workers,
+            $this->listener,
+            $this->connection,
+            $tls,
+            $this->unix,
+            $this->maxFramesPerTick,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
+    }
+
+    public function withUnixOptions(UnixListenerOptions $options): self
+    {
+        return new self(
+            $this->name,
+            $this->transport,
+            $this->address,
+            $this->codecFactory,
+            $this->handler,
+            $this->workers,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $options,
+            $this->maxFramesPerTick,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
+    }
+
+    public function withMaxFramesPerTick(int $maxFramesPerTick): self
+    {
+        return new self(
+            $this->name,
+            $this->transport,
+            $this->address,
+            $this->codecFactory,
+            $this->handler,
+            $this->workers,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $this->unix,
+            $maxFramesPerTick,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $this->workerHandlerFactory,
+        );
+    }
+
+    public function withWorkerHandlerFactory(callable $factory): self
+    {
+        return new self(
+            $this->name,
+            $this->transport,
+            $this->address,
+            $this->codecFactory,
+            $this->handler,
+            $this->workers,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $this->unix,
+            $this->maxFramesPerTick,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            $factory,
+        );
+    }
+
+    public function codec(): FrameCodecInterface
+    {
+        $codec = ($this->codecFactory)();
+        if (!$codec instanceof FrameCodecInterface) {
+            throw new InvalidArgumentException('Stream codec factory must return FrameCodecInterface.');
+        }
+        return $codec;
+    }
+
+    /** @return Closure(string, FramedConnection): void */
+    public function handlerFor(WorkerContext $context): Closure
+    {
+        if ($this->workerHandlerFactory === null) {
+            return $this->handler;
+        }
+        $handler = ($this->workerHandlerFactory)($context);
+        if (!is_callable($handler)) {
+            throw new InvalidArgumentException('Worker stream handler factory must return a callable handler.');
+        }
+        return Closure::fromCallable($handler);
+    }
+
+    private static function validateName(string $name): void
+    {
+        if ($name === '' || strlen($name) > 96 || preg_match('/^[A-Za-z0-9._-]+$/D', $name) !== 1) {
+            throw new InvalidArgumentException('Server name must be 1-96 safe identifier characters.');
+        }
+    }
+}
