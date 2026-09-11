@@ -10,19 +10,47 @@ use LogicException;
 
 final class PhpQuicTransport implements Http3TransportInterface
 {
+    /** @var array<int, true> */
+    private array $finishedResponses = [];
+
     /** @var array<int, PhpQuicStream> */
     private array $requestStreams = [];
 
-    public function __construct(private readonly PhpQuicStream $qpackEncoderStream)
-    {
-        if ($qpackEncoderStream->bidirectional()) {
-            throw new InvalidArgumentException('HTTP/3 QPACK encoder stream must be unidirectional.');
+    public function __construct(
+        private readonly PhpQuicStream $qpackEncoderStream,
+        private string $qpackEncoderPreamble = '',
+    ) {
+        if ($qpackEncoderStream->bidirectional() || ($qpackEncoderStream->id() & 0x03) !== 0x03) {
+            throw new InvalidArgumentException('HTTP/3 QPACK encoder stream must be server-initiated and unidirectional.');
         }
     }
 
     public function finishRequestStream(int $streamId): void
     {
         $this->requestStream($streamId)->end();
+        $this->finishedResponses[$streamId] = true;
+    }
+
+    public function flushQpackEncoderPreamble(): bool
+    {
+        if ($this->qpackEncoderPreamble === '') {
+            return true;
+        }
+
+        $written = $this->qpackEncoderStream->write($this->qpackEncoderPreamble);
+        $this->qpackEncoderPreamble = substr($this->qpackEncoderPreamble, $written);
+
+        return $this->qpackEncoderPreamble === '';
+    }
+
+    public function qpackEncoderObject(): object
+    {
+        return $this->qpackEncoderStream->object();
+    }
+
+    public function qpackEncoderPreamblePending(): bool
+    {
+        return $this->qpackEncoderPreamble !== '';
     }
 
     public function registerRequestStream(PhpQuicStream $stream): void
@@ -36,15 +64,25 @@ final class PhpQuicTransport implements Http3TransportInterface
         }
 
         $this->requestStreams[$streamId] = $stream;
+        unset($this->finishedResponses[$streamId]);
     }
 
     public function releaseRequestStream(int $streamId): void
     {
-        unset($this->requestStreams[$streamId]);
+        unset($this->requestStreams[$streamId], $this->finishedResponses[$streamId]);
+    }
+
+    public function responseFinished(int $streamId): bool
+    {
+        return isset($this->finishedResponses[$streamId]);
     }
 
     public function writeQpackEncoder(string $bytes): int
     {
+        if (!$this->flushQpackEncoderPreamble()) {
+            return 0;
+        }
+
         return $this->qpackEncoderStream->write($bytes);
     }
 

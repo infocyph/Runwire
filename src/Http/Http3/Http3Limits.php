@@ -30,6 +30,10 @@ final readonly class Http3Limits
         public int $maxQpackEncoderQueueBytes = 1_048_576,
         public int $maxResponseFramePayloadBytes = 16_384,
         public int $maxWritesPerFlush = 128,
+        public int $maxStreamsAcceptedPerPump = 64,
+        public int $maxReadsPerPump = 256,
+        public int $maxInboundBytesPerPump = 262_144,
+        public int $streamReadChunkBytes = 16_384,
     ) {
         foreach ([
             'maxFramePayloadBytes' => $maxFramePayloadBytes,
@@ -58,6 +62,10 @@ final readonly class Http3Limits
             'maxQpackEncoderQueueBytes' => $maxQpackEncoderQueueBytes,
             'maxResponseFramePayloadBytes' => $maxResponseFramePayloadBytes,
             'maxWritesPerFlush' => $maxWritesPerFlush,
+            'maxStreamsAcceptedPerPump' => $maxStreamsAcceptedPerPump,
+            'maxReadsPerPump' => $maxReadsPerPump,
+            'maxInboundBytesPerPump' => $maxInboundBytesPerPump,
+            'streamReadChunkBytes' => $streamReadChunkBytes,
         ] as $name => $value) {
             if ($value <= 0) {
                 throw new \InvalidArgumentException(sprintf('%s must be positive.', $name));

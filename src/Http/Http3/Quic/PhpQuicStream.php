@@ -22,6 +22,9 @@ final readonly class PhpQuicStream
     /** @var Closure(int): ?string */
     private Closure $readCallback;
 
+    /** @var Closure(): ?int */
+    private Closure $resetCodeCallback;
+
     /** @var Closure(int): void */
     private Closure $resetCallback;
 
@@ -42,6 +45,9 @@ final readonly class PhpQuicStream
         /** @var Closure(int): ?string $read */
         $read = self::callback($this->stream, 'read');
         $this->readCallback = $read;
+        /** @var Closure(): ?int $resetCode */
+        $resetCode = self::callback($this->stream, 'getResetCode');
+        $this->resetCodeCallback = $resetCode;
         /** @var Closure(int): void $reset */
         $reset = self::callback($this->stream, 'reset');
         $this->resetCallback = $reset;
@@ -91,6 +97,16 @@ final readonly class PhpQuicStream
         }
 
         ($this->resetCallback)($errorCode);
+    }
+
+    public function resetCode(): ?int
+    {
+        $code = ($this->resetCodeCallback)();
+        if ($code !== null && $code < 0) {
+            throw new UnexpectedValueException('php-quic returned a negative stream reset code.');
+        }
+
+        return $code;
     }
 
     public function write(string $bytes, bool $fin = false): int

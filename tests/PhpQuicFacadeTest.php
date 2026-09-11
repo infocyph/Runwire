@@ -26,6 +26,11 @@ function fakePhpQuicFacadeStream(int $id, bool $bidirectional): object
             return $this->id;
         }
 
+        public function getResetCode(): ?int
+        {
+            return null;
+        }
+
         public function isBidirectional(): bool
         {
             return $this->bidirectional;
