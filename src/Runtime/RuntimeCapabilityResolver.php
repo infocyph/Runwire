@@ -34,6 +34,7 @@ final class RuntimeCapabilityResolver
             supportsSignals: $environment->supportsSignals,
             supportsAsyncIo: true,
             supportsGracefulReload: $environment->supportsSignals,
+            supportsTlsAlpn: $environment->supportsOpenSsl,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );

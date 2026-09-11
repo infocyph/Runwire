@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire\Network;
+
+enum WriteState: string
+{
+    case ACCEPTED = 'accepted';
+    case PRESSURED = 'pressured';
+    case REJECTED_LIMIT = 'rejected_limit';
+    case CLOSED = 'closed';
+}
