@@ -20,7 +20,7 @@ final class NativeStreamWorker
         $handler = $bound->definition->handlerFor($context);
 
         $bound->listener->start($loop, function (Connection $connection) use ($loop, $bound, $handler, &$sessions, $state): void {
-            if ($state->stopping) {
+            if ($state->isStopping()) {
                 $connection->closeGracefully();
                 return;
             }
@@ -35,7 +35,7 @@ final class NativeStreamWorker
             $sessions[$id] = $session;
             $connection->onClose(static function () use (&$sessions, $id, $loop, $state): void {
                 unset($sessions[$id]);
-                if ($state->stopping && $sessions === []) {
+                if ($state->isStopping() && $sessions === []) {
                     $loop->stop();
                 }
             });
@@ -43,10 +43,10 @@ final class NativeStreamWorker
 
         $loop->onReadable($context->stopStream(), function () use ($context, $bound, $loop, &$sessions, $state): void {
             $context->consumeStopWake();
-            if ($state->stopping) {
+            if ($state->isStopping()) {
                 return;
             }
-            $state->stopping = true;
+            $state->stop();
             self::closeWorkerListener($bound);
             foreach ($sessions as $session) {
                 $session->closeGracefully();
