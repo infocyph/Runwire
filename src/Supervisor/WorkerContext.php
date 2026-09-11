@@ -10,8 +10,15 @@ final class WorkerContext
 {
     private bool $ready = false;
     private bool $stopping = false;
-    private mixed $stopRead;
-    private mixed $stopWrite;
+
+    /** @var resource|null */
+    private mixed $readyStream;
+
+    /** @var resource|null */
+    private mixed $stopRead = null;
+
+    /** @var resource|null */
+    private mixed $stopWrite = null;
 
     /**
      * @param resource $readyStream
@@ -22,8 +29,9 @@ final class WorkerContext
         public readonly int $generation,
         public readonly int $pid,
         public readonly int $parentPid,
-        private mixed $readyStream,
+        mixed $readyStream,
     ) {
+        $this->readyStream = $readyStream;
         $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if (!is_array($pair) || count($pair) !== 2) {
             throw new RuntimeException('Unable to create worker stop wake channel.');
