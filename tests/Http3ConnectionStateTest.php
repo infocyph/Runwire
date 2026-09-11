@@ -156,7 +156,10 @@ it('bounds request and peer-unidirectional stream churn', function (): void {
         [':authority', 'example.com'],
         [':path', '/'],
     ], 0)->block;
-    $state = new ConnectionState(new Http3Limits(maxRequestStreamsPerConnection: 1));
+    $state = new ConnectionState(new Http3Limits(
+        maxConcurrentRequestStreams: 1,
+        maxRequestStreamsPerConnection: 1,
+    ));
     $state->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
     $state->releaseRequestStream(0);
 

@@ -9,20 +9,20 @@ use Infocyph\Runwire\Http\Http3\Http3Exception;
 
 final class Decoder
 {
-    /** @var array<int, list<string>> */
-    private array $blocked = [];
-
-    private int $blockedBytes = 0;
-
     private readonly DecoderStreamEncoder $decoderStream;
 
     private readonly EncoderStreamDecoder $encoderStream;
 
     private readonly FieldSectionDecoder $fieldDecoder;
 
-    private string $pendingDecoderInstructions = '';
-
     private readonly DynamicTable $table;
+
+    /** @var array<int, list<string>> */
+    private array $blocked = [];
+
+    private int $blockedBytes = 0;
+
+    private string $pendingDecoderInstructions = '';
 
     public function __construct(
         int $maxTableCapacity,

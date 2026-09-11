@@ -142,8 +142,10 @@ jobs:
         run: |
           test -d tests
           test -f vendor/infocyph/phpforge/resources/pest.xml
+          cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest.xml
+          trap 'rm -f .phpforge-pest.xml' EXIT
           vendor/bin/pest \
-            --configuration=vendor/infocyph/phpforge/resources/pest.xml \
+            --configuration=.phpforge-pest.xml \
             tests/Http3FrameTest.php \
             tests/Http3ControlStreamTest.php \
             tests/Http3RequestStreamTest.php \

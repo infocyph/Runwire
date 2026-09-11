@@ -23,12 +23,16 @@ final class RequestStream
 {
     private readonly StreamingRequestBody $body;
 
-    /** @var list<Frame> */
-    private array $blockedFrames = [];
+    private readonly FrameParser $parser;
+
+    private readonly RequestHeaderValidator $validator;
+
+    private bool $blocked = false;
 
     private int $blockedFrameBytes = 0;
 
-    private bool $blocked = false;
+    /** @var list<Frame> */
+    private array $blockedFrames = [];
 
     private bool $blockedOnTrailers = false;
 
@@ -40,15 +44,11 @@ final class RequestStream
 
     private ?ValidatedRequestHead $head = null;
 
-    private readonly FrameParser $parser;
-
     private int $receivedBodyBytes = 0;
 
     private ?Headers $trailers = null;
 
     private bool $trailersReceived = false;
-
-    private readonly RequestHeaderValidator $validator;
 
     /**
      * @param callable(): void|null $onBodyRelief
@@ -71,7 +71,8 @@ final class RequestStream
             $limits->bodyLowWatermarkBytes,
             $limits->bodyHighWatermarkBytes,
             $limits->maxPendingBodyBytesPerStream,
-            $onBodyRelief ?? static function (): void {},
+            $onBodyRelief ?? static function (): void {
+            },
             $onBodyConsumed,
         );
     }
@@ -215,8 +216,10 @@ final class RequestStream
         if ($bytes > $this->body->capacity()) {
             throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 request body buffer capacity was exceeded.');
         }
-        if ($this->head->contentLength !== null
-            && $bytes > $this->head->contentLength - $this->receivedBodyBytes) {
+        if (
+            $this->head->contentLength !== null
+            && $bytes > $this->head->contentLength - $this->receivedBodyBytes
+        ) {
             throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 request body exceeds Content-Length.');
         }
 

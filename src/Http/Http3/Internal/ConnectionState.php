@@ -16,28 +16,28 @@ use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
 final class ConnectionState
 {
-    /** @var array<int, int> */
-    private array $criticalPeerStreams = [];
-
     private readonly Decoder $decoder;
-
-    private ?Encoder $encoder = null;
 
     private readonly Settings $localSettings;
 
     private readonly ControlStream $peerControl;
 
-    private int $peerUnidirectionalStreamsCreated = 0;
+    /** @var array<int, int> */
+    private array $criticalPeerStreams = [];
+
+    private ?Encoder $encoder = null;
 
     /** @var array<int, PeerUnidirectionalStream> */
     private array $peerUnidirectionalStreams = [];
 
-    private string $pendingPeerDecoderInstructions = '';
+    private int $peerUnidirectionalStreamsCreated = 0;
 
-    private int $requestStreamsCreated = 0;
+    private string $pendingPeerDecoderInstructions = '';
 
     /** @var array<int, RequestStream> */
     private array $requestStreams = [];
+
+    private int $requestStreamsCreated = 0;
 
     public function __construct(private readonly Http3Limits $limits = new Http3Limits())
     {

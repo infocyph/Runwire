@@ -9,11 +9,13 @@ use Infocyph\Runwire\Http\Http3\Http3Exception;
 
 final class Encoder
 {
-    private int $blockedSections = 0;
-
     private readonly DecoderStreamDecoder $decoderStream;
 
     private readonly EncoderStreamEncoder $encoderStream;
+
+    private readonly DynamicTable $table;
+
+    private int $blockedSections = 0;
 
     private int $knownReceivedCount = 0;
 
@@ -21,8 +23,6 @@ final class Encoder
     private array $outstanding = [];
 
     private string $pendingEncoderInstructions = '';
-
-    private readonly DynamicTable $table;
 
     public function __construct(
         int $peerMaxTableCapacity,

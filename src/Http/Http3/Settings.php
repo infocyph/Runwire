@@ -15,7 +15,7 @@ final readonly class Settings
         $normalized = [];
 
         foreach ($values as $identifier => $value) {
-            if (!is_int($identifier) || $identifier < 0 || $identifier > VarIntCodec::MAX_VALUE) {
+            if ($identifier < 0 || $identifier > VarIntCodec::MAX_VALUE) {
                 throw new \InvalidArgumentException('HTTP/3 setting identifier must fit a QUIC variable-length integer.');
             }
             if ($value < 0 || $value > VarIntCodec::MAX_VALUE) {
@@ -48,17 +48,17 @@ final readonly class Settings
 
     public function maxFieldSectionSize(): int
     {
-        return $this->value(SettingIdentifier::MAX_FIELD_SECTION_SIZE->value, VarIntCodec::MAX_VALUE);
+        return $this->values[SettingIdentifier::MAX_FIELD_SECTION_SIZE->value] ?? VarIntCodec::MAX_VALUE;
     }
 
     public function qpackBlockedStreams(): int
     {
-        return $this->value(SettingIdentifier::QPACK_BLOCKED_STREAMS->value, 0);
+        return $this->values[SettingIdentifier::QPACK_BLOCKED_STREAMS->value] ?? 0;
     }
 
     public function qpackMaxTableCapacity(): int
     {
-        return $this->value(SettingIdentifier::QPACK_MAX_TABLE_CAPACITY->value, 0);
+        return $this->values[SettingIdentifier::QPACK_MAX_TABLE_CAPACITY->value] ?? 0;
     }
 
     public function value(int $identifier, ?int $default = null): ?int
