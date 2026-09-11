@@ -1,0 +1,86 @@
+{
+    "name": "infocyph/runwire",
+    "description": "A high-performance process and network runtime for PHP.",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "event-loop",
+        "http-server",
+        "http2",
+        "network-runtime",
+        "process",
+        "runtime",
+        "supervisor",
+        "tcp"
+    ],
+    "authors": [
+        {
+            "name": "Infocyph",
+            "email": "infocyph@gmail.com"
+        },
+        {
+            "name": "abmmhasan",
+            "email": "abmmhasan@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "ext-pcntl": "*",
+        "ext-posix": "*"
+    },
+    "require-dev": {
+        "infocyph/phpforge": "dev-main@dev"
+    },
+    "suggest": {
+        "ext-event": "Optional high-performance event-loop backend.",
+        "ext-openssl": "Required for native TLS listeners and HTTP/2 ALPN negotiation.",
+        "ext-sockets": "Optional for lower-level socket tuning where a transport adapter uses it."
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Infocyph\\Runwire\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Infocyph\\Runwire\\Tests\\": "tests/"
+        }
+    },
+    "archive": {
+        "exclude": [
+            "/.agents",
+            "/.codex",
+            "/.github",
+            "/benchmarks",
+            "/docs",
+            "/tests",
+            "/vendor",
+            "/.editorconfig",
+            "/.gitattributes",
+            "/.gitignore",
+            "/captainhook.json",
+            "/composer.lock",
+            "/pest.xml",
+            "/phpbench.json",
+            "/phpcs.xml.dist",
+            "/phpstan.neon.dist",
+            "/phpunit.xml",
+            "/pint.json",
+            "/psalm.xml",
+            "/rector.php"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "ergebnis/composer-normalize": true,
+            "infocyph/phpforge": true,
+            "pestphp/pest-plugin": true,
+            "pestphp/pest-plugin-drift": true
+        },
+        "classmap-authoritative": true,
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
