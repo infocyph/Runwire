@@ -1,0 +1,29 @@
+name: Apply Runwire HTTP2 Plan Update
+
+on:
+  push:
+    branches:
+      - runwire-1.0/foundation-3-launch
+
+permissions:
+  contents: write
+
+jobs:
+  update-plan:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: runwire-1.0/foundation-3-launch
+      - name: Update canonical plan
+        run: python3 .github/runwire-http2-plan-update.py
+      - name: Commit canonical plan
+        run: |
+          rm -f .github/runwire-http2-plan-update.py
+          rm -f .github/workflows/runwire-http2-plan-update.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "docs: make HTTP/2 a Runwire 1.0 native requirement"
+          git push origin HEAD:runwire-1.0/foundation-3-launch
