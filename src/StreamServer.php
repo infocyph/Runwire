@@ -48,30 +48,9 @@ final readonly class StreamServer
         public float $workerShutdownTimeoutSeconds = 30.0,
         ?callable $workerHandlerFactory = null,
     ) {
-        self::validateName($name);
-        if ($address === '') {
-            throw new InvalidArgumentException('Stream server address cannot be empty.');
-        }
-        if ($workers < 1 || $workers > 1_024) {
-            throw new InvalidArgumentException('Stream server worker count must be between 1 and 1024.');
-        }
-        if ($workerConnectionLimit < 1 || $workerConnectionLimit > 1_000_000) {
-            throw new InvalidArgumentException('Worker connection limit must be between 1 and 1000000.');
-        }
-        if ($maxFramesPerTick <= 0 || $maxFramesPerTick > 65_536) {
-            throw new InvalidArgumentException('Maximum frames per tick must be between 1 and 65536.');
-        }
-        foreach ([$workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds] as $seconds) {
-            if (!is_finite($seconds) || $seconds <= 0) {
-                throw new InvalidArgumentException('Worker timeouts must be finite and positive.');
-            }
-        }
-        if ($transport === StreamTransport::UNIX && $tls !== null) {
-            throw new LogicException('TLS is only supported for TCP stream servers.');
-        }
-        if ($transport === StreamTransport::TCP && $unix !== null) {
-            throw new LogicException('Unix listener options are only valid for Unix stream servers.');
-        }
+        self::validateCore($name, $address, $workers, $workerConnectionLimit, $maxFramesPerTick);
+        self::validateTimeouts($workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds);
+        self::validateTransport($transport, $tls, $unix);
 
         /** @var Closure(): FrameCodecInterface $codecClosure */
         $codecClosure = Closure::fromCallable($codecFactory);
@@ -247,12 +226,53 @@ final readonly class StreamServer
             return $this->handler;
         }
         $handler = ($this->workerHandlerFactory)($context);
-        if (!is_callable($handler)) {
-            throw new InvalidArgumentException('Worker stream handler factory must return a callable handler.');
-        }
         /** @var Closure(string, FramedConnection): void $closure */
         $closure = Closure::fromCallable($handler);
         return $closure;
+    }
+
+    private static function validateCore(
+        string $name,
+        string $address,
+        int $workers,
+        int $workerConnectionLimit,
+        int $maxFramesPerTick,
+    ): void {
+        self::validateName($name);
+        if ($address === '') {
+            throw new InvalidArgumentException('Stream server address cannot be empty.');
+        }
+        if ($workers < 1 || $workers > 1_024) {
+            throw new InvalidArgumentException('Stream server worker count must be between 1 and 1024.');
+        }
+        if ($workerConnectionLimit < 1 || $workerConnectionLimit > 1_000_000) {
+            throw new InvalidArgumentException('Worker connection limit must be between 1 and 1000000.');
+        }
+        if ($maxFramesPerTick <= 0 || $maxFramesPerTick > 65_536) {
+            throw new InvalidArgumentException('Maximum frames per tick must be between 1 and 65536.');
+        }
+    }
+
+    private static function validateTimeouts(float $ready, float $shutdown): void
+    {
+        foreach ([$ready, $shutdown] as $seconds) {
+            if (!is_finite($seconds) || $seconds <= 0) {
+                throw new InvalidArgumentException('Worker timeouts must be finite and positive.');
+            }
+        }
+    }
+
+    private static function validateTransport(
+        StreamTransport $transport,
+        ?TlsOptions $tls,
+        ?UnixListenerOptions $unix,
+    ): void {
+        if ($transport === StreamTransport::UNIX && $tls !== null) {
+            throw new LogicException('TLS is only supported for TCP stream servers.');
+        }
+        if ($transport === StreamTransport::TCP && $unix !== null) {
+            throw new LogicException('Unix listener options are only valid for Unix stream servers.');
+        }
     }
 
     private static function validateName(string $name): void
