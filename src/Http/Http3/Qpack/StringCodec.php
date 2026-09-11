@@ -36,7 +36,7 @@ final class StringCodec
         int $huffmanMask,
         bool $allowHuffman = true,
     ): string {
-        $encoded = $allowHuffman ? (new HuffmanCodec())->encode($value) : $value;
+        $encoded = $allowHuffman ? new HuffmanCodec()->encode($value) : $value;
         $useHuffman = $allowHuffman && strlen($encoded) < strlen($value);
         $payload = $useHuffman ? $encoded : $value;
 
@@ -59,11 +59,13 @@ final class StringCodec
         if (!isset($data[$offset])) {
             return null;
         }
+
         $huffman = (ord($data[$offset]) & $huffmanMask) !== 0;
         $length = IntegerCodec::tryDecode($data, $offset, $prefixBits, $errorCode);
         if ($length === null) {
             return null;
         }
+
         [$encodedLength, $payloadOffset] = $length;
         if (strlen($data) - $payloadOffset < $encodedLength) {
             return null;
@@ -79,7 +81,7 @@ final class StringCodec
         }
 
         try {
-            $decoded = (new HuffmanCodec())->decode($encoded, $maxOutputBytes);
+            $decoded = new HuffmanCodec()->decode($encoded, $maxOutputBytes);
         } catch (HpackException $exception) {
             throw new Http3Exception($errorCode, 'Invalid QPACK Huffman string.', $exception);
         }

@@ -59,25 +59,12 @@ final class VarIntCodec
 
     private static function decodeWidth(string $bytes, int $offset, int $length): int
     {
-        if ($length === 1) {
-            return ord($bytes[$offset]) & 0x3F;
+        $value = ord($bytes[$offset]) & 0x3F;
+
+        for ($position = 1; $position < $length; ++$position) {
+            $value = ($value << 8) | ord($bytes[$offset + $position]);
         }
 
-        if ($length === 2) {
-            $decoded = unpack('nvalue', substr($bytes, $offset, 2));
-
-            return ((int) $decoded['value']) & 0x3FFF;
-        }
-
-        if ($length === 4) {
-            $decoded = unpack('Nvalue', substr($bytes, $offset, 4));
-
-            return ((int) $decoded['value']) & 0x3FFF_FFFF;
-        }
-
-        $decoded = unpack('Nhigh/Nlow', substr($bytes, $offset, 8));
-        $high = ((int) $decoded['high']) & 0x3FFF_FFFF;
-
-        return ($high * 4_294_967_296) + (int) $decoded['low'];
+        return $value;
     }
 }
