@@ -37,17 +37,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout Runwire
-        uses: actions/checkout@v7
-
-      - name: Checkout php-quic
-        uses: actions/checkout@v7
-        with:
-          repository: mikepultz/php-quic
-          ref: main
-          path: .ci/php-quic
-
-      - name: Install build dependencies
+      # Install Git before actions/checkout. Without Git, checkout falls back to
+      # a repository archive, and Runwire intentionally export-ignores tests and
+      # QA configuration from distribution archives.
+      - name: Bootstrap container tools
         shell: bash
         run: |
           apt-get update
@@ -61,10 +54,20 @@ jobs:
             unzip
           rm -rf /var/lib/apt/lists/*
 
-      - name: Build Runwire process extensions
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Checkout php-quic
+        uses: actions/checkout@v7
+        with:
+          repository: mikepultz/php-quic
+          ref: main
+          path: .ci/php-quic
+
+      - name: Enable Runwire process extensions
         shell: bash
         run: |
-          docker-php-ext-install -j"$(nproc)" pcntl posix
+          docker-php-ext-install -j"$(nproc)" pcntl
           php -r '
           if (!extension_loaded("pcntl") || !extension_loaded("posix")) {
               fwrite(STDERR, "Runwire process extensions are unavailable.\n");
@@ -135,8 +138,11 @@ jobs:
       - name: Run focused HTTP/3 protocol tests
         shell: bash
         run: |
+          test -d tests
+          test -f pest.xml
           vendor/bin/pest \
             tests/Http3FrameTest.php \
+            tests/Http3ControlStreamTest.php \
             tests/QpackTest.php \
             tests/RuntimeCapabilitiesTest.php \
             tests/RuntimeEnvironmentProbeTest.php
