@@ -10,50 +10,64 @@ Primary HTTP integration: **Webrick**
 
 Primary messaging integration: **Omnibus**
 
+PHP baseline: **^8.4**
+
 Reference server/runtime: `walkor/workerman` — architectural and benchmark reference only; Runwire must not depend on or clone Workerman.
 
 Priority:
 
-> correctness → process isolation/ownership → network safety/backpressure → persistent-runtime safety → performance → scalability → ergonomics
+> correctness → process isolation/ownership → network safety/backpressure → protocol correctness → persistent-runtime safety → performance → scalability → ergonomics
 
-Runwire is a new low-level Infocyph runtime library. It absorbs the earlier “ProcessGuard” idea and expands it into a reusable process + worker supervision + event loop + network server runtime that can power Foundation directly while remaining framework agnostic.
+Runwire is the low-level Infocyph process + supervisor + event-loop + network runtime. It absorbs the earlier ProcessGuard scope and provides reusable process execution, worker supervision, native networking, and a version-neutral HTTP transport for Foundation/Webrick while remaining framework agnostic.
 
-The package name and namespace are:
+Package identity:
 
 ```text
 Composer:  infocyph/runwire
 Namespace: Infocyph\Runwire
 ```
 
-Recommended tagline:
+Tagline:
 
 > A high-performance process and network runtime for PHP.
 
-## Implementation tracker
+---
+
+# Implementation tracker
 
 Last updated: **2026-09-11**
 
-| Milestone | Status | Evidence |
+| Milestone | Status | Evidence / next gate |
 | --- | --- | --- |
-| Package scaffold + runtime/OPcache contracts | ✅ Landed | `9cec0d5`, `3f790c8` |
-| Loop contract + bounded `SelectLoop` | ✅ Landed | `1fcf144`, `1d11784` |
-| Prefork supervisor + worker lifecycle/generations | ✅ Landed | `8f39872` |
-| Structured `ProcessRunner` + bounded concurrent pipe I/O | ✅ Landed | `c149d34` |
-| TCP/TLS listener + connection lifecycle + backpressure | 🔄 Active | next implementation slice |
-| Version-neutral HTTP transport + HTTP/1.1 engine | ⬜ Pending | — |
-| Webrick native Runwire adapter contract | ⬜ Pending | — |
-| HTTP/2 frames + streams + HPACK + flow control + ALPN | ⬜ Pending | — |
-| HTTP/1.1 ↔ HTTP/2 parity + abuse/fault acceptance | ⬜ Pending | — |
-| Foundation native server + persistent host-driver integration | ⬜ Pending | — |
-| Omnibus/boundary integrations + aggregate soak/QA/benchmarks | ⬜ Pending | — |
-| Runwire 1.0 + Foundation 3 final release acceptance | ⬜ Pending | — |
+| Package scaffold + runtime/OPcache contracts | ✅ Landed | runtime options/capability model present |
+| Loop contract + bounded `SelectLoop` | ✅ Landed | select/timer/deferred watcher implementation + tests |
+| Prefork supervisor + worker lifecycle/generations | ✅ Landed | restart/reload/recycle/reaping/control plane implemented |
+| Structured `ProcessRunner` + bounded concurrent pipe I/O | ✅ Landed | structured argv/process lifecycle + output/time bounds |
+| TCP/TLS/Unix/UDP + connection lifecycle/backpressure | ✅ Landed | native stream/datagram listeners + pressure limits |
+| Generic stream/datagram runtime + framing codecs | ✅ Landed | raw/line/length-prefixed codec/runtime workers |
+| Version-neutral HTTP transport | ✅ Landed | `HttpRequest`, body and response-writer contracts |
+| HTTP/1.1 engine | ✅ Landed | framing, body streaming, limits, keep-alive, backpressure tests |
+| HTTP/2 frame/stream/HPACK/flow-control engine | ✅ Landed | multiplexing, HPACK, scheduler, flow control, abuse tests |
+| Native TLS ALPN HTTP/1.1 + HTTP/2 dispatch | ✅ Landed | `h2` / `http/1.1` native dispatch |
+| HTTP/3 public capability surface | ✅ Landed | `ProtocolVersion::HTTP_3`, QUIC capability/ownership reporting |
+| HTTP/3 framing + full bounded QPACK core | 🔄 Active | `53cc62e`; protocol QA/static-analysis and remaining hardening next |
+| Native QUIC v1 + TLS 1.3 HTTP/3 worker | ⬜ Pending | wire `h3`, control/QPACK streams, request streams, drain/error mapping |
+| HTTP/1.1 ↔ HTTP/2 ↔ HTTP/3 semantic parity | ⬜ Pending | same version-neutral application handler semantics |
+| HTTP/3 abuse/fault/interoperability acceptance | ⬜ Pending | QUIC/QPACK stream churn, blocked streams, malformed frames, bounded memory |
+| CI QUIC extension-present + extension-absent lanes | 🔄 Active | workflow update required before more HTTP/3 runtime work |
+| Webrick native Runwire adapter contract | ⬜ Pending | begin only after Runwire transport gates are stable |
+| Host-driver execution: FPM/FrankenPHP/Swoole/RoadRunner | ⬜ Pending | advertised drivers must become executable, not capability-only |
+| Foundation native server + persistent driver integration | ⬜ Pending | after Runwire 1.0 runtime gates |
+| Omnibus/boundary integrations + aggregate soak/QA/benchmarks | ⬜ Pending | after Runwire-only gates |
+| Runwire 1.0 final release acceptance | ⬜ Pending | Sections 41 and 43 are authoritative |
 
 Tracker semantics:
 
-- **Landed** means the implementation slice is committed and has focused validation; it does not mean every release-gate/soak/integration item for that area is complete.
+- **Landed** means the implementation slice is committed and has focused validation; it does not mean every release/soak/integration gate for that area is complete.
 - **Active** is the current implementation slice.
-- **Pending** has not started as a substantive implementation slice.
-- Sections **41.17** and **43** remain the authoritative release-completion gates.
+- **Pending** has not yet passed substantive implementation/acceptance.
+- Runwire itself must be finalized before switching implementation work into Foundation/Webrick/Omnibus.
+- Sections **41** and **43** are the authoritative release-completion gates.
 
 ---
 
@@ -61,61 +75,51 @@ Tracker semantics:
 
 Runwire owns generic runtime mechanics that remain meaningful without Foundation, Webrick, Omnibus, ReqShield or Pathwise.
 
-## Runwire owns
+Runwire owns:
 
-- process creation/execution primitives;
-- trusted fork-based worker supervision;
-- spawned-process supervision;
-- PID/child bookkeeping;
-- signal registration/dispatch and process-group/session mechanics;
-- wait/reap semantics;
-- restart/backoff and graceful→forced termination primitives;
-- worker generation/reload primitives;
-- event-loop mechanics;
-- timers/deferred callbacks;
-- readable/writable stream watchers;
-- TCP/UDP/Unix-domain listener mechanics;
-- TLS transport mechanics where supported;
-- non-blocking connection lifecycle;
-- input/output buffering and backpressure;
-- connection limits and idle timeouts;
-- low-level protocol framing/codec contracts;
-- HTTP/1.1 and HTTP/2 wire parsing/serialization required for the native HTTP server;
-- TLS ALPN negotiation for `h2` / `http/1.1` in native TLS mode;
-- HTTP/2 connection/stream state, HPACK, multiplexing, flow control, graceful drain and abuse limits;
-- process/runtime status snapshots and generic lifecycle events;
-- safe structured process command execution;
-- executable/environment/cwd/output/time policy;
-- integration points for stronger external OS sandboxes.
+- structured child-process execution;
+- prefork worker supervision and generations;
+- PID/reaping/signal/restart/reload mechanics;
+- event-loop/timer/deferred/watcher primitives;
+- TCP, UDP and Unix-domain listener mechanics;
+- TLS transport;
+- QUIC transport integration for native HTTP/3;
+- non-blocking stream lifecycle and backpressure;
+- connection/stream/time/resource limits;
+- generic framing/codec contracts;
+- native HTTP/1.1 wire parsing/serialization;
+- native HTTP/2 frame/stream/HPACK/flow-control state;
+- native HTTP/3 frame/stream/QPACK state over QUIC;
+- TLS ALPN for `h2` / `http/1.1`;
+- QUIC ALPN `h3` and HTTP/3 connection startup;
+- protocol error/drain/close handling;
+- status/control/lifecycle events;
+- runtime capability detection including `supports_http3`, `owns_http3_wire`, and QUIC availability;
+- integration hooks for stronger OS process isolation.
 
-## Runwire does not own
+Runwire does not own:
 
-- application DI/container semantics;
-- Foundation release-generation/application lifecycle policy;
-- HTTP routes/controllers/middleware/business semantics;
-- application request validation;
-- storage/upload safety;
-- message queues/retries/workflows;
-- application authorization;
-- user/plugin trust decisions;
-- cryptography;
+- Foundation DI/application semantics;
+- Webrick routing/middleware/controllers;
+- application authentication/session/business logic;
+- request validation;
 - database/cache creation;
+- queue/message semantics;
+- storage/upload policy;
+- user/plugin authorization;
+- cryptography primitives;
 - arbitrary uploaded PHP execution;
-- a claim that PHP-level function blocking is a secure sandbox.
+- a claim that PHP-level process restrictions are a security sandbox.
 
 ---
 
 # 2. Dependency direction
 
-Runwire must remain a low-level dependency and never depend upward on application/framework packages.
-
-Required direction:
-
 ```text
                     Foundation
                   /     |      \
                  /      |       \
-             Webrick  Omnibus   Runwire direct process APIs
+             Webrick  Omnibus   Runwire direct APIs
                 |        |
                 +--------+
                     |
@@ -124,1666 +128,527 @@ Required direction:
                  PHP / OS
 ```
 
-Hard dependency rules:
+Hard rules:
 
-- Runwire must not require Foundation.
-- Runwire must not require Webrick.
-- Runwire must not require Omnibus.
-- Runwire must not require ReqShield.
-- Runwire must not require Pathwise.
-- Runwire must not require InterMix.
-- Runwire must not require DBLayer or CacheLayer.
-- Webrick may optionally integrate Runwire.
-- Omnibus may consume Runwire for generic process supervision.
-- Foundation consumes Runwire directly and through Webrick/Omnibus adapters.
-
-Keep production dependencies minimal. PHPForge remains development-only.
+- Runwire must not require Foundation, Webrick, Omnibus, ReqShield, Pathwise, InterMix, DBLayer or CacheLayer.
+- PHPForge remains development-only.
+- QUIC support must remain an optional runtime capability at Composer/package installation time.
+- Selecting native HTTP/3 must fail fast when the required QUIC capability is unavailable.
+- Webrick/Foundation consume the version-neutral HTTP contract, not HTTP/1/2/3 internals.
 
 ---
 
-# 3. Runtime baseline
+# 3. Runtime baseline and extensions
 
-Initial baseline:
+Baseline:
 
 ```text
 PHP: ^8.4
 PHPForge: dev-main@dev (development only)
 ```
 
-Platform capability model:
+Core process/runtime extensions:
 
-- `proc_open()` path available where PHP exposes it;
-- `ext-pcntl` enables Unix fork/signal/wait supervision features;
-- `ext-posix` enables Unix process signalling/session/identity helpers where required;
-- `ext-openssl` enables TLS where required;
-- `ext-event` may be an optional high-performance loop backend;
-- pure PHP `stream_select()` remains the portable baseline event loop.
+- `ext-pcntl` — Unix fork/signal/wait baseline;
+- `ext-posix` — Unix identity/signalling helpers;
+- `ext-openssl` — TCP/TLS support;
+- `ext-sockets` — enhanced socket support where used;
+- `ext-event` — optional faster event backend;
+- pure PHP `stream_select()` remains the portable native loop baseline.
 
-Do not make `ext-event` mandatory for 1.0.
+HTTP/3/QUIC capability:
 
-Do not pretend Windows and Unix have identical process capabilities. Runwire must expose capability detection and fail clearly when a requested feature is unavailable.
+- Runwire 1.0 supports native HTTP/3 through an optional mature QUIC extension/engine adapter;
+- the initial supported CI engine is `mikepultz/php-quic` (`ext-quic` / `Quic\*` API), installed independently of Composer application dependencies;
+- QUIC requires TLS 1.3-capable underlying crypto support supplied by the QUIC engine;
+- core installation must still work when `ext-quic` is absent;
+- `RuntimeEnvironmentProbe` must distinguish QUIC unavailable from QUIC available;
+- HTTP/3 capability reporting must never claim wire ownership merely because another host/proxy supports HTTP/3 upstream.
+
+CI must prove both:
+
+```text
+normal PHPForge matrix: QUIC absent is valid
+HTTP/3 integration matrix: QUIC extension present and native HTTP/3 tests execute
+```
+
+Do not make `ext-event` or `ext-quic` mandatory for ordinary Runwire installation.
 
 ---
 
-# 4. Architectural model
-
-The runtime has five distinct lifetimes:
+# 4. Lifetime model
 
 ```text
 master/runtime lifetime
     |
     +-- listener lifetime
+    |      |
+    |      +-- TCP/TLS connection lifetime
+    |      |      ├-- HTTP/1.1 requests
+    |      |      └-- HTTP/2 streams
+    |      |
+    |      +-- QUIC connection lifetime
+    |             ├-- HTTP/3 control streams
+    |             ├-- QPACK encoder/decoder streams
+    |             └-- HTTP/3 request streams
     |
     +-- worker-process lifetime
-    |      |
-    |      +-- event-loop lifetime
-    |      |
-    |      +-- connection lifetime
-    |             |
-    |             +-- request/message/protocol exchange lifetime
+    |      └-- event-loop/runtime-engine lifetime
     |
     +-- supervised child-process lifetime
 ```
 
-These lifetimes must not be conflated.
-
-Most importantly:
-
-> A Runwire worker process is not an application request/job execution scope.
-
-Foundation must create a fresh Foundation execution state for each web request, queue message, scheduler execution or other logical application execution.
+A Runwire worker/QUIC connection/TCP connection is never an application request scope. Foundation/Webrick must create fresh logical execution state for each request or stream.
 
 ---
 
-# 5. Configuration topology: build, validate, freeze, run
+# 5. Configuration topology
 
-Avoid Workerman-style process-global configuration as the primary architecture.
-
-Preferred model:
-
-```php
-$runtime = Runtime::create();
-
-$runtime->listen(
-    Server::tcp('0.0.0.0:8080')
-        ->workers(8)
-        ->protocol(Http1Protocol::class)
-        ->handler($handler),
-);
-
-$runtime->run();
-```
-
-Exact API naming may change, but the topology must follow:
+Runtime configuration follows:
 
 ```text
-construct/configure
-      ↓
-validate
-      ↓
-freeze
-      ↓
-run
+construct/configure → validate → freeze → run
 ```
 
 Requirements:
 
-- runtime topology is instance-owned;
-- no mutable process-global listener registry;
-- listener/server definitions become immutable before workers accept traffic;
-- runtime validation happens before fork/listen where possible;
-- request/connection hot paths do not repeatedly normalize static configuration;
-- frozen configuration can be safely read by long-running workers;
-- one PHP process may construct independent runtime instances for tests without state leakage.
+- topology is instance-owned;
+- configuration becomes immutable before serving traffic;
+- static normalization does not repeat in hot paths;
+- one process can create independent runtime instances for tests;
+- native TCP/TLS and UDP/QUIC ownership is explicit;
+- HTTP/3 listener configuration must validate certificate/key, QUIC engine, ALPN and limits before advertising readiness;
+- no process-global mutable protocol tables.
 
 ---
 
 # 6. Event loop
 
-Introduce a narrow event-loop contract instead of coupling networking directly to one extension.
+Required event-loop capabilities:
 
-Required operations:
-
-- readable stream watcher;
-- writable stream watcher;
-- one-shot timer;
-- repeating timer;
+- readable/writable watcher;
+- one-shot/repeating timer;
 - deferred callback;
-- watcher/timer cancellation;
-- run;
-- stop;
-- monotonic time access or consistent monotonic timer behavior.
+- cancellation;
+- run/stop;
+- monotonic timing.
 
-## 6.1 Select backend
+`SelectLoop` remains the baseline. `ext-event` may provide an adapter with behavioral parity.
 
-Provide a pure-PHP baseline using `stream_select()`.
-
-Requirements:
-
-- no busy-spin when idle;
-- deterministic timer scheduling;
-- bounded watcher bookkeeping;
-- safe removal while callbacks are active;
-- errors/closed descriptors are handled without poisoning the loop;
-- monotonic deadlines use `hrtime()` where practical;
-- no hidden global loop singleton.
-
-## 6.2 Optional event backend
-
-Support `ext-event` only behind an adapter selected by capability/configuration.
-
-- no behavior difference visible to protocol/application code;
-- same timer/watcher lifecycle contract;
-- no mandatory extension for normal installation;
-- benchmark before making it Foundation's production recommendation.
-
-## 6.3 Coroutine non-goal for 1.0
-
-Do not make a custom coroutine scheduler a Runwire 1.0 prerequisite.
-
-Fibers may be used internally only when they provide a measured and bounded benefit. Do not redesign Foundation execution around Runwire Fibers.
+HTTP/3 integration must not busy-poll QUIC. The QUIC adapter must expose bounded polling/timer integration with the active Runwire loop/worker strategy. A QUIC engine that requires its own host loop must be isolated behind the transport adapter rather than leaking host calls through HTTP/3 classes.
 
 ---
 
-# 7. Network listener layer
+# 7. Network transport layer
 
-Runwire 1.0 should support:
+Runwire 1.0 supports:
 
-- TCP listeners;
-- UDP listeners;
-- Unix-domain sockets on supported Unix systems;
+- TCP;
+- UDP;
+- Unix-domain sockets where supported;
 - TLS over TCP;
-- IPv4 and IPv6;
-- configurable backlog;
-- socket/stream context options;
-- listener enable/disable lifecycle;
-- graceful listener drain/close.
+- QUIC v1 over UDP for HTTP/3;
+- IPv4/IPv6;
+- graceful listener drain/close;
+- bounded connection counts and buffers.
 
-## 7.1 Listener ownership
-
-For prefork mode, choose and document one authoritative listener model.
-
-Preferred initial direction:
+Native prefork model:
 
 ```text
-master validates/binds listeners
+master validates/binds supported shared resources
         ↓
-fork trusted server workers
+forks trusted workers
         ↓
-workers inherit listening descriptors
-        ↓
-master does not process application connections
+workers own request/connection processing
 ```
 
-This provides deterministic bind failure before worker startup and avoids each worker racing to bind.
-
-If `SO_REUSEPORT` support is later added, treat it as an explicit alternate strategy and benchmark it separately.
-
-## 7.2 Fork-safety boundary
-
-The master must remain application-resource-clean before fork.
-
-Do not open in the master before forking if the connection/resource will be used independently by workers:
-
-- DB connections/PDO;
-- Redis/Valkey connections;
-- broker sockets;
-- outbound HTTP pools;
-- mutable lock handles;
-- process-bound telemetry exporters;
-- Foundation application container instances that own such resources.
-
-Listeners intentionally designed for descriptor inheritance are the exception.
+QUIC listener ownership must be documented and implemented according to the selected engine's fork/socket safety. Do not assume TCP descriptor-inheritance semantics automatically apply to QUIC engine objects. If the QUIC engine is not fork-safe, initialize/bind it in the worker according to an explicit deterministic strategy.
 
 ---
 
-# 8. Connection layer
+# 8. Connection, stream and backpressure layer
 
-Each accepted stream connection must have an explicit object/lifecycle.
+TCP stream connections require bounded receive/send buffers, high/low watermarks, pause/resume, graceful close, idle/lifetime timeouts and byte counters.
 
-Required capabilities:
+HTTP/2 and HTTP/3 additionally require per-stream and aggregate connection bounds.
 
-- non-blocking reads/writes;
-- bounded receive buffer;
-- bounded send buffer;
-- high/low watermarks;
-- pause/resume reads;
-- backpressure propagation;
-- graceful close after pending writes;
-- immediate abort close;
-- peer/local address metadata;
-- idle timeout;
-- total connection lifetime timeout where configured;
-- per-listener connection ceiling;
-- worker connection ceiling;
-- byte counters;
-- close reason/result taxonomy.
+HTTP/3/QUIC requirements:
 
-No unbounded string concatenation for network input/output.
-
-Large bodies/streams must be processed incrementally.
+- peer/local QUIC connection metadata;
+- bounded bidirectional and unidirectional stream counts;
+- bounded per-stream request/response buffering;
+- aggregate QUIC connection buffering ceiling;
+- QUIC transport flow-control credit and HTTP application backpressure compose without unbounded shadow queues;
+- STOP_SENDING / RESET_STREAM are propagated to application/body cleanup;
+- connection termination cleans all request/control/QPACK stream state exactly once;
+- slow QUIC peers cannot consume unlimited worker memory.
 
 ---
 
-# 9. Backpressure and overload behavior
+# 9. Overload policy
 
-Backpressure is a release-blocking requirement, not a post-1.0 optimization.
-
-Runwire must define behavior for:
+Release-blocking backpressure cases:
 
 ```text
 client sends faster than handler consumes
-handler produces faster than socket writes
-worker hits connection ceiling
-worker output buffer ceiling reached
-listener/system is overloaded
+handler produces faster than transport writes
+TCP connection ceiling reached
+HTTP/2 stream ceiling reached
+QUIC connection/HTTP/3 stream ceiling reached
+QPACK blocked-stream budget reached
+worker memory/output budget reached
 ```
 
-Requirements:
-
-- pause socket reads when receive-side pressure requires it;
-- pause producer/application writes or return explicit pressure state when output exceeds high watermark;
-- resume at low watermark;
-- connection limits are enforced before memory exhaustion;
-- slow-client tests must prove bounded memory;
-- no global buffer shared between unrelated connections;
-- overload must fail predictably instead of allowing process-wide OOM.
+Runwire must fail predictably rather than permit process-wide OOM or unbounded work amplification.
 
 ---
 
-# 10. Native HTTP/1.1 + HTTP/2 protocol stack for Foundation/Webrick
+# 10. Native HTTP stack: HTTP/1.1 + HTTP/2 + HTTP/3
 
-Runwire must own only the **wire/server transport** aspects necessary to receive and send HTTP.
-
-Runwire owns:
-
-- request line parsing;
-- header framing/parsing;
-- header count/byte bounds;
-- Content-Length framing;
-- chunked request framing;
-- connection persistence/keep-alive mechanics;
-- request body streaming/bounds;
-- response status/header/body serialization;
-- chunked/known-length response framing as required;
-- connection close semantics;
-- malformed framing rejection;
-- protocol-level timeout handling.
-
-Webrick owns:
-
-- Webrick Request/Response objects;
-- routing;
-- middleware;
-- controller dispatch;
-- content negotiation;
-- cookies/security headers/application HTTP semantics;
-- error rendering;
-- application request limits that are above Runwire's transport hard bounds.
-
-Foundation owns:
-
-- application graph;
-- request execution scope;
-- auth/session/database application state;
-- selected Webrick/Runwire configuration;
-- release generation and deployment policy.
-
-## 10.1 HTTP parser security requirements
-
-At minimum cover:
-
-- bounded request line;
-- bounded individual header line;
-- bounded total header bytes;
-- bounded header count;
-- invalid/multiple conflicting Content-Length;
-- Transfer-Encoding / Content-Length ambiguity;
-- malformed chunk sizes;
-- oversized chunk metadata;
-- premature EOF;
-- invalid control characters;
-- request smuggling edge cases;
-- slow headers/body timeouts;
-- body ceiling before unbounded buffering;
-- keep-alive request count ceiling if configured.
-
-Do not expose partially parsed attacker-controlled structures as trusted application input.
-
-## 10.2 Protocol targets and standards baseline
-
-Runwire 1.0 native HTTP has two release-required wire protocols:
+Runwire 1.0 ships all three native wire generations as first-class release requirements:
 
 ```text
 HTTP/1.1  REQUIRED
 HTTP/2    REQUIRED
+HTTP/3    REQUIRED
 ```
 
-Standards baseline:
+Shared application contract:
+
+```text
+HTTP/1.1 request ───────────┐
+HTTP/2 request stream ──────┼─> Runwire HttpRequest / ResponseWriterInterface ─> Webrick
+HTTP/3 request stream ──────┘
+```
+
+Application semantics must not depend on transport version.
+
+## 10.1 Standards baseline
 
 - HTTP semantics: RFC 9110;
-- HTTP/1.1 message syntax/routing: RFC 9112;
+- HTTP/1.1: RFC 9112;
 - HTTP/2: RFC 9113;
 - HPACK: RFC 7541;
 - TLS ALPN: RFC 7301;
-- extensible HTTP priorities: RFC 9218 where/when priority signaling is consumed;
-- WebSocket over HTTP/2 extended CONNECT: RFC 8441 if/when that optional integration is enabled.
+- HTTP/3: RFC 9114;
+- QUIC transport: RFC 9000;
+- QUIC TLS: RFC 9001;
+- QUIC loss detection/congestion control supplied by the selected mature QUIC engine according to RFC 9002 or compatible implementation;
+- QPACK: RFC 9204;
+- extensible HTTP priorities: RFC 9218 where consumed.
 
-Do not implement against obsolete RFC 7540 behavior where RFC 9113 intentionally changed/deprecated it. In particular, the old RFC 7540 dependency-tree priority scheme is deprecated and HTTP/1.1 Upgrade-to-`h2c` is not a required production path.
+HTTP/3 is **not** HTTP/2 framing over UDP. Runwire HTTP/3 code operates over QUIC streams supplied by the QUIC adapter.
 
-The common Runwire HTTP transport contract must prevent Webrick/Foundation from caring whether the request arrived through HTTP/1.1 or an HTTP/2 stream.
+## 10.2 HTTP/1.1 acceptance
+
+Keep existing production requirements:
+
+- strict request-line/header parsing;
+- duplicate/header semantics;
+- Content-Length/chunked framing;
+- smuggling ambiguity rejection;
+- slow-header/body deadlines;
+- body/header count/byte limits;
+- keep-alive lifecycle;
+- fixed/chunked/streamed response behavior;
+- bounded backpressure.
+
+## 10.3 HTTP/2 acceptance
+
+Keep existing requirements:
+
+- TLS ALPN `h2` / `http/1.1`;
+- preface + SETTINGS validation;
+- frame parser/writer;
+- stream lifecycle and monotonic stream IDs;
+- HPACK encoder/decoder/dynamic table/Huffman;
+- connection + stream flow control;
+- GOAWAY drain;
+- per-stream/aggregate backpressure;
+- Rapid Reset/control-frame/header-block abuse bounds.
+
+## 10.4 HTTP/3 connection startup
+
+Native HTTP/3 requires:
 
 ```text
-HTTP/1.1 connection/request ─┐
-                             ├─ Runwire HTTP transport request/response contract -> Webrick
-HTTP/2 connection/stream ────┘
+UDP
+  ↓
+QUIC v1 + TLS 1.3
+  ↓ ALPN h3
+HTTP/3 connection
 ```
 
-Application routing, middleware, authentication, validation and response semantics remain above the wire protocol.
+Requirements:
 
----
+- advertise/accept `h3` ALPN through the QUIC engine;
+- reject unsupported application protocols;
+- enforce handshake/idle/lifetime limits;
+- create the local HTTP/3 control stream;
+- create the local QPACK encoder stream;
+- create the local QPACK decoder stream;
+- accept exactly one peer control stream, one peer QPACK encoder stream and one peer QPACK decoder stream;
+- duplicate critical streams are connection errors;
+- closing a critical stream unexpectedly is a connection error;
+- SETTINGS must be the first frame on the peer control stream;
+- missing/duplicate/invalid SETTINGS fail with RFC 9114 errors;
+- unknown SETTINGS are ignored while reserved identifiers are handled according to RFC requirements;
+- request streams are QUIC client-initiated bidirectional streams;
+- server push is not a 1.0 application feature.
 
-## 10.3 HTTP/2 negotiation and connection startup
+## 10.5 HTTP/3 frame engine
 
-Native TLS listeners must support ALPN negotiation between at least:
-
-```text
-h2
-http/1.1
-```
-
-When both are enabled, Runwire should advertise both and prefer `h2` according to configured protocol order while remaining interoperable with HTTP/1.1 clients.
-
-Required behavior:
-
-- ALPN-selected `h2` enters the HTTP/2 connection state machine directly;
-- ALPN-selected `http/1.1` enters the HTTP/1.1 parser;
-- unknown/unsupported negotiated protocols fail clearly;
-- TLS handshake timeout is bounded;
-- no protocol sniffing ambiguity after ALPN establishes the protocol;
-- protocol choice is immutable for that TCP/TLS connection.
-
-Cleartext HTTP/2 policy:
-
-- prior-knowledge `h2c` may be supported as an explicit opt-in native listener capability;
-- HTTP/1.1 `Upgrade: h2c` is not required for 1.0 and should not be the default because RFC 9113 deprecates that upgrade path;
-- production documentation should recommend TLS + ALPN for public HTTP/2 service.
-
-The HTTP/2 client connection preface and first SETTINGS exchange must be validated before application streams are accepted.
-
----
-
-## 10.4 HTTP/2 frame engine
-
-Implement an incremental binary frame parser/writer with strict bounds. It must not require buffering an arbitrary connection payload before decoding frames.
-
-Required frame support/handling:
+Required HTTP/3 frame handling:
 
 ```text
 DATA
 HEADERS
-PRIORITY          protocol-compatible handling; legacy priority semantics are deprecated
-RST_STREAM
+CANCEL_PUSH        protocol handling
 SETTINGS
-PUSH_PROMISE      parse/protocol handling as required; server push is not a 1.0 app feature
-PING
+PUSH_PROMISE       reject/handle according to no-push policy
 GOAWAY
-WINDOW_UPDATE
-CONTINUATION
-unknown extension frames according to RFC 9113 rules
+MAX_PUSH_ID        protocol handling
+unknown extension frames according to RFC 9114
 ```
 
 Requirements:
 
-- validate the fixed frame header before allocating payload storage;
-- enforce peer/local maximum frame size before payload growth;
-- validate stream-ID rules for each frame type;
-- validate frame-specific length/flag combinations;
-- SETTINGS ACK and value rules are enforced;
-- PING payload length is enforced;
-- WINDOW_UPDATE increment zero/overflow is rejected correctly;
-- HEADERS/PUSH_PROMISE continuation blocks remain contiguous until END_HEADERS as required;
-- an unfinished header block cannot grow without a configured byte/frame/time ceiling;
-- unknown extension frames can be skipped without copying into unbounded buffers;
-- protocol errors are mapped to stream or connection failure according to RFC 9113 rather than crashing the worker.
+- QUIC variable-length integer codec is bounded and 62-bit safe;
+- frame type/length parse incrementally across arbitrary stream fragmentation;
+- payload allocation obeys local hard limits;
+- forbidden frame/stream combinations produce the correct HTTP/3 error;
+- unknown extension frames are skipped without unbounded copies;
+- request HEADERS/DATA ordering follows RFC 9114;
+- trailing HEADERS are represented distinctly from initial headers;
+- content-length consistency is enforced at the common transport boundary.
 
-No application code receives raw frame parser internals.
+## 10.6 Full QPACK is required for Runwire 1.0
 
----
+Runwire 1.0 must **not** ship with QPACK permanently dynamic-table-disabled.
 
-## 10.5 HTTP/2 stream state and multiplexing
+Required QPACK features:
 
-Each HTTP/2 exchange is an explicit connection-owned stream with a state machine covering the RFC-defined lifecycle, conceptually:
+- complete RFC 9204 static table;
+- encoder dynamic table;
+- decoder dynamic table;
+- Set Dynamic Table Capacity;
+- Insert With Name Reference;
+- Insert Without Name Reference;
+- Duplicate;
+- indexed field lines;
+- indexed post-base field lines;
+- literal field lines with name reference;
+- literal field lines with post-base name reference;
+- literal field lines with literal name;
+- Required Insert Count wrap/reconstruction;
+- Base / Delta Base handling;
+- QPACK encoder stream;
+- QPACK decoder stream;
+- Section Acknowledgement;
+- Stream Cancellation;
+- Insert Count Increment;
+- Huffman encode/decode;
+- blocked field-section retention and bounded unblocking;
+- dynamic-entry reference pinning/eviction safety;
+- sensitive header never-index policy;
+- malformed integer/string/Huffman/table-reference errors;
+- bounded compressed and decompressed field-section sizes.
 
-```text
-idle
-reserved (where applicable)
-open
-half-closed local
-half-closed remote
-closed
-```
-
-Requirements:
-
-- client-initiated stream identifiers are validated and monotonic;
-- closed stream state is released promptly without losing protocol bookkeeping required to reject invalid reuse;
-- maximum concurrent streams is locally bounded regardless of peer behavior;
-- one stalled stream cannot block unrelated streams at the Runwire scheduler/application-dispatch layer;
-- stream cancellation propagates to the request/body producer where safe;
-- stream completion performs deterministic buffer/body/application callback cleanup;
-- connection close cancels/cleans every remaining stream exactly once;
-- stream objects do not become Foundation request scopes; they only carry transport state.
-
-Runwire must distinguish:
-
-```text
-connection lifetime
-    ├─ stream 1 -> application execution A
-    ├─ stream 3 -> application execution B
-    └─ stream 5 -> application execution C
-```
-
-Foundation/Webrick must create separate logical request execution state for every stream even when streams overlap on one connection.
-
----
-
-## 10.6 HPACK header compression
-
-Provide a dedicated HPACK implementation/component rather than mixing compression-table state into the general HTTP/2 connection class.
-
-Conceptual internal split:
+Hard bounds:
 
 ```text
-Http2
- ├─ FrameParser / FrameWriter
- ├─ ConnectionState
- ├─ StreamState
- ├─ FlowController
- └─ Hpack
-      ├─ Decoder
-      ├─ Encoder
-      ├─ DynamicTable
-      └─ Huffman decoder/encoder where implemented
+qpack_max_table_capacity
+qpack_max_blocked_streams
+max_compressed_field_section_bytes
+max_decoded_field_section_bytes
+max_header_fields
+max_qpack_encoder_stream_buffer
+max_qpack_decoder_stream_buffer
+max_retained_blocked_field_section_bytes
+max_qpack_work_per_tick
 ```
 
-HPACK requirements:
+A peer exceeding advertised QPACK blocked-stream/table limits must fail deterministically rather than allocate more state.
 
-- decoder dynamic table is connection-local;
-- encoder dynamic table is connection-local;
-- table size honors peer SETTINGS while also respecting a Runwire hard ceiling;
-- dynamic table updates are validated in the correct header-block position;
-- decoded header-list bytes/count are bounded independently from compressed bytes;
-- compressed input cannot cause unbounded decompressed allocation;
-- malformed integer/Huffman/string encodings fail deterministically;
-- Huffman decode has bounded work/output and rejects invalid terminal padding/state;
-- sensitive headers may use never-indexed encoding according to Runwire/Webrick policy;
-- HPACK state is destroyed with its owning connection and never shared globally across clients.
+## 10.7 HTTP/3 request/pseudo-header validation
 
-Do not optimize HPACK by creating mutable global tables.
+HTTP/3 request header validation must provide the same application-normalized result as HTTP/2 while applying HTTP/3 field rules:
 
----
+- pseudo-headers precede regular fields;
+- duplicates and invalid pseudo-headers rejected;
+- required `:method`, `:scheme`, `:path`, `:authority` combinations validated;
+- forbidden connection-specific fields rejected;
+- `TE` only permits `trailers`;
+- lowercase header names enforced;
+- authority/Host conflict prevented;
+- trailers cannot contain request-routing/framing fields;
+- field count/bytes remain under hard local bounds.
 
-## 10.7 HTTP/2 request-header and pseudo-header validation
+Shared validator logic should be protocol-neutral where RFC semantics are identical instead of duplicating HTTP/2-specific code unnecessarily.
 
-Before mapping an HTTP/2 request into the common Runwire HTTP request transport, validate HTTP/2-specific field semantics.
+## 10.8 QUIC and HTTP/3 flow control/backpressure
 
-At minimum:
+The selected QUIC engine owns packetization, congestion control, loss recovery, crypto packet protection and transport-level flow control mechanics.
 
-- header field names obey HTTP/2 lowercase requirements;
-- pseudo-header fields appear before regular fields;
-- pseudo-header fields are not duplicated;
-- only request-appropriate pseudo-headers are accepted;
-- required `:method`, `:scheme`, `:path`, `:authority` combinations are validated according to request form/CONNECT semantics;
-- connection-specific HTTP/1.x fields are rejected where HTTP/2 forbids them;
-- `TE` is accepted only with the HTTP/2-permitted `trailers` value;
-- header-list count and decoded bytes remain under local hard ceilings even when the peer advertises larger values;
-- trailers are represented distinctly from initial request headers;
-- authority/host normalization does not create two conflicting routing authorities.
+Runwire owns application-facing policy:
 
-HTTP/2 transport validation must not duplicate Webrick application validation.
+- consume request data incrementally;
+- stop reading/application delivery under pressure where the engine permits;
+- do not enqueue response DATA beyond per-stream/aggregate limits;
+- resume producers on writable/credit progress;
+- bound control/QPACK stream output separately from response DATA;
+- one blocked/slow HTTP/3 stream must not stall siblings;
+- QPACK blocked streams count against explicit limits;
+- stream cancellation releases application/body/QPACK references promptly.
 
----
+## 10.9 HTTP/3 graceful drain
 
-## 10.8 HTTP/2 flow control and backpressure
-
-HTTP/2 flow control must compose with Runwire's existing connection backpressure instead of becoming a parallel unbounded buffering system.
-
-Runwire must track both:
+Drain sequence:
 
 ```text
-connection flow-control window
-stream flow-control window
+worker/server draining
+      ↓
+stop admitting new QUIC connections where possible
+      ↓
+HTTP/3 GOAWAY with safe request-stream boundary
+      ↓
+reject later requests according to RFC 9114
+      ↓
+allow active streams within deadline
+      ↓
+close QUIC connection with NO_ERROR / appropriate code
+      ↓
+force termination after supervisor grace deadline
 ```
 
-Required behavior:
+GOAWAY state must be idempotent and bounded.
 
-- never transmit DATA beyond the peer-advertised connection or stream window;
-- inbound WINDOW_UPDATE changes credit without bypassing configured memory ceilings;
-- inbound DATA consumes receive credit before being accepted into application buffers;
-- replenish receive windows based on actual downstream consumption strategy, not simply because bytes were read from the socket;
-- per-stream outbound queues are bounded;
-- aggregate HTTP/2 connection outbound queue is bounded;
-- per-stream inbound/request-body buffering is bounded;
-- one slow stream cannot consume the entire connection/worker memory budget;
-- control frames required for protocol progress are not deadlocked behind DATA backpressure;
-- stream cancellation releases queued buffers and application body resources promptly.
+## 10.10 0-RTT and migration policy
 
-The implementation should use a simple fair scheduler initially. Do not implement a complex priority tree that RFC 9113 has deprecated.
+For Runwire 1.0:
 
-If RFC 9218 priority signals are later consumed, isolate them behind a scheduling policy so the core stream/flow-control state machine remains correct without them.
+- QUIC 0-RTT must be disabled by default;
+- if the engine exposes 0-RTT, Runwire must not dispatch replay-unsafe application requests as ordinary trusted requests without an explicit future policy;
+- connection migration/address rebinding may be supported by the QUIC engine, but Runwire must not use peer-address stability as an authentication boundary;
+- application peer metadata must document that QUIC peer addresses may change.
 
----
+## 10.11 HTTP/3 abuse resistance
 
-## 10.9 HTTP/2 graceful drain, reload and shutdown
+Release tests must cover:
 
-HTTP/2 must integrate with Runwire worker generations and graceful reload.
-
-Required drain sequence conceptually:
-
-```text
-worker enters draining
-      ↓
-stop accepting new connections where appropriate
-      ↓
-send GOAWAY with an appropriate last processed stream ID
-      ↓
-refuse/reject new streams beyond drain boundary
-      ↓
-allow active streams to complete within grace deadline
-      ↓
-close connection
-      ↓
-Runwire supervisor may terminate worker after deadline
-```
-
-Requirements:
-
-- GOAWAY state is explicit and idempotent;
-- multiple shutdown/reload requests do not corrupt last-stream accounting;
-- active streams have a bounded drain deadline;
-- client disconnect during drain cleans stream/application state;
-- graceful worker reload must not silently drop already accepted streams without the configured policy/deadline;
-- force termination remains available after grace expiration.
-
-PING may be used for protocol liveness/diagnostics but must not become an unbounded heartbeat flood.
-
----
-
-## 10.10 HTTP/2 security and abuse resistance
-
-HTTP/2 expands the resource-amplification surface because many logical streams and control frames share one TCP connection. Release acceptance must therefore include explicit abuse controls.
-
-Bound/configure at minimum:
-
-```text
-max concurrent streams
-max total streams created per connection / bounded churn policy
-max frame size accepted under protocol limits
-max compressed header-block bytes
-max CONTINUATION frames per header block
-max decoded header-list bytes
-max decoded header count
-max HPACK dynamic-table bytes
-max pending request-body bytes per stream
-max pending response bytes per stream
-max pending aggregate bytes per connection
-max SETTINGS/PING/RST_STREAM/WINDOW_UPDATE/control-frame rate or work budget
-header-block completion timeout
-stream idle/request timeout
-connection idle/lifetime policy
-```
-
-Specific adversarial cases to cover:
-
-- rapid open/reset stream churn (HTTP/2 Rapid Reset style behavior);
-- RST_STREAM floods that repeatedly force expensive application setup/cleanup;
-- SETTINGS floods/ACK churn;
-- PING floods;
-- WINDOW_UPDATE floods/overflow attempts;
-- endless or excessive CONTINUATION/header blocks;
-- HPACK compression/decompression bombs;
-- oversized dynamic-table requests;
-- streams opened beyond the advertised/local concurrency ceiling;
-- invalid/reused/decreasing stream IDs;
-- empty-frame/control-frame CPU amplification;
+- excessive QUIC connection attempts/handshake failures;
+- stream-open/reset/STOP_SENDING churn;
+- excessive unidirectional stream creation;
+- duplicate critical streams;
+- SETTINGS/control-stream floods;
+- oversized/fragmented frame headers and payloads;
+- QPACK encoder/decoder instruction floods;
+- QPACK dynamic-table churn/eviction pressure;
+- blocked-stream amplification;
+- compressed/decompressed header amplification;
+- malformed Required Insert Count/Base references;
+- unknown-frame CPU amplification;
 - request bodies that stall after headers;
-- outbound clients that stop reading while many streams are active.
+- slow readers with many concurrent response streams;
+- connection close while streams/QPACK references are active.
 
-Abuse limits should count **work/state pressure**, not only raw socket bytes. Exceeding an abuse threshold should fail the affected stream when safe or send GOAWAY/close the connection when the connection itself is abusive.
-
-Runwire must avoid retaining attacker-controlled closed-stream objects indefinitely merely to remember historical state; use compact bounded bookkeeping sufficient for protocol correctness.
-
----
-
-## 10.11 HTTP/2 server push and extended protocols
-
-Do not make HTTP/2 server push a Runwire 1.0 application feature. Runwire should remain protocol-correct around peer SETTINGS and must not emit PUSH_PROMISE from normal application responses in 1.0. This avoids committing Webrick/Foundation to an obsolete/poorly deployed application API.
-
-WebSocket over HTTP/2 using RFC 8441 extended CONNECT is a valid future/optional capability. If implemented in 1.0, it must:
-
-- be capability-negotiated;
-- reuse HTTP/2 stream flow control/backpressure;
-- map the established stream into Runwire's WebSocket wire layer without creating a second TCP socket abstraction;
-- preserve independent cleanup from sibling streams.
-
-Its absence must not block core HTTP/2 request/response support.
+Limits count work/state pressure, not only raw UDP bytes.
 
 ---
 
----
+# 11. Generic protocols and WebSocket
 
-# 11. WebSocket and generic protocols
+Generic raw/line/length-prefixed protocols remain supported independently of HTTP.
 
-Runwire's generic protocol layer should make custom servers possible without Webrick.
+WebSocket is optional for the initial 1.0 launch unless completed without weakening HTTP release gates. If included, keep it wire-level only.
 
-1.0 generic framing support should include lightweight contracts for:
-
-- raw byte stream;
-- line-delimited frames;
-- length-prefixed frames;
-- custom codec/parser implementations.
-
-WebSocket support is desirable for 1.x. If included in 1.0, keep it at the wire/connection layer: handshake/framing/ping/pong/close/backpressure. Do not add application routing/pub-sub semantics that belong elsewhere.
+WebTransport/HTTP Datagrams/MASQUE are explicitly post-1.0 features and must not delay core HTTP/3 request/response correctness.
 
 ---
 
-# 12. Trusted master/worker supervisor
+# 12. Supervisor and worker lifecycle
 
-Provide a reusable prefork supervisor inspired by proven server runtimes but designed as an instance-owned component.
+The prefork supervisor remains reusable for HTTP workers and generic tasks.
 
 Required behavior:
 
-- configured worker count;
-- fork children;
-- child slot/generation tracking;
-- clean child bootstrap;
-- crash detection;
-- restart budget;
-- bounded restart backoff;
-- graceful stop;
-- force-kill escalation;
-- complete child reaping;
-- rolling reload;
-- worker recycling;
-- lifecycle callbacks/events;
-- parent status snapshot;
-- no zombie processes.
+- configured worker counts;
+- fork/spawn and child normalization;
+- restart budgets/backoff;
+- readiness;
+- graceful/forced stop;
+- rolling reload/generation replacement;
+- child reaping with EINTR/ECHILD handling;
+- no zombies;
+- bounded lifecycle event failures;
+- runtime/control status snapshots.
 
-## 12.1 Signal rules
-
-Signal callbacks should mutate flags/wake the loop only.
-
-Full shutdown/reload/reaping logic runs in normal supervisor control flow.
-
-Handle at least:
-
-- SIGTERM graceful stop;
-- SIGINT interactive stop;
-- SIGHUP or configured reload signal where applicable;
-- SIGCHLD/wait/reap behavior if used;
-- restoration/normalization where library usage returns to a host process.
-
-Do not perform complex application work directly inside asynchronous PHP signal callbacks.
-
-## 12.2 Wait/reap correctness
-
-Explicitly handle:
-
-```text
-pid > 0     child reaped
-pid == 0    no state change for WNOHANG
-pid == -1
-  EINTR      retry
-  ECHILD     reconcile child table
-  other      supervisor failure
-```
-
-Never infinite-loop because tracked child state disagrees with kernel child state.
-
-## 12.3 Child normalization
-
-Before child application bootstrap:
-
-- reset Runwire-owned master signal handlers;
-- unblock Runwire-owned signals;
-- normalize async signal mode;
-- clear parent-only timer/alarm state owned by Runwire;
-- clear parent child/restart bookkeeping;
-- identify role/slot/generation explicitly;
-- invoke child bootstrap only after this normalization.
-
-Do not attempt to clean arbitrary unknown application state; applications must obey the pre-fork clean-parent contract.
+HTTP/2 and HTTP/3 drain must integrate with worker generations rather than being bypassed by immediate worker termination.
 
 ---
 
-# 13. Rolling reload and generations
+# 13. Process runner
 
-Foundation already has release generations, but Runwire must own generic process generation mechanics.
+Primary invariant:
 
-Required distinction:
+> executable + argv, not shell strings.
 
-```text
-Runwire worker generation
-    = process-supervisor generation/instance identity
+Required controls:
 
-Foundation release generation
-    = application release/config/artifact identity
-```
-
-Foundation maps its release generation onto Runwire worker startup policy; Runwire must not inspect Foundation manifests.
-
-Rolling reload requirements:
-
-- start replacement worker(s) with new generation;
-- do not route new connections/work to draining workers once drain begins where architecture permits;
-- allow active connection/request grace period;
-- terminate after configured deadline;
-- maintain minimum healthy capacity where possible;
-- status snapshot identifies worker state and generation;
-- reload storms are coalesced/bounded.
-
----
-
-# 14. Generic supervised tasks
-
-Runwire supervisor must not be HTTP-only.
-
-It should also be able to supervise trusted long-running callbacks/tasks so Omnibus and Foundation scheduler/worker infrastructure can reuse the same process machinery.
-
-Conceptual model:
-
-```php
-$supervisor->group(
-    WorkerGroup::callbacks(
-        name: 'queue:emails',
-        count: 4,
-        factory: $factory,
-    ),
-);
-```
-
-The callback/task semantics stay with the consumer library/application.
-
-Runwire knows only:
-
-- process lifecycle;
-- startup/shutdown;
-- restart/reload;
-- health/lifecycle signals;
-- status.
-
-It must not know message queues, retries or workflow semantics.
-
----
-
-# 15. Omnibus integration boundary
-
-Omnibus owns:
-
-- `Consumer`;
-- message `Worker` loop;
-- queue polling/prefetch;
-- retry/failure/settlement;
-- worker recycling decisions driven by messages/runtime policy;
-- queue-specific lifecycle.
-
-Runwire owns:
-
-- process fork;
-- process slots;
-- signals;
-- wait/reap;
-- generic restart/backoff;
-- graceful/forced process termination;
-- process generation/health mechanics.
-
-Target architecture:
-
-```text
-Omnibus WorkerPool compatibility/facade
-          |
-          | queue policy + Worker factory
-          v
-Runwire Supervisor / WorkerGroup
-          |
-          v
-pcntl / posix / OS
-```
-
-Runwire must not depend on Omnibus.
-
-Omnibus may make Runwire a production dependency if its public process pool delegates to Runwire; avoid keeping a second `pcntl` implementation solely for compatibility once the migration is complete.
-
----
-
-# 16. Structured process execution — former ProcessGuard scope
-
-Runwire also owns safe generic child command execution.
-
-Primary API invariant:
-
-> Commands are executable + argv, not shell strings.
-
-Conceptual API:
-
-```php
-$command = Command::executable('/usr/bin/git')
-    ->arguments(['status', '--porcelain'])
-    ->timeout(10.0)
-    ->maxOutputBytes(1_000_000);
-
-$result = $runner->run($command);
-```
-
-Never design the primary API around:
-
-```php
-$runner->run('git ' . $userInput);
-```
-
-## 16.1 Command policy
-
-Support trusted policy controls such as:
-
-- executable allowlist/registry;
-- argv count limit;
-- per-argument byte limit;
-- total argv byte limit;
-- environment allowlist;
-- environment value limits;
-- controlled cwd;
-- stdin size/stream bounds;
-- stdout/stderr capture/stream/inherit modes;
-- stdout/stderr maximum bytes;
+- executable policy;
+- argv/env/cwd/stdin bounds;
+- CAPTURE/STREAM/INHERIT/NULL output modes;
+- concurrent stdout/stderr drain;
 - wall-clock timeout;
-- graceful terminate then force kill;
-- exit status/result model.
-
-Use `proc_open()` array command form where supported to avoid an unnecessary shell.
-
-Shell execution must be an explicit exceptional API/policy, not the default path.
-
-## 16.2 Registered operation model
-
-Runwire may expose a generic executable/operation registry for trusted application configuration, but must not authorize application users.
-
-Foundation can map:
-
-```text
-image.thumbnail
-pdf.inspect
-git.status
-```
-
-to trusted Runwire command definitions.
-
-ReqShield validates the operation identifier/arguments structurally. Foundation authorizes the operation. Runwire executes the already-authorized definition.
+- terminate → kill escalation;
+- output ceilings/truncation policy;
+- deterministic pipe/process closure;
+- no implicit shell execution.
 
 ---
 
-# 17. Process I/O
+# 14. Security boundary
 
-Support explicit I/O modes:
+Trusted Foundation/Webrick/Omnibus workers may use prefork/native persistent execution.
 
-```text
-CAPTURE
-STREAM
-INHERIT
-NULL
-```
+Untrusted uploaded/user code requires a separate executable/runtime/UID/GID/OS sandbox boundary. Runwire can orchestrate such a process but does not replace seccomp/AppArmor/SELinux/container/bwrap/systemd sandboxing.
 
-Where practical support input as:
-
-- string;
-- stream resource;
-- callback/chunk producer.
-
-Requirements:
-
-- stdout/stderr drained concurrently to prevent deadlock;
-- bounded capture buffers;
-- overflow behavior explicit: terminate, truncate-with-flag, or stream-only according to policy;
-- child pipes close deterministically;
-- descriptors never leak into unrelated workers/processes;
-- timeout handling continues draining/reaping safely;
-- result records exit status, termination reason and output truncation state.
+No PHP `@` error-suppression operators are allowed anywhere in Runwire source or tests. Expected warnings/errors must use explicit result/warning handling.
 
 ---
 
-# 18. Privilege and identity primitives
+# 15. Integration boundaries
 
-Runwire may provide narrowly scoped Unix identity/session primitives because they are generic process mechanics.
+## Webrick
 
-Possible supported operations when `ext-posix` and permissions permit:
-
-- get PID/PPID;
-- setsid;
-- set group before user;
-- setgid/setegid;
-- setuid/seteuid;
-- initgroups where available;
-- process signalling;
-- process-group signalling.
-
-Hard rules:
-
-- Foundation must not remain root merely because these APIs exist;
-- privilege dropping is one-way in recommended production profiles;
-- group identity is dropped/configured before user identity;
-- privileged bootstrap should be minimal;
-- failures fail closed;
-- Runwire must not market these APIs as a complete sandbox.
-
----
-
-# 19. Trusted server workers vs untrusted-code execution
-
-This distinction is mandatory.
-
-## Trusted workers
-
-Foundation/Webrick/Omnibus application workers are trusted deployment code.
-
-They may use prefork for performance and can inherit loaded PHP extensions from the clean master.
-
-## Untrusted code
-
-Uploaded/user-supplied PHP/scripts/plugins are not safe merely because Runwire created a child with `pcntl_fork()`.
-
-A forked child inherits the PHP runtime and loaded capabilities.
-
-Therefore arbitrary untrusted code must use a separately configured execution boundary such as:
-
-```text
-Runwire structured Process command
-        ↓
-separate PHP binary/php.ini or sandbox launcher
-        ↓
-dedicated UID/GID
-        ↓
-external OS boundary
-        ├─ seccomp
-        ├─ AppArmor/SELinux
-        ├─ namespace/container/bwrap/systemd sandbox
-        └─ stronger sandbox when threat model requires it
-```
-
-Runwire can orchestrate that boundary but cannot replace the OS security boundary.
-
----
-
-# 20. PHP capability/profile guidance
-
-Document recommended split profiles for Foundation deployments.
-
-Example conceptual profiles:
-
-```text
-foundation-supervisor.ini
-    pcntl/posix available as required
-
-foundation-worker.ini
-    only capabilities required by trusted application worker
-
-untrusted-executor.ini
-    separate restricted runtime plus OS sandbox
-```
-
-Do not rely solely on `disable_functions` as the security boundary.
-
-Runwire should provide capability diagnostics rather than pretending runtime configuration can always be changed safely after process startup.
-
-Potential diagnostic model:
-
-```php
-$capabilities = RuntimeCapabilities::detect();
-```
-
-It can report availability of fork, signals, POSIX identity, TLS, event backend and process spawning without exposing application policy.
-
----
-
-# 21. Pathwise boundary
-
-Pathwise owns untrusted filesystem/path/upload safety.
-
-Runwire must not duplicate:
-
-- upload validation;
-- archive validation;
-- storage root/mount semantics;
-- Pathwise malware scanner policy;
-- user-file canonicalization APIs.
-
-When Foundation needs to pass a stored artifact to a registered process operation:
-
-```text
-Pathwise resolves/authorizes storage artifact
-        ↓
-Foundation authorizes operation
-        ↓
-Runwire receives trusted resolved execution inputs
-```
-
-Runwire process cwd/executable rules remain process policy, not a replacement for Pathwise storage safety.
-
-External executable-based malware scanners may be implemented by an application adapter that combines Pathwise's `MalwareScannerInterface` with Runwire structured process execution. Pathwise itself should not require Runwire.
-
----
-
-# 22. ReqShield boundary
-
-ReqShield validates data and intent.
-
-It must not become a shell/process sandbox.
-
-Correct composition:
-
-```text
-user input
-   ↓
-ReqShield: validates operation ID + scalar/structured arguments
-   ↓
-Foundation: authorizes capability + selects registered operation
-   ↓
-Runwire: executes structured process definition
-```
-
-Strings containing `exec`, `system`, `pcntl_fork`, etc. remain ordinary data unless a schema/application rule says otherwise.
-
-Runwire must not require ReqShield.
-
----
-
-# 23. Webrick native adapter contract
-
-Webrick will add a native Runwire runtime adapter.
-
-Recommended flow:
-
-```text
-Runwire HTTP/1.1 connection or HTTP/2 connection/stream
-        ↓
-Runwire version-neutral HTTP request transport object
-        ↓
-Webrick RunwireRuntimeAdapter
-        ↓
-Webrick RuntimeRequestContext / routing input
-        ↓
-Webrick kernel
-        ↓
-Webrick Response
-        ↓
-Runwire response writer/connection
-```
-
-Runwire must expose enough HTTP transport information for Webrick without forcing Webrick to depend on Runwire internals.
-
-Keep the boundary small and stable:
+Runwire supplies only transport-level request/response information:
 
 - method;
-- target/path/query;
-- protocol version;
-- ordered/normalized headers with duplicate semantics preserved;
-- body stream;
+- target;
+- protocol version (`1.1`, `2`, `3`);
+- ordered/normalized headers;
+- streaming body;
 - peer/local metadata;
-- upload/body streaming hooks where required;
-- response writer contract or native response transport.
+- encrypted state;
+- response writer/backpressure.
 
-Do not move Webrick routing or middleware into Runwire.
+## Foundation
 
----
+Foundation owns CLI/config/release generation/application scopes and selects the Runwire runtime.
 
-# 24. Foundation native server integration
+## Omnibus
 
-Foundation 3 should treat Runwire as its native persistent server runtime.
+Omnibus owns queue/message semantics. Runwire may own generic process supervision only.
 
-Conceptual CLI path:
+## Pathwise / ReqShield
 
-```text
-php foundation serve
-        ↓
-Foundation config/release selection
-        ↓
-Runwire Runtime + Supervisor
-        ↓
-Runwire HTTP listener/workers
-        ↓
-Webrick RunwireRuntimeAdapter
-        ↓
-Foundation web execution scope
-```
-
-Foundation owns:
-
-- CLI commands/options;
-- release-generation selection;
-- application graph compilation/loading;
-- runtime process registry/operational policy;
-- worker bootstrap callback;
-- app-specific heartbeat/health semantics;
-- request scope creation/cleanup;
-- auth/session/database/application state.
-
-Runwire owns generic process/network mechanics.
+No reverse dependency. Pathwise owns storage/path safety; ReqShield owns validation/intent. Foundation authorizes and passes already-trusted execution inputs to Runwire.
 
 ---
 
-# 25. Foundation runtime unification opportunity
+# 16. Runtime drivers and OPcache
 
-Runwire should be capable of supervising all Foundation long-running process groups without learning Foundation semantics:
-
-```text
-Foundation release supervisor policy
-        ↓
-Runwire
-   ├─ web worker group -> Webrick
-   ├─ queue worker group -> Omnibus Worker
-   ├─ scheduler worker/group -> Foundation scheduler callback
-   └─ trusted custom process groups
-```
-
-This can remove duplicate `pcntl`/`posix` mechanics from Foundation and Omnibus.
-
-Do not force all four Foundation execution paths into one OS process. The supervisor may manage separate groups/processes.
-
----
-
-# 26. Control plane
-
-Provide generic control mechanics usable by Foundation and standalone Runwire applications.
-
-1.0 should support programmatic:
-
-- start/run;
-- graceful stop;
-- force stop;
-- reload;
-- status snapshot;
-- worker listing/state;
-- runtime/listener health snapshot.
-
-For external control, prefer a local authenticated-by-filesystem Unix-domain control socket on supported Unix platforms rather than relying only on PID files/signals for structured status.
-
-However, keep the initial control protocol small. Foundation owns its CLI UX and may translate commands to Runwire control operations.
-
-Security requirements:
-
-- local control endpoint path is trusted configuration;
-- restrictive filesystem permissions;
-- no arbitrary command execution through control messages;
-- bounded request/message size;
-- versioned/simple control protocol;
-- stale socket cleanup is safe;
-- PID identity/reuse is not trusted without process/runtime identity correlation.
-
----
-
-# 27. Runtime identity and status
-
-Expose immutable status DTOs/value objects rather than mutable internal arrays.
-
-Useful fields:
-
-- runtime ID;
-- master PID;
-- start monotonic/wall time;
-- listener names/addresses/state;
-- worker group;
-- slot;
-- PID;
-- generation;
-- state: starting/ready/draining/stopping/exited/failed;
-- restart count;
-- connections active/accepted;
-- bytes read/written;
-- optional application-supplied health metadata with strict bounds.
-
-Runwire status must not automatically expose environment variables, command secrets, headers, request bodies or application credentials.
-
----
-
-# 28. Observability
-
-Provide low-overhead hooks rather than binding to one telemetry stack.
-
-Events/counters should cover:
-
-- master start/stop;
-- worker spawn/ready/exit/restart;
-- reload start/complete;
-- listener bind/error;
-- connection accept/close/reject;
-- input/output bytes;
-- parser/protocol error;
-- HTTP/2 active streams / stream open-close-reset counts;
-- HTTP/2 GOAWAY / connection-vs-stream protocol failures;
-- HTTP/2 flow-control stalls and backpressure transitions;
-- HPACK decoded/compressed header bytes and bounded table size (without logging header values);
-- backpressure transitions;
-- process command start/exit/timeout;
-- supervisor failure.
-
-Requirements:
-
-- instrumentation disabled/no-op path is cheap;
-- no per-byte event callback;
-- sensitive argv/env values are redacted or not emitted by default;
-- application hooks cannot mutate supervisor internals.
-
----
-
-# 29. Error taxonomy
-
-Define stable high-level exception/result families rather than leaking raw warnings.
-
-Suggested conceptual categories:
-
-```text
-RuntimeException
-CapabilityUnavailable
-ConfigurationException
-ListenerException
-ProtocolException
-ConnectionException
-SupervisorException
-ProcessStartException
-ProcessTimeout
-ProcessOutputLimitExceeded
-ControlException
-```
-
-Do not overproduce tiny exception classes when a stable reason enum/value provides a better API.
-
-Network protocol errors generally close/reject the affected connection; they should not crash the worker unless they expose an invariant failure.
-
----
-
-# 30. Security invariants
-
-Release-blocking invariants:
-
-- no API takes untrusted shell command strings as the preferred execution surface;
-- no implicit `/bin/sh -c` for normal structured commands;
-- no unbounded network input/output buffers;
-- no unbounded request headers/body buffering;
-- no unbounded HTTP/2 stream/frame/header-block/HPACK state;
-- HTTP/2 stream/control-frame churn cannot create unbounded CPU or retained state;
-- no process-global mutable runtime topology;
-- no cross-connection/request application state stored by Runwire;
-- no worker child accidentally uses application DB/cache/broker connections created before fork;
-- signals never execute arbitrary application shutdown logic reentrantly;
-- all children are reaped;
-- shutdown/reload has bounded grace periods;
-- executable/process environment is explicit;
-- sensitive argv/env/output is not logged by default;
-- untrusted uploaded PHP is never described as safe merely because it runs in a forked process;
-- stronger hostile-code isolation is delegated to OS sandboxing.
-
----
-
-# 31. Resource limits
-
-Where available, add or integrate bounded resource policy progressively.
-
-1.0 must at least own application-level limits for:
-
-- execution wall time;
-- captured output;
-- argv/env size;
-- network connections;
-- network buffers;
-- header/body framing;
-- HTTP/2 concurrent streams, stream churn and frame/control work budgets;
-- HTTP/2 compressed/decompressed header blocks and HPACK tables;
-- HTTP/2 per-stream + aggregate connection buffering/flow-control state;
-- idle timeouts;
-- restart frequency/budget.
-
-OS resource limits (`rlimit`) may be supported where PHP/platform capabilities make them practical, but do not block the portable runtime on unavailable APIs.
-
-Sandbox adapters can apply stronger CPU/memory/PID/file/network restrictions externally.
-
----
-
-# 32. Performance architecture
-
-Performance rules:
-
-- no framework/container lookup in network hot path;
-- no process-global locks for normal per-worker connection handling;
-- immutable server/protocol configuration after freeze;
-- reuse parser objects only if they contain no cross-connection mutable data;
-- buffer growth is bounded/geometric rather than repeated quadratic concatenation;
-- avoid unnecessary request copies between Runwire and Webrick;
-- body streaming rather than full buffering for large payloads;
-- HTTP/2 parser operates incrementally without whole-connection copies;
-- HTTP/2 stream scheduling prevents one stream from starving all siblings;
-- HPACK dynamic tables remain connection-local and bounded;
-- avoid per-frame object/allocation churn on the hottest paths where a simpler bounded representation benchmarks better;
-- cached header serialization only when immutable and measured useful;
-- `hrtime`/diagnostics only when needed and low overhead;
-- no benchmark-only code path.
-
----
-
-# 33. Workerman comparison baseline
-
-Use Workerman as a reference implementation and benchmark comparator, not a source of copied API/code.
-
-Compare at least:
-
-- single-process raw TCP echo;
-- multi-worker raw TCP echo;
-- minimal HTTP plaintext response;
-- keep-alive HTTP/1.1;
-- multiplexed HTTP/2 where the comparator supports it;
-- small dynamic Webrick route over HTTP/1.1 and HTTP/2;
-- concurrent connections;
-- slow clients;
-- large streaming response;
-- memory per idle/active connection;
-- worker crash/restart;
-- graceful reload;
-- shutdown latency;
-- connection churn.
-
-Record:
-
-- requests/second or messages/second;
-- p50/p95/p99 latency;
-- CPU;
-- RSS/master + worker memory;
-- memory growth over soak;
-- accepted/closed connection counts;
-- errors/timeouts;
-- reload capacity dip.
-
-Workerman remains the process/runtime and HTTP/1.x reference baseline. If the selected Workerman comparison build does not provide equivalent native HTTP/2 wire support, use a mature HTTP/2-capable host from the supported Runwire driver matrix (for example FrankenPHP, Swoole/OpenSwoole or RoadRunner where its front server exposes HTTP/2) as the protocol-level comparison rather than inventing a false Workerman HTTP/2 comparison.
-
-Do not make public “faster than Workerman” or HTTP/2 performance claims unless repeatable measurements support them.
-
----
-
-# 34. Test matrix
-
-## 34.1 Event-loop tests
-
-- watcher add/remove while dispatching;
-- timer ordering;
-- repeating timer cancellation;
-- deferred callback ordering;
-- closed descriptor behavior;
-- no idle busy-spin;
-- loop stop/restart contract if restart is supported;
-- select backend parity with optional event backend.
-
-## 34.2 Network/connection tests
-
-- TCP accept/read/write;
-- IPv4/IPv6;
-- Unix socket where supported;
-- UDP datagrams;
-- TLS handshake/read/write;
-- partial reads/writes;
-- send buffer high/low watermarks;
-- receive backpressure;
-- idle timeout;
-- connection limit;
-- peer disconnect during write;
-- bounded memory under slow client.
-
-## 34.3 HTTP tests
-
-### HTTP/1.1
-
-- request line/header parsing;
-- duplicate headers;
-- Content-Length;
-- chunked request;
-- keep-alive;
-- connection close;
-- malformed headers;
-- conflicting body framing;
-- request-smuggling cases;
-- slowloris-style headers/body;
-- body limit;
-- streamed request body;
-- fixed/chunked/streamed response;
-- HEAD semantics at transport boundary coordinated with Webrick.
-
-### HTTP/2
-
-- TLS ALPN chooses `h2` / `http/1.1` correctly;
-- connection preface;
-- SETTINGS + ACK validation;
-- all required frame parse/write paths;
-- fragmented frame reads/writes;
-- HEADERS + CONTINUATION assembly;
-- pseudo-header and lowercase-header validation;
-- HPACK indexed/literal/dynamic-table cases;
-- HPACK Huffman valid/invalid/bounded decode;
-- decompressed header-list hard ceiling;
-- concurrent stream state transitions;
-- stream-ID monotonicity/reuse failures;
-- connection + stream flow-control windows;
-- WINDOW_UPDATE errors/overflow;
-- per-stream and aggregate backpressure;
-- RST_STREAM cleanup;
-- GOAWAY graceful drain;
-- connection-level vs stream-level protocol errors;
-- rapid reset/open-close churn;
-- SETTINGS/PING/RST_STREAM/WINDOW_UPDATE flood budgets;
-- CONTINUATION/header-block flood limits;
-- slow body on one stream while sibling streams progress;
-- many slow readers with bounded worker memory;
-- HTTP/1.1 vs HTTP/2 parity through the same Webrick route/middleware/response semantics;
-- Webrick adapter parity against host/SAPI adapters where applicable.
-
-## 34.4 Supervisor tests
-
-- startup worker count;
-- fork failure;
-- clean exit/replacement;
-- crash/restart;
-- restart exhaustion;
-- EINTR;
-- ECHILD reconciliation;
-- SIGTERM;
-- SIGINT;
-- graceful shutdown;
-- forced escalation;
-- no zombies;
-- child state normalization;
-- rolling reload;
-- repeated reload requests;
-- worker generation status;
-- parent kept application-resource-clean.
-
-## 34.5 Process runner tests
-
-- argv preserves literal special characters without shell interpretation;
-- executable allowlist;
-- env filtering;
-- cwd policy;
-- stdin/stdout/stderr modes;
-- timeout;
-- output ceiling;
-- child exits before signal;
-- terminate→kill escalation;
-- large simultaneous stdout/stderr without deadlock;
-- exit status normalization;
-- missing executable;
-- disabled/unavailable function/capability diagnostic.
-
-## 34.6 Persistent isolation tests
-
-- sequential connections do not share mutable protocol/application state;
-- interleaved connections remain independent;
-- Foundation requests in same worker receive distinct execution state;
-- error in one request does not poison next request;
-- cancelled/aborted request cleanup;
-- leaked Fiber/request-local state detection where Foundation adapter uses Fibers;
-- worker recycle clears child application state by process replacement.
-
----
-
-# 35. Soak and fault-injection acceptance
-
-Run production-style soak tests:
-
-- sustained keep-alive HTTP/1.1 traffic;
-- sustained multiplexed HTTP/2 traffic with mixed stream lifetimes;
-- HTTP/2 reset/control-frame/header-block abuse under bounded policy;
-- connection churn;
-- slow readers/writers;
-- mixed small/streaming responses;
-- worker crashes during active traffic;
-- rolling reload during traffic;
-- repeated child process execution;
-- output-heavy child commands;
-- stop while processes/connections are active.
-
-Acceptance:
-
-- no unbounded RSS growth attributable to Runwire;
-- no zombies;
-- no unreaped child table drift;
-- no stale connections after reload deadlines;
-- no descriptor growth;
-- no cross-request Foundation state leakage;
-- bounded degradation under overload.
-
----
-
-# 36. Static analysis / QA
-
-Run normal PHPForge gates with PHP 8.4 and 8.5 lanes where available:
-
-- Composer validation;
-- full tests;
-- PHPStan/static analysis;
-- Rector dry-run where configured;
-- coding style;
-- lowest supported dependency lane;
-- stable dependency lane;
-- extension-present/extension-absent capability tests;
-- Linux process integration lane;
-- Windows portable/network lane where supported.
-
-Do not hide platform-specific failures behind broad test skips. Capability-dependent tests should state exactly why they are skipped.
-
----
-
-# 37. Public API discipline
-
-Keep 1.0 public API deliberately small.
-
-Likely stable public areas:
-
-```text
-Runwire\Runtime
-Runwire\Server / Listener
-Runwire\Loop contract
-Runwire\Connection
-Runwire\Protocol contract
-Runwire\Http\ProtocolVersion / version-neutral HTTP transport contract
-Runwire\Supervisor
-Runwire\WorkerGroup / worker lifecycle values
-Runwire\Process\Command
-Runwire\Process\ProcessRunner
-Runwire\Process\ProcessResult
-Runwire\RuntimeCapabilities
-```
-
-Avoid exposing internal poller registries, parser state machines, PID maps or restart queues as public API.
-
-Prefer composition over dozens of configuration interfaces.
-
----
-
-# 38. Documentation
-
-Before 1.0 release document:
-
-- architecture/lifetime model;
-- native TCP server quick start;
-- native HTTP/1.1 + HTTP/2 + Webrick integration;
-- HTTP/2 ALPN, stream/flow-control/HPACK/security-limit tuning;
-- HTTP/2 graceful GOAWAY/drain and abuse-protection behavior;
-- Foundation 3 serving model;
-- Omnibus worker-pool integration;
-- structured process runner;
-- shell-safety rules;
-- fork-safety/pre-fork clean-parent rule;
-- graceful reload/shutdown;
-- event-loop backends;
-- TLS;
-- connection/backpressure tuning;
-- runtime status/control;
-- capability matrix;
-- trusted-worker vs untrusted-code boundary;
-- recommended Foundation supervisor/worker/sandbox deployment profiles;
-- performance benchmark methodology.
-
----
-
-# 39. Foundation launch sequence
-
-Recommended cross-repo execution order:
-
-```text
-1. Runwire process + supervisor primitives
-2. Runwire loop + TCP/TLS connection layer
-3. Version-neutral HTTP transport contract + HTTP/1.1 engine
-4. Webrick RunwireRuntimeAdapter against the common HTTP transport
-5. HTTP/2 frame/stream/HPACK/flow-control engine + TLS ALPN
-6. HTTP/1.1↔HTTP/2 Webrick parity + protocol abuse/fault acceptance
-7. Foundation native serve integration
-8. Runwire/Omnibus process-supervision integration
-9. Pathwise/ReqShield boundary docs/tests alignment
-10. aggregate security + persistent-runtime acceptance
-11. HTTP/1.1 + HTTP/2 performance comparison + tuning
-12. Runwire 1.0 release
-13. Foundation 3 final release acceptance
-```
-
-The Foundation integration may develop against `dev-main@dev`/development branch only while Runwire 1.0 is unreleased; final Foundation 3 release must consume a released `^1.0` constraint.
-
----
-
-# 40. Non-goals for Runwire 1.0
-
-Do not expand the launch scope into:
-
-- a DI container;
-- an MVC framework;
-- an ORM/database layer;
-- a cache layer;
-- a queue/event bus;
-- application scheduler semantics;
-- application auth/session;
-- request validation;
-- storage/upload library;
-- template engine;
-- custom coroutine ecosystem;
-- distributed cluster orchestrator;
-- service discovery platform;
-- Kubernetes replacement;
-- arbitrary remote shell;
-- fake PHP sandbox;
-- plugin marketplace/runtime.
-
-Those can integrate above/beside Runwire where appropriate.
-
----
-
-# 41. Runtime drivers, host engines & OPcache
-
-## 41.1 Runtime selection model
-
-Runwire must support these runtime driver values:
+Supported driver enum/config for 1.0:
 
 ```text
 auto
@@ -1794,28 +659,7 @@ swoole
 roadrunner
 ```
 
-Optional future values may be added without changing the application-facing request/lifecycle contract.
-
-### Meaning
-
-- `native` — Runwire owns listener sockets, event loop, HTTP wire transport, worker supervision and process lifecycle using native PHP/OS facilities.
-- `fpm` — PHP-FPM owns FastCGI/process-pool/request dispatch; Runwire operates as a request-bound runtime/lifecycle adapter and must not start a competing listener/event loop/supervisor.
-- `frankenphp` — FrankenPHP owns its server/thread/worker runtime; Runwire adapts Foundation/Webrick execution to classic or worker mode and preserves request cleanup/isolation.
-- `swoole` — Swoole/OpenSwoole owns its event loop, server sockets and worker topology; Runwire registers/adapts lifecycle and request callbacks instead of nesting the Runwire native loop.
-- `roadrunner` — RoadRunner owns the external application server and worker management; Runwire adapts the PHP worker lifecycle/request transport and must not create a second HTTP listener/supervisor.
-- `auto` — detect the active/available host deterministically and select the safest supported driver according to the precedence policy below.
-
-Runwire must not pretend these engines have identical capabilities. Each driver exposes a capability snapshot.
-
----
-
-## 41.2 OPcache is orthogonal
-
-Do **not** add `opcache` to the runtime-driver enum.
-
-OPcache is an execution accelerator that can be enabled with any compatible runtime.
-
-Expose a separate policy:
+OPcache remains orthogonal:
 
 ```text
 auto
@@ -1824,117 +668,17 @@ off
 required
 ```
 
-Recommended configuration shape:
+`auto` selection must distinguish installed capability from active host.
 
-```php
-$runtime = Runtime::create(
-    driver: RuntimeDriver::AUTO,
-    opcache: OpcacheMode::AUTO,
-);
-```
+Host-owned runtimes must not start competing Runwire listeners/event loops/process pools.
 
-or equivalent immutable options.
-
-Semantics:
-
-- `auto` — use OPcache when the host PHP configuration already enables it; never fail solely because it is absent.
-- `on` — request/recommend enabled operation but report clearly if the active SAPI cannot enable it at runtime; do not silently claim success.
-- `off` — Runwire does not require/use OPcache-specific optimization hooks; it must not mutate unrelated host configuration globally.
-- `required` — fail during runtime validation/boot when OPcache is unavailable or disabled for the selected SAPI.
-
-Important PHP constraint: OPcache/CLI enablement is primarily `php.ini`/SAPI configuration. Runwire must validate capability, not pretend it can always turn `opcache.enable` or `opcache.enable_cli` on from application code.
-
-For CLI-oriented `native`, `swoole`, and typical RoadRunner PHP workers, documentation must call out `opcache.enable_cli=1` where OPcache is desired. FPM/FrankenPHP follow their host PHP configuration.
+Native remains the only Runwire driver that owns the HTTP/1.1, HTTP/2 and HTTP/3 wire implementations directly.
 
 ---
 
-## 41.3 Public API direction
+# 17. Runtime capability model
 
-Keep runtime selection small and explicit.
-
-Preferred direction:
-
-```php
-$runtime = Runtime::create(
-    driver: RuntimeDriver::FRANKENPHP,
-    opcache: OpcacheMode::AUTO,
-);
-
-$runtime->serve($handler);
-```
-
-Equivalent config-array construction may exist for framework adapters, but the core API should remain typed.
-
-Foundation-facing configuration can map directly to this model:
-
-```php
-'runwire' => [
-    'runtime' => 'auto',
-    'opcache' => 'auto',
-];
-```
-
-CLI/environment examples:
-
-```bash
-php foundation serve --runtime=native
-php foundation serve --runtime=frankenphp
-php foundation serve --runtime=swoole
-php foundation serve --runtime=roadrunner
-```
-
-FPM is normally host-launched rather than started by `foundation serve`; Foundation/Runwire should detect or select `fpm` while executing inside FPM instead of spawning an FPM daemon from the application process.
-
-Allow a trusted config/environment value such as:
-
-```text
-RUNWIRE_RUNTIME=auto|native|fpm|frankenphp|swoole|roadrunner
-RUNWIRE_OPCACHE=auto|on|off|required
-```
-
-Exact Foundation environment naming remains Foundation-owned.
-
----
-
-## 41.4 Driver contract
-
-Introduce one narrow internal/public integration contract rather than branching through the whole codebase.
-
-Conceptual API:
-
-```php
-interface RuntimeDriverInterface
-{
-    public function capabilities(): RuntimeCapabilities;
-
-    public function validate(RuntimeOptions $options): void;
-
-    public function run(RuntimeApplication $application): void;
-
-    public function stop(): void;
-}
-```
-
-Exact names may change, but the separation is required.
-
-Common application contract should cover:
-
-- startup/boot callback;
-- one logical request/exchange callback;
-- request/exchange cleanup in `finally`;
-- worker/runtime shutdown callback;
-- reload/drain signal when the host exposes it;
-- health/status metadata where available.
-
-Do not force host-specific request objects into the common application API. Normalize at the driver boundary.
-
----
-
-## 41.5 Runtime capability model
-
-Every driver must report capabilities instead of relying on runtime-name conditionals throughout consumers.
-
-At minimum:
+Capabilities must include at minimum:
 
 ```text
 persistent_process
@@ -1950,496 +694,554 @@ supports_graceful_reload
 supports_worker_recycle
 supports_http1
 supports_http2
+supports_http3
 owns_http1_wire
 owns_http2_wire
+owns_http3_wire
 supports_tls_alpn
+supports_quic
 supports_websocket
 supports_opcache
 supports_opcache_cli
 ```
 
-Capabilities describe the active runtime, not marketing assumptions. Runtime probing must be deterministic and testable.
+Rules:
 
-Foundation/Webrick should consume capabilities where behavior genuinely differs; they should not become large `switch ($runtime)` trees.
+- native `supports_http3` / `owns_http3_wire` are true only when the QUIC capability required by Runwire is actually available;
+- host driver `supports_http3` may be true when the host terminates HTTP/3, while `owns_http3_wire` remains false;
+- consumers should use capabilities, not runtime-name switches where possible.
 
 ---
 
-## 41.6 `auto` detection
+# 18. Host-driver expectations
 
-`auto` must be conservative and deterministic.
+## FPM
 
-Recommended detection order when already executing inside a host runtime:
+Thin request-bound adapter; no Runwire listener/loop/prefork. HTTP/2/3 may exist upstream but Runwire does not own those wires.
+
+## FrankenPHP
+
+Support classic and worker modes; preserve fresh execution scope per request; host owns listener/HTTP stack. Report HTTP/1/2/3 support separately from Runwire ownership.
+
+## Swoole/OpenSwoole
+
+Adapt host lifecycle/request callbacks. Never run a nested Runwire select loop or HTTP worker pool.
+
+## RoadRunner
+
+Use host worker ecosystem where practical; no second listener/pool; fresh application execution scope per exchange.
+
+Explicit driver selection fails fast if unavailable; never silently falls back.
+
+---
+
+# 19. Control, status and observability
+
+Control plane supports run/stop/reload/recycle/status through programmatic APIs and a bounded Unix-domain local control socket where applicable.
+
+Observability should cover:
+
+- worker/listener/connection lifecycle;
+- bytes/connections/streams;
+- HTTP/2 active streams/GOAWAY/flow stalls/HPACK sizes;
+- HTTP/3 QUIC connections/request streams/GOAWAY;
+- QPACK table capacity, blocked streams and encoder/decoder instruction work without logging header values;
+- protocol errors by stable reason/error code;
+- backpressure transitions;
+- process execution start/exit/timeout.
+
+Instrumentation-off path must remain cheap.
+
+---
+
+# 20. Error taxonomy
+
+Stable high-level families:
 
 ```text
-FrankenPHP host
-    ↓
-Swoole/OpenSwoole host
-    ↓
-RoadRunner worker host
-    ↓
-FPM/FastCGI
-    ↓
-Runwire native CLI eligibility
-    ↓
-unsupported / explicit failure
+RuntimeException
+CapabilityUnavailable / RuntimeUnavailableException
+ConfigurationException
+ListenerException
+ProtocolException
+ConnectionException
+SupervisorException
+ProcessStartException
+ControlException
 ```
 
-Do not select an installed extension merely because it exists. Detection must distinguish **available** from **currently hosted by**.
-
-For an explicit `foundation serve --runtime=...`, explicit user selection overrides auto detection and capability validation must fail fast when the requested driver is unavailable.
-
-Do not silently fall back from an explicitly requested runtime to another runtime in production.
+HTTP/3 errors use RFC 9114/9204 error codes, including `H3_*` and `QPACK_*`, mapped to stream or connection closure according to protocol rules rather than crashing the worker.
 
 ---
 
-## 41.7 Native driver
+# 21. Resource limits
 
-`native` is Runwire's full first-party server/runtime implementation from the canonical launch plan.
+1.0 requires bounded policy for:
 
-It owns:
+- process execution time/output/argv/env;
+- TCP/UDP/QUIC connections;
+- TCP buffers;
+- HTTP/1 body/header framing;
+- HTTP/2 streams/frames/header blocks/HPACK/flow-control queues;
+- HTTP/3 QUIC streams/frames/QPACK/control streams/blocked sections;
+- idle/lifetime timeouts;
+- restart frequency/budget;
+- aggregate worker resource pressure.
 
-- listener bind/accept;
-- pure-PHP/select or optional event backend;
-- HTTP/1.1 wire parser/serializer;
-- HTTP/2 frame/stream/HPACK/flow-control engine;
-- TLS ALPN negotiation for `h2` / `http/1.1`;
-- connection state/backpressure across HTTP/1.1 and multiplexed HTTP/2;
-- prefork/process supervisor where supported;
-- wait/reap/signals/reload;
-- generic supervised tasks;
-- structured process execution.
-
-On Unix, `pcntl`/`posix` unlock the full prefork/signal model. Capability detection must expose reduced behavior when unavailable instead of hiding it.
-
-`native` must remain usable without Swoole, RoadRunner, FrankenPHP, or FPM.
+No network/parser path may grow memory solely according to peer-provided lengths/counts without a local hard ceiling.
 
 ---
 
-## 41.8 FPM driver
+# 22. Performance rules
 
-FPM already owns process pools, graceful process management, UIDs/GIDs, FastCGI listeners and per-request dispatch. Runwire must not duplicate those responsibilities.
+- no framework/container lookup in transport hot paths;
+- no process-global locks for normal per-worker traffic;
+- immutable static protocol configuration;
+- incremental parsers;
+- streaming bodies;
+- bounded geometric buffers;
+- fair stream scheduling for HTTP/2 and HTTP/3;
+- HPACK/QPACK tables are connection-local and bounded;
+- avoid unnecessary request copies between Runwire and Webrick;
+- no benchmark-only fast path;
+- QUIC packet crypto/loss recovery/congestion control remain in the mature QUIC engine rather than being reimplemented in PHP.
 
-The FPM driver is intentionally thin:
+---
+
+# 23. Test matrix
+
+## Event loop
+
+- watcher add/remove while dispatching;
+- timer ordering/cancellation;
+- deferred ordering;
+- closed descriptor behavior;
+- idle no-busy-spin;
+- optional backend parity.
+
+## TCP/UDP/TLS
+
+- IPv4/IPv6;
+- Unix socket;
+- UDP datagram;
+- TLS handshake/ALPN;
+- partial I/O;
+- send/receive pressure;
+- limits/timeouts;
+- peer disconnect;
+- bounded slow-client memory.
+
+## HTTP/1.1
+
+- framing/smuggling/slowloris/body limits;
+- chunked/fixed bodies;
+- keep-alive;
+- streamed responses;
+- HEAD semantics.
+
+## HTTP/2
+
+- preface/SETTINGS;
+- all required frames;
+- CONTINUATION;
+- HPACK static/dynamic/Huffman;
+- pseudo-header validation;
+- flow control;
+- RST/GOAWAY;
+- Rapid Reset/control-frame/header abuse;
+- sibling progress under slow streams.
+
+## HTTP/3 + QUIC
+
+- QUIC extension capability detection absent/present;
+- QUIC v1 handshake with TLS 1.3 and `h3` ALPN;
+- client/server control streams;
+- SETTINGS first/duplicate/missing/invalid cases;
+- bidirectional request streams;
+- unidirectional stream types and duplicate critical streams;
+- HTTP/3 DATA/HEADERS/GOAWAY frame parsing under fragmentation;
+- unknown frame handling;
+- request/trailer ordering rules;
+- QUIC stream reset/STOP_SENDING cleanup;
+- graceful GOAWAY/drain;
+- peer address/migration metadata behavior if exposed by engine;
+- no accidental 0-RTT application dispatch by default.
+
+## QPACK
+
+- RFC 9204 static-table vectors;
+- dynamic-table capacity updates;
+- all encoder-stream instruction forms;
+- all decoder-stream instruction forms;
+- Required Insert Count wrapping;
+- positive/negative Delta Base;
+- pre-base and post-base indexed/literal forms;
+- Huffman valid/invalid/bounded decode;
+- blocked field-section queue/unblocking;
+- blocked-stream ceiling;
+- retained blocked-byte ceiling;
+- pin/ack/cancel eviction safety;
+- malformed index/reference/integer/string errors;
+- encoder/decoder instruction buffer ceilings;
+- sensitive header no-index behavior.
+
+## Protocol parity
+
+The same handler must produce semantically equivalent results over HTTP/1.1, HTTP/2 and HTTP/3 for:
+
+- method/target;
+- duplicate headers;
+- body streaming;
+- trailers where supported;
+- HEAD/204/304 body suppression rules;
+- errors;
+- cancellation/cleanup;
+- response backpressure.
+
+## Supervisor/process/isolation
+
+Retain startup/restart/reload/reaping/no-zombie, ProcessRunner shell-safety/deadlock/timeout/output, and persistent-state isolation tests.
+
+---
+
+# 24. CI / Security & Standards
+
+Normal PHPForge matrix:
 
 ```text
-web server / FastCGI
-        ↓
-PHP-FPM
-        ↓
-Runwire FpmDriver
-        ↓
-Foundation/Webrick request execution
+PHP 8.4 / prefer-lowest
+PHP 8.4 / prefer-stable
+PHP 8.5 / prefer-lowest
+PHP 8.5 / prefer-stable
+analysis lanes
+clean install
 ```
 
-Requirements:
+Normal matrix extensions continue to include process/network capabilities but **do not require QUIC**, proving optional absence is supported.
 
-- one logical Runwire application execution per FPM request;
-- no Runwire long-running event loop;
-- no Runwire HTTP socket listener;
-- no Runwire prefork worker supervisor;
-- request cleanup always executes;
-- Runwire process-execution APIs remain independently usable where policy permits;
-- transport/runtime capability snapshot clearly marks persistent application state as false for ordinary FPM request mode;
-- if an upstream web server terminates HTTP/2 before FastCGI, `supports_http2` may describe end-to-end deployment capability while `owns_http2_wire` remains false for the FPM driver.
+Dedicated HTTP/3 integration job(s) must:
 
-This lets an application use Runwire APIs consistently without requiring the Runwire-native server.
+- run on PHP 8.4 and PHP 8.5 where the QUIC engine supports them;
+- install the QUIC extension explicitly using its supported installer (currently PIE for `mikepultz/php-quic`), not by pretending it is a normal PECL package;
+- verify `extension_loaded('quic')` and required `Quic\Listener`, `Quic\Connection`, `Quic\Stream`, `Quic\poll` APIs;
+- run focused HTTP/3/QPACK/QUIC tests;
+- run at least one real native server/client interoperability fixture;
+- fail if HTTP/3 tests are silently skipped in the extension-present lane;
+- preserve a separate extension-absent capability test.
+
+No broad test skips and no `@` error suppression.
 
 ---
 
-## 41.9 FrankenPHP driver
+# 25. Interoperability acceptance
 
-Support both host shapes when detectable:
+Native HTTP/3 must be exercised against at least two independent mature clients/tools where available in CI or release validation, for example:
+
+- `curl` built with HTTP/3 support;
+- `nghttp3`/`h2load`-family tooling or another independent QUIC/HTTP/3 client;
+- browser/manual smoke is useful but not the only acceptance proof.
+
+Interoperability cases:
+
+- GET/POST/body streaming;
+- concurrent request streams;
+- large response;
+- QPACK dynamic references;
+- GOAWAY/drain;
+- malformed peer behavior where tooling allows.
+
+---
+
+# 26. Soak and fault acceptance
+
+Run production-style soak tests for:
+
+- HTTP/1.1 keep-alive;
+- multiplexed HTTP/2;
+- multiplexed HTTP/3 over QUIC;
+- QPACK dynamic-table churn and blocked streams;
+- slow readers/writers;
+- connection/stream churn;
+- worker crashes;
+- rolling reload during traffic;
+- process execution churn;
+- shutdown with active TCP and QUIC connections.
+
+Acceptance:
+
+- no unbounded RSS growth attributable to Runwire;
+- no FD/child-state drift;
+- no zombies;
+- no unbounded retained QPACK/HPACK state;
+- no stale TCP/QUIC connections beyond drain deadlines;
+- no cross-request application state leakage;
+- bounded overload degradation.
+
+---
+
+# 27. Benchmark matrix
+
+Record separately:
+
+- raw TCP single/multi-worker;
+- HTTP/1.1 keep-alive;
+- HTTP/2 multiplexing;
+- HTTP/3 multiplexing over QUIC;
+- minimal dynamic Webrick route over each protocol once adapter work begins;
+- small/large streaming responses;
+- slow clients;
+- connection churn;
+- memory per idle/active TCP connection and QUIC connection;
+- HPACK/QPACK compression CPU/memory;
+- reload capacity dip.
+
+For host drivers, benchmark FPM, FrankenPHP classic/worker, Swoole/OpenSwoole and RoadRunner separately where available. Attribute host cost vs Runwire adapter cost; do not publish misleading universal claims.
+
+---
+
+# 28. Documentation before 1.0
+
+Document:
+
+- architecture/lifetime model;
+- native TCP/UDP/Unix quick starts;
+- native HTTP/1.1 + HTTP/2 + HTTP/3;
+- TLS ALPN and QUIC `h3` ALPN;
+- QUIC extension installation/capability diagnostics;
+- HTTP/2 HPACK/flow-control tuning;
+- HTTP/3 QPACK/stream/control/GOAWAY tuning;
+- HTTP/3 security limits and 0-RTT default policy;
+- backpressure and overload behavior;
+- structured ProcessRunner and shell-safety;
+- fork-safety/pre-fork clean-parent rule;
+- supervisor reload/shutdown/control plane;
+- host-driver capability matrix;
+- trusted worker vs untrusted execution boundary;
+- benchmark methodology.
+
+---
+
+# 29. Public API discipline
+
+Likely stable areas:
 
 ```text
-classic mode
-worker mode
+Runwire\Runtime
+Runwire\Server / Listener definitions
+Runwire\Loop contract
+Runwire\Network\Connection and bounded results
+Runwire\Protocol contracts
+Runwire\Http\ProtocolVersion
+Runwire\Http\HttpRequest / ResponseWriterInterface
+Runwire\Supervisor
+Runwire\WorkerGroup / lifecycle values
+Runwire\Process\Command / ProcessRunner / ProcessResult
+Runwire\RuntimeCapabilities
 ```
 
-### Classic mode
-
-Treat request/application persistence similarly to a request-bound SAPI integration.
-
-### Worker mode
-
-FrankenPHP keeps application code resident and repeatedly invokes a worker handler. Runwire must therefore enforce the persistent-runtime contract:
-
-- boot long-lived application state once where appropriate;
-- begin a fresh Foundation/Webrick execution scope per request;
-- cleanup request-scoped state in `finally`;
-- never retain request/auth/session/DB execution state across requests;
-- integrate worker restart/reload hooks when exposed;
-- do not start a nested Runwire event loop or process pool;
-- preserve host-owned threads/workers;
-- report HTTP/1.1/HTTP/2 capability separately from wire ownership; FrankenPHP may terminate HTTP/2 itself while Runwire adapts the resulting request rather than reparsing frames.
-
-Runwire must document that globals, statics and in-memory state can persist in worker mode and therefore application/framework reset discipline is mandatory.
-
-FrankenPHP remains an optional host integration; Runwire must not depend on the FrankenPHP binary for normal installation.
+HTTP/1/2/3 parser state machines, QPACK/HPACK tables and QUIC-engine-specific adapters should remain internal or narrowly scoped unless there is a compelling stable public use case.
 
 ---
 
-## 41.10 Swoole/OpenSwoole driver
+# 30. Security invariants
 
-Swoole/OpenSwoole owns its server, event loop, workers and coroutine system. Runwire must adapt rather than compete.
+Release blocking:
 
-Requirements:
-
-- bind Runwire application callback to the host HTTP/request event;
-- normalize native request/response into the common Runwire transport contract;
-- map start/worker-start/worker-stop/shutdown/reload lifecycle events;
-- preserve fresh application execution scope per logical request;
-- never run the Runwire native `stream_select()` loop inside the Swoole server loop;
-- never create a parallel Runwire prefork supervisor for host HTTP workers;
-- expose coroutine/async capability without requiring Foundation to become coroutine-coupled;
-- document and test persistent static/global state isolation;
-- report HTTP/2 support/wire ownership truthfully according to the active Swoole/OpenSwoole server path instead of nesting the native Runwire HTTP/2 engine.
-
-Support may target Swoole/OpenSwoole through capability adapters; exact package/extension compatibility should be isolated from the core runtime API.
+- no implicit shell path;
+- no PHP `@` suppression;
+- no unbounded network/parser/protocol buffers;
+- no unbounded HTTP/2 streams/HPACK/control work;
+- no unbounded HTTP/3 streams/QPACK/control work;
+- no attacker-controlled dynamic-table capacity beyond local ceilings;
+- no process-global mutable runtime topology;
+- no cross-request application state retained by Runwire;
+- no pre-fork application DB/cache/broker connections reused by children;
+- signals do not execute arbitrary application work reentrantly;
+- all children are reaped;
+- shutdown/reload is bounded;
+- sensitive argv/env/header values are not logged by default;
+- untrusted PHP is never described as secure merely because it runs in a forked child;
+- QUIC engine cryptography/congestion/loss recovery is delegated to a maintained native implementation rather than custom PHP crypto/transport algorithms.
 
 ---
 
-## 41.11 RoadRunner driver
+# 31. Foundation launch sequence
 
-RoadRunner owns the external server/process manager and dispatches work to PHP workers.
-
-Required architecture:
+Runwire must be completed first. Updated order:
 
 ```text
-RoadRunner server
-      ↓
-RR PHP worker transport
-      ↓
-Runwire RoadRunnerDriver
-      ↓
-Foundation/Webrick execution
+1. Runwire process + supervisor primitives                         ✅
+2. Runwire loop + TCP/TLS/UDP/Unix connection layer              ✅
+3. Version-neutral HTTP transport + HTTP/1.1                     ✅
+4. Native HTTP/2 + HPACK + flow control + ALPN                   ✅ core
+5. Native HTTP/3 framing + full bounded QPACK                    🔄 active
+6. QUIC v1/TLS 1.3 native HTTP/3 worker + h3 ALPN                ⬜
+7. HTTP/1.1↔HTTP/2↔HTTP/3 parity + abuse/interoperability        ⬜
+8. Runwire host-driver execution paths                            ⬜
+9. Runwire aggregate QA/soak/benchmarks/docs/release             ⬜
+10. Webrick Runwire adapter integration                           ⬜
+11. Foundation native serve/host-driver integration               ⬜
+12. Omnibus/boundary integration                                  ⬜
+13. Foundation 3 final acceptance                                 ⬜
 ```
 
-Requirements:
-
-- use the official RoadRunner PHP worker/protocol ecosystem where practical rather than cloning Goridge/worker transport;
-- one fresh application execution scope per request/job exchange;
-- application/container reuse only where Foundation's persistent-runtime contract permits it;
-- cleanup in `finally`;
-- map worker stop/recycle/reset behavior into generic Runwire lifecycle signals;
-- do not bind a second HTTP listener;
-- do not fork a second HTTP worker pool underneath RoadRunner;
-- keep RoadRunner packages optional/suggested unless selected adapter code intrinsically requires a separate integration package;
-- distinguish HTTP/2 accepted/terminated by the RoadRunner front server from Runwire native HTTP/2 wire ownership.
+Do not leave Runwire mid-release to implement consumer integrations.
 
 ---
 
-## 41.12 Unified option passing
+# 32. Non-goals for Runwire 1.0
 
-The user's selected driver should change **hosting behavior**, not application APIs.
+Do not expand 1.0 into:
 
-Example:
-
-```php
-Runwire::boot([
-    'runtime' => 'roadrunner',
-    'opcache' => 'required',
-    'workers' => 8,
-    'max_requests' => 10_000,
-]);
-```
-
-But options must be partitioned by ownership:
-
-### Portable options
-
-- request timeout;
-- max requests before recycle preference;
-- application drain timeout;
-- status/diagnostics policy;
-- OPcache requirement;
-- common transport bounds that Runwire can enforce at its boundary.
-
-### Native-only options
-
-- listener backlog;
-- Runwire event-loop backend;
-- native worker count;
-- Runwire restart budget;
-- Runwire socket high/low watermarks;
-- native prefork mode.
-
-### Host-driver options
-
-Host-specific settings must live under a namespaced section rather than polluting the common option namespace:
-
-```php
-[
-    'runtime' => 'frankenphp',
-    'frankenphp' => [
-        // adapter-specific knobs only
-    ],
-    'swoole' => [
-        // adapter-specific knobs only
-    ],
-    'roadrunner' => [
-        // adapter-specific knobs only
-    ],
-]
-```
-
-Runwire must reject irrelevant/unknown strict-production options rather than silently ignoring a `native` setting while running under another host.
-
-Do not copy every host server's complete configuration DSL into Runwire. Expose only integration-relevant options; native host configuration remains authoritative for host-owned mechanics.
+- DI/MVC/ORM/cache/queue frameworks;
+- application auth/session/validation/storage semantics;
+- custom coroutine ecosystem;
+- cluster/service-discovery/Kubernetes replacement;
+- arbitrary remote shell;
+- fake PHP sandbox;
+- custom QUIC cryptography/congestion/loss-recovery stack;
+- HTTP Datagrams;
+- WebTransport;
+- MASQUE/connect-udp;
+- HTTP/3 server push application API;
+- mandatory QUIC dependency for users who do not enable native HTTP/3.
 
 ---
 
-## 41.13 Foundation integration
+# 33. Runtime-driver completion gate
 
-Foundation should expose one runtime selector and keep its application graph independent of the selected host.
+Runwire 1.0 additionally requires:
 
-Target model:
-
-```text
-Foundation application
-        ↓
-Webrick HTTP semantics
-        ↓
-Runwire Runtime
-        ↓
-selected driver
- ┌────────┬────────────┬────────┬────────────┬──────────┐
- native    FPM       FrankenPHP  Swoole     RoadRunner
-```
-
-Foundation owns:
-
-- config/env/CLI selection;
-- whether explicit runtime selection is allowed in production;
-- release-generation mapping;
-- application boot and execution scopes;
-- process capability authorization;
-- runtime-specific deployment documentation/defaults.
-
-Runwire owns runtime detection/driver mechanics/capabilities.
-
-Webrick should need only the Runwire transport/runtime adapter for the Foundation native path; host differences stay below that integration where possible.
+- [x] runtime enum/config includes `auto`, `native`, `fpm`, `frankenphp`, `swoole`, `roadrunner`;
+- [x] OPcache modeled independently as `auto|on|off|required`;
+- [x] environment probing distinguishes hosted vs available runtimes;
+- [x] explicit runtime selection validation exists;
+- [x] native HTTP/1.1 engine exists;
+- [x] native HTTP/2 engine exists;
+- [x] HTTP/3 capability fields exist;
+- [ ] native HTTP/3 engine passes all completion gates below;
+- [ ] FPM driver execution is wired/tested;
+- [ ] FrankenPHP classic + worker execution is wired/tested;
+- [ ] Swoole/OpenSwoole execution is wired/tested;
+- [ ] RoadRunner execution is wired/tested;
+- [ ] host modes never start competing loops/listeners/pools;
+- [ ] persistent-state isolation passes for every persistent driver;
+- [ ] host option namespaces are bounded/validated;
+- [ ] capability reporting distinguishes HTTP protocol support from Runwire wire ownership for HTTP/1/2/3;
+- [ ] host benchmarks attribute adapter overhead separately.
 
 ---
 
-## 41.14 Testing matrix
+# 34. HTTP/3 implementation gate
 
-Runwire 1.0 release acceptance should add driver-specific tests.
+HTTP/3 is part of Runwire 1.0 and blocks release.
 
-### Common contract
+Required implementation:
 
-- same application handler semantics across all available drivers;
-- HTTP/1.1/HTTP/2 capability reporting distinguishes end-to-end support from Runwire wire ownership;
-- startup/request/shutdown ordering;
-- guaranteed request cleanup;
-- structured runtime capabilities;
-- explicit unavailable-driver failure;
-- explicit selection never silently falls back;
-- auto detection is deterministic;
-- unknown/irrelevant option rejection;
-- OPcache `required` fails closed when unavailable.
-
-### Persistent runtimes
-
-For FrankenPHP worker mode, Swoole and RoadRunner:
-
-- repeated requests do not retain prior request state;
-- interleaved/concurrent execution follows driver-supported isolation semantics;
-- DB/cache/network resources obey application execution ownership;
-- memory growth/recycle behavior is bounded/measured;
-- worker reload/recycle does not corrupt release/application state.
-
-### FPM
-
-- no persistent application/request state assumption;
-- no native listener/event-loop/supervisor starts;
-- request cleanup and process-execution APIs remain correct.
-
-### Native
-
-Keep the full native network/supervisor/backpressure/security acceptance from the canonical plan.
-
----
-
-## 41.15 Benchmark matrix
-
-Record separate measurements for:
-
-```text
-FPM
-FrankenPHP classic
-FrankenPHP worker
-Swoole/OpenSwoole
-RoadRunner
-Runwire native/select
-Runwire native/optional event backend
-```
-
-For each available environment measure:
-
-- cold start/boot;
-- warm request throughput over HTTP/1.1 and HTTP/2 where supported;
-- HTTP/2 multiplexing behavior at multiple concurrent-stream levels;
-- p50/p95/p99 latency;
-- memory per worker/process/thread where measurable;
-- persistent memory growth;
-- request cleanup overhead;
-- Runwire adapter overhead versus direct host-framework integration;
-- OPcache on/off effect where the host permits a meaningful controlled comparison.
-
-Do not combine these into one misleading headline benchmark. Attribute host runtime cost versus Runwire adapter cost.
+- [x] `ProtocolVersion::HTTP_3`;
+- [x] `supports_http3`, `owns_http3_wire`, `supports_quic` capability fields;
+- [x] QUIC capability probing surface;
+- [x] QUIC variable-length integer codec;
+- [x] incremental HTTP/3 frame parser/writer core;
+- [x] RFC 9204 QPACK static table core;
+- [x] bounded QPACK dynamic table core;
+- [x] QPACK encoder/decoder instruction stream primitives;
+- [x] blocked field-section retention/unblocking core;
+- [ ] full protocol-core PHPForge/static/style validation green;
+- [ ] QPACK reference accounting/eviction/ack/cancel edge cases green;
+- [ ] HTTP/3 SETTINGS/control stream state machine;
+- [ ] request-stream state machine and HEADERS/DATA/trailer sequencing;
+- [ ] HTTP/3 request pseudo-header validator/shared validator refactor;
+- [ ] HTTP/3 response writer using the common response contract;
+- [ ] QUIC engine adapter abstraction;
+- [ ] `mikepultz/php-quic` adapter;
+- [ ] native QUIC listener/connection worker lifecycle;
+- [ ] `h3` ALPN/TLS 1.3 handshake;
+- [ ] local/peer control + QPACK unidirectional streams;
+- [ ] request stream dispatch into `HttpRequest` with `ProtocolVersion::HTTP_3`;
+- [ ] QUIC/HTTP application backpressure composition;
+- [ ] RESET_STREAM / STOP_SENDING cancellation cleanup;
+- [ ] GOAWAY/drain/reload integration;
+- [ ] 0-RTT disabled/replay-safe policy enforced;
+- [ ] QUIC extension-present CI lane;
+- [ ] QUIC extension-absent capability lane;
+- [ ] independent client interoperability tests;
+- [ ] HTTP/3 abuse/fault suite;
+- [ ] HTTP/3 soak test;
+- [ ] HTTP/3 benchmarks;
+- [ ] HTTP/1.1 ↔ HTTP/2 ↔ HTTP/3 Webrick-semantic parity.
 
 ---
 
-## 41.16 Dependency policy
+# 35. Future plan after Runwire 1.0
 
-Core Runwire must remain installable for the native/FPM baseline without requiring all optional runtimes.
+HTTP/3 is **not** a future item anymore.
 
-Recommended policy:
+Post-1.0 candidates include only additional capabilities such as:
 
-- Swoole/OpenSwoole: optional extension capability.
-- FrankenPHP: optional host capability, no mandatory Composer dependency merely for detection.
-- RoadRunner: optional suggested/reference worker package(s) where needed by the driver.
-- OPcache: optional Zend extension/capability, not a Composer dependency.
-- FPM: SAPI/host capability, not a Composer dependency.
+- WebTransport;
+- HTTP Datagrams;
+- MASQUE/connect-udp;
+- extended migration/path-management policy beyond the QUIC engine baseline;
+- optional 0-RTT application policy after replay-safety design;
+- alternative QUIC engine adapters;
+- more advanced HTTP priority scheduling;
+- optional WebSocket-over-HTTP/2/3 capabilities where justified.
 
-The core package should fail only when the caller explicitly selects a runtime whose required host capability is unavailable.
-
----
-
-## 41.17 Completion gate extension
-
-Runwire 1.0/Foundation 3 launch additionally requires:
-
-- [ ] runtime enum/config supports `auto`, `native`, `fpm`, `frankenphp`, `swoole`, `roadrunner`;
-- [ ] OPcache is modeled separately as `auto|on|off|required`;
-- [ ] capability detection distinguishes installed from actively hosted runtime;
-- [ ] explicit runtime selection fails fast rather than silently falling back;
-- [ ] native mode remains a complete first-party HTTP/1.1 + HTTP/2 server implementation;
-- [ ] native TLS mode negotiates `h2` / `http/1.1` through ALPN;
-- [ ] host-driver capability reporting distinguishes `supports_http2` from `owns_http2_wire`;
-- [ ] host modes do not start competing event loops/listeners/process pools;
-- [ ] FPM request-bound behavior is tested;
-- [ ] FrankenPHP classic + worker-mode lifecycle is documented/tested where available;
-- [ ] Swoole/OpenSwoole persistent lifecycle is documented/tested where available;
-- [ ] RoadRunner worker lifecycle is documented/tested where available;
-- [ ] persistent runtime state isolation passes across all persistent drivers;
-- [ ] common option parsing and host-specific namespaced options are bounded/validated;
-- [ ] benchmarks attribute Runwire adapter overhead separately for every supported host;
-- [ ] Foundation can select the runtime through trusted config/CLI without changing Webrick application semantics.
-
-This section is part of the canonical Runwire 1.0 launch gate.
+These must not weaken or delay correctness of the 1.0 HTTP/1.1/2/3 request-response stack.
 
 ---
 
-# 42. Future plan after Runwire 1.0
-
-The following items are intentionally outside the Runwire 1.0 / Foundation 3 launch gate. They must not leak into current 1.0 capability promises, completion criteria, or implementation blockers.
-
-## 42.1 HTTP/3 / QUIC
-
-HTTP/3 is the next native HTTP protocol target after Runwire 1.0 stabilizes HTTP/1.1 and HTTP/2.
-
-Future ownership remains consistent:
-
-```text
-HTTP/1.1 -> TCP/TLS -> Runwire HTTP/1 engine
-HTTP/2   -> TCP/TLS -> Runwire HTTP/2 engine
-HTTP/3   -> QUIC/UDP/TLS 1.3 -> future Runwire HTTP/3 engine
-```
-
-The future HTTP/3 implementation must normalize into the same version-neutral Runwire HTTP transport consumed by Webrick so Foundation application semantics do not change.
-
-Future HTTP/3 work should cover, after a dedicated design/review pass:
-
-- QUIC transport over UDP rather than pretending HTTP/3 is another TCP framing layer;
-- TLS 1.3 handshake and QUIC cryptographic integration through a mature, supportable implementation path;
-- bidirectional and unidirectional QUIC stream lifecycle;
-- HTTP/3 control streams and SETTINGS;
-- QPACK encoder/decoder and blocked-stream accounting;
-- connection-level and stream-level flow control/backpressure;
-- connection IDs, migration/rebinding policy where supported;
-- graceful connection drain and GOAWAY semantics;
-- cancellation/reset/STOP_SENDING handling;
-- 0-RTT policy and replay-safety boundaries;
-- bounded QPACK dynamic-table/header-list state;
-- stream-count, control-frame and CPU/work amplification limits;
-- QUIC/HTTP/3 abuse/flood resistance and memory ceilings;
-- optional HTTP Datagrams/WebTransport only through later explicit capability work;
-- future `supports_http3` / `owns_http3_wire` capability reporting only once implemented and production-ready;
-- host-driver passthrough semantics when FrankenPHP, RoadRunner or another host terminates HTTP/3 outside Runwire;
-- HTTP/1.1 / HTTP/2 / HTTP/3 Webrick application-semantic parity;
-- dedicated interoperability, soak and benchmark suites.
-
-Do not select a QUIC dependency, extension, FFI binding, sidecar, or implementation strategy in the 1.0 plan merely to reserve HTTP/3. That choice requires a separate post-1.0 security, portability, maintenance and performance evaluation.
-
-HTTP/3 must not block Runwire 1.0.
-
----
-
-# 43. 1.0 completion gate
+# 36. Runwire 1.0 completion gate
 
 Runwire 1.0 is release-ready only when all of the following are true:
 
-- [ ] runtime topology is instance-owned and freezeable;
-- [ ] select-based event loop is correct and bounded;
-- [ ] optional faster loop backend has parity if shipped;
-- [ ] TCP server/connection lifecycle is production-safe;
-- [ ] output/input backpressure is proven under slow-client tests;
-- [ ] HTTP/1.1 transport passes framing/smuggling/slow-client limits;
-- [ ] HTTP/2 transport passes RFC 9113 framing/stream/SETTINGS/GOAWAY/flow-control acceptance;
-- [ ] HPACK is bounded, connection-local and passes malformed/Huffman/compression-amplification tests;
-- [ ] HTTP/2 Rapid Reset-style stream churn, control-frame floods and CONTINUATION/header-block abuse remain bounded;
-- [ ] multiplexed streams preserve independent backpressure, cancellation and Foundation request state;
+- [x] runtime topology is instance-owned/freezeable;
+- [x] select event loop is correct and bounded under existing test coverage;
+- [x] TCP/TLS/Unix/UDP connection lifecycle exists with bounded buffers;
+- [x] HTTP/1.1 native engine exists with framing/backpressure/security tests;
+- [x] HTTP/2 native engine exists with HPACK/flow-control/abuse tests;
+- [ ] HTTP/3 native engine over QUIC v1/TLS 1.3 passes RFC 9114 acceptance;
+- [ ] full QPACK passes RFC 9204 dynamic/static/Huffman/blocking/ack/cancel acceptance;
+- [ ] QUIC/HTTP/3 stream/control/QPACK state remains bounded under abuse;
+- [ ] native HTTP/1.1, HTTP/2 and HTTP/3 share application-semantic parity;
 - [ ] native TLS ALPN negotiates HTTP/2/HTTP/1.1 correctly;
-- [ ] HTTP/1.1 and HTTP/2 requests have Webrick application-semantic parity;
-- [ ] Webrick native Runwire adapter passes parity tests;
-- [ ] Foundation can serve its compiled web runtime through Runwire with a fresh application execution scope per request;
+- [ ] native QUIC ALPN negotiates `h3` correctly;
+- [ ] native HTTP/3 graceful GOAWAY/drain integrates with supervisor reload;
+- [ ] dedicated QUIC-present CI passes on supported PHP 8.4/8.5 lanes;
+- [ ] QUIC-absent installation/capability behavior remains green;
+- [ ] FPM/FrankenPHP/Swoole/RoadRunner advertised drivers are executable and tested;
 - [ ] trusted prefork supervision handles restart/reload/shutdown/reaping without zombies;
-- [ ] Foundation app resources are created after fork in children, not leaked from master;
-- [ ] structured ProcessRunner has no implicit shell path and enforces configured bounds;
-- [ ] timeout/output/deadlock process tests pass;
-- [ ] Omnibus process-worker supervision can delegate generic OS process mechanics to Runwire without moving queue semantics;
-- [ ] Pathwise and ReqShield boundaries are documented without adding Runwire dependencies to those packages;
-- [ ] untrusted-code guidance explicitly requires a separate runtime/OS isolation boundary;
-- [ ] PHP 8.4/8.5 QA/static/security suites are green;
-- [ ] soak/fault tests show no unbounded memory/FD/child-state growth;
-- [ ] benchmark evidence against Workerman is recorded without benchmark-only shortcuts;
-- [ ] Foundation 3 final release consumes released `infocyph/runwire:^1.0`.
+- [x] structured ProcessRunner avoids implicit shell execution and enforces bounds;
+- [ ] full PHP 8.4/8.5 PHPForge matrix is green at final head;
+- [ ] HTTP/1/2/3 soak/fault tests show no unbounded memory/FD/state growth;
+- [ ] HTTP/3 interoperability is proven against independent client implementations;
+- [ ] benchmarks are recorded without benchmark-only shortcuts;
+- [ ] public docs cover HTTP/1/2/3, QUIC/QPACK, limits and deployment;
+- [ ] draft PR remains the continuous review/CI surface until these gates close;
+- [ ] Runwire 1.0 is tagged/released before Foundation 3 final release consumes `infocyph/runwire:^1.0`.
 
 ---
 
-# 44. Immediate implementation handoff
+# 37. Immediate implementation handoff
 
-Start with the process/runtime skeleton, not HTTP conveniences:
+Current continuation order:
 
 ```text
-RuntimeCapabilities
-    ↓
-Loop contract + SelectLoop
-    ↓
-Supervisor + WorkerGroup + child lifecycle
-    ↓
-Process Command/Runner + bounded pipe I/O
-    ↓
-TCP/TLS Listener + Connection + backpressure
-    ↓
-Version-neutral HTTP transport + HTTP/1.1
-    ↓
-Webrick adapter contract
-    ↓
-HTTP/2 frames + streams + HPACK + flow control + ALPN
-    ↓
-HTTP/1.1 / HTTP/2 parity + abuse acceptance
-    ↓
-Foundation native server
+1. Canonical plan/tracker HTTP/3 update                         ← this document
+2. CI: QUIC-present + QUIC-absent coverage
+3. Validate/harden HTTP/3 framing + dynamic QPACK core
+4. HTTP/3 SETTINGS/control stream state machine
+5. HTTP/3 request/response stream state + common HTTP mapping
+6. QUIC adapter abstraction + php-quic implementation
+7. Native HTTP/3 worker/listener lifecycle + h3 ALPN
+8. Cancellation/backpressure/GOAWAY/drain
+9. RFC/abuse/interoperability tests
+10. HTTP/1.1 ↔ HTTP/2 ↔ HTTP/3 parity
+11. Host-driver execution completion
+12. Runwire-only soak/bench/docs/final QA
+13. Runwire 1.0 release
+14. Then Webrick/Foundation/Omnibus integration work
 ```
 
-The first implementation milestone should prove two independent uses before broadening the API:
-
-1. a supervised multi-worker TCP echo + HTTP/1.1 fixture;
-2. the same Webrick handler exercised over native HTTP/2 with multiplexed streams and bounded flow control; and
-3. a structured bounded child command execution fixture.
-
-That validates both halves of Runwire's identity—the server runtime and the former ProcessGuard process-security/runtime scope—without pulling Foundation-specific behavior into the package.
-
----
+The next code change after this plan and CI update must continue at **HTTP/3 protocol validation/hardening**, not consumer integration.
