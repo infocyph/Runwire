@@ -11,6 +11,7 @@ enum CloseReason: string
     case PEER_CLOSED = 'peer_closed';
     case READ_ERROR = 'read_error';
     case WRITE_ERROR = 'write_error';
+    case PROTOCOL_ERROR = 'protocol_error';
     case IDLE_TIMEOUT = 'idle_timeout';
     case LIFETIME_TIMEOUT = 'lifetime_timeout';
 }

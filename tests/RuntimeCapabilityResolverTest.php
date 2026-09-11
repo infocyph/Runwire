@@ -6,7 +6,7 @@ use Infocyph\Runwire\Runtime\RuntimeCapabilityResolver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\RuntimeDriver;
 
-it('reports native ownership without claiming protocol engines before they are wired', function (): void {
+it('reports only native capabilities whose implementation is wired', function (): void {
     $environment = new RuntimeEnvironment(
         sapi: 'cli',
         availableDrivers: [RuntimeDriver::NATIVE],
@@ -27,8 +27,10 @@ it('reports native ownership without claiming protocol engines before they are w
         ->and($capabilities->supportsAsyncIo)->toBeTrue()
         ->and($capabilities->supportsGracefulReload)->toBeTrue()
         ->and($capabilities->supportsTlsAlpn)->toBeTrue()
-        ->and($capabilities->supportsHttp1)->toBeFalse()
-        ->and($capabilities->supportsHttp2)->toBeFalse();
+        ->and($capabilities->supportsHttp1)->toBeTrue()
+        ->and($capabilities->ownsHttp1Wire)->toBeTrue()
+        ->and($capabilities->supportsHttp2)->toBeFalse()
+        ->and($capabilities->ownsHttp2Wire)->toBeFalse();
 });
 
 it('keeps fpm request-bound application state non-persistent', function (): void {
