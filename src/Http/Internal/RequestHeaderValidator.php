@@ -305,7 +305,7 @@ final readonly class RequestHeaderValidator
         }
 
         $effectiveAuthority = $authority ?? $host;
-        if ($effectiveAuthority !== null && str_contains($effectiveAuthority, '@')) {
+        if (str_contains($effectiveAuthority, '@')) {
             throw new HeaderValidationException(sprintf(
                 '%s %s authority must not contain userinfo.',
                 $this->protocol,
