@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Quic;
 
 use Infocyph\Runwire\Http\Http3\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Frame;
+use Infocyph\Runwire\Http\Http3\FrameType;
+use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3Session;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\Http3\Internal\ResponseScheduler;
+use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 
@@ -33,6 +37,8 @@ final class PhpQuicHttp3Connection
     private bool $closed = false;
 
     private string $controlPending;
+
+    private ?int $drainBoundary = null;
 
     /** @var array<int, true> */
     private array $peerFinishedRequests = [];
@@ -88,6 +94,20 @@ final class PhpQuicHttp3Connection
         return count($this->requestStreams);
     }
 
+    public function beginDrain(): void
+    {
+        if ($this->closed || $this->drainBoundary !== null) {
+            return;
+        }
+
+        $this->drainBoundary = $this->nextRequestStreamId();
+        $this->controlPending .= FrameWriter::encode(new Frame(
+            FrameType::GOAWAY->value,
+            VarIntCodec::encode($this->drainBoundary),
+        ));
+        $this->flush();
+    }
+
     public function closed(): bool
     {
         return $this->closed;
@@ -96,6 +116,11 @@ final class PhpQuicHttp3Connection
     public function connection(): PhpQuicConnection
     {
         return $this->connection;
+    }
+
+    public function draining(): bool
+    {
+        return $this->drainBoundary !== null;
     }
 
     /** @param array<int, int> $ready */
@@ -270,7 +295,7 @@ final class PhpQuicHttp3Connection
     }
 
     /** @param array<int, int> $ready */
-    private function connectionErrored(array $ready, PhpQuicEventMasks $events): bool
+    private function connectionErrored(array $ready, PhpQuicHttp3Connection|PhpQuicEventMasks $events): bool
     {
         return $this->objectReady($ready, $this->connection->object(), $events->error);
     }
@@ -406,6 +431,20 @@ final class PhpQuicHttp3Connection
         return substr($pending, $written);
     }
 
+    private function nextRequestStreamId(): int
+    {
+        if ($this->requestStreams === []) {
+            return 0;
+        }
+
+        $highest = max(array_keys($this->requestStreams));
+        if ($highest > VarIntCodec::MAX_VALUE - 4) {
+            throw new Http3Exception(ErrorCode::ID_ERROR, 'HTTP/3 request stream id exceeds the GOAWAY range.');
+        }
+
+        return $highest + 4;
+    }
+
     /** @param array<int, int> $ready */
     private function objectReady(array $ready, object $object, int $event): bool
     {
@@ -458,6 +497,11 @@ final class PhpQuicHttp3Connection
         $expectedBidirectional = ($streamId & 0x02) === 0;
         if ($bidirectional !== $expectedBidirectional) {
             throw new Http3Exception(ErrorCode::STREAM_CREATION_ERROR, 'QUIC stream direction does not match its stream id.');
+        }
+        if ($bidirectional && $this->drainBoundary !== null && $streamId >= $this->drainBoundary) {
+            $stream->reset(ErrorCode::REQUEST_REJECTED->value);
+
+            return;
         }
 
         $this->peerStreams[$streamId] = $stream;
