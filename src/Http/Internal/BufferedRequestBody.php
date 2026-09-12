@@ -11,9 +11,9 @@ use InvalidArgumentException;
 
 final class BufferedRequestBody implements RequestBodyInterface
 {
-    private int $offset = 0;
-
     private readonly Headers $trailers;
+
+    private int $offset = 0;
 
     public function __construct(private readonly string $body, ?Headers $trailers = null)
     {
@@ -66,7 +66,7 @@ final class BufferedRequestBody implements RequestBodyInterface
         return strlen($this->body);
     }
 
-    public function trailers(): ?Headers
+    public function trailers(): Headers
     {
         return $this->trailers;
     }

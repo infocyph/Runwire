@@ -13,13 +13,13 @@ use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 
-final class FpmDriver implements HostDriverInterface
+final readonly class FpmDriver implements HostDriverInterface
 {
     /** @var Closure(): HttpRequest */
-    private readonly Closure $requestFactory;
+    private Closure $requestFactory;
 
     /** @var Closure(string): ResponseWriterInterface */
-    private readonly Closure $writerFactory;
+    private Closure $writerFactory;
 
     /**
      * @param callable(): HttpRequest|null $requestFactory

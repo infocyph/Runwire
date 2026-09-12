@@ -45,7 +45,7 @@ function hostRuntimeWriter(array &$chunks): ResponseWriterInterface
 }
 
 it('normalizes host request metadata into the common HTTP request contract', function (): void {
-    $request = (new HostRequestFactory())->fromServer([
+    $request = new HostRequestFactory()->fromServer([
         'REQUEST_METHOD' => 'POST',
         'REQUEST_URI' => '/submit?draft=1',
         'SERVER_PROTOCOL' => 'HTTP/2.0',
@@ -120,9 +120,11 @@ it('runs FPM as one host-owned request with cleanup and shutdown', function (): 
     $driver = new FpmDriver(
         new FpmOptions(),
         static fn(): HttpRequest => hostRuntimeRequest('/fpm'),
-        static fn(string $method): ResponseWriterInterface => $method === 'GET'
-            ? hostRuntimeWriter($chunks)
-            : throw new RuntimeException('Unexpected host request method.'),
+        static function (string $method) use (&$chunks): ResponseWriterInterface {
+            return $method === 'GET'
+                ? hostRuntimeWriter($chunks)
+                : throw new RuntimeException('Unexpected host request method.');
+        },
     );
 
     $driver->run($application);
@@ -153,9 +155,11 @@ it('runs FrankenPHP classic mode as one request', function (): void {
     $driver = new FrankenPhpDriver(
         new FrankenPhpOptions(mode: FrankenPhpMode::CLASSIC),
         static fn(): HttpRequest => hostRuntimeRequest('/classic'),
-        static fn(string $method): ResponseWriterInterface => $method === 'GET'
-            ? hostRuntimeWriter($chunks)
-            : throw new RuntimeException('Unexpected host request method.'),
+        static function (string $method) use (&$chunks): ResponseWriterInterface {
+            return $method === 'GET'
+                ? hostRuntimeWriter($chunks)
+                : throw new RuntimeException('Unexpected host request method.');
+        },
     );
 
     $driver->run($application);
@@ -187,9 +191,11 @@ it('runs FrankenPHP worker requests with per-request cleanup and bounded recycli
     $driver = new FrankenPhpDriver(
         new FrankenPhpOptions(mode: FrankenPhpMode::WORKER, maxRequests: 2),
         static fn(): HttpRequest => hostRuntimeRequest('/worker'),
-        static fn(string $method): ResponseWriterInterface => $method === 'GET'
-            ? hostRuntimeWriter($chunks)
-            : throw new RuntimeException('Unexpected host request method.'),
+        static function (string $method) use (&$chunks): ResponseWriterInterface {
+            return $method === 'GET'
+                ? hostRuntimeWriter($chunks)
+                : throw new RuntimeException('Unexpected host request method.');
+        },
         static function (callable $handler) use (&$workerCalls): bool {
             ++$workerCalls;
             $handler();
@@ -214,7 +220,7 @@ it('reports FrankenPHP worker persistence without claiming Runwire wire ownershi
         frankenPhpWorkerMode: true,
         opcacheAvailable: true,
     );
-    $selection = (new RuntimeSelector())->select(
+    $selection = new RuntimeSelector()->select(
         new RuntimeOptions(
             driver: RuntimeDriver::FRANKENPHP,
             frankenPhp: new FrankenPhpOptions(mode: FrankenPhpMode::WORKER),

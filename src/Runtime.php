@@ -185,7 +185,7 @@ final class Runtime
             throw new RuntimeUnavailableException('The native runtime owns its listeners; configure listen() and call run().');
         }
 
-        $this->hostDriver = (new HostDriverFactory())->create($this->selection->driver, $this->options);
+        $this->hostDriver = new HostDriverFactory()->create($this->selection->driver, $this->options);
         try {
             $this->hostDriver->run(new RuntimeApplication($handler, $requestCleanup, $shutdown));
         } finally {

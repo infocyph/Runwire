@@ -15,7 +15,10 @@ final class HostRequestFactory
 {
     public function fromGlobals(int $maxBodyBytes): HttpRequest
     {
-        return $this->fromServer($_SERVER, $this->readInput($maxBodyBytes), $maxBodyBytes);
+        /** @var array<string, mixed> $server */
+        $server = $_SERVER;
+
+        return $this->fromServer($server, $this->readInput($maxBodyBytes), $maxBodyBytes);
     }
 
     /** @param array<string, mixed> $server */
@@ -68,26 +71,6 @@ final class HostRequestFactory
         return strtolower($this->serverString($server, 'REQUEST_SCHEME')) === 'https';
     }
 
-    /**
-     * @param array<string, mixed> $server
-     * @return array<string, string>
-     */
-    private function headers(array $server): array
-    {
-        $headers = [];
-        foreach ($server as $key => $value) {
-            if (!is_string($key) || (!is_string($value) && !is_int($value) && !is_float($value))) {
-                continue;
-            }
-            $headerName = $this->headerName($key);
-            if ($headerName !== null) {
-                $headers[$headerName] = (string) $value;
-            }
-        }
-
-        return $headers;
-    }
-
     private function headerName(string $serverKey): ?string
     {
         if (str_starts_with($serverKey, 'HTTP_')) {
@@ -99,6 +82,26 @@ final class HostRequestFactory
             'CONTENT_TYPE' => 'content-type',
             default => null,
         };
+    }
+
+    /**
+     * @param array<string, mixed> $server
+     * @return array<string, string>
+     */
+    private function headers(array $server): array
+    {
+        $headers = [];
+        foreach ($server as $key => $value) {
+            if (!is_string($value) && !is_int($value) && !is_float($value)) {
+                continue;
+            }
+            $headerName = $this->headerName($key);
+            if ($headerName !== null) {
+                $headers[$headerName] = (string) $value;
+            }
+        }
+
+        return $headers;
     }
 
     private function protocolVersion(string $protocol): ProtocolVersion
@@ -124,7 +127,8 @@ final class HostRequestFactory
         try {
             $body = '';
             while (!feof($stream)) {
-                $chunk = fread($stream, min(8_192, $maxBodyBytes - strlen($body) + 1));
+                $readBytes = max(1, min(8_192, $maxBodyBytes - strlen($body) + 1));
+                $chunk = fread($stream, $readBytes);
                 if ($chunk === false) {
                     throw new RuntimeException('Unable to read the host request body stream.');
                 }

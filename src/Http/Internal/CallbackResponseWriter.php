@@ -16,6 +16,10 @@ final class CallbackResponseWriter implements ResponseWriterInterface
     /** @var Closure(): void */
     private readonly Closure $endCallback;
 
+    private readonly bool $headRequest;
+
+    private readonly int $maxBodyBytes;
+
     /** @var Closure(int, Headers): void */
     private readonly Closure $startCallback;
 
@@ -39,16 +43,18 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         callable $startCallback,
         callable $writeCallback,
         callable $endCallback,
-        private readonly int $maxBodyBytes,
-        private readonly bool $headRequest = false,
+        int $maxBodyBytes,
+        bool $headRequest = false,
     ) {
         if ($maxBodyBytes < 1) {
             throw new InvalidArgumentException('Maximum host response body size must be positive.');
         }
 
+        $this->endCallback = Closure::fromCallable($endCallback);
+        $this->headRequest = $headRequest;
+        $this->maxBodyBytes = $maxBodyBytes;
         $this->startCallback = Closure::fromCallable($startCallback);
         $this->writeCallback = Closure::fromCallable($writeCallback);
-        $this->endCallback = Closure::fromCallable($endCallback);
     }
 
     public function end(string $finalChunk = ''): WriteResult

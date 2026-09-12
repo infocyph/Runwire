@@ -11,8 +11,13 @@ use Infocyph\Runwire\RuntimeOptions;
 
 final class RuntimeCapabilityResolver
 {
-    public function resolve(RuntimeDriver $driver, RuntimeEnvironment $environment, RuntimeOptions $options): RuntimeCapabilities
-    {
+    public function resolve(
+        RuntimeDriver $driver,
+        RuntimeEnvironment $environment,
+        ?RuntimeOptions $options = null,
+    ): RuntimeCapabilities {
+        $options ??= new RuntimeOptions();
+
         return match ($driver) {
             RuntimeDriver::NATIVE => $this->native($environment),
             RuntimeDriver::FPM => $this->fpm($environment),
