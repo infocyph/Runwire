@@ -78,18 +78,26 @@ function runwireSoakHttp1(int $requests): array
         },
     );
 
-    $wire = '';
-    for ($index = 0; $index < $requests; ++$index) {
-        $wire .= sprintf(
-            "GET /soak/%d HTTP/1.1\r\nHost: example.test\r\n%s\r\n",
-            $index,
-            $index === $requests - 1 ? "Connection: close\r\n" : '',
-        );
+    $batchSize = 32;
+    for ($batchStart = 0; $batchStart < $requests; $batchStart += $batchSize) {
+        $batchEnd = min($requests, $batchStart + $batchSize);
+        $wire = '';
+        for ($index = $batchStart; $index < $batchEnd; ++$index) {
+            $wire .= sprintf(
+                "GET /soak/%d HTTP/1.1\r\nHost: example.test\r\n%s\r\n",
+                $index,
+                $index === $requests - 1 ? "Connection: close\r\n" : '',
+            );
+        }
+
+        $written = fwrite($client, $wire);
+        if ($written !== strlen($wire)) {
+            throw new RuntimeException('HTTP/1.1 soak client could not write its bounded request batch.');
+        }
+        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->run();
     }
 
-    fwrite($client, $wire);
-    $loop->delay(0.75, static fn() => $loop->stop());
-    $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
     fclose($client);
