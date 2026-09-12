@@ -69,7 +69,9 @@ final class PhpQuicHttp3Connection
             fn(int $streamId, string $method): ResponseWriterInterface => $this->scheduler->writer(
                 $streamId,
                 $method,
-                static function (): void {},
+                static function (): void {
+                    return;
+                },
             ),
             $peerAddress,
             $localAddress,
