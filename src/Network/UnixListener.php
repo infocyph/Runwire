@@ -275,7 +275,7 @@ final class UnixListener
                 break;
             }
             $peer = null;
-            $client = stream_socket_accept($listener, 0, $peer);
+            $client = @stream_socket_accept($listener, 0, $peer);
             if (!is_resource($client)) {
                 break;
             }

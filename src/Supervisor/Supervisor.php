@@ -408,6 +408,7 @@ final class Supervisor
             supervisorStopping: $this->stopping,
             childrenEmptyAfterRemoval: count($this->children) === 1,
         );
+
         if ($transition->plannedRecycle) {
             $this->emitWorker(SupervisorEventType::WORKER_RECYCLE_STARTED, $record);
         }

@@ -40,7 +40,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
     $client = false;
     try {
         for ($attempt = 0; $attempt < 100; ++$attempt) {
-            $client = stream_socket_client('tcp://' . $address, $errno, $error, 0.05);
+            $client = @stream_socket_client('tcp://' . $address, $errno, $error, 0.05);
             if (is_resource($client)) {
                 break;
             }

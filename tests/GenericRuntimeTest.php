@@ -62,7 +62,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
     $udp = false;
     try {
         for ($attempt = 0; $attempt < 100; ++$attempt) {
-            $tcp = stream_socket_client('tcp://' . $tcpAddress, $errno, $error, 0.05);
+            $tcp = @stream_socket_client('tcp://' . $tcpAddress, $errno, $error, 0.05);
             if (is_resource($tcp)) {
                 break;
             }
@@ -136,7 +136,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
     try {
         for ($attempt = 0; $attempt < 150; ++$attempt) {
             if (file_exists($path)) {
-                $client = stream_socket_client('unix://' . $path, $errno, $error, 0.05);
+                $client = @stream_socket_client('unix://' . $path, $errno, $error, 0.05);
                 if (is_resource($client)) {
                     break;
                 }

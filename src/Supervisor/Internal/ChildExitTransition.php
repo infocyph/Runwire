@@ -16,7 +16,7 @@ final readonly class ChildExitTransition
 
     public static function evaluate(
         ChildRecord $record,
-        int $exitCode,
+        ?int $exitCode,
         bool $hasReplacement,
         bool $supervisorStopping,
         bool $childrenEmptyAfterRemoval,
