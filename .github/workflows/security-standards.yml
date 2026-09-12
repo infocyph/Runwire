@@ -201,6 +201,7 @@ jobs:
             tests/Http3OptionsTest.php \
             tests/Http3AbuseFaultAcceptanceTest.php \
             tests/HttpProtocolSemanticParityTest.php \
+            tests/SoakAcceptanceTest.php \
             tests/PhpQuicTransportTest.php \
             tests/PhpQuicFacadeTest.php \
             tests/PhpQuicHttp3ConnectionTest.php \
@@ -263,6 +264,67 @@ jobs:
 
           if ! /tmp/runwire-aioquic/bin/python tests/interop/aioquic_http3_client.py "$port"; then
             echo '--- Runwire aioquic interoperability server log ---'
+            cat "$tmpdir/server.log"
+            exit 1
+          fi
+          if ! wait "$server_pid"; then
+            cat "$tmpdir/server.log"
+            exit 1
+          fi
+          server_pid=""
+
+      - name: Run native HTTP/3 soak acceptance
+        shell: bash
+        run: |
+          test -x /tmp/runwire-aioquic/bin/python
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "$tmpdir/key.pem" \
+            -out "$tmpdir/cert.pem" \
+            -days 1 \
+            -subj '/CN=localhost' >/dev/null 2>&1
+
+          port="$(python3 - <<'PY'
+          import socket
+          with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+              sock.bind(('127.0.0.1', 0))
+              print(sock.getsockname()[1])
+          PY
+          )"
+
+          php tests/fixtures/http3_interop_server.php \
+            "$port" "$tmpdir/cert.pem" "$tmpdir/key.pem" "$tmpdir/ready" 128 \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -s "$tmpdir/ready" ]; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.02
+          done
+          if [ ! -s "$tmpdir/ready" ]; then
+            cat "$tmpdir/server.log"
+            echo '::error::Runwire HTTP/3 soak fixture did not become ready.'
+            exit 1
+          fi
+
+          if ! /tmp/runwire-aioquic/bin/python tests/interop/aioquic_http3_soak.py "$port" 128; then
+            echo '--- Runwire HTTP/3 soak server log ---'
             cat "$tmpdir/server.log"
             exit 1
           fi
