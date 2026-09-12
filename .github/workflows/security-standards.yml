@@ -218,7 +218,11 @@ jobs:
             exit 1
           fi
 
-          /tmp/runwire-aioquic/bin/python tests/interop/aioquic_http3_client.py "$port"
+          if ! /tmp/runwire-aioquic/bin/python tests/interop/aioquic_http3_client.py "$port"; then
+            echo '--- Runwire HTTP/3 interoperability server log ---'
+            cat "$tmpdir/server.log"
+            exit 1
+          fi
           if ! wait "$server_pid"; then
             cat "$tmpdir/server.log"
             exit 1
