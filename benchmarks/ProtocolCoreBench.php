@@ -49,6 +49,64 @@ final class ProtocolCoreBench
 
     private string $qpackWire;
 
+    public function benchHttp1HeadValidation(): int
+    {
+        return $this->http1Validator->validate($this->http1Headers, 16_777_216)->contentLength;
+    }
+
+    public function benchHttp2HpackDecode(): int
+    {
+        return count($this->hpackDecoder->decode($this->hpackWire));
+    }
+
+    public function benchHttp2HpackEncode(): int
+    {
+        return strlen($this->hpackEncoder->encode($this->http2Headers));
+    }
+
+    public function benchHttp3FrameDecode(): int
+    {
+        $frames = (new FrameParser())->push($this->http3Wire);
+
+        return strlen($frames[0]->payload);
+    }
+
+    public function benchHttp3FrameEncode(): int
+    {
+        return strlen(FrameWriter::encode($this->http3Frame));
+    }
+
+    public function benchHttp3QpackDynamicRoundTrip(): int
+    {
+        $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
+        $decoder = new QpackDecoder(512, 8, maxBlockedBytes: 8_192);
+        $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
+
+        $encoded = $encoder->encode($this->http3Headers, 0);
+        $decoded = $decoder->decode($encoded->block, 0);
+        $ready = $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
+        if ($decoded === null) {
+            $decoded = $ready[0]->section ?? throw new RuntimeException('QPACK benchmark section did not unblock.');
+        }
+
+        $instructions = $decoder->takeDecoderInstructions();
+        if ($instructions !== '') {
+            $encoder->pushDecoderInstructions($instructions);
+        }
+
+        return count($decoded->fields);
+    }
+
+    public function benchHttp3QpackStaticDecode(): int
+    {
+        return count($this->qpackDecoder->decode($this->qpackWire, 0)?->fields ?? []);
+    }
+
+    public function benchHttp3QpackStaticEncode(): int
+    {
+        return strlen($this->qpackEncoder->encode($this->http3Headers, 0)->block);
+    }
+
     public function setUp(): void
     {
         $this->http1Validator = new RequestHeadValidator();
@@ -87,63 +145,5 @@ final class ProtocolCoreBench
         $this->qpackEncoder = new QpackEncoder(0, 0);
         $this->qpackDecoder = new QpackDecoder(0, 0);
         $this->qpackWire = (new QpackEncoder(0, 0))->encode($this->http3Headers, 0)->block;
-    }
-
-    public function benchHttp1HeadValidation(): int
-    {
-        return $this->http1Validator->validate($this->http1Headers, 16_777_216)->contentLength;
-    }
-
-    public function benchHttp2HpackEncode(): int
-    {
-        return strlen($this->hpackEncoder->encode($this->http2Headers));
-    }
-
-    public function benchHttp2HpackDecode(): int
-    {
-        return count($this->hpackDecoder->decode($this->hpackWire));
-    }
-
-    public function benchHttp3FrameEncode(): int
-    {
-        return strlen(FrameWriter::encode($this->http3Frame));
-    }
-
-    public function benchHttp3FrameDecode(): int
-    {
-        $frames = (new FrameParser())->push($this->http3Wire);
-
-        return strlen($frames[0]->payload);
-    }
-
-    public function benchHttp3QpackStaticEncode(): int
-    {
-        return strlen($this->qpackEncoder->encode($this->http3Headers, 0)->block);
-    }
-
-    public function benchHttp3QpackStaticDecode(): int
-    {
-        return count($this->qpackDecoder->decode($this->qpackWire, 0)?->fields ?? []);
-    }
-
-    public function benchHttp3QpackDynamicRoundTrip(): int
-    {
-        $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
-        $decoder = new QpackDecoder(512, 8, maxBlockedBytes: 8_192);
-        $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-
-        $encoded = $encoder->encode($this->http3Headers, 0);
-        $decoded = $decoder->decode($encoded->block, 0);
-        $ready = $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-        if ($decoded === null) {
-            $decoded = $ready[0]->section ?? throw new RuntimeException('QPACK benchmark section did not unblock.');
-        }
-
-        $instructions = $decoder->takeDecoderInstructions();
-        if ($instructions !== '') {
-            $encoder->pushDecoderInstructions($instructions);
-        }
-
-        return count($decoded->fields);
     }
 }
