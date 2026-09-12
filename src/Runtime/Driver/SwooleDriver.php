@@ -136,7 +136,13 @@ final class SwooleDriver implements HostDriverInterface
     /** @return class-string */
     private static function serverClass(): string
     {
-        foreach ([\OpenSwoole\Http\Server::class, \Swoole\Http\Server::class] as $class) {
+        $separator = '\\';
+        $classes = [
+            'OpenSwoole' . $separator . 'Http' . $separator . 'Server',
+            'Swoole' . $separator . 'Http' . $separator . 'Server',
+        ];
+
+        foreach ($classes as $class) {
             if (class_exists($class)) {
                 return $class;
             }
