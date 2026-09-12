@@ -161,9 +161,9 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
         }
 
         $path = $parts['path'] ?? '/';
-        $target = is_string($path) && $path !== '' ? $path : '/';
+        $target = $path !== '' ? $path : '/';
         $query = $parts['query'] ?? null;
-        if (is_string($query) && $query !== '') {
+        if ($query !== null && $query !== '') {
             $target .= '?' . $query;
         }
 
