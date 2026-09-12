@@ -31,28 +31,6 @@ final class HostAdapterBench
 
     private ResponseWriterInterface $writer;
 
-    public function benchApplicationDispatchAndCleanup(): int
-    {
-        $this->application->handle($this->request, $this->writer);
-
-        return strlen($this->request->method);
-    }
-
-    public function benchHostRequestNormalization(): int
-    {
-        $request = $this->factory->fromServer($this->server, $this->body, 1_024);
-
-        return strlen($request->target);
-    }
-
-    public function benchHostResponseWriterLifecycle(): int
-    {
-        $writer = $this->newWriter();
-        $result = $writer->end('runwire');
-
-        return $result->bufferedBytes;
-    }
-
     public function setUp(): void
     {
         $this->factory = new HostRequestFactory();
@@ -82,6 +60,28 @@ final class HostAdapterBench
             },
             static function (): void {},
         );
+    }
+
+    public function benchApplicationDispatchAndCleanup(): int
+    {
+        $this->application->handle($this->request, $this->writer);
+
+        return strlen($this->request->method);
+    }
+
+    public function benchHostRequestNormalization(): int
+    {
+        $request = $this->factory->fromServer($this->server, $this->body, 1_024);
+
+        return strlen($request->target);
+    }
+
+    public function benchHostResponseWriterLifecycle(): int
+    {
+        $writer = $this->newWriter();
+        $result = $writer->end('runwire');
+
+        return $result->bufferedBytes;
     }
 
     private function newWriter(): ResponseWriterInterface
