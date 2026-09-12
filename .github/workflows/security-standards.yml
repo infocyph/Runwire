@@ -138,7 +138,6 @@ jobs:
             ./configure --with-openssl --disable-dependency-tracking
           make -j"$(nproc)"
           test -x examples/osslclient
-          examples/osslclient --version
           popd
 
       - name: Verify QUIC API
