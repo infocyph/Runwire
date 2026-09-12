@@ -37,19 +37,22 @@ jobs:
       contents: read
 
     steps:
-      # Install Git before actions/checkout. Without Git, checkout falls back to
-      # a repository archive, and Runwire intentionally export-ignores tests and
-      # QA configuration from distribution archives.
+      # These packages bootstrap the Debian-based CI container only. They are
+      # not Runwire install/runtime dependencies. The independent ngtcp2 client
+      # is built from pinned upstream source instead of a distro package.
       - name: Bootstrap container tools
         shell: bash
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
             autoconf \
+            automake \
             build-essential \
             ca-certificates \
             git \
+            libev-dev \
             libssl-dev \
+            libtool \
             pkg-config \
             python3 \
             python3-venv \
@@ -65,6 +68,22 @@ jobs:
           repository: mikepultz/php-quic
           ref: main
           path: .ci/php-quic
+
+      - name: Checkout nghttp3 interoperability dependency
+        if: matrix.php-version == '8.5'
+        uses: actions/checkout@v7
+        with:
+          repository: ngtcp2/nghttp3
+          ref: v1.18.0
+          path: .ci/nghttp3
+
+      - name: Checkout ngtcp2 interoperability client
+        if: matrix.php-version == '8.5'
+        uses: actions/checkout@v7
+        with:
+          repository: ngtcp2/ngtcp2
+          ref: v1.25.0
+          path: .ci/ngtcp2
 
       - name: Enable Runwire process extensions
         shell: bash
@@ -96,6 +115,29 @@ jobs:
           make -j"$(nproc)"
           make install
           docker-php-ext-enable quic
+
+      - name: Build independent ngtcp2 HTTP/3 client
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          pushd .ci/nghttp3
+          autoreconf -i
+          ./configure \
+            --prefix="$GITHUB_WORKSPACE/.ci/nghttp3/build" \
+            --enable-lib-only \
+            --disable-dependency-tracking
+          make -j"$(nproc)"
+          make install
+          popd
+
+          pushd .ci/ngtcp2
+          autoreconf -i
+          PKG_CONFIG_PATH="$GITHUB_WORKSPACE/.ci/nghttp3/build/lib/pkgconfig" \
+            ./configure --with-openssl --disable-dependency-tracking
+          make -j"$(nproc)"
+          test -x examples/osslclient
+          examples/osslclient --version
+          popd
 
       - name: Verify QUIC API
         shell: bash
@@ -219,7 +261,7 @@ jobs:
           fi
 
           if ! /tmp/runwire-aioquic/bin/python tests/interop/aioquic_http3_client.py "$port"; then
-            echo '--- Runwire HTTP/3 interoperability server log ---'
+            echo '--- Runwire aioquic interoperability server log ---'
             cat "$tmpdir/server.log"
             exit 1
           fi
@@ -228,3 +270,83 @@ jobs:
             exit 1
           fi
           server_pid=""
+
+      - name: Run independent ngtcp2 HTTP/3 interoperability
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          mkdir "$tmpdir/download"
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "$tmpdir/key.pem" \
+            -out "$tmpdir/cert.pem" \
+            -days 1 \
+            -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
+
+          port="$(python3 - <<'PY'
+          import socket
+          with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+              sock.bind(('127.0.0.1', 0))
+              print(sock.getsockname()[1])
+          PY
+          )"
+
+          php tests/fixtures/http3_interop_server.php \
+            "$port" "$tmpdir/cert.pem" "$tmpdir/key.pem" "$tmpdir/ready" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -s "$tmpdir/ready" ]; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.02
+          done
+          if [ ! -s "$tmpdir/ready" ]; then
+            cat "$tmpdir/server.log"
+            echo '::error::Runwire HTTP/3 ngtcp2 interoperability fixture did not become ready.'
+            exit 1
+          fi
+
+          if ! .ci/ngtcp2/examples/osslclient \
+            --download="$tmpdir/download" \
+            --exit-on-all-streams-close \
+            127.0.0.1 "$port" "https://127.0.0.1:$port/interop-ngtcp2" \
+            >"$tmpdir/client.log" 2>&1; then
+            echo '--- ngtcp2 HTTP/3 client log ---'
+            cat "$tmpdir/client.log"
+            echo '--- Runwire ngtcp2 interoperability server log ---'
+            cat "$tmpdir/server.log"
+            exit 1
+          fi
+          if ! wait "$server_pid"; then
+            cat "$tmpdir/server.log"
+            exit 1
+          fi
+          server_pid=""
+
+          if [ ! -f "$tmpdir/download/interop-ngtcp2" ]; then
+            cat "$tmpdir/client.log"
+            echo '::error::ngtcp2 did not persist the Runwire HTTP/3 response body.'
+            exit 1
+          fi
+          if [ "$(cat "$tmpdir/download/interop-ngtcp2")" != 'runwire-ngtcp2-ok' ]; then
+            cat "$tmpdir/client.log"
+            echo '::error::ngtcp2 received an unexpected Runwire HTTP/3 response body.'
+            exit 1
+          fi
