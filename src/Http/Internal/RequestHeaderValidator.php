@@ -281,7 +281,22 @@ final readonly class RequestHeaderValidator
         if ($authority !== null && trim($authority) === '') {
             throw new HeaderValidationException(sprintf('%s :authority must not be empty.', $this->protocol));
         }
-        if ($scheme !== null && $this->schemeRequiresAuthority($scheme) && $authority === null && $host === null) {
+        $this->validateHttpAuthority($authority, $scheme, $host);
+
+        if ($authority !== null && $host !== null && strcasecmp(trim($authority), trim($host)) !== 0) {
+            throw new HeaderValidationException(sprintf(
+                '%s :authority conflicts with Host.',
+                $this->protocol,
+            ));
+        }
+    }
+
+    private function validateHttpAuthority(?string $authority, ?string $scheme, ?string $host): void
+    {
+        if ($scheme === null || !$this->schemeRequiresAuthority($scheme)) {
+            return;
+        }
+        if ($authority === null && $host === null) {
             throw new HeaderValidationException(sprintf(
                 '%s %s request requires :authority or Host.',
                 $this->protocol,
@@ -290,22 +305,11 @@ final readonly class RequestHeaderValidator
         }
 
         $effectiveAuthority = $authority ?? $host;
-        if (
-            $scheme !== null
-            && $this->schemeRequiresAuthority($scheme)
-            && $effectiveAuthority !== null
-            && str_contains($effectiveAuthority, '@')
-        ) {
+        if ($effectiveAuthority !== null && str_contains($effectiveAuthority, '@')) {
             throw new HeaderValidationException(sprintf(
                 '%s %s authority must not contain userinfo.',
                 $this->protocol,
                 strtolower($scheme),
-            ));
-        }
-        if ($authority !== null && $host !== null && strcasecmp(trim($authority), trim($host)) !== 0) {
-            throw new HeaderValidationException(sprintf(
-                '%s :authority conflicts with Host.',
-                $this->protocol,
             ));
         }
     }
