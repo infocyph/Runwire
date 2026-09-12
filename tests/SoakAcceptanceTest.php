@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http1\Http1Connection;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
@@ -13,6 +14,9 @@ use Infocyph\Runwire\Http\Http3\Internal\ConnectionState as Http3ConnectionState
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder as QpackDecoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder as QpackEncoder;
 use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
+use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
+use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
@@ -29,6 +33,27 @@ function runwireSoakSnapshot(): array
         'memory' => memory_get_usage(true),
         'resources' => count(get_resources()),
     ];
+}
+
+function runwireSoakRequest(string $target): HttpRequest
+{
+    return new HttpRequest(
+        method: 'GET',
+        target: $target,
+        version: ProtocolVersion::HTTP_1_1,
+        headers: new Headers(),
+        body: new BufferedRequestBody(''),
+    );
+}
+
+function runwireSoakWriter(): ResponseWriterInterface
+{
+    return new CallbackResponseWriter(
+        static function (int $status, Headers $headers): void {},
+        static function (string $chunk): void {},
+        static function (): void {},
+        1_024,
+    );
 }
 
 /** @return array{requests: int, responses: int} */
@@ -204,8 +229,8 @@ it('keeps protocol and request-scope state bounded under deterministic churn', f
     );
     for ($index = 0; $index < 512; ++$index) {
         $application->handle(
-            persistentRuntimeRequest('/scope/' . $index),
-            persistentRuntimeWriter(),
+            runwireSoakRequest('/scope/' . $index),
+            runwireSoakWriter(),
         );
     }
 
