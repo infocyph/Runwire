@@ -154,6 +154,7 @@ jobs:
             tests/Http3SessionTest.php \
             tests/Http3ResponseSchedulerTest.php \
             tests/Http3OptionsTest.php \
+            tests/HttpProtocolSemanticParityTest.php \
             tests/PhpQuicTransportTest.php \
             tests/PhpQuicFacadeTest.php \
             tests/PhpQuicHttp3ConnectionTest.php \
