@@ -96,6 +96,13 @@ final class RuntimeCapabilityResolver
             driver: RuntimeDriver::ROADRUNNER,
             persistentProcess: true,
             persistentApplication: true,
+            supportsGracefulReload: true,
+            supportsWorkerRecycle: true,
+            supportsHttp1: true,
+            supportsHttp2: true,
+            supportsHttp3: true,
+            supportsTlsAlpn: true,
+            supportsQuic: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );

@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Runtime\Host;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Runtime\Driver\FpmDriver;
 use Infocyph\Runwire\Runtime\Driver\FrankenPhpDriver;
+use Infocyph\Runwire\Runtime\Driver\RoadRunnerDriver;
 use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
 use Infocyph\Runwire\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
@@ -18,11 +19,8 @@ final class HostDriverFactory
         return match ($driver) {
             RuntimeDriver::FPM => new FpmDriver($options->fpm),
             RuntimeDriver::FRANKENPHP => new FrankenPhpDriver($options->frankenPhp),
+            RuntimeDriver::ROADRUNNER => new RoadRunnerDriver($options->roadRunner),
             RuntimeDriver::SWOOLE => new SwooleDriver($options->swoole),
-            RuntimeDriver::ROADRUNNER => throw new RuntimeUnavailableException(sprintf(
-                'Runtime driver "%s" is selected, but its host execution adapter is not wired yet.',
-                $driver->value,
-            )),
             RuntimeDriver::AUTO, RuntimeDriver::NATIVE => throw new RuntimeUnavailableException(sprintf(
                 'Runtime driver "%s" is not a host-owned serve() driver.',
                 $driver->value,

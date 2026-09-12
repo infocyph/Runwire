@@ -11,6 +11,7 @@ final readonly class RuntimeOptions
         public OpcacheMode $opcache = OpcacheMode::AUTO,
         public FpmOptions $fpm = new FpmOptions(),
         public FrankenPhpOptions $frankenPhp = new FrankenPhpOptions(),
+        public RoadRunnerOptions $roadRunner = new RoadRunnerOptions(),
         public SwooleOptions $swoole = new SwooleOptions(),
     ) {}
 }
