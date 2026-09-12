@@ -1,0 +1,66 @@
+name: "Benchmarks"
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+
+jobs:
+  protocol-core:
+    name: "Protocol + host core - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: pcntl, posix
+          coverage: none
+
+      - name: Install Runwire dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Record environment
+        shell: bash
+        run: |
+          mkdir -p .benchmark-results
+          {
+            php -v
+            composer --version
+            uname -a
+            lscpu
+          } > ".benchmark-results/environment-php-${{ matrix.php-version }}.txt"
+
+      - name: Run PHPBench suite
+        shell: bash
+        run: |
+          result=".benchmark-results/phpbench-php-${{ matrix.php-version }}.json"
+          vendor/bin/phpbench run \
+            --report=aggregate \
+            --output=json \
+            --progress=none \
+            --bootstrap=vendor/autoload.php \
+            --config=vendor/infocyph/phpforge/resources/phpbench.json \
+            benchmarks > "$result"
+          jq -e 'type == "array" and length > 0' "$result" >/dev/null
+          cat "$result"
+
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-benchmarks-php-${{ matrix.php-version }}
+          path: .benchmark-results/
+          retention-days: 61
