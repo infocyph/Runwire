@@ -55,6 +55,34 @@ final readonly class PhpQuicHttp3Poller
     }
 
     /**
+     * @param array<int, array{0: object, 1: int}> $items
+     * @return array<int, int>
+     */
+    private static function normalizeReady(mixed $ready, array $items): array
+    {
+        if (!is_array($ready)) {
+            throw new UnexpectedValueException('HTTP/3 QUIC poll callback returned an invalid readiness map.');
+        }
+
+        $normalized = [];
+        foreach ($ready as $key => $mask) {
+            if (!is_int($key) || !is_int($mask) || !isset($items[$key])) {
+                throw new UnexpectedValueException('HTTP/3 QUIC poll callback returned an invalid readiness map.');
+            }
+            $normalized[$key] = $mask;
+        }
+
+        return $normalized;
+    }
+
+    private static function validateTimeout(?float $timeoutSeconds): void
+    {
+        if ($timeoutSeconds !== null && (!is_finite($timeoutSeconds) || $timeoutSeconds < 0)) {
+            throw new InvalidArgumentException('HTTP/3 QUIC poll timeout must be finite and non-negative.');
+        }
+    }
+
+    /**
      * @param list<PhpQuicHttp3Connection> $connections
      * @return array<int, array{0: object, 1: int}>
      */
@@ -86,28 +114,6 @@ final readonly class PhpQuicHttp3Poller
         }
     }
 
-    /**
-     * @param mixed $ready
-     * @param array<int, array{0: object, 1: int}> $items
-     * @return array<int, int>
-     */
-    private static function normalizeReady(mixed $ready, array $items): array
-    {
-        if (!is_array($ready)) {
-            throw new UnexpectedValueException('HTTP/3 QUIC poll callback returned an invalid readiness map.');
-        }
-
-        $normalized = [];
-        foreach ($ready as $key => $mask) {
-            if (!is_int($key) || !is_int($mask) || !isset($items[$key])) {
-                throw new UnexpectedValueException('HTTP/3 QUIC poll callback returned an invalid readiness map.');
-            }
-            $normalized[$key] = $mask;
-        }
-
-        return $normalized;
-    }
-
     /** @param array<int, int> $ready */
     private function objectReady(object $object, array $ready, int $event): bool
     {
@@ -118,12 +124,5 @@ final readonly class PhpQuicHttp3Poller
     private function putPollItem(array &$items, object $object, int $events): void
     {
         $items[spl_object_id($object)] = [$object, $events];
-    }
-
-    private static function validateTimeout(?float $timeoutSeconds): void
-    {
-        if ($timeoutSeconds !== null && (!is_finite($timeoutSeconds) || $timeoutSeconds < 0)) {
-            throw new InvalidArgumentException('HTTP/3 QUIC poll timeout must be finite and non-negative.');
-        }
     }
 }
