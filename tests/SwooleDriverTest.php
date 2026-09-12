@@ -76,16 +76,16 @@ final class FakeSwooleResponse
 
 final class FakeSwooleServer
 {
-    /** @var Closure(object, object): void|null */
-    private ?\Closure $requestHandler = null;
+    /** @var array<string, bool|int> */
+    public array $settings = [];
+
+    public bool $shutdownCalled = false;
 
     /** @var Closure(): void|null */
     public ?\Closure $startHook = null;
 
-    public bool $shutdownCalled = false;
-
-    /** @var array<string, bool|int> */
-    public array $settings = [];
+    /** @var Closure(object, object): void|null */
+    private ?\Closure $requestHandler = null;
 
     public function __construct(
         public readonly FakeSwooleRequest $request,
