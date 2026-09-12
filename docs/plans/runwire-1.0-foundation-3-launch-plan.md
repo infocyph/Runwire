@@ -35,7 +35,7 @@ Tagline:
 
 # Implementation tracker
 
-Last updated: **2026-09-11**
+Last updated: **2026-09-12**
 
 | Milestone | Status | Evidence / next gate |
 | --- | --- | --- |
@@ -50,16 +50,16 @@ Last updated: **2026-09-11**
 | HTTP/2 frame/stream/HPACK/flow-control engine | ✅ Landed | multiplexing, HPACK, scheduler, flow control, abuse tests |
 | Native TLS ALPN HTTP/1.1 + HTTP/2 dispatch | ✅ Landed | `h2` / `http/1.1` native dispatch |
 | HTTP/3 public capability surface | ✅ Landed | `ProtocolVersion::HTTP_3`, QUIC capability/ownership reporting |
-| HTTP/3 framing + full bounded QPACK core | 🔄 Active | `53cc62e`; protocol QA/static-analysis and remaining hardening next |
-| Native QUIC v1 + TLS 1.3 HTTP/3 worker | ⬜ Pending | wire `h3`, control/QPACK streams, request streams, drain/error mapping |
-| HTTP/1.1 ↔ HTTP/2 ↔ HTTP/3 semantic parity | ⬜ Pending | same version-neutral application handler semantics |
-| HTTP/3 abuse/fault/interoperability acceptance | ⬜ Pending | QUIC/QPACK stream churn, blocked streams, malformed frames, bounded memory |
-| CI QUIC extension-present + extension-absent lanes | 🔄 Active | workflow update required before more HTTP/3 runtime work |
+| HTTP/3 framing + full bounded QPACK core | ✅ Landed | full dynamic/static/Huffman QPACK, instruction streams, blocking/unblocking and focused QA |
+| Native QUIC v1 + TLS 1.3 HTTP/3 worker | ✅ Landed | real `h3` php-quic worker/full-Runtime loopback green on PHP 8.4/8.5 |
+| HTTP/1.1 ↔ HTTP/2 ↔ HTTP/3 semantic parity | 🔄 Active | common application contract is wired; dedicated cross-protocol acceptance fixture remains |
+| HTTP/3 abuse/fault/interoperability acceptance | 🔄 Active | bounded protocol/transport coverage landed; independent-client/soak acceptance remains |
+| CI QUIC extension-present + extension-absent lanes | ✅ Landed | dedicated php-quic PHP 8.4/8.5 jobs + ordinary QUIC-absent PHPForge matrix green |
 | Webrick native Runwire adapter contract | ⬜ Pending | begin only after Runwire transport gates are stable |
-| Host-driver execution: FPM/FrankenPHP/Swoole/RoadRunner | ⬜ Pending | advertised drivers must become executable, not capability-only |
+| Host-driver execution: FPM/FrankenPHP/Swoole/RoadRunner | ✅ Landed | `Runtime::serve()` host adapters implemented/tested; Security & Standards #145 green |
 | Foundation native server + persistent driver integration | ⬜ Pending | after Runwire 1.0 runtime gates |
 | Omnibus/boundary integrations + aggregate soak/QA/benchmarks | ⬜ Pending | after Runwire-only gates |
-| Runwire 1.0 final release acceptance | ⬜ Pending | Sections 41 and 43 are authoritative |
+| Runwire 1.0 final release acceptance | ⬜ Pending | Sections 33, 34 and 36 are authoritative |
 
 Tracker semantics:
 
@@ -67,7 +67,7 @@ Tracker semantics:
 - **Active** is the current implementation slice.
 - **Pending** has not yet passed substantive implementation/acceptance.
 - Runwire itself must be finalized before switching implementation work into Foundation/Webrick/Omnibus.
-- Sections **41** and **43** are the authoritative release-completion gates.
+- Sections **33**, **34** and **36** are the authoritative runtime-driver, HTTP/3 and final release-completion gates.
 
 ---
 
@@ -1074,10 +1074,10 @@ Runwire must be completed first. Updated order:
 2. Runwire loop + TCP/TLS/UDP/Unix connection layer              ✅
 3. Version-neutral HTTP transport + HTTP/1.1                     ✅
 4. Native HTTP/2 + HPACK + flow control + ALPN                   ✅ core
-5. Native HTTP/3 framing + full bounded QPACK                    🔄 active
-6. QUIC v1/TLS 1.3 native HTTP/3 worker + h3 ALPN                ⬜
-7. HTTP/1.1↔HTTP/2↔HTTP/3 parity + abuse/interoperability        ⬜
-8. Runwire host-driver execution paths                            ⬜
+5. Native HTTP/3 framing + full bounded QPACK                    ✅ core
+6. QUIC v1/TLS 1.3 native HTTP/3 worker + h3 ALPN                ✅
+7. Runwire host-driver execution paths                            ✅
+8. HTTP/1.1↔HTTP/2↔HTTP/3 parity + abuse/interoperability        🔄 active
 9. Runwire aggregate QA/soak/benchmarks/docs/release             ⬜
 10. Webrick Runwire adapter integration                           ⬜
 11. Foundation native serve/host-driver integration               ⬜
@@ -1120,14 +1120,14 @@ Runwire 1.0 additionally requires:
 - [x] native HTTP/2 engine exists;
 - [x] HTTP/3 capability fields exist;
 - [ ] native HTTP/3 engine passes all completion gates below;
-- [ ] FPM driver execution is wired/tested;
-- [ ] FrankenPHP classic + worker execution is wired/tested;
-- [ ] Swoole/OpenSwoole execution is wired/tested;
-- [ ] RoadRunner execution is wired/tested;
-- [ ] host modes never start competing loops/listeners/pools;
+- [x] FPM driver execution is wired/tested;
+- [x] FrankenPHP classic + worker execution is wired/tested;
+- [x] Swoole/OpenSwoole execution is wired/tested;
+- [x] RoadRunner execution is wired/tested;
+- [x] host modes never start competing loops/listeners/pools;
 - [ ] persistent-state isolation passes for every persistent driver;
-- [ ] host option namespaces are bounded/validated;
-- [ ] capability reporting distinguishes HTTP protocol support from Runwire wire ownership for HTTP/1/2/3;
+- [x] host option namespaces are bounded/validated;
+- [x] capability reporting distinguishes HTTP protocol support from Runwire wire ownership for HTTP/1/2/3;
 - [ ] host benchmarks attribute adapter overhead separately.
 
 ---
@@ -1147,24 +1147,24 @@ Required implementation:
 - [x] bounded QPACK dynamic table core;
 - [x] QPACK encoder/decoder instruction stream primitives;
 - [x] blocked field-section retention/unblocking core;
-- [ ] full protocol-core PHPForge/static/style validation green;
-- [ ] QPACK reference accounting/eviction/ack/cancel edge cases green;
-- [ ] HTTP/3 SETTINGS/control stream state machine;
-- [ ] request-stream state machine and HEADERS/DATA/trailer sequencing;
+- [x] full protocol-core PHPForge/static/style validation green;
+- [x] QPACK reference accounting/eviction/ack/cancel edge cases green;
+- [x] HTTP/3 SETTINGS/control stream state machine;
+- [x] request-stream state machine and HEADERS/DATA/trailer sequencing;
 - [ ] HTTP/3 request pseudo-header validator/shared validator refactor;
-- [ ] HTTP/3 response writer using the common response contract;
-- [ ] QUIC engine adapter abstraction;
-- [ ] `mikepultz/php-quic` adapter;
-- [ ] native QUIC listener/connection worker lifecycle;
-- [ ] `h3` ALPN/TLS 1.3 handshake;
-- [ ] local/peer control + QPACK unidirectional streams;
-- [ ] request stream dispatch into `HttpRequest` with `ProtocolVersion::HTTP_3`;
-- [ ] QUIC/HTTP application backpressure composition;
-- [ ] RESET_STREAM / STOP_SENDING cancellation cleanup;
+- [x] HTTP/3 response writer using the common response contract;
+- [x] QUIC engine adapter abstraction;
+- [x] `mikepultz/php-quic` adapter;
+- [x] native QUIC listener/connection worker lifecycle;
+- [x] `h3` ALPN/TLS 1.3 handshake;
+- [x] local/peer control + QPACK unidirectional streams;
+- [x] request stream dispatch into `HttpRequest` with `ProtocolVersion::HTTP_3`;
+- [x] QUIC/HTTP application backpressure composition;
+- [x] RESET_STREAM / STOP_SENDING cancellation cleanup;
 - [ ] GOAWAY/drain/reload integration;
 - [ ] 0-RTT disabled/replay-safe policy enforced;
-- [ ] QUIC extension-present CI lane;
-- [ ] QUIC extension-absent capability lane;
+- [x] QUIC extension-present CI lane;
+- [x] QUIC extension-absent capability lane;
 - [ ] independent client interoperability tests;
 - [ ] HTTP/3 abuse/fault suite;
 - [ ] HTTP/3 soak test;
@@ -1202,16 +1202,16 @@ Runwire 1.0 is release-ready only when all of the following are true:
 - [x] HTTP/1.1 native engine exists with framing/backpressure/security tests;
 - [x] HTTP/2 native engine exists with HPACK/flow-control/abuse tests;
 - [ ] HTTP/3 native engine over QUIC v1/TLS 1.3 passes RFC 9114 acceptance;
-- [ ] full QPACK passes RFC 9204 dynamic/static/Huffman/blocking/ack/cancel acceptance;
+- [x] full QPACK passes RFC 9204 dynamic/static/Huffman/blocking/ack/cancel acceptance;
 - [ ] QUIC/HTTP/3 stream/control/QPACK state remains bounded under abuse;
 - [ ] native HTTP/1.1, HTTP/2 and HTTP/3 share application-semantic parity;
-- [ ] native TLS ALPN negotiates HTTP/2/HTTP/1.1 correctly;
-- [ ] native QUIC ALPN negotiates `h3` correctly;
+- [x] native TLS ALPN negotiates HTTP/2/HTTP/1.1 correctly;
+- [x] native QUIC ALPN negotiates `h3` correctly;
 - [ ] native HTTP/3 graceful GOAWAY/drain integrates with supervisor reload;
-- [ ] dedicated QUIC-present CI passes on supported PHP 8.4/8.5 lanes;
-- [ ] QUIC-absent installation/capability behavior remains green;
-- [ ] FPM/FrankenPHP/Swoole/RoadRunner advertised drivers are executable and tested;
-- [ ] trusted prefork supervision handles restart/reload/shutdown/reaping without zombies;
+- [x] dedicated QUIC-present CI passes on supported PHP 8.4/8.5 lanes;
+- [x] QUIC-absent installation/capability behavior remains green;
+- [x] FPM/FrankenPHP/Swoole/RoadRunner advertised drivers are executable and tested;
+- [x] trusted prefork supervision handles restart/reload/shutdown/reaping without zombies;
 - [x] structured ProcessRunner avoids implicit shell execution and enforces bounds;
 - [ ] full PHP 8.4/8.5 PHPForge matrix is green at final head;
 - [ ] HTTP/1/2/3 soak/fault tests show no unbounded memory/FD/state growth;
@@ -1228,20 +1228,17 @@ Runwire 1.0 is release-ready only when all of the following are true:
 Current continuation order:
 
 ```text
-1. Canonical plan/tracker HTTP/3 update                         ← this document
-2. CI: QUIC-present + QUIC-absent coverage
-3. Validate/harden HTTP/3 framing + dynamic QPACK core
-4. HTTP/3 SETTINGS/control stream state machine
-5. HTTP/3 request/response stream state + common HTTP mapping
-6. QUIC adapter abstraction + php-quic implementation
-7. Native HTTP/3 worker/listener lifecycle + h3 ALPN
-8. Cancellation/backpressure/GOAWAY/drain
-9. RFC/abuse/interoperability tests
-10. HTTP/1.1 ↔ HTTP/2 ↔ HTTP/3 parity
-11. Host-driver execution completion
-12. Runwire-only soak/bench/docs/final QA
-13. Runwire 1.0 release
-14. Then Webrick/Foundation/Omnibus integration work
+1. Canonical plan/tracker synchronization                         ← this document
+2. HTTP/3 pseudo-header/shared semantic validation cleanup
+3. HTTP/3 GOAWAY/drain/reload + explicit 0-RTT policy
+4. HTTP/1.1 ↔ HTTP/2 ↔ HTTP/3 semantic-parity acceptance
+5. HTTP/3 abuse/fault + independent-client interoperability
+6. Persistent host-driver isolation/recycle acceptance
+7. Runwire HTTP/1/2/3 + host-driver soak/fault matrix
+8. Runwire benchmarks + public deployment/tuning docs
+9. Final PHP 8.4/8.5 PHPForge/release QA
+10. Runwire 1.0 release
+11. Then Webrick/Foundation/Omnibus integration work
 ```
 
-The next code change after this plan and CI update must continue at **HTTP/3 protocol validation/hardening**, not consumer integration.
+The next code change after this tracker synchronization must continue at the remaining **Runwire-only HTTP/3 acceptance and release gates**, not consumer integration.
