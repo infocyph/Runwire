@@ -27,6 +27,9 @@ final class PhpQuicHttp3Connection
 
     private readonly PhpQuicTransport $transport;
 
+    /** @var array<int, true> */
+    private array $applicationFinishedResponses = [];
+
     private bool $closed = false;
 
     private string $controlPending;
@@ -69,8 +72,8 @@ final class PhpQuicHttp3Connection
             fn(int $streamId, string $method): ResponseWriterInterface => $this->scheduler->writer(
                 $streamId,
                 $method,
-                static function (): void {
-                    return;
+                function () use ($streamId): void {
+                    $this->applicationFinishedResponses[$streamId] = true;
                 },
             ),
             $peerAddress,
@@ -219,20 +222,30 @@ final class PhpQuicHttp3Connection
         $this->queueDecoderInstructions();
         $this->scheduler->discardStream($streamId);
         $this->transport->releaseRequestStream($streamId);
-        unset($this->peerStreams[$streamId], $this->requestStreams[$streamId], $this->peerFinishedRequests[$streamId]);
+        unset(
+            $this->applicationFinishedResponses[$streamId],
+            $this->peerStreams[$streamId],
+            $this->requestStreams[$streamId],
+            $this->peerFinishedRequests[$streamId],
+        );
     }
 
     private function cleanupFinishedRequests(): void
     {
         foreach (array_keys($this->peerFinishedRequests) as $streamId) {
-            if (!$this->transport->responseFinished($streamId)) {
+            if (!isset($this->applicationFinishedResponses[$streamId]) || !$this->transport->responseFinished($streamId)) {
                 continue;
             }
 
             $this->scheduler->discardStream($streamId);
             $this->transport->releaseRequestStream($streamId);
             $this->session->releaseRequestStream($streamId);
-            unset($this->peerStreams[$streamId], $this->requestStreams[$streamId], $this->peerFinishedRequests[$streamId]);
+            unset(
+                $this->applicationFinishedResponses[$streamId],
+                $this->peerStreams[$streamId],
+                $this->requestStreams[$streamId],
+                $this->peerFinishedRequests[$streamId],
+            );
         }
     }
 
@@ -248,6 +261,7 @@ final class PhpQuicHttp3Connection
             $this->scheduler->discardStream($streamId);
             $this->transport->releaseRequestStream($streamId);
         }
+        $this->applicationFinishedResponses = [];
         $this->peerStreams = [];
         $this->requestStreams = [];
         $this->peerFinishedRequests = [];
