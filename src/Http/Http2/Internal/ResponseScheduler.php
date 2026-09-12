@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
-use Infocyph\Runwire\Http\Http2\FrameType;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http2\Http2ResponseWriter;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\WriteResult;
-use Infocyph\Runwire\Network\WriteState;
 use LogicException;
 
 final class ResponseScheduler

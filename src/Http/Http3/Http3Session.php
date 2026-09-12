@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3;
 
 use Closure;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\HttpRequest;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 
 final class Http3Session

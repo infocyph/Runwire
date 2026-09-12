@@ -2,22 +2,21 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\RoadRunnerOptions;
 use Infocyph\Runwire\Runtime\Driver\RoadRunnerDriver;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerResponseWriter;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSession;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSessionInterface;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
-use Infocyph\Runwire\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
-use RuntimeException;
 
 function roadRunnerRuntimeRequest(string $target): HttpRequest
 {

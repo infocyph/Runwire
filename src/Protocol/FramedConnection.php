@@ -6,9 +6,9 @@ namespace Infocyph\Runwire\Protocol;
 
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\ConnectionState;
+use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 use Throwable;

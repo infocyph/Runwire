@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
+use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\SupervisorStatus;
-use Infocyph\Runwire\Supervisor\WorkerState;
 use Infocyph\Runwire\Supervisor\WorkerStatus;
 
 final class SupervisorStatusBuilder

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Process;
 
+use Infocyph\Runwire\Process\Enum\TerminationReason;
+
 final readonly class ProcessResult
 {
     public function __construct(

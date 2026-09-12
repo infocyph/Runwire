@@ -6,7 +6,7 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Datagram;
 use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\DatagramOptions;
-use Infocyph\Runwire\Network\DatagramWriteState;
+use Infocyph\Runwire\Network\Enum\DatagramWriteState;
 
 it('receives and replies to UDP datagrams', function (): void {
     $listener = DatagramListener::bind('127.0.0.1:0');

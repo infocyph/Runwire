@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Protocol;
 
 use Infocyph\Runwire\Network\Internal\ByteQueue;
+use Infocyph\Runwire\Protocol\Enum\LengthPrefixFormat;
 use InvalidArgumentException;
 
 final class LengthPrefixedCodec implements FrameCodecInterface

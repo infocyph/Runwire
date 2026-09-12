@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2;
 
+use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use InvalidArgumentException;
 
 final readonly class Frame

@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Infocyph\Runwire\Http\Http3\ControlStream;
-use Infocyph\Runwire\Http\Http3\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Http\Http3\Settings;
-use Infocyph\Runwire\Http\Http3\StreamType;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
 final class ConnectionState

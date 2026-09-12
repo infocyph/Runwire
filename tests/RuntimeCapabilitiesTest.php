@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeCapabilities;
-use Infocyph\Runwire\RuntimeDriver;
 
 it('is immutable and defaults unsupported capabilities to false', function (): void {
     $capabilities = new RuntimeCapabilities(driver: RuntimeDriver::NATIVE);

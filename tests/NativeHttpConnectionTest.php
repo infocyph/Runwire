@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameParser;
-use Infocyph\Runwire\Http\Http2\FrameType;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\NativeHttpConnection;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\ConnectionState;
+use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
 
 it('selects HTTP/1.1 for cleartext native connections', function (): void {
     [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);

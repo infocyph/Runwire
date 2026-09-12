@@ -2,24 +2,23 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\FrankenPhpMode;
 use Infocyph\Runwire\FrankenPhpOptions;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\RoadRunnerOptions;
 use Infocyph\Runwire\Runtime\Driver\FrankenPhpDriver;
 use Infocyph\Runwire\Runtime\Driver\RoadRunnerDriver;
 use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
+use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSessionInterface;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
-use RuntimeException;
 
 function persistentRuntimeRequest(string $target): HttpRequest
 {

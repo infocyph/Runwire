@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
+use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
-use Infocyph\Runwire\Supervisor\WorkerState;
 
 final class ChildSet
 {

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime;
 
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeCapabilities;
-use Infocyph\Runwire\RuntimeDriver;
 
 final readonly class RuntimeSelection
 {

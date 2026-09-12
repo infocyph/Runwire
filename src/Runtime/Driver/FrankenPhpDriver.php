@@ -6,10 +6,10 @@ namespace Infocyph\Runwire\Runtime\Driver;
 
 use Closure;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
-use Infocyph\Runwire\FrankenPhpMode;
 use Infocyph\Runwire\FrankenPhpOptions;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;

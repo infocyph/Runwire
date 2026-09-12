@@ -6,6 +6,7 @@ namespace Infocyph\Runwire;
 
 use Closure;
 use Infocyph\Runwire\Network\ConnectionLimits;
+use Infocyph\Runwire\Network\Enum\StreamTransport;
 use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Network\UnixListenerOptions;

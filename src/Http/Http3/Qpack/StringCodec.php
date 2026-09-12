@@ -6,7 +6,7 @@ namespace Infocyph\Runwire\Http\Http3\Qpack;
 
 use Infocyph\Runwire\Http\Http2\Hpack\HpackException;
 use Infocyph\Runwire\Http\Http2\Hpack\HuffmanCodec;
-use Infocyph\Runwire\Http\Http3\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
 final class StringCodec

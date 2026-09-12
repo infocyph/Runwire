@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3;
 
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+
 final class SettingsCodec
 {
     /** @var array<int, true> */

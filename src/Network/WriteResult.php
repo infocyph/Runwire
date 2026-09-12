@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network;
 
+use Infocyph\Runwire\Network\Enum\WriteState;
+
 final readonly class WriteResult
 {
     public function __construct(

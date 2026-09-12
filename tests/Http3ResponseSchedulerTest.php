@@ -3,19 +3,19 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Http3\Enum\FrameType;
+use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
-use Infocyph\Runwire\Http\Http3\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\Http3\Internal\ResponseScheduler;
-use Infocyph\Runwire\Http\Http3\SettingIdentifier;
 use Infocyph\Runwire\Http\Http3\Settings;
 use Infocyph\Runwire\Http\Http3\SettingsCodec;
-use Infocyph\Runwire\Http\Http3\StreamType;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
-use Infocyph\Runwire\Network\WriteState;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Tests\Fixtures\Http3SchedulerTransport;
 
 it('frames and finishes HTTP/3 responses without transport coupling', function (): void {

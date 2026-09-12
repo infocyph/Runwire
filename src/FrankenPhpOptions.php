@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use InvalidArgumentException;
 
 final readonly class FrankenPhpOptions

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
-use Infocyph\Runwire\Http\Http2\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 
@@ -18,7 +18,7 @@ final class FlowController
     public function applyInitialWindowDelta(array $streams, int $delta): void
     {
         foreach ($streams as $stream) {
-            if ($stream->state === \Infocyph\Runwire\Http\Http2\StreamState::CLOSED) {
+            if ($stream->state === \Infocyph\Runwire\Http\Http2\Enum\StreamState::CLOSED) {
                 continue;
             }
             $next = $stream->sendWindow + $delta;
@@ -77,7 +77,7 @@ final class FlowController
         }
         $this->connectionReceiveWindow += $bytes;
         $frames = [FrameWriter::windowUpdate(0, $bytes)];
-        if ($stream !== null && $stream->state !== \Infocyph\Runwire\Http\Http2\StreamState::CLOSED) {
+        if ($stream !== null && $stream->state !== \Infocyph\Runwire\Http\Http2\Enum\StreamState::CLOSED) {
             if ($bytes > 0x7FFF_FFFF - $stream->receiveWindow) {
                 throw new StreamError($stream->id, ErrorCode::FLOW_CONTROL_ERROR, 'HTTP/2 stream receive window credit overflow.');
             }

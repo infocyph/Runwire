@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
-use Infocyph\Runwire\Http\Http2\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
@@ -15,7 +16,6 @@ use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Throwable;
@@ -91,7 +91,7 @@ final class RequestStreamProcessor
 
     public function cleanupIfClosed(Http2Stream $stream): void
     {
-        if ($stream->dispatching || $stream->state !== \Infocyph\Runwire\Http\Http2\StreamState::CLOSED) {
+        if ($stream->dispatching || $stream->state !== \Infocyph\Runwire\Http\Http2\Enum\StreamState::CLOSED) {
             return;
         }
         if (!$stream->outbound->isEmpty() || $stream->endPending) {

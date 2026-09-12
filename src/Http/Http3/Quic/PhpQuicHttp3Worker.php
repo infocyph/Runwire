@@ -6,7 +6,7 @@ namespace Infocyph\Runwire\Http\Http3\Quic;
 
 use Closure;
 use Infocyph\Runwire\Exception\ListenerException;
-use Infocyph\Runwire\Http\Http3\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\HttpRequest;

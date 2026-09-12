@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
+use Infocyph\Runwire\Supervisor\Enum\WorkerState;
+
 final readonly class SupervisorEvent
 {
     public function __construct(

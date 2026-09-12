@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Infocyph\Runwire\Http\Headers;
-use Infocyph\Runwire\Http\Http3\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
-use Infocyph\Runwire\Http\Http3\FrameType;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Qpack\DecodedFieldSection;

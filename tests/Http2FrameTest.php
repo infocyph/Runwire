@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\Http\Http2\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameParser;
-use Infocyph\Runwire\Http\Http2\FrameType;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;

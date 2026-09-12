@@ -8,7 +8,7 @@ use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Protocol\FramedConnection;
 use Infocyph\Runwire\Protocol\LineCodec;
 use Infocyph\Runwire\Runtime;
-use Infocyph\Runwire\RuntimeDriver;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\StreamServer;
 

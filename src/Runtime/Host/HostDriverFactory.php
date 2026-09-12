@@ -9,7 +9,7 @@ use Infocyph\Runwire\Runtime\Driver\FpmDriver;
 use Infocyph\Runwire\Runtime\Driver\FrankenPhpDriver;
 use Infocyph\Runwire\Runtime\Driver\RoadRunnerDriver;
 use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
-use Infocyph\Runwire\RuntimeDriver;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
 final class HostDriverFactory

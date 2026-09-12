@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime;
 
-use Infocyph\Runwire\FrankenPhpMode;
+use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeCapabilities;
-use Infocyph\Runwire\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
 final class RuntimeCapabilityResolver

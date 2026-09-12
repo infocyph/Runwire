@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
-use Infocyph\Runwire\OpcacheMode;
+use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
-use Infocyph\Runwire\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
 it('returns a resolved driver and capability snapshot', function (): void {

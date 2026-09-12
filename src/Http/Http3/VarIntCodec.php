@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3;
 
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+
 final class VarIntCodec
 {
     public const int MAX_VALUE = 4_611_686_018_427_387_903;

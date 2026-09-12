@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Network;
 
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
+use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;

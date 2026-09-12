@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RuntimeDriverResolver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
-use Infocyph\Runwire\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
 it('resolves hosted runtimes in deterministic precedence order', function (): void {

@@ -6,11 +6,11 @@ namespace Infocyph\Runwire\Runtime\Driver;
 
 use Closure;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Host\DynamicHostObject;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;

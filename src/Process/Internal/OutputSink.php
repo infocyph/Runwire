@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Process\Internal;
 
 use Closure;
-use Infocyph\Runwire\Process\IoMode;
+use Infocyph\Runwire\Process\Enum\IoMode;
 
 final class OutputSink
 {

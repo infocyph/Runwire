@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+
 final readonly class RuntimeOptions
 {
     public function __construct(

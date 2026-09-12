@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Http2\Enum\StreamState;
 use Infocyph\Runwire\Http\Http2\Http2ResponseWriter;
-use Infocyph\Runwire\Http\Http2\StreamState;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 

@@ -5,8 +5,8 @@ declare(strict_types=1);
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
-use Infocyph\Runwire\Network\WriteState;
 
 function http3Accepted(int $buffered = 0): WriteResult
 {

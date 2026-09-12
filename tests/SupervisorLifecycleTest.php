@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\RestartPolicy;
 use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
-use Infocyph\Runwire\Supervisor\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 

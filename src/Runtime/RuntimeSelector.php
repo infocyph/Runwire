@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime;
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
-use Infocyph\Runwire\OpcacheMode;
+use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
 use Infocyph\Runwire\RuntimeOptions;
 
 final readonly class RuntimeSelector

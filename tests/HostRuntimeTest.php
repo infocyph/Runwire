@@ -3,22 +3,22 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\FpmOptions;
-use Infocyph\Runwire\FrankenPhpMode;
 use Infocyph\Runwire\FrankenPhpOptions;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
-use Infocyph\Runwire\Network\WriteState;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Runtime\Driver\FpmDriver;
 use Infocyph\Runwire\Runtime\Driver\FrankenPhpDriver;
+use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
-use Infocyph\Runwire\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
 function hostRuntimeRequest(string $target = '/host'): HttpRequest

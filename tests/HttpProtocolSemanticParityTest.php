@@ -2,15 +2,14 @@
 
 declare(strict_types=1);
 
-use Closure;
 use Infocyph\Runwire\Http\Http1\Http1Connection;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
+use Infocyph\Runwire\Http\Http2\Enum\FrameType as Http2FrameType;
 use Infocyph\Runwire\Http\Http2\Frame as Http2Frame;
-use Infocyph\Runwire\Http\Http2\FrameType as Http2FrameType;
 use Infocyph\Runwire\Http\Http2\FrameWriter as Http2FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder as HpackEncoder;
+use Infocyph\Runwire\Http\Http3\Enum\FrameType as Http3FrameType;
 use Infocyph\Runwire\Http\Http3\Frame as Http3Frame;
-use Infocyph\Runwire\Http\Http3\FrameType as Http3FrameType;
 use Infocyph\Runwire\Http\Http3\FrameWriter as Http3FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Http3Session;
@@ -20,8 +19,8 @@ use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
-use Infocyph\Runwire\Network\WriteState;
 
 require_once __DIR__ . '/Support/Http2TestSupport.php';
 

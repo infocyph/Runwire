@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\WriteResult;
-use Infocyph\Runwire\Network\WriteState;
 use LogicException;
 
 final class ResponseScheduler

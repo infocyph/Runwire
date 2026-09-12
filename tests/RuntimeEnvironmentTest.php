@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
-use Infocyph\Runwire\RuntimeDriver;
 
 it('normalizes hosted drivers into the available set', function (): void {
     $environment = new RuntimeEnvironment(

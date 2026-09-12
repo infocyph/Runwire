@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2;
 
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Enum\FrameType;
+
 final class FrameWriter
 {
     public static function encode(Frame $frame): string

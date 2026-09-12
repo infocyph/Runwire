@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http2;
 
 use Closure;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Http\Http2\Internal\ControlFrameBudget;
@@ -16,9 +18,9 @@ use Infocyph\Runwire\Http\Http2\Internal\ResponseScheduler;
 use Infocyph\Runwire\Http\Http2\Internal\StreamError;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\WriteState;
+use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Throwable;
 
 final class Http2Connection

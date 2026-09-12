@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Network\Internal;
 
 use Closure;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Enum\CloseReason;
 use Throwable;
 
 final class ConnectionCallbackDispatcher

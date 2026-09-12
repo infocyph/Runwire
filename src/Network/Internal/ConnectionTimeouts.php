@@ -6,7 +6,7 @@ namespace Infocyph\Runwire\Network\Internal;
 
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Network\CloseReason;
+use Infocyph\Runwire\Network\Enum\CloseReason;
 
 final class ConnectionTimeouts
 {

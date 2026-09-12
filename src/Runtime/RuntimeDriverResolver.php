@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime;
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
-use Infocyph\Runwire\RuntimeDriver;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
 final class RuntimeDriverResolver

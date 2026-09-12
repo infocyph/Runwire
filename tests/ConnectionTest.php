@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Loop\SelectLoop;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
-use Infocyph\Runwire\Network\ConnectionState;
-use Infocyph\Runwire\Network\WriteState;
+use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
+use Infocyph\Runwire\Network\Enum\WriteState;
 
 function runwireConnectionPair(): array
 {

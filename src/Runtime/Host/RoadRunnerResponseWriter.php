@@ -7,8 +7,8 @@ namespace Infocyph\Runwire\Runtime\Host;
 use Closure;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
-use Infocyph\Runwire\Network\WriteState;
 use InvalidArgumentException;
 
 final class RoadRunnerResponseWriter implements ResponseWriterInterface

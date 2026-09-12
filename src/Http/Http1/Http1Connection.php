@@ -5,23 +5,23 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http1;
 
 use Closure;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Http1\Enum\ParserState;
 use Infocyph\Runwire\Http\Http1\Internal\ChunkSizeDecoder;
 use Infocyph\Runwire\Http\Http1\Internal\Http1Input;
 use Infocyph\Runwire\Http\Http1\Internal\Http1Syntax;
 use Infocyph\Runwire\Http\Http1\Internal\ParseFailure;
-use Infocyph\Runwire\Http\Http1\Internal\ParserState;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHead;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHeadValidator;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\WriteState;
+use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\WriteState;
 use Throwable;
 
 final class Http1Connection

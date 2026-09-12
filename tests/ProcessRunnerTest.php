@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Exception\ProcessStartException;
 use Infocyph\Runwire\Process\Command;
-use Infocyph\Runwire\Process\IoMode;
-use Infocyph\Runwire\Process\OutputOverflowPolicy;
+use Infocyph\Runwire\Process\Enum\IoMode;
+use Infocyph\Runwire\Process\Enum\OutputOverflowPolicy;
+use Infocyph\Runwire\Process\Enum\TerminationReason;
 use Infocyph\Runwire\Process\ProcessPolicy;
 use Infocyph\Runwire\Process\ProcessRunner;
-use Infocyph\Runwire\Process\TerminationReason;
 
 function processRunner(array $policy = []): ProcessRunner
 {

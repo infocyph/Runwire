@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime;
 
-use Infocyph\Runwire\RuntimeDriver;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 
 final class RuntimeEnvironmentProbe
 {

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
-use Infocyph\Runwire\Http\Http2\ErrorCode;
-use Infocyph\Runwire\Http\Http2\FrameType;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Loop\LoopInterface;
 
 final class ControlFrameBudget

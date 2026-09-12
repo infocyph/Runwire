@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Process;
 
+use Infocyph\Runwire\Process\Enum\IoMode;
+use Infocyph\Runwire\Process\Enum\OutputOverflowPolicy;
 use InvalidArgumentException;
 
 final readonly class Command

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http;
 
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+
 final readonly class HttpRequest
 {
     public function __construct(

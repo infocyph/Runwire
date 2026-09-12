@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime\Host;
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
-use Infocyph\Runwire\Http\ProtocolVersion;
 use InvalidArgumentException;
 use ReflectionClass;
 use ReflectionProperty;

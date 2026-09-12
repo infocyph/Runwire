@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RuntimeCapabilityResolver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
-use Infocyph\Runwire\RuntimeDriver;
 
 it('reports only native capabilities whose implementation is wired', function (): void {
     $environment = new RuntimeEnvironment(

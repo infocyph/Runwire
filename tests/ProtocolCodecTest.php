@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Protocol\CodecException;
+use Infocyph\Runwire\Protocol\Enum\LengthPrefixFormat;
 use Infocyph\Runwire\Protocol\LengthPrefixedCodec;
-use Infocyph\Runwire\Protocol\LengthPrefixFormat;
 use Infocyph\Runwire\Protocol\LineCodec;
 use Infocyph\Runwire\Protocol\RawCodec;
 

@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\Http\Http3\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\FrameType;
+use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
-use Infocyph\Runwire\Http\Http3\SettingIdentifier;
 use Infocyph\Runwire\Http\Http3\Settings;
 use Infocyph\Runwire\Http\Http3\SettingsCodec;
-use Infocyph\Runwire\Http\Http3\StreamType;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
 it('builds local HTTP/3 control and QPACK stream preambles', function (): void {

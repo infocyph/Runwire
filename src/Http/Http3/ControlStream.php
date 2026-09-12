@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3;
 
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Enum\FrameType;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
+
 final class ControlStream
 {
     private readonly FrameParser $parser;

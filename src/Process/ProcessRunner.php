@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Process;
 
 use Closure;
 use Infocyph\Runwire\Exception\ProcessStartException;
+use Infocyph\Runwire\Process\Enum\IoMode;
+use Infocyph\Runwire\Process\Enum\OutputOverflowPolicy;
+use Infocyph\Runwire\Process\Enum\TerminationReason;
 use Infocyph\Runwire\Process\Internal\CommandValidator;
 use Infocyph\Runwire\Process\Internal\InputSource;
 use Infocyph\Runwire\Process\Internal\OutputSink;

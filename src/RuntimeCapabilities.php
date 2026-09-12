@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+
 final readonly class RuntimeCapabilities
 {
     public function __construct(

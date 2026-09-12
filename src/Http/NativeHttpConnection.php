@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http;
 
 use Closure;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http1\Http1Connection;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Network\CloseReason;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Enum\CloseReason;
 
 final readonly class NativeHttpConnection
 {
