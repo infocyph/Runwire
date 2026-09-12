@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Http3\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\FrameType;
@@ -97,7 +98,7 @@ function fakeHttp3ConnectionRaw(array $localStreams, array $acceptedStreams, str
         /** @param list<object> $localStreams @param list<object> $acceptedStreams */
         public function __construct(
             private array $localStreams,
-            private array $acceptedStreams,
+            public array $acceptedStreams,
             private readonly string $alpn,
         ) {}
 
@@ -277,4 +278,48 @@ it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', 
     expect(fn() => $connection->pump())->toThrow(Http3Exception::class)
         ->and($connection->closed())->toBeTrue()
         ->and($connectionRaw->closed)->toHaveCount(1);
+});
+
+it('sends one bounded GOAWAY and rejects request streams at the drain boundary', function (): void {
+    $active = fakeHttp3ConnectionStream(0, true, ['']);
+    $control = fakeHttp3ConnectionStream(3, false);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            $control,
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$active],
+    );
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (): void {},
+    );
+    $connection->pump();
+    expect($connection->activeRequestStreams())->toBe(1);
+
+    $connection->beginDrain();
+    $controlAfterFirstDrain = $control->written;
+    $connection->beginDrain();
+
+    $frames = (new FrameParser())->push(substr($control->written, 1));
+    $goaway = array_values(array_filter(
+        $frames,
+        static fn(Frame $frame): bool => $frame->knownType() === FrameType::GOAWAY,
+    ));
+    $offset = 0;
+    $boundary = \Infocyph\Runwire\Http\Http3\VarIntCodec::decode($goaway[0]->payload, $offset);
+
+    $rejected = fakeHttp3ConnectionStream(4, true, ['']);
+    $connectionRaw->acceptedStreams[] = $rejected;
+    $connection->pump();
+
+    expect($connection->draining())->toBeTrue()
+        ->and($control->written)->toBe($controlAfterFirstDrain)
+        ->and($goaway)->toHaveCount(1)
+        ->and($boundary)->toBe(4)
+        ->and($offset)->toBe(strlen($goaway[0]->payload))
+        ->and($rejected->peerResetCode)->toBe(ErrorCode::REQUEST_REJECTED->value)
+        ->and($connection->activeRequestStreams())->toBe(1)
+        ->and($connection->closed())->toBeFalse();
 });
