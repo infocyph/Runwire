@@ -13,6 +13,10 @@ it('requires bounded HTTP/3 poll and handshake timeouts', function (): void {
         ->and(fn () => new Http3Options(handshakeTimeoutSeconds: 60.01))->toThrow(InvalidArgumentException::class);
 });
 
+it('keeps HTTP/3 0-RTT disabled for the 1.0 application contract', function (): void {
+    expect(Http3Options::ZERO_RTT_ENABLED)->toBeFalse();
+});
+
 it('derives a narrow QUIC listener configuration from TLS material', function (): void {
     $certificate = tempnam(sys_get_temp_dir(), 'runwire-h3-cert-');
     $privateKey = tempnam(sys_get_temp_dir(), 'runwire-h3-key-');
