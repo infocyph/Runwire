@@ -281,7 +281,16 @@ it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', 
 });
 
 it('sends one bounded GOAWAY and rejects request streams at the drain boundary', function (): void {
-    $active = fakeHttp3ConnectionStream(0, true, ['']);
+    $encoder = new Encoder(0, 0);
+    $active = fakeHttp3ConnectionStream(0, true, [
+        FrameWriter::encode(new Frame(FrameType::HEADERS->value, $encoder->encode([
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.com'],
+            [':path', '/draining'],
+        ], 0)->block)),
+        '',
+    ]);
     $control = fakeHttp3ConnectionStream(3, false);
     $connectionRaw = fakeHttp3ConnectionRaw(
         [
