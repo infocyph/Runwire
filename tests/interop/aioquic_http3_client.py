@@ -76,13 +76,13 @@ class RunwireHttp3Client(QuicConnectionProtocol):
 async def main(port: int) -> None:
     configuration = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN)
     configuration.verify_mode = ssl.CERT_NONE
+    configuration.server_name = "localhost"
 
     async with connect(
         "127.0.0.1",
         port,
         configuration=configuration,
         create_protocol=RunwireHttp3Client,
-        server_name="localhost",
     ) as protocol:
         if not isinstance(protocol, RunwireHttp3Client):
             raise RuntimeError("aioquic returned an unexpected protocol implementation.")
