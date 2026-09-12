@@ -295,7 +295,7 @@ final class PhpQuicHttp3Connection
     }
 
     /** @param array<int, int> $ready */
-    private function connectionErrored(array $ready, PhpQuicHttp3Connection|PhpQuicEventMasks $events): bool
+    private function connectionErrored(array $ready, PhpQuicEventMasks $events): bool
     {
         return $this->objectReady($ready, $this->connection->object(), $events->error);
     }
