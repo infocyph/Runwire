@@ -15,8 +15,6 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 {
     private readonly int $maxBodyBytes;
 
-    private readonly RoadRunnerSessionInterface $session;
-
     private int $bodyBytes = 0;
 
     private bool $ended = false;
@@ -28,7 +26,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     private int $status = 200;
 
     public function __construct(
-        RoadRunnerSessionInterface $session,
+        private readonly RoadRunnerSessionInterface $session,
         int $maxBodyBytes,
         bool $headRequest = false,
     ) {
@@ -38,7 +36,6 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
         $this->headers = new Headers();
         $this->maxBodyBytes = $headRequest ? 0 : $maxBodyBytes;
-        $this->session = $session;
     }
 
     public function end(string $finalChunk = ''): WriteResult

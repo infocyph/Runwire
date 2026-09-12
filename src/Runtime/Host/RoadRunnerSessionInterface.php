@@ -8,10 +8,10 @@ use Infocyph\Runwire\Http\HttpRequest;
 
 interface RoadRunnerSessionInterface
 {
-    public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest;
-
     /** @param array<string, list<string>> $headers */
     public function respond(int $status, string $body, array $headers, bool $endOfStream): void;
 
     public function stop(): void;
+
+    public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest;
 }

@@ -25,7 +25,7 @@ final class RoadRunnerDriver implements HostDriverInterface
         ?callable $sessionFactory = null,
     ) {
         $this->sessionFactory = $sessionFactory === null
-            ? static fn(): RoadRunnerSessionInterface => RoadRunnerSession::create()
+            ? RoadRunnerSession::create(...)
             : Closure::fromCallable($sessionFactory);
     }
 
