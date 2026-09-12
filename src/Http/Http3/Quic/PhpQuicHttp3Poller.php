@@ -37,6 +37,7 @@ final readonly class PhpQuicHttp3Poller
 
     /**
      * @param list<PhpQuicHttp3Connection> $connections
+     * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, int>
      */
     public function poll(
@@ -44,9 +45,10 @@ final readonly class PhpQuicHttp3Poller
         array $connections,
         bool $acceptConnections,
         ?float $timeoutSeconds,
+        array $pendingConnections = [],
     ): array {
         self::validateTimeout($timeoutSeconds);
-        $items = $this->buildPollItems($listener, $connections, $acceptConnections);
+        $items = $this->buildPollItems($listener, $connections, $pendingConnections, $acceptConnections);
         if ($items === []) {
             return [];
         }
@@ -84,14 +86,25 @@ final readonly class PhpQuicHttp3Poller
 
     /**
      * @param list<PhpQuicHttp3Connection> $connections
+     * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, array{0: object, 1: int}>
      */
-    private function buildPollItems(?PhpQuicListener $listener, array $connections, bool $acceptConnections): array
-    {
+    private function buildPollItems(
+        ?PhpQuicListener $listener,
+        array $connections,
+        array $pendingConnections,
+        bool $acceptConnections,
+    ): array {
         $items = [];
-        if ($listener !== null) {
-            $mask = $acceptConnections ? $this->events->acceptConnection : $this->events->error;
-            $this->putPollItem($items, $listener->object(), $mask);
+        if ($listener !== null && $acceptConnections) {
+            $this->putPollItem($items, $listener->object(), $this->events->acceptConnection);
+        }
+        foreach ($pendingConnections as $connection) {
+            $this->putPollItem(
+                $items,
+                $connection->object(),
+                $this->events->acceptStream | $this->events->error,
+            );
         }
         foreach ($connections as $connection) {
             $this->mergePollItems($items, $connection->pollItems($this->events));

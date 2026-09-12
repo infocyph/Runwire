@@ -28,6 +28,7 @@ final class NativeHttp3Worker
             $server->handlerFor($context),
             $options->limits,
             $server->workerConnectionLimit,
+            handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
         );
 
         try {

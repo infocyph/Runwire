@@ -12,9 +12,13 @@ final readonly class Http3Options
     public function __construct(
         public Http3Limits $limits = new Http3Limits(),
         public float $pollTimeoutSeconds = 0.05,
+        public float $handshakeTimeoutSeconds = 10.0,
     ) {
         if (!is_finite($pollTimeoutSeconds) || $pollTimeoutSeconds <= 0 || $pollTimeoutSeconds > 1.0) {
             throw new InvalidArgumentException('HTTP/3 poll timeout must be finite and between 0 and 1 second.');
+        }
+        if (!is_finite($handshakeTimeoutSeconds) || $handshakeTimeoutSeconds <= 0 || $handshakeTimeoutSeconds > 60.0) {
+            throw new InvalidArgumentException('HTTP/3 handshake timeout must be finite and between 0 and 60 seconds.');
         }
     }
 
