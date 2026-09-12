@@ -9,8 +9,10 @@ use Infocyph\Runwire\Control\ControlServer;
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Supervisor\Enum\ChildExitAction;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
+use Infocyph\Runwire\Supervisor\Internal\ChildExitTransition;
 use Infocyph\Runwire\Supervisor\Internal\ChildReaper;
 use Infocyph\Runwire\Supervisor\Internal\ChildRecord;
 use Infocyph\Runwire\Supervisor\Internal\ChildSet;
@@ -399,14 +401,15 @@ final class Supervisor
         }
 
         $exitCode = ChildReaper::exitCode($status);
-        $hasReplacement = ChildSet::hasReplacementFor($this->children, $pid);
-        $plannedRecycle = !$record->expectedStop && $exitCode === WorkerChildRuntime::RECYCLE_EXIT_CODE;
-        if ($plannedRecycle) {
-            $record->expectedStop = true;
-            $record->state = WorkerState::DRAINING;
+        $transition = ChildExitTransition::evaluate(
+            record: $record,
+            exitCode: $exitCode,
+            hasReplacement: ChildSet::hasReplacementFor($this->children, $pid),
+            supervisorStopping: $this->stopping,
+            childrenEmptyAfterRemoval: count($this->children) === 1,
+        );
+        if ($transition->plannedRecycle) {
             $this->emitWorker(SupervisorEventType::WORKER_RECYCLE_STARTED, $record);
-        } elseif (!$record->expectedStop) {
-            $record->state = WorkerState::FAILED;
         }
 
         $this->emitWorker(
@@ -423,34 +426,29 @@ final class Supervisor
             unset($this->currentSlots[$record->group->name][$record->slot]);
         }
 
-        if ($this->stopping) {
-            if ($this->children === []) {
+        switch ($transition->action) {
+            case ChildExitAction::CHECK_RELOAD:
+                $this->checkReloadCompletion();
+                break;
+            case ChildExitAction::NONE:
+                break;
+            case ChildExitAction::RESTART:
+                $this->scheduleRestart($record);
+                break;
+            case ChildExitAction::SPAWN_RECYCLE:
+                $this->spawnWorker(
+                    group: $record->group,
+                    slot: $record->slot,
+                    generation: max($record->generation, $this->generation),
+                    restartCount: $this->restartTracker->count($record->group->name, $record->slot),
+                    replacesPid: null,
+                    setCurrent: true,
+                );
+                break;
+            case ChildExitAction::STOP_LOOP:
                 $this->loop->stop();
-            }
-
-            return;
+                break;
         }
-
-        if ($plannedRecycle && !$hasReplacement) {
-            $this->spawnWorker(
-                group: $record->group,
-                slot: $record->slot,
-                generation: max($record->generation, $this->generation),
-                restartCount: $this->restartTracker->count($record->group->name, $record->slot),
-                replacesPid: null,
-                setCurrent: true,
-            );
-
-            return;
-        }
-
-        if ($record->expectedStop || $hasReplacement) {
-            $this->checkReloadCompletion();
-
-            return;
-        }
-
-        $this->scheduleRestart($record);
     }
 
     /** @param resource $stream */

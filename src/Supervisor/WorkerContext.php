@@ -140,11 +140,6 @@ final class WorkerContext
         $this->requestStop();
     }
 
-    public function requestsTotal(): int
-    {
-        return $this->recycleState->requestsTotal();
-    }
-
     public function requestStop(): void
     {
         if ($this->stopping) {
@@ -155,6 +150,11 @@ final class WorkerContext
         if (is_resource($this->stopWrite)) {
             fwrite($this->stopWrite, 'S');
         }
+    }
+
+    public function requestsTotal(): int
+    {
+        return $this->recycleState->requestsTotal();
     }
 
     public function stopping(): bool
