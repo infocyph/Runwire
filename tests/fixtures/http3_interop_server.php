@@ -28,21 +28,27 @@ try {
         $port,
         $options->listenerOptions(new TlsOptions($certificate, $privateKey)),
     );
+    fwrite(STDERR, "interop: listener-bound\n");
+
     $served = false;
     $worker = new PhpQuicHttp3Worker(
         $listener,
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$served): void {
+            fwrite(STDERR, sprintf("interop: dispatched %s %s\n", $request->method, $request->target));
             if ($request->method !== 'GET' || $request->target !== '/interop?client=aioquic') {
                 $writer->status(400)->end('unexpected-request');
                 $served = true;
+                fwrite(STDERR, "interop: rejected-request\n");
 
                 return;
             }
 
             $request->body->onEnd(static function () use (&$served, $writer): void {
+                fwrite(STDERR, "interop: request-ended\n");
                 $writer->header('content-type', 'text/plain');
                 $writer->end('runwire-aioquic-ok');
                 $served = true;
+                fwrite(STDERR, "interop: response-ended\n");
             });
         },
         $options->limits,
@@ -52,13 +58,17 @@ try {
     if (file_put_contents($readyFile, 'ready', LOCK_EX) === false) {
         throw new RuntimeException('Unable to publish HTTP/3 interoperability readiness.');
     }
+    fwrite(STDERR, "interop: ready\n");
 
     $deadline = microtime(true) + 8.0;
     while (!$served && microtime(true) < $deadline) {
         $worker->tick($options->pollTimeoutSeconds);
     }
     if (!$served) {
-        throw new RuntimeException('Independent HTTP/3 client did not complete a request.');
+        throw new RuntimeException(sprintf(
+            'Independent HTTP/3 client did not complete a request; worker connections=%d.',
+            $worker->connectionCount(),
+        ));
     }
 
     $worker->stopAccepting();
@@ -66,6 +76,7 @@ try {
     while (!$worker->drainComplete() && microtime(true) < $drainDeadline) {
         $worker->tick($options->pollTimeoutSeconds);
     }
+    fwrite(STDERR, sprintf("interop: complete drain=%s\n", $worker->drainComplete() ? 'yes' : 'no'));
 
     exit(0);
 } catch (Throwable $error) {
