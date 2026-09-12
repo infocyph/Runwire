@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Http;
+namespace Infocyph\Runwire\Http\Enum;
 
 enum ProtocolVersion: string
 {

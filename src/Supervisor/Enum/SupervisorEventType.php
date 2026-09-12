@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Supervisor;
+namespace Infocyph\Runwire\Supervisor\Enum;
 
 enum SupervisorEventType: string
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Http\Http2;
+namespace Infocyph\Runwire\Http\Http2\Enum;
 
 enum FrameType: int
 {

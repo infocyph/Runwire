@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire;
+namespace Infocyph\Runwire\Network\Enum;
 
 enum StreamTransport: string
 {

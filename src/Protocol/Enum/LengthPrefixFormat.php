@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Protocol;
+namespace Infocyph\Runwire\Protocol\Enum;
 
 enum LengthPrefixFormat: int
 {

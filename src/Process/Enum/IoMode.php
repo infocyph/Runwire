@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Process;
+namespace Infocyph\Runwire\Process\Enum;
 
 enum IoMode: string
 {
