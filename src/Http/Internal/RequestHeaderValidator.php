@@ -28,9 +28,10 @@ final readonly class RequestHeaderValidator
         if ($method === null || $method === '') {
             throw new HeaderValidationException(sprintf('%s request is missing :method.', $this->protocol));
         }
+        $this->validateMethod($method);
 
-        [$target, $authority] = $this->requestTarget($method, $pseudo);
-        $regular = $this->normalizeAuthority($authority, $regular);
+        [$target, $authority, $scheme] = $this->requestTarget($method, $pseudo);
+        $regular = $this->normalizeAuthority($authority, $scheme, $regular);
 
         return new ValidatedRequestHead($method, $target, $regular, $this->contentLength($regular));
     }
@@ -114,7 +115,7 @@ final readonly class RequestHeaderValidator
         return preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', $value) === 1;
     }
 
-    private function normalizeAuthority(?string $authority, Headers $regular): Headers
+    private function normalizeAuthority(?string $authority, ?string $scheme, Headers $regular): Headers
     {
         $hostValues = $regular->all('host');
         if (count($hostValues) > 1) {
@@ -123,13 +124,38 @@ final readonly class RequestHeaderValidator
                 $this->protocol,
             ));
         }
-        if ($authority !== null && isset($hostValues[0]) && strcasecmp(trim($authority), trim($hostValues[0])) !== 0) {
+
+        $host = $hostValues[0] ?? null;
+        if ($authority !== null && trim($authority) === '') {
+            throw new HeaderValidationException(sprintf('%s :authority must not be empty.', $this->protocol));
+        }
+        if ($host !== null && trim($host) === '') {
+            throw new HeaderValidationException(sprintf('%s Host must not be empty.', $this->protocol));
+        }
+        if ($scheme !== null && $this->schemeRequiresAuthority($scheme) && $authority === null && $host === null) {
+            throw new HeaderValidationException(sprintf(
+                '%s %s request requires :authority or Host.',
+                $this->protocol,
+                strtolower($scheme),
+            ));
+        }
+        if ($scheme !== null && $this->schemeRequiresAuthority($scheme)) {
+            $effectiveAuthority = $authority ?? $host;
+            if ($effectiveAuthority !== null && str_contains($effectiveAuthority, '@')) {
+                throw new HeaderValidationException(sprintf(
+                    '%s %s authority must not contain userinfo.',
+                    $this->protocol,
+                    strtolower($scheme),
+                ));
+            }
+        }
+        if ($authority !== null && $host !== null && strcasecmp(trim($authority), trim($host)) !== 0) {
             throw new HeaderValidationException(sprintf(
                 '%s :authority conflicts with Host.',
                 $this->protocol,
             ));
         }
-        if ($authority === null || $hostValues !== []) {
+        if ($authority === null || $host !== null) {
             return $regular;
         }
 
@@ -182,7 +208,7 @@ final readonly class RequestHeaderValidator
 
     /**
      * @param array<string, string> $pseudo
-     * @return array{0: string, 1: ?string}
+     * @return array{0: string, 1: ?string, 2: ?string}
      */
     private function requestTarget(string $method, array $pseudo): array
     {
@@ -195,14 +221,36 @@ final readonly class RequestHeaderValidator
                 ));
             }
 
-            return [$authority, $authority];
+            return [$authority, $authority, null];
         }
 
         $scheme = $pseudo[':scheme'] ?? null;
         $path = $pseudo[':path'] ?? null;
-        if ($scheme === null || $scheme === '' || $path === null || $path === '') {
+        if ($scheme === null || $scheme === '' || $path === null) {
             throw new HeaderValidationException(sprintf(
-                '%s request requires non-empty :scheme and :path.',
+                '%s request requires :scheme and :path.',
+                $this->protocol,
+            ));
+        }
+        $this->validateScheme($scheme);
+
+        if ($this->schemeRequiresAuthority($scheme) && $path === '') {
+            throw new HeaderValidationException(sprintf(
+                '%s %s :path must not be empty.',
+                $this->protocol,
+                strtolower($scheme),
+            ));
+        }
+        if ($this->schemeRequiresAuthority($scheme) && $path !== '*' && !str_starts_with($path, '/')) {
+            throw new HeaderValidationException(sprintf(
+                '%s %s :path must be absolute or "*".',
+                $this->protocol,
+                strtolower($scheme),
+            ));
+        }
+        if ($path === '*' && strcasecmp($method, 'OPTIONS') !== 0) {
+            throw new HeaderValidationException(sprintf(
+                '%s :path "*" is permitted only for OPTIONS.',
                 $this->protocol,
             ));
         }
@@ -213,7 +261,12 @@ final readonly class RequestHeaderValidator
             ));
         }
 
-        return [$path, $authority];
+        return [$path, $authority, $scheme];
+    }
+
+    private function schemeRequiresAuthority(string $scheme): bool
+    {
+        return in_array(strtolower($scheme), ['http', 'https'], true);
     }
 
     /**
@@ -241,6 +294,13 @@ final readonly class RequestHeaderValidator
         return [$pseudo, new Headers($regular)];
     }
 
+    private function validateMethod(string $method): void
+    {
+        if (preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/D", $method) !== 1) {
+            throw new HeaderValidationException(sprintf('%s :method is invalid.', $this->protocol));
+        }
+    }
+
     private function validateName(string $name): void
     {
         if ($name === '' || strtolower($name) !== $name) {
@@ -248,6 +308,13 @@ final readonly class RequestHeaderValidator
                 '%s header field names must be lowercase and non-empty.',
                 $this->protocol,
             ));
+        }
+    }
+
+    private function validateScheme(string $scheme): void
+    {
+        if (preg_match('/^[A-Za-z][A-Za-z0-9+.-]*$/D', $scheme) !== 1) {
+            throw new HeaderValidationException(sprintf('%s :scheme is invalid.', $this->protocol));
         }
     }
 }
