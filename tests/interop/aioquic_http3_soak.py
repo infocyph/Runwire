@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import asyncio
+import json
 import ssl
 import sys
+import time
 
 from aioquic.asyncio.client import connect
 from aioquic.h3.connection import H3_ALPN
@@ -19,6 +21,9 @@ async def main(port: int, request_count: int) -> None:
     configuration.verify_mode = ssl.CERT_NONE
     configuration.server_name = "localhost"
 
+    warmup_count = 32 if request_count > 32 else 0
+    measured_started_ns = 0
+
     async with connect(
         "127.0.0.1",
         port,
@@ -32,6 +37,9 @@ async def main(port: int, request_count: int) -> None:
         completed = 0
         batch_size = 32
         while completed < request_count:
+            if completed == warmup_count:
+                measured_started_ns = time.perf_counter_ns()
+
             upper = min(request_count, completed + batch_size)
             results = await asyncio.gather(*[
                 protocol.get(authority, f"/soak?request={index}")
@@ -44,7 +52,20 @@ async def main(port: int, request_count: int) -> None:
                     raise RuntimeError(f"Runwire returned unexpected soak body: {body!r}")
             completed = upper
 
+        measured_elapsed_ns = time.perf_counter_ns() - measured_started_ns
+
     print(f"aioquic -> Runwire HTTP/3 soak: OK ({request_count} requests)")
+
+    measured_requests = request_count - warmup_count
+    if measured_requests > 0 and measured_started_ns > 0:
+        elapsed_seconds = measured_elapsed_ns / 1_000_000_000
+        print(json.dumps({
+            "amortized_us_per_request": round((measured_elapsed_ns / measured_requests) / 1_000, 3),
+            "elapsed_ms": round(measured_elapsed_ns / 1_000_000, 3),
+            "measured_requests": measured_requests,
+            "requests_per_second": round(measured_requests / elapsed_seconds, 2),
+            "warmup_requests": warmup_count,
+        }, sort_keys=True))
 
 
 if __name__ == "__main__":
