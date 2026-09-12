@@ -14,6 +14,8 @@ use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
+use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 final readonly class FrankenPhpDriver implements HostDriverInterface
 {
@@ -36,6 +38,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
         ?callable $requestFactory = null,
         ?callable $writerFactory = null,
         ?callable $workerRequestHandler = null,
+        private WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
         $hostRequestFactory = new HostRequestFactory();
         $nativeWriterFactory = new NativePhpResponseWriterFactory();
@@ -105,12 +108,18 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
             throw new RuntimeUnavailableException('FrankenPHP worker mode requires frankenphp_handle_request().');
         }
 
-        for ($handled = 0; $this->options->maxRequests === 0 || $handled < $this->options->maxRequests; ++$handled) {
-            $keepRunning = ($this->workerRequestHandler)(function () use ($application): void {
-                $this->handleCurrentRequest($application);
+        $recycle = new WorkerRecycleState($this->recyclePolicy);
+        while (true) {
+            $recycleRequested = false;
+            $keepRunning = ($this->workerRequestHandler)(function () use ($application, $recycle, &$recycleRequested): void {
+                try {
+                    $this->handleCurrentRequest($application);
+                } finally {
+                    gc_collect_cycles();
+                    $recycleRequested = $recycle->recordRequestCompleted();
+                }
             });
-            gc_collect_cycles();
-            if (!$keepRunning) {
+            if ($recycleRequested || !$keepRunning) {
                 return;
             }
         }

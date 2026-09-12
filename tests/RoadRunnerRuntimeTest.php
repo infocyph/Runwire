@@ -17,6 +17,7 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 function roadRunnerRuntimeRequest(string $target): HttpRequest
 {
@@ -89,7 +90,7 @@ it('normalizes RoadRunner host requests into the common HTTP contract', function
         ->and($request?->encrypted)->toBeTrue();
 });
 
-it('streams RoadRunner response frames and recycles after the configured request budget', function (): void {
+it('streams RoadRunner response frames and recycles after the generic request budget', function (): void {
     $session = new class implements RoadRunnerSessionInterface {
         /** @var list<array{status: int, body: string, headers: array<string, list<string>>, end: bool}> */
         public array $responses = [];
@@ -158,8 +159,9 @@ it('streams RoadRunner response frames and recycles after the configured request
         },
     );
     $driver = new RoadRunnerDriver(
-        new RoadRunnerOptions(maxRequests: 2, maxResponseBytes: 1_024),
+        new RoadRunnerOptions(maxResponseBytes: 1_024),
         static fn(): RoadRunnerSessionInterface => $session,
+        recyclePolicy: new WorkerRecyclePolicy(maxRequests: 2),
     );
 
     $driver->run($application);

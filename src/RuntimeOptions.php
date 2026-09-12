@@ -6,12 +6,14 @@ namespace Infocyph\Runwire;
 
 use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 final readonly class RuntimeOptions
 {
     public function __construct(
         public RuntimeDriver $driver = RuntimeDriver::AUTO,
         public OpcacheMode $opcache = OpcacheMode::AUTO,
+        public WorkerRecyclePolicy $workerRecycle = new WorkerRecyclePolicy(),
         public FpmOptions $fpm = new FpmOptions(),
         public FrankenPhpOptions $frankenPhp = new FrankenPhpOptions(),
         public RoadRunnerOptions $roadRunner = new RoadRunnerOptions(),

@@ -129,8 +129,8 @@ Tracker semantics:
 
 | Batch | Points | Scope | Status |
 | --- | ---: | --- | --- |
-| 0 | — | Enum directory/namespace normalization | 🔄 Active |
-| A | 1–4 | Generic worker recycling and accounting | ⬜ Pending |
+| 0 | — | Enum directory/namespace normalization | ✅ Green (`1868a82f`) |
+| A | 1–4 | Generic worker recycling and accounting | 🔄 Active |
 | B | 5–10 | Runtime/request context, cancellation and deadlines | ⬜ Pending |
 | C | 11–15 | Application lifecycle, resetters, boot/warmup/drain | ⬜ Pending |
 | D | 16–18, 45–50 | Rolling reload, health, generation and restart semantics | ⬜ Pending |
@@ -142,13 +142,23 @@ Tracker semantics:
 | J | — | Benchmarks/docs refresh + comparative performance evidence + exact-head PHP 8.4/8.5 release QA | ⬜ Pending |
 | Release | — | Tag/publish Runwire 1.0 only after explicit approval | ⬜ Blocked |
 
+Batch 0 certification evidence:
+
+```text
+Exact head: 1868a82fee0e8a35b7e94131bc45c5f729983f1b
+Benchmarks #16: green
+Security & Standards #203: green
+PHP 8.4/8.5 QA/analyzers/clean install: green
+QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
+```
+
 Current implementation handoff:
 
 ```text
-Batch 0 → enum directory / namespace normalization
+Batch A → generic worker recycling and accounting
 ```
 
-Do not move to Batch A until Batch 0 is independently green.
+Batch A must be independently green before Batch B implementation begins.
 
 ---
 
@@ -202,6 +212,7 @@ new WorkerRecyclePolicy(
     maxRequests: 10_000,
     maxLifetimeSeconds: 3_600,
     maxMemoryBytes: 268_435_456,
+    jitterRequests: 500,
     jitterSeconds: 120,
     gracefulTimeoutSeconds: 10.0,
 );
@@ -1168,7 +1179,7 @@ Do not publish universal throughput claims from one CI runner.
 
 Runwire 1.0 is release-ready only when all of the following are true:
 
-- [ ] Batch 0 enum directory/namespace normalization is complete and green;
+- [x] Batch 0 enum directory/namespace normalization is complete and green;
 - [ ] Points **1–60** in this plan are implemented and accepted;
 - [ ] every batch A–I is independently green;
 - [ ] all new generic policies have cross-driver acceptance where applicable;
@@ -1200,8 +1211,8 @@ Runwire 1.0 is release-ready only when all of the following are true:
 # 11. Immediate implementation order
 
 ```text
-0. Enum directory / namespace normalization                        ← NEXT
-A. Points 1–4                  Worker recycling/accounting
+0. Enum directory / namespace normalization                        ✅ 1868a82f
+A. Points 1–4                  Worker recycling/accounting          ← CURRENT
 B. Points 5–10                 Context/cancellation/deadlines
 C. Points 11–15                Application lifecycle/reset/warmup/drain
 D. Points 16–18,45–50          Rolling reload/health/generation
@@ -1215,7 +1226,7 @@ K. Explicit approval → Runwire 1.0 tag/release
 L. Then Webrick/Foundation/Omnibus integration
 ```
 
-The next code change must stay inside **Runwire Batch 0**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
+The next code change must stay inside **Runwire Batch A**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
 
 ---
 

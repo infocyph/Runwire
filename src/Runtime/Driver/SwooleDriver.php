@@ -15,6 +15,8 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Host\DynamicHostObject;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
+use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use InvalidArgumentException;
 use ReflectionClass;
@@ -31,6 +33,7 @@ final class SwooleDriver implements HostDriverInterface
     public function __construct(
         private readonly SwooleOptions $options,
         ?callable $serverFactory = null,
+        private readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
         $this->serverFactory = $serverFactory === null
             ? self::nativeServerFactory()
@@ -172,16 +175,37 @@ final class SwooleDriver implements HostDriverInterface
 
     private function configure(object $server, RuntimeApplication $application): void
     {
-        $configured = DynamicHostObject::method($server, 'set')($this->options->serverSettings());
+        $configured = DynamicHostObject::method($server, 'set')($this->options->serverSettings($this->recyclePolicy));
         if ($configured === false) {
             throw new RuntimeException('Swoole/OpenSwoole rejected the configured server settings.');
         }
 
+        $recycleState = null;
+        DynamicHostObject::method($server, 'on')(
+            'WorkerStart',
+            function () use (&$recycleState): void {
+                $recycleState = new WorkerRecycleState($this->recyclePolicy);
+            },
+        );
+
         $registered = DynamicHostObject::method($server, 'on')(
             'Request',
-            function (object $request, object $response) use ($application): void {
+            function (object $request, object $response) use ($application, $server, &$recycleState): void {
+                $recycleState ??= new WorkerRecycleState($this->recyclePolicy);
                 $normalized = $this->request($request);
-                $application->handle($normalized, $this->writer($response, $normalized->method));
+                $completed = false;
+
+                try {
+                    $application->handle($normalized, $this->writer($response, $normalized->method));
+                    $completed = true;
+                } finally {
+                    if ($recycleState->recordRequestCompleted(enforceRequestLimit: false)) {
+                        $stopped = DynamicHostObject::method($server, 'stop')(-1, true);
+                        if ($stopped === false && $completed) {
+                            throw new RuntimeException('Swoole/OpenSwoole failed to recycle the current worker.');
+                        }
+                    }
+                }
             },
         );
         if ($registered === false) {

@@ -18,9 +18,18 @@ final class HostDriverFactory
     {
         return match ($driver) {
             RuntimeDriver::FPM => new FpmDriver($options->fpm),
-            RuntimeDriver::FRANKENPHP => new FrankenPhpDriver($options->frankenPhp),
-            RuntimeDriver::ROADRUNNER => new RoadRunnerDriver($options->roadRunner),
-            RuntimeDriver::SWOOLE => new SwooleDriver($options->swoole),
+            RuntimeDriver::FRANKENPHP => new FrankenPhpDriver(
+                $options->frankenPhp,
+                recyclePolicy: $options->workerRecycle,
+            ),
+            RuntimeDriver::ROADRUNNER => new RoadRunnerDriver(
+                $options->roadRunner,
+                recyclePolicy: $options->workerRecycle,
+            ),
+            RuntimeDriver::SWOOLE => new SwooleDriver(
+                $options->swoole,
+                recyclePolicy: $options->workerRecycle,
+            ),
             RuntimeDriver::AUTO, RuntimeDriver::NATIVE => throw new RuntimeUnavailableException(sprintf(
                 'Runtime driver "%s" is not a host-owned serve() driver.',
                 $driver->value,

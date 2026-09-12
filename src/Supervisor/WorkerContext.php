@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use RuntimeException;
 
 final class WorkerContext
@@ -12,6 +13,10 @@ final class WorkerContext
 
     /** @var resource|null */
     private mixed $readyStream;
+
+    private bool $recycling = false;
+
+    private readonly WorkerRecycleState $recycleState;
 
     private bool $stopping = false;
 
@@ -31,8 +36,13 @@ final class WorkerContext
         public readonly int $pid,
         public readonly int $parentPid,
         mixed $readyStream,
+        public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
         $this->readyStream = $readyStream;
+        $this->recycleState = new WorkerRecycleState(
+            $this->recyclePolicy,
+            seed: $pid ^ ($slot << 8) ^ ($generation << 16),
+        );
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if (!is_array($pair) || count($pair) !== 2) {
             throw new RuntimeException('Unable to create worker stop wake channel.');
@@ -67,6 +77,26 @@ final class WorkerContext
         } while (is_string($chunk) && $chunk !== '');
     }
 
+    public function currentMemoryBytes(): int
+    {
+        return $this->recycleState->currentMemoryBytes();
+    }
+
+    public function effectiveMaxLifetimeSeconds(): int
+    {
+        return $this->recycleState->effectiveMaxLifetimeSeconds();
+    }
+
+    public function effectiveMaxRequests(): int
+    {
+        return $this->recycleState->effectiveMaxRequests();
+    }
+
+    public function peakMemoryBytes(): int
+    {
+        return $this->recycleState->peakMemoryBytes();
+    }
+
     public function ready(): void
     {
         if ($this->ready) {
@@ -83,6 +113,36 @@ final class WorkerContext
 
         $this->readyStream = null;
         $this->ready = true;
+    }
+
+    public function recordRequestCompleted(): bool
+    {
+        $recycle = $this->recycleState->recordRequestCompleted();
+        if ($recycle) {
+            $this->requestRecycle();
+        }
+
+        return $recycle;
+    }
+
+    public function recycling(): bool
+    {
+        return $this->recycling;
+    }
+
+    public function requestRecycle(): void
+    {
+        if ($this->recycling) {
+            return;
+        }
+
+        $this->recycling = true;
+        $this->requestStop();
+    }
+
+    public function requestsTotal(): int
+    {
+        return $this->recycleState->requestsTotal();
     }
 
     public function requestStop(): void

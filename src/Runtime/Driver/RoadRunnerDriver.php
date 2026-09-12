@@ -11,6 +11,8 @@ use Infocyph\Runwire\Runtime\Host\RoadRunnerResponseWriter;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSession;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSessionInterface;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
+use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 final class RoadRunnerDriver implements HostDriverInterface
 {
@@ -23,6 +25,7 @@ final class RoadRunnerDriver implements HostDriverInterface
     public function __construct(
         private readonly RoadRunnerOptions $options,
         ?callable $sessionFactory = null,
+        private readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
         $this->sessionFactory = $sessionFactory === null
             ? RoadRunnerSession::create(...)
@@ -49,22 +52,23 @@ final class RoadRunnerDriver implements HostDriverInterface
 
     private function runRequests(RoadRunnerSessionInterface $session, RuntimeApplication $application): void
     {
-        $handled = 0;
+        $recycle = new WorkerRecycleState($this->recyclePolicy);
         while (($request = $session->waitRequest($this->options->maxRequestBodyBytes)) !== null) {
-            $writer = new RoadRunnerResponseWriter(
-                $session,
-                $this->options->maxResponseBytes,
-                strtoupper($request->method) === 'HEAD',
-            );
-            $application->handle($request, $writer);
-            if (!$writer->isEnded()) {
-                $writer->end();
-            }
-
-            ++$handled;
-            gc_collect_cycles();
-            if ($this->options->maxRequests !== 0 && $handled >= $this->options->maxRequests) {
-                $session->stop();
+            try {
+                $writer = new RoadRunnerResponseWriter(
+                    $session,
+                    $this->options->maxResponseBytes,
+                    strtoupper($request->method) === 'HEAD',
+                );
+                $application->handle($request, $writer);
+                if (!$writer->isEnded()) {
+                    $writer->end();
+                }
+            } finally {
+                gc_collect_cycles();
+                if ($recycle->recordRequestCompleted()) {
+                    $session->stop();
+                }
             }
         }
     }

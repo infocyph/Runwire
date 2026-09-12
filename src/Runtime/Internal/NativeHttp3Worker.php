@@ -7,6 +7,8 @@ namespace Infocyph\Runwire\Runtime\Internal;
 use Infocyph\Runwire\Exception\ListenerException;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Server;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use LogicException;
@@ -23,9 +25,17 @@ final class NativeHttp3Worker
 
         [$host, $port] = self::endpoint($tcpAddress);
         $listener = PhpQuicListener::bind($host, $port, $options->listenerOptions($tls));
+        $applicationHandler = $server->handlerFor($context);
+        $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($applicationHandler, $context): void {
+            try {
+                $applicationHandler($request, $writer);
+            } finally {
+                $context->recordRequestCompleted();
+            }
+        };
         $worker = new PhpQuicHttp3Worker(
             $listener,
-            $server->handlerFor($context),
+            $handler,
             $options->limits,
             $server->workerConnectionLimit,
             handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
@@ -39,7 +49,14 @@ final class NativeHttp3Worker
 
             $context->consumeStopWake();
             $worker->stopAccepting();
+            $deadline = $context->recycling()
+                ? hrtime(true) + (int) ($context->recyclePolicy->gracefulTimeoutSeconds * 1_000_000_000)
+                : null;
             while (!$worker->drainComplete()) {
+                if ($deadline !== null && hrtime(true) >= $deadline) {
+                    $worker->forceClose();
+                    break;
+                }
                 $worker->tick($options->pollTimeoutSeconds);
             }
         } finally {

@@ -11,6 +11,8 @@ use Throwable;
 
 final class WorkerChildRuntime
 {
+    public const int RECYCLE_EXIT_CODE = 75;
+
     /** @param resource $readyStream */
     public static function run(
         WorkerGroup $group,
@@ -28,6 +30,7 @@ final class WorkerChildRuntime
                 pid: posix_getpid(),
                 parentPid: posix_getppid(),
                 readyStream: $readyStream,
+                recyclePolicy: $group->recyclePolicy,
             );
 
             pcntl_async_signals(true);
@@ -44,8 +47,9 @@ final class WorkerChildRuntime
             }
 
             ($group->bootstrap)($context);
+            $exitCode = $context->recycling() ? self::RECYCLE_EXIT_CODE : 0;
             $context->close();
-            self::terminate(0);
+            self::terminate($exitCode);
         } catch (Throwable) {
             $context?->close();
             self::terminate(70);

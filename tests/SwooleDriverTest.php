@@ -12,26 +12,27 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleServer;
 
-it('validates and maps bounded Swoole server settings', function (): void {
+it('validates and maps bounded Swoole server settings with generic recycle policy', function (): void {
     $options = new SwooleOptions(
         host: '::1',
         port: 9601,
         workerCount: 4,
-        maxRequestsPerWorker: 500,
         maxRequestBodyBytes: 32_768,
         maxResponseBytes: 65_536,
         http2: true,
     );
 
-    expect($options->serverSettings())->toBe([
+    expect($options->serverSettings(new WorkerRecyclePolicy(maxRequests: 500, jitterRequests: 50)))->toBe([
         'package_max_length' => 65_536,
         'worker_num' => 4,
         'max_request' => 500,
+        'max_request_grace' => 50,
         'open_http2_protocol' => true,
     ]);
 });
@@ -88,13 +89,14 @@ it('runs Swoole through the common request and response contract', function (): 
         },
     );
     $driver = new SwooleDriver(
-        new SwooleOptions(host: '::1', port: 9502, workerCount: 2, maxRequestsPerWorker: 100, http2: true),
+        new SwooleOptions(host: '::1', port: 9502, workerCount: 2, http2: true),
         static function (string $host, int $port) use (&$factoryHost, &$factoryPort, $server): object {
             $factoryHost = $host;
             $factoryPort = $port;
 
             return $server;
         },
+        new WorkerRecyclePolicy(maxRequests: 100),
     );
 
     $driver->run($application);
@@ -123,7 +125,95 @@ it('runs Swoole through the common request and response contract', function (): 
         ->and($response->ends)->toBe(1)
         ->and($server->settings['worker_num'])->toBe(2)
         ->and($server->settings['max_request'])->toBe(100)
+        ->and($server->settings['max_request_grace'])->toBe(0)
         ->and($server->settings['open_http2_protocol'])->toBeTrue();
+});
+
+it('uses the safe current-worker stop path for generic memory or lifetime recycling', function (): void {
+    $request = new FakeSwooleRequest([
+        'request_method' => 'GET',
+        'request_uri' => '/recycle',
+        'server_protocol' => 'HTTP/1.1',
+    ], [], '');
+    $response = new FakeSwooleResponse();
+    $server = new class($request, $response) {
+        /** @var array<string, bool|int> */
+        public array $settings = [];
+
+        /** @var Closure(object, object): void|null */
+        private ?Closure $requestHandler = null;
+
+        /** @var Closure(): void|null */
+        private ?Closure $workerStart = null;
+
+        public int $workerStops = 0;
+
+        public function __construct(
+            private readonly FakeSwooleRequest $request,
+            private readonly FakeSwooleResponse $response,
+        ) {}
+
+        public function on(string $event, callable $handler): bool
+        {
+            if (strtolower($event) === 'workerstart') {
+                $this->workerStart = Closure::fromCallable($handler);
+
+                return true;
+            }
+            if (strtolower($event) === 'request') {
+                $this->requestHandler = Closure::fromCallable($handler);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /** @param array<string, bool|int> $settings */
+        public function set(array $settings): bool
+        {
+            $this->settings = $settings;
+
+            return true;
+        }
+
+        public function shutdown(): bool
+        {
+            return true;
+        }
+
+        public function start(): bool
+        {
+            ($this->workerStart)?->__invoke();
+            if ($this->requestHandler === null) {
+                return false;
+            }
+            ($this->requestHandler)($this->request, $this->response);
+
+            return true;
+        }
+
+        public function stop(int $workerId = -1, bool $waitEvent = false): bool
+        {
+            if ($workerId !== -1 || !$waitEvent) {
+                return false;
+            }
+            ++$this->workerStops;
+
+            return true;
+        }
+    };
+    $driver = new SwooleDriver(
+        new SwooleOptions(),
+        static fn(string $host, int $port): object => $server,
+        new WorkerRecyclePolicy(maxMemoryBytes: 1),
+    );
+
+    $driver->run(new RuntimeApplication(static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+        $writer->end($request->target);
+    }));
+
+    expect($server->workerStops)->toBe(1);
 });
 
 it('delegates Swoole stop to the active host server', function (): void {

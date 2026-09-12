@@ -73,6 +73,19 @@ final class PhpQuicHttp3Worker
         return $this->pendingConnections === [] && $this->connections === [];
     }
 
+    public function forceClose(): void
+    {
+        $this->stopAccepting();
+        foreach ($this->pendingConnections as $id => $pending) {
+            self::closeConnection($pending['connection'], ErrorCode::NO_ERROR->value, 'Worker recycle drain timeout.');
+            unset($this->pendingConnections[$id]);
+        }
+        foreach ($this->connections as $id => $connection) {
+            self::closeConnection($connection->connection(), ErrorCode::NO_ERROR->value, 'Worker recycle drain timeout.');
+            unset($this->connections[$id]);
+        }
+    }
+
     public function stopAccepting(): void
     {
         if (!$this->accepting) {

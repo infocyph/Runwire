@@ -16,6 +16,7 @@ use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
 use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSessionInterface;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
@@ -91,7 +92,7 @@ it('always runs request cleanup when an application handler fails', function ():
         ->and($cleanups)->toBe(1);
 });
 
-it('isolates consecutive FrankenPHP worker requests and recycles at the configured budget', function (): void {
+it('isolates consecutive FrankenPHP worker requests and recycles at the generic budget', function (): void {
     $state = null;
     $seenBefore = [];
     $cleanedState = [];
@@ -101,7 +102,7 @@ it('isolates consecutive FrankenPHP worker requests and recycles at the configur
     $requestIndex = 0;
     $application = persistentRuntimeApplication($state, $seenBefore, $cleanedState, $shutdowns);
     $driver = new FrankenPhpDriver(
-        new FrankenPhpOptions(mode: FrankenPhpMode::WORKER, maxRequests: 2),
+        new FrankenPhpOptions(mode: FrankenPhpMode::WORKER),
         static function () use (&$targets, &$requestIndex): HttpRequest {
             return persistentRuntimeRequest($targets[$requestIndex++]);
         },
@@ -114,6 +115,7 @@ it('isolates consecutive FrankenPHP worker requests and recycles at the configur
 
             return true;
         },
+        recyclePolicy: new WorkerRecyclePolicy(maxRequests: 2),
     );
 
     $driver->run($application);
@@ -125,7 +127,7 @@ it('isolates consecutive FrankenPHP worker requests and recycles at the configur
         ->and($shutdowns)->toBe(1);
 });
 
-it('isolates consecutive RoadRunner requests and stops the persistent worker at its recycle budget', function (): void {
+it('isolates consecutive RoadRunner requests and stops at the generic recycle budget', function (): void {
     $session = new class implements RoadRunnerSessionInterface {
         public int $stops = 0;
 
@@ -169,8 +171,9 @@ it('isolates consecutive RoadRunner requests and stops the persistent worker at 
     $shutdowns = 0;
     $application = persistentRuntimeApplication($state, $seenBefore, $cleanedState, $shutdowns);
     $driver = new RoadRunnerDriver(
-        new RoadRunnerOptions(maxRequests: 2),
+        new RoadRunnerOptions(),
         static fn(): RoadRunnerSessionInterface => $session,
+        recyclePolicy: new WorkerRecyclePolicy(maxRequests: 2),
     );
 
     $driver->run($application);
@@ -182,7 +185,7 @@ it('isolates consecutive RoadRunner requests and stops the persistent worker at 
         ->and($shutdowns)->toBe(1);
 });
 
-it('isolates consecutive Swoole requests while host recycling stays bounded by max_request', function (): void {
+it('isolates consecutive Swoole requests while native host request recycling uses the generic policy', function (): void {
     $requests = [
         new FakeSwooleRequest([
             'request_method' => 'GET',
@@ -255,10 +258,11 @@ it('isolates consecutive Swoole requests while host recycling stays bounded by m
     $shutdowns = 0;
     $application = persistentRuntimeApplication($state, $seenBefore, $cleanedState, $shutdowns);
     $driver = new SwooleDriver(
-        new SwooleOptions(maxRequestsPerWorker: 2),
+        new SwooleOptions(),
         static fn(string $host, int $port): object => $host !== '' && $port > 0
             ? $server
             : throw new RuntimeException('Invalid Swoole endpoint.'),
+        recyclePolicy: new WorkerRecyclePolicy(maxRequests: 2),
     );
 
     $driver->run($application);
@@ -267,5 +271,6 @@ it('isolates consecutive Swoole requests while host recycling stays bounded by m
         ->and($cleanedState)->toBe(['/one', '/two'])
         ->and($state)->toBeNull()
         ->and($server->settings['max_request'])->toBe(2)
+        ->and($server->settings['max_request_grace'])->toBe(0)
         ->and($shutdowns)->toBe(1);
 });

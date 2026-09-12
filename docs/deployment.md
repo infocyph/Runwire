@@ -6,11 +6,11 @@ Runwire is a framework-agnostic process and network runtime. It can own native H
 
 | Mode | Listener / wire owner | Runwire responsibility |
 | --- | --- | --- |
-| `native` | Runwire | event loop, TCP/TLS, HTTP/1.1, HTTP/2, optional QUIC/HTTP/3, worker lifecycle |
-| `fpm` | PHP-FPM / web server | normalize one host request, dispatch, cleanup, emit host response |
-| `frankenphp` | FrankenPHP | classic or persistent-worker request adaptation and bounded recycle |
-| `swoole` | Swoole/OpenSwoole | request adaptation; host owns server loop and worker recycling |
-| `roadrunner` | RoadRunner | request/session adaptation and bounded request recycling |
+| `native` | Runwire | event loop, TCP/TLS, HTTP/1.1, HTTP/2, optional QUIC/HTTP/3, worker lifecycle and generic recycle policy |
+| `fpm` | PHP-FPM / web server | normalize one host request, dispatch, cleanup, emit host response; persistent-worker recycling is not owned by the request process |
+| `frankenphp` | FrankenPHP | classic or persistent-worker request adaptation with generic Runwire recycle accounting |
+| `swoole` | Swoole/OpenSwoole | request adaptation; host owns server loop and native request-count recycling while Runwire applies generic memory/lifetime policy where supported |
+| `roadrunner` | RoadRunner | request/session adaptation with generic Runwire recycle accounting |
 | `auto` | detected environment | select a valid hosted mode or native mode according to runtime configuration |
 
 Hosted modes must not start a competing Runwire listener, event loop, worker pool, or HTTP server. Capability reporting distinguishes protocol support from Runwire wire ownership.
@@ -45,7 +45,7 @@ Runwire delegates QUIC cryptography, congestion control and loss recovery to the
 
 QUIC connection migration or address rebinding may change peer-address metadata during a connection. Do not use peer-address stability as an authentication or authorization boundary.
 
-## Graceful shutdown and reload
+## Graceful shutdown, reload and worker recycling
 
 Native shutdown follows a bounded drain model:
 
@@ -56,6 +56,28 @@ Native shutdown follows a bounded drain model:
 5. supervised workers are reaped before shutdown completes.
 
 Rolling supervisor reload starts replacement generation capacity before retiring the previous generation. Application resources created after fork must remain generation/worker-owned and must not be inherited from an application-connected parent.
+
+Persistent worker recycling is configured through `RuntimeOptions::workerRecycle` using the generic `WorkerRecyclePolicy`. Request-count, lifetime and memory thresholds are soft retirement triggers evaluated at safe request boundaries; they do not kill active application work immediately. Request and lifetime jitter can stagger retirement so workers started together do not all recycle at the same threshold.
+
+A deployment may explicitly configure values such as:
+
+```php
+use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
+
+$options = new RuntimeOptions(
+    workerRecycle: new WorkerRecyclePolicy(
+        maxRequests: 10_000,
+        maxLifetimeSeconds: 3_600,
+        maxMemoryBytes: 268_435_456,
+        jitterRequests: 500,
+        jitterSeconds: 120,
+        gracefulTimeoutSeconds: 10.0,
+    ),
+);
+```
+
+All recycle thresholds default to disabled. This avoids silently imposing operational limits on applications before they have measured their workload. FPM is request-scoped from Runwire's point of view and therefore does not pretend to apply persistent-worker recycle dimensions. Swoole/OpenSwoole keeps native `max_request` enforcement for the request-count dimension, including native grace/jitter, while Runwire uses the same generic policy contract for the remaining supported dimensions.
 
 ## Default protocol ceilings
 
@@ -92,7 +114,7 @@ Treat backpressure ceilings as protection boundaries, not throughput targets.
 
 `SelectLoop` is the portable native baseline. `ext-event` is optional for deployments that benefit from a different event backend.
 
-Worker count should be chosen from measured CPU saturation, blocking application work and memory per worker. More workers do not compensate for unbounded application blocking. Keep worker recycling enabled for persistent host modes and preserve per-request cleanup regardless of the host runtime.
+Worker count should be chosen from measured CPU saturation, blocking application work and memory per worker. More workers do not compensate for unbounded application blocking. For persistent runtimes, configure `WorkerRecyclePolicy` from observed request volume, retained memory and expected worker lifetime; keep per-request cleanup enabled regardless of the host runtime.
 
 ## Reverse proxies and load balancers
 
@@ -110,6 +132,7 @@ Before production rollout, verify that:
 - TLS key material has appropriate filesystem permissions;
 - HTTP/3 0-RTT remains disabled unless a future replay-safety policy explicitly enables it;
 - persistent application state is cleaned after every request, including failed handlers;
+- persistent worker recycle thresholds and jitter are explicitly reviewed rather than assumed;
 - sensitive argv, environment and HTTP values are not logged by default;
 - application DB/cache/broker connections are created in the correct post-fork worker lifetime;
 - shutdown and reload deadlines are exercised before production traffic is enabled.

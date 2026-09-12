@@ -20,6 +20,7 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 function hostRuntimeRequest(string $target = '/host'): HttpRequest
 {
@@ -170,7 +171,7 @@ it('runs FrankenPHP classic mode as one request', function (): void {
         ->and($chunks)->toBe(['/classic']);
 });
 
-it('runs FrankenPHP worker requests with per-request cleanup and bounded recycling', function (): void {
+it('runs FrankenPHP worker requests with per-request cleanup and generic recycling', function (): void {
     $handled = 0;
     $cleaned = 0;
     $shutdown = 0;
@@ -189,7 +190,7 @@ it('runs FrankenPHP worker requests with per-request cleanup and bounded recycli
         },
     );
     $driver = new FrankenPhpDriver(
-        new FrankenPhpOptions(mode: FrankenPhpMode::WORKER, maxRequests: 2),
+        new FrankenPhpOptions(mode: FrankenPhpMode::WORKER),
         static fn(): HttpRequest => hostRuntimeRequest('/worker'),
         static function (string $method) use (&$chunks): ResponseWriterInterface {
             return $method === 'GET'
@@ -202,6 +203,7 @@ it('runs FrankenPHP worker requests with per-request cleanup and bounded recycli
 
             return true;
         },
+        recyclePolicy: new WorkerRecyclePolicy(maxRequests: 2),
     );
 
     $driver->run($application);

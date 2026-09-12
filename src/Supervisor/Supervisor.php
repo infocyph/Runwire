@@ -398,14 +398,21 @@ final class Supervisor
             $record->killTimerId = null;
         }
 
-        if (!$record->expectedStop) {
+        $exitCode = ChildReaper::exitCode($status);
+        $hasReplacement = ChildSet::hasReplacementFor($this->children, $pid);
+        $plannedRecycle = !$record->expectedStop && $exitCode === WorkerChildRuntime::RECYCLE_EXIT_CODE;
+        if ($plannedRecycle) {
+            $record->expectedStop = true;
+            $record->state = WorkerState::DRAINING;
+            $this->emitWorker(SupervisorEventType::WORKER_RECYCLE_STARTED, $record);
+        } elseif (!$record->expectedStop) {
             $record->state = WorkerState::FAILED;
         }
 
         $this->emitWorker(
             SupervisorEventType::WORKER_EXITED,
             $record,
-            exitCode: ChildReaper::exitCode($status),
+            exitCode: $exitCode,
             termSignal: ChildReaper::termSignal($status),
             expected: $record->expectedStop,
         );
@@ -424,7 +431,20 @@ final class Supervisor
             return;
         }
 
-        if ($record->expectedStop || ChildSet::hasReplacementFor($this->children, $pid)) {
+        if ($plannedRecycle && !$hasReplacement) {
+            $this->spawnWorker(
+                group: $record->group,
+                slot: $record->slot,
+                generation: max($record->generation, $this->generation),
+                restartCount: $this->restartTracker->count($record->group->name, $record->slot),
+                replacesPid: null,
+                setCurrent: true,
+            );
+
+            return;
+        }
+
+        if ($record->expectedStop || $hasReplacement) {
             $this->checkReloadCompletion();
 
             return;

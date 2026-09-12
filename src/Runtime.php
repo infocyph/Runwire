@@ -356,6 +356,7 @@ final class Runtime
                         $target instanceof BoundDatagramServer => NativeDatagramWorker::run($context, $target),
                     };
                 },
+                recyclePolicy: $this->options->workerRecycle,
                 automaticReady: false,
                 readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
@@ -382,6 +383,7 @@ final class Runtime
                 }
                 NativeHttp3Worker::run($context, $definition, $tcpAddress);
             },
+            recyclePolicy: $this->options->workerRecycle,
             automaticReady: false,
             readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
             shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
