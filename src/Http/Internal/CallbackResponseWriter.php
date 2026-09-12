@@ -28,9 +28,9 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     private bool $ended = false;
 
-    private int $status = 200;
-
     private bool $started = false;
+
+    private int $status = 200;
 
     /**
      * @param callable(int, Headers): void $startCallback
