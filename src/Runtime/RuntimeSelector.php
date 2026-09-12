@@ -22,14 +22,12 @@ final readonly class RuntimeSelector
 
         return new RuntimeSelection(
             driver: $driver,
-            capabilities: $this->capabilityResolver->resolve($driver, $environment),
+            capabilities: $this->capabilityResolver->resolve($driver, $environment, $options),
             warnings: $warnings,
         );
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function validateOpcache(RuntimeOptions $options, RuntimeEnvironment $environment): array
     {
         if ($options->opcache === OpcacheMode::OFF || $options->opcache === OpcacheMode::AUTO) {

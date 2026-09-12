@@ -25,10 +25,18 @@ final class RuntimeEnvironmentProbe
             supportsPosix: $supportsPosix,
             supportsOpenSsl: extension_loaded('openssl'),
             supportsQuic: self::supportsQuic(),
+            frankenPhpWorkerMode: self::frankenPhpWorkerMode(),
             opcacheAvailable: $opcacheAvailable,
             opcacheEnabled: $opcacheEnabled,
             opcacheCliEnabled: $opcacheCliEnabled,
         );
+    }
+
+    private static function frankenPhpWorkerMode(): bool
+    {
+        $config = getenv('FRANKENPHP_CONFIG');
+
+        return is_string($config) && preg_match('/(?:^|\s)worker(?:\s|$)/i', $config) === 1;
     }
 
     private static function iniFlag(string $name): bool

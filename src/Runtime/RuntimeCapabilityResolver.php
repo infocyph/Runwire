@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime;
 
+use Infocyph\Runwire\FrankenPhpMode;
 use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeDriver;
+use Infocyph\Runwire\RuntimeOptions;
 
 final class RuntimeCapabilityResolver
 {
-    public function resolve(RuntimeDriver $driver, RuntimeEnvironment $environment): RuntimeCapabilities
+    public function resolve(RuntimeDriver $driver, RuntimeEnvironment $environment, RuntimeOptions $options): RuntimeCapabilities
     {
         return match ($driver) {
             RuntimeDriver::NATIVE => $this->native($environment),
             RuntimeDriver::FPM => $this->fpm($environment),
-            RuntimeDriver::FRANKENPHP => $this->frankenPhp($environment),
+            RuntimeDriver::FRANKENPHP => $this->frankenPhp($environment, $options),
             RuntimeDriver::SWOOLE => $this->swoole($environment),
             RuntimeDriver::ROADRUNNER => $this->roadRunner($environment),
             RuntimeDriver::AUTO => throw new \LogicException('AUTO must be resolved before capabilities are built.'),
@@ -27,17 +29,30 @@ final class RuntimeCapabilityResolver
             driver: RuntimeDriver::FPM,
             persistentProcess: true,
             persistentApplication: false,
+            supportsHttp1: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: false,
         );
     }
 
-    private function frankenPhp(RuntimeEnvironment $environment): RuntimeCapabilities
+    private function frankenPhp(RuntimeEnvironment $environment, RuntimeOptions $options): RuntimeCapabilities
     {
+        $worker = $options->frankenPhp->mode === FrankenPhpMode::WORKER
+            || ($options->frankenPhp->mode === FrankenPhpMode::AUTO && $environment->frankenPhpWorkerMode);
+
         return new RuntimeCapabilities(
             driver: RuntimeDriver::FRANKENPHP,
             persistentProcess: true,
-            persistentApplication: false,
+            persistentApplication: $worker,
+            supportsAsyncIo: true,
+            supportsGracefulReload: true,
+            supportsWorkerRecycle: $worker,
+            supportsHttp1: true,
+            supportsHttp2: true,
+            supportsHttp3: true,
+            supportsTlsAlpn: true,
+            supportsQuic: true,
+            supportsWebsocket: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: false,
         );

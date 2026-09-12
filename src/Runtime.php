@@ -12,6 +12,9 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Network\UnixListenerOptions;
+use Infocyph\Runwire\Runtime\Host\HostDriverFactory;
+use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
+use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\Internal\BoundDatagramServer;
 use Infocyph\Runwire\Runtime\Internal\BoundServer;
 use Infocyph\Runwire\Runtime\Internal\BoundStreamServer;
@@ -32,6 +35,8 @@ use LogicException;
 final class Runtime
 {
     private ?ControlOptions $controlOptions = null;
+
+    private ?HostDriverInterface $hostDriver = null;
 
     /** @var list<Closure(SupervisorEvent): void> */
     private array $lifecycleListeners = [];
@@ -133,7 +138,7 @@ final class Runtime
         $this->selection = $this->selector->select($this->options, $this->environmentProbe->probe());
         if ($this->selection->driver !== RuntimeDriver::NATIVE) {
             throw new RuntimeUnavailableException(sprintf(
-                'Runtime driver "%s" is selected, but its host adapter is not wired to Runtime::run() yet.',
+                'Runtime driver "%s" is host-owned; use Runtime::serve() without Runwire listeners.',
                 $this->selection->driver->value,
             ));
         }
@@ -157,6 +162,37 @@ final class Runtime
         return $this->selection;
     }
 
+    /**
+     * @param callable(\Infocyph\Runwire\Http\HttpRequest, \Infocyph\Runwire\Http\ResponseWriterInterface): void $handler
+     * @param callable(): void|null $requestCleanup
+     * @param callable(): void|null $shutdown
+     */
+    public function serve(callable $handler, ?callable $requestCleanup = null, ?callable $shutdown = null): void
+    {
+        if ($this->started) {
+            throw new LogicException('A Runtime instance can only be run once.');
+        }
+        if ($this->servers !== []) {
+            throw new LogicException('Host-owned serve() cannot be combined with Runwire listeners.');
+        }
+        if ($this->controlOptions !== null || $this->lifecycleListeners !== []) {
+            throw new LogicException('Host-owned serve() cannot use the native supervisor control/event plane.');
+        }
+
+        $this->started = true;
+        $this->selection = $this->selector->select($this->options, $this->environmentProbe->probe());
+        if ($this->selection->driver === RuntimeDriver::NATIVE) {
+            throw new RuntimeUnavailableException('The native runtime owns its listeners; configure listen() and call run().');
+        }
+
+        $this->hostDriver = (new HostDriverFactory())->create($this->selection->driver, $this->options);
+        try {
+            $this->hostDriver->run(new RuntimeApplication($handler, $requestCleanup, $shutdown));
+        } finally {
+            $this->hostDriver = null;
+        }
+    }
+
     public function status(): ?SupervisorStatus
     {
         return $this->supervisor?->status();
@@ -164,6 +200,7 @@ final class Runtime
 
     public function stop(bool $force = false): void
     {
+        $this->hostDriver?->stop();
         $this->supervisor?->stop($force);
     }
 
