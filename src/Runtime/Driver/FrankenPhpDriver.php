@@ -17,8 +17,6 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 
 final readonly class FrankenPhpDriver implements HostDriverInterface
 {
-    private FrankenPhpOptions $options;
-
     /** @var Closure(): HttpRequest */
     private Closure $requestFactory;
 
@@ -34,14 +32,13 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
      * @param callable(callable(): void): bool|null $workerRequestHandler
      */
     public function __construct(
-        FrankenPhpOptions $options,
+        private FrankenPhpOptions $options,
         ?callable $requestFactory = null,
         ?callable $writerFactory = null,
         ?callable $workerRequestHandler = null,
     ) {
         $hostRequestFactory = new HostRequestFactory();
         $nativeWriterFactory = new NativePhpResponseWriterFactory();
-        $this->options = $options;
         $this->requestFactory = $requestFactory === null
             ? static fn(): HttpRequest => $hostRequestFactory->fromGlobals($options->maxRequestBodyBytes)
             : Closure::fromCallable($requestFactory);
