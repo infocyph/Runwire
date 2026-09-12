@@ -35,7 +35,12 @@ $worker = new PhpQuicHttp3Worker(
     $listener,
     static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$served): void {
         fwrite(STDERR, sprintf("interop: dispatched %s %s\n", $request->method, $request->target));
-        if ($request->method !== 'GET' || $request->target !== '/interop?client=aioquic') {
+        $responses = [
+            '/interop?client=aioquic' => 'runwire-aioquic-ok',
+            '/interop?client=ngtcp2' => 'runwire-ngtcp2-ok',
+        ];
+        $body = $responses[$request->target] ?? null;
+        if ($request->method !== 'GET' || $body === null) {
             $body = 'unexpected-request';
             $writer->start(400, Headers::fromArray([
                 'content-type' => 'text/plain',
@@ -48,9 +53,8 @@ $worker = new PhpQuicHttp3Worker(
             return;
         }
 
-        $request->body->onEnd(static function () use (&$served, $writer): void {
+        $request->body->onEnd(static function () use (&$served, $writer, $body): void {
             fwrite(STDERR, "interop: request-ended\n");
-            $body = 'runwire-aioquic-ok';
             $writer->start(200, Headers::fromArray([
                 'content-type' => 'text/plain',
                 'content-length' => (string) strlen($body),
