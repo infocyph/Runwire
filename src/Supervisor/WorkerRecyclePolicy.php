@@ -8,9 +8,9 @@ use InvalidArgumentException;
 
 final readonly class WorkerRecyclePolicy
 {
-    private const int MAX_REQUESTS = 10_000_000;
-
     private const int MAX_LIFETIME_SECONDS = 31_536_000;
+
+    private const int MAX_REQUESTS = 10_000_000;
 
     public function __construct(
         public int $maxRequests = 0,

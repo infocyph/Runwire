@@ -10,17 +10,17 @@ final class WorkerRecycleState
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
 
-    private int $currentMemoryBytes = 0;
-
     private readonly int $effectiveMaxLifetimeSeconds;
 
     private readonly int $effectiveMaxRequests;
 
+    private readonly int $startedAtNs;
+
+    private int $currentMemoryBytes = 0;
+
     private int $peakMemoryBytes = 0;
 
     private int $requestsTotal = 0;
-
-    private readonly int $startedAtNs;
 
     public function __construct(
         private readonly WorkerRecyclePolicy $policy,
@@ -106,7 +106,7 @@ final class WorkerRecycleState
         }
 
         $value = ($seed ^ $salt) & 0x7FFFFFFF;
-        $value = (int) (($value * 1_103_515_245 + 12_345) & 0x7FFFFFFF);
+        $value = ($value * 1_103_515_245 + 12_345) & 0x7FFFFFFF;
 
         return $value % ($maximum + 1);
     }

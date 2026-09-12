@@ -205,7 +205,9 @@ it('uses the safe current-worker stop path for generic memory or lifetime recycl
     };
     $driver = new SwooleDriver(
         new SwooleOptions(),
-        static fn(string $host, int $port): object => $server,
+        static fn(string $host, int $port): object => $host !== '' && $port > 0
+            ? $server
+            : throw new RuntimeException('Invalid Swoole test endpoint.'),
         new WorkerRecyclePolicy(maxMemoryBytes: 1),
     );
 

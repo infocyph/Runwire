@@ -55,6 +55,7 @@ final class NativeHttp3Worker
             while (!$worker->drainComplete()) {
                 if ($deadline !== null && hrtime(true) >= $deadline) {
                     $worker->forceClose();
+
                     break;
                 }
                 $worker->tick($options->pollTimeoutSeconds);

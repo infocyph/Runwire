@@ -9,14 +9,14 @@ use RuntimeException;
 
 final class WorkerContext
 {
+    private readonly WorkerRecycleState $recycleState;
+
     private bool $ready = false;
 
     /** @var resource|null */
     private mixed $readyStream;
 
     private bool $recycling = false;
-
-    private readonly WorkerRecycleState $recycleState;
 
     private bool $stopping = false;
 
