@@ -35,18 +35,18 @@ jobs:
       - name: Record environment
         shell: bash
         run: |
-          mkdir -p .benchmark-results
+          mkdir -p benchmark-results
           {
             php -v
             composer --version
             uname -a
             lscpu
-          } > ".benchmark-results/environment-php-${{ matrix.php-version }}.txt"
+          } > "benchmark-results/environment-php-${{ matrix.php-version }}.txt"
 
       - name: Run PHPBench suite
         shell: bash
         run: |
-          result=".benchmark-results/phpbench-php-${{ matrix.php-version }}.json"
+          result="benchmark-results/phpbench-php-${{ matrix.php-version }}.json"
           vendor/bin/phpbench run \
             --report=aggregate \
             --output=json \
@@ -62,5 +62,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: runwire-benchmarks-php-${{ matrix.php-version }}
-          path: .benchmark-results/
+          path: benchmark-results/
           retention-days: 61
