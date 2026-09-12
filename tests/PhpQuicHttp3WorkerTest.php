@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\FrameType;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
+use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicConnection;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicEventMasks;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Poller;
@@ -230,7 +231,12 @@ function workerHttp3Connect(int $port): PhpQuicConnection
         usleep(20_000);
     }
 
-    throw new RuntimeException('Unable to connect to the native HTTP/3 runtime.', 0, $lastError);
+    $message = 'Unable to connect to the native HTTP/3 runtime.';
+    if ($lastError instanceof Throwable) {
+        $message .= ' Last QUIC error: ' . $lastError->getMessage();
+    }
+
+    throw new RuntimeException($message, 0, $lastError);
 }
 
 function workerHttp3RoundTrip(PhpQuicConnection $connection, string $authority): string
@@ -291,6 +297,77 @@ function workerHttp3Reap(int $runtimePid): array
     return [$reaped, $status];
 }
 
+function workerHttp3StatusPath(): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'runwire-h3-status-');
+    if ($path === false) {
+        throw new RuntimeException('Unable to create the HTTP/3 worker status path.');
+    }
+
+    return $path;
+}
+
+function workerHttp3WriteStatus(string $path, string $status): void
+{
+    if (file_put_contents($path, $status, LOCK_EX) === false) {
+        throw new RuntimeException('Unable to write the HTTP/3 worker status.');
+    }
+}
+
+function workerHttp3AwaitStatus(string $path): void
+{
+    $deadline = microtime(true) + 2.0;
+    do {
+        $status = file_get_contents($path);
+        if (is_string($status) && $status !== '') {
+            if ($status === 'ready') {
+                return;
+            }
+
+            throw new RuntimeException('Direct HTTP/3 worker failed: ' . $status);
+        }
+        usleep(10_000);
+    } while (microtime(true) < $deadline);
+
+    throw new RuntimeException('Direct HTTP/3 worker did not report readiness.');
+}
+
+function workerHttp3RunDirect(int $port, string $certificatePath, string $privateKeyPath, string $statusPath): never
+{
+    try {
+        $options = new Http3Options();
+        $tls = new TlsOptions($certificatePath, $privateKeyPath);
+        $listener = PhpQuicListener::bind('127.0.0.1', $port, $options->listenerOptions($tls));
+        $served = false;
+        $worker = new PhpQuicHttp3Worker(
+            $listener,
+            static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$served): void {
+                $request->body->onEnd(static function () use (&$served, $writer): void {
+                    $served = true;
+                    $writer->end('runwire-http3-direct-ok');
+                });
+            },
+            $options->limits,
+            64,
+        );
+        workerHttp3WriteStatus($statusPath, 'ready');
+
+        $deadline = microtime(true) + 3.0;
+        do {
+            $worker->tick($options->pollTimeoutSeconds);
+            if ($served) {
+                $deadline = min($deadline, microtime(true) + 0.25);
+            }
+        } while (microtime(true) < $deadline);
+
+        $worker->stopAccepting();
+        exit($served ? 0 : 71);
+    } catch (Throwable $error) {
+        workerHttp3WriteStatus($statusPath, $error::class . ': ' . $error->getMessage());
+        exit(70);
+    }
+}
+
 it('polls one worker-wide QUIC set and removes listener accept pressure at capacity', function (): void {
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $connectionRaw = workerQuicConnection();
@@ -338,6 +415,48 @@ it('polls one worker-wide QUIC set and removes listener accept pressure at capac
     $worker->stopAccepting();
     expect($worker->accepting())->toBeFalse()
         ->and($listenerRaw->closed)->toBeTrue();
+});
+
+it('serves an interoperable HTTP/3 request through a direct native QUIC worker', function (): void {
+    $environment = (new RuntimeEnvironmentProbe())->probe();
+    if (!$environment->supportsQuic) {
+        expect($environment->supportsQuic)->toBeFalse();
+
+        return;
+    }
+
+    [$certificatePath, $privateKeyPath] = workerHttp3CertificatePair();
+    [, $port] = workerHttp3Endpoint();
+    $statusPath = workerHttp3StatusPath();
+    $workerPid = pcntl_fork();
+    expect($workerPid)->toBeGreaterThanOrEqual(0);
+    if ($workerPid === 0) {
+        workerHttp3RunDirect($port, $certificatePath, $privateKeyPath, $statusPath);
+    }
+
+    $client = null;
+    $body = null;
+    try {
+        workerHttp3AwaitStatus($statusPath);
+        $client = workerHttp3Connect($port);
+        $body = workerHttp3RoundTrip($client, 'localhost');
+    } finally {
+        if ($client instanceof PhpQuicConnection) {
+            $client->close(0, 'test complete', true);
+        }
+        posix_kill($workerPid, SIGTERM);
+        [$reaped, $status] = workerHttp3Reap($workerPid);
+        foreach ([$certificatePath, $privateKeyPath, $statusPath] as $path) {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    expect($body)->toBe('runwire-http3-direct-ok')
+        ->and($reaped)->toBe($workerPid)
+        ->and(pcntl_wifexited($status))->toBeTrue()
+        ->and(pcntl_wexitstatus($status))->toBe(0);
 });
 
 it('serves an interoperable HTTP/3 request through the full native runtime', function (): void {
