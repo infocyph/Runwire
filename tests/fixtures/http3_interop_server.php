@@ -37,7 +37,7 @@ $worker = new PhpQuicHttp3Worker(
         fwrite(STDERR, sprintf("interop: dispatched %s %s\n", $request->method, $request->target));
         $responses = [
             '/interop?client=aioquic' => 'runwire-aioquic-ok',
-            '/interop?client=ngtcp2' => 'runwire-ngtcp2-ok',
+            '/interop-ngtcp2' => 'runwire-ngtcp2-ok',
         ];
         $body = $responses[$request->target] ?? null;
         if ($request->method !== 'GET' || $body === null) {
