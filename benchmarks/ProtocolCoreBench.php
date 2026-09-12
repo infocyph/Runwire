@@ -49,6 +49,46 @@ final class ProtocolCoreBench
 
     private string $qpackWire;
 
+    public function setUp(): void
+    {
+        $this->http1Validator = new RequestHeadValidator();
+        $this->http1Headers = Headers::fromArray([
+            'host' => 'example.test',
+            'content-length' => '512',
+            'content-type' => 'application/json',
+            'connection' => 'keep-alive',
+            'x-runwire-bench' => 'protocol-core',
+        ]);
+
+        $this->http2Headers = [
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.test'],
+            [':path', '/benchmark?transport=h2'],
+            ['accept', 'application/json'],
+            ['user-agent', 'runwire-benchmark/1'],
+            ['x-runwire-bench', 'protocol-core'],
+        ];
+        $this->hpackEncoder = new HpackEncoder(0);
+        $this->hpackDecoder = new HpackDecoder(0);
+        $this->hpackWire = (new HpackEncoder(0))->encode($this->http2Headers);
+
+        $this->http3Headers = [
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.test'],
+            [':path', '/benchmark?transport=h3'],
+            ['accept', 'application/json'],
+            ['user-agent', 'runwire-benchmark/1'],
+            ['x-runwire-bench', 'protocol-core'],
+        ];
+        $this->http3Frame = new Frame(FrameType::DATA->value, str_repeat('x', 1_024));
+        $this->http3Wire = FrameWriter::encode($this->http3Frame);
+        $this->qpackEncoder = new QpackEncoder(0, 0);
+        $this->qpackDecoder = new QpackDecoder(0, 0);
+        $this->qpackWire = (new QpackEncoder(0, 0))->encode($this->http3Headers, 0)->block;
+    }
+
     public function benchHttp1HeadValidation(): int
     {
         return $this->http1Validator->validate($this->http1Headers, 16_777_216)->contentLength;
@@ -105,45 +145,5 @@ final class ProtocolCoreBench
     public function benchHttp3QpackStaticEncode(): int
     {
         return strlen($this->qpackEncoder->encode($this->http3Headers, 0)->block);
-    }
-
-    public function setUp(): void
-    {
-        $this->http1Validator = new RequestHeadValidator();
-        $this->http1Headers = Headers::fromArray([
-            'host' => 'example.test',
-            'content-length' => '512',
-            'content-type' => 'application/json',
-            'connection' => 'keep-alive',
-            'x-runwire-bench' => 'protocol-core',
-        ]);
-
-        $this->http2Headers = [
-            [':method', 'GET'],
-            [':scheme', 'https'],
-            [':authority', 'example.test'],
-            [':path', '/benchmark?transport=h2'],
-            ['accept', 'application/json'],
-            ['user-agent', 'runwire-benchmark/1'],
-            ['x-runwire-bench', 'protocol-core'],
-        ];
-        $this->hpackEncoder = new HpackEncoder(0);
-        $this->hpackDecoder = new HpackDecoder(0);
-        $this->hpackWire = (new HpackEncoder(0))->encode($this->http2Headers);
-
-        $this->http3Headers = [
-            [':method', 'GET'],
-            [':scheme', 'https'],
-            [':authority', 'example.test'],
-            [':path', '/benchmark?transport=h3'],
-            ['accept', 'application/json'],
-            ['user-agent', 'runwire-benchmark/1'],
-            ['x-runwire-bench', 'protocol-core'],
-        ];
-        $this->http3Frame = new Frame(FrameType::DATA->value, str_repeat('x', 1_024));
-        $this->http3Wire = FrameWriter::encode($this->http3Frame);
-        $this->qpackEncoder = new QpackEncoder(0, 0);
-        $this->qpackDecoder = new QpackDecoder(0, 0);
-        $this->qpackWire = (new QpackEncoder(0, 0))->encode($this->http3Headers, 0)->block;
     }
 }
