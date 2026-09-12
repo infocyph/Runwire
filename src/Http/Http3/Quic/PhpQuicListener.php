@@ -16,12 +16,15 @@ final readonly class PhpQuicListener
 
     private Closure $closeCallback;
 
+    private ?Closure $handleEventsCallback;
+
     private Closure $setBlockingCallback;
 
     public function __construct(private object $listener)
     {
         $this->acceptCallback = self::callback($this->listener, 'accept');
         $this->closeCallback = self::callback($this->listener, 'close');
+        $this->handleEventsCallback = self::optionalCallback($this->listener, 'handleEvents');
         $this->setBlockingCallback = self::callback($this->listener, 'setBlocking');
     }
 
@@ -76,6 +79,13 @@ final readonly class PhpQuicListener
         ($this->closeCallback)();
     }
 
+    public function handleEvents(): void
+    {
+        if ($this->handleEventsCallback !== null) {
+            ($this->handleEventsCallback)();
+        }
+    }
+
     public function object(): object
     {
         return $this->listener;
@@ -91,6 +101,16 @@ final readonly class PhpQuicListener
         $callable = [$object, $method];
         if (!is_callable($callable)) {
             throw new InvalidArgumentException(sprintf('php-quic listener object must provide %s().', $method));
+        }
+
+        return $object->{$method}(...);
+    }
+
+    private static function optionalCallback(object $object, string $method): ?Closure
+    {
+        $callable = [$object, $method];
+        if (!is_callable($callable)) {
+            return null;
         }
 
         return $object->{$method}(...);

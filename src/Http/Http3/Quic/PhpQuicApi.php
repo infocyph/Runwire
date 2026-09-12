@@ -27,6 +27,12 @@ final class PhpQuicApi
         'POLL_ERROR',
     ];
 
+    /** @var array<string, list<string>> */
+    private const array REQUIRED_METHODS = [
+        'Listener' => ['handleEvents'],
+        'Connection' => ['handleEvents'],
+    ];
+
     public static function acceptConnectionEvent(): int
     {
         return self::event('POLL_ACCEPT_CONNECTION');
@@ -64,6 +70,13 @@ final class PhpQuicApi
         foreach (self::REQUIRED_CLASS_NAMES as $name) {
             if (!class_exists(self::className($name))) {
                 return false;
+            }
+        }
+        foreach (self::REQUIRED_METHODS as $name => $methods) {
+            foreach ($methods as $method) {
+                if (!method_exists(self::className($name), $method)) {
+                    return false;
+                }
             }
         }
 

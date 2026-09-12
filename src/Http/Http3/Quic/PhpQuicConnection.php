@@ -14,6 +14,8 @@ final readonly class PhpQuicConnection
 
     private Closure $closeCallback;
 
+    private ?Closure $handleEventsCallback;
+
     private Closure $negotiatedAlpnCallback;
 
     private Closure $openStreamCallback;
@@ -24,6 +26,7 @@ final readonly class PhpQuicConnection
     {
         $this->acceptStreamCallback = self::callback($this->connection, 'acceptStream');
         $this->closeCallback = self::callback($this->connection, 'close');
+        $this->handleEventsCallback = self::optionalCallback($this->connection, 'handleEvents');
         $this->negotiatedAlpnCallback = self::callback($this->connection, 'getNegotiatedAlpn');
         $this->openStreamCallback = self::callback($this->connection, 'openStream');
         $this->setBlockingCallback = self::callback($this->connection, 'setBlocking');
@@ -49,6 +52,13 @@ final readonly class PhpQuicConnection
         }
 
         ($this->closeCallback)($errorCode, $reason, $rapid);
+    }
+
+    public function handleEvents(): void
+    {
+        if ($this->handleEventsCallback !== null) {
+            ($this->handleEventsCallback)();
+        }
     }
 
     public function negotiatedAlpn(): ?string
@@ -86,6 +96,16 @@ final readonly class PhpQuicConnection
         $callable = [$object, $method];
         if (!is_callable($callable)) {
             throw new InvalidArgumentException(sprintf('php-quic connection object must provide %s().', $method));
+        }
+
+        return $object->{$method}(...);
+    }
+
+    private static function optionalCallback(object $object, string $method): ?Closure
+    {
+        $callable = [$object, $method];
+        if (!is_callable($callable)) {
+            return null;
         }
 
         return $object->{$method}(...);

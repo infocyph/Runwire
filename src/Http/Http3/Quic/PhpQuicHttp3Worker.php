@@ -11,6 +11,7 @@ use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use InvalidArgumentException;
+use Throwable;
 
 final class PhpQuicHttp3Worker
 {
@@ -95,6 +96,8 @@ final class PhpQuicHttp3Worker
                 unset($this->connections[$id]);
             }
         }
+
+        $this->pumpTransportEvents($listener);
     }
 
     private function acceptConnections(): void
@@ -115,6 +118,21 @@ final class PhpQuicHttp3Worker
                 continue;
             }
             $this->connections[spl_object_id($connection->object())] = $session;
+        }
+    }
+
+    private function pumpTransportEvents(?PhpQuicListener $listener): void
+    {
+        if ($listener !== null) {
+            $listener->handleEvents();
+        }
+
+        foreach ($this->connections as $id => $connection) {
+            try {
+                $connection->connection()->handleEvents();
+            } catch (Throwable) {
+                unset($this->connections[$id]);
+            }
         }
     }
 }
