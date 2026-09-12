@@ -81,6 +81,9 @@ final class PhpQuicHttp3Worker
 
         $this->accepting = false;
         $this->listener->close();
+        foreach ($this->connections as $connection) {
+            $connection->beginDrain();
+        }
     }
 
     public function tick(?float $timeoutSeconds = self::DEFAULT_POLL_TIMEOUT_SECONDS): void
@@ -202,7 +205,11 @@ final class PhpQuicHttp3Worker
             }
 
             try {
-                $this->connections[$id] = new PhpQuicHttp3Connection($connection, $this->handler, $this->limits);
+                $http3 = new PhpQuicHttp3Connection($connection, $this->handler, $this->limits);
+                if (!$this->accepting) {
+                    $http3->beginDrain();
+                }
+                $this->connections[$id] = $http3;
             } catch (Http3Exception $exception) {
                 self::closeConnection($connection, $exception->errorCode->value, $exception->getMessage());
             } catch (Throwable $exception) {
