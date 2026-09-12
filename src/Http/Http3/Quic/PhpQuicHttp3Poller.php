@@ -90,7 +90,7 @@ final readonly class PhpQuicHttp3Poller
     {
         $items = [];
         if ($listener !== null) {
-            $mask = $this->events->error | ($acceptConnections ? $this->events->acceptConnection : 0);
+            $mask = $acceptConnections ? $this->events->acceptConnection : $this->events->error;
             $this->putPollItem($items, $listener->object(), $mask);
         }
         foreach ($connections as $connection) {
