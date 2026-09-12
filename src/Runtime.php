@@ -186,6 +186,7 @@ final class Runtime
         }
 
         $this->hostDriver = new HostDriverFactory()->create($this->selection->driver, $this->options);
+
         try {
             $this->hostDriver->run(new RuntimeApplication($handler, $requestCleanup, $shutdown));
         } finally {
