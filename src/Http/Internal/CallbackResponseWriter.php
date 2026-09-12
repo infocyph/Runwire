@@ -21,6 +21,8 @@ final class CallbackResponseWriter implements ResponseWriterInterface
     /** @var Closure(int, Headers): void */
     private readonly Closure $startCallback;
 
+    private readonly bool $suppressBodyForHead;
+
     /** @var Closure(string): void */
     private readonly Closure $writeCallback;
 
@@ -42,7 +44,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         callable $writeCallback,
         callable $endCallback,
         int $maxBodyBytes,
-        private readonly bool $headRequest = false,
+        bool $headRequest = false,
     ) {
         if ($maxBodyBytes < 1) {
             throw new InvalidArgumentException('Maximum host response body size must be positive.');
@@ -51,6 +53,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         $this->endCallback = Closure::fromCallable($endCallback);
         $this->maxBodyBytes = $maxBodyBytes;
         $this->startCallback = Closure::fromCallable($startCallback);
+        $this->suppressBodyForHead = $headRequest;
         $this->writeCallback = Closure::fromCallable($writeCallback);
     }
 
@@ -141,7 +144,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     private function suppressesBody(): bool
     {
-        return $this->headRequest
+        return $this->suppressBodyForHead
             || ($this->status >= 100 && $this->status < 200)
             || $this->status === 204
             || $this->status === 304;
