@@ -121,6 +121,7 @@ final class PhpQuicHttp3Connection
             $this->cleanupFinishedRequests();
         } catch (Http3Exception $exception) {
             $this->abort($exception);
+
             throw $exception;
         }
     }
@@ -176,6 +177,7 @@ final class PhpQuicHttp3Connection
             $this->cleanupFinishedRequests();
         } catch (Http3Exception $exception) {
             $this->abort($exception);
+
             throw $exception;
         }
     }

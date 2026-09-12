@@ -369,10 +369,10 @@ function workerHttp3RunDirect(int $port, string $certificatePath, string $privat
         } while (microtime(true) < $deadline);
 
         $worker->stopAccepting();
-        exit($served ? 0 : 71);
+        (\exit(...))($served ? 0 : 71);
     } catch (Throwable $error) {
         workerHttp3WriteStatus($statusPath, $error::class . ': ' . $error->getMessage());
-        exit(70);
+        (\exit(...))(70);
     }
 }
 

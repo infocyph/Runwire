@@ -110,6 +110,20 @@ final class PhpQuicHttp3Worker
         $this->handleActiveConnections($ready);
     }
 
+    private static function closeConnection(PhpQuicConnection $connection, int $errorCode, string $reason): void
+    {
+        try {
+            $connection->close($errorCode, substr($reason, 0, 256), true);
+        } catch (Throwable) {
+            // Releasing the wrapper still frees a failed native transport without blocking the worker.
+        }
+    }
+
+    private static function monotonicSeconds(): float
+    {
+        return hrtime(true) / 1_000_000_000;
+    }
+
     private function acceptConnections(): void
     {
         $remaining = $this->connectionLimit - $this->connectionCount();
@@ -146,9 +160,10 @@ final class PhpQuicHttp3Worker
         }
     }
 
-    private static function monotonicSeconds(): float
+    /** @param array<int, int> $ready */
+    private function pendingConnectionErrored(PhpQuicConnection $connection, array $ready): bool
     {
-        return hrtime(true) / 1_000_000_000;
+        return (($ready[spl_object_id($connection->object())] ?? 0) & $this->poller->events->error) !== 0;
     }
 
     /** @param array<int, int> $ready */
@@ -215,21 +230,6 @@ final class PhpQuicHttp3Worker
             } catch (Throwable) {
                 unset($this->connections[$id]);
             }
-        }
-    }
-
-    /** @param array<int, int> $ready */
-    private function pendingConnectionErrored(PhpQuicConnection $connection, array $ready): bool
-    {
-        return (($ready[spl_object_id($connection->object())] ?? 0) & $this->poller->events->error) !== 0;
-    }
-
-    private static function closeConnection(PhpQuicConnection $connection, int $errorCode, string $reason): void
-    {
-        try {
-            $connection->close($errorCode, substr($reason, 0, 256), true);
-        } catch (Throwable) {
-            // Releasing the wrapper still frees a failed native transport without blocking the worker.
         }
     }
 }
