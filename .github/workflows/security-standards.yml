@@ -76,6 +76,7 @@ jobs:
           repository: ngtcp2/nghttp3
           ref: v1.18.0
           path: .ci/nghttp3
+          submodules: recursive
 
       - name: Checkout ngtcp2 interoperability client
         if: matrix.php-version == '8.5'
@@ -84,6 +85,7 @@ jobs:
           repository: ngtcp2/ngtcp2
           ref: v1.25.0
           path: .ci/ngtcp2
+          submodules: recursive
 
       - name: Enable Runwire process extensions
         shell: bash
