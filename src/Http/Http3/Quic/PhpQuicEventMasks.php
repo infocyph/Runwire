@@ -22,13 +22,15 @@ final readonly class PhpQuicEventMasks
             'acceptStream' => $acceptStream,
             'error' => $error,
         ];
+        $seen = 0;
         foreach ($masks as $name => $mask) {
-            if ($mask <= 0 || ($mask & ($mask - 1)) !== 0) {
-                throw new InvalidArgumentException(sprintf('%s must be a positive single-bit QUIC event mask.', $name));
+            if ($mask <= 0) {
+                throw new InvalidArgumentException(sprintf('%s must be a positive QUIC event mask.', $name));
             }
-        }
-        if (count(array_unique($masks)) !== count($masks)) {
-            throw new InvalidArgumentException('QUIC event masks must be distinct.');
+            if (($seen & $mask) !== 0) {
+                throw new InvalidArgumentException('QUIC event masks must not overlap.');
+            }
+            $seen |= $mask;
         }
     }
 
