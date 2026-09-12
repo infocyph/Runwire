@@ -154,6 +154,9 @@ it('isolates consecutive RoadRunner requests and stops the persistent worker at 
 
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
+            if ($maxRequestBodyBytes < 1) {
+                throw new RuntimeException('Unexpected RoadRunner request-body limit.');
+            }
             if ($this->stopped) {
                 return null;
             }
