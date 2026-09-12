@@ -34,7 +34,9 @@
     "suggest": {
         "ext-event": "Optional high-performance event-loop backend.",
         "ext-openssl": "Required for native TLS listeners and HTTP/2 ALPN negotiation.",
-        "ext-sockets": "Optional for lower-level socket tuning where a transport adapter uses it."
+        "ext-openswoole": "Required by the Swoole host driver when using OpenSwoole.",
+        "ext-sockets": "Optional for lower-level socket tuning where a transport adapter uses it.",
+        "ext-swoole": "Required by the Swoole host driver when using Swoole."
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

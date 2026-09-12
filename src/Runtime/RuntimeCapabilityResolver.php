@@ -22,7 +22,7 @@ final class RuntimeCapabilityResolver
             RuntimeDriver::NATIVE => $this->native($environment),
             RuntimeDriver::FPM => $this->fpm($environment),
             RuntimeDriver::FRANKENPHP => $this->frankenPhp($environment, $options),
-            RuntimeDriver::SWOOLE => $this->swoole($environment),
+            RuntimeDriver::SWOOLE => $this->swoole($environment, $options),
             RuntimeDriver::ROADRUNNER => $this->roadRunner($environment),
             RuntimeDriver::AUTO => throw new \LogicException('AUTO must be resolved before capabilities are built.'),
         };
@@ -101,12 +101,19 @@ final class RuntimeCapabilityResolver
         );
     }
 
-    private function swoole(RuntimeEnvironment $environment): RuntimeCapabilities
+    private function swoole(RuntimeEnvironment $environment, RuntimeOptions $options): RuntimeCapabilities
     {
         return new RuntimeCapabilities(
             driver: RuntimeDriver::SWOOLE,
             persistentProcess: true,
             persistentApplication: true,
+            supportsAsyncIo: true,
+            supportsCoroutines: true,
+            supportsGracefulReload: true,
+            supportsWorkerRecycle: true,
+            supportsHttp1: true,
+            supportsHttp2: $options->swoole->http2,
+            supportsWebsocket: false,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
         );
