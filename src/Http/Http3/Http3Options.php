@@ -9,6 +9,8 @@ use InvalidArgumentException;
 
 final readonly class Http3Options
 {
+    public const bool ZERO_RTT_ENABLED = false;
+
     public function __construct(
         public Http3Limits $limits = new Http3Limits(),
         public float $pollTimeoutSeconds = 0.05,
