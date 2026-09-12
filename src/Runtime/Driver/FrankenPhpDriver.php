@@ -20,7 +20,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
     /** @var Closure(): HttpRequest */
     private Closure $requestFactory;
 
-    /** @var Closure(callable(): void): bool|null */
+    /** @var Closure(callable): bool|null */
     private ?Closure $workerRequestHandler;
 
     /** @var Closure(string): ResponseWriterInterface */
@@ -29,7 +29,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
     /**
      * @param callable(): HttpRequest|null $requestFactory
      * @param callable(string): ResponseWriterInterface|null $writerFactory
-     * @param callable(callable(): void): bool|null $workerRequestHandler
+     * @param callable(callable): bool|null $workerRequestHandler
      */
     public function __construct(
         private FrankenPhpOptions $options,
@@ -67,14 +67,14 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
 
     public function stop(): void {}
 
-    /** @return Closure(callable(): void): bool|null */
+    /** @return Closure(callable): bool|null */
     private static function nativeWorkerRequestHandler(): ?Closure
     {
         if (!function_exists('frankenphp_handle_request')) {
             return null;
         }
 
-        /** @var Closure(callable(): void): bool $handler */
+        /** @var Closure(callable): bool $handler */
         $handler = \frankenphp_handle_request(...);
 
         return $handler;
