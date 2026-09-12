@@ -163,13 +163,17 @@ src/Runtime/Enum/*
 src/Supervisor/Enum/*
 src/Process/Enum/*
 src/Network/Enum/*
+src/Protocol/Enum/*
+src/Http/Enum/*
+src/Http/Http1/Enum/*
 src/Http/Http2/Enum/*
 src/Http/Http3/Enum/*
+src/Http/Http3/Qpack/Enum/*
 ```
 
 Use the nearest owning domain rather than forcing every enum into one global directory. Add another domain-local `Enum/` directory whenever a future domain owns multiple or domain-specific enums.
 
-The migration must include all currently applicable enums, including existing runtime/transport/process/supervisor and HTTP/2/HTTP/3 enums, with exact final ownership decided by semantic domain.
+The migration must include all currently applicable enums, including existing runtime/transport/process/supervisor/protocol and HTTP/1/2/3/QPACK enums, with exact final ownership decided by semantic domain.
 
 Requirements:
 
@@ -178,7 +182,8 @@ Requirements:
 - no duplicate enum definitions or compatibility aliases for unreleased namespaces;
 - no enum remains mixed at a domain root when a clear `Enum/` owner directory exists;
 - public API documentation is updated where enum FQCNs are referenced;
-- full QA/analyzers/tests must be green before Batch A starts.
+- a regression test must fail if a future enum is added outside a domain-local `Enum/` directory/namespace;
+- full PHPForge QA/analyzers/clean-install gates must be green before Batch 0 is marked complete.
 
 ---
 
@@ -1046,22 +1051,15 @@ Runwire\RequestContext / request lifecycle contracts
 Runwire\Server / listener definitions
 Runwire\Loop contract
 Runwire\Network bounded transport contracts
-Runwire\Http\ProtocolVersion
-Runwire\Http\HttpRequest / ResponseWriterInterface
+Runwire\Http\Enum\ProtocolVersion
 Runwire\Supervisor
 Runwire\Supervisor\WorkerGroup
 Runwire\Supervisor\WorkerRecyclePolicy
 Runwire\Supervisor\ReloadPolicy
-Runwire\Supervisor lifecycle/status values
+Runwire\Supervisor\Enum\* lifecycle/status values
 Runwire metrics/diagnostics snapshot contracts
 Runwire\Process\Command / ProcessRunner / ProcessResult
 ```
-
-Enum public API rule:
-
-- public enums use domain-local `...\Enum\...` namespaces;
-- enum location is considered part of 1.0 API design and must be finalized before release;
-- future enums follow the same domain-local organization rather than accumulating at namespace roots.
 
 Remain internal/narrow unless compelling:
 
@@ -1100,7 +1098,7 @@ Release blocking:
 
 # 8. Per-batch quality gate
 
-Every implementation batch, including Batch 0, must independently pass applicable checks before moving forward:
+Every implementation batch must independently pass applicable checks before moving forward:
 
 ```text
 focused Pest tests
@@ -1131,7 +1129,7 @@ No batch should be hidden behind broad skips.
 
 ---
 
-# 9. Benchmark, comparative performance and documentation refresh gate
+# 9. Benchmark and documentation refresh gate
 
 The previous benchmark/docs work remains valid baseline evidence, but the new lifecycle/resource features can affect hot paths and operational guidance.
 
@@ -1143,14 +1141,12 @@ Before final certification:
 - measure rolling reload capacity dip/recovery;
 - measure worker recycle overhead under representative request rates;
 - keep instrumentation-enabled and instrumentation-disabled cost distinguishable;
-- add a reproducible **runtime-layer comparative benchmark** against representative current PHP high-performance stacks, including Workerman and direct/idiomatic Swoole/OpenSwoole or equivalent where reproducible;
-- include Hyperf and Laravel Octane stacks where the benchmark can be made apples-to-apples, while clearly labeling them as framework/application-layer comparisons rather than direct low-level runtime equivalence;
-- Symfony Runtime should be evaluated for bootstrap/runtime overhead only where meaningful; it is not itself an application server and must not be forced into an invalid RPS comparison;
-- run comparisons on the same machine/runner class, PHP version, payload, protocol, worker count/concurrency model and warm-up policy;
-- record successful RPS/throughput together with p50/p95/p99 latency, error rate, CPU utilization and RSS/peak memory;
-- include HTTP/1.1 keep-alive at minimum and protocol-specific HTTP/2/3 comparisons only where both stacks actually support the same wire path;
-- keep raw benchmark artifacts and exact commands/configuration beside the tested Git SHA;
-- treat “top-tier” as an evidence-backed range/position, not a marketing assumption; never derive a universal “fastest PHP” claim from one workload;
+- run reproducible comparative runtime benchmarks against relevant PHP runtime/server baselines (Workerman, Swoole/OpenSwoole where directly comparable, FrankenPHP worker mode, RoadRunner and applicable Octane-backed modes) under the same hardware/PHP/workload/concurrency conditions;
+- record RPS/throughput together with p50/p95/p99 latency, error rate, CPU and RSS; do not rank by RPS alone;
+- separate plaintext/minimal-handler runtime overhead from JSON/body/streaming/concurrency workloads;
+- benchmark native HTTP/1.1, HTTP/2 and HTTP/3 separately where peer implementations make an equivalent comparison possible;
+- treat results as workload-specific evidence: use “top-tier” or stronger performance positioning only when reproduced comparative results support it;
+- do not call Runwire the fastest PHP framework/runtime from architecture alone, and do not present Runwire-only measurements as Foundation/Webrick whole-framework results;
 - document `WorkerRecyclePolicy`;
 - document `RuntimeContext` and `RequestContext`;
 - document cancellation/deadline behavior;
@@ -1162,12 +1158,9 @@ Before final certification:
 - document privilege-drop support where available;
 - document `SO_REUSEPORT` as advanced/default-off;
 - document watcher as development-only;
-- update host-driver capability matrix;
-- document the enum namespace/directory organization as part of the public API layout.
+- update host-driver capability matrix.
 
 Do not publish universal throughput claims from one CI runner.
-
-Runwire 1.0 may be described as **top-tier/high-performance** only when the comparative matrix supports that wording. A claim that the complete Infocyph framework stack is top-of-line requires a separate Foundation/Webrick integrated benchmark after Runwire is released and consumed.
 
 ---
 
@@ -1193,9 +1186,8 @@ Runwire 1.0 is release-ready only when all of the following are true:
 - [ ] FPM/FrankenPHP/Swoole/RoadRunner advertised behavior remains green;
 - [ ] expanded soak/fault matrix shows no unbounded memory/FD/state growth;
 - [ ] benchmark evidence is refreshed without benchmark-only runtime shortcuts;
-- [ ] comparative runtime performance evidence is recorded with reproducible configuration, latency, throughput, CPU, RSS and error metrics;
-- [ ] any public performance positioning is limited to what that comparative evidence actually proves;
-- [ ] public docs are refreshed for all new 1.0 lifecycle/resource/operations features and final enum namespaces;
+- [ ] comparative runtime benchmark evidence is recorded with throughput, latency, error rate, CPU and RSS under reproducible equivalent workloads;
+- [ ] public docs are refreshed for all new 1.0 lifecycle/resource/operations features;
 - [ ] exact-head PHP 8.4/8.5 PHPForge matrix is fully green;
 - [ ] exact-head dedicated benchmark workflow is fully green;
 - [ ] exact-head native QUIC/HTTP3 integration lanes are fully green;
@@ -1208,7 +1200,7 @@ Runwire 1.0 is release-ready only when all of the following are true:
 # 11. Immediate implementation order
 
 ```text
-0. Enum directory/namespace normalization                           ← NEXT
+0. Enum directory / namespace normalization                        ← NEXT
 A. Points 1–4                  Worker recycling/accounting
 B. Points 5–10                 Context/cancellation/deadlines
 C. Points 11–15                Application lifecycle/reset/warmup/drain
@@ -1218,9 +1210,9 @@ F. Points 26–30,33–35,57       Admission/resources/socket capabilities
 G. Points 31–32,36,55          Timers/tasks/watcher/drain behavior
 H. Points 37–38,54,56          Bootstrap/warmup/capability contracts
 I. Points 58–60                Cross-driver parity + soak/fault
-J. Comparative benchmarks/docs refresh + exact-head final release QA
+J. Benchmarks/docs refresh + comparative evidence + exact-head final release QA
 K. Explicit approval → Runwire 1.0 tag/release
-L. Then Webrick/Foundation/Omnibus integration and full-stack performance comparison
+L. Then Webrick/Foundation/Omnibus integration
 ```
 
 The next code change must stay inside **Runwire Batch 0**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
