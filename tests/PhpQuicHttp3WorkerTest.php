@@ -59,9 +59,10 @@ function workerQuicStream(int $id, bool $bidirectional): object
     };
 }
 
-function workerQuicConnection(): object
+/** @param list<?string> $negotiatedAlpns */
+function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
 {
-    return new class {
+    return new class($negotiatedAlpns) {
         public bool $blocking = true;
 
         /** @var list<array{0: int, 1: string, 2: bool}> */
@@ -70,7 +71,10 @@ function workerQuicConnection(): object
         /** @var list<object> */
         private array $localStreams;
 
-        public function __construct()
+        private ?string $lastNegotiatedAlpn = null;
+
+        /** @param list<?string> $negotiatedAlpns */
+        public function __construct(private array $negotiatedAlpns)
         {
             $this->localStreams = [
                 workerQuicStream(3, false),
@@ -91,7 +95,11 @@ function workerQuicConnection(): object
 
         public function getNegotiatedAlpn(): ?string
         {
-            return 'h3';
+            if ($this->negotiatedAlpns !== []) {
+                $this->lastNegotiatedAlpn = array_shift($this->negotiatedAlpns);
+            }
+
+            return $this->lastNegotiatedAlpn;
         }
 
         public function openStream(bool $bidirectional = true): object
@@ -368,9 +376,9 @@ function workerHttp3RunDirect(int $port, string $certificatePath, string $privat
     }
 }
 
-it('polls one worker-wide QUIC set and removes listener accept pressure at capacity', function (): void {
+it('polls one worker-wide QUIC set, defers incomplete handshakes, and removes listener pressure at capacity', function (): void {
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
-    $connectionRaw = workerQuicConnection();
+    $connectionRaw = workerQuicConnection([null, 'h3']);
     $listenerRaw = workerQuicListener([$connectionRaw]);
     $calls = [];
     $poller = new PhpQuicHttp3Poller(
@@ -402,13 +410,16 @@ it('polls one worker-wide QUIC set and removes listener accept pressure at capac
     $worker->tick(0.0);
     $secondItems = $calls[1][0];
     expect($calls)->toHaveCount(2)
-        ->and(count($secondItems))->toBeGreaterThan(1)
-        ->and($secondItems[spl_object_id($listenerRaw)][1] & $events->acceptConnection)->toBe(0)
-        ->and($secondItems[spl_object_id($listenerRaw)][1] & $events->error)->not->toBe(0)
-        ->and($secondItems[spl_object_id($connectionRaw)][1] & $events->acceptStream)->not->toBe(0);
+        ->and($secondItems)->toHaveCount(1)
+        ->and($secondItems)->not->toHaveKey(spl_object_id($listenerRaw))
+        ->and($secondItems[spl_object_id($connectionRaw)][1] & $events->acceptStream)->not->toBe(0)
+        ->and($secondItems[spl_object_id($connectionRaw)][1] & $events->error)->not->toBe(0);
 
     $worker->tick(0.0);
+    $thirdItems = $calls[2][0];
     expect($calls)->toHaveCount(3)
+        ->and(count($thirdItems))->toBeGreaterThan(1)
+        ->and($thirdItems)->not->toHaveKey(spl_object_id($listenerRaw))
         ->and($worker->connectionCount())->toBe(0)
         ->and($worker->drainComplete())->toBeTrue();
 
@@ -444,7 +455,6 @@ it('serves an interoperable HTTP/3 request through a direct native QUIC worker',
         if ($client instanceof PhpQuicConnection) {
             $client->close(0, 'test complete', true);
         }
-        posix_kill($workerPid, SIGTERM);
         [$reaped, $status] = workerHttp3Reap($workerPid);
         foreach ([$certificatePath, $privateKeyPath, $statusPath] as $path) {
             if (file_exists($path)) {

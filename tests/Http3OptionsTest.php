@@ -6,9 +6,11 @@ use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Server;
 
-it('requires bounded HTTP/3 poll timeouts', function (): void {
+it('requires bounded HTTP/3 poll and handshake timeouts', function (): void {
     expect(fn () => new Http3Options(pollTimeoutSeconds: 0.0))->toThrow(InvalidArgumentException::class)
-        ->and(fn () => new Http3Options(pollTimeoutSeconds: 1.01))->toThrow(InvalidArgumentException::class);
+        ->and(fn () => new Http3Options(pollTimeoutSeconds: 1.01))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => new Http3Options(handshakeTimeoutSeconds: 0.0))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => new Http3Options(handshakeTimeoutSeconds: 60.01))->toThrow(InvalidArgumentException::class);
 });
 
 it('derives a narrow QUIC listener configuration from TLS material', function (): void {
