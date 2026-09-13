@@ -168,16 +168,13 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     private static function resolveClassFamily(): array
     {
         foreach (['OpenSwoole', 'Swoole'] as $namespace) {
-            $classes = [
-                $namespace . '\\Event',
-                $namespace . '\\Timer',
-                $namespace . '\\Coroutine',
-            ];
-            if (class_exists($classes[0])
-                && class_exists($classes[1])
-                && class_exists($classes[2])) {
-                /** @var array{class-string, class-string, class-string} $classes */
-                return [$classes[0], $classes[1], $classes[2], $namespace];
+            $eventClass = $namespace . '\\Event';
+            $timerClass = $namespace . '\\Timer';
+            $coroutineClass = $namespace . '\\Coroutine';
+            if (class_exists($eventClass)
+                && class_exists($timerClass)
+                && class_exists($coroutineClass)) {
+                return [$eventClass, $timerClass, $coroutineClass, $namespace];
             }
         }
 
