@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http;
 
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
+use Infocyph\Runwire\RequestContext;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 final readonly class HttpRequest
 {
+    public RequestContext $context;
+
     public function __construct(
         public string $method,
         public string $target,
@@ -17,5 +22,15 @@ final readonly class HttpRequest
         public ?string $peerAddress = null,
         public ?string $localAddress = null,
         public bool $encrypted = false,
-    ) {}
+        ?RequestContext $context = null,
+    ) {
+        $this->context = $context ?? RequestContext::standalone();
+
+        if ($body instanceof StreamingRequestBody) {
+            $requestContext = $this->context;
+            $body->observeCancel(static function () use ($requestContext): void {
+                $requestContext->cancel(CancellationReason::TRANSPORT_CANCELLED);
+            });
+        }
+    }
 }

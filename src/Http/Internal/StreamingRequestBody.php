@@ -9,9 +9,13 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\RequestBodyInterface;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use InvalidArgumentException;
+use OverflowException;
+use Throwable;
 
 final class StreamingRequestBody implements RequestBodyInterface
 {
+    private const int MAX_CANCEL_OBSERVERS = 8;
+
     private readonly ByteQueue $buffer;
 
     /** @var Closure(int): void|null */
@@ -21,6 +25,9 @@ final class StreamingRequestBody implements RequestBodyInterface
     private readonly Closure $onRelief;
 
     private ?Closure $cancelCallback = null;
+
+    /** @var list<Closure(): void> */
+    private array $cancelObservers = [];
 
     private bool $cancelled = false;
 
@@ -73,6 +80,7 @@ final class StreamingRequestBody implements RequestBodyInterface
         if ($discarded > 0 && $this->onConsumed !== null) {
             ($this->onConsumed)($discarded);
         }
+        $this->invokeCancelObservers();
         $this->invoke($this->cancelCallback);
     }
 
@@ -155,6 +163,25 @@ final class StreamingRequestBody implements RequestBodyInterface
         return $this;
     }
 
+    /**
+     * @internal
+     * @param callable(): void $callback
+     */
+    public function observeCancel(callable $callback): void
+    {
+        $closure = Closure::fromCallable($callback);
+        if ($this->cancelled) {
+            self::invokeObserver($closure);
+
+            return;
+        }
+        if (count($this->cancelObservers) >= self::MAX_CANCEL_OBSERVERS) {
+            throw new OverflowException('Streaming request body cancellation observer limit exceeded.');
+        }
+
+        $this->cancelObservers[] = $closure;
+    }
+
     public function pressured(): bool
     {
         return $this->pressured;
@@ -206,11 +233,29 @@ final class StreamingRequestBody implements RequestBodyInterface
         return $this->trailers;
     }
 
+    private static function invokeObserver(Closure $callback): void
+    {
+        try {
+            $callback();
+        } catch (Throwable) {
+            // Runtime-owned cancellation observers must not destabilize protocol cleanup.
+        }
+    }
+
     private function invoke(?Closure $callback): void
     {
         if ($callback === null) {
             return;
         }
         $callback($this);
+    }
+
+    private function invokeCancelObservers(): void
+    {
+        $observers = $this->cancelObservers;
+        $this->cancelObservers = [];
+        foreach ($observers as $observer) {
+            self::invokeObserver($observer);
+        }
     }
 }

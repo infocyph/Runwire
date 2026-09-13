@@ -13,6 +13,7 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Network\UnixListenerOptions;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\HostDriverFactory;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
@@ -37,6 +38,8 @@ use LogicException;
 final class Runtime
 {
     private ?ControlOptions $controlOptions = null;
+
+    private ?RuntimeApplication $hostApplication = null;
 
     private ?HostDriverInterface $hostDriver = null;
 
@@ -188,10 +191,18 @@ final class Runtime
         }
 
         $this->hostDriver = new HostDriverFactory()->create($this->selection->driver, $this->options);
+        $this->hostApplication = new RuntimeApplication(
+            $handler,
+            $requestCleanup,
+            $shutdown,
+            $this->hostRuntimeContext(),
+            $this->options->requestExecution,
+        );
 
         try {
-            $this->hostDriver->run(new RuntimeApplication($handler, $requestCleanup, $shutdown));
+            $this->hostDriver->run($this->hostApplication);
         } finally {
+            $this->hostApplication = null;
             $this->hostDriver = null;
         }
     }
@@ -203,6 +214,7 @@ final class Runtime
 
     public function stop(bool $force = false): void
     {
+        $this->hostApplication?->cancelActive(CancellationReason::WORKER_SHUTDOWN);
         $this->hostDriver?->stop();
         $this->supervisor?->stop($force);
     }
@@ -351,7 +363,12 @@ final class Runtime
                         }
                     }
                     match (true) {
-                        $target instanceof BoundServer => NativeHttpWorker::run($context, $target),
+                        $target instanceof BoundServer => NativeHttpWorker::run(
+                            $context,
+                            $target,
+                            $this->nativeRuntimeContext($context),
+                            $this->options->requestExecution,
+                        ),
                         $target instanceof BoundStreamServer => NativeStreamWorker::run($context, $target),
                         $target instanceof BoundDatagramServer => NativeDatagramWorker::run($context, $target),
                     };
@@ -369,6 +386,38 @@ final class Runtime
         return $supervisor;
     }
 
+    private function hostRuntimeContext(): RuntimeContext
+    {
+        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
+        $capabilities = $selection->capabilities;
+        $mode = match ($selection->driver) {
+            RuntimeDriver::FPM => 'request',
+            RuntimeDriver::FRANKENPHP => $capabilities->persistentApplication ? 'worker' : 'classic',
+            RuntimeDriver::ROADRUNNER, RuntimeDriver::SWOOLE => 'worker',
+            RuntimeDriver::AUTO, RuntimeDriver::NATIVE => throw new LogicException('Host runtime context requires a host-owned driver.'),
+        };
+
+        return RuntimeContext::fromCapabilities(
+            $capabilities,
+            $mode,
+            concurrent: $capabilities->supportsCoroutines,
+        );
+    }
+
+    private function nativeRuntimeContext(WorkerContext $context): RuntimeContext
+    {
+        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
+
+        return RuntimeContext::fromCapabilities(
+            $selection->capabilities,
+            'native',
+            workerSlot: $context->slot,
+            generation: $context->generation,
+            pid: $context->pid,
+            concurrent: false,
+        );
+    }
+
     /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
     private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
     {
@@ -381,7 +430,13 @@ final class Runtime
                 foreach ($bound as $candidate) {
                     self::closeBound($candidate, false);
                 }
-                NativeHttp3Worker::run($context, $definition, $tcpAddress);
+                NativeHttp3Worker::run(
+                    $context,
+                    $definition,
+                    $tcpAddress,
+                    $this->nativeRuntimeContext($context),
+                    $this->options->requestExecution,
+                );
             },
             recyclePolicy: $this->options->workerRecycle,
             automaticReady: false,

@@ -1,0 +1,199 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire;
+
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use InvalidArgumentException;
+use LogicException;
+use OverflowException;
+
+final class RequestContext
+{
+    private const int DEFAULT_MAX_ATTRIBUTES = 64;
+
+    /** @var array<string, mixed> */
+    private array $attributes = [];
+
+    private bool $bound;
+
+    private bool $completed = false;
+
+    private RequestDeadline $deadline;
+
+    private RuntimeContext $runtime;
+
+    public readonly CancellationToken $cancellation;
+
+    private function __construct(
+        RuntimeContext $runtime,
+        public readonly string $requestId,
+        public readonly int $startMonotonicNanoseconds,
+        RequestDeadline $deadline,
+        bool $bound,
+        private readonly int $maxAttributes = self::DEFAULT_MAX_ATTRIBUTES,
+    ) {
+        self::assertRequestId($requestId);
+        if ($startMonotonicNanoseconds < 0) {
+            throw new InvalidArgumentException('Request start time must be non-negative.');
+        }
+        if ($maxAttributes < 1 || $maxAttributes > 1_024) {
+            throw new InvalidArgumentException('Request context attribute limit must be between 1 and 1024.');
+        }
+
+        $this->runtime = $runtime;
+        $this->deadline = $deadline;
+        $this->bound = $bound;
+        $this->cancellation = new CancellationToken($deadline);
+    }
+
+    public static function create(
+        RuntimeContext $runtime,
+        RequestExecutionPolicy $policy = new RequestExecutionPolicy(),
+        ?string $requestId = null,
+        ?int $startNanoseconds = null,
+        int $maxAttributes = self::DEFAULT_MAX_ATTRIBUTES,
+    ): self {
+        $start = $startNanoseconds ?? self::nowNanoseconds();
+
+        return new self(
+            $runtime,
+            $requestId ?? self::generateRequestId(),
+            $start,
+            $policy->deadline($start),
+            true,
+            $maxAttributes,
+        );
+    }
+
+    /** @internal Used for request objects constructed outside an active runtime. */
+    public static function standalone(?string $requestId = null, ?int $startNanoseconds = null): self
+    {
+        $start = $startNanoseconds ?? self::nowNanoseconds();
+
+        return new self(
+            RuntimeContext::standalone(),
+            $requestId ?? self::generateRequestId(),
+            $start,
+            RequestDeadline::unlimited(),
+            false,
+        );
+    }
+
+    public function activate(RuntimeContext $runtime, RequestExecutionPolicy $policy): void
+    {
+        if ($this->bound) {
+            if ($this->runtime !== $runtime) {
+                throw new LogicException('Request context is already bound to a different runtime context.');
+            }
+
+            return;
+        }
+        if ($this->completed) {
+            throw new LogicException('Completed request context cannot be activated.');
+        }
+
+        $deadline = $policy->deadline($this->startMonotonicNanoseconds);
+        $this->runtime = $runtime;
+        $this->deadline = $deadline;
+        $this->bound = true;
+        $this->cancellation->setDeadline($deadline);
+    }
+
+    public function attribute(string $key, mixed $default = null): mixed
+    {
+        return $this->attributes[$key] ?? $default;
+    }
+
+    /** @return array<string, mixed> */
+    public function attributes(): array
+    {
+        return $this->attributes;
+    }
+
+    public function cancel(CancellationReason $reason): bool
+    {
+        return $this->cancellation->cancel($reason);
+    }
+
+    public function cancelled(?int $nowNanoseconds = null): bool
+    {
+        return $this->cancellation->isCancelled($nowNanoseconds);
+    }
+
+    public function complete(): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $this->attributes = [];
+        $this->completed = true;
+    }
+
+    public function completed(): bool
+    {
+        return $this->completed;
+    }
+
+    public function deadline(): RequestDeadline
+    {
+        return $this->deadline;
+    }
+
+    public function hasAttribute(string $key): bool
+    {
+        return array_key_exists($key, $this->attributes);
+    }
+
+    public function removeAttribute(string $key): void
+    {
+        unset($this->attributes[$key]);
+    }
+
+    public function runtime(): RuntimeContext
+    {
+        return $this->runtime;
+    }
+
+    public function setAttribute(string $key, mixed $value): void
+    {
+        if ($this->completed) {
+            throw new LogicException('Completed request context cannot accept attributes.');
+        }
+        self::assertAttributeKey($key);
+        if (!array_key_exists($key, $this->attributes) && count($this->attributes) >= $this->maxAttributes) {
+            throw new OverflowException('Request context attribute limit exceeded.');
+        }
+
+        $this->attributes[$key] = $value;
+    }
+
+    private static function assertAttributeKey(string $key): void
+    {
+        if ($key === '' || strlen($key) > 128 || preg_match('/[\x00-\x1F\x7F]/', $key) === 1) {
+            throw new InvalidArgumentException('Request context attribute key must be 1-128 bytes without control characters.');
+        }
+    }
+
+    private static function assertRequestId(string $requestId): void
+    {
+        if ($requestId === '' || strlen($requestId) > 128 || preg_match('/[\x00-\x1F\x7F]/', $requestId) === 1) {
+            throw new InvalidArgumentException('Request ID must be 1-128 bytes without control characters.');
+        }
+    }
+
+    private static function generateRequestId(): string
+    {
+        return bin2hex(random_bytes(16));
+    }
+
+    private static function nowNanoseconds(): int
+    {
+        $now = hrtime(true);
+
+        return is_int($now) ? $now : (int) $now;
+    }
+}

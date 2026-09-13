@@ -12,17 +12,23 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
 final class NativeHttpWorker
 {
-    public static function run(WorkerContext $context, BoundServer $bound): void
-    {
+    public static function run(
+        WorkerContext $context,
+        BoundServer $bound,
+        RuntimeContext $runtimeContext,
+        RequestExecutionPolicy $requestExecution,
+    ): void {
         $loop = new SelectLoop();
         $sessions = [];
         $connections = [];
         $state = new WorkerStopState();
-        $handler = self::requestHandler($bound, $context);
+        $handler = self::requestHandler($bound, $context, $runtimeContext, $requestExecution);
 
         $bound->listener->start(
             $loop,
@@ -133,14 +139,26 @@ final class NativeHttpWorker
     }
 
     /** @return Closure(HttpRequest, ResponseWriterInterface): void */
-    private static function requestHandler(BoundServer $bound, WorkerContext $context): Closure
-    {
+    private static function requestHandler(
+        BoundServer $bound,
+        WorkerContext $context,
+        RuntimeContext $runtimeContext,
+        RequestExecutionPolicy $requestExecution,
+    ): Closure {
         $applicationHandler = $bound->definition->handlerFor($context);
 
-        return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($applicationHandler, $context): void {
+        return static function (HttpRequest $request, ResponseWriterInterface $writer) use (
+            $applicationHandler,
+            $context,
+            $runtimeContext,
+            $requestExecution,
+        ): void {
+            $request->context->activate($runtimeContext, $requestExecution);
+
             try {
                 $applicationHandler($request, $writer);
             } finally {
+                $request->context->complete();
                 $context->recordRequestCompleted();
             }
         };

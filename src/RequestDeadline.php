@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire;
+
+use InvalidArgumentException;
+
+final readonly class RequestDeadline
+{
+    private const int NANOSECONDS_PER_SECOND = 1_000_000_000;
+
+    public function __construct(public ?int $monotonicNanoseconds)
+    {
+        if ($monotonicNanoseconds !== null && $monotonicNanoseconds < 0) {
+            throw new InvalidArgumentException('Request deadline must be null or a non-negative monotonic timestamp.');
+        }
+    }
+
+    public static function afterSeconds(float $seconds, int $startNanoseconds): self
+    {
+        if (!is_finite($seconds) || $seconds <= 0) {
+            throw new InvalidArgumentException('Request deadline duration must be finite and positive.');
+        }
+        if ($startNanoseconds < 0) {
+            throw new InvalidArgumentException('Request deadline start time must be non-negative.');
+        }
+
+        return new self($startNanoseconds + (int) ceil($seconds * self::NANOSECONDS_PER_SECOND));
+    }
+
+    public static function unlimited(): self
+    {
+        return new self(null);
+    }
+
+    public function expired(?int $nowNanoseconds = null): bool
+    {
+        if ($this->monotonicNanoseconds === null) {
+            return false;
+        }
+
+        return ($nowNanoseconds ?? self::nowNanoseconds()) >= $this->monotonicNanoseconds;
+    }
+
+    public function remainingSeconds(?int $nowNanoseconds = null): ?float
+    {
+        if ($this->monotonicNanoseconds === null) {
+            return null;
+        }
+
+        $remaining = $this->monotonicNanoseconds - ($nowNanoseconds ?? self::nowNanoseconds());
+
+        return max(0, $remaining) / self::NANOSECONDS_PER_SECOND;
+    }
+
+    private static function nowNanoseconds(): int
+    {
+        $now = hrtime(true);
+
+        return is_int($now) ? $now : (int) $now;
+    }
+}

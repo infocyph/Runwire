@@ -9,14 +9,21 @@ use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Server;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use LogicException;
 
 final class NativeHttp3Worker
 {
-    public static function run(WorkerContext $context, Server $server, string $tcpAddress): void
-    {
+    public static function run(
+        WorkerContext $context,
+        Server $server,
+        string $tcpAddress,
+        RuntimeContext $runtimeContext,
+        RequestExecutionPolicy $requestExecution,
+    ): void {
         $options = $server->http3;
         $tls = $server->tls;
         if ($options === null || $tls === null) {
@@ -26,10 +33,18 @@ final class NativeHttp3Worker
         [$host, $port] = self::endpoint($tcpAddress);
         $listener = PhpQuicListener::bind($host, $port, $options->listenerOptions($tls));
         $applicationHandler = $server->handlerFor($context);
-        $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($applicationHandler, $context): void {
+        $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use (
+            $applicationHandler,
+            $context,
+            $runtimeContext,
+            $requestExecution,
+        ): void {
+            $request->context->activate($runtimeContext, $requestExecution);
+
             try {
                 $applicationHandler($request, $writer);
             } finally {
+                $request->context->complete();
                 $context->recordRequestCompleted();
             }
         };
