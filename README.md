@@ -2,7 +2,7 @@
 
 A high-performance process and network runtime for PHP.
 
-Runwire 1.0 is under active development for the Foundation 3 launch. It provides the low-level runtime boundary for process supervision, event-loop and network server mechanics while remaining framework agnostic.
+Runwire 1.0 is being finalized for the Foundation 3 launch. It provides the low-level runtime boundary for process supervision, event loops, network servers, native HTTP/1.1/2/3, host-runtime adaptation and persistent application lifecycle while remaining framework agnostic.
 
 ## Baseline
 
@@ -11,16 +11,30 @@ Runwire 1.0 is under active development for the Foundation 3 launch. It provides
 - `ext-posix`
 - PHPForge `dev-main@dev` for development QA
 
-Optional runtime capabilities such as native TLS/ALPN, accelerated event-loop backends, and QUIC are detected and validated separately. Ordinary Runwire installation remains valid without QUIC; selecting native HTTP/3 fails fast when the required QUIC capability is unavailable.
+Optional runtime capabilities such as native TLS/ALPN, accelerated event-loop backends, privilege reduction, reuse-port and QUIC are detected and validated separately. Ordinary Runwire installation remains valid without QUIC; selecting native HTTP/3 fails fast when the required QUIC capability is unavailable.
 
-## Architecture
+## Runtime model
 
-Runwire owns generic runtime mechanics only. Foundation owns application lifecycle and execution scopes, Webrick owns application HTTP semantics, and Omnibus owns messaging/queue semantics.
+Runwire owns generic runtime mechanics only. Foundation owns application/container semantics, Webrick owns application HTTP semantics, and Omnibus owns messaging/queue semantics.
 
-The Runwire 1.0 native HTTP stack includes HTTP/1.1, HTTP/2, and HTTP/3 over QUIC. HTTP/3 support is capability-based rather than tied to any Linux distribution or distro-specific client package. Hosted FPM, FrankenPHP, Swoole/OpenSwoole and RoadRunner modes adapt the common HTTP request/response contract without starting competing Runwire listeners or event loops.
+Runwire 1.0 provides:
+
+- prefork worker supervision, readiness, restart/recycle and bounded rolling reload;
+- immutable `RuntimeContext` plus isolated `RequestContext`, deadlines and cancellation;
+- application factory and boot/warmup/handle/reset/drain/shutdown lifecycle contracts;
+- bounded admission, worker recycling, cgroup-aware sizing and resource policy;
+- named timer/task/service worker support and a development-only reload watcher;
+- fixed-cardinality metrics, diagnostics and bounded control status;
+- native TCP/TLS HTTP/1.1 and HTTP/2 plus optional QUIC/HTTP/3;
+- hosted FPM, FrankenPHP, Swoole/OpenSwoole and RoadRunner adapters without competing listener/event-loop ownership;
+- capability-first APIs so integrations can ask what the runtime supports instead of branching on a driver name.
 
 ## Documentation
 
-- [`docs/deployment.md`](docs/deployment.md) — runtime ownership, HTTP/1.1/2/3, QUIC/QPACK, limits, graceful drain and production tuning.
-- [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark methodology, host-adapter attribution and native HTTP/3 transport measurement.
+- [`docs/deployment.md`](docs/deployment.md) — runtime/capability ownership, application lifecycle, contexts/deadlines, reload/recycle, observability, admission/resource policy, HTTP/1.1/2/3, QUIC/QPACK and production tuning.
+- [`docs/benchmarks.md`](docs/benchmarks.md) — protocol/lifecycle/host benchmark methodology, comparative-evidence rules and native HTTP/3 transport measurement.
 - [`docs/plans/runwire-1.0-foundation-3-launch-plan.md`](docs/plans/runwire-1.0-foundation-3-launch-plan.md) — canonical Runwire 1.0 development and release plan.
+
+## Performance claims
+
+Runwire benchmark artifacts are regression and workload-specific evidence. Do not infer a universal "fastest PHP runtime/framework" claim from one CI runner, a protocol microbenchmark, or Runwire-only measurements. Cross-runtime comparisons must use equivalent real runtimes, hardware, PHP version, protocol, workload, worker count and concurrency and must report throughput together with latency percentiles, error rate, CPU and RSS.
