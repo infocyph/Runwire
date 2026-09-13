@@ -40,15 +40,19 @@ it('runs boot warmup handle reset drain and shutdown in lifecycle order', functi
     $events = new ArrayObject();
     $hooks = new ApplicationLifecycleHooks(
         boot: static function (RuntimeContext $context) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class);
             $events[] = 'boot';
         },
         warmup: static function (RuntimeContext $context) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class);
             $events[] = 'warmup';
         },
         drain: static function (RuntimeContext $context) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class);
             $events[] = 'drain';
         },
         shutdown: static function (RuntimeContext $context) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class);
             $events[] = 'shutdown';
         },
         resetters: [new class($events) implements RequestResetterInterface {
@@ -56,6 +60,7 @@ it('runs boot warmup handle reset drain and shutdown in lifecycle order', functi
 
             public function reset(RequestContext $context): void
             {
+                expect($context->completed())->toBeFalse();
                 $this->events[] = 'reset:' . $context->attribute('marker');
             }
         }],
@@ -99,6 +104,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
 
             public function reset(RequestContext $context): void
             {
+                expect($context->completed())->toBeFalse();
                 $this->state[] = 'first';
                 throw new RuntimeException('first reset failed');
             }
@@ -108,6 +114,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
 
             public function reset(RequestContext $context): void
             {
+                expect($context->completed())->toBeFalse();
                 $this->state[] = 'second';
                 $context->removeAttribute('dirty');
             }
@@ -117,6 +124,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
 
             public function reset(RequestContext $context): void
             {
+                expect($context->completed())->toBeFalse();
                 $this->state[] = 'third';
                 throw new RuntimeException('third reset failed');
             }
@@ -125,6 +133,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
     $request = lifecycleRequest('/handler-failure');
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use ($handlerFailure): void {
+            expect($writer->isEnded())->toBeFalse();
             $request->context->setAttribute('dirty', true);
             throw $handlerFailure;
         },
@@ -159,12 +168,14 @@ it('resets request state when automatic response completion fails', function ():
 
             public function reset(RequestContext $context): void
             {
+                expect($context->completed())->toBeFalse();
                 $this->state['resets'] = $this->state['resets'] + 1;
             }
         },
     ]);
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($writer->isEnded())->toBeFalse();
             $request->context->setAttribute('dirty', true);
         },
         RuntimeContext::standalone(),
@@ -186,6 +197,7 @@ it('lets active work finish after drain and rejects new work', function (): void
     $lifecycle = null;
     $hooks = new ApplicationLifecycleHooks(
         drain: static function (RuntimeContext $context) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class);
             $events[] = 'drain';
         },
         resetters: [new class($events) implements RequestResetterInterface {
@@ -193,6 +205,7 @@ it('lets active work finish after drain and rejects new work', function (): void
 
             public function reset(RequestContext $context): void
             {
+                expect($context->completed())->toBeFalse();
                 $this->events[] = 'reset';
             }
         }],
@@ -225,21 +238,27 @@ it('runs shutdown cleanup after warmup failure without accepting request work', 
     $events = new ArrayObject();
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use ($events): void {
+            expect($request->context->completed())->toBeFalse();
+            expect($writer->isEnded())->toBeFalse();
             $events[] = 'handle';
         },
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(
             boot: static function (RuntimeContext $context) use ($events): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class);
                 $events[] = 'boot';
             },
             warmup: static function (RuntimeContext $context) use ($events): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class);
                 $events[] = 'warmup';
                 throw new RuntimeException('warmup failed');
             },
             drain: static function (RuntimeContext $context) use ($events): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class);
                 $events[] = 'drain';
             },
             shutdown: static function (RuntimeContext $context) use ($events): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class);
                 $events[] = 'shutdown';
             },
         ),

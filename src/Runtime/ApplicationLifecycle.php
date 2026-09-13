@@ -75,6 +75,7 @@ final class ApplicationLifecycle
         }
 
         $this->draining = true;
+
         try {
             ($this->hooks->drain)?->__invoke($this->runtimeContext);
         } catch (Throwable $error) {

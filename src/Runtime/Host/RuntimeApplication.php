@@ -12,9 +12,9 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeContext;
 
-final class RuntimeApplication
+final readonly class RuntimeApplication
 {
-    private readonly ApplicationLifecycle $lifecycle;
+    private ApplicationLifecycle $lifecycle;
 
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler

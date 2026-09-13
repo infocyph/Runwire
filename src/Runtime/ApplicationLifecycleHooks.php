@@ -7,21 +7,21 @@ namespace Infocyph\Runwire\Runtime;
 use Closure;
 use Infocyph\Runwire\RuntimeContext;
 
-final class ApplicationLifecycleHooks
+final readonly class ApplicationLifecycleHooks
 {
     /** @var Closure(RuntimeContext): void|null */
-    public readonly ?Closure $boot;
+    public ?Closure $boot;
 
     /** @var Closure(RuntimeContext): void|null */
-    public readonly ?Closure $drain;
+    public ?Closure $drain;
 
-    public readonly RequestResetterRegistry $resetters;
-
-    /** @var Closure(RuntimeContext): void|null */
-    public readonly ?Closure $shutdown;
+    public RequestResetterRegistry $resetters;
 
     /** @var Closure(RuntimeContext): void|null */
-    public readonly ?Closure $warmup;
+    public ?Closure $shutdown;
+
+    /** @var Closure(RuntimeContext): void|null */
+    public ?Closure $warmup;
 
     /**
      * @param callable(RuntimeContext): void|null $boot
@@ -37,10 +37,10 @@ final class ApplicationLifecycleHooks
         ?callable $shutdown = null,
         iterable $resetters = [],
     ) {
-        $this->boot = $boot === null ? null : Closure::fromCallable($boot);
-        $this->drain = $drain === null ? null : Closure::fromCallable($drain);
+        $this->boot = $boot === null ? null : $boot(...);
+        $this->drain = $drain === null ? null : $drain(...);
         $this->resetters = new RequestResetterRegistry($resetters);
-        $this->shutdown = $shutdown === null ? null : Closure::fromCallable($shutdown);
-        $this->warmup = $warmup === null ? null : Closure::fromCallable($warmup);
+        $this->shutdown = $shutdown === null ? null : $shutdown(...);
+        $this->warmup = $warmup === null ? null : $warmup(...);
     }
 }
