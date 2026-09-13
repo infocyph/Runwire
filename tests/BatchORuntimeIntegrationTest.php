@@ -172,3 +172,46 @@ it('rejects coroutine execution against an already completed request context', f
         },
     ))->toThrow(LogicException::class, 'Completed request context cannot own coroutine work.');
 });
+
+it('completes coroutine sleep through a SelectLoop timer without retaining the timer', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $events = [];
+
+    $runtime->run(function (CoroutineScope $scope) use (&$events): void {
+        $events[] = 'before';
+        $scope->sleep(0.001);
+        $events[] = 'after';
+    });
+
+    expect($events)->toBe(['before', 'after'])
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('waits for real stream writability and unregisters the SelectLoop watcher', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false) {
+        throw new RuntimeException('Unable to create a local stream pair.');
+    }
+
+    [$left, $right] = $pair;
+    stream_set_blocking($left, false);
+    stream_set_blocking($right, false);
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+
+    try {
+        $written = $runtime->run(function (CoroutineScope $scope) use ($left): int {
+            $scope->waitWritable($left);
+
+            return fwrite($left, 'w');
+        });
+
+        expect($written)->toBe(1)
+            ->and(fread($right, 1))->toBe('w')
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        fclose($left);
+        fclose($right);
+    }
+});
