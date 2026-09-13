@@ -11,31 +11,31 @@ use ReflectionMethod;
 use RuntimeException;
 
 /** @internal */
-final class NativeSwooleReactor implements SwooleReactorInterface
+final readonly class NativeSwooleReactor implements SwooleReactorInterface
 {
-    private readonly Closure $coroutineGetCid;
+    private Closure $coroutineGetCid;
 
-    private readonly Closure $coroutineResume;
+    private Closure $coroutineResume;
 
-    private readonly Closure $coroutineYield;
+    private Closure $coroutineYield;
 
-    private readonly Closure $eventAdd;
+    private Closure $eventAdd;
 
-    private readonly Closure $eventDefer;
+    private Closure $eventDefer;
 
-    private readonly Closure $eventDelete;
+    private Closure $eventDelete;
 
-    private readonly Closure $eventSet;
+    private Closure $eventSet;
 
-    private readonly int $readFlagValue;
+    private int $readFlagValue;
 
-    private readonly Closure $timerAfter;
+    private Closure $timerAfter;
 
-    private readonly Closure $timerClear;
+    private Closure $timerClear;
 
-    private readonly Closure $timerRepeat;
+    private Closure $timerRepeat;
 
-    private readonly int $writeFlagValue;
+    private int $writeFlagValue;
 
     public function __construct()
     {
@@ -154,7 +154,7 @@ final class NativeSwooleReactor implements SwooleReactorInterface
     private static function method(string $class, string $method): Closure
     {
         try {
-            return (new ReflectionMethod($class, $method))->getClosure();
+            return new ReflectionMethod($class, $method)->getClosure();
         } catch (ReflectionException) {
             throw new RuntimeUnavailableException(sprintf(
                 'Required Swoole/OpenSwoole method %s::%s is unavailable.',
