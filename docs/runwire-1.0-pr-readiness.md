@@ -40,13 +40,16 @@ The final PR head must have:
 
 - PHP 8.4 and PHP 8.5 PHPForge QA green;
 - prefer-stable and prefer-lowest dependency lanes green;
-- PHPStan and Psalm green;
+- Composer dependency security audit green;
+- PHPStan and Psalm green on PHP 8.4 and PHP 8.5;
 - clean install green;
 - native QUIC/HTTP/3 PHP 8.4 and PHP 8.5 lanes green;
 - aioquic interoperability green;
 - ngtcp2/nghttp3 interoperability green where the lane applies;
 - dedicated PHPBench workflow green with protocol, host-adapter and lifecycle/resource subjects;
 - comparative-evidence validator acceptance green.
+
+PHPStan/Psalm execution and dependency auditing are release-blocking checks. GitHub SARIF publication is a reporting transport only: it must never replace analyzer enforcement and does not veto a release after the underlying audit/analyzers themselves have passed. The exact-head workflow therefore runs PHPForge's canonical quality/analyzer commands directly and does not depend on SARIF upload availability for correctness.
 
 ## Performance evidence boundary
 
