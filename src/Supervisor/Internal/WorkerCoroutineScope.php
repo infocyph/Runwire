@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Closure;
 use Infocyph\Runwire\CancellationSource;
+use Infocyph\Runwire\Coroutine\CoroutineDiagnosticsSnapshot;
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
@@ -21,6 +22,8 @@ final class WorkerCoroutineScope
 {
     /** @var Closure(): void */
     private readonly Closure $onFailure;
+
+    private readonly FiberScheduler $scheduler;
 
     private readonly CoroutineScope $scope;
 
@@ -51,9 +54,9 @@ final class WorkerCoroutineScope
         $this->onFailure = static function () use ($failure): void {
             $failure();
         };
-        $scheduler = new FiberScheduler($loop, $policy ?? new CoroutinePolicy());
+        $this->scheduler = new FiberScheduler($loop, $policy ?? new CoroutinePolicy());
         $this->source = new CancellationSource();
-        $this->scope = new CoroutineScope($scheduler, $this->source);
+        $this->scope = new CoroutineScope($this->scheduler, $this->source);
     }
 
     public function activeTaskCount(): int
@@ -72,6 +75,14 @@ final class WorkerCoroutineScope
         $this->cancelGraceTimer();
         $this->source->cancel(CancellationReason::WORKER_SHUTDOWN);
         $this->scope->close();
+    }
+
+    public function diagnostics(): CoroutineDiagnosticsSnapshot
+    {
+        return $this->scheduler->diagnostics(
+            backgroundScopesActive: $this->closed ? 0 : 1,
+            backgroundTasksActive: $this->activeTasks,
+        );
     }
 
     public function drain(): void

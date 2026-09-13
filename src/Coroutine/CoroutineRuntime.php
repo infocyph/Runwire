@@ -14,9 +14,11 @@ use LogicException;
 
 final class CoroutineRuntime
 {
-    private readonly FiberScheduler $scheduler;
+    private bool $requestRunning = false;
 
     private bool $running = false;
+
+    private readonly FiberScheduler $scheduler;
 
     public function __construct(
         ?LoopInterface $loop = null,
@@ -34,6 +36,14 @@ final class CoroutineRuntime
         return $this->scheduler->activeTaskCount();
     }
 
+    public function diagnostics(): CoroutineDiagnosticsSnapshot
+    {
+        return $this->scheduler->diagnostics(
+            rootScopesActive: $this->running ? 1 : 0,
+            requestScopesActive: $this->requestRunning ? 1 : 0,
+        );
+    }
+
     /** @param callable(CoroutineScope): mixed $callback */
     public function run(callable $callback): mixed
     {
@@ -48,11 +58,16 @@ final class CoroutineRuntime
         }
 
         $context->cancellation->throwIfCancelled();
+        $this->requestRunning = true;
 
-        return $this->execute(
-            CancellationSource::linked($context->cancellation, $context->deadline()),
-            $callback,
-        );
+        try {
+            return $this->execute(
+                CancellationSource::linked($context->cancellation, $context->deadline()),
+                $callback,
+            );
+        } finally {
+            $this->requestRunning = false;
+        }
     }
 
     /** @param callable(CoroutineScope): mixed $callback */

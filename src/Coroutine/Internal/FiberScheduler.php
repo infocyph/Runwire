@@ -7,14 +7,17 @@ namespace Infocyph\Runwire\Coroutine\Internal;
 use Fiber;
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
+use Infocyph\Runwire\Coroutine\CoroutineDiagnosticsSnapshot;
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\Deferred;
+use Infocyph\Runwire\Coroutine\Enum\TaskState;
 use Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException;
 use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
 use Infocyph\Runwire\Coroutine\Exception\InvalidSuspensionException;
 use Infocyph\Runwire\Coroutine\Future;
 use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Coroutine\TaskLocal;
+use Infocyph\Runwire\Loop\LoopDiagnosticsProviderInterface;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
@@ -24,9 +27,11 @@ use Throwable;
 /** @internal */
 final class FiberScheduler
 {
-    private readonly SchedulerContext $context;
+    private int $cancelledTotal = 0;
 
-    private readonly ReadyQueue $ready;
+    private int $completedTotal = 0;
+
+    private readonly SchedulerContext $context;
 
     private ?Task $currentTask = null;
 
@@ -36,7 +41,17 @@ final class FiberScheduler
 
     private bool $driving = false;
 
+    private int $failedTotal = 0;
+
     private int $nextTaskId = 1;
+
+    private readonly ReadyQueue $ready;
+
+    private int $readyQueueMaxDepth = 0;
+
+    private int $resumesTotal = 0;
+
+    private int $spawnedTotal = 0;
 
     /** @var array<int, Task> */
     private array $tasks = [];
@@ -86,6 +101,62 @@ final class FiberScheduler
     public function deferred(): Deferred
     {
         return new Deferred($this, $this->context->policy->maxFutureWaiters);
+    }
+
+    /** @internal */
+    public function diagnostics(
+        int $rootScopesActive = 0,
+        int $requestScopesActive = 0,
+        int $backgroundScopesActive = 0,
+        int $backgroundTasksActive = 0,
+    ): CoroutineDiagnosticsSnapshot {
+        $runnableTasks = 0;
+        $suspendedTasks = 0;
+        foreach ($this->tasks as $task) {
+            switch ($task->state()) {
+                case TaskState::NEW:
+                case TaskState::RUNNABLE:
+                case TaskState::RUNNING:
+                    ++$runnableTasks;
+                    break;
+                case TaskState::SUSPENDED:
+                    ++$suspendedTasks;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        $loopDiagnostics = $this->context->loop instanceof LoopDiagnosticsProviderInterface
+            ? $this->context->loop->diagnostics()
+            : null;
+        $now = hrtime(true);
+
+        return new CoroutineDiagnosticsSnapshot(
+            sampledAtMonotonicNanoseconds: is_int($now) ? $now : (int) $now,
+            activeTasks: count($this->tasks),
+            runnableTasks: $runnableTasks,
+            suspendedTasks: $suspendedTasks,
+            completedTotal: $this->completedTotal,
+            failedTotal: $this->failedTotal,
+            cancelledTotal: $this->cancelledTotal,
+            spawnedTotal: $this->spawnedTotal,
+            readyQueueDepth: $this->ready->count(),
+            readyQueueMaxDepth: $this->readyQueueMaxDepth,
+            resumesTotal: $this->resumesTotal,
+            rootScopesActive: $rootScopesActive,
+            requestScopesActive: $requestScopesActive,
+            backgroundScopesActive: $backgroundScopesActive,
+            backgroundTasksActive: $backgroundTasksActive,
+            loopTimersActive: $loopDiagnostics?->timersActive ?? 0,
+            loopDeferredBacklog: $loopDiagnostics?->deferredBacklog ?? 0,
+            loopReadWatchers: $loopDiagnostics?->readWatchers ?? 0,
+            loopWriteWatchers: $loopDiagnostics?->writeWatchers ?? 0,
+            maxTasks: $this->context->policy->maxTasks,
+            maxReadyBacklog: $this->context->policy->maxReadyBacklog,
+            maxWaitersPerPrimitive: $this->context->policy->maxWaitersPerPrimitive,
+            maxResumesPerTick: $this->context->policy->maxResumesPerTick,
+        );
     }
 
     public function drive(): void
@@ -205,6 +276,8 @@ final class FiberScheduler
         );
         $this->tasks[$task->id()] = $task;
         $this->ready->enqueue($task);
+        ++$this->spawnedTotal;
+        $this->recordReadyDepth();
         $this->scheduleDrain();
 
         return $task;
@@ -265,6 +338,7 @@ final class FiberScheduler
     {
         $task = $item->task;
         $this->currentTask = $task;
+        ++$this->resumesTotal;
 
         try {
             $signal = $task->dispatch($item);
@@ -273,6 +347,7 @@ final class FiberScheduler
         }
 
         if ($task->isComplete()) {
+            $this->recordTerminal($task);
             unset($this->tasks[$task->id()]);
 
             return;
@@ -331,11 +406,29 @@ final class FiberScheduler
         }
 
         $enqueued = $this->ready->enqueue($task, $value, $error, $ignoreCancellation);
+        if ($enqueued) {
+            $this->recordReadyDepth();
+        }
         if ($enqueued && !$this->draining) {
             $this->scheduleDrain();
         }
 
         return $enqueued;
+    }
+
+    private function recordReadyDepth(): void
+    {
+        $this->readyQueueMaxDepth = max($this->readyQueueMaxDepth, $this->ready->count());
+    }
+
+    private function recordTerminal(Task $task): void
+    {
+        match ($task->state()) {
+            TaskState::CANCELLED => ++$this->cancelledTotal,
+            TaskState::COMPLETED => ++$this->completedTotal,
+            TaskState::FAILED => ++$this->failedTotal,
+            default => null,
+        };
     }
 
     private function requireCurrentTask(): Task
