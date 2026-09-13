@@ -41,7 +41,7 @@ final class WorkerChildRuntime
                 role: $group->role,
             );
             if ($backgroundLoop !== null) {
-                $context->attachLoop($backgroundLoop);
+                $context->attachLoop($backgroundLoop, $group->shutdownTimeoutSeconds);
             }
 
             pcntl_async_signals(true);
@@ -59,15 +59,19 @@ final class WorkerChildRuntime
             }
 
             ($group->bootstrap)($context);
-            if ($backgroundLoop !== null && !$context->stopping()) {
+            if ($backgroundLoop !== null) {
                 $backgroundLoop->onReadable(
                     $context->stopStream(),
                     static function () use ($backgroundLoop, $context): void {
                         $context->consumeStopWake();
-                        $backgroundLoop->stop();
+                        if ($context->backgroundTaskCount() === 0) {
+                            $backgroundLoop->stop();
+                        }
                     },
                 );
-                $backgroundLoop->run();
+                if (!$context->stopping() || $context->backgroundTaskCount() > 0) {
+                    $backgroundLoop->run();
+                }
             }
 
             $exitCode = $context->recycling() ? self::RECYCLE_EXIT_CODE : 0;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Coroutine\CoroutineScope;
+use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
@@ -11,11 +13,15 @@ use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Internal\PeriodicTaskRegistry;
+use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
+use LogicException;
 use RuntimeException;
 
 final class WorkerContext
 {
     private const int MAX_DIAGNOSTIC_MESSAGE_BYTES = 6_144;
+
+    private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
     private readonly PeriodicTaskRegistry $periodicTasks;
 
@@ -78,13 +84,43 @@ final class WorkerContext
         return !$this->stopping;
     }
 
-    public function attachLoop(LoopInterface $loop): void
+    public function attachLoop(LoopInterface $loop, float $backgroundShutdownGraceSeconds = 10.0): void
     {
         $this->periodicTasks->attach($loop);
+        if (!$this->role->background()) {
+            return;
+        }
+        if ($this->backgroundCoroutines !== null) {
+            if (!$this->backgroundCoroutines->ownsLoop($loop)) {
+                throw new LogicException('Worker coroutine scope cannot switch event loops after attachment.');
+            }
+
+            return;
+        }
+
+        $this->backgroundCoroutines = new WorkerCoroutineScope(
+            $loop,
+            $backgroundShutdownGraceSeconds,
+            function (): void {
+                $this->markUnhealthy();
+                $this->requestStop(ShutdownReason::FATAL_RUNTIME_ERROR);
+            },
+        );
+    }
+
+    public function backgroundDrainExpired(): bool
+    {
+        return $this->backgroundCoroutines?->drainExpired() ?? false;
+    }
+
+    public function backgroundTaskCount(): int
+    {
+        return $this->backgroundCoroutines?->activeTaskCount() ?? 0;
     }
 
     public function close(): void
     {
+        $this->backgroundCoroutines?->close();
         $this->periodicTasks->close();
         if (is_resource($this->readyStream)) {
             fclose($this->readyStream);
@@ -227,6 +263,7 @@ final class WorkerContext
         $this->shutdownReason = $reason ?? $this->shutdownReason;
         $this->stopping = true;
         $this->periodicTasks->drain();
+        $this->backgroundCoroutines?->drain();
         if (is_resource($this->stopWrite)) {
             fwrite($this->stopWrite, 'S');
         }
@@ -242,6 +279,22 @@ final class WorkerContext
         $this->readControl();
 
         return $this->shutdownReason;
+    }
+
+    /** @param callable(CoroutineScope): mixed $callback */
+    public function spawnBackground(callable $callback): Task
+    {
+        if (!$this->role->background()) {
+            throw new LogicException('Background coroutine work requires a task or service worker role.');
+        }
+        if ($this->stopping) {
+            throw new LogicException('Worker is stopping and cannot accept background coroutine work.');
+        }
+        if ($this->backgroundCoroutines === null) {
+            throw new LogicException('Worker event loop must be attached before spawning background coroutine work.');
+        }
+
+        return $this->backgroundCoroutines->spawn($callback);
     }
 
     public function stopping(): bool
