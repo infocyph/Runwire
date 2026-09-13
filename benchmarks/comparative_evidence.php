@@ -119,5 +119,6 @@ try {
     fwrite(STDOUT, renderMarkdown($records));
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . PHP_EOL);
-    exit(1);
+
+    return 1;
 }
