@@ -15,9 +15,9 @@ use Throwable;
 
 final class CoroutineRuntime
 {
-    private bool $running = false;
-
     private readonly FiberScheduler $scheduler;
+
+    private bool $running = false;
 
     public function __construct(
         ?LoopInterface $loop = null,

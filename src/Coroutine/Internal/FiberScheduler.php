@@ -22,6 +22,8 @@ use Throwable;
 /** @internal */
 final class FiberScheduler
 {
+    private readonly ReadyQueue $ready;
+
     private ?Task $currentTask = null;
 
     private bool $drainScheduled = false;
@@ -31,8 +33,6 @@ final class FiberScheduler
     private bool $driving = false;
 
     private int $nextTaskId = 1;
-
-    private readonly ReadyQueue $ready;
 
     /** @var array<int, Task> */
     private array $tasks = [];
@@ -104,6 +104,30 @@ final class FiberScheduler
         return $this->enqueueResume($task, null, $error);
     }
 
+    public function sleep(float $seconds): void
+    {
+        if (!is_finite($seconds) || $seconds < 0.0) {
+            throw new \InvalidArgumentException('Coroutine sleep duration must be finite and non-negative.');
+        }
+        $this->requireCurrentTask();
+        if ($seconds === 0.0) {
+            $this->yieldNow();
+
+            return;
+        }
+
+        Fiber::suspend(new LoopWaitSuspension(
+            $this->loop,
+            fn(\Closure $wake): int => $this->loop->delay(
+                $seconds,
+                static function (int $id) use ($wake): void {
+                    unset($id);
+                    $wake();
+                },
+            ),
+        ));
+    }
+
     /** @internal */
     public function spawn(callable $callback, CancellationSource $source): Task
     {
@@ -129,7 +153,10 @@ final class FiberScheduler
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onReadable(
                 $stream,
-                static fn(mixed $_stream, int $_id) => $wake(),
+                static function (mixed $readyStream, int $id) use ($wake): void {
+                    unset($readyStream, $id);
+                    $wake();
+                },
             ),
         ));
     }
@@ -141,28 +168,10 @@ final class FiberScheduler
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onWritable(
                 $stream,
-                static fn(mixed $_stream, int $_id) => $wake(),
-            ),
-        ));
-    }
-
-    public function sleep(float $seconds): void
-    {
-        if (!is_finite($seconds) || $seconds < 0.0) {
-            throw new \InvalidArgumentException('Coroutine sleep duration must be finite and non-negative.');
-        }
-        $this->requireCurrentTask();
-        if ($seconds === 0.0) {
-            $this->yieldNow();
-
-            return;
-        }
-
-        Fiber::suspend(new LoopWaitSuspension(
-            $this->loop,
-            fn(\Closure $wake): int => $this->loop->delay(
-                $seconds,
-                static fn(int $_id) => $wake(),
+                static function (mixed $readyStream, int $id) use ($wake): void {
+                    unset($readyStream, $id);
+                    $wake();
+                },
             ),
         ));
     }
@@ -273,6 +282,9 @@ final class FiberScheduler
         }
 
         $this->drainScheduled = true;
-        $this->loop->defer(fn(int $_id) => $this->drain());
+        $this->loop->defer(function (int $id): void {
+            unset($id);
+            $this->drain();
+        });
     }
 }

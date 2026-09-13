@@ -10,17 +10,17 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Throwable;
 
 /** @internal */
-final class LoopWaitSuspension implements Suspension
+final readonly class LoopWaitSuspension implements Suspension
 {
     /** @var Closure(Closure(): void): int */
-    private readonly Closure $register;
+    private Closure $register;
 
     /** @param callable(Closure(): void): int $register */
     public function __construct(
-        private readonly LoopInterface $loop,
+        private LoopInterface $loop,
         callable $register,
     ) {
-        $this->register = Closure::fromCallable($register);
+        $this->register = $register(...);
     }
 
     public function arm(FiberScheduler $scheduler, Task $task): void
@@ -65,6 +65,7 @@ final class LoopWaitSuspension implements Suspension
             $handle = ($this->register)(static fn() => $finish());
         } catch (Throwable $error) {
             $cancellation->close();
+
             throw $error;
         }
     }

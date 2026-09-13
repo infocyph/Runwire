@@ -13,11 +13,11 @@ use Throwable;
 /** @internal */
 final class ReadyQueue
 {
-    /** @var array<int, true> */
-    private array $queued = [];
-
     /** @var SplQueue<ReadyItem> */
     private readonly SplQueue $queue;
+
+    /** @var array<int, true> */
+    private array $queued = [];
 
     public function __construct(private readonly int $maxBacklog)
     {

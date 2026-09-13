@@ -24,9 +24,27 @@ final class CoroutineScope
         private readonly CancellationSource $source,
     ) {}
 
+    /** @internal */
+    public function cancelChildren(CancellationReason $reason): void
+    {
+        foreach ($this->children as $task) {
+            if (!$task->isComplete()) {
+                $task->cancel($reason);
+            }
+        }
+    }
+
     public function cancellation(): CancellationToken
     {
         return $this->source->token();
+    }
+
+    /** @internal */
+    public function close(): void
+    {
+        $this->closed = true;
+        $this->children = [];
+        $this->source->dispose();
     }
 
     public function deferred(): Deferred
@@ -34,6 +52,29 @@ final class CoroutineScope
         $this->assertOpen();
 
         return $this->scheduler->deferred();
+    }
+
+    /** @internal */
+    public function join(bool $propagateFailure = true): void
+    {
+        $firstError = null;
+
+        foreach ($this->children as $task) {
+            if ($task->observed()) {
+                continue;
+            }
+
+            try {
+                $task->await();
+            } catch (Throwable $error) {
+                $firstError ??= $error;
+            }
+        }
+        $this->children = [];
+
+        if ($propagateFailure && $firstError !== null) {
+            throw $firstError;
+        }
     }
 
     public function sleep(float $seconds): void
@@ -68,46 +109,6 @@ final class CoroutineScope
     {
         $this->assertOpen();
         $this->scheduler->yieldNow();
-    }
-
-    /** @internal */
-    public function cancelChildren(CancellationReason $reason): void
-    {
-        foreach ($this->children as $task) {
-            if (!$task->isComplete()) {
-                $task->cancel($reason);
-            }
-        }
-    }
-
-    /** @internal */
-    public function close(): void
-    {
-        $this->closed = true;
-        $this->children = [];
-        $this->source->dispose();
-    }
-
-    /** @internal */
-    public function join(bool $propagateFailure = true): void
-    {
-        $firstError = null;
-
-        foreach ($this->children as $task) {
-            if ($task->observed()) {
-                continue;
-            }
-            try {
-                $task->await();
-            } catch (Throwable $error) {
-                $firstError ??= $error;
-            }
-        }
-        $this->children = [];
-
-        if ($propagateFailure && $firstError !== null) {
-            throw $firstError;
-        }
     }
 
     private function assertOpen(): void

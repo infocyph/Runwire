@@ -113,14 +113,11 @@ it('cancels a suspended task cooperatively and executes Fiber cleanup', function
 });
 
 it('waits for real stream readability and unregisters the watcher', function (): void {
-    if (!function_exists('stream_socket_pair')) {
-        $this->markTestSkipped('stream_socket_pair is unavailable.');
-    }
-
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     if ($pair === false) {
-        $this->markTestSkipped('Unable to create a local stream pair.');
+        throw new RuntimeException('Unable to create a local stream pair.');
     }
+
     [$left, $right] = $pair;
     stream_set_blocking($left, false);
     stream_set_blocking($right, false);
@@ -176,7 +173,7 @@ it('does not start a nested event loop on the same coroutine runtime', function 
     $runtime = new CoroutineRuntime();
 
     $result = $runtime->run(function (CoroutineScope $scope) use ($runtime): string {
-        expect(fn() => $runtime->run(static fn(CoroutineScope $nested): null => null))
+        expect(fn() => $runtime->run(static fn(): null => null))
             ->toThrow(LogicException::class);
         $task = $scope->spawn(static fn(): string => 'still-running');
 

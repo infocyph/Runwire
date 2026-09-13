@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Coroutine;
 
-use Closure;
 use Fiber;
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
@@ -29,11 +28,11 @@ final class Task
     /** @internal */
     public function __construct(
         private readonly int $id,
-        private readonly FiberScheduler $scheduler,
+        FiberScheduler $scheduler,
         private readonly CancellationSource $cancellationSource,
         callable $callback,
     ) {
-        $closure = Closure::fromCallable($callback);
+        $closure = $callback(...);
         $token = $cancellationSource->token();
         $this->completion = $scheduler->deferred();
         $this->fiber = new Fiber(static function () use ($closure, $token): mixed {

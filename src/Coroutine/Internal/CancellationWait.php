@@ -14,14 +14,14 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 /** @internal */
 final class CancellationWait
 {
+    /** @var Closure(CancelledException): void */
+    private readonly Closure $onCancelled;
+
     private bool $closed = false;
 
     private ?int $deadlineTimer = null;
 
     private ?CancellationSubscription $subscription = null;
-
-    /** @var Closure(CancelledException): void */
-    private readonly Closure $onCancelled;
 
     /** @param callable(CancelledException): void $onCancelled */
     public function __construct(
