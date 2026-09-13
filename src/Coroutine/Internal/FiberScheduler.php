@@ -67,6 +67,7 @@ final class FiberScheduler
         }
 
         $this->driving = true;
+
         try {
             if (!$this->ready->isEmpty()) {
                 $this->scheduleDrain();
@@ -199,6 +200,7 @@ final class FiberScheduler
         }
 
         $this->currentTask = $task;
+
         try {
             $signal = $task->dispatch($item);
         } finally {
@@ -234,6 +236,7 @@ final class FiberScheduler
         }
 
         $this->draining = true;
+
         try {
             $resumes = 0;
             while (!$this->ready->isEmpty() && $resumes < $this->policy->maxResumesPerTick) {
