@@ -12,11 +12,11 @@ jobs:
   phpforge:
     uses: infocyph/phpforge/.github/workflows/security-standards.yml@main
     permissions:
-      security-events: write
       actions: read
       contents: read
     with:
       php_versions: '["8.4","8.5"]'
+      run_analysis: false
       # QUIC intentionally stays out of the normal PHPForge extension list.
       # This lane proves Runwire remains installable and testable without
       # native HTTP/3 capability. The dedicated http3-quic job below installs
@@ -24,6 +24,43 @@ jobs:
       php_extensions: "pcntl, posix, openssl, sockets, event"
       integration_services: '[]'
       service_topologies: '{}'
+
+  analysis:
+    name: "Static analysis - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: pcntl, posix, openssl, sockets, event
+          coverage: none
+
+      - name: Install stable development dependencies
+        shell: bash
+        run: |
+          composer validate --strict
+          composer update --no-interaction --prefer-dist --no-progress --prefer-stable
+          composer ic:release:constraints
+
+      - name: Enforce dependency security audit
+        shell: bash
+        run: composer ic:release:audit
+
+      - name: Enforce PHPStan and Psalm
+        shell: bash
+        run: composer ic:ci --without-tests
 
   http3-quic:
     name: "HTTP/3 + QUIC - PHP ${{ matrix.php-version }}"
