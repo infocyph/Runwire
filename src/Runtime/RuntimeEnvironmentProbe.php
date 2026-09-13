@@ -8,10 +8,10 @@ use Infocyph\Runwire\Network\SocketCapabilityProbe;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Internal\SystemResourceProbe;
 
-final class RuntimeEnvironmentProbe
+final readonly class RuntimeEnvironmentProbe
 {
     public function __construct(
-        private readonly SystemResourceProbe $resourceProbe = new SystemResourceProbe(),
+        private SystemResourceProbe $resourceProbe = new SystemResourceProbe(),
     ) {}
 
     public function probe(): RuntimeEnvironment

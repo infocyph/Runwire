@@ -454,13 +454,6 @@ final class Runtime
         );
     }
 
-    private function resolvedWorkerCount(int $configured): int
-    {
-        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
-
-        return $selection->capabilities->resources->resolveWorkerCount($configured);
-    }
-
     /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
     private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
     {
@@ -490,5 +483,12 @@ final class Runtime
             readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
             shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
         ));
+    }
+
+    private function resolvedWorkerCount(int $configured): int
+    {
+        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
+
+        return $selection->capabilities->resources->resolveWorkerCount($configured);
     }
 }

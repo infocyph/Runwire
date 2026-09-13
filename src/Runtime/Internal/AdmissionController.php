@@ -14,6 +14,7 @@ use Infocyph\Runwire\Runtime\AdmissionPolicy;
 final class AdmissionController
 {
     private int $activeRequests = 0;
+
     private int $activeStreams = 0;
 
     public function __construct(
@@ -25,11 +26,13 @@ final class AdmissionController
     {
         if ($this->policy->maxActiveRequests > 0 && $this->activeRequests >= $this->policy->maxActiveRequests) {
             $this->metrics->recordRejectedRequest();
+
             return false;
         }
 
         if (self::isStream($version) && $this->policy->maxStreamsPerWorker > 0 && $this->activeStreams >= $this->policy->maxStreamsPerWorker) {
             $this->metrics->recordRejectedRequest();
+
             return false;
         }
 
@@ -39,6 +42,14 @@ final class AdmissionController
         }
 
         return true;
+    }
+
+    public function release(ProtocolVersion $version): void
+    {
+        $this->activeRequests = max(0, $this->activeRequests - 1);
+        if (self::isStream($version)) {
+            $this->activeStreams = max(0, $this->activeStreams - 1);
+        }
     }
 
     public function writeOverloadResponse(HttpRequest $request, ResponseWriterInterface $writer): void
@@ -58,17 +69,7 @@ final class AdmissionController
             $writer->start(503, Headers::fromArray($headers));
         }
 
-        if (!$writer->isEnded()) {
-            $writer->end();
-        }
-    }
-
-    public function release(ProtocolVersion $version): void
-    {
-        $this->activeRequests = max(0, $this->activeRequests - 1);
-        if (self::isStream($version)) {
-            $this->activeStreams = max(0, $this->activeStreams - 1);
-        }
+        $writer->end();
     }
 
     private static function isStream(ProtocolVersion $version): bool

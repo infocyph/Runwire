@@ -36,7 +36,10 @@ it('rejects TLS configuration for Unix stream servers', function (): void {
     }
 });
 
-it('validates datagram server worker counts', function (): void {
-    expect(fn () => new DatagramServer('udp', '127.0.0.1:9001', static function (): void {}, workers: 0))
+it('supports automatic datagram worker sizing and rejects negative counts', function (): void {
+    $server = new DatagramServer('udp', '127.0.0.1:9001', static function (): void {}, workers: 0);
+
+    expect($server->workers)->toBe(0)
+        ->and(fn () => new DatagramServer('udp', '127.0.0.1:9001', static function (): void {}, workers: -1))
         ->toThrow(InvalidArgumentException::class);
 });

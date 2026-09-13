@@ -19,10 +19,10 @@ use Throwable;
 
 final class ApplicationLifecycle
 {
+    private readonly AdmissionController $admission;
+
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     private readonly Closure $handler;
-
-    private readonly AdmissionController $admission;
 
     private readonly ApplicationLifecycleHooks $hooks;
 
@@ -175,6 +175,25 @@ final class ApplicationLifecycle
         }
     }
 
+    /** @param list<Throwable> $resetFailures */
+    private static function requestErrorClass(
+        RequestContext $context,
+        ?Throwable $requestFailure,
+        array $resetFailures,
+    ): ?ApplicationErrorClass {
+        $cancellation = $context->cancellation->reason();
+
+        return match (true) {
+            $cancellation === CancellationReason::DEADLINE_EXCEEDED => ApplicationErrorClass::DEADLINE_EXCEEDED,
+            $cancellation === CancellationReason::TRANSPORT_CANCELLED => ApplicationErrorClass::CLIENT_CANCELLED,
+            $cancellation === CancellationReason::HOST_CANCELLED,
+            $cancellation === CancellationReason::WORKER_SHUTDOWN => ApplicationErrorClass::TRANSPORT_ERROR,
+            $requestFailure !== null => ApplicationErrorClass::HANDLER_EXCEPTION,
+            $resetFailures !== [] => ApplicationErrorClass::RESETTER_FAILURE,
+            default => null,
+        };
+    }
+
     private function handleAdmitted(
         HttpRequest $request,
         ResponseWriterInterface $writer,
@@ -218,25 +237,6 @@ final class ApplicationLifecycle
         if ($resetFailures !== []) {
             throw new RequestLifecycleException(null, $resetFailures);
         }
-    }
-
-    /** @param list<Throwable> $resetFailures */
-    private static function requestErrorClass(
-        RequestContext $context,
-        ?Throwable $requestFailure,
-        array $resetFailures,
-    ): ?ApplicationErrorClass {
-        $cancellation = $context->cancellation->reason();
-
-        return match (true) {
-            $cancellation === CancellationReason::DEADLINE_EXCEEDED => ApplicationErrorClass::DEADLINE_EXCEEDED,
-            $cancellation === CancellationReason::TRANSPORT_CANCELLED => ApplicationErrorClass::CLIENT_CANCELLED,
-            $cancellation === CancellationReason::HOST_CANCELLED,
-            $cancellation === CancellationReason::WORKER_SHUTDOWN => ApplicationErrorClass::TRANSPORT_ERROR,
-            $requestFailure !== null => ApplicationErrorClass::HANDLER_EXCEPTION,
-            $resetFailures !== [] => ApplicationErrorClass::RESETTER_FAILURE,
-            default => null,
-        };
     }
 
     /** @return list<Throwable> */

@@ -8,18 +8,18 @@ use Closure;
 use Infocyph\Runwire\Runtime\SystemResources;
 use InvalidArgumentException;
 
-final class SystemResourceProbe
+final readonly class SystemResourceProbe
 {
     /** @var Closure(string): ?string */
-    private readonly Closure $reader;
+    private Closure $reader;
 
     /**
      * @param callable(string): ?string|null $reader
      */
     public function __construct(
         ?callable $reader = null,
-        private readonly ?int $hostCpuCount = null,
-        private readonly ?int $hostMemoryBytes = null,
+        private ?int $hostCpuCount = null,
+        private ?int $hostMemoryBytes = null,
     ) {
         if ($hostCpuCount !== null && $hostCpuCount < 1) {
             throw new InvalidArgumentException('Host CPU count override must be positive.');
@@ -28,17 +28,7 @@ final class SystemResourceProbe
             throw new InvalidArgumentException('Host memory override must be positive.');
         }
 
-        $this->reader = $reader === null
-            ? static function (string $path): ?string {
-                if (!is_file($path) || !is_readable($path)) {
-                    return null;
-                }
-
-                $value = file_get_contents($path);
-
-                return is_string($value) ? $value : null;
-            }
-            : Closure::fromCallable($reader);
+        $this->reader = $reader === null ? self::readFile(...) : $reader(...);
     }
 
     public function probe(): SystemResources
@@ -105,6 +95,26 @@ final class SystemResourceProbe
         }
 
         return max(1, intdiv($quota, $period));
+    }
+
+    private static function readFile(string $path): ?string
+    {
+        if (!is_file($path) || !is_readable($path)) {
+            return null;
+        }
+
+        $value = file_get_contents($path);
+
+        return is_string($value) ? $value : null;
+    }
+
+    private static function reasonableMemoryLimit(int $bytes): ?int
+    {
+        if ($bytes <= 0 || $bytes >= 1_152_921_504_606_846_976) {
+            return null;
+        }
+
+        return $bytes;
     }
 
     private function cgroupMemoryBytes(): ?int
@@ -181,30 +191,29 @@ final class SystemResourceProbe
         $v2 = $this->read('/sys/fs/cgroup/cpu.max');
         if ($v2 !== null) {
             $parts = preg_split('/\s+/', trim($v2));
-            if (is_array($parts) && count($parts) >= 2 && $parts[0] !== 'max'
-                && ctype_digit($parts[0]) && ctype_digit($parts[1])) {
+            if (
+                is_array($parts)
+                && count($parts) >= 2
+                && $parts[0] !== 'max'
+                && ctype_digit($parts[0])
+                && ctype_digit($parts[1])
+            ) {
                 return self::quotaToCpuCount((int) $parts[0], (int) $parts[1]);
             }
         }
 
         $quota = $this->read('/sys/fs/cgroup/cpu/cpu.cfs_quota_us');
         $period = $this->read('/sys/fs/cgroup/cpu/cpu.cfs_period_us');
-        if ($quota !== null && $period !== null
+        if (
+            $quota !== null
+            && $period !== null
             && preg_match('/^-?\d+$/D', $quota) === 1
-            && ctype_digit($period)) {
+            && ctype_digit($period)
+        ) {
             return self::quotaToCpuCount((int) $quota, (int) $period);
         }
 
         return null;
-    }
-
-    private static function reasonableMemoryLimit(int $bytes): ?int
-    {
-        if ($bytes <= 0 || $bytes >= 1_152_921_504_606_846_976) {
-            return null;
-        }
-
-        return $bytes;
     }
 
     private function read(string $path): ?string
