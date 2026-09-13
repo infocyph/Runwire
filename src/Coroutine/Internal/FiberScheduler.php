@@ -196,12 +196,6 @@ final class FiberScheduler
     private function dispatch(ReadyItem $item): void
     {
         $task = $item->task;
-        if ($task->isComplete()) {
-            unset($this->tasks[$task->id()]);
-
-            return;
-        }
-
         $this->currentTask = $task;
 
         try {
