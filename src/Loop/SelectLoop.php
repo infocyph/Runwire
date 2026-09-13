@@ -198,6 +198,13 @@ final class SelectLoop implements LoopInterface
             || $this->deferred !== [];
     }
 
+    private static function ignoreInterruptedSelectWarning(int $severity, string $message): bool
+    {
+        return $severity === E_WARNING
+            && str_starts_with($message, 'stream_select():')
+            && str_contains($message, 'Interrupted system call');
+    }
+
     private function poll(): void
     {
         [$read, $write] = $this->selectStreams();
@@ -209,9 +216,7 @@ final class SelectLoop implements LoopInterface
 
         [$seconds, $microseconds] = $this->selectTimeout();
         $except = null;
-        set_error_handler(static fn (int $severity, string $message): bool => $severity === E_WARNING
-            && str_starts_with($message, 'stream_select():')
-            && str_contains($message, 'Interrupted system call'));
+        set_error_handler(self::ignoreInterruptedSelectWarning(...));
 
         try {
             $result = stream_select($read, $write, $except, $seconds, $microseconds);

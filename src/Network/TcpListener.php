@@ -235,6 +235,12 @@ final class TcpListener
         $this->syncAcceptWatcher();
     }
 
+    private static function ignoreAcceptWarning(int $severity, string $message): bool
+    {
+        return $severity === E_WARNING
+            && str_starts_with($message, 'stream_socket_accept(): Accept failed:');
+    }
+
     private static function normalizeAddress(string $address): string
     {
         if (str_contains($address, '://')) {
@@ -311,8 +317,7 @@ final class TcpListener
             }
 
             $peer = null;
-            set_error_handler(static fn (int $severity, string $message): bool => $severity === E_WARNING
-                && str_starts_with($message, 'stream_socket_accept(): Accept failed:'));
+            set_error_handler(self::ignoreAcceptWarning(...));
 
             try {
                 $client = stream_socket_accept($listener, 0, $peer);
