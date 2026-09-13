@@ -14,6 +14,7 @@ use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Network\UnixListenerOptions;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
+use Infocyph\Runwire\Runtime\DevelopmentWatchPolicy;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\HostDriverFactory;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
@@ -28,6 +29,7 @@ use Infocyph\Runwire\Runtime\Internal\NativeStreamWorker;
 use Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe;
 use Infocyph\Runwire\Runtime\RuntimeSelection;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
+use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Infocyph\Runwire\Supervisor\SupervisorStatus;
@@ -38,6 +40,8 @@ use LogicException;
 final class Runtime
 {
     private ?ControlOptions $controlOptions = null;
+
+    private ?DevelopmentWatchPolicy $developmentWatchPolicy = null;
 
     private ?RuntimeApplication $hostApplication = null;
 
@@ -180,8 +184,12 @@ final class Runtime
         if ($this->servers !== []) {
             throw new LogicException('Host-owned serve() cannot be combined with Runwire listeners.');
         }
-        if ($this->controlOptions !== null || $this->lifecycleListeners !== []) {
-            throw new LogicException('Host-owned serve() cannot use the native supervisor control/event plane.');
+        if (
+            $this->controlOptions !== null
+            || $this->developmentWatchPolicy?->enabled === true
+            || $this->lifecycleListeners !== []
+        ) {
+            throw new LogicException('Host-owned serve() cannot use the native supervisor control/event/watch plane.');
         }
 
         $this->started = true;
@@ -219,6 +227,17 @@ final class Runtime
         $this->hostApplication?->drain();
         $this->hostDriver?->stop();
         $this->supervisor?->stop($force);
+    }
+
+    public function watch(DevelopmentWatchPolicy $policy): self
+    {
+        if ($this->started) {
+            throw new LogicException('Runtime topology is frozen after run() starts.');
+        }
+
+        $this->developmentWatchPolicy = $policy;
+
+        return $this;
     }
 
     private static function closeBound(
@@ -372,6 +391,9 @@ final class Runtime
         if ($this->controlOptions !== null) {
             $supervisor->control($this->controlOptions);
         }
+        if ($this->developmentWatchPolicy !== null) {
+            $supervisor->watch($this->developmentWatchPolicy);
+        }
         foreach ($this->lifecycleListeners as $listener) {
             $supervisor->onEvent($listener);
         }
@@ -413,6 +435,7 @@ final class Runtime
                 automaticReady: false,
                 readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
+                role: $target instanceof BoundServer ? WorkerRole::HTTP : WorkerRole::CUSTOM,
             ));
             if ($target instanceof BoundServer && $target->definition->http3 !== null) {
                 $this->registerHttp3Group($supervisor, $bound, $target);
@@ -482,6 +505,7 @@ final class Runtime
             automaticReady: false,
             readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
             shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
+            role: WorkerRole::HTTP,
         ));
     }
 

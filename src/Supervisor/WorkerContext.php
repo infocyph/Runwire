@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
+use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
+use Infocyph\Runwire\Supervisor\Internal\PeriodicTaskRegistry;
 use RuntimeException;
 
 final class WorkerContext
 {
     private const int MAX_DIAGNOSTIC_MESSAGE_BYTES = 6_144;
+
+    private readonly PeriodicTaskRegistry $periodicTasks;
 
     private readonly WorkerRecycleState $recycleState;
 
@@ -44,10 +49,13 @@ final class WorkerContext
         private readonly mixed $readyStream,
         public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
         public readonly AdmissionPolicy $admissionPolicy = new AdmissionPolicy(),
+        public readonly WorkerRole $role = WorkerRole::CUSTOM,
     ) {
         if (!stream_set_blocking($this->readyStream, false)) {
             throw new RuntimeException('Unable to configure worker lifecycle channel.');
         }
+
+        $this->periodicTasks = new PeriodicTaskRegistry();
         $this->recycleState = new WorkerRecycleState(
             $this->recyclePolicy,
             seed: $pid ^ ($slot << 8) ^ ($generation << 16),
@@ -65,8 +73,19 @@ final class WorkerContext
         }
     }
 
+    public function acceptingBackgroundWork(): bool
+    {
+        return !$this->stopping;
+    }
+
+    public function attachLoop(LoopInterface $loop): void
+    {
+        $this->periodicTasks->attach($loop);
+    }
+
     public function close(): void
     {
+        $this->periodicTasks->close();
         if (is_resource($this->readyStream)) {
             fclose($this->readyStream);
         }
@@ -103,6 +122,12 @@ final class WorkerContext
     public function effectiveMaxRequests(): int
     {
         return $this->recycleState->effectiveMaxRequests();
+    }
+
+    /** @param callable(): void $callback */
+    public function every(string $name, float $intervalSeconds, callable $callback): PeriodicTaskHandle
+    {
+        return $this->periodicTasks->register($name, $intervalSeconds, $callback);
     }
 
     public function markUnhealthy(): void
@@ -196,6 +221,7 @@ final class WorkerContext
         $this->readControl();
         $this->shutdownReason = $reason ?? $this->shutdownReason;
         $this->stopping = true;
+        $this->periodicTasks->drain();
         if (is_resource($this->stopWrite)) {
             fwrite($this->stopWrite, 'S');
         }

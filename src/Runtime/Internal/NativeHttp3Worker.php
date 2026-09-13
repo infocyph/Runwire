@@ -9,6 +9,7 @@ use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
 use Infocyph\Runwire\Runtime\ApplicationLifecycle;
@@ -37,6 +38,8 @@ final class NativeHttp3Worker
             throw new LogicException('Native HTTP/3 workers require HTTP/3 and TLS server configuration.');
         }
 
+        $taskLoop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        $context->attachLoop($taskLoop);
         [$host, $port] = self::endpoint($tcpAddress);
         $listener = PhpQuicListener::bind(
             $host,
@@ -50,7 +53,7 @@ final class NativeHttp3Worker
             hooks: $lifecycle,
             admission: $context->admissionPolicy,
         );
-        $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics);
+        $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics, $taskLoop);
         $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
             $context->recordRequestStarted();
 
@@ -79,6 +82,7 @@ final class NativeHttp3Worker
             $context->ready();
             while (!$context->stopping()) {
                 $worker->tick($options->pollTimeoutSeconds);
+                $taskLoop->tick();
                 self::observeTransport($runtimeContext, $worker);
                 $sampler->sample();
             }

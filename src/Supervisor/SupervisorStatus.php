@@ -38,5 +38,7 @@ final readonly class SupervisorStatus
         public array $exitReasonCounts = [],
         public array $restartReasonCounts = [],
         public array $lifecycleListenerFailureCounts = [],
+        public bool $developmentWatcherActive = false,
+        public int $developmentWatcherFailures = 0,
     ) {}
 }

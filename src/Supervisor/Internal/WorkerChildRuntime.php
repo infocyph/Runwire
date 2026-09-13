@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Infocyph\Runwire\Exception\SupervisorException;
+use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 use Throwable;
@@ -23,6 +24,7 @@ final class WorkerChildRuntime
         $context = null;
 
         try {
+            $backgroundLoop = $group->role->background() ? new SelectLoop() : null;
             $context = new WorkerContext(
                 group: $group->name,
                 slot: $slot,
@@ -32,7 +34,11 @@ final class WorkerChildRuntime
                 readyStream: $readyStream,
                 recyclePolicy: $group->recyclePolicy,
                 admissionPolicy: $group->admissionPolicy,
+                role: $group->role,
             );
+            if ($backgroundLoop !== null) {
+                $context->attachLoop($backgroundLoop);
+            }
 
             pcntl_async_signals(true);
             $stopHandler = static function () use ($context): void {
@@ -49,6 +55,17 @@ final class WorkerChildRuntime
             }
 
             ($group->bootstrap)($context);
+            if ($backgroundLoop !== null && !$context->stopping()) {
+                $backgroundLoop->onReadable(
+                    $context->stopStream(),
+                    static function () use ($backgroundLoop, $context): void {
+                        $context->consumeStopWake();
+                        $backgroundLoop->stop();
+                    },
+                );
+                $backgroundLoop->run();
+            }
+
             $exitCode = $context->recycling() ? self::RECYCLE_EXIT_CODE : 0;
             $context->close();
             self::terminate($exitCode);

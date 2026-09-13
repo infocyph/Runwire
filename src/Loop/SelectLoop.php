@@ -141,11 +141,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
         try {
             while ($this->running) {
-                $tickStart = self::nowNanoseconds();
-                $this->recordTimerLag($tickStart);
-                $this->runDeferredBatch();
-                $this->runDueTimers();
-                $this->recordTick($tickStart);
+                $this->runTick();
 
                 if (!$this->running || !$this->hasReferences()) {
                     break;
@@ -161,6 +157,21 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     public function stop(): void
     {
         $this->running = false;
+    }
+
+    public function tick(): void
+    {
+        if ($this->running) {
+            throw new LogicException('The event loop cannot be ticked while it is running.');
+        }
+
+        $this->running = true;
+
+        try {
+            $this->runTick();
+        } finally {
+            $this->running = false;
+        }
     }
 
     private static function ignoreInterruptedSelectWarning(int $severity, string $message): bool
@@ -370,6 +381,15 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
                 return;
             }
         }
+    }
+
+    private function runTick(): void
+    {
+        $tickStart = self::nowNanoseconds();
+        $this->recordTimerLag($tickStart);
+        $this->runDeferredBatch();
+        $this->runDueTimers();
+        $this->recordTick($tickStart);
     }
 
     /** @return array{0: list<resource>, 1: list<resource>} */

@@ -32,6 +32,7 @@ final class NativeHttpWorker
         DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
     ): void {
         $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        $context->attachLoop($loop);
         $sessions = [];
         $connections = [];
         $state = new WorkerStopState();

@@ -16,6 +16,7 @@ final class NativeDatagramWorker
         DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
     ): void {
         $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        $context->attachLoop($loop);
         $handler = $bound->definition->handlerFor($context);
         $bound->listener->start($loop, $handler);
 

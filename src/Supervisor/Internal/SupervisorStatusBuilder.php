@@ -41,6 +41,8 @@ final class SupervisorStatusBuilder
         array $restartReasonCounts = [],
         array $lifecycleListenerFailureCounts = [],
         float $busyWorkerThresholdSeconds = 30.0,
+        bool $developmentWatcherActive = false,
+        int $developmentWatcherFailures = 0,
     ): SupervisorStatus {
         $nowNs = self::nowNanoseconds();
         $now = $nowNs / self::NANOS_PER_SECOND;
@@ -89,6 +91,8 @@ final class SupervisorStatusBuilder
             exitReasonCounts: $exitReasonCounts,
             restartReasonCounts: $restartReasonCounts,
             lifecycleListenerFailureCounts: $lifecycleListenerFailureCounts,
+            developmentWatcherActive: $developmentWatcherActive,
+            developmentWatcherFailures: $developmentWatcherFailures,
         );
     }
 
@@ -162,6 +166,7 @@ final class SupervisorStatusBuilder
                 busySeconds: $busySeconds,
                 busyBeyondThreshold: $busySeconds >= $busyWorkerThresholdSeconds,
                 metrics: $record->metrics,
+                role: $record->group->role,
             );
         }
 

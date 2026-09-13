@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Supervisor;
 
 use Closure;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
+use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use InvalidArgumentException;
 
 final readonly class WorkerGroup
@@ -14,6 +15,8 @@ final readonly class WorkerGroup
 
     /** @var Closure(WorkerContext): void */
     public Closure $bootstrap;
+
+    public bool $reloadable;
 
     /** @param callable(WorkerContext): void $bootstrap */
     public function __construct(
@@ -27,7 +30,8 @@ final readonly class WorkerGroup
         public bool $automaticReady = true,
         public float $readyTimeoutSeconds = 10.0,
         public float $shutdownTimeoutSeconds = 10.0,
-        public bool $reloadable = true,
+        ?bool $reloadable = null,
+        public WorkerRole $role = WorkerRole::CUSTOM,
     ) {
         if ($name === '' || strlen($name) > 128 || preg_match('/^[A-Za-z0-9._:-]+$/D', $name) !== 1) {
             throw new InvalidArgumentException('Worker group name must be 1-128 safe identifier characters.');
@@ -53,6 +57,7 @@ final readonly class WorkerGroup
         /** @var Closure(WorkerContext): void $closure */
         $closure = Closure::fromCallable($bootstrap);
         $this->bootstrap = $closure;
+        $this->reloadable = $reloadable ?? $role->defaultReloadable();
     }
 
     /** @param callable(WorkerContext): void $factory */
@@ -67,7 +72,8 @@ final readonly class WorkerGroup
         bool $automaticReady = true,
         float $readyTimeoutSeconds = 10.0,
         float $shutdownTimeoutSeconds = 10.0,
-        bool $reloadable = true,
+        ?bool $reloadable = null,
+        WorkerRole $role = WorkerRole::CUSTOM,
     ): self {
         return new self(
             name: $name,
@@ -81,6 +87,7 @@ final readonly class WorkerGroup
             readyTimeoutSeconds: $readyTimeoutSeconds,
             shutdownTimeoutSeconds: $shutdownTimeoutSeconds,
             reloadable: $reloadable,
+            role: $role,
         );
     }
 }

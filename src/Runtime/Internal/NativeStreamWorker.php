@@ -19,6 +19,7 @@ final class NativeStreamWorker
         DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
     ): void {
         $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        $context->attachLoop($loop);
         $sessions = [];
         $state = new WorkerStopState();
         $handler = $bound->definition->handlerFor($context);

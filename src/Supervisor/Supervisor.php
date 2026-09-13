@@ -9,6 +9,8 @@ use Infocyph\Runwire\Control\ControlServer;
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Runtime\DevelopmentWatchPolicy;
+use Infocyph\Runwire\Runtime\Internal\DevelopmentWatcher;
 use Infocyph\Runwire\Supervisor\Enum\ChildExitAction;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
@@ -57,6 +59,12 @@ final class Supervisor
 
     /** @var array<string, array<int, int>> */
     private array $currentSlots = [];
+
+    private ?DevelopmentWatchPolicy $developmentWatchPolicy = null;
+
+    private ?DevelopmentWatcher $developmentWatcher = null;
+
+    private int $developmentWatcherFailures = 0;
 
     /** @var array<string, int> */
     private array $exitReasonCounts;
@@ -217,11 +225,16 @@ final class Supervisor
             }
             $this->signalBridge->open($this->processSignals(...));
             $this->spawnInitialWorkers();
+            $this->startDevelopmentWatcher();
             $this->loop->run();
         } catch (SupervisorException $exception) {
             $this->failure ??= $exception;
         } finally {
             $this->running = false;
+            $this->developmentWatcher?->stop();
+            $this->developmentWatcherFailures = $this->developmentWatcher?->failureCount()
+                ?? $this->developmentWatcherFailures;
+            $this->developmentWatcher = null;
             $this->forceCleanupChildren();
             $this->signalBridge->close();
             $this->controlServer?->close();
@@ -254,6 +267,9 @@ final class Supervisor
             reloadFailed: $this->reloadCoordinator->failed(),
             exitReasonCounts: $this->exitReasonCounts,
             restartReasonCounts: $this->restartCoordinator->reasonCounts(),
+            developmentWatcherActive: $this->developmentWatcher?->running() ?? false,
+            developmentWatcherFailures: $this->developmentWatcher?->failureCount()
+                ?? $this->developmentWatcherFailures,
         );
     }
 
@@ -284,6 +300,17 @@ final class Supervisor
         if ($this->children === []) {
             $this->loop->stop();
         }
+    }
+
+    public function watch(DevelopmentWatchPolicy $policy): self
+    {
+        if ($this->started) {
+            throw new LogicException('Supervisor topology is frozen after run() starts.');
+        }
+
+        $this->developmentWatchPolicy = $policy;
+
+        return $this;
     }
 
     /** @return array<string, int> */
@@ -644,6 +671,21 @@ final class Supervisor
         if ($setCurrent) {
             $this->currentSlots[$group->name][$slot] = $pid;
         }
+    }
+
+    private function startDevelopmentWatcher(): void
+    {
+        $policy = $this->developmentWatchPolicy;
+        if ($policy === null || !$policy->enabled) {
+            return;
+        }
+
+        $this->developmentWatcher = new DevelopmentWatcher(
+            $this->loop,
+            $policy,
+            $this->reload(...),
+        );
+        $this->developmentWatcher->start();
     }
 
     private function stopChild(

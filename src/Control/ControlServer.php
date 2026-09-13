@@ -107,6 +107,7 @@ final class ControlServer
     {
         return [
             'group' => $worker->group,
+            'role' => $worker->role->value,
             'slot' => $worker->slot,
             'pid' => $worker->pid,
             'generation' => $worker->generation,
@@ -241,6 +242,8 @@ final class ControlServer
             'reloading' => $status->reloading,
             'reload_queued' => $status->reloadQueued,
             'reload_failed' => $status->reloadFailed,
+            'development_watcher_active' => $status->developmentWatcherActive,
+            'development_watcher_failures' => $status->developmentWatcherFailures,
             'generation' => $status->generation,
             'generation_ready' => $status->generationReady,
             'worker_count' => $status->workerCount,
