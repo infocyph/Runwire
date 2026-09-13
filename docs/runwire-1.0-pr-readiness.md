@@ -33,6 +33,7 @@ Batch J includes:
 - refreshed deployment, lifecycle, operations and benchmark documentation;
 - a strict comparative-evidence validator that rejects malformed, unsafe or non-comparable records with a non-zero CLI exit;
 - CI acceptance proving valid comparative evidence renders and mismatched evidence is rejected;
+- isolated validator-only synthetic fixtures that are created outside `benchmark-results/`, never uploaded as benchmark evidence and never used for performance claims;
 - exact-head PHP 8.4/8.5 Benchmarks and Security & Standards workflows.
 
 The final PR head must have:
@@ -52,6 +53,8 @@ The final PR head must have:
 Runwire-only CI benchmarks are regression evidence, not a universal runtime ranking. Public cross-runtime performance positioning requires equivalent real-runtime records with the same hardware, PHP version, protocol, workload, instrumentation, worker count, concurrency and duration plus throughput, p50/p95/p99, errors, CPU and RSS.
 
 `benchmarks/comparative_evidence.php` validates independently collected records and refuses invalid or mismatched comparisons. Missing peer-runtime evidence must remain missing; it must never be filled with estimates or results copied from unrelated public benchmarks.
+
+The workflow's validator fixtures are deliberately synthetic **test inputs only**. They use `validator-fixture-*` identities, live in a temporary directory, are deleted after the validator check and are excluded from uploaded benchmark artifacts. They are not Runwire or peer-runtime measurements.
 
 Real peer-runtime measurements are therefore a **performance-claim gate**, not a Runwire correctness/release gate. Runwire 1.0 may ship without a comparative ranking; no comparative or “fastest/top-tier” claim may be published until equivalent peer evidence exists.
 

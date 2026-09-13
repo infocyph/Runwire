@@ -60,58 +60,60 @@ jobs:
       - name: Validate comparative evidence gate
         shell: bash
         run: |
-          mkdir -p benchmark-results/comparative-fixtures
-          cat > benchmark-results/comparative-fixtures/runwire.json <<'JSON'
+          fixture_dir="$(mktemp -d)"
+          trap 'rm -rf "$fixture_dir"' EXIT
+
+          cat > "$fixture_dir/fixture-a.json" <<'JSON'
           {
-            "runtime": "runwire-native",
-            "runtime_version": "1.0-pr",
+            "runtime": "validator-fixture-a",
+            "runtime_version": "test-only",
             "protocol": "http/1.1",
-            "workload": "plaintext-minimal",
-            "hardware_id": "ci-fixture",
+            "workload": "validator-only",
+            "hardware_id": "validator-fixture",
             "php_version": "${{ matrix.php-version }}",
-            "instrumentation": "default",
-            "workers": 4,
-            "concurrency": 32,
-            "duration_seconds": 30,
-            "throughput_rps": 1000.0,
+            "instrumentation": "test-only",
+            "workers": 1,
+            "concurrency": 1,
+            "duration_seconds": 1,
+            "throughput_rps": 1.0,
             "latency_ms": {"p50": 1.0, "p95": 2.0, "p99": 3.0},
             "errors_total": 0,
             "error_rate": 0.0,
-            "cpu_percent": 75.0,
-            "rss_peak_bytes": 67108864
+            "cpu_percent": 1.0,
+            "rss_peak_bytes": 1
           }
           JSON
-          cat > benchmark-results/comparative-fixtures/peer.json <<'JSON'
+          cat > "$fixture_dir/fixture-b.json" <<'JSON'
           {
-            "runtime": "peer-runtime",
-            "runtime_version": "fixture",
+            "runtime": "validator-fixture-b",
+            "runtime_version": "test-only",
             "protocol": "http/1.1",
-            "workload": "plaintext-minimal",
-            "hardware_id": "ci-fixture",
+            "workload": "validator-only",
+            "hardware_id": "validator-fixture",
             "php_version": "${{ matrix.php-version }}",
-            "instrumentation": "default",
-            "workers": 4,
-            "concurrency": 32,
-            "duration_seconds": 30,
-            "throughput_rps": 900.0,
-            "latency_ms": {"p50": 1.2, "p95": 2.4, "p99": 3.6},
+            "instrumentation": "test-only",
+            "workers": 1,
+            "concurrency": 1,
+            "duration_seconds": 1,
+            "throughput_rps": 2.0,
+            "latency_ms": {"p50": 1.0, "p95": 2.0, "p99": 3.0},
             "errors_total": 0,
             "error_rate": 0.0,
-            "cpu_percent": 80.0,
-            "rss_peak_bytes": 75497472
+            "cpu_percent": 2.0,
+            "rss_peak_bytes": 2
           }
           JSON
-          jq '.concurrency = 64' benchmark-results/comparative-fixtures/peer.json \
-            > benchmark-results/comparative-fixtures/mismatch.json
+          jq '.concurrency = 2' "$fixture_dir/fixture-b.json" > "$fixture_dir/mismatch.json"
 
           php benchmarks/comparative_evidence.php \
-            benchmark-results/comparative-fixtures/runwire.json \
-            benchmark-results/comparative-fixtures/peer.json \
-            > benchmark-results/comparative-fixtures/rendered.md
+            "$fixture_dir/fixture-a.json" \
+            "$fixture_dir/fixture-b.json" \
+            > /dev/null
 
           if php benchmarks/comparative_evidence.php \
-            benchmark-results/comparative-fixtures/runwire.json \
-            benchmark-results/comparative-fixtures/mismatch.json; then
+            "$fixture_dir/fixture-a.json" \
+            "$fixture_dir/mismatch.json" \
+            > /dev/null 2>&1; then
             echo "comparative evidence mismatch unexpectedly passed" >&2
             exit 1
           fi
