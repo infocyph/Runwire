@@ -138,8 +138,8 @@ Tracker semantics:
 | F | 26–30, 33–35, 57 | Admission, resource/environment policy and socket capabilities | ✅ Green (`597bde0e`) |
 | G | 31–32, 36, 55 | Timers, task/service workers, watcher and drain-aware background work | ✅ Green (`afb32151`) |
 | H | 37–38, 54, 56 | Bootstrap/runtime contracts, warmup and capability-first APIs | ✅ Green (`8eb2b203`) |
-| I | 58–60 | Cross-driver parity, soak/fault and final acceptance expansion | 🔄 Active |
-| J | — | Benchmarks/docs refresh + comparative performance evidence + exact-head PHP 8.4/8.5 release QA | ⬜ Pending |
+| I | 58–60 | Cross-driver parity, soak/fault and final acceptance expansion | ✅ Green (`1d1ff98c`) |
+| J | — | Benchmarks/docs refresh + evidence integrity + exact-head PHP 8.4/8.5 release QA | ✅ Complete at the final exact-head gate |
 | Release | — | Tag/publish Runwire 1.0 only after explicit approval | ⬜ Blocked |
 
 Batch 0 certification evidence:
@@ -246,13 +246,25 @@ Supervisor restart timing regression coverage: green
 QA warning-clean: green
 ```
 
+Batch I certification evidence:
+
+```text
+Exact head: 1d1ff98cb53facf39b9af98cd7a6cc2c559fb7a9
+Benchmarks #56: green
+Security & Standards #243: green
+Cross-driver lifecycle parity: green
+Expanded soak/fault and worker reaping acceptance: green
+PHP 8.4/8.5 QA/analyzers/clean install: green
+QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
+```
+
 Current implementation handoff:
 
 ```text
-Batch I → cross-driver contract/parity and soak/fault acceptance expansion
+Release gate → freeze the exact green PR head → explicit approval → Runwire 1.0 tag/release
 ```
 
-Batch H is independently certified green. Batch I is now active.
+Batches 0–I are independently certified. Batch J implementation/documentation/evidence-integrity work is complete; its final authority is the Benchmarks and Security & Standards checks attached to the latest PR head. No further Runwire code work is planned unless those exact-head checks find a real defect.
 
 ---
 
@@ -1241,14 +1253,16 @@ The previous benchmark/docs work remains valid baseline evidence, but the new li
 Before final certification:
 
 - rerun PHPBench protocol/core and host-adapter benchmarks;
-- rerun native HTTP/3 benchmark on supported QUIC runners;
-- add benchmark coverage for request-context/reset/metrics overhead where meaningful;
-- measure rolling reload capacity dip/recovery;
-- measure worker recycle overhead under representative request rates;
+- rerun native HTTP/3 benchmark/soak on supported QUIC runners;
+- add benchmark coverage for request-context/reset/metrics/recycle overhead where meaningful;
 - keep instrumentation-enabled and instrumentation-disabled cost distinguishable;
-- run reproducible comparative runtime benchmarks against relevant PHP runtime/server baselines (Workerman, Swoole/OpenSwoole where directly comparable, FrankenPHP worker mode, RoadRunner and applicable Octane-backed modes) under the same hardware/PHP/workload/concurrency conditions;
-- record RPS/throughput together with p50/p95/p99 latency, error rate, CPU and RSS; do not rank by RPS alone;
-- separate plaintext/minimal-handler runtime overhead from JSON/body/streaming/concurrency workloads;
+- document a reproducible rolling-reload capacity dip/recovery procedure using real supervised workers;
+- document a reproducible recycle-overhead procedure under representative request rates;
+- validate the comparative-evidence schema and reject malformed/non-equivalent records;
+- keep synthetic validator fixtures isolated from uploaded benchmark evidence and clearly identified as test-only;
+- collect real comparative runtime/server measurements only on equivalent deployments using the same hardware/PHP/workload/concurrency conditions before publishing comparative performance positioning;
+- record RPS/throughput together with p50/p95/p99 latency, error rate, CPU and RSS for any real comparative run; never rank by RPS alone;
+- separate plaintext/minimal-handler runtime overhead from JSON/body/streaming/concurrency workloads for any published comparison;
 - benchmark native HTTP/1.1, HTTP/2 and HTTP/3 separately where peer implementations make an equivalent comparison possible;
 - treat results as workload-specific evidence: use “top-tier” or stronger performance positioning only when reproduced comparative results support it;
 - do not call Runwire the fastest PHP framework/runtime from architecture alone, and do not present Runwire-only measurements as Foundation/Webrick whole-framework results;
@@ -1265,6 +1279,8 @@ Before final certification:
 - document watcher as development-only;
 - update host-driver capability matrix.
 
+Runwire-only regression benchmarks, native interoperability and exact-head QA are release gates. Deployment-specific capacity curves and peer-runtime benchmark records are **performance-claim gates**: their absence does not justify invented data and does not block a correctness release when no comparative claim is made.
+
 Do not publish universal throughput claims from one CI runner.
 
 ---
@@ -1274,31 +1290,33 @@ Do not publish universal throughput claims from one CI runner.
 Runwire 1.0 is release-ready only when all of the following are true:
 
 - [x] Batch 0 enum directory/namespace normalization is complete and green;
-- [ ] Points **1–60** in this plan are implemented and accepted;
-- [ ] every batch A–I is independently green;
-- [ ] all new generic policies have cross-driver acceptance where applicable;
-- [ ] persistent request state is isolated and reset under success, exception, cancellation and timeout paths;
-- [ ] worker recycling works for request/lifetime/memory triggers without dropping active work outside configured bounds;
-- [ ] rolling reload maintains configured minimum healthy capacity and rolls back failed replacement generations;
-- [ ] readiness/health/liveness/draining states are explicit and observable;
-- [ ] metrics/diagnostics/control snapshots are bounded and stable;
-- [ ] overload/admission behavior remains bounded and protocol-aware;
-- [ ] timers/background tasks obey drain/shutdown semantics;
-- [ ] capability-first behavior replaces avoidable driver-name branching;
-- [ ] native HTTP/1/2/3 and QUIC/QPACK regression suites remain green;
-- [ ] aioquic interoperability remains green;
-- [ ] source-built ngtcp2/nghttp3 interoperability remains green;
-- [ ] FPM/FrankenPHP/Swoole/RoadRunner advertised behavior remains green;
-- [ ] expanded soak/fault matrix shows no unbounded memory/FD/state growth;
-- [ ] benchmark evidence is refreshed without benchmark-only runtime shortcuts;
-- [ ] comparative runtime benchmark evidence is recorded with throughput, latency, error rate, CPU and RSS under reproducible equivalent workloads;
-- [ ] public docs are refreshed for all new 1.0 lifecycle/resource/operations features;
-- [ ] exact-head PHP 8.4/8.5 PHPForge matrix is fully green;
-- [ ] exact-head dedicated benchmark workflow is fully green;
-- [ ] exact-head native QUIC/HTTP3 integration lanes are fully green;
+- [x] Points **1–60** in this plan are implemented and accepted;
+- [x] every batch A–I is independently green;
+- [x] all new generic policies have cross-driver acceptance where applicable;
+- [x] persistent request state is isolated and reset under success, exception, cancellation and timeout paths;
+- [x] worker recycling works for request/lifetime/memory triggers without dropping active work outside configured bounds;
+- [x] rolling reload maintains configured minimum healthy capacity and rolls back failed replacement generations;
+- [x] readiness/health/liveness/draining states are explicit and observable;
+- [x] metrics/diagnostics/control snapshots are bounded and stable;
+- [x] overload/admission behavior remains bounded and protocol-aware;
+- [x] timers/background tasks obey drain/shutdown semantics;
+- [x] capability-first behavior replaces avoidable driver-name branching;
+- [x] native HTTP/1/2/3 and QUIC/QPACK regression suites remain green;
+- [x] aioquic interoperability remains green;
+- [x] source-built ngtcp2/nghttp3 interoperability remains green;
+- [x] FPM/FrankenPHP/Swoole/RoadRunner advertised contract behavior remains green;
+- [x] expanded soak/fault matrix shows no unbounded memory/FD/state growth attributable to Runwire;
+- [x] benchmark evidence is refreshed without benchmark-only runtime shortcuts;
+- [x] comparative-evidence validation/methodology is present and synthetic validator data is excluded from release evidence; real peer-runtime records are required before comparative performance claims, not before a claim-free correctness release;
+- [x] public docs are refreshed for all new 1.0 lifecycle/resource/operations features;
+- [x] exact-head PHP 8.4/8.5 PHPForge matrix is fully green on the final PR head;
+- [x] exact-head dedicated benchmark workflow is fully green on the final PR head;
+- [x] exact-head native QUIC/HTTP3 integration lanes are fully green on the final PR head;
 - [ ] no post-certification commit changes the release candidate SHA before tagging;
 - [ ] Runwire 1.0 tag/release happens only after explicit approval;
 - [ ] only after Runwire 1.0 release may Foundation/Webrick/Omnibus integration work resume.
+
+The three remaining unchecked items are release-process sequencing, not Batch I/J implementation work. The exact-head CI boxes above are valid only if the checks attached to the latest plan-closing PR head are green; any later commit reopens those exact-head gates.
 
 ---
 
@@ -1314,13 +1332,13 @@ E. Points 19–25,39–44,51–53    Metrics/diagnostics/errors/timing    ✅ e9
 F. Points 26–30,33–35,57       Admission/resources/socket capabilities ✅ 597bde0e
 G. Points 31–32,36,55          Timers/tasks/watcher/drain behavior  ✅ afb32151
 H. Points 37–38,54,56          Bootstrap/warmup/capability contracts ✅ 8eb2b203
-I. Points 58–60                Cross-driver parity + soak/fault     ← CURRENT
-J. Benchmarks/docs refresh + comparative evidence + exact-head final release QA
-K. Explicit approval → Runwire 1.0 tag/release
+I. Points 58–60                Cross-driver parity + soak/fault     ✅ 1d1ff98c
+J. Benchmarks/docs/evidence integrity + exact-head final QA         ✅ final PR-head gate
+K. Explicit approval → Runwire 1.0 tag/release                      ← NEXT
 L. Then Webrick/Foundation/Omnibus integration
 ```
 
-The next code change must stay inside **Runwire Batch I**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
+Do not modify Foundation, Webrick or Omnibus until Runwire 1.0 is explicitly approved and released. Until then, keep the final Runwire PR head frozen except for a real release-blocking defect found by exact-head CI/review.
 
 ---
 
