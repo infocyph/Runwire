@@ -21,9 +21,7 @@ final class CancellationToken
 
     private ?CancellationReason $reason = null;
 
-    public function __construct(private RequestDeadline $deadline)
-    {
-    }
+    public function __construct(private RequestDeadline $deadline) {}
 
     public function cancel(CancellationReason $reason): bool
     {

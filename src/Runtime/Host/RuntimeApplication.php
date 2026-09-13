@@ -14,9 +14,6 @@ use Infocyph\Runwire\RuntimeContext;
 
 final class RuntimeApplication
 {
-    /** @var array<int, RequestContext> */
-    private array $activeContexts = [];
-
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     private readonly Closure $handler;
 
@@ -29,6 +26,9 @@ final class RuntimeApplication
 
     /** @var Closure(): void|null */
     private readonly ?Closure $shutdownCallback;
+
+    /** @var array<int, RequestContext> */
+    private array $activeContexts = [];
 
     private bool $shutdown = false;
 

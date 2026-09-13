@@ -14,25 +14,19 @@ final class RequestContext
 {
     private const int DEFAULT_MAX_ATTRIBUTES = 64;
 
+    public readonly CancellationToken $cancellation;
+
     /** @var array<string, mixed> */
     private array $attributes = [];
 
-    private bool $bound;
-
     private bool $completed = false;
 
-    private RequestDeadline $deadline;
-
-    private RuntimeContext $runtime;
-
-    public readonly CancellationToken $cancellation;
-
     private function __construct(
-        RuntimeContext $runtime,
+        private RuntimeContext $runtime,
         public readonly string $requestId,
         public readonly int $startMonotonicNanoseconds,
-        RequestDeadline $deadline,
-        bool $bound,
+        private RequestDeadline $deadline,
+        private bool $bound,
         private readonly int $maxAttributes = self::DEFAULT_MAX_ATTRIBUTES,
     ) {
         self::assertRequestId($requestId);
@@ -42,11 +36,7 @@ final class RequestContext
         if ($maxAttributes < 1 || $maxAttributes > 1_024) {
             throw new InvalidArgumentException('Request context attribute limit must be between 1 and 1024.');
         }
-
-        $this->runtime = $runtime;
-        $this->deadline = $deadline;
-        $this->bound = $bound;
-        $this->cancellation = new CancellationToken($deadline);
+        $this->cancellation = new CancellationToken($this->deadline);
     }
 
     public static function create(
