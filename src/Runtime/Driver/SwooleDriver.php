@@ -88,6 +88,28 @@ final class SwooleDriver implements HostDriverInterface
         return str_contains($address, ':') ? sprintf('[%s]:%s', $address, $portString) : $address . ':' . $portString;
     }
 
+    private static function configureOpenSwooleFiberContext(): void
+    {
+        $version = phpversion('openswoole');
+        if (!is_string($version) || version_compare($version, '26.2.0', '<')) {
+            return;
+        }
+
+        $coroutineClass = 'OpenSwoole\\Coroutine';
+        if (!class_exists($coroutineClass)) {
+            return;
+        }
+
+        try {
+            $set = new ReflectionMethod($coroutineClass, 'set');
+        } catch (ReflectionException) {
+            return;
+        }
+        $set->invoke(null, [
+            'use_fiber_context' => true,
+        ]);
+    }
+
     /** @param array<string, mixed> $server */
     private static function encrypted(array $server): bool
     {
@@ -128,28 +150,6 @@ final class SwooleDriver implements HostDriverInterface
 
             return $reflection->newInstance($host, $port);
         };
-    }
-
-    private static function configureOpenSwooleFiberContext(): void
-    {
-        $version = phpversion('openswoole');
-        if (!is_string($version) || version_compare($version, '26.2.0', '<')) {
-            return;
-        }
-
-        $coroutineClass = 'OpenSwoole\\Coroutine';
-        if (!class_exists($coroutineClass)) {
-            return;
-        }
-
-        try {
-            $set = new ReflectionMethod($coroutineClass, 'set');
-        } catch (ReflectionException) {
-            return;
-        }
-        $set->invoke(null, [
-            'use_fiber_context' => true,
-        ]);
     }
 
     private static function protocolVersion(string $protocol): ProtocolVersion
