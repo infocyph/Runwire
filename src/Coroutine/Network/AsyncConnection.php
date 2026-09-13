@@ -38,7 +38,7 @@ final class AsyncConnection
         $connection->claimCallbacks(
             $this,
             fn(Connection $connection) => $this->handleData($connection),
-            fn() => $this->handleDrain(),
+            fn(Connection $connection) => $this->handleDrain($connection),
             fn(Connection $connection) => $this->handleEof($connection),
         );
         $connection->onClose(
@@ -187,8 +187,9 @@ final class AsyncConnection
         }
     }
 
-    private function handleDrain(): void
+    private function handleDrain(Connection $connection): void
     {
+        unset($connection);
         $this->resolveDrain(null);
     }
 
