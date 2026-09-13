@@ -14,11 +14,11 @@ use LogicException;
 
 final class CoroutineRuntime
 {
+    private readonly FiberScheduler $scheduler;
+
     private bool $requestRunning = false;
 
     private bool $running = false;
-
-    private readonly FiberScheduler $scheduler;
 
     public function __construct(
         ?LoopInterface $loop = null,

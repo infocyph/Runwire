@@ -27,11 +27,13 @@ use Throwable;
 /** @internal */
 final class FiberScheduler
 {
+    private readonly SchedulerContext $context;
+
+    private readonly ReadyQueue $ready;
+
     private int $cancelledTotal = 0;
 
     private int $completedTotal = 0;
-
-    private readonly SchedulerContext $context;
 
     private ?Task $currentTask = null;
 
@@ -44,8 +46,6 @@ final class FiberScheduler
     private int $failedTotal = 0;
 
     private int $nextTaskId = 1;
-
-    private readonly ReadyQueue $ready;
 
     private int $readyQueueMaxDepth = 0;
 
