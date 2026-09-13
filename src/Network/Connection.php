@@ -11,9 +11,9 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
+use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use InvalidArgumentException;
-use LogicException;
 use RuntimeException;
 use Throwable;
 
@@ -29,13 +29,13 @@ final class Connection
 
     private readonly ConnectionTimeouts $timeouts;
 
+    private readonly ConnectionCallbackOwnership $callbackOwnership;
+
     private int $backpressureEvents = 0;
 
     private int $bytesRead = 0;
 
     private int $bytesWritten = 0;
-
-    private ?object $callbackOwner = null;
 
     /** @var list<Closure> */
     private array $closeCallbacks = [];
@@ -88,6 +88,7 @@ final class Connection
         $this->startedAtNanoseconds = self::nowNanoseconds();
         $this->receiveBuffer = new ByteQueue();
         $this->sendBuffer = new ByteQueue();
+        $this->callbackOwnership = new ConnectionCallbackOwnership();
         $this->timeouts = new ConnectionTimeouts(
             $loop,
             $limits->idleTimeoutSeconds,
@@ -137,17 +138,12 @@ final class Connection
         callable $onDrain,
         callable $onEof,
     ): void {
-        if ($this->callbackOwner !== null) {
-            throw new LogicException('Connection callback slots are already exclusively owned.');
-        }
-        if ($this->dataCallback !== null || $this->drainCallback !== null || $this->eofCallback !== null) {
-            throw new LogicException('Connection callbacks are already configured and cannot be claimed exclusively.');
-        }
-        if ($this->state === ConnectionState::CLOSED) {
-            throw new LogicException('Closed connections cannot grant exclusive callback ownership.');
-        }
+        $this->callbackOwnership->claim(
+            $owner,
+            $this->dataCallback !== null || $this->drainCallback !== null || $this->eofCallback !== null,
+            $this->state === ConnectionState::CLOSED,
+        );
 
-        $this->callbackOwner = $owner;
         $this->dataCallback = Closure::fromCallable($onData);
         $this->drainCallback = Closure::fromCallable($onDrain);
         $this->eofCallback = Closure::fromCallable($onEof);
@@ -316,11 +312,7 @@ final class Connection
     /** @internal Releases callback slots previously claimed through claimCallbacks(). */
     public function releaseCallbacks(object $owner): void
     {
-        if ($this->callbackOwner !== $owner) {
-            throw new LogicException('Only the exclusive callback owner may release connection callback slots.');
-        }
-
-        $this->callbackOwner = null;
+        $this->callbackOwnership->release($owner);
         $this->dataCallback = null;
         $this->drainCallback = null;
         $this->eofCallback = null;
@@ -398,9 +390,7 @@ final class Connection
 
     private function assertCallbackSlotsUnclaimed(): void
     {
-        if ($this->callbackOwner !== null) {
-            throw new LogicException('Connection callback slots are exclusively owned by an adapter.');
-        }
+        $this->callbackOwnership->assertUnclaimed();
     }
 
     private function beginDrain(CloseReason $reason): void
