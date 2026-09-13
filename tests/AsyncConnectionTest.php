@@ -173,17 +173,18 @@ it('prevents callback-core consumers from overwriting adapter-owned callback slo
 
     try {
         $runtime->run(function (CoroutineScope $scope) use ($connection): void {
-            $connection = new AsyncConnection($scope, $connection);
+            $async = new AsyncConnection($scope, $connection);
 
             try {
-                expect(static fn() => $connection->write(''))->not->toThrow(Throwable::class);
-                expect(static fn() => $connection->state())->not->toThrow(Throwable::class);
+                expect(static fn() => $connection->onData(static function (): void {}))
+                    ->toThrow(LogicException::class, 'Connection callback slots are exclusively owned by an adapter.');
             } finally {
-                $connection->abort();
+                $async->abort();
             }
         });
 
-        expect(static fn() => $connection->onData(static function (): void {}))->not->toThrow(Throwable::class);
+        expect($connection->state())->toBe(ConnectionState::CLOSED)
+            ->and($runtime->activeTaskCount())->toBe(0);
     } finally {
         if ($connection->state() !== ConnectionState::CLOSED) {
             $connection->abort();
