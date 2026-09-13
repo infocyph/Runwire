@@ -1,8 +1,16 @@
-# Runwire 1.0 — Final Runtime Hardening & Foundation 3 Launch Plan
+# Runwire 1.0 — Coroutine & Structured Concurrency Finalization Plan
 
 ## Status
 
 Target release: **Runwire 1.0**
+
+Active branch: `feature/runwire-1.0`
+
+Coroutine implementation baseline before this plan:
+
+```text
+894a1bbc696691df3b24efaeccf5dc74085ce045
+```
 
 Primary launch consumer: **Foundation 3**  
 Primary HTTP integration: **Webrick**  
@@ -16,1345 +24,845 @@ Composer:  infocyph/runwire
 Namespace: Infocyph\Runwire
 ```
 
-Tagline:
+Runwire remains the low-level Infocyph process, supervisor, event-loop, network, HTTP and host-runtime substrate.
 
-> A high-performance process and network runtime for PHP.
+Priority remains:
 
-Runwire is the low-level Infocyph process, supervisor, event-loop, network, HTTP and host-runtime substrate. It must remain framework agnostic and capability driven.
-
-Priority:
-
-> correctness → process isolation/ownership → persistent-runtime safety → bounded resource use → graceful lifecycle → observability → performance → scalability → ergonomics
-
-Architectural references for this final 1.0 hardening pass include Laravel Octane, Workerman, Symfony Runtime and Hyperf. Runwire may adopt useful runtime concepts from them, but must not depend on, clone, or become an application framework like any of them.
+> correctness → isolation → structured ownership → bounded resource use → graceful lifecycle → observability → performance → ergonomics
 
 ---
 
-# 1. Current baseline
+# 1. Plan cleanup and scope reset
 
-The previous release-check candidate was:
+The previous Runwire 1.0 hardening program, including Batches 0–J and the former 60-point tracker, is complete as implementation history and is **removed from the active development plan**.
+
+Historical certification/evidence remains recorded in:
 
 ```text
-7ff7eba694e4b15b1620aa30456b23ab0804f633
+docs/runwire-1.0-pr-readiness.md
 ```
 
-At that head the existing Runwire implementation had already passed:
+Existing behavior and tests from those completed batches remain mandatory regression coverage. They are not re-planned here.
 
-- native HTTP/1.1, HTTP/2 and HTTP/3 implementation and semantic parity;
-- HPACK/QPACK protocol acceptance and bounded abuse/fault coverage;
-- QUIC v1 + TLS 1.3 + `h3` integration;
-- aioquic and source-built ngtcp2/nghttp3 independent interoperability;
-- graceful HTTP/3 GOAWAY/drain/reload and explicit 0-RTT-disabled policy;
-- FPM, FrankenPHP, Swoole/OpenSwoole and RoadRunner host-driver execution;
-- persistent host-driver request-isolation/recycle acceptance;
-- HTTP/1/2/3 and host-runtime soak/fault acceptance;
-- PHPBench and native HTTP/3 benchmark evidence;
-- public deployment/tuning/benchmark documentation;
-- PHP 8.4/8.5 PHPForge QA, analyzers and clean-install gates.
+This document now tracks only the remaining coroutine/structured-concurrency work required before the final Runwire 1.0 exact-head release certification.
 
-Those completed items are **not part of the active tracker anymore**. Existing tests and behavior remain regression requirements.
+Because the 1.0 scope is being extended again, no previously green head is the final release head. A new exact-head Benchmarks + Security & Standards certification is required after this plan is complete.
 
-Because the 1.0 scope is now expanded by the 60 points below, `7ff7eba6` is a **pre-hardening baseline**, not the final release candidate. A new exact-head release certification is required after this plan is complete.
+Foundation, Webrick and Omnibus remain untouched until Runwire 1.0 itself is explicitly approved and released.
 
 ---
 
-# 2. Hard scope boundaries
+# 2. Architecture decision
 
-Runwire owns:
+Runwire 1.0 will own a **lightweight low-level coroutine and structured-concurrency runtime**.
 
-- process execution and prefork supervision;
-- worker groups, generations, readiness, reload, recycle and shutdown;
-- event-loop/timer/deferred/watcher mechanics;
-- TCP, UDP, Unix sockets and TLS transport;
-- native HTTP/1.1, HTTP/2 and HTTP/3 runtime mechanics;
-- bounded protocol/network resource policy;
-- host-runtime adaptation for FPM, FrankenPHP, Swoole/OpenSwoole and RoadRunner;
-- generic application/runtime lifecycle contracts;
-- request/runtime context, cancellation, deadlines and reset lifecycle;
-- runtime metrics/diagnostics/control contracts;
-- capability detection and capability-first behavior.
+This reverses the earlier plan boundary that deferred a Fiber scheduler until after 1.0. The new coroutine layer is now part of the Runwire 1.0 release scope.
 
-Runwire does **not** own:
+Runwire will own:
 
-- DI/MVC/ORM/application containers;
-- application routing/controllers/middleware;
-- auth/session/business validation;
-- database/cache/queue frameworks;
-- Hyperf-style AOP/annotation/RPC framework features;
-- Octane cache/table application features;
-- Workerman-style global static application programming model;
-- a full coroutine/Fiber application framework;
-- systemd/Docker/Kubernetes replacement;
-- arbitrary remote shell or fake PHP sandbox;
-- custom QUIC cryptography, congestion control or loss recovery.
+- a PHP `Fiber` based task scheduler;
+- deterministic task lifecycle and result/exception propagation;
+- structured task groups/scopes;
+- cancellation and deadline propagation;
+- coroutine-local/task-local context;
+- futures/deferred completion;
+- bounded channels and synchronization primitives;
+- coroutine-aware sleep/yield and event-loop suspension;
+- explicit coroutine-aware network/runtime integration;
+- lifecycle/drain integration for request, worker and runtime shutdown;
+- bounded diagnostics and metrics.
 
-Foundation/Webrick/Omnibus remain untouched until the new Runwire 1.0 release gates close.
+Runwire will **not** own:
 
----
+- a framework/application container;
+- transparent monkey-patching of arbitrary blocking PHP APIs;
+- an application-level async ORM/cache/HTTP-client framework;
+- Go-style goroutine semantics beyond what PHP Fibers and Runwire's event loop can safely guarantee;
+- a dependency on Workerman Coroutine, Revolt, Amp or another coroutine framework;
+- Swow support unless Runwire separately adopts Swow as a host runtime;
+- unstructured process-global fire-and-forget tasks.
 
-# 3. Dependency, structure and design rules
-
-- Runwire must not require Foundation, Webrick, Omnibus, ReqShield, Pathwise, InterMix, DBLayer or CacheLayer.
-- PHPForge remains development-only.
-- QUIC remains optional at package-install time; native HTTP/3 fails fast when its runtime capability is unavailable.
-- Generic runtime behavior must live above driver-specific options wherever technically possible.
-- Consumers should use capabilities and contexts rather than runtime-name switches.
-- Persistent/request-local state must never rely on unbounded process-global mutable storage.
-- All deadlines and lifecycle durations use monotonic time.
-- Runtime/metrics/diagnostics APIs must have bounded cardinality and bounded response sizes.
-- New hot-path instrumentation must be cheap when disabled.
-- New optional OS features must fail capability checks cleanly and must not reduce distro portability.
-- **All enums must live in dedicated domain-local `Enum/` directories and namespaces.** Do not leave enum declarations mixed beside service/state-machine/value-object classes simply because they were originally top-level.
-- Prefer domain-local enum ownership such as `Runtime/Enum`, `Supervisor/Enum`, `Process/Enum`, `Network/Enum`, `Http/Http2/Enum` and `Http/Http3/Enum`; use a root enum namespace only for a truly cross-domain enum with no clearer owner.
-- Because Runwire 1.0 is unreleased, enum namespace/directory normalization may make clean namespace changes now; do not add compatibility aliases solely to preserve unreleased paths.
-- No “fastest PHP framework/runtime” or “top of the whole PHP ecosystem” claim may be made from architecture or one CI result alone. Performance positioning requires reproducible comparative evidence with workload, protocol, worker count, concurrency, hardware, PHP/runtime versions, errors, CPU/RSS and latency percentiles recorded.
-- Runwire runtime-layer results must not be presented as Foundation/Webrick full-framework results; those require a later integrated benchmark after the consumer stack exists.
+The normative implementation is **Runwire scheduler + PHP Fiber + Runwire `LoopInterface`**. Host-specific engines may provide loop integration, but must not alter public coroutine semantics.
 
 ---
 
-# 4. Implementation tracker
+# 3. Workerman Coroutine reference — adopt concepts, not implementation
+
+Reference reviewed: `workerman-php/coroutine`.
+
+Useful concepts to carry into Runwire:
+
+- one public coroutine model with backend/runtime adaptation;
+- Fiber-backed coroutine execution;
+- channels for bounded producer/consumer coordination;
+- coroutine-local context;
+- barrier/wait coordination;
+- parallel execution helpers;
+- bounded concurrency/resource coordination.
+
+Runwire should improve on several design choices rather than clone them:
+
+- no process-global static driver selected from a global worker class;
+- no direct arbitrary `Fiber::resume()` chains that can create re-entrant scheduler behavior;
+- no destructor/garbage-collection driven barrier completion;
+- no `false` sentinel for timeout/closed-channel state because `false` must remain a valid payload;
+- no coroutine-local state that silently falls back to a mutable process-global non-Fiber context;
+- no runtime semantics coupled to Workerman timer/event-loop globals;
+- no split semantic behavior between Fiber and Swoole implementations.
+
+Workerman's `Channel`, `Context`, `Barrier`, `Parallel`, `Pool`, `Locker` and `WaitGroup` are useful feature references. Runwire's primary abstraction will instead be **structured task ownership**; `TaskGroup`/`CoroutineScope` should remove most manual WaitGroup/Barrier usage.
+
+---
+
+# 4. Existing Runwire primitives to build on
+
+The coroutine layer must extend, not bypass, the current runtime architecture.
+
+Existing foundations:
+
+```text
+src/Loop/LoopInterface.php
+src/Loop/SelectLoop.php
+src/CancellationToken.php
+src/RequestDeadline.php
+src/RequestContext.php
+src/RuntimeContext.php
+src/RuntimeCapabilities.php
+src/Runtime/ApplicationLifecycle.php
+src/Runtime/RequestExecutionPolicy.php
+src/Supervisor/WorkerContext.php
+src/Supervisor/Internal/PeriodicTaskRegistry.php
+src/Network/Connection.php
+```
+
+Important current properties:
+
+- `LoopInterface` already provides defer, delay, repeat, readable/writable watchers, cancellation, monotonic time and run/stop;
+- `SelectLoop` is monotonic and already owns timer/watcher/deferred scheduling;
+- request deadlines already use monotonic nanoseconds;
+- request cancellation is bounded and lifecycle-aware;
+- persistent request state is explicitly reset/completed;
+- host capabilities already distinguish event-loop ownership and coroutine support;
+- network connections are non-blocking and event-loop driven.
+
+Do **not** introduce a second independent timer reactor or polling loop inside the coroutine scheduler.
+
+---
+
+# 5. Core design rules
+
+## 5.1 Scheduler ownership
+
+Each `CoroutineRuntime` owns one scheduler instance. The scheduler is associated with a concrete `LoopInterface` and is never a process-global singleton.
+
+A worker/runtime may own a long-lived scheduler. A non-persistent host may create a bounded execution-local scheduler when coroutine execution is explicitly requested.
+
+A task belongs permanently to exactly one scheduler.
+
+## 5.2 No recursive resume
+
+Callbacks from timers, I/O readiness, cancellation or future completion must **enqueue** a suspended task into the scheduler ready queue. They must not recursively resume a Fiber inline.
+
+The scheduler resumes tasks only from its own dispatch cycle.
+
+This prevents callback-stack re-entry, double resume and scheduler starvation.
+
+## 5.3 Structured ownership by default
+
+Every spawned task must have an owner:
+
+```text
+runtime → worker/background scope → request scope → nested task group → task
+```
+
+A parent scope may not silently finish while owned child tasks remain live.
+
+Request code does not get an unrestricted `spawnDetached()` escape hatch. Runtime-owned background tasks must use a separate lifecycle-bound background scope that drains/cancels with the worker generation.
+
+## 5.4 Cancellation/deadline inheritance
+
+Child tasks inherit parent cancellation and the earliest applicable monotonic deadline.
+
+Parent cancellation propagates downward.
+
+A child cancelling itself does not automatically cancel its parent. Task-group failure policy decides whether one child failure cancels siblings.
+
+## 5.5 Explicit blocking boundary
+
+Runwire coroutines make Runwire-aware operations cooperative. They do **not** make arbitrary synchronous PHP calls non-blocking.
+
+Blocking filesystem/database/network/client calls continue to block the current worker unless the consumer uses a coroutine-aware/non-blocking integration.
+
+No hidden Swoole-style hook-all behavior belongs in Runwire 1.0.
+
+## 5.6 Bounded everything
+
+Task count, ready backlog, waiters and diagnostic retention must have explicit bounds or be structurally bounded by a parent policy.
+
+No completed-task registry or task-local context may grow indefinitely in a persistent worker.
+
+---
+
+# 6. Proposed public model
+
+Candidate API shape:
+
+```php
+$coroutines = new CoroutineRuntime($loop, new CoroutinePolicy());
+
+$result = $coroutines->run(function (CoroutineScope $scope): array {
+    $left = $scope->spawn(fn () => loadLeft());
+    $right = $scope->spawn(fn () => loadRight());
+
+    return [
+        $left->await(),
+        $right->await(),
+    ];
+});
+```
+
+The exact names may be refined during implementation, but the semantic model should remain stable.
+
+Primary types:
+
+```text
+Coroutine/CoroutineRuntime.php
+Coroutine/CoroutinePolicy.php
+Coroutine/CoroutineScope.php
+Coroutine/Task.php
+Coroutine/Future.php
+Coroutine/Deferred.php
+Coroutine/Channel.php
+Coroutine/Mutex.php
+Coroutine/Semaphore.php
+Coroutine/Barrier.php
+Coroutine/TaskLocal.php
+Coroutine/Enum/TaskState.php
+Coroutine/Enum/TaskGroupFailureMode.php
+Coroutine/Exception/*
+Coroutine/Internal/FiberScheduler.php
+Coroutine/Internal/Suspension.php
+Coroutine/Internal/ReadyQueue.php
+```
+
+`TaskGroup` may be a dedicated type or the concrete structured implementation behind `CoroutineScope`. Avoid exposing two overlapping concepts unless both have distinct value.
+
+No mandatory global static `Coroutine::create()` API is required for 1.0. Ergonomic helpers can be added only if they resolve an active scheduler without creating mutable process-global runtime state.
+
+---
+
+# 7. Active implementation tracker
 
 Last updated: **2026-09-13**
 
-Tracker semantics:
-
-- `⬜` = not yet implemented/accepted for the expanded 1.0 scope.
-- `🔄` = current batch.
-- `✅` = implemented and its batch QA is green.
-- **Required** blocks Runwire 1.0 release.
-- **Recommended** also belongs to Runwire 1.0 and must be completed; the label describes API importance, not release optionality.
-- **Optional/advanced** means the capability is optional or disabled by default at runtime, but its implementation/tests still belong to Runwire 1.0 because this plan includes all 60 points.
-
-## Batch tracker
-
-| Batch | Points | Scope | Status |
-| --- | ---: | --- | --- |
-| 0 | — | Enum directory/namespace normalization | ✅ Green (`1868a82f`) |
-| A | 1–4 | Generic worker recycling and accounting | ✅ Green (`a95c743c`) |
-| B | 5–10 | Runtime/request context, cancellation and deadlines | ✅ Green (`921b3589`) |
-| C | 11–15 | Application lifecycle, resetters, boot/warmup/drain | ✅ Green (`04c97cc7`) |
-| D | 16–18, 45–50 | Rolling reload, health, generation and restart semantics | ✅ Green (`47cfb924`) |
-| E | 19–25, 39–44, 51–53 | Metrics, diagnostics, errors, timing and observability | ✅ Green (`e975e28e`) |
-| F | 26–30, 33–35, 57 | Admission, resource/environment policy and socket capabilities | ✅ Green (`597bde0e`) |
-| G | 31–32, 36, 55 | Timers, task/service workers, watcher and drain-aware background work | ✅ Green (`afb32151`) |
-| H | 37–38, 54, 56 | Bootstrap/runtime contracts, warmup and capability-first APIs | ✅ Green (`8eb2b203`) |
-| I | 58–60 | Cross-driver parity, soak/fault and final acceptance expansion | ✅ Green (`1d1ff98c`) |
-| J | — | Benchmarks/docs refresh + evidence integrity + exact-head PHP 8.4/8.5 release QA | ✅ Complete at the final exact-head gate |
-| Release | — | Tag/publish Runwire 1.0 only after explicit approval | ⬜ Blocked |
-
-Batch 0 certification evidence:
-
-```text
-Exact head: 1868a82fee0e8a35b7e94131bc45c5f729983f1b
-Benchmarks #16: green
-Security & Standards #203: green
-PHP 8.4/8.5 QA/analyzers/clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-```
-
-Batch A certification evidence:
-
-```text
-Exact head: a95c743ca8efa0b1b024526b817d79db0d466da4
-Benchmarks #24: green
-Security & Standards #211: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-```
-
-Batch B certification evidence:
-
-```text
-Exact head: 921b3589d1af04998b54f8bcf8e678e7b2a3912f
-Benchmarks #27: green
-Security & Standards #214: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-```
-
-Batch C certification evidence:
-
-```text
-Exact head: 04c97cc716679e19e0d4c3e591cafc2844a59395
-Benchmarks #32: green
-Security & Standards #219: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-QA warning-clean: green
-```
-
-Batch D certification evidence:
-
-```text
-Exact head: 47cfb92486c86c1bd7a08283c9c5e5cbd360efa9
-Benchmarks #39: green
-Security & Standards #226: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-```
-
-Batch E certification evidence:
-
-```text
-Exact head: e975e28ecbb0ce4c160887018ebb910b60edc34f
-Benchmarks #43: green
-Security & Standards #230: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-QA warning-clean: green
-```
-
-Batch F certification evidence:
-
-```text
-Exact head: 597bde0e6920790cc63b419d21726092ce9646a6
-Benchmarks #46: green
-Security & Standards #233: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-QA warning-clean: green
-```
-
-Batch G certification evidence:
-
-```text
-Exact head: afb321517bf453b0db5f00c0db382ac42d8e881e
-Benchmarks #49: green
-Security & Standards #236: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-QA warning-clean: green
-```
-
-Batch H certification evidence:
-
-```text
-Exact head: 8eb2b20342130db73e98c8aee1e68235180d7c8b
-Benchmarks #52: green
-Security & Standards #239: green
-PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
-PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-Supervisor restart timing regression coverage: green
-QA warning-clean: green
-```
-
-Batch I certification evidence:
-
-```text
-Exact head: 1d1ff98cb53facf39b9af98cd7a6cc2c559fb7a9
-Benchmarks #56: green
-Security & Standards #243: green
-Cross-driver lifecycle parity: green
-Expanded soak/fault and worker reaping acceptance: green
-PHP 8.4/8.5 QA/analyzers/clean install: green
-QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
-```
-
-Current implementation handoff:
-
-```text
-Release gate → freeze the exact green PR head → explicit approval → Runwire 1.0 tag/release
-```
-
-Batches 0–I are independently certified. Batch J implementation/documentation/evidence-integrity work is complete; its final authority is the Benchmarks and Security & Standards checks attached to the latest PR head. No further Runwire code work is planned unless those exact-head checks find a real defect.
+| Batch | Scope | Status |
+| --- | --- | --- |
+| K | Cancellation substrate + coroutine capability normalization | ⬜ |
+| L | Fiber scheduler + Task/Future/Deferred core | ⬜ |
+| M | Structured concurrency + task-local context | ⬜ |
+| N | Channels + synchronization primitives | ⬜ |
+| O | Runtime/request/network/host integration | ⬜ |
+| P | Observability + soak/race/interop + benchmarks/docs + exact-head QA | ⬜ |
+| Release | Explicit approval, merge/tag/publish | ⬜ Blocked |
 
 ---
 
-## Batch 0 — Enum directory and namespace normalization
+# 8. Batch K — cancellation substrate and capability normalization
 
-Before beginning Point 1, normalize enum placement across the existing codebase.
+## K1. Split cancellation authority from observation
 
-Required structure rule:
+The existing cancellation object currently both exposes cancellation state and performs cancellation. Structured concurrency needs clearer ownership.
+
+Introduce a source/token model or equivalent internal authority split:
 
 ```text
-src/Runtime/Enum/*
-src/Supervisor/Enum/*
-src/Process/Enum/*
-src/Network/Enum/*
-src/Protocol/Enum/*
-src/Http/Enum/*
-src/Http/Http1/Enum/*
-src/Http/Http2/Enum/*
-src/Http/Http3/Enum/*
-src/Http/Http3/Qpack/Enum/*
+CancellationSource  → owns cancel()
+CancellationToken   → observes state/deadline and subscribes
 ```
 
-Use the nearest owning domain rather than forcing every enum into one global directory. Add another domain-local `Enum/` directory whenever a future domain owns multiple or domain-specific enums.
+`RequestContext` owns the source internally and continues to expose request-level cancellation behavior through its public lifecycle API.
 
-The migration must include all currently applicable enums, including existing runtime/transport/process/supervisor/protocol and HTTP/1/2/3/QPACK enums, with exact final ownership decided by semantic domain.
+## K2. Cancellable subscriptions
 
-Requirements:
+Cancellation subscriptions used by suspended tasks must be unregisterable after completion/resume.
 
-- filesystem path and namespace must agree;
-- imports/usages/tests/benchmarks/docs are updated atomically;
-- no duplicate enum definitions or compatibility aliases for unreleased namespaces;
-- no enum remains mixed at a domain root when a clear `Enum/` owner directory exists;
-- public API documentation is updated where enum FQCNs are referenced;
-- a regression test must fail if a future enum is added outside a domain-local `Enum/` directory/namespace;
-- full PHPForge QA/analyzers/clean-install gates must be green before Batch 0 is marked complete.
+Required behavior:
 
----
+- no callback accumulation after repeated waits;
+- cancellation/completion race is idempotent;
+- one waiter is resumed at most once;
+- observer exceptions never corrupt scheduler state.
 
-# 5. Runwire 1.0 hardening program — 60 points
+Add a small subscription handle rather than returning the token itself from registration.
 
-## Batch A — Generic worker recycling and accounting
+## K3. Cancellation exception/checkpoint
 
-### 1. Generic `WorkerRecyclePolicy` — Required
-
-Introduce one runtime-neutral worker recycle policy instead of leaving equivalent behavior inside individual host options.
-
-Recommended policy surface:
+Provide an explicit cancellation checkpoint such as:
 
 ```php
-new WorkerRecyclePolicy(
-    maxRequests: 10_000,
-    maxLifetimeSeconds: 3_600,
-    maxMemoryBytes: 268_435_456,
-    jitterRequests: 500,
-    jitterSeconds: 120,
-    gracefulTimeoutSeconds: 10.0,
-);
+$token->throwIfCancelled();
 ```
 
-Requirements:
+Use a dedicated `CancelledException` carrying the cancellation reason.
 
-- thresholds are soft recycle triggers, not immediate kill commands;
-- active work drains before exit within configured bounds;
-- persistent native/host workers share the same semantic contract where possible;
-- non-persistent runtimes ignore unsupported recycle dimensions explicitly rather than pretending they applied them.
+## K4. Child cancellation scopes
 
-### 2. Recycle jitter / restart staggering — Required
+A child task/scope must inherit cancellation/deadline from its parent without consuming an unbounded number of permanent callbacks on the parent token.
 
-Prevent synchronized worker retirement when workers start together and share identical thresholds.
+Child cancellation propagation should be scheduler/task-tree aware.
 
-Requirements:
+## K5. Capability cleanup
 
-- bounded jitter for request/lifetime recycling;
-- deterministic/testable injection or seed strategy;
-- jitter never exceeds configured safety bounds;
-- status/diagnostics expose the effective recycle threshold/deadline where useful.
+The current `supportsCoroutines` host capability must no longer ambiguously mean both host-native coroutine support and Runwire coroutine availability.
 
-### 3. Generic request-count accounting — Required
+Normalize capabilities so diagnostics can distinguish:
 
-Track request totals per persistent worker independently of the concrete runtime driver.
+```text
+Runwire coroutine runtime available
+host-native coroutine engine available
+host event-loop ownership
+Runwire event-loop ownership/bridge availability
+```
 
-Use the counter for:
-
-- request-limit recycling;
-- status/diagnostics;
-- failure-rate metrics;
-- soak and benchmark evidence.
-
-Accounting must not double-count retries, protocol fragments or host callbacks representing one logical request.
-
-### 4. Memory-aware worker recycling — Required
-
-Allow worker recycling after configurable memory thresholds.
-
-Requirements:
-
-- current and peak memory measurements;
-- soft threshold triggers graceful recycle;
-- no process-global hard kill solely because one request crosses a soft threshold;
-- distinguish configured memory ceiling from observed peak;
-- threshold checks remain cheap enough for persistent request paths.
+`RuntimeCapability::CONCURRENT` should describe usable Runwire concurrency semantics, not merely whether the selected host happens to expose Swoole coroutines.
 
 ---
 
-## Batch B — Runtime/request context, cancellation and deadlines
+# 9. Batch L — Fiber scheduler and task core
 
-### 5. Immutable `RuntimeContext` — Required
+## L1. `FiberScheduler`
 
-Expose runtime facts to applications/framework adapters without requiring driver-name branching.
+Implement the normative scheduler on PHP `Fiber`.
 
-Recommended information:
+Required scheduler behavior:
 
-```text
-driver
-mode
-worker slot
-generation
-pid
-persistent
-concurrent
-owns listener
-owns event loop
-owns worker pool
-runtime capabilities
-```
+- FIFO ready queue by default;
+- bounded task count/backlog;
+- monotonic task IDs scoped to one scheduler;
+- explicit task states;
+- start/resume/throw only from scheduler dispatch;
+- no recursive resume;
+- no double resume;
+- deterministic terminal cleanup;
+- uncaught task exception retained and propagated through task/group ownership;
+- scheduler itself survives one task failure;
+- configurable max resumes per event-loop tick for fairness.
 
-The context is immutable for the lifetime of one application/worker instance.
-
-### 6. First-class `RequestContext` — Required
-
-Create explicit request/stream-local execution state.
-
-Recommended information:
+Suggested states:
 
 ```text
-request id
-start monotonic time
-deadline
-cancellation token
-request-local attributes
-runtime context reference
+NEW
+RUNNABLE
+RUNNING
+SUSPENDED
+COMPLETED
+FAILED
+CANCELLED
 ```
 
-HTTP/2 and HTTP/3 concurrent streams must never share mutable request context.
+## L2. `Task`
 
-### 7. Request-scoped storage — Required
+A `Task` is a scheduler-owned handle with:
 
-Provide bounded request-local key/value storage through `RequestContext`.
+- ID/state inspection;
+- result retrieval through `await()`;
+- exception propagation;
+- cancellation request through its owning scope/source;
+- completion inspection without forcing result retention forever.
+
+Do not expose raw Fiber mutation to consumers.
+
+## L3. `Future` / `Deferred`
+
+Provide one-shot completion primitives.
+
+Requirements:
+
+- resolve once or reject once;
+- multiple awaiters allowed within configured bounds;
+- completion before await works;
+- cancellation/timeout while awaiting unregisters cleanly;
+- result payload may be any PHP value including `false` and `null`;
+- producer and consumer sides are separated (`Deferred` vs `Future`).
+
+## L4. Cooperative yield and sleep
+
+Provide scheduler-backed operations for:
+
+```text
+yield to ready queue
+sleep/delay using LoopInterface::delay()
+wait readable
+wait writable
+```
+
+Timer/watcher handles must always be cancelled/unregistered when a competing completion/cancellation path wins.
+
+## L5. Root `run()` semantics
+
+`CoroutineRuntime::run()` creates the root scope, starts the root task, drives/joins the scheduler according to loop ownership, waits for structured children, then returns the root result or throws its exception.
+
+Nested `run()` on the same scheduler must not start a second event loop.
+
+---
+
+# 10. Batch M — structured concurrency and task-local context
+
+## M1. `CoroutineScope` / task group
+
+The root and nested scopes own children.
+
+Default failure mode should be fail-fast:
+
+1. first unhandled child failure is recorded;
+2. siblings are cancelled;
+3. the scope waits for sibling cleanup within lifecycle bounds;
+4. original failure is rethrown with secondary failures available for diagnostics.
+
+An explicit collect-all mode may wait for all children and return/throw aggregated outcomes.
+
+## M2. Parent completion rule
+
+A scope callback returning does not orphan unfinished children.
+
+The scope must join them according to its policy. If parent cancellation/shutdown occurs, remaining children are cancelled and drained.
+
+## M3. Nested deadlines
+
+A child may request a tighter deadline but never extend its parent's deadline.
+
+Effective deadline:
+
+```text
+min(parent deadline, child requested deadline)
+```
+
+All scheduler timeout calculations remain monotonic.
+
+## M4. Task-local context
+
+Introduce task-local state without process-global fallback mutation.
+
+Preferred model:
+
+- task locals live on task/scope objects;
+- child tasks inherit a snapshot/reference policy explicitly;
+- child writes do not accidentally mutate sibling state;
+- task-local state is destroyed deterministically at task completion;
+- `RequestContext` may be propagated through a dedicated task-local binding rather than copied into arbitrary globals.
+
+Use typed/key-object ownership where practical rather than an unrestricted global string namespace.
+
+## M5. No request leakage
+
+For persistent runtimes, completing one request must leave:
+
+```text
+0 request-owned live tasks
+0 request-owned timers/watchers
+0 request-owned cancellation subscriptions
+0 request-owned task-local state
+```
+
+This becomes a hard persistent-runtime acceptance condition.
+
+---
+
+# 11. Batch N — channels and synchronization
+
+## N1. `Channel`
+
+Implement bounded FIFO channels.
+
+Required semantics:
+
+- capacity `0` supports rendezvous/unbuffered handoff;
+- capacity `>0` supports bounded buffering;
+- FIFO producer and consumer waiters;
+- `send()` and `receive()` support cancellation/deadline;
+- channel close wakes all affected waiters;
+- sending to a closed channel has a dedicated closed-state result/exception;
+- receiving after close drains buffered values before final closed state;
+- `false`, `null`, `0`, empty string and all other PHP values remain legal payloads;
+- no boolean sentinel overload for timeout/close.
+
+## N2. `Semaphore`
+
+Provide a bounded permit primitive for concurrency limits.
+
+Requirements:
+
+- FIFO waiters;
+- cancellation-safe acquisition;
+- no permit leak on exception/cancellation;
+- releasing above configured permits is rejected.
+
+## N3. `Mutex`
+
+Build mutex semantics on a dedicated primitive or semaphore core.
+
+Requirements:
+
+- one owner at a time;
+- cancellation-safe wait queue;
+- release by non-owner rejected;
+- no implicit recursive locking unless explicitly designed and tested.
+
+## N4. `Barrier`
+
+If retained, use an explicit counter/generation model. Do **not** rely on object destruction/GC as synchronization semantics.
+
+`TaskGroup` remains the preferred task-completion primitive; Barrier is for genuine phase coordination only.
+
+## N5. Convenience parallelism
+
+After TaskGroup is stable, a small convenience API such as parallel map/run may be added on top of scopes and semaphore limits.
+
+Do not build a second scheduler inside a `Parallel` helper.
+
+## N6. Resource pool decision
+
+Do not add a coroutine resource `Pool` merely because Workerman has one. `Channel` + `Semaphore` already provide the low-level pieces.
+
+Add a first-class pool only if a concrete Runwire-level ownership/lifecycle case cannot be expressed cleanly with those primitives.
+
+---
+
+# 12. Batch O — runtime, request, network and host integration
+
+## O1. Request root scope
+
+When coroutine execution is enabled for a request, bind one request-owned root scope to the existing `RequestContext` cancellation/deadline.
+
+Request completion order must become:
+
+```text
+handler/root task completes
+→ structured request children join/cancel
+→ coroutine request scope is empty
+→ request resetters run
+→ RequestContext completes
+```
+
+No request-owned task may survive into the next persistent request.
+
+## O2. Worker/background scope
+
+Longer-lived background tasks must be owned by worker/generation lifecycle, not request lifecycle.
+
+Worker drain/reload/shutdown must:
+
+- stop admission of new background work;
+- cancel/drain worker-owned tasks;
+- enforce a bounded grace period;
+- expose remaining task counts in diagnostics;
+- never allow tasks from an old generation to continue inside a replacement generation.
+
+## O3. Native/SelectLoop integration
+
+The existing `SelectLoop` is the first reference loop and must pass the full coroutine acceptance suite using real PHP Fibers, real timers and real stream readiness.
+
+## O4. Swoole/OpenSwoole loop bridge
+
+Do not run a blocking nested `SelectLoop` inside a Swoole/OpenSwoole event reactor.
+
+If Runwire claims coroutine support under the Swoole driver, provide a `LoopInterface` bridge/adaptor to the host reactor/timers so the **same Runwire Fiber scheduler** can be driven without blocking the host event loop.
+
+Swoole's native coroutine engine may be detected and reported, but it is not the semantic backend for Runwire tasks in 1.0 unless a later implementation proves full parity without splitting behavior.
+
+Any claimed Swoole/OpenSwoole coroutine integration requires a live extension acceptance lane, not only fake host objects.
+
+## O5. FPM / RoadRunner / FrankenPHP
+
+These runtimes may use an execution-local Runwire coroutine runtime when explicitly invoked.
 
 Rules:
 
-- never expose a magic process-global `Context::get()` store;
-- clear all request-local values at request completion;
-- permit framework integrations to hold trace/auth/local-cache metadata safely;
-- document that values must not be used as unbounded arbitrary storage.
+- no promise that arbitrary host I/O becomes async;
+- no persistent task survives request completion;
+- local scheduler/loop teardown is deterministic;
+- host lifecycle ownership remains authoritative.
 
-### 8. Cancellation token — Required
+## O6. Coroutine-aware network adapter
 
-Add a common cooperative cancellation contract.
+Runwire's current `Network\Connection` is callback/event-loop based. Add coroutine-aware adaptation without replacing the callback core.
 
-Cancellation sources include:
-
-- client disconnect;
-- HTTP/2 `RST_STREAM`;
-- HTTP/3 `RESET_STREAM` / `STOP_SENDING`;
-- request deadline expiry;
-- worker drain/shutdown where the request can no longer continue;
-- host-runtime cancellation when exposed by the host.
-
-Cancellation callbacks must be idempotent and exception-isolated.
-
-### 9. Request deadline abstraction — Required
-
-Represent execution deadlines using monotonic time and request-local state.
-
-Requirements:
-
-- deadline lookup/check is cheap;
-- expiry requests cancellation;
-- no process-global alarm for multiplexed HTTP/2/3 work;
-- host drivers map native timeout/cancellation semantics where possible;
-- `null`/unlimited behavior is explicit and bounded by outer worker/server shutdown policy.
-
-### 10. Configurable request execution limit — Required
-
-Provide a generic maximum request execution policy implemented through request deadlines/cancellation.
-
-Do not use `pcntl_alarm()` as the universal implementation because one process may serve concurrent H2/H3 streams or host-runtime requests.
-
----
-
-## Batch C — Application lifecycle, resetters, boot/warmup/drain
-
-### 11. Formal application lifecycle — Required
-
-Evolve the existing application contract into explicit lifecycle phases:
+Preferred direction:
 
 ```text
-boot()       once per worker/application instance
-warmup()     optional, before readiness
-handle()     every request
-reset()      after every request, including exception paths
-drain()      stop initiating new application work
-shutdown()   exactly once
+Coroutine/Network/AsyncConnection
 ```
 
-Existing request cleanup guarantees remain mandatory.
+or an equivalently isolated adapter that provides awaitable receive/drain/close operations while respecting Connection buffering/backpressure/close reasons.
 
-### 12. Request resetter registry — Required
+Do not expose the raw stream merely to bypass Connection invariants.
 
-Support composable request resetters instead of one monolithic cleanup callback.
+If the adapter requires exclusive ownership of `onData`/`onDrain` callbacks, make that contract explicit and fail on conflicting ownership rather than silently overriding application callbacks.
 
-Suggested contract:
+## O7. Process/network future extensions
 
-```php
-interface RequestResetterInterface
-{
-    public function reset(RequestContext $context): void;
-}
-```
-
-Typical integrations may reset container scopes, DB transactions, logger context, locale, tracing state or framework-local caches.
-
-### 13. Resetters run despite failures — Required
-
-Every registered resetter must get a chance to execute even when:
-
-- the request handler throws;
-- an earlier resetter throws;
-- response completion fails.
-
-Aggregate/report cleanup failures without leaking stale request state into the next request.
-
-### 14. Worker boot/warmup hook — Required
-
-Provide an explicit worker-local initialization stage after fork/worker creation.
-
-Use cases:
-
-- application/container boot;
-- reusable clients created with correct process ownership;
-- routing/config precomputation;
-- controlled cache warmup.
-
-No worker may become ready before required boot/warmup succeeds.
-
-### 15. Worker drain hook — Required
-
-Notify the application when a worker begins draining.
-
-Applications can then stop:
-
-- claiming new background jobs;
-- opening new long-lived streams;
-- scheduling new periodic work;
-- initiating optional work that would extend drain unnecessarily.
-
-Existing requests continue within the configured drain deadline.
+Coroutine-aware process execution, accept loops or higher-level protocol helpers may be added only after the scheduler/network contract is stable. Do not expand scope into unrelated async client frameworks.
 
 ---
 
-## Batch D — Rolling reload, health, generation and restart semantics
+# 13. Batch P — observability, hardening, benchmarks and docs
 
-### 16. Configurable rolling reload policy — Required
+## P1. Bounded diagnostics
 
-Introduce explicit rolling replacement policy, for example:
+Expose scheduler snapshots with bounded-cardinality metrics such as:
+
+```text
+active tasks
+runnable tasks
+suspended tasks
+completed total
+failed total
+cancelled total
+spawned total
+ready queue depth/max
+context switches/resumes total
+active timers/waiters where available
+background/request scope counts
+```
+
+Do not expose unbounded per-task labels in production metrics.
+
+## P2. Race/fault acceptance
+
+Explicitly test races including:
+
+- task completion vs cancellation;
+- task completion vs timeout;
+- cancellation vs timer readiness;
+- cancellation vs readable/writable readiness;
+- future resolution vs waiter cancellation;
+- channel close vs send/receive;
+- sibling failure storms;
+- request completion with suspended children;
+- worker drain with background children;
+- repeated nested task groups;
+- exception during cleanup/finally.
+
+Every race must prove one terminal transition and no double Fiber resume.
+
+## P3. Soak/leak acceptance
+
+Add long-running acceptance that repeatedly creates/completes/cancels tasks and verifies bounded memory and object/resource cleanup.
+
+Acceptance must cover at least:
+
+```text
+large sequential task churn
+bounded concurrent task churn
+channel producer/consumer churn
+cancellation storms
+timeout storms
+nested scope churn
+persistent request-to-request isolation
+worker drain/reload with suspended work
+```
+
+No scheduler WeakMap/registry/timer/watcher growth may remain after scopes are complete.
+
+## P4. Real I/O acceptance
+
+Use real `stream_socket_pair()`/TCP loopback or equivalent live streams for coroutine readable/writable acceptance.
+
+Synthetic deterministic tests are welcome for race control, but they must not be the only evidence for I/O/coroutine integration.
+
+If Swoole/OpenSwoole integration is claimed, add a real runtime lane with the actual extension.
+
+## P5. Benchmarks
+
+Add PHPBench subjects for:
+
+```text
+Fiber task create/start/complete
+scheduler yield/resume
+Future await/resolve
+TaskGroup spawn/join
+Channel handoff/buffered throughput
+Semaphore acquire/release
+request-root coroutine overhead
+```
+
+Measure disabled/not-used overhead on normal Runwire request paths as well. Coroutine support must not impose meaningful hot-path cost when unused.
+
+Benchmarks are regression evidence. Do not fabricate Workerman/Swoole/Amp/Revolt comparisons. Cross-runtime claims require equivalent real measurements.
+
+## P6. Documentation
+
+Document:
+
+- coroutine mental model;
+- structured task ownership;
+- cancellation/deadline propagation;
+- explicit blocking boundaries;
+- channel/synchronization semantics;
+- request vs worker background scopes;
+- host capability behavior;
+- examples for parallel request work and bounded background work;
+- operational diagnostics/tuning;
+- migration guidance for callback-style Runwire network code where applicable.
+
+---
+
+# 14. `CoroutinePolicy`
+
+Introduce explicit scheduler safety limits rather than scattered constants.
+
+Candidate shape:
 
 ```php
-new ReloadPolicy(
-    maxUnavailable: 0,
-    maxSurge: 1,
-    replacementReadyTimeoutSeconds: 10.0,
-    drainTimeoutSeconds: 30.0,
+new CoroutinePolicy(
+    maxTasks: 4_096,
+    maxReadyQueue: 4_096,
+    maxWaitersPerPrimitive: 4_096,
+    maxResumesPerTick: 512,
+    shutdownGraceSeconds: 5.0,
 );
 ```
 
-Preferred order:
+Exact defaults require benchmark/soak evidence.
 
-```text
-spawn replacement
-→ wait until replacement ready
-→ drain old worker
-→ old worker exits
-→ continue to next slot
-```
+Rules:
 
-### 17. Non-reloadable worker groups — Recommended
-
-Allow groups such as infrastructure/control/service workers to survive application-code reloads when configured:
-
-```text
-reloadable = false
-```
-
-They still participate in full supervisor shutdown and explicit recycle when appropriate.
-
-### 18. Worker health state — Required
-
-Expand worker lifecycle/health representation to distinguish at least:
-
-```text
-starting
-ready
-idle
-busy
-draining
-unhealthy
-stopping
-exited
-```
-
-Do not infer health only from PID existence.
-
-### 45. Startup readiness barrier — Required
-
-A generation becomes ready only after its required worker groups satisfy readiness policy.
-
-Readiness must account for boot/warmup failure and timeout.
-
-### 46. Minimum-ready workers during reload — Required
-
-Never drain old capacity below configured availability while replacement workers are not ready.
-
-`maxUnavailable` / minimum-ready rules must be enforced by the supervisor, not left to application convention.
-
-### 47. Reload failure rollback — Required
-
-If replacement workers repeatedly fail startup/readiness:
-
-- stop destructive rollout;
-- keep healthy old-generation capacity alive;
-- expose the failed rollout in status/events;
-- apply bounded retry/backoff policy;
-- require explicit follow-up when retry budget is exhausted.
-
-### 48. Generation-aware traffic ownership — Required
-
-Expose generation ownership consistently for:
-
-- current workers;
-- replacement workers;
-- draining workers;
-- status/diagnostics/events.
-
-This must make rolling reload state observable and testable.
-
-### 49. Shutdown reason propagation — Recommended
-
-Pass a stable reason to drain/shutdown lifecycle callbacks, such as:
-
-```text
-deployment_reload
-recycle_request_limit
-recycle_memory_limit
-recycle_lifetime
-manual_recycle
-supervisor_stop
-fatal_runtime_error
-```
-
-### 50. Exit/restart reason classification — Required
-
-Track expected and unexpected worker exits separately.
-
-Examples:
-
-```text
-normal_shutdown
-planned_reload
-planned_recycle
-startup_failure
-readiness_timeout
-application_fatal
-signal_exit
-crash
-restart_budget_exhausted
-```
-
-Expose cumulative restart/exit reasons in diagnostics without unbounded history.
+- limits must be finite and validated;
+- exceeding admission bounds fails predictably;
+- limits apply per scheduler/scope as documented;
+- shutdown grace uses monotonic time;
+- diagnostics expose configured/effective limits where useful.
 
 ---
 
-## Batch E — Metrics, diagnostics, errors, timing and observability
+# 15. Exception model
 
-### 19. Per-worker runtime telemetry — Required
-
-Expose bounded counters/gauges including:
+Use dedicated coroutine-domain exceptions. Candidate hierarchy:
 
 ```text
-requests_total
-requests_active
-requests_failed
-connections_active
-connections_accepted_total
-bytes_read_total
-bytes_written_total
-memory_bytes
-memory_peak_bytes
-timers_active
-worker_busy
-worker_age_seconds
-backpressure_events
-rejected_connections
-rejected_requests
+CoroutineException
+├── CancelledException
+├── DeadlineExceededException (or cancellation reason on CancelledException)
+├── TaskFailedException / aggregate failure representation
+├── SchedulerUnavailableException
+├── CoroutineLimitExceededException
+├── ChannelClosedException
+├── SynchronizationException
+└── InvalidCoroutineStateException
 ```
 
-### 20. Protocol-specific telemetry — Required
+Do not hide original task exceptions behind generic wrappers unless additional context is required. Preserve the original throwable chain.
 
-Expose bounded protocol measurements where applicable:
-
-```text
-http1_connections_active
-http2_connections_active
-http2_streams_active
-http2_streams_total
-http2_resets_total
-http3_connections_active
-http3_streams_active
-http3_streams_total
-http3_resets_total
-hpack_table_bytes
-qpack_table_bytes
-qpack_blocked_streams
-```
-
-Never expose attacker-controlled header values or unbounded per-stream labels.
-
-### 21. Event-loop diagnostics — Required
-
-Track useful loop health data such as:
-
-- loop/tick duration;
-- observable loop lag;
-- timer count;
-- deferred callback backlog where meaningful;
-- callback execution overrun counters.
-
-Instrumentation must avoid creating a new latency problem.
-
-### 22. Busy-worker detection — Recommended
-
-Identify workers that remain busy/unresponsive beyond configured diagnostic thresholds.
-
-Detection should use active-request duration and loop responsiveness rather than only CPU assumptions.
-
-Automatic termination is not implied; recycle/kill policy must remain explicit.
-
-### 23. Versioned metrics snapshot API — Required
-
-Provide a stable runtime-neutral metrics snapshot contract, for example:
-
-```php
-interface MetricsProviderInterface
-{
-    public function snapshot(): RuntimeMetricsSnapshot;
-}
-```
-
-Do not add Prometheus/OpenTelemetry as core dependencies. Exporters belong to adapters/integration packages.
-
-### 24. Expand `ControlServer` status — Required
-
-Extend the existing bounded control protocol to return the new worker/runtime metrics and lifecycle state.
-
-Requirements:
-
-- protocol remains versioned;
-- response-size ceilings remain enforced;
-- status cannot dump unbounded connection/request collections;
-- old control actions (`status`, `reload`, `recycle`, `stop`) remain stable unless deliberately versioned.
-
-### 25. Health/readiness/liveness distinctions — Required
-
-Define independent semantics:
-
-```text
-live      process/runtime is functioning
-ready     capable of accepting new work
-healthy   no configured health failure is active
-draining  intentionally refusing new work while finishing existing work
-```
-
-Frameworks/orchestrators may expose these as endpoints, but Runwire owns the underlying truth.
-
-### 39. Long-running safety diagnostics — Recommended
-
-In debug/diagnostic mode, record suspicious per-request growth signals such as:
-
-- memory delta;
-- active timers before/after request;
-- pending response/body state;
-- cleanup/resetter failures;
-- retained runtime-owned request state.
-
-Do not claim perfect arbitrary PHP static-leak detection.
-
-### 40. GC policy — Recommended
-
-Allow controlled garbage-collection policy, for example:
-
-```text
-gcEveryRequests
-gcMemoryGrowthBytes
-```
-
-Avoid unconditional `gc_collect_cycles()` after every request.
-
-### 41. Connection/stream lifetime reporting — Recommended
-
-Expose aggregate/high-watermark diagnostics such as:
-
-```text
-oldest_connection_age_seconds
-longest_active_request_seconds
-peak_connections
-peak_streams
-```
-
-Do not expose an unbounded live connection dump through the normal status API.
-
-### 42. Application error accounting — Required
-
-Classify request/runtime failures separately:
-
-```text
-protocol_error
-transport_error
-handler_exception
-resetter_failure
-deadline_exceeded
-client_cancelled
-overload_rejection
-warmup_failure
-```
-
-Metrics/status must not collapse all of them into one generic failure counter.
-
-### 43. Lifecycle event expansion — Required
-
-Extend lifecycle events with stable events such as:
-
-```text
-WORKER_DRAIN_STARTED
-WORKER_DRAIN_COMPLETED
-WORKER_UNHEALTHY
-WORKER_RECYCLE_COMPLETED
-REQUEST_DEADLINE_EXCEEDED
-```
-
-High-volume per-request events should remain opt-in or carefully bounded.
-
-### 44. Lifecycle-listener fault isolation — Required
-
-Preserve and strengthen the existing listener-failure isolation model.
-
-Requirements:
-
-- listener exceptions never destabilize supervisor state where safe;
-- failures are counted/classified;
-- one bad listener does not prevent other listeners from receiving the event;
-- failure behavior is explicitly tested for new lifecycle events.
-
-### 51. Structured runtime diagnostics snapshot — Required
-
-Define stable DTO/value objects for diagnostics rather than passing arbitrary internal arrays between subsystems.
-
-The control server serializes the stable representation; tests/exporters consume it.
-
-### 52. Request ID generation / propagation hook — Recommended
-
-Provide a small request-ID policy/hook:
-
-- validate/reuse acceptable inbound IDs when configured;
-- otherwise generate a bounded ID;
-- store it in `RequestContext`;
-- make it available to lifecycle/error diagnostics;
-- do not force a specific tracing vendor or header convention.
-
-### 53. Monotonic timing everywhere — Required
-
-Audit all lifecycle durations and deadlines so these use monotonic clocks:
-
-- request elapsed time;
-- request deadline;
-- worker lifetime;
-- readiness timeout;
-- shutdown/drain timeout;
-- reload timing;
-- recycle lifetime/jitter;
-- retry/backoff timing.
-
-Wall-clock values may still be included separately for human-readable timestamps.
+Cancellation is control flow and must be distinguishable from application failure in metrics and lifecycle handling.
 
 ---
 
-## Batch F — Admission, resource/environment policy and socket capabilities
+# 16. Testing requirements by layer
 
-### 26. Overload/admission policy — Required
-
-Add runtime/worker-level admission limits above existing transport/protocol limits.
-
-Candidate limits:
+Unit/contract coverage must include:
 
 ```text
-maxActiveRequests
-maxQueuedRequests
-maxConcurrentConnections
-maxStreamsPerWorker
-overloadStrategy
+CancellationSource/Token/Subscription
+Task state machine
+FiberScheduler ready/suspend/resume behavior
+Future/Deferred
+CoroutineScope/TaskGroup
+TaskLocal inheritance/isolation
+Channel
+Semaphore
+Mutex
+Barrier
+CoroutinePolicy validation
+capability resolution
 ```
 
-All queues remain locally bounded.
-
-### 27. Graceful overload rejection — Required
-
-Use protocol-aware rejection instead of unbounded queuing:
-
-- HTTP/1.1: bounded 503/connection close where safe;
-- HTTP/2: stream-level refusal/reset semantics where appropriate;
-- HTTP/3: request-level rejection where appropriate;
-- host runtimes: supported host response path.
-
-Overload of one request/stream must not unnecessarily crash the worker.
-
-### 28. CPU-aware automatic worker sizing — Recommended
-
-Provide a generic automatic worker-count strategy based on available execution capacity.
-
-Requirements:
-
-- explicit worker count always wins;
-- avoid naïvely using physical host CPU count inside constrained containers;
-- use the cgroup-aware detection from Point 29 when available;
-- expose the resolved worker count in diagnostics.
-
-### 29. Container/cgroup-aware resource detection — Recommended
-
-Detect effective CPU and memory constraints in containers where supported.
-
-Use these signals for:
-
-- automatic worker sizing;
-- diagnostics;
-- safe default recommendations.
-
-Unsupported platforms must fall back predictably without failing normal runtime startup.
-
-### 30. Privilege-drop support — Recommended
-
-For native Unix prefork mode, optionally allow workers to drop to configured UID/GID after privileged master setup.
-
-Requirements:
-
-- explicit opt-in only;
-- no silent privilege changes;
-- validation before serving;
-- clear failure when requested but unsupported;
-- test ownership/order around listener binding and child bootstrap.
-
-### 33. Worker-group resource policy — Recommended
-
-Allow different worker groups to carry different:
-
-- recycle policy;
-- request/admission limits;
-- memory/lifetime policy;
-- readiness/warmup policy;
-- reloadability;
-- shutdown/drain policy.
-
-Avoid one global configuration that cannot model heterogeneous worker roles.
-
-### 34. `SO_REUSEPORT` support — Optional/advanced
-
-Add explicit listener reuse-port capability with **default off**.
-
-Requirements:
-
-- capability probe before use;
-- Linux/OS behavior documented;
-- native inherited-listener prefork remains the standard default;
-- TCP and UDP/QUIC ownership semantics tested independently;
-- unsupported platforms fail configuration clearly when explicitly requested.
-
-### 35. Native socket-option capability reporting — Recommended
-
-Expose capability facts such as:
+Integration coverage must include:
 
 ```text
-supports_reuse_port
-supports_unix_sockets
-supports_fork
-supports_signals
-supports_quic
+SelectLoop timers
+SelectLoop readable/writable suspension
+RequestContext deadline/cancellation binding
+persistent request isolation
+worker drain/reload
+network adapter/backpressure/close
+host-runtime capability behavior
+live Swoole/OpenSwoole bridge if claimed
 ```
 
-Prefer capability checks over platform/distro-name checks.
-
-### 57. Preserve driver-specific options only for true driver differences — Required
-
-Audit `RuntimeOptions` and individual driver option classes.
-
-Move common behavior upward into generic policies:
-
-- recycle thresholds;
-- request execution deadlines;
-- metrics/diagnostics configuration;
-- reset/lifecycle policy;
-- readiness policy;
-- common admission controls.
-
-Keep only genuine host-native knobs in `FpmOptions`, `FrankenPhpOptions`, `SwooleOptions` and `RoadRunnerOptions`.
+No test may make a green result depend on sleeping for arbitrary wall-clock durations when deterministic loop control is possible.
 
 ---
 
-## Batch G — Timers, task/service workers, watcher and background-work lifecycle
+# 17. Release gates
 
-### 31. Named periodic worker tasks — Recommended
+Coroutine work is release-blocking once implementation begins.
 
-Provide a small worker-context API for named recurring tasks using Runwire's existing timer infrastructure.
+Runwire 1.0 cannot be tagged until all of the following are true:
 
-Example:
+- Batches K–P complete;
+- previous 0–J regression coverage remains green;
+- PHP 8.4 and PHP 8.5 QA green;
+- prefer-stable and prefer-lowest lanes green;
+- PHPStan/Psalm analyzers green;
+- dependency/security audit green;
+- clean install green;
+- HTTP/1.1/2/3 regression and QUIC interoperability green;
+- coroutine real-I/O acceptance green;
+- persistent-runtime coroutine isolation green;
+- live host acceptance green for every host-specific coroutine capability claimed;
+- coroutine soak/race/fault acceptance green;
+- PHPBench regression evidence green;
+- final documentation reflects actual behavior;
+- exact final PR head is frozen and green;
+- explicit human approval is given before merge/tag/publish.
 
-```php
-$context->every('metrics-flush', 10.0, $callback);
-```
+Any commit after final certification reopens exact-head certification.
 
-Requirements:
+---
 
-- unique/bounded task naming per worker context;
-- cancellation handle;
-- no task survives worker shutdown;
-- drain behavior follows Point 55.
+# 18. Explicit non-goals for Runwire 1.0 coroutine scope
 
-### 32. Separate task/background worker-group roles — Recommended
+Do not expand this work into:
 
-Do not build a second task engine. Add worker-role metadata/policy such as:
+- transparent async conversion of PDO/cURL/filesystem functions;
+- a userland thread abstraction;
+- distributed task execution;
+- actor framework;
+- application job queue;
+- RPC framework;
+- application dependency injection/context container;
+- arbitrary task migration between worker processes;
+- preemptive CPU scheduling.
+
+Fibers are cooperative. CPU-heavy code must yield explicitly or use process-level scaling/offloading.
+
+---
+
+# 19. Implementation order
+
+Proceed strictly in this order:
 
 ```text
-HTTP
-TASK
-SERVICE
-CUSTOM
+K  cancellation + capabilities
+→ L  scheduler + task/future core
+→ M  structured scopes + task locals
+→ N  channels/synchronization
+→ O  request/worker/network/host integration
+→ P  diagnostics + race/soak/real-I/O + benchmarks/docs
+→ exact-head release certification
+→ explicit approval
+→ Runwire 1.0 release
+→ Foundation 3 / Webrick / Omnibus integration
 ```
 
-Use roles for lifecycle defaults, diagnostics and operator clarity.
-
-### 36. Development file watcher — Optional tooling
-
-Provide an optional development watcher that triggers the existing graceful reload path.
-
-Requirements:
-
-- no Node/chokidar runtime dependency in core;
-- never enabled in production by default;
-- filesystem-event implementation may be capability-specific with a bounded polling fallback;
-- debounce reload storms;
-- watcher failure must not kill a healthy runtime.
-
-### 55. Drain-aware periodic/background work — Required
-
-When drain begins:
-
-- stop scheduling new periodic executions;
-- stop claiming/starting new optional background work;
-- allow currently running work a bounded completion window;
-- cancel/terminate according to policy when the drain deadline expires.
+Do not start Foundation/Webrick/Omnibus coroutine integration from an unreleased Runwire head unless separately authorized.
 
 ---
 
-## Batch H — Bootstrap/runtime contracts, warmup and capability-first APIs
+# 20. Definition of success
 
-### 37. Runtime bootstrap contract / application factory — Required
+Runwire's coroutine implementation is successful when it is not merely a Fiber wrapper but a coherent runtime subsystem:
 
-Introduce a clean application factory boundary, for example:
+> every task has an owner, every suspension has one wake-up path, every cancellation/deadline propagates predictably, every waiter/timer/watcher is cleaned up, request state cannot leak across persistent requests, host runtimes preserve the same semantics, and unused coroutine support stays cheap.
 
-```php
-interface RuntimeApplicationFactoryInterface
-{
-    public function create(RuntimeContext $context): RuntimeApplicationInterface;
-}
-```
-
-Runtime selection/driver plumbing must not leak into normal application boot logic.
-
-### 38. Explicit persistent-runtime declaration — Required
-
-Expose whether one booted application instance serves multiple requests and whether execution may be concurrent.
-
-Framework adapters must be able to validate unsafe assumptions before accepting traffic.
-
-### 54. Warmup failure semantics — Required
-
-If boot/warmup fails:
-
-- worker never declares readiness;
-- failure is classified and observable;
-- supervisor applies bounded restart/backoff policy;
-- rolling reload preserves healthy old-generation capacity according to Point 47.
-
-### 56. Capability-first APIs instead of runtime-name checks — Required
-
-Framework/application integrations should ask for capabilities such as:
-
-```text
-persistent
-concurrent
-owns_listener
-owns_event_loop
-supports_http2
-supports_http3
-supports_worker_recycle
-supports_graceful_reload
-```
-
-Do not require application code to switch on `Swoole`, `RoadRunner`, etc. except for deliberately host-specific integrations.
-
----
-
-## Batch I — Cross-driver contract, parity and soak/fault acceptance
-
-### 58. Cross-driver contract tests — Required
-
-For every generic lifecycle feature, prove behavioral compatibility across applicable persistent drivers.
-
-Required acceptance areas:
-
-```text
-request reset
-request context isolation
-cancellation/deadline
-max-request recycle
-lifetime recycle
-memory recycle
-graceful drain
-boot/warmup/readiness
-rolling reload
-telemetry accounting
-shutdown reason
-```
-
-Where a host cannot support a feature, capability reporting and explicit unsupported semantics must be tested.
-
-### 59. Native-vs-host semantic parity tests — Required
-
-Extend protocol semantic-parity philosophy to runtime lifecycle behavior.
-
-At minimum compare applicable behavior across:
-
-```text
-native persistent worker
-FrankenPHP worker
-RoadRunner
-Swoole/OpenSwoole
-```
-
-FPM is included for request contract parity but is not treated as a persistent application worker.
-
-### 60. New soak/fault coverage for all additions — Required
-
-Run sustained/fault acceptance for:
-
-- request reset loops;
-- request-context creation/destruction;
-- cancellation and deadline churn;
-- request-count recycling;
-- memory/lifetime recycling;
-- rolling reload under active traffic;
-- replacement startup/readiness failure and rollback;
-- telemetry accumulation and snapshotting;
-- repeated drain/restart cycles;
-- timer/task cleanup;
-- admission overload/recovery;
-- `SO_REUSEPORT` separately when enabled;
-- host-driver parity under repeated requests;
-- HTTP/1/2/3 regression soak after lifecycle changes.
-
-Acceptance remains:
-
-- no unbounded RSS/FD/state growth attributable to Runwire;
-- no zombie children;
-- no request-context leakage;
-- no stale timers/background work after worker retirement;
-- no silent capacity cliff during rolling replacement;
-- bounded metrics/diagnostics state;
-- bounded overload degradation;
-- no regression of existing H1/H2/H3/QUIC/QPACK acceptance.
-
----
-
-# 6. Public API direction for the expanded 1.0
-
-Likely stable public areas now include:
-
-```text
-Runwire\Runtime
-Runwire\RuntimeOptions
-Runwire\RuntimeCapabilities
-Runwire\RuntimeContext
-Runwire\RequestContext / request lifecycle contracts
-Runwire\Server / listener definitions
-Runwire\Loop contract
-Runwire\Network bounded transport contracts
-Runwire\Http\Enum\ProtocolVersion
-Runwire\Supervisor
-Runwire\Supervisor\WorkerGroup
-Runwire\Supervisor\WorkerRecyclePolicy
-Runwire\Supervisor\ReloadPolicy
-Runwire\Supervisor\Enum\* lifecycle/status values
-Runwire metrics/diagnostics snapshot contracts
-Runwire\Process\Command / ProcessRunner / ProcessResult
-```
-
-Remain internal/narrow unless compelling:
-
-- HTTP/1/2/3 parser state machines;
-- HPACK/QPACK internal tables;
-- php-quic engine-specific objects;
-- supervisor bookkeeping collections;
-- concrete host-runtime reflection/dynamic adapter helpers.
-
----
-
-# 7. Security and safety invariants
-
-Release blocking:
-
-- no implicit shell path;
-- no PHP `@` suppression;
-- no unbounded request/context/metrics/diagnostic stores;
-- no unbounded TCP/HTTP2/HTTP3/QPACK/HPACK buffers or stream counts;
-- no process-global mutable request context;
-- no cross-request application state retained by Runwire;
-- pre-fork parent state must not create unsafe child-owned external connections;
-- resetters/cleanup run under failure paths;
-- deadlines are request-local and monotonic;
-- cancellation callbacks are idempotent/isolated;
-- rolling reload never knowingly destroys healthy capacity before replacements satisfy policy;
-- lifecycle listeners cannot crash supervisor control flow where isolation is possible;
-- all children are reaped;
-- shutdown/reload/recycle remain bounded;
-- status/metrics do not expose sensitive header/body/argv/env values;
-- privilege drop is explicit and capability-validated;
-- `SO_REUSEPORT` is explicit and capability-validated;
-- QUIC engine crypto/loss/congestion logic remains delegated to maintained native implementation.
-
----
-
-# 8. Per-batch quality gate
-
-Every implementation batch must independently pass applicable checks before moving forward:
-
-```text
-focused Pest tests
-full Pest suite
-PHPStan
-Psalm
-Pint / PHP-CS-Fixer / PHPForge style gates
-PHP 8.4 prefer-stable
-PHP 8.4 prefer-lowest
-PHP 8.5 prefer-stable
-PHP 8.5 prefer-lowest
-clean install
-```
-
-Where the batch affects native protocols/runtime ownership, also run applicable:
-
-```text
-QUIC extension-present PHP 8.4/8.5 lanes
-QUIC extension-absent capability lane
-HTTP/1/2/3 semantic parity
-HTTP/3 aioquic interoperability
-HTTP/3 source-built ngtcp2/nghttp3 interoperability
-persistent host-driver acceptance
-soak/fault acceptance
-```
-
-No batch should be hidden behind broad skips.
-
----
-
-# 9. Benchmark and documentation refresh gate
-
-The previous benchmark/docs work remains valid baseline evidence, but the new lifecycle/resource features can affect hot paths and operational guidance.
-
-Before final certification:
-
-- rerun PHPBench protocol/core and host-adapter benchmarks;
-- rerun native HTTP/3 benchmark/soak on supported QUIC runners;
-- add benchmark coverage for request-context/reset/metrics/recycle overhead where meaningful;
-- keep instrumentation-enabled and instrumentation-disabled cost distinguishable;
-- document a reproducible rolling-reload capacity dip/recovery procedure using real supervised workers;
-- document a reproducible recycle-overhead procedure under representative request rates;
-- validate the comparative-evidence schema and reject malformed/non-equivalent records;
-- keep synthetic validator fixtures isolated from uploaded benchmark evidence and clearly identified as test-only;
-- collect real comparative runtime/server measurements only on equivalent deployments using the same hardware/PHP/workload/concurrency conditions before publishing comparative performance positioning;
-- record RPS/throughput together with p50/p95/p99 latency, error rate, CPU and RSS for any real comparative run; never rank by RPS alone;
-- separate plaintext/minimal-handler runtime overhead from JSON/body/streaming/concurrency workloads for any published comparison;
-- benchmark native HTTP/1.1, HTTP/2 and HTTP/3 separately where peer implementations make an equivalent comparison possible;
-- treat results as workload-specific evidence: use “top-tier” or stronger performance positioning only when reproduced comparative results support it;
-- do not call Runwire the fastest PHP framework/runtime from architecture alone, and do not present Runwire-only measurements as Foundation/Webrick whole-framework results;
-- document `WorkerRecyclePolicy`;
-- document `RuntimeContext` and `RequestContext`;
-- document cancellation/deadline behavior;
-- document application boot/warmup/reset/drain/shutdown lifecycle;
-- document rolling reload/readiness/rollback semantics;
-- document metrics/diagnostics/control status;
-- document admission/overload behavior;
-- document CPU/cgroup auto-sizing;
-- document privilege-drop support where available;
-- document `SO_REUSEPORT` as advanced/default-off;
-- document watcher as development-only;
-- update host-driver capability matrix.
-
-Runwire-only regression benchmarks, native interoperability and exact-head QA are release gates. Deployment-specific capacity curves and peer-runtime benchmark records are **performance-claim gates**: their absence does not justify invented data and does not block a correctness release when no comparative claim is made.
-
-Do not publish universal throughput claims from one CI runner.
-
----
-
-# 10. Final Runwire 1.0 completion gate
-
-Runwire 1.0 is release-ready only when all of the following are true:
-
-- [x] Batch 0 enum directory/namespace normalization is complete and green;
-- [x] Points **1–60** in this plan are implemented and accepted;
-- [x] every batch A–I is independently green;
-- [x] all new generic policies have cross-driver acceptance where applicable;
-- [x] persistent request state is isolated and reset under success, exception, cancellation and timeout paths;
-- [x] worker recycling works for request/lifetime/memory triggers without dropping active work outside configured bounds;
-- [x] rolling reload maintains configured minimum healthy capacity and rolls back failed replacement generations;
-- [x] readiness/health/liveness/draining states are explicit and observable;
-- [x] metrics/diagnostics/control snapshots are bounded and stable;
-- [x] overload/admission behavior remains bounded and protocol-aware;
-- [x] timers/background tasks obey drain/shutdown semantics;
-- [x] capability-first behavior replaces avoidable driver-name branching;
-- [x] native HTTP/1/2/3 and QUIC/QPACK regression suites remain green;
-- [x] aioquic interoperability remains green;
-- [x] source-built ngtcp2/nghttp3 interoperability remains green;
-- [x] FPM/FrankenPHP/Swoole/RoadRunner advertised contract behavior remains green;
-- [x] expanded soak/fault matrix shows no unbounded memory/FD/state growth attributable to Runwire;
-- [x] benchmark evidence is refreshed without benchmark-only runtime shortcuts;
-- [x] comparative-evidence validation/methodology is present and synthetic validator data is excluded from release evidence; real peer-runtime records are required before comparative performance claims, not before a claim-free correctness release;
-- [x] public docs are refreshed for all new 1.0 lifecycle/resource/operations features;
-- [x] exact-head PHP 8.4/8.5 PHPForge matrix is fully green on the final PR head;
-- [x] exact-head dedicated benchmark workflow is fully green on the final PR head;
-- [x] exact-head native QUIC/HTTP3 integration lanes are fully green on the final PR head;
-- [ ] no post-certification commit changes the release candidate SHA before tagging;
-- [ ] Runwire 1.0 tag/release happens only after explicit approval;
-- [ ] only after Runwire 1.0 release may Foundation/Webrick/Omnibus integration work resume.
-
-The three remaining unchecked items are release-process sequencing, not Batch I/J implementation work. The exact-head CI boxes above are valid only if the checks attached to the latest plan-closing PR head are green; any later commit reopens those exact-head gates.
-
----
-
-# 11. Immediate implementation order
-
-```text
-0. Enum directory / namespace normalization                        ✅ 1868a82f
-A. Points 1–4                  Worker recycling/accounting          ✅ a95c743c
-B. Points 5–10                 Context/cancellation/deadlines       ✅ 921b3589
-C. Points 11–15                Application lifecycle/reset/warmup/drain ✅ 04c97cc7
-D. Points 16–18,45–50          Rolling reload/health/generation     ✅ 47cfb924
-E. Points 19–25,39–44,51–53    Metrics/diagnostics/errors/timing    ✅ e975e28e
-F. Points 26–30,33–35,57       Admission/resources/socket capabilities ✅ 597bde0e
-G. Points 31–32,36,55          Timers/tasks/watcher/drain behavior  ✅ afb32151
-H. Points 37–38,54,56          Bootstrap/warmup/capability contracts ✅ 8eb2b203
-I. Points 58–60                Cross-driver parity + soak/fault     ✅ 1d1ff98c
-J. Benchmarks/docs/evidence integrity + exact-head final QA         ✅ final PR-head gate
-K. Explicit approval → Runwire 1.0 tag/release                      ← NEXT
-L. Then Webrick/Foundation/Omnibus integration
-```
-
-Do not modify Foundation, Webrick or Omnibus until Runwire 1.0 is explicitly approved and released. Until then, keep the final Runwire PR head frozen except for a real release-blocking defect found by exact-head CI/review.
-
----
-
-# 12. Post-1.0 candidates
-
-Not part of this 1.0 plan:
-
-- WebTransport;
-- HTTP Datagrams;
-- MASQUE/connect-udp;
-- advanced QUIC migration/path-management policy;
-- application-visible 0-RTT after explicit replay-safety design;
-- alternative QUIC engine adapters;
-- advanced HTTP priority scheduling;
-- WebSocket-over-HTTP/2/3 where justified;
-- full Fiber scheduler / structured-concurrency framework;
-- framework-level DI/AOP/ORM/RPC/cache/queue features.
-
-These must not be pulled into 1.0 while the 60-point runtime-hardening program is active.
+That is the Runwire 1.0 coroutine bar.
