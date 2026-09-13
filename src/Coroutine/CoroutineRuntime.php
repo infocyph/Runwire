@@ -9,6 +9,7 @@ use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\RequestContext;
 use LogicException;
 
 final class CoroutineRuntime
@@ -36,20 +37,41 @@ final class CoroutineRuntime
     /** @param callable(CoroutineScope): mixed $callback */
     public function run(callable $callback): mixed
     {
+        return $this->execute(new CancellationSource(), $callback);
+    }
+
+    /** @param callable(CoroutineScope): mixed $callback */
+    public function runRequest(RequestContext $context, callable $callback): mixed
+    {
+        if ($context->completed()) {
+            throw new LogicException('Completed request context cannot own coroutine work.');
+        }
+
+        $context->cancellation->throwIfCancelled();
+
+        return $this->execute(
+            CancellationSource::linked($context->cancellation, $context->deadline()),
+            $callback,
+        );
+    }
+
+    /** @param callable(CoroutineScope): mixed $callback */
+    private function execute(CancellationSource $source, callable $callback): mixed
+    {
         if ($this->running) {
+            $source->dispose();
             throw new LogicException('Nested CoroutineRuntime::run() cannot start a second event loop; use the active scope.');
         }
 
         $this->running = true;
-        $source = new CancellationSource();
         $scope = new CoroutineScope($this->scheduler, $source);
         $closure = Closure::fromCallable($callback);
-        $root = $this->scheduler->spawn(
-            static fn(): mixed => $scope->execute($closure),
-            $source,
-        );
 
         try {
+            $root = $this->scheduler->spawn(
+                static fn(): mixed => $scope->execute($closure),
+                $source,
+            );
             $this->scheduler->drive();
 
             return $root->result();
