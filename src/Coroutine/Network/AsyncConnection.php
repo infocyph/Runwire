@@ -143,7 +143,12 @@ final class AsyncConnection
         $this->receiveDeferred = $deferred;
 
         try {
-            return (string) $deferred->future()->await();
+            $result = $deferred->future()->await();
+            if (!is_string($result)) {
+                throw new LogicException('Async connection receive completed with an invalid result.');
+            }
+
+            return $result;
         } finally {
             if ($this->receiveDeferred === $deferred) {
                 $this->receiveDeferred = null;
