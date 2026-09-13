@@ -9,6 +9,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
+use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
@@ -49,6 +50,11 @@ final readonly class WorkerLifecycleCoordinator
         }
         if ($message === 'U') {
             $this->unhealthy($record);
+
+            return;
+        }
+        if ($message === 'W') {
+            $this->warmupFailure($record);
 
             return;
         }
@@ -227,5 +233,15 @@ final readonly class WorkerLifecycleCoordinator
         $record->busySinceNs = null;
         $record->state = WorkerState::UNHEALTHY;
         ($this->emitWorker)(SupervisorEventType::WORKER_UNHEALTHY, $record, null, null, null);
+    }
+
+    private function warmupFailure(ChildRecord $record): void
+    {
+        if ($record->expectedStop || $record->state !== WorkerState::STARTING) {
+            return;
+        }
+
+        $record->exitReason = WorkerExitReason::WARMUP_FAILURE;
+        $this->unhealthy($record);
     }
 }

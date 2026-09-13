@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\SystemResources;
 
@@ -38,6 +39,22 @@ final readonly class RuntimeCapabilities
         public bool $supportsPrivilegeDrop = false,
         public SystemResources $resources = new SystemResources(),
     ) {}
+
+    public function supports(RuntimeCapability $capability): bool
+    {
+        return match ($capability) {
+            RuntimeCapability::CONCURRENT => $this->supportsCoroutines,
+            RuntimeCapability::OWNS_EVENT_LOOP => $this->ownsEventLoop,
+            RuntimeCapability::OWNS_LISTENER => $this->ownsListener,
+            RuntimeCapability::OWNS_WORKER_POOL => $this->ownsWorkerPool,
+            RuntimeCapability::PERSISTENT => $this->persistentApplication,
+            RuntimeCapability::SUPPORTS_GRACEFUL_RELOAD => $this->supportsGracefulReload,
+            RuntimeCapability::SUPPORTS_HTTP1 => $this->supportsHttp1,
+            RuntimeCapability::SUPPORTS_HTTP2 => $this->supportsHttp2,
+            RuntimeCapability::SUPPORTS_HTTP3 => $this->supportsHttp3,
+            RuntimeCapability::SUPPORTS_WORKER_RECYCLE => $this->supportsWorkerRecycle,
+        };
+    }
 
     /** @return array<string, bool|int|string|null> */
     public function toArray(): array

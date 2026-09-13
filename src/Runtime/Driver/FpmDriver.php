@@ -11,7 +11,7 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;
-use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 
 final readonly class FpmDriver implements HostDriverInterface
 {
@@ -40,7 +40,7 @@ final readonly class FpmDriver implements HostDriverInterface
             : Closure::fromCallable($writerFactory);
     }
 
-    public function run(RuntimeApplication $application): void
+    public function run(RuntimeApplicationInterface $application): void
     {
         try {
             $application->start();

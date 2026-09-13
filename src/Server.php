@@ -13,6 +13,11 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\ConnectionLimits;
 use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TlsOptions;
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
+use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
+use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\Runtime\RuntimeApplicationFactoryInterface;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use InvalidArgumentException;
 
@@ -20,6 +25,8 @@ final readonly class Server
 {
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     public Closure $handler;
+
+    private ?RuntimeApplicationFactoryInterface $applicationFactory;
 
     /** @var Closure(WorkerContext): callable|null */
     private ?Closure $workerHandlerFactory;
@@ -43,6 +50,7 @@ final readonly class Server
         public float $workerReadyTimeoutSeconds = 10.0,
         public float $workerShutdownTimeoutSeconds = 30.0,
         ?callable $workerHandlerFactory = null,
+        ?RuntimeApplicationFactoryInterface $applicationFactory = null,
     ) {
         if ($name === '' || strlen($name) > 96 || preg_match('/^[A-Za-z0-9._-]+$/D', $name) !== 1) {
             throw new InvalidArgumentException('Server name must be 1-96 safe identifier characters.');
@@ -59,6 +67,9 @@ final readonly class Server
         if ($http3 !== null && $tls === null) {
             throw new InvalidArgumentException('HTTP/3 requires TLS certificate configuration.');
         }
+        if ($workerHandlerFactory !== null && $applicationFactory !== null) {
+            throw new InvalidArgumentException('Worker handler factory and runtime application factory are mutually exclusive.');
+        }
         foreach ([
             'workerReadyTimeoutSeconds' => $workerReadyTimeoutSeconds,
             'workerShutdownTimeoutSeconds' => $workerShutdownTimeoutSeconds,
@@ -71,6 +82,7 @@ final readonly class Server
         /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
+        $this->applicationFactory = $applicationFactory;
 
         if ($workerHandlerFactory === null) {
             $this->workerHandlerFactory = null;
@@ -87,6 +99,19 @@ final readonly class Server
         return new self($name, $address, $handler);
     }
 
+    public static function httpApplicationFactory(
+        string $address,
+        RuntimeApplicationFactoryInterface $factory,
+        string $name = 'web',
+    ): self {
+        return new self(
+            $name,
+            $address,
+            static function (): void {},
+            applicationFactory: $factory,
+        );
+    }
+
     /** @param callable(WorkerContext): callable $factory */
     public static function httpFactory(string $address, callable $factory, string $name = 'web'): self
     {
@@ -95,6 +120,25 @@ final readonly class Server
             $address,
             static function (): void {},
             workerHandlerFactory: $factory,
+        );
+    }
+
+    public function applicationFor(
+        WorkerContext $workerContext,
+        RuntimeContext $runtimeContext,
+        RequestExecutionPolicy $requestExecution,
+        ApplicationLifecycleHooks $lifecycle,
+    ): RuntimeApplicationInterface {
+        if ($this->applicationFactory !== null) {
+            return $this->applicationFactory->create($runtimeContext);
+        }
+
+        return new RuntimeApplication(
+            $this->handlerFor($workerContext),
+            runtimeContext: $runtimeContext,
+            requestExecution: $requestExecution,
+            lifecycle: $lifecycle,
+            admission: $workerContext->admissionPolicy,
         );
     }
 
@@ -110,6 +154,26 @@ final readonly class Server
         $closure = Closure::fromCallable($handler);
 
         return $closure;
+    }
+
+    public function withApplicationFactory(RuntimeApplicationFactoryInterface $factory): self
+    {
+        return new self(
+            $this->name,
+            $this->address,
+            $this->handler,
+            $this->workers,
+            $this->workerConnectionLimit,
+            $this->listener,
+            $this->connection,
+            $this->tls,
+            $this->http1,
+            $this->http2,
+            $this->http3,
+            $this->workerReadyTimeoutSeconds,
+            $this->workerShutdownTimeoutSeconds,
+            applicationFactory: $factory,
+        );
     }
 
     public function withHttp3(?Http3Options $http3 = new Http3Options()): self
@@ -129,6 +193,7 @@ final readonly class Server
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
+            $this->applicationFactory,
         );
     }
 
@@ -149,6 +214,7 @@ final readonly class Server
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
+            $this->applicationFactory,
         );
     }
 
@@ -169,6 +235,7 @@ final readonly class Server
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
+            $this->applicationFactory,
         );
     }
 
@@ -210,6 +277,7 @@ final readonly class Server
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
+            $this->applicationFactory,
         );
     }
 }

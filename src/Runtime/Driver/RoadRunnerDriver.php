@@ -10,8 +10,8 @@ use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerResponseWriter;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSession;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSessionInterface;
-use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 final class RoadRunnerDriver implements HostDriverInterface
@@ -32,7 +32,7 @@ final class RoadRunnerDriver implements HostDriverInterface
             : Closure::fromCallable($sessionFactory);
     }
 
-    public function run(RuntimeApplication $application): void
+    public function run(RuntimeApplicationInterface $application): void
     {
         $session = ($this->sessionFactory)();
         $this->session = $session;
@@ -51,7 +51,7 @@ final class RoadRunnerDriver implements HostDriverInterface
         $this->session?->stop();
     }
 
-    private function runRequests(RoadRunnerSessionInterface $session, RuntimeApplication $application): void
+    private function runRequests(RoadRunnerSessionInterface $session, RuntimeApplicationInterface $application): void
     {
         $recycle = new WorkerRecycleState($this->recyclePolicy);
         while (($request = $session->waitRequest($this->options->maxRequestBodyBytes)) !== null) {

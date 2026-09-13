@@ -23,4 +23,6 @@ enum WorkerExitReason: string
     case SIGNAL_EXIT = 'signal_exit';
 
     case STARTUP_FAILURE = 'startup_failure';
+
+    case WARMUP_FAILURE = 'warmup_failure';
 }

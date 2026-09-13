@@ -12,10 +12,10 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
-use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Server;
 use Infocyph\Runwire\Supervisor\WorkerContext;
@@ -46,12 +46,11 @@ final class NativeHttp3Worker
             $port,
             $options->listenerOptions($tls, $server->listener->reusePort),
         );
-        $application = new ApplicationLifecycle(
-            $server->handlerFor($context),
+        $application = $server->applicationFor(
+            $context,
             $runtimeContext,
             $requestExecution,
-            hooks: $lifecycle,
-            admission: $context->admissionPolicy,
+            $lifecycle,
         );
         $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics, $taskLoop);
         $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {

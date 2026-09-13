@@ -14,10 +14,10 @@ use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
-use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
@@ -36,12 +36,11 @@ final class NativeHttpWorker
         $sessions = [];
         $connections = [];
         $state = new WorkerStopState();
-        $application = new ApplicationLifecycle(
-            $bound->definition->handlerFor($context),
+        $application = $bound->definition->applicationFor(
+            $context,
             $runtimeContext,
             $requestExecution,
-            hooks: $lifecycle,
-            admission: $context->admissionPolicy,
+            $lifecycle,
         );
         $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics, $loop);
         $handler = self::requestHandler($application, $context, $sampler);
@@ -163,7 +162,7 @@ final class NativeHttpWorker
      * @param array<int, Connection> $connections
      */
     private static function beginDrain(
-        ApplicationLifecycle $application,
+        RuntimeApplicationInterface $application,
         WorkerContext $context,
         BoundServer $bound,
         LoopInterface $loop,
@@ -205,7 +204,7 @@ final class NativeHttpWorker
 
     /** @return Closure(HttpRequest, ResponseWriterInterface): void */
     private static function requestHandler(
-        ApplicationLifecycle $application,
+        RuntimeApplicationInterface $application,
         WorkerContext $context,
         WorkerDiagnosticsSampler $sampler,
     ): Closure {

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime;
 
 use Closure;
+use Infocyph\Runwire\Exception\ApplicationStartupException;
 use Infocyph\Runwire\Exception\RequestLifecycleException;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\RequestContext;
+use Infocyph\Runwire\Runtime\Enum\ApplicationStartupPhase;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\Internal\AdmissionController;
 use Infocyph\Runwire\RuntimeContext;
@@ -162,17 +164,10 @@ final class ApplicationLifecycle
             throw new LogicException('Application lifecycle startup previously failed.');
         }
 
-        try {
-            $this->booted = true;
-            ($this->hooks->boot)?->__invoke($this->runtimeContext);
-            ($this->hooks->warmup)?->__invoke($this->runtimeContext);
-            $this->started = true;
-        } catch (Throwable $error) {
-            $this->startupFailed = true;
-            $this->runtimeContext->metrics->recordError(ApplicationErrorClass::WARMUP_FAILURE);
-
-            throw $error;
-        }
+        $this->booted = true;
+        $this->invokeStartupHook(ApplicationStartupPhase::BOOT, $this->hooks->boot);
+        $this->invokeStartupHook(ApplicationStartupPhase::WARMUP, $this->hooks->warmup);
+        $this->started = true;
     }
 
     /** @param list<Throwable> $resetFailures */
@@ -236,6 +231,23 @@ final class ApplicationLifecycle
         }
         if ($resetFailures !== []) {
             throw new RequestLifecycleException(null, $resetFailures);
+        }
+    }
+
+    /** @param Closure(RuntimeContext): void|null $hook */
+    private function invokeStartupHook(ApplicationStartupPhase $phase, ?Closure $hook): void
+    {
+        if ($hook === null) {
+            return;
+        }
+
+        try {
+            $hook($this->runtimeContext);
+        } catch (Throwable $error) {
+            $this->startupFailed = true;
+            $this->runtimeContext->metrics->recordError(ApplicationErrorClass::WARMUP_FAILURE);
+
+            throw new ApplicationStartupException($phase, $error);
         }
     }
 

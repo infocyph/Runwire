@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
+use Infocyph\Runwire\Exception\ApplicationStartupException;
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Runtime\Enum\ApplicationStartupPhase;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 use Throwable;
@@ -13,6 +15,8 @@ use Throwable;
 final class WorkerChildRuntime
 {
     public const int RECYCLE_EXIT_CODE = 75;
+
+    public const int WARMUP_FAILURE_EXIT_CODE = 78;
 
     /** @param resource $readyStream */
     public static function run(
@@ -69,9 +73,14 @@ final class WorkerChildRuntime
             $exitCode = $context->recycling() ? self::RECYCLE_EXIT_CODE : 0;
             $context->close();
             self::terminate($exitCode);
-        } catch (Throwable) {
+        } catch (Throwable $error) {
+            $warmupFailure = $error instanceof ApplicationStartupException
+                && $error->phase === ApplicationStartupPhase::WARMUP;
+            if ($warmupFailure) {
+                $context?->reportWarmupFailure();
+            }
             $context?->close();
-            self::terminate(70);
+            self::terminate($warmupFailure ? self::WARMUP_FAILURE_EXIT_CODE : 70);
         }
     }
 

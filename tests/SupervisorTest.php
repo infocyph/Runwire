@@ -83,7 +83,16 @@ it('restarts a crashed worker within the configured restart budget', function ()
             shutdownTimeoutSeconds: 0.1,
         ));
 
-        $loop->delay(0.08, static function () use ($supervisor): void {
+        $safety = $loop->delay(0.5, static function () use ($supervisor): void {
+            $supervisor->stop(true);
+        });
+        $loop->repeat(0.005, static function (int $timer) use ($counter, $loop, $safety, $supervisor): void {
+            if ((int) file_get_contents($counter) < 2) {
+                return;
+            }
+
+            $loop->cancel($timer);
+            $loop->cancel($safety);
             $supervisor->stop();
         });
 

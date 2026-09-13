@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Metrics\MetricsProviderInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
+use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use InvalidArgumentException;
 
@@ -75,9 +77,31 @@ final readonly class RuntimeContext implements MetricsProviderInterface
         return self::fromCapabilities($capabilities, 'standalone', concurrent: false);
     }
 
+    public function requireCapability(RuntimeCapability $capability): void
+    {
+        if (!$this->supports($capability)) {
+            throw new RuntimeUnavailableException(sprintf(
+                'Runtime capability "%s" is required but unavailable.',
+                $capability->value,
+            ));
+        }
+    }
+
     public function snapshot(): RuntimeMetricsSnapshot
     {
         return $this->metrics->snapshot();
+    }
+
+    public function supports(RuntimeCapability $capability): bool
+    {
+        return match ($capability) {
+            RuntimeCapability::CONCURRENT => $this->concurrent,
+            RuntimeCapability::OWNS_EVENT_LOOP => $this->ownsEventLoop,
+            RuntimeCapability::OWNS_LISTENER => $this->ownsListener,
+            RuntimeCapability::OWNS_WORKER_POOL => $this->ownsWorkerPool,
+            RuntimeCapability::PERSISTENT => $this->persistent,
+            default => $this->capabilities->supports($capability),
+        };
     }
 
     private static function currentPid(): int

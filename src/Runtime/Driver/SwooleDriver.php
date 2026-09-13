@@ -14,8 +14,8 @@ use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Host\DynamicHostObject;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
-use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use InvalidArgumentException;
@@ -40,7 +40,7 @@ final class SwooleDriver implements HostDriverInterface
             : Closure::fromCallable($serverFactory);
     }
 
-    public function run(RuntimeApplication $application): void
+    public function run(RuntimeApplicationInterface $application): void
     {
         $server = ($this->serverFactory)($this->options->host, $this->options->port);
         $this->server = $server;
@@ -173,7 +173,7 @@ final class SwooleDriver implements HostDriverInterface
         return $query === '' || str_contains($target, '?') ? $target : $target . '?' . $query;
     }
 
-    private function configure(object $server, RuntimeApplication $application): void
+    private function configure(object $server, RuntimeApplicationInterface $application): void
     {
         $configured = DynamicHostObject::method($server, 'set')($this->options->serverSettings($this->recyclePolicy));
         if ($configured === false) {

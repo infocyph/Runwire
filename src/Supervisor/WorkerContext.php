@@ -201,6 +201,11 @@ final class WorkerContext
         $this->signalDiagnostic('M:' . $json);
     }
 
+    public function reportWarmupFailure(): void
+    {
+        $this->signal('W');
+    }
+
     public function requestRecycle(ShutdownReason $reason = ShutdownReason::MANUAL_RECYCLE): void
     {
         if ($this->recycling) {

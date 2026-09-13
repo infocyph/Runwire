@@ -13,8 +13,8 @@ use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;
-use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 final readonly class FrankenPhpDriver implements HostDriverInterface
@@ -53,7 +53,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
             : Closure::fromCallable($writerFactory);
     }
 
-    public function run(RuntimeApplication $application): void
+    public function run(RuntimeApplicationInterface $application): void
     {
         try {
             $application->start();
@@ -84,7 +84,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
         return $handler;
     }
 
-    private function handleCurrentRequest(RuntimeApplication $application): void
+    private function handleCurrentRequest(RuntimeApplicationInterface $application): void
     {
         $request = ($this->requestFactory)();
         $application->handle($request, ($this->writerFactory)($request->method));
@@ -103,7 +103,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
             : FrankenPhpMode::CLASSIC;
     }
 
-    private function runWorker(RuntimeApplication $application): void
+    private function runWorker(RuntimeApplicationInterface $application): void
     {
         if ($this->workerRequestHandler === null) {
             throw new RuntimeUnavailableException('FrankenPHP worker mode requires frankenphp_handle_request().');

@@ -78,6 +78,9 @@ final readonly class ChildExitTransition
                 default => WorkerExitReason::NORMAL_SHUTDOWN,
             };
         }
+        if ($exitCode === WorkerChildRuntime::WARMUP_FAILURE_EXIT_CODE) {
+            return WorkerExitReason::WARMUP_FAILURE;
+        }
         if ($previousState === WorkerState::STARTING) {
             return WorkerExitReason::STARTUP_FAILURE;
         }

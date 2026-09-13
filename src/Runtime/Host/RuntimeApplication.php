@@ -6,17 +6,17 @@ namespace Infocyph\Runwire\Runtime\Host;
 
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
-use Infocyph\Runwire\Metrics\MetricsProviderInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
-final readonly class RuntimeApplication implements MetricsProviderInterface
+final readonly class RuntimeApplication implements RuntimeApplicationInterface
 {
     private ApplicationLifecycle $lifecycle;
 

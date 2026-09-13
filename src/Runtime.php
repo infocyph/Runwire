@@ -26,6 +26,8 @@ use Infocyph\Runwire\Runtime\Internal\NativeDatagramWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttp3Worker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttpWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeStreamWorker;
+use Infocyph\Runwire\Runtime\RuntimeApplicationFactoryInterface;
+use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe;
 use Infocyph\Runwire\Runtime\RuntimeSelection;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
@@ -43,7 +45,7 @@ final class Runtime
 
     private ?DevelopmentWatchPolicy $developmentWatchPolicy = null;
 
-    private ?RuntimeApplication $hostApplication = null;
+    private ?RuntimeApplicationInterface $hostApplication = null;
 
     private ?HostDriverInterface $hostDriver = null;
 
@@ -178,43 +180,22 @@ final class Runtime
      */
     public function serve(callable $handler, ?callable $requestCleanup = null, ?callable $shutdown = null): void
     {
-        if ($this->started) {
-            throw new LogicException('A Runtime instance can only be run once.');
-        }
-        if ($this->servers !== []) {
-            throw new LogicException('Host-owned serve() cannot be combined with Runwire listeners.');
-        }
-        if (
-            $this->controlOptions !== null
-            || $this->developmentWatchPolicy?->enabled === true
-            || $this->lifecycleListeners !== []
-        ) {
-            throw new LogicException('Host-owned serve() cannot use the native supervisor control/event/watch plane.');
-        }
-
-        $this->started = true;
-        $this->selection = $this->selector->select($this->options, $this->environmentProbe->probe());
-        if ($this->selection->driver === RuntimeDriver::NATIVE) {
-            throw new RuntimeUnavailableException('The native runtime owns its listeners; configure listen() and call run().');
-        }
-
-        $this->hostDriver = new HostDriverFactory()->create($this->selection->driver, $this->options);
-        $this->hostApplication = new RuntimeApplication(
+        $context = $this->prepareHostRuntime();
+        $this->runHostApplication(new RuntimeApplication(
             $handler,
             $requestCleanup,
             $shutdown,
-            $this->hostRuntimeContext(),
+            $context,
             $this->options->requestExecution,
             $this->options->applicationLifecycle,
             $this->options->admission,
-        );
+        ));
+    }
 
-        try {
-            $this->hostDriver->run($this->hostApplication);
-        } finally {
-            $this->hostApplication = null;
-            $this->hostDriver = null;
-        }
+    public function serveApplication(RuntimeApplicationFactoryInterface $factory): void
+    {
+        $context = $this->prepareHostRuntime();
+        $this->runHostApplication($factory->create($context));
     }
 
     public function status(): ?SupervisorStatus
@@ -482,6 +463,31 @@ final class Runtime
         );
     }
 
+    private function prepareHostRuntime(): RuntimeContext
+    {
+        if ($this->started) {
+            throw new LogicException('A Runtime instance can only be run once.');
+        }
+        if ($this->servers !== []) {
+            throw new LogicException('Host-owned serve() cannot be combined with Runwire listeners.');
+        }
+        if (
+            $this->controlOptions !== null
+            || $this->developmentWatchPolicy?->enabled === true
+            || $this->lifecycleListeners !== []
+        ) {
+            throw new LogicException('Host-owned serve() cannot use the native supervisor control/event/watch plane.');
+        }
+
+        $this->started = true;
+        $this->selection = $this->selector->select($this->options, $this->environmentProbe->probe());
+        if ($this->selection->driver === RuntimeDriver::NATIVE) {
+            throw new RuntimeUnavailableException('The native runtime owns its listeners; configure listen() and call run().');
+        }
+
+        return $this->hostRuntimeContext();
+    }
+
     /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
     private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
     {
@@ -519,5 +525,19 @@ final class Runtime
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
 
         return $selection->capabilities->resources->resolveWorkerCount($configured);
+    }
+
+    private function runHostApplication(RuntimeApplicationInterface $application): void
+    {
+        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
+        $this->hostDriver = new HostDriverFactory()->create($selection->driver, $this->options);
+        $this->hostApplication = $application;
+
+        try {
+            $this->hostDriver->run($application);
+        } finally {
+            $this->hostApplication = null;
+            $this->hostDriver = null;
+        }
     }
 }
