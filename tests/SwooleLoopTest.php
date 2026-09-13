@@ -30,7 +30,11 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
             return false;
         }
 
-        $this->watchers[get_resource_id($stream)] = compact('read', 'write', 'flags');
+        $this->watchers[get_resource_id($stream)] = [
+            'read' => $read,
+            'write' => $write,
+            'flags' => $flags,
+        ];
 
         return true;
     }
@@ -107,7 +111,11 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
             return false;
         }
 
-        $this->watchers[get_resource_id($stream)] = compact('read', 'write', 'flags');
+        $this->watchers[get_resource_id($stream)] = [
+            'read' => $read,
+            'write' => $write,
+            'flags' => $flags,
+        ];
 
         return true;
     }

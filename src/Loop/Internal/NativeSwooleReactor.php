@@ -6,46 +6,62 @@ namespace Infocyph\Runwire\Loop\Internal;
 
 use Closure;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use ReflectionException;
+use ReflectionMethod;
 use RuntimeException;
 
 /** @internal */
 final class NativeSwooleReactor implements SwooleReactorInterface
 {
-    /** @var class-string */
-    private readonly string $constantClass;
+    private readonly Closure $coroutineGetCid;
 
-    /** @var class-string */
-    private readonly string $coroutineClass;
+    private readonly Closure $coroutineResume;
 
-    /** @var class-string */
-    private readonly string $eventClass;
+    private readonly Closure $coroutineYield;
+
+    private readonly Closure $eventAdd;
+
+    private readonly Closure $eventDefer;
+
+    private readonly Closure $eventDelete;
+
+    private readonly Closure $eventSet;
 
     private readonly int $readFlagValue;
 
-    /** @var class-string */
-    private readonly string $timerClass;
+    private readonly Closure $timerAfter;
+
+    private readonly Closure $timerClear;
+
+    private readonly Closure $timerRepeat;
 
     private readonly int $writeFlagValue;
 
     public function __construct()
     {
-        [$this->eventClass, $this->timerClass, $this->coroutineClass, $this->constantClass]
-            = self::resolveClassFamily();
-        $this->readFlagValue = self::constantInt($this->constantClass . '::EVENT_READ');
-        $this->writeFlagValue = self::constantInt($this->constantClass . '::EVENT_WRITE');
+        [$eventClass, $timerClass, $coroutineClass, $constantClass] = self::resolveClassFamily();
+        $this->coroutineGetCid = self::method($coroutineClass, 'getCid');
+        $this->coroutineResume = self::method($coroutineClass, 'resume');
+        $this->coroutineYield = self::method($coroutineClass, 'yield');
+        $this->eventAdd = self::method($eventClass, 'add');
+        $this->eventDefer = self::method($eventClass, 'defer');
+        $this->eventDelete = self::method($eventClass, 'del');
+        $this->eventSet = self::method($eventClass, 'set');
+        $this->readFlagValue = self::constantInt($constantClass . '::EVENT_READ');
+        $this->timerAfter = self::method($timerClass, 'after');
+        $this->timerClear = self::method($timerClass, 'clear');
+        $this->timerRepeat = self::method($timerClass, 'tick');
+        $this->writeFlagValue = self::constantInt($constantClass . '::EVENT_WRITE');
     }
 
     public function add(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
-        $class = $this->eventClass;
-
-        return $class::add($stream, $read, $write, $flags) === true;
+        return ($this->eventAdd)($stream, $read, $write, $flags) === true;
     }
 
     public function after(int $milliseconds, Closure $callback): int
     {
-        $class = $this->timerClass;
-        $timerId = $class::after($milliseconds, $callback);
+        $timerId = ($this->timerAfter)($milliseconds, $callback);
         if (!is_int($timerId)) {
             throw new RuntimeException('Swoole/OpenSwoole rejected the one-shot timer.');
         }
@@ -55,30 +71,24 @@ final class NativeSwooleReactor implements SwooleReactorInterface
 
     public function clearTimer(int $timerId): bool
     {
-        $class = $this->timerClass;
-
-        return $class::clear($timerId) === true;
+        return ($this->timerClear)($timerId) === true;
     }
 
     public function coroutineId(): int
     {
-        $class = $this->coroutineClass;
-        $coroutineId = $class::getCid();
+        $coroutineId = ($this->coroutineGetCid)();
 
         return is_int($coroutineId) ? $coroutineId : -1;
     }
 
     public function defer(Closure $callback): void
     {
-        $class = $this->eventClass;
-        $class::defer($callback);
+        ($this->eventDefer)($callback);
     }
 
     public function delete(mixed $stream): bool
     {
-        $class = $this->eventClass;
-
-        return $class::del($stream) === true;
+        return ($this->eventDelete)($stream) === true;
     }
 
     public function readFlag(): int
@@ -88,8 +98,7 @@ final class NativeSwooleReactor implements SwooleReactorInterface
 
     public function repeat(int $milliseconds, Closure $callback): int
     {
-        $class = $this->timerClass;
-        $timerId = $class::tick($milliseconds, $callback);
+        $timerId = ($this->timerRepeat)($milliseconds, $callback);
         if (!is_int($timerId)) {
             throw new RuntimeException('Swoole/OpenSwoole rejected the repeating timer.');
         }
@@ -99,22 +108,17 @@ final class NativeSwooleReactor implements SwooleReactorInterface
 
     public function resumeCoroutine(int $coroutineId): bool
     {
-        $class = $this->coroutineClass;
-
-        return $class::resume($coroutineId) === true;
+        return ($this->coroutineResume)($coroutineId) === true;
     }
 
     public function set(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
-        $class = $this->eventClass;
-
-        return $class::set($stream, $read, $write, $flags) === true;
+        return ($this->eventSet)($stream, $read, $write, $flags) === true;
     }
 
     public function suspendCoroutine(): void
     {
-        $class = $this->coroutineClass;
-        if ($class::yield() !== true) {
+        if (($this->coroutineYield)() !== true) {
             throw new RuntimeException('Swoole/OpenSwoole failed to suspend the current host coroutine.');
         }
     }
@@ -132,6 +136,20 @@ final class NativeSwooleReactor implements SwooleReactorInterface
         }
 
         return $value;
+    }
+
+    /** @param class-string $class */
+    private static function method(string $class, string $method): Closure
+    {
+        try {
+            return (new ReflectionMethod($class, $method))->getClosure();
+        } catch (ReflectionException) {
+            throw new RuntimeUnavailableException(sprintf(
+                'Required Swoole/OpenSwoole method %s::%s is unavailable.',
+                $class,
+                $method,
+            ));
+        }
     }
 
     /** @return array{class-string, class-string, class-string, class-string} */
