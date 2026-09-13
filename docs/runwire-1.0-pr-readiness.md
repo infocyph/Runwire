@@ -21,11 +21,19 @@ The branch must remain unmerged and untagged until an explicit human approval is
 
 For each batch above, the corresponding Security & Standards workflow completed the applicable PHP 8.4/8.5 prefer-stable/prefer-lowest QA, PHPStan/Psalm analyzers, clean install and native QUIC/HTTP/3 interoperability lanes.
 
-Batch I additionally closes the cross-driver lifecycle parity and expanded soak/fault acceptance program, including request-context/reset/cancellation churn, recycle triggers, rolling reload/reaping, overload recovery and capability-gated reuse-port coverage.
+Batch I closes Points 58–60: cross-driver lifecycle parity and expanded soak/fault acceptance, including request-context/reset/cancellation churn, recycle triggers, rolling reload/reaping, overload recovery and capability-gated reuse-port coverage.
 
-## Batch J / final PR-head gate
+## Batch J — complete at the final PR head
 
-Batch J refreshes benchmark coverage, operational documentation and final PR-head certification. Its authoritative evidence is the Benchmarks and Security & Standards checks attached to the final PR head after all J/tracker documentation is committed.
+Batch J is complete when the current PR head passes its exact-head checks. Any later commit reopens Batch J and requires those checks to pass again.
+
+Batch J includes:
+
+- lifecycle/resource PHPBench coverage for request contexts, resetters, metrics and recycle accounting;
+- refreshed deployment, lifecycle, operations and benchmark documentation;
+- a strict comparative-evidence validator that rejects malformed, unsafe or non-comparable records with a non-zero CLI exit;
+- CI acceptance proving valid comparative evidence renders and mismatched evidence is rejected;
+- exact-head PHP 8.4/8.5 Benchmarks and Security & Standards workflows.
 
 The final PR head must have:
 
@@ -36,13 +44,16 @@ The final PR head must have:
 - native QUIC/HTTP/3 PHP 8.4 and PHP 8.5 lanes green;
 - aioquic interoperability green;
 - ngtcp2/nghttp3 interoperability green where the lane applies;
-- dedicated PHPBench workflow green with protocol, host-adapter and lifecycle/resource subjects.
+- dedicated PHPBench workflow green with protocol, host-adapter and lifecycle/resource subjects;
+- comparative-evidence validator acceptance green.
 
 ## Performance evidence boundary
 
-Runwire-only CI benchmarks are regression evidence, not a universal runtime ranking. Public cross-runtime performance positioning requires equivalent real-runtime records with the same hardware, PHP version, protocol, workload, worker count, concurrency and duration plus throughput, p50/p95/p99, errors, CPU and RSS.
+Runwire-only CI benchmarks are regression evidence, not a universal runtime ranking. Public cross-runtime performance positioning requires equivalent real-runtime records with the same hardware, PHP version, protocol, workload, instrumentation, worker count, concurrency and duration plus throughput, p50/p95/p99, errors, CPU and RSS.
 
-`benchmarks/comparative_evidence.php` validates those records and refuses mismatched comparisons. Missing peer-runtime evidence must remain missing; it must never be filled with estimates or results copied from unrelated public benchmarks.
+`benchmarks/comparative_evidence.php` validates independently collected records and refuses invalid or mismatched comparisons. Missing peer-runtime evidence must remain missing; it must never be filled with estimates or results copied from unrelated public benchmarks.
+
+Real peer-runtime measurements are therefore a **performance-claim gate**, not a Runwire correctness/release gate. Runwire 1.0 may ship without a comparative ranking; no comparative or “fastest/top-tier” claim may be published until equivalent peer evidence exists.
 
 ## Explicit release block
 

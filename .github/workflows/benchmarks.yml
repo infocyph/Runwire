@@ -57,6 +57,65 @@ jobs:
           jq -e 'type == "array" and length > 0' "$result" >/dev/null
           cat "$result"
 
+      - name: Validate comparative evidence gate
+        shell: bash
+        run: |
+          mkdir -p benchmark-results/comparative-fixtures
+          cat > benchmark-results/comparative-fixtures/runwire.json <<'JSON'
+          {
+            "runtime": "runwire-native",
+            "runtime_version": "1.0-pr",
+            "protocol": "http/1.1",
+            "workload": "plaintext-minimal",
+            "hardware_id": "ci-fixture",
+            "php_version": "${{ matrix.php-version }}",
+            "instrumentation": "default",
+            "workers": 4,
+            "concurrency": 32,
+            "duration_seconds": 30,
+            "throughput_rps": 1000.0,
+            "latency_ms": {"p50": 1.0, "p95": 2.0, "p99": 3.0},
+            "errors_total": 0,
+            "error_rate": 0.0,
+            "cpu_percent": 75.0,
+            "rss_peak_bytes": 67108864
+          }
+          JSON
+          cat > benchmark-results/comparative-fixtures/peer.json <<'JSON'
+          {
+            "runtime": "peer-runtime",
+            "runtime_version": "fixture",
+            "protocol": "http/1.1",
+            "workload": "plaintext-minimal",
+            "hardware_id": "ci-fixture",
+            "php_version": "${{ matrix.php-version }}",
+            "instrumentation": "default",
+            "workers": 4,
+            "concurrency": 32,
+            "duration_seconds": 30,
+            "throughput_rps": 900.0,
+            "latency_ms": {"p50": 1.2, "p95": 2.4, "p99": 3.6},
+            "errors_total": 0,
+            "error_rate": 0.0,
+            "cpu_percent": 80.0,
+            "rss_peak_bytes": 75497472
+          }
+          JSON
+          jq '.concurrency = 64' benchmark-results/comparative-fixtures/peer.json \
+            > benchmark-results/comparative-fixtures/mismatch.json
+
+          php benchmarks/comparative_evidence.php \
+            benchmark-results/comparative-fixtures/runwire.json \
+            benchmark-results/comparative-fixtures/peer.json \
+            > benchmark-results/comparative-fixtures/rendered.md
+
+          if php benchmarks/comparative_evidence.php \
+            benchmark-results/comparative-fixtures/runwire.json \
+            benchmark-results/comparative-fixtures/mismatch.json; then
+            echo "comparative evidence mismatch unexpectedly passed" >&2
+            exit 1
+          fi
+
       - name: Upload benchmark evidence
         if: always()
         uses: actions/upload-artifact@v7

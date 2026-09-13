@@ -23,6 +23,17 @@ const REQUIRED_NUMERIC_FIELDS = [
     'rss_peak_bytes',
 ];
 
+const COMPARABILITY_FIELDS = [
+    'hardware_id',
+    'php_version',
+    'protocol',
+    'workload',
+    'instrumentation',
+    'workers',
+    'concurrency',
+    'duration_seconds',
+];
+
 /** @return array<string, mixed> */
 function loadEvidence(string $path): array
 {
@@ -36,13 +47,16 @@ function loadEvidence(string $path): array
     }
 
     foreach (REQUIRED_STRING_FIELDS as $field) {
-        if (!isset($decoded[$field]) || !is_string($decoded[$field]) || $decoded[$field] === '') {
+        if (!isset($decoded[$field]) || !is_string($decoded[$field]) || trim($decoded[$field]) === '') {
             throw new RuntimeException(sprintf('Evidence file "%s" is missing string field "%s".', $path, $field));
         }
     }
     foreach (REQUIRED_NUMERIC_FIELDS as $field) {
-        if (!isset($decoded[$field]) || !is_numeric($decoded[$field])) {
+        if (!isset($decoded[$field]) || (!is_int($decoded[$field]) && !is_float($decoded[$field]))) {
             throw new RuntimeException(sprintf('Evidence file "%s" is missing numeric field "%s".', $path, $field));
+        }
+        if (!is_finite((float) $decoded[$field])) {
+            throw new RuntimeException(sprintf('Evidence file "%s" has non-finite field "%s".', $path, $field));
         }
     }
 
@@ -51,12 +65,43 @@ function loadEvidence(string $path): array
         throw new RuntimeException(sprintf('Evidence file "%s" is missing latency_ms.', $path));
     }
     foreach (['p50', 'p95', 'p99'] as $field) {
-        if (!isset($latency[$field]) || !is_numeric($latency[$field])) {
+        if (!isset($latency[$field]) || (!is_int($latency[$field]) && !is_float($latency[$field]))) {
             throw new RuntimeException(sprintf('Evidence file "%s" is missing latency_ms.%s.', $path, $field));
+        }
+        if (!is_finite((float) $latency[$field]) || (float) $latency[$field] < 0.0) {
+            throw new RuntimeException(sprintf('Evidence file "%s" has invalid latency_ms.%s.', $path, $field));
         }
     }
 
+    assertEvidenceRanges($decoded, $path);
+
     return $decoded;
+}
+
+/** @param array<string, mixed> $record */
+function assertEvidenceRanges(array $record, string $path): void
+{
+    foreach (['workers', 'concurrency', 'duration_seconds'] as $field) {
+        if ((float) $record[$field] <= 0.0) {
+            throw new RuntimeException(sprintf('Evidence file "%s" requires "%s" to be greater than zero.', $path, $field));
+        }
+    }
+    foreach (['throughput_rps', 'errors_total', 'cpu_percent', 'rss_peak_bytes'] as $field) {
+        if ((float) $record[$field] < 0.0) {
+            throw new RuntimeException(sprintf('Evidence file "%s" requires "%s" to be non-negative.', $path, $field));
+        }
+    }
+
+    $errorRate = (float) $record['error_rate'];
+    if ($errorRate < 0.0 || $errorRate > 1.0) {
+        throw new RuntimeException(sprintf('Evidence file "%s" requires "error_rate" between 0 and 1.', $path));
+    }
+
+    /** @var array{p50: int|float, p95: int|float, p99: int|float} $latency */
+    $latency = $record['latency_ms'];
+    if ((float) $latency['p50'] > (float) $latency['p95'] || (float) $latency['p95'] > (float) $latency['p99']) {
+        throw new RuntimeException(sprintf('Evidence file "%s" requires ordered p50 <= p95 <= p99 latency.', $path));
+    }
 }
 
 /** @param list<array<string, mixed>> $records */
@@ -67,7 +112,7 @@ function assertComparable(array $records): void
     }
 
     $reference = $records[0];
-    foreach (['hardware_id', 'php_version', 'protocol', 'workload', 'workers', 'concurrency', 'duration_seconds'] as $field) {
+    foreach (COMPARABILITY_FIELDS as $field) {
         $expected = $reference[$field] ?? null;
         foreach ($records as $record) {
             if (($record[$field] ?? null) !== $expected) {
@@ -119,6 +164,5 @@ try {
     fwrite(STDOUT, renderMarkdown($records));
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . PHP_EOL);
-
-    return 1;
+    exit(1);
 }
