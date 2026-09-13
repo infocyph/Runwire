@@ -132,9 +132,9 @@ Tracker semantics:
 | 0 | — | Enum directory/namespace normalization | ✅ Green (`1868a82f`) |
 | A | 1–4 | Generic worker recycling and accounting | ✅ Green (`a95c743c`) |
 | B | 5–10 | Runtime/request context, cancellation and deadlines | ✅ Green (`921b3589`) |
-| C | 11–15 | Application lifecycle, resetters, boot/warmup/drain | 🔄 Active |
-| D | 16–18, 45–50 | Rolling reload, health, generation and restart semantics | ⬜ Pending |
-| E | 19–25, 39–44, 51–53 | Metrics, diagnostics, errors, timing and observability | ⬜ Pending |
+| C | 11–15 | Application lifecycle, resetters, boot/warmup/drain | ✅ Green (`04c97cc7`) |
+| D | 16–18, 45–50 | Rolling reload, health, generation and restart semantics | ✅ Green (`47cfb924`) |
+| E | 19–25, 39–44, 51–53 | Metrics, diagnostics, errors, timing and observability | 🔄 Active |
 | F | 26–30, 33–35, 57 | Admission, resource/environment policy and socket capabilities | ⬜ Pending |
 | G | 31–32, 36, 55 | Timers, task/service workers, watcher and drain-aware background work | ⬜ Pending |
 | H | 37–38, 54, 56 | Bootstrap/runtime contracts, warmup and capability-first APIs | ⬜ Pending |
@@ -174,13 +174,36 @@ PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
 QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
 ```
 
+Batch C certification evidence:
+
+```text
+Exact head: 04c97cc716679e19e0d4c3e591cafc2844a59395
+Benchmarks #32: green
+Security & Standards #219: green
+PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
+PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
+QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
+QA warning-clean: green
+```
+
+Batch D certification evidence:
+
+```text
+Exact head: 47cfb92486c86c1bd7a08283c9c5e5cbd360efa9
+Benchmarks #39: green
+Security & Standards #226: green
+PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
+PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
+QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
+```
+
 Current implementation handoff:
 
 ```text
-Batch C → application lifecycle, resetters, boot/warmup/drain
+Batch E → metrics, diagnostics, errors, timing and observability
 ```
 
-Batch C must be independently green before Batch D implementation begins.
+Batch E must be independently green before Batch F implementation begins.
 
 ---
 
@@ -1236,9 +1259,9 @@ Runwire 1.0 is release-ready only when all of the following are true:
 0. Enum directory / namespace normalization                        ✅ 1868a82f
 A. Points 1–4                  Worker recycling/accounting          ✅ a95c743c
 B. Points 5–10                 Context/cancellation/deadlines       ✅ 921b3589
-C. Points 11–15                Application lifecycle/reset/warmup/drain ← CURRENT
-D. Points 16–18,45–50          Rolling reload/health/generation
-E. Points 19–25,39–44,51–53    Metrics/diagnostics/errors/timing
+C. Points 11–15                Application lifecycle/reset/warmup/drain ✅ 04c97cc7
+D. Points 16–18,45–50          Rolling reload/health/generation     ✅ 47cfb924
+E. Points 19–25,39–44,51–53    Metrics/diagnostics/errors/timing    ← CURRENT
 F. Points 26–30,33–35,57       Admission/resources/socket capabilities
 G. Points 31–32,36,55          Timers/tasks/watcher/drain behavior
 H. Points 37–38,54,56          Bootstrap/warmup/capability contracts
@@ -1248,7 +1271,7 @@ K. Explicit approval → Runwire 1.0 tag/release
 L. Then Webrick/Foundation/Omnibus integration
 ```
 
-The next code change must stay inside **Runwire Batch C**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
+The next code change must stay inside **Runwire Batch E**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
 
 ---
 
