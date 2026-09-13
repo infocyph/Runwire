@@ -15,10 +15,11 @@ use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use InvalidArgumentException;
 use RuntimeException;
-use Throwable;
 
 final class Connection
 {
+    private readonly ConnectionCallbackOwnership $callbackOwnership;
+
     private readonly int $id;
 
     private readonly ByteQueue $receiveBuffer;
@@ -28,8 +29,6 @@ final class Connection
     private readonly int $startedAtNanoseconds;
 
     private readonly ConnectionTimeouts $timeouts;
-
-    private readonly ConnectionCallbackOwnership $callbackOwnership;
 
     private int $backpressureEvents = 0;
 
@@ -545,17 +544,11 @@ final class Connection
 
     private function invoke(?Closure $callback): void
     {
-        try {
-            $callback?->__invoke($this);
-        } catch (Throwable $throwable) {
-            try {
-                $this->abort();
-            } catch (Throwable) {
-                // Preserve the originating callback failure after deterministic cleanup.
-            }
-
-            throw $throwable;
-        }
+        ConnectionCallbackDispatcher::invoke(
+            $callback,
+            $this,
+            fn() => $this->abort(),
+        );
     }
 
     private function markPeerEof(): void
