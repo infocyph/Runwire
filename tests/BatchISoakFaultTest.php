@@ -244,7 +244,7 @@ it('survives repeated rolling reload and drain cycles without leaving child proc
     );
     $readyGenerations = [];
     $reloadCompletions = 0;
-    $drains = 0;
+    $reloadStops = 0;
 
     $supervisor->group(WorkerGroup::callbacks(
         name: 'batch-i-reload',
@@ -263,7 +263,7 @@ it('survives repeated rolling reload and drain cycles without leaving child proc
         $supervisor,
         &$readyGenerations,
         &$reloadCompletions,
-        &$drains,
+        &$reloadStops,
     ): void {
         if ($event->type === SupervisorEventType::GENERATION_READY && $event->generation !== null) {
             $readyGenerations[] = $event->generation;
@@ -271,8 +271,11 @@ it('survives repeated rolling reload and drain cycles without leaving child proc
                 $supervisor->reload();
             }
         }
-        if ($event->type === SupervisorEventType::WORKER_DRAIN_STARTED) {
-            ++$drains;
+        if (
+            $event->type === SupervisorEventType::WORKER_STOP_REQUESTED
+            && $event->shutdownReason === ShutdownReason::DEPLOYMENT_RELOAD
+        ) {
+            ++$reloadStops;
         }
         if ($event->type !== SupervisorEventType::RELOAD_COMPLETED) {
             return;
@@ -295,7 +298,7 @@ it('survives repeated rolling reload and drain cycles without leaving child proc
     $status = 0;
     expect($readyGenerations)->toContain(1, 2, 3)
         ->and($reloadCompletions)->toBe(2)
-        ->and($drains)->toBeGreaterThanOrEqual(2)
+        ->and($reloadStops)->toBeGreaterThanOrEqual(2)
         ->and($supervisor->status()->workers)->toBe([])
         ->and(pcntl_waitpid(-1, $status, WNOHANG))->toBe(-1)
         ->and(pcntl_get_last_error())->toBe(PCNTL_ECHILD);
