@@ -118,9 +118,11 @@ final class FiberScheduler
                 case TaskState::RUNNABLE:
                 case TaskState::RUNNING:
                     ++$runnableTasks;
+
                     break;
                 case TaskState::SUSPENDED:
                     ++$suspendedTasks;
+
                     break;
                 default:
                     break;
