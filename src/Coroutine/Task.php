@@ -24,23 +24,21 @@ final class Task
     /** @var Fiber<mixed, mixed, mixed, mixed> */
     private readonly Fiber $fiber;
 
-    /** @var null|Closure(self): void */
-    private readonly ?Closure $onChange;
-
     private bool $observed = false;
 
     private TaskState $state = TaskState::NEW;
 
     private ?Throwable $terminalError = null;
 
-    /** @internal @param null|Closure(self): void $onChange */
+    /** @internal */
     public function __construct(
         private readonly int $id,
         FiberScheduler $scheduler,
         private readonly CancellationSource $cancellationSource,
         callable $callback,
         private readonly TaskLocalState $taskLocals,
-        ?Closure $onChange = null,
+        /** @var null|Closure(self): void */
+        private readonly ?Closure $onChange = null,
     ) {
         $closure = $callback(...);
         $token = $cancellationSource->token();
@@ -50,7 +48,6 @@ final class Task
 
             return $closure();
         });
-        $this->onChange = $onChange;
     }
 
     public function await(): mixed
