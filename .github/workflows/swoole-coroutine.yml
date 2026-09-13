@@ -1,0 +1,116 @@
+name: "Swoole Coroutine"
+
+on:
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  openswoole:
+    name: "OpenSwoole Coroutine - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP and OpenSwoole
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: openswoole
+          coverage: none
+          tools: composer:v2
+
+      - name: Verify OpenSwoole reactor API
+        shell: bash
+        run: |
+          php --ri openswoole
+          php -r '
+          $valid = extension_loaded("openswoole")
+              && class_exists("OpenSwoole\\Event")
+              && class_exists("OpenSwoole\\Timer")
+              && class_exists("OpenSwoole\\Coroutine")
+              && class_exists("OpenSwoole\\Constant")
+              && class_exists("OpenSwoole\\Http\\Server");
+          if (!$valid) {
+              fwrite(STDERR, "Required OpenSwoole reactor API is unavailable.\n");
+              exit(1);
+          }
+          '
+
+      - name: Install dependencies
+        shell: bash
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run focused Swoole coroutine tests
+        shell: bash
+        run: |
+          cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest.xml
+          trap 'rm -f .phpforge-pest.xml' EXIT
+          vendor/bin/pest \
+            --configuration=.phpforge-pest.xml \
+            tests/SwooleLoopTest.php \
+            tests/SwooleDriverTest.php \
+            tests/BatchORuntimeIntegrationTest.php
+
+      - name: Run live OpenSwoole coroutine acceptance
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          port="$(python3 - <<'PY'
+          import socket
+          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+              sock.bind(('127.0.0.1', 0))
+              print(sock.getsockname()[1])
+          PY
+          )"
+
+          php tests/fixtures/swoole_coroutine_server.php "$port" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          response=""
+          for attempt in $(seq 1 100); do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              echo '::error::OpenSwoole coroutine acceptance server exited before becoming ready.'
+              exit 1
+            fi
+
+            if response="$(curl --fail --silent --show-error --max-time 1 \
+              "http://127.0.0.1:$port/coroutine" 2>/dev/null)"; then
+              break
+            fi
+            sleep 0.05
+          done
+
+          expected='runwire-swoole-ok:s:1:0:0:0:/coroutine'
+          if [ "$response" != "$expected" ]; then
+            echo "Expected: $expected"
+            echo "Received: $response"
+            echo '--- OpenSwoole coroutine acceptance server log ---'
+            cat "$tmpdir/server.log"
+            exit 1
+          fi
+
+          kill "$server_pid" 2>/dev/null || true
+          wait "$server_pid" 2>/dev/null || true
+          server_pid=""
