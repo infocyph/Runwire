@@ -26,6 +26,7 @@ it('bounds an in-flight periodic callback by the worker shutdown deadline', func
                     file_put_contents($started, 'started', LOCK_EX);
                     $deadline = hrtime(true) + 500_000_000;
                     while (hrtime(true) < $deadline) {
+                        usleep(10_000);
                     }
                 });
             },

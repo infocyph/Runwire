@@ -60,11 +60,11 @@ final class Supervisor
     /** @var array<string, array<int, int>> */
     private array $currentSlots = [];
 
-    private ?DevelopmentWatchPolicy $developmentWatchPolicy = null;
-
     private ?DevelopmentWatcher $developmentWatcher = null;
 
     private int $developmentWatcherFailures = 0;
+
+    private ?DevelopmentWatchPolicy $developmentWatchPolicy = null;
 
     /** @var array<string, int> */
     private array $exitReasonCounts;

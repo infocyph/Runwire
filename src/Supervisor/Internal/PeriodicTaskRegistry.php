@@ -14,9 +14,9 @@ final class PeriodicTaskRegistry
 {
     private const float MAX_INTERVAL_SECONDS = 86_400.0;
 
-    private const float MIN_INTERVAL_SECONDS = 0.001;
-
     private const int MAX_TASKS = 128;
+
+    private const float MIN_INTERVAL_SECONDS = 0.001;
 
     private bool $draining = false;
 
@@ -139,9 +139,7 @@ final class PeriodicTaskRegistry
         }
 
         ($task['callback'])();
-        if (!$this->draining && isset($this->tasks[$name])) {
-            $this->schedule($name);
-        }
+        $this->schedule($name);
     }
 
     private function schedule(string $name): void
@@ -153,7 +151,9 @@ final class PeriodicTaskRegistry
 
         $this->tasks[$name]['timer'] = $this->loop->delay(
             $task['interval'],
-            fn(int $timer): void => $this->run($name, $timer),
+            function (int $timer) use ($name): void {
+                $this->run($name, $timer);
+            },
         );
     }
 }

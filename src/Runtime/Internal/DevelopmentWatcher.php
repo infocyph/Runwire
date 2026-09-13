@@ -11,12 +11,8 @@ use Throwable;
 
 final class DevelopmentWatcher
 {
-    private readonly LoopInterface $loop;
-
     /** @var Closure(): void */
     private readonly Closure $onChange;
-
-    private readonly DevelopmentWatchPolicy $policy;
 
     /** @var Closure(): string */
     private readonly Closure $snapshotter;
@@ -36,15 +32,13 @@ final class DevelopmentWatcher
      * @param callable(): string|null $snapshotter
      */
     public function __construct(
-        LoopInterface $loop,
-        DevelopmentWatchPolicy $policy,
+        private readonly LoopInterface $loop,
+        private readonly DevelopmentWatchPolicy $policy,
         callable $onChange,
         ?callable $snapshotter = null,
     ) {
-        $this->loop = $loop;
         $this->onChange = Closure::fromCallable($onChange);
-        $this->policy = $policy;
-        $scanner = new DevelopmentFileScanner($policy);
+        $scanner = new DevelopmentFileScanner($this->policy);
         $this->snapshotter = $snapshotter === null ? $scanner->snapshot(...) : Closure::fromCallable($snapshotter);
     }
 
@@ -68,7 +62,7 @@ final class DevelopmentWatcher
         $this->poll();
         $this->pollTimer = $this->loop->repeat(
             $this->policy->pollIntervalSeconds,
-            fn(int $timer): void => $this->poll(),
+            $this->pollTick(...),
         );
     }
 
@@ -118,8 +112,15 @@ final class DevelopmentWatcher
         }
         $this->debounceTimer = $this->loop->delay(
             $this->policy->debounceSeconds,
-            fn(int $timer): void => $this->trigger(),
+            $this->triggerTick(...),
         );
+    }
+
+    private function pollTick(int $timer): void
+    {
+        if ($this->pollTimer === $timer) {
+            $this->poll();
+        }
     }
 
     private function trigger(): void
@@ -133,6 +134,13 @@ final class DevelopmentWatcher
             ($this->onChange)();
         } catch (Throwable) {
             ++$this->failures;
+        }
+    }
+
+    private function triggerTick(int $timer): void
+    {
+        if ($this->debounceTimer === $timer) {
+            $this->trigger();
         }
     }
 }

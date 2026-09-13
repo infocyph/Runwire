@@ -388,15 +388,7 @@ final class Runtime
     private function buildSupervisor(array $bound): Supervisor
     {
         $supervisor = new Supervisor(reloadPolicy: $this->options->reload);
-        if ($this->controlOptions !== null) {
-            $supervisor->control($this->controlOptions);
-        }
-        if ($this->developmentWatchPolicy !== null) {
-            $supervisor->watch($this->developmentWatchPolicy);
-        }
-        foreach ($this->lifecycleListeners as $listener) {
-            $supervisor->onEvent($listener);
-        }
+        $this->configureSupervisor($supervisor);
         foreach ($bound as $name => $target) {
             $definition = $target->definition;
             $supervisor->group(WorkerGroup::callbacks(
@@ -443,6 +435,19 @@ final class Runtime
         }
 
         return $supervisor;
+    }
+
+    private function configureSupervisor(Supervisor $supervisor): void
+    {
+        if ($this->controlOptions !== null) {
+            $supervisor->control($this->controlOptions);
+        }
+        if ($this->developmentWatchPolicy !== null) {
+            $supervisor->watch($this->developmentWatchPolicy);
+        }
+        foreach ($this->lifecycleListeners as $listener) {
+            $supervisor->onEvent($listener);
+        }
     }
 
     private function hostRuntimeContext(): RuntimeContext

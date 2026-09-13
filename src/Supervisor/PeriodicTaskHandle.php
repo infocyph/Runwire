@@ -8,16 +8,10 @@ use Closure;
 
 final class PeriodicTaskHandle
 {
-    /** @var Closure(): bool */
-    private readonly Closure $canceller;
-
     private bool $cancelled = false;
 
     /** @param Closure(): bool $canceller */
-    public function __construct(Closure $canceller)
-    {
-        $this->canceller = $canceller;
-    }
+    public function __construct(private readonly Closure $canceller) {}
 
     public function cancel(): bool
     {
