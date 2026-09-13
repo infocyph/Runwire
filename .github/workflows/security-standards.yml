@@ -12,6 +12,7 @@ jobs:
   phpforge:
     uses: infocyph/phpforge/.github/workflows/security-standards.yml@main
     permissions:
+      security-events: write
       actions: read
       contents: read
     with:
