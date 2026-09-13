@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
+use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
 use Infocyph\Runwire\Supervisor\ReloadPolicy;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
@@ -18,6 +21,9 @@ final readonly class RuntimeOptions
         public OpcacheMode $opcache = OpcacheMode::AUTO,
         public WorkerRecyclePolicy $workerRecycle = new WorkerRecyclePolicy(),
         public RequestExecutionPolicy $requestExecution = new RequestExecutionPolicy(),
+        public AdmissionPolicy $admission = new AdmissionPolicy(),
+        public DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
+        public PrivilegeDropPolicy $privilegeDrop = new PrivilegeDropPolicy(),
         public FpmOptions $fpm = new FpmOptions(),
         public FrankenPhpOptions $frankenPhp = new FrankenPhpOptions(),
         public RoadRunnerOptions $roadRunner = new RoadRunnerOptions(),

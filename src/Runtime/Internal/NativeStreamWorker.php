@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime\Internal;
 
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Protocol\FramedConnection;
@@ -12,9 +13,12 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 
 final class NativeStreamWorker
 {
-    public static function run(WorkerContext $context, BoundStreamServer $bound): void
-    {
-        $loop = new SelectLoop();
+    public static function run(
+        WorkerContext $context,
+        BoundStreamServer $bound,
+        DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
+    ): void {
+        $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
         $sessions = [];
         $state = new WorkerStopState();
         $handler = $bound->definition->handlerFor($context);

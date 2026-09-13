@@ -32,6 +32,10 @@ final readonly class RuntimeEnvironment
         public bool $opcacheAvailable = false,
         public bool $opcacheEnabled = false,
         public bool $opcacheCliEnabled = false,
+        public bool $supportsReusePort = false,
+        public bool $supportsUnixSockets = false,
+        public bool $supportsPrivilegeDrop = false,
+        public SystemResources $resources = new SystemResources(),
     ) {
         if ($sapi === '') {
             throw new InvalidArgumentException('SAPI name cannot be empty.');

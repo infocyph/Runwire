@@ -17,7 +17,7 @@ it('keeps HTTP/3 0-RTT disabled for the 1.0 application contract', function (): 
     expect(Http3Options::ZERO_RTT_ENABLED)->toBeFalse();
 });
 
-it('derives a narrow QUIC listener configuration from TLS material', function (): void {
+it('derives a narrow QUIC listener configuration from TLS material with reuse port default-off', function (): void {
     $certificate = tempnam(sys_get_temp_dir(), 'runwire-h3-cert-');
     $privateKey = tempnam(sys_get_temp_dir(), 'runwire-h3-key-');
     if ($certificate === false || $privateKey === false) {
@@ -35,8 +35,8 @@ it('derives a narrow QUIC listener configuration from TLS material', function ()
             'local_pk' => realpath($privateKey),
             'passphrase' => 'secret',
             'alpn' => 'h3',
-            'reuse_port' => true,
-        ]);
+            'reuse_port' => false,
+        ])->and((new Http3Options())->listenerOptions($tls, true)['reuse_port'])->toBeTrue();
     } finally {
         if (file_exists($certificate)) {
             unlink($certificate);

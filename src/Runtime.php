@@ -13,6 +13,7 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Network\UnixListenerOptions;
+use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\HostDriverFactory;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
@@ -197,6 +198,7 @@ final class Runtime
             $this->hostRuntimeContext(),
             $this->options->requestExecution,
             $this->options->applicationLifecycle,
+            $this->options->admission,
         );
 
         try {
@@ -256,22 +258,26 @@ final class Runtime
         return $prefix . ':' . $server->name;
     }
 
-    private static function workerListenerOptions(ListenerOptions $options, int $workerLimit): ListenerOptions
-    {
+    private static function workerListenerOptions(
+        ListenerOptions $options,
+        int $workerLimit,
+        AdmissionPolicy $admission,
+    ): ListenerOptions {
         return new ListenerOptions(
             backlog: $options->backlog,
-            maxConnections: min($options->maxConnections, $workerLimit),
+            maxConnections: $admission->connectionLimit(min($options->maxConnections, $workerLimit)),
             acceptBatchSize: $options->acceptBatchSize,
             socketContext: $options->socketContext,
+            reusePort: $options->reusePort,
         );
     }
 
-    private static function workerUnixOptions(StreamServer $server): UnixListenerOptions
+    private static function workerUnixOptions(StreamServer $server, AdmissionPolicy $admission): UnixListenerOptions
     {
         $options = $server->unix ?? new UnixListenerOptions(listener: $server->listener);
 
         return new UnixListenerOptions(
-            listener: self::workerListenerOptions($options->listener, $server->workerConnectionLimit),
+            listener: self::workerListenerOptions($options->listener, $server->workerConnectionLimit, $admission),
             removeStaleSocket: $options->removeStaleSocket,
             permissions: $options->permissions,
             unlinkOnClose: $options->unlinkOnClose,
@@ -289,6 +295,11 @@ final class Runtime
                     'Native HTTP/3 is configured, but the required QUIC runtime capability is unavailable.',
                 );
             }
+            if ($this->resolvedWorkerCount($server->workers) > 1 && !$server->listener->reusePort) {
+                throw new RuntimeUnavailableException(
+                    'Native HTTP/3 with multiple workers requires explicit ListenerOptions::reusePort support.',
+                );
+            }
         }
     }
 
@@ -302,7 +313,16 @@ final class Runtime
                 $bound[$name] = match (true) {
                     $server instanceof Server => new BoundServer(
                         $server,
-                        TcpListener::bind($server->address, self::workerListenerOptions($server->listener, $server->workerConnectionLimit), $server->connection, $server->tls),
+                        TcpListener::bind(
+                            $server->address,
+                            self::workerListenerOptions(
+                                $server->listener,
+                                $server->workerConnectionLimit,
+                                $this->options->admission,
+                            ),
+                            $server->connection,
+                            $server->tls,
+                        ),
                     ),
                     $server instanceof StreamServer => $this->bindStreamServer($server),
                     $server instanceof DatagramServer => new BoundDatagramServer(
@@ -327,13 +347,17 @@ final class Runtime
         $listener = match ($server->transport) {
             StreamTransport::TCP => TcpListener::bind(
                 $server->address,
-                self::workerListenerOptions($server->listener, $server->workerConnectionLimit),
+                self::workerListenerOptions(
+                    $server->listener,
+                    $server->workerConnectionLimit,
+                    $this->options->admission,
+                ),
                 $server->connection,
                 $server->tls,
             ),
             StreamTransport::UNIX => UnixListener::bind(
                 $server->address,
-                self::workerUnixOptions($server),
+                self::workerUnixOptions($server, $this->options->admission),
                 $server->connection,
             ),
         };
@@ -355,7 +379,7 @@ final class Runtime
             $definition = $target->definition;
             $supervisor->group(WorkerGroup::callbacks(
                 name: self::groupPrefix($target) . ':' . $name,
-                count: $definition->workers,
+                count: $this->resolvedWorkerCount($definition->workers),
                 factory: function (WorkerContext $context) use ($bound, $target): void {
                     foreach ($bound as $candidate) {
                         if ($candidate !== $target) {
@@ -369,12 +393,23 @@ final class Runtime
                             $this->nativeRuntimeContext($context),
                             $this->options->requestExecution,
                             $this->options->applicationLifecycle,
+                            $this->options->diagnostics,
                         ),
-                        $target instanceof BoundStreamServer => NativeStreamWorker::run($context, $target),
-                        $target instanceof BoundDatagramServer => NativeDatagramWorker::run($context, $target),
+                        $target instanceof BoundStreamServer => NativeStreamWorker::run(
+                            $context,
+                            $target,
+                            $this->options->diagnostics,
+                        ),
+                        $target instanceof BoundDatagramServer => NativeDatagramWorker::run(
+                            $context,
+                            $target,
+                            $this->options->diagnostics,
+                        ),
                     };
                 },
                 recyclePolicy: $this->options->workerRecycle,
+                admissionPolicy: $this->options->admission,
+                privilegeDropPolicy: $this->options->privilegeDrop,
                 automaticReady: false,
                 readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
@@ -419,6 +454,13 @@ final class Runtime
         );
     }
 
+    private function resolvedWorkerCount(int $configured): int
+    {
+        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
+
+        return $selection->capabilities->resources->resolveWorkerCount($configured);
+    }
+
     /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
     private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
     {
@@ -426,7 +468,7 @@ final class Runtime
         $tcpAddress = $target->listener->address();
         $supervisor->group(WorkerGroup::callbacks(
             name: self::http3GroupName($definition),
-            count: $definition->workers,
+            count: $this->resolvedWorkerCount($definition->workers),
             factory: function (WorkerContext $context) use ($bound, $definition, $tcpAddress): void {
                 foreach ($bound as $candidate) {
                     self::closeBound($candidate, false);
@@ -438,9 +480,12 @@ final class Runtime
                     $this->nativeRuntimeContext($context),
                     $this->options->requestExecution,
                     $this->options->applicationLifecycle,
+                    $this->options->diagnostics,
                 );
             },
             recyclePolicy: $this->options->workerRecycle,
+            admissionPolicy: $this->options->admission,
+            privilegeDropPolicy: $this->options->privilegeDrop,
             automaticReady: false,
             readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
             shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,

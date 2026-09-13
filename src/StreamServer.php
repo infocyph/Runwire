@@ -244,8 +244,8 @@ final readonly class StreamServer
         if ($address === '') {
             throw new InvalidArgumentException('Stream server address cannot be empty.');
         }
-        if ($workers < 1 || $workers > 1_024) {
-            throw new InvalidArgumentException('Stream server worker count must be between 1 and 1024.');
+        if ($workers < 0 || $workers > 1_024) {
+            throw new InvalidArgumentException('Stream server worker count must be between 0 (automatic) and 1024.');
         }
         if ($workerConnectionLimit < 1 || $workerConnectionLimit > 1_000_000) {
             throw new InvalidArgumentException('Worker connection limit must be between 1 and 1000000.');

@@ -31,6 +31,7 @@ final class WorkerChildRuntime
                 parentPid: posix_getppid(),
                 readyStream: $readyStream,
                 recyclePolicy: $group->recyclePolicy,
+                admissionPolicy: $group->admissionPolicy,
             );
 
             pcntl_async_signals(true);
@@ -42,6 +43,7 @@ final class WorkerChildRuntime
                 throw new SupervisorException('Unable to install worker stop signal handlers.');
             }
 
+            $group->privilegeDropPolicy->apply();
             if ($group->automaticReady) {
                 $context->ready();
             }

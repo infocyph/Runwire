@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Runtime;
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
 final readonly class RuntimeSelector
@@ -19,10 +20,12 @@ final readonly class RuntimeSelector
     {
         $driver = $this->driverResolver->resolve($options, $environment);
         $warnings = $this->validateOpcache($options, $environment);
+        $capabilities = $this->capabilityResolver->resolve($driver, $environment, $options);
+        $this->validatePrivilegeDrop($options, $driver, $capabilities->supportsPrivilegeDrop);
 
         return new RuntimeSelection(
             driver: $driver,
-            capabilities: $this->capabilityResolver->resolve($driver, $environment, $options),
+            capabilities: $capabilities,
             warnings: $warnings,
         );
     }
@@ -45,5 +48,20 @@ final readonly class RuntimeSelector
         }
 
         return ['OPcache was requested but is unavailable or disabled for the active PHP SAPI.'];
+    }
+
+    private function validatePrivilegeDrop(RuntimeOptions $options, RuntimeDriver $driver, bool $supported): void
+    {
+        if (!$options->privilegeDrop->enabled()) {
+            return;
+        }
+        if ($driver !== RuntimeDriver::NATIVE) {
+            throw new RuntimeUnavailableException('Worker UID/GID changes are supported only by the native prefork runtime.');
+        }
+        if (!$supported) {
+            throw new RuntimeUnavailableException('Worker UID/GID changes were requested but POSIX identity capabilities are unavailable.');
+        }
+
+        $options->privilegeDrop->assertSupported();
     }
 }

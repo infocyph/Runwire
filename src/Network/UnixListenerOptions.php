@@ -17,5 +17,8 @@ final readonly class UnixListenerOptions
         if ($permissions !== null && ($permissions < 0 || $permissions > 0o777)) {
             throw new InvalidArgumentException('Unix socket permissions must be between 0000 and 0777.');
         }
+        if ($listener->reusePort) {
+            throw new InvalidArgumentException('SO_REUSEPORT is only supported for internet-domain listeners.');
+        }
     }
 }

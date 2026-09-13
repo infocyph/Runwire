@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire;
 
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\Runtime\SystemResources;
 
 final readonly class RuntimeCapabilities
 {
@@ -32,11 +33,13 @@ final readonly class RuntimeCapabilities
         public bool $supportsWebsocket = false,
         public bool $supportsOpcache = false,
         public bool $supportsOpcacheCli = false,
+        public bool $supportsReusePort = false,
+        public bool $supportsUnixSockets = false,
+        public bool $supportsPrivilegeDrop = false,
+        public SystemResources $resources = new SystemResources(),
     ) {}
 
-    /**
-     * @return array<string, bool|string>
-     */
+    /** @return array<string, bool|int|string|null> */
     public function toArray(): array
     {
         return [
@@ -63,6 +66,11 @@ final readonly class RuntimeCapabilities
             'supports_websocket' => $this->supportsWebsocket,
             'supports_opcache' => $this->supportsOpcache,
             'supports_opcache_cli' => $this->supportsOpcacheCli,
+            'supports_reuse_port' => $this->supportsReusePort,
+            'supports_unix_sockets' => $this->supportsUnixSockets,
+            'supports_privilege_drop' => $this->supportsPrivilegeDrop,
+            'effective_cpu_count' => $this->resources->effectiveCpuCount,
+            'effective_memory_bytes' => $this->resources->effectiveMemoryBytes,
         ];
     }
 }

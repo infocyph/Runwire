@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Supervisor;
 
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
+use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use RuntimeException;
@@ -42,6 +43,7 @@ final class WorkerContext
         public readonly int $parentPid,
         private readonly mixed $readyStream,
         public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
+        public readonly AdmissionPolicy $admissionPolicy = new AdmissionPolicy(),
     ) {
         if (!stream_set_blocking($this->readyStream, false)) {
             throw new RuntimeException('Unable to configure worker lifecycle channel.');

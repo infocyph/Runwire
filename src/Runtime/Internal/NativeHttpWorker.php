@@ -39,7 +39,8 @@ final class NativeHttpWorker
             $bound->definition->handlerFor($context),
             $runtimeContext,
             $requestExecution,
-            $lifecycle,
+            hooks: $lifecycle,
+            admission: $context->admissionPolicy,
         );
         $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics, $loop);
         $handler = self::requestHandler($application, $context, $sampler);

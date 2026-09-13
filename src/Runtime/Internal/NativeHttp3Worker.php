@@ -38,12 +38,17 @@ final class NativeHttp3Worker
         }
 
         [$host, $port] = self::endpoint($tcpAddress);
-        $listener = PhpQuicListener::bind($host, $port, $options->listenerOptions($tls));
+        $listener = PhpQuicListener::bind(
+            $host,
+            $port,
+            $options->listenerOptions($tls, $server->listener->reusePort),
+        );
         $application = new ApplicationLifecycle(
             $server->handlerFor($context),
             $runtimeContext,
             $requestExecution,
-            $lifecycle,
+            hooks: $lifecycle,
+            admission: $context->admissionPolicy,
         );
         $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics);
         $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
@@ -63,7 +68,7 @@ final class NativeHttp3Worker
             $listener,
             $handler,
             $options->limits,
-            $server->workerConnectionLimit,
+            $context->admissionPolicy->connectionLimit($server->workerConnectionLimit),
             handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
         );
 

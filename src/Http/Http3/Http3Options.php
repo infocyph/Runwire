@@ -25,14 +25,14 @@ final readonly class Http3Options
     }
 
     /** @return array<string, bool|string> */
-    public function listenerOptions(TlsOptions $tls): array
+    public function listenerOptions(TlsOptions $tls, bool $reusePort = false): array
     {
         return [
             'local_cert' => self::resolvedPath($tls->localCertificate),
             ...($tls->privateKey === null ? [] : ['local_pk' => self::resolvedPath($tls->privateKey)]),
             ...($tls->passphrase === null ? [] : ['passphrase' => $tls->passphrase]),
             'alpn' => 'h3',
-            'reuse_port' => true,
+            'reuse_port' => $reusePort,
         ];
     }
 

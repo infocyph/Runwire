@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime;
 
+use Infocyph\Runwire\Network\SocketCapabilityProbe;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\Runtime\Internal\SystemResourceProbe;
 
 final class RuntimeEnvironmentProbe
 {
+    public function __construct(
+        private readonly SystemResourceProbe $resourceProbe = new SystemResourceProbe(),
+    ) {}
+
     public function probe(): RuntimeEnvironment
     {
         $sapi = PHP_SAPI;
@@ -29,6 +35,10 @@ final class RuntimeEnvironmentProbe
             opcacheAvailable: $opcacheAvailable,
             opcacheEnabled: $opcacheEnabled,
             opcacheCliEnabled: $opcacheCliEnabled,
+            supportsReusePort: SocketCapabilityProbe::supportsReusePort(),
+            supportsUnixSockets: SocketCapabilityProbe::supportsUnixSockets(),
+            supportsPrivilegeDrop: self::supportsPrivilegeDrop(),
+            resources: $this->resourceProbe->probe(),
         );
     }
 
@@ -72,6 +82,14 @@ final class RuntimeEnvironmentProbe
         return extension_loaded('posix')
             && function_exists('posix_getpid')
             && function_exists('posix_kill');
+    }
+
+    private static function supportsPrivilegeDrop(): bool
+    {
+        return function_exists('posix_geteuid')
+            && function_exists('posix_getegid')
+            && function_exists('posix_setuid')
+            && function_exists('posix_setgid');
     }
 
     private static function supportsQuic(): bool

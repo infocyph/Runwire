@@ -8,6 +8,7 @@ use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Metrics\MetricsProviderInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
+use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -33,6 +34,7 @@ final readonly class RuntimeApplication implements MetricsProviderInterface
         ?RuntimeContext $runtimeContext = null,
         ?RequestExecutionPolicy $requestExecution = null,
         ?ApplicationLifecycleHooks $lifecycle = null,
+        ?AdmissionPolicy $admission = null,
     ) {
         $this->runtimeContext = $runtimeContext ?? RuntimeContext::standalone();
         $this->lifecycle = new ApplicationLifecycle(
@@ -42,6 +44,7 @@ final readonly class RuntimeApplication implements MetricsProviderInterface
             $lifecycle,
             $requestCleanup,
             $shutdown,
+            $admission ?? new AdmissionPolicy(),
         );
     }
 

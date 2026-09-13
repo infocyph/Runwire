@@ -11,6 +11,7 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\Runtime\Internal\AdmissionController;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use LogicException;
@@ -20,6 +21,8 @@ final class ApplicationLifecycle
 {
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     private readonly Closure $handler;
+
+    private readonly AdmissionController $admission;
 
     private readonly ApplicationLifecycleHooks $hooks;
 
@@ -58,11 +61,13 @@ final class ApplicationLifecycle
         ?ApplicationLifecycleHooks $hooks = null,
         ?callable $legacyCleanup = null,
         ?callable $legacyShutdown = null,
+        AdmissionPolicy $admission = new AdmissionPolicy(),
     ) {
         $this->handler = Closure::fromCallable($handler);
         $this->hooks = $hooks ?? new ApplicationLifecycleHooks();
         $this->legacyCleanup = $legacyCleanup === null ? null : Closure::fromCallable($legacyCleanup);
         $this->legacyShutdown = $legacyShutdown === null ? null : Closure::fromCallable($legacyShutdown);
+        $this->admission = new AdmissionController($admission, $runtimeContext->metrics);
     }
 
     public function cancelActive(CancellationReason $reason = CancellationReason::HOST_CANCELLED): void
@@ -99,44 +104,16 @@ final class ApplicationLifecycle
         if ($this->draining || $this->shutdown) {
             throw new LogicException('Application lifecycle is draining and cannot start new request work.');
         }
+        if (!$this->admission->admit($request->version)) {
+            $this->admission->writeOverloadResponse($request, $writer);
 
-        $context = $request->context;
-        $context->activate($this->runtimeContext, $this->requestExecution);
-        $id = spl_object_id($context);
-        $this->activeContexts[$id] = $context;
-        $memoryAtStart = memory_get_usage(true);
-        $this->runtimeContext->metrics->requestStarted($request->version);
-        $requestFailure = null;
+            return;
+        }
 
         try {
-            ($this->handler)($request, $writer);
-            if ($completeResponse && !$writer->isEnded()) {
-                $writer->end();
-            }
-        } catch (Throwable $error) {
-            $requestFailure = $error;
-        }
-
-        $resetFailures = $this->reset($context);
-        unset($this->activeContexts[$id]);
-        $this->runtimeContext->metrics->requestCompleted(
-            $context,
-            $request->version,
-            $memoryAtStart,
-            self::requestErrorClass($context, $requestFailure, $resetFailures),
-        );
-        $this->runtimeContext->metrics->maybeCollectGarbage($this->requestExecution->gc);
-        $context->complete();
-
-        if ($requestFailure !== null) {
-            if ($resetFailures !== []) {
-                throw new RequestLifecycleException($requestFailure, $resetFailures);
-            }
-
-            throw $requestFailure;
-        }
-        if ($resetFailures !== []) {
-            throw new RequestLifecycleException(null, $resetFailures);
+            $this->handleAdmitted($request, $writer, $completeResponse);
+        } finally {
+            $this->admission->release($request->version);
         }
     }
 
@@ -195,6 +172,51 @@ final class ApplicationLifecycle
             $this->runtimeContext->metrics->recordError(ApplicationErrorClass::WARMUP_FAILURE);
 
             throw $error;
+        }
+    }
+
+    private function handleAdmitted(
+        HttpRequest $request,
+        ResponseWriterInterface $writer,
+        bool $completeResponse,
+    ): void {
+        $context = $request->context;
+        $context->activate($this->runtimeContext, $this->requestExecution);
+        $id = spl_object_id($context);
+        $this->activeContexts[$id] = $context;
+        $memoryAtStart = memory_get_usage(true);
+        $this->runtimeContext->metrics->requestStarted($request->version);
+        $requestFailure = null;
+
+        try {
+            ($this->handler)($request, $writer);
+            if ($completeResponse && !$writer->isEnded()) {
+                $writer->end();
+            }
+        } catch (Throwable $error) {
+            $requestFailure = $error;
+        }
+
+        $resetFailures = $this->reset($context);
+        unset($this->activeContexts[$id]);
+        $this->runtimeContext->metrics->requestCompleted(
+            $context,
+            $request->version,
+            $memoryAtStart,
+            self::requestErrorClass($context, $requestFailure, $resetFailures),
+        );
+        $this->runtimeContext->metrics->maybeCollectGarbage($this->requestExecution->gc);
+        $context->complete();
+
+        if ($requestFailure !== null) {
+            if ($resetFailures !== []) {
+                throw new RequestLifecycleException($requestFailure, $resetFailures);
+            }
+
+            throw $requestFailure;
+        }
+        if ($resetFailures !== []) {
+            throw new RequestLifecycleException(null, $resetFailures);
         }
     }
 

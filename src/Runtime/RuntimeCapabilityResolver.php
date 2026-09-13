@@ -37,6 +37,7 @@ final class RuntimeCapabilityResolver
             supportsHttp1: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: false,
+            resources: $environment->resources,
         );
     }
 
@@ -60,6 +61,7 @@ final class RuntimeCapabilityResolver
             supportsWebsocket: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: false,
+            resources: $environment->resources,
         );
     }
 
@@ -87,6 +89,10 @@ final class RuntimeCapabilityResolver
             supportsQuic: $environment->supportsQuic,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
+            supportsReusePort: $environment->supportsReusePort,
+            supportsUnixSockets: $environment->supportsUnixSockets,
+            supportsPrivilegeDrop: $environment->supportsPrivilegeDrop,
+            resources: $environment->resources,
         );
     }
 
@@ -105,6 +111,7 @@ final class RuntimeCapabilityResolver
             supportsQuic: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
+            resources: $environment->resources,
         );
     }
 
@@ -123,6 +130,7 @@ final class RuntimeCapabilityResolver
             supportsWebsocket: false,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
+            resources: $environment->resources,
         );
     }
 }

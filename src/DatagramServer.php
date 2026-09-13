@@ -39,8 +39,8 @@ final readonly class DatagramServer
         if ($address === '') {
             throw new InvalidArgumentException('Datagram server address cannot be empty.');
         }
-        if ($workers < 1 || $workers > 1_024) {
-            throw new InvalidArgumentException('Datagram server worker count must be between 1 and 1024.');
+        if ($workers < 0 || $workers > 1_024) {
+            throw new InvalidArgumentException('Datagram server worker count must be between 0 (automatic) and 1024.');
         }
         foreach ([$workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds] as $seconds) {
             if (!is_finite($seconds) || $seconds <= 0) {

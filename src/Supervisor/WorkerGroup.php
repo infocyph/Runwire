@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Supervisor;
 
 use Closure;
+use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use InvalidArgumentException;
 
 final readonly class WorkerGroup
@@ -21,6 +22,8 @@ final readonly class WorkerGroup
         callable $bootstrap,
         public RestartPolicy $restartPolicy = new RestartPolicy(),
         public WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
+        public AdmissionPolicy $admissionPolicy = new AdmissionPolicy(),
+        public PrivilegeDropPolicy $privilegeDropPolicy = new PrivilegeDropPolicy(),
         public bool $automaticReady = true,
         public float $readyTimeoutSeconds = 10.0,
         public float $shutdownTimeoutSeconds = 10.0,
@@ -45,6 +48,8 @@ final readonly class WorkerGroup
             throw new InvalidArgumentException('Worker shutdown timeout must be finite and positive.');
         }
 
+        $privilegeDropPolicy->assertSupported();
+
         /** @var Closure(WorkerContext): void $closure */
         $closure = Closure::fromCallable($bootstrap);
         $this->bootstrap = $closure;
@@ -57,6 +62,8 @@ final readonly class WorkerGroup
         callable $factory,
         ?RestartPolicy $restartPolicy = null,
         ?WorkerRecyclePolicy $recyclePolicy = null,
+        ?AdmissionPolicy $admissionPolicy = null,
+        ?PrivilegeDropPolicy $privilegeDropPolicy = null,
         bool $automaticReady = true,
         float $readyTimeoutSeconds = 10.0,
         float $shutdownTimeoutSeconds = 10.0,
@@ -68,6 +75,8 @@ final readonly class WorkerGroup
             bootstrap: $factory,
             restartPolicy: $restartPolicy ?? new RestartPolicy(),
             recyclePolicy: $recyclePolicy ?? new WorkerRecyclePolicy(),
+            admissionPolicy: $admissionPolicy ?? new AdmissionPolicy(),
+            privilegeDropPolicy: $privilegeDropPolicy ?? new PrivilegeDropPolicy(),
             automaticReady: $automaticReady,
             readyTimeoutSeconds: $readyTimeoutSeconds,
             shutdownTimeoutSeconds: $shutdownTimeoutSeconds,
