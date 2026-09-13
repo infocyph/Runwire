@@ -57,8 +57,11 @@ it('cancels and drains worker-owned coroutine work before the background loop st
         ->and($context->backgroundDrainExpired())->toBeFalse()
         ->and($context->acceptingBackgroundWork())->toBeFalse()
         ->and($context->shutdownReason())->toBe(ShutdownReason::DEPLOYMENT_RELOAD);
-    expect(static fn() => $context->spawnBackground(static fn(CoroutineScope $scope): null => null))
-        ->toThrow(LogicException::class, 'Worker is stopping');
+    expect(static fn() => $context->spawnBackground(static function (CoroutineScope $scope): null {
+        unset($scope);
+
+        return null;
+    }))->toThrow(LogicException::class, 'Worker is stopping');
 
     $context->close();
     fclose($readyParent);
@@ -123,8 +126,11 @@ it('keeps worker coroutine admission scoped to background worker roles', functio
     [$context, $readyParent] = batchOWorkerContext(WorkerRole::CUSTOM);
     $context->attachLoop(new SelectLoop());
 
-    expect(static fn() => $context->spawnBackground(static fn(CoroutineScope $scope): null => null))
-        ->toThrow(LogicException::class, 'Background coroutine work requires a task or service worker role.');
+    expect(static fn() => $context->spawnBackground(static function (CoroutineScope $scope): null {
+        unset($scope);
+
+        return null;
+    }))->toThrow(LogicException::class, 'Background coroutine work requires a task or service worker role.');
 
     $context->close();
     fclose($readyParent);
