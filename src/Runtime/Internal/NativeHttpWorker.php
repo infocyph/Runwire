@@ -60,7 +60,7 @@ final class NativeHttpWorker
             try {
                 $bound->listener->close();
             } finally {
-                $application->shutdown();
+                $application->shutdown($context->shutdownReason());
             }
         }
     }
@@ -125,7 +125,7 @@ final class NativeHttpWorker
             return;
         }
 
-        $application->drain();
+        $application->drain($context->shutdownReason());
         $state->stop();
         $bound->listener->close();
         foreach ($sessions as $session) {
@@ -156,6 +156,7 @@ final class NativeHttpWorker
     private static function requestHandler(ApplicationLifecycle $application, WorkerContext $context): Closure
     {
         return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context): void {
+            $context->recordRequestStarted();
             try {
                 $application->handle($request, $writer);
             } finally {

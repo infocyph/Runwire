@@ -8,6 +8,7 @@ use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
+use Infocyph\Runwire\Supervisor\ReloadPolicy;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 final readonly class RuntimeOptions
@@ -22,5 +23,6 @@ final readonly class RuntimeOptions
         public RoadRunnerOptions $roadRunner = new RoadRunnerOptions(),
         public SwooleOptions $swoole = new SwooleOptions(),
         public ApplicationLifecycleHooks $applicationLifecycle = new ApplicationLifecycleHooks(),
+        public ReloadPolicy $reload = new ReloadPolicy(),
     ) {}
 }

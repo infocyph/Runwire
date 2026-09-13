@@ -344,7 +344,7 @@ final class Runtime
     /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
     private function buildSupervisor(array $bound): Supervisor
     {
-        $supervisor = new Supervisor();
+        $supervisor = new Supervisor(reloadPolicy: $this->options->reload);
         if ($this->controlOptions !== null) {
             $supervisor->control($this->controlOptions);
         }

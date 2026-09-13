@@ -5,18 +5,25 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Supervisor;
 
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use RuntimeException;
 
 final class WorkerContext
 {
     private readonly WorkerRecycleState $recycleState;
 
-    private bool $ready = false;
+    private int $activeRequests = 0;
+
+    private string $lifecycleBuffer = '';
 
     /** @var resource|null */
-    private mixed $readyStream;
+    private mixed $lifecycleStream;
+
+    private bool $ready = false;
 
     private bool $recycling = false;
+
+    private ShutdownReason $shutdownReason = ShutdownReason::SUPERVISOR_STOP;
 
     private bool $stopping = false;
 
@@ -26,9 +33,7 @@ final class WorkerContext
     /** @var resource|null */
     private mixed $stopWrite = null;
 
-    /**
-     * @param resource $readyStream
-     */
+    /** @param resource $readyStream */
     public function __construct(
         public readonly string $group,
         public readonly int $slot,
@@ -38,7 +43,10 @@ final class WorkerContext
         mixed $readyStream,
         public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
-        $this->readyStream = $readyStream;
+        $this->lifecycleStream = $readyStream;
+        if (!stream_set_blocking($this->lifecycleStream, false)) {
+            throw new RuntimeException('Unable to configure worker lifecycle channel.');
+        }
         $this->recycleState = new WorkerRecycleState(
             $this->recyclePolicy,
             seed: $pid ^ ($slot << 8) ^ ($generation << 16),
@@ -58,7 +66,7 @@ final class WorkerContext
 
     public function close(): void
     {
-        foreach (['readyStream', 'stopRead', 'stopWrite'] as $property) {
+        foreach (['lifecycleStream', 'stopRead', 'stopWrite'] as $property) {
             if (is_resource($this->{$property})) {
                 fclose($this->{$property});
             }
@@ -92,6 +100,11 @@ final class WorkerContext
         return $this->recycleState->effectiveMaxRequests();
     }
 
+    public function markUnhealthy(): void
+    {
+        $this->signal('U');
+    }
+
     public function peakMemoryBytes(): int
     {
         return $this->recycleState->peakMemoryBytes();
@@ -103,26 +116,35 @@ final class WorkerContext
             return;
         }
 
-        if (is_resource($this->readyStream)) {
-            $written = fwrite($this->readyStream, 'R');
-            if ($written !== 1) {
-                throw new RuntimeException('Unable to signal worker readiness.');
-            }
-            fclose($this->readyStream);
-        }
-
-        $this->readyStream = null;
+        $this->signal('R');
         $this->ready = true;
     }
 
     public function recordRequestCompleted(): bool
     {
+        if ($this->activeRequests > 0) {
+            --$this->activeRequests;
+            if ($this->activeRequests === 0 && !$this->stopping) {
+                $this->signal('I');
+            }
+        }
+
         $recycle = $this->recycleState->recordRequestCompleted();
         if ($recycle) {
-            $this->requestRecycle();
+            $this->requestRecycle(
+                $this->recycleState->recycleReason() ?? ShutdownReason::RECYCLE_REQUEST_LIMIT,
+            );
         }
 
         return $recycle;
+    }
+
+    public function recordRequestStarted(): void
+    {
+        ++$this->activeRequests;
+        if ($this->activeRequests === 1 && !$this->stopping) {
+            $this->signal('B');
+        }
     }
 
     public function recycling(): bool
@@ -130,22 +152,25 @@ final class WorkerContext
         return $this->recycling;
     }
 
-    public function requestRecycle(): void
+    public function requestRecycle(ShutdownReason $reason = ShutdownReason::MANUAL_RECYCLE): void
     {
         if ($this->recycling) {
             return;
         }
 
         $this->recycling = true;
-        $this->requestStop();
+        $this->signal('X:' . $reason->value);
+        $this->requestStop($reason);
     }
 
-    public function requestStop(): void
+    public function requestStop(?ShutdownReason $reason = null): void
     {
         if ($this->stopping) {
             return;
         }
 
+        $this->readControl();
+        $this->shutdownReason = $reason ?? $this->shutdownReason;
         $this->stopping = true;
         if (is_resource($this->stopWrite)) {
             fwrite($this->stopWrite, 'S');
@@ -155,6 +180,13 @@ final class WorkerContext
     public function requestsTotal(): int
     {
         return $this->recycleState->requestsTotal();
+    }
+
+    public function shutdownReason(): ShutdownReason
+    {
+        $this->readControl();
+
+        return $this->shutdownReason;
     }
 
     public function stopping(): bool
@@ -170,5 +202,44 @@ final class WorkerContext
         }
 
         return $this->stopRead;
+    }
+
+    private function readControl(): void
+    {
+        if (!is_resource($this->lifecycleStream)) {
+            return;
+        }
+
+        do {
+            $chunk = fread($this->lifecycleStream, 1_024);
+            if (is_string($chunk) && $chunk !== '') {
+                $this->lifecycleBuffer .= $chunk;
+            }
+        } while (is_string($chunk) && $chunk !== '');
+
+        while (($newline = strpos($this->lifecycleBuffer, "\n")) !== false) {
+            $message = substr($this->lifecycleBuffer, 0, $newline);
+            $this->lifecycleBuffer = substr($this->lifecycleBuffer, $newline + 1);
+            if (!str_starts_with($message, 'S:')) {
+                continue;
+            }
+            $reason = ShutdownReason::tryFrom(substr($message, 2));
+            if ($reason !== null) {
+                $this->shutdownReason = $reason;
+            }
+        }
+    }
+
+    private function signal(string $message): void
+    {
+        if (!is_resource($this->lifecycleStream)) {
+            return;
+        }
+
+        $payload = $message . "\n";
+        $written = fwrite($this->lifecycleStream, $payload);
+        if ($written !== strlen($payload)) {
+            throw new RuntimeException('Unable to signal worker lifecycle state.');
+        }
     }
 }

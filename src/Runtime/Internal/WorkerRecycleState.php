@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime\Internal;
 
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 final class WorkerRecycleState
@@ -68,7 +69,34 @@ final class WorkerRecycleState
         $observedPeak = $peakMemoryBytes ?? memory_get_peak_usage(true);
         $this->peakMemoryBytes = max($this->peakMemoryBytes, $observedPeak);
 
-        return $this->shouldRecycle($enforceRequestLimit, $nowNs);
+        return $this->recycleReason($enforceRequestLimit, $nowNs) !== null;
+    }
+
+    public function recycleReason(
+        bool $enforceRequestLimit = true,
+        ?int $nowNs = null,
+    ): ?ShutdownReason {
+        if (
+            $enforceRequestLimit
+            && $this->effectiveMaxRequests > 0
+            && $this->requestsTotal >= $this->effectiveMaxRequests
+        ) {
+            return ShutdownReason::RECYCLE_REQUEST_LIMIT;
+        }
+
+        if ($this->policy->maxMemoryBytes > 0 && $this->currentMemoryBytes >= $this->policy->maxMemoryBytes) {
+            return ShutdownReason::RECYCLE_MEMORY_LIMIT;
+        }
+
+        if ($this->effectiveMaxLifetimeSeconds === 0) {
+            return null;
+        }
+
+        $elapsed = ($nowNs ?? (int) hrtime(true)) - $this->startedAtNs;
+
+        return $elapsed >= $this->effectiveMaxLifetimeSeconds * self::NANOS_PER_SECOND
+            ? ShutdownReason::RECYCLE_LIFETIME
+            : null;
     }
 
     public function requestsTotal(): int
@@ -78,25 +106,7 @@ final class WorkerRecycleState
 
     public function shouldRecycle(bool $enforceRequestLimit = true, ?int $nowNs = null): bool
     {
-        if (
-            $enforceRequestLimit
-            && $this->effectiveMaxRequests > 0
-            && $this->requestsTotal >= $this->effectiveMaxRequests
-        ) {
-            return true;
-        }
-
-        if ($this->policy->maxMemoryBytes > 0 && $this->currentMemoryBytes >= $this->policy->maxMemoryBytes) {
-            return true;
-        }
-
-        if ($this->effectiveMaxLifetimeSeconds === 0) {
-            return false;
-        }
-
-        $elapsed = ($nowNs ?? (int) hrtime(true)) - $this->startedAtNs;
-
-        return $elapsed >= $this->effectiveMaxLifetimeSeconds * self::NANOS_PER_SECOND;
+        return $this->recycleReason($enforceRequestLimit, $nowNs) !== null;
     }
 
     private static function jitter(int $seed, int $salt, int $maximum): int

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
-use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\SupervisorStatus;
 use Infocyph\Runwire\Supervisor\WorkerStatus;
 
@@ -15,6 +14,8 @@ final class SupervisorStatusBuilder
     /**
      * @param array<int, ChildRecord> $children
      * @param array<string, array<int, int>> $currentSlots
+     * @param array<string, int> $exitReasonCounts
+     * @param array<string, int> $restartReasonCounts
      */
     public static function build(
         string $runtimeId,
@@ -30,6 +31,10 @@ final class SupervisorStatusBuilder
         array $currentSlots,
         int $pendingRestartCount,
         int $lifecycleListenerFailures,
+        bool $generationReady = false,
+        bool $reloadFailed = false,
+        array $exitReasonCounts = [],
+        array $restartReasonCounts = [],
     ): SupervisorStatus {
         $now = hrtime(true) / self::NANOS_PER_SECOND;
         $workers = [];
@@ -39,7 +44,7 @@ final class SupervisorStatusBuilder
         foreach ($children as $record) {
             $isCurrent = ($currentSlots[$record->group->name][$record->slot] ?? null) === $record->pid;
             $current += $isCurrent ? 1 : 0;
-            $ready += $record->state === WorkerState::READY ? 1 : 0;
+            $ready += $record->state->serving() ? 1 : 0;
             $started = $record->startedAtNs / self::NANOS_PER_SECOND;
             $workers[] = new WorkerStatus(
                 group: $record->group->name,
@@ -52,6 +57,8 @@ final class SupervisorStatusBuilder
                 ageSeconds: max(0.0, $now - $started),
                 current: $isCurrent,
                 replacesPid: $record->replacesPid,
+                reloadable: $record->group->reloadable,
+                shutdownReason: $record->shutdownReason,
             );
         }
 
@@ -88,6 +95,10 @@ final class SupervisorStatusBuilder
             pendingRestartCount: $pendingRestartCount,
             lifecycleListenerFailures: $lifecycleListenerFailures,
             workers: $workers,
+            generationReady: $generationReady,
+            reloadFailed: $reloadFailed,
+            exitReasonCounts: $exitReasonCounts,
+            restartReasonCounts: $restartReasonCounts,
         );
     }
 }

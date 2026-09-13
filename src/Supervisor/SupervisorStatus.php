@@ -6,7 +6,11 @@ namespace Infocyph\Runwire\Supervisor;
 
 final readonly class SupervisorStatus
 {
-    /** @param list<WorkerStatus> $workers */
+    /**
+     * @param array<string, int> $exitReasonCounts
+     * @param array<string, int> $restartReasonCounts
+     * @param list<WorkerStatus> $workers
+     */
     public function __construct(
         public string $runtimeId,
         public int $masterPid,
@@ -23,5 +27,9 @@ final readonly class SupervisorStatus
         public int $pendingRestartCount,
         public int $lifecycleListenerFailures,
         public array $workers,
+        public bool $generationReady = false,
+        public bool $reloadFailed = false,
+        public array $exitReasonCounts = [],
+        public array $restartReasonCounts = [],
     ) {}
 }

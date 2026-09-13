@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 
 final readonly class WorkerStatus
@@ -19,5 +20,7 @@ final readonly class WorkerStatus
         public float $ageSeconds,
         public bool $current,
         public ?int $replacesPid = null,
+        public bool $reloadable = true,
+        public ?ShutdownReason $shutdownReason = null,
     ) {}
 }

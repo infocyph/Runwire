@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
+use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 
 final readonly class SupervisorEvent
@@ -23,5 +25,7 @@ final readonly class SupervisorEvent
         public ?bool $expected = null,
         public ?float $restartDelaySeconds = null,
         public ?int $replacesPid = null,
+        public ?ShutdownReason $shutdownReason = null,
+        public ?WorkerExitReason $exitReason = null,
     ) {}
 }

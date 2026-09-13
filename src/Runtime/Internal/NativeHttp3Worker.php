@@ -42,6 +42,7 @@ final class NativeHttp3Worker
             $lifecycle,
         );
         $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context): void {
+            $context->recordRequestStarted();
             try {
                 $application->handle($request, $writer);
             } finally {
@@ -64,7 +65,7 @@ final class NativeHttp3Worker
             }
 
             $context->consumeStopWake();
-            $application->drain();
+            $application->drain($context->shutdownReason());
             $worker->stopAccepting();
             $deadline = $context->recycling()
                 ? hrtime(true) + (int) ($context->recyclePolicy->gracefulTimeoutSeconds * 1_000_000_000)
@@ -81,7 +82,7 @@ final class NativeHttp3Worker
             try {
                 $worker->stopAccepting();
             } finally {
-                $application->shutdown();
+                $application->shutdown($context->shutdownReason());
             }
         }
     }

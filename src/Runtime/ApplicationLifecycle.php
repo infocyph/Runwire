@@ -11,6 +11,7 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\RuntimeContext;
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use LogicException;
 use Throwable;
 
@@ -37,6 +38,8 @@ final class ApplicationLifecycle
     private bool $draining = false;
 
     private bool $shutdown = false;
+
+    private ShutdownReason $shutdownReason = ShutdownReason::SUPERVISOR_STOP;
 
     private bool $started = false;
 
@@ -68,16 +71,17 @@ final class ApplicationLifecycle
         }
     }
 
-    public function drain(): void
+    public function drain(ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP): void
     {
         if ($this->draining || $this->shutdown || (!$this->started && !$this->booted)) {
             return;
         }
 
         $this->draining = true;
+        $this->shutdownReason = $reason;
 
         try {
-            ($this->hooks->drain)?->__invoke($this->runtimeContext);
+            ($this->hooks->drain)?->__invoke($this->runtimeContext, $reason);
         } catch (Throwable $error) {
             $this->drainFailure = $error;
         }
@@ -126,21 +130,24 @@ final class ApplicationLifecycle
         }
     }
 
-    public function shutdown(): void
+    public function shutdown(?ShutdownReason $reason = null): void
     {
         if ($this->shutdown || (!$this->started && !$this->booted)) {
             return;
         }
 
         if (!$this->draining) {
-            $this->drain();
+            $this->drain($reason ?? $this->shutdownReason);
         }
         $this->shutdown = true;
+        if ($reason !== null) {
+            $this->shutdownReason = $reason;
+        }
         $this->cancelActive(CancellationReason::WORKER_SHUTDOWN);
         $failure = $this->drainFailure;
 
         try {
-            ($this->hooks->shutdown)?->__invoke($this->runtimeContext);
+            ($this->hooks->shutdown)?->__invoke($this->runtimeContext, $this->shutdownReason);
         } catch (Throwable $error) {
             $failure ??= $error;
         }

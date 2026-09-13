@@ -14,6 +14,7 @@ use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\RequestResetterInterface;
 use Infocyph\Runwire\RuntimeContext;
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
 function lifecycleRequest(string $target = '/lifecycle'): HttpRequest
 {
@@ -47,12 +48,14 @@ it('runs boot warmup handle reset drain and shutdown in lifecycle order', functi
             expect($context)->toBeInstanceOf(RuntimeContext::class);
             $events[] = 'warmup';
         },
-        drain: static function (RuntimeContext $context) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class);
+        drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class)
+                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
             $events[] = 'drain';
         },
-        shutdown: static function (RuntimeContext $context) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class);
+        shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class)
+                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
             $events[] = 'shutdown';
         },
         resetters: [new class($events) implements RequestResetterInterface {
@@ -196,8 +199,9 @@ it('lets active work finish after drain and rejects new work', function (): void
     $events = new ArrayObject();
     $lifecycle = null;
     $hooks = new ApplicationLifecycleHooks(
-        drain: static function (RuntimeContext $context) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class);
+        drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
+            expect($context)->toBeInstanceOf(RuntimeContext::class)
+                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
             $events[] = 'drain';
         },
         resetters: [new class($events) implements RequestResetterInterface {
@@ -234,6 +238,36 @@ it('lets active work finish after drain and rejects new work', function (): void
         ]);
 });
 
+it('propagates an explicit worker shutdown reason to drain and shutdown hooks', function (): void {
+    $reasons = new ArrayObject();
+    $lifecycle = new ApplicationLifecycle(
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->context->completed())->toBeFalse();
+            $writer->end();
+        },
+        RuntimeContext::standalone(),
+        hooks: new ApplicationLifecycleHooks(
+            drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($reasons): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class);
+                $reasons[] = 'drain:' . $reason->value;
+            },
+            shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($reasons): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class);
+                $reasons[] = 'shutdown:' . $reason->value;
+            },
+        ),
+    );
+
+    $lifecycle->start();
+    $lifecycle->drain(ShutdownReason::DEPLOYMENT_RELOAD);
+    $lifecycle->shutdown();
+
+    expect(iterator_to_array($reasons))->toBe([
+        'drain:deployment_reload',
+        'shutdown:deployment_reload',
+    ]);
+});
+
 it('runs shutdown cleanup after warmup failure without accepting request work', function (): void {
     $events = new ArrayObject();
     $lifecycle = new ApplicationLifecycle(
@@ -253,12 +287,14 @@ it('runs shutdown cleanup after warmup failure without accepting request work', 
                 $events[] = 'warmup';
                 throw new RuntimeException('warmup failed');
             },
-            drain: static function (RuntimeContext $context) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
+            drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class)
+                    ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
                 $events[] = 'drain';
             },
-            shutdown: static function (RuntimeContext $context) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
+            shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
+                expect($context)->toBeInstanceOf(RuntimeContext::class)
+                    ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
                 $events[] = 'shutdown';
             },
         ),

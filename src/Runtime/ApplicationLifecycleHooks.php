@@ -6,18 +6,19 @@ namespace Infocyph\Runwire\Runtime;
 
 use Closure;
 use Infocyph\Runwire\RuntimeContext;
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
 final readonly class ApplicationLifecycleHooks
 {
     /** @var Closure(RuntimeContext): void|null */
     public ?Closure $boot;
 
-    /** @var Closure(RuntimeContext): void|null */
+    /** @var Closure(RuntimeContext, ShutdownReason): void|null */
     public ?Closure $drain;
 
     public RequestResetterRegistry $resetters;
 
-    /** @var Closure(RuntimeContext): void|null */
+    /** @var Closure(RuntimeContext, ShutdownReason): void|null */
     public ?Closure $shutdown;
 
     /** @var Closure(RuntimeContext): void|null */
@@ -26,8 +27,8 @@ final readonly class ApplicationLifecycleHooks
     /**
      * @param callable(RuntimeContext): void|null $boot
      * @param callable(RuntimeContext): void|null $warmup
-     * @param callable(RuntimeContext): void|null $drain
-     * @param callable(RuntimeContext): void|null $shutdown
+     * @param callable(RuntimeContext, ShutdownReason): void|null $drain
+     * @param callable(RuntimeContext, ShutdownReason): void|null $shutdown
      * @param iterable<RequestResetterInterface> $resetters
      */
     public function __construct(

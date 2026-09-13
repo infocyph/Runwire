@@ -11,6 +11,7 @@ use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeContext;
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
 final readonly class RuntimeApplication
 {
@@ -44,9 +45,9 @@ final readonly class RuntimeApplication
         $this->lifecycle->cancelActive($reason);
     }
 
-    public function drain(): void
+    public function drain(ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP): void
     {
-        $this->lifecycle->drain();
+        $this->lifecycle->drain($reason);
     }
 
     public function handle(
@@ -57,9 +58,9 @@ final readonly class RuntimeApplication
         $this->lifecycle->handle($request, $writer, $completeResponse);
     }
 
-    public function shutdown(): void
+    public function shutdown(?ShutdownReason $reason = null): void
     {
-        $this->lifecycle->shutdown();
+        $this->lifecycle->shutdown($reason);
     }
 
     public function start(): void

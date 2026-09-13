@@ -116,6 +116,8 @@ final class ControlServer
             'age_seconds' => $worker->ageSeconds,
             'current' => $worker->current,
             'replaces_pid' => $worker->replacesPid,
+            'reloadable' => $worker->reloadable,
+            'shutdown_reason' => $worker->shutdownReason?->value,
         ];
     }
 
@@ -235,12 +237,16 @@ final class ControlServer
             'stopping' => $status->stopping,
             'reloading' => $status->reloading,
             'reload_queued' => $status->reloadQueued,
+            'reload_failed' => $status->reloadFailed,
             'generation' => $status->generation,
+            'generation_ready' => $status->generationReady,
             'worker_count' => $status->workerCount,
             'current_worker_count' => $status->currentWorkerCount,
             'ready_worker_count' => $status->readyWorkerCount,
             'pending_restart_count' => $status->pendingRestartCount,
             'lifecycle_listener_failures' => $status->lifecycleListenerFailures,
+            'exit_reason_counts' => $status->exitReasonCounts,
+            'restart_reason_counts' => $status->restartReasonCounts,
             'workers' => array_map(self::workerArray(...), $status->workers),
         ];
     }

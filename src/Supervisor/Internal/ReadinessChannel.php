@@ -15,10 +15,7 @@ final class ReadinessChannel
             $record->readyWatcherId = 0;
         }
 
-        if ($record->readyTimerId > 0) {
-            $loop->cancel($record->readyTimerId);
-            $record->readyTimerId = 0;
-        }
+        self::ready($loop, $record);
 
         if (is_resource($record->readyStream)) {
             fclose($record->readyStream);
@@ -34,6 +31,14 @@ final class ReadinessChannel
             if (is_resource($record->readyStream)) {
                 fclose($record->readyStream);
             }
+        }
+    }
+
+    public static function ready(LoopInterface $loop, ChildRecord $record): void
+    {
+        if ($record->readyTimerId > 0) {
+            $loop->cancel($record->readyTimerId);
+            $record->readyTimerId = 0;
         }
     }
 }

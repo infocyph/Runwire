@@ -24,6 +24,7 @@ final readonly class WorkerGroup
         public bool $automaticReady = true,
         public float $readyTimeoutSeconds = 10.0,
         public float $shutdownTimeoutSeconds = 10.0,
+        public bool $reloadable = true,
     ) {
         if ($name === '' || strlen($name) > 128 || preg_match('/^[A-Za-z0-9._:-]+$/D', $name) !== 1) {
             throw new InvalidArgumentException('Worker group name must be 1-128 safe identifier characters.');
@@ -59,6 +60,7 @@ final readonly class WorkerGroup
         bool $automaticReady = true,
         float $readyTimeoutSeconds = 10.0,
         float $shutdownTimeoutSeconds = 10.0,
+        bool $reloadable = true,
     ): self {
         return new self(
             name: $name,
@@ -69,6 +71,7 @@ final readonly class WorkerGroup
             automaticReady: $automaticReady,
             readyTimeoutSeconds: $readyTimeoutSeconds,
             shutdownTimeoutSeconds: $shutdownTimeoutSeconds,
+            reloadable: $reloadable,
         );
     }
 }
