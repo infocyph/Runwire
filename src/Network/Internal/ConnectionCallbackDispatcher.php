@@ -28,4 +28,23 @@ final class ConnectionCallbackDispatcher
             throw $firstFailure;
         }
     }
+
+    public static function invoke(?Closure $callback, Connection $connection, Closure $onFailure): void
+    {
+        if ($callback === null) {
+            return;
+        }
+
+        try {
+            $callback($connection);
+        } catch (Throwable $throwable) {
+            try {
+                $onFailure();
+            } catch (Throwable) {
+                // Preserve the originating callback failure after deterministic cleanup.
+            }
+
+            throw $throwable;
+        }
+    }
 }
