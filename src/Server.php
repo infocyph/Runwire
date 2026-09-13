@@ -70,14 +70,7 @@ final readonly class Server
         if ($workerHandlerFactory !== null && $applicationFactory !== null) {
             throw new InvalidArgumentException('Worker handler factory and runtime application factory are mutually exclusive.');
         }
-        foreach ([
-            'workerReadyTimeoutSeconds' => $workerReadyTimeoutSeconds,
-            'workerShutdownTimeoutSeconds' => $workerShutdownTimeoutSeconds,
-        ] as $name => $seconds) {
-            if (!is_finite($seconds) || $seconds <= 0) {
-                throw new InvalidArgumentException(sprintf('%s must be finite and positive.', $name));
-            }
-        }
+        self::validateTimeouts($workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds);
 
         /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
@@ -279,5 +272,17 @@ final readonly class Server
             $this->workerHandlerFactory,
             $this->applicationFactory,
         );
+    }
+
+    private static function validateTimeouts(float $readySeconds, float $shutdownSeconds): void
+    {
+        foreach ([
+            'workerReadyTimeoutSeconds' => $readySeconds,
+            'workerShutdownTimeoutSeconds' => $shutdownSeconds,
+        ] as $name => $seconds) {
+            if (!is_finite($seconds) || $seconds <= 0) {
+                throw new InvalidArgumentException(sprintf('%s must be finite and positive.', $name));
+            }
+        }
     }
 }
