@@ -157,12 +157,7 @@ function renderMarkdown(array $records): string
     return implode(PHP_EOL, $lines) . PHP_EOL;
 }
 
-try {
-    $paths = array_slice($argv, 1);
-    $records = array_map(loadEvidence(...), $paths);
-    assertComparable($records);
-    fwrite(STDOUT, renderMarkdown($records));
-} catch (Throwable $error) {
-    fwrite(STDERR, $error->getMessage() . PHP_EOL);
-    exit(1);
-}
+$paths = array_slice($argv, 1);
+$records = array_map(loadEvidence(...), $paths);
+assertComparable($records);
+fwrite(STDOUT, renderMarkdown($records));
