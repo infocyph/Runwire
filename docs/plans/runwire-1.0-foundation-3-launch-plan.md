@@ -262,8 +262,8 @@ Tracker rule: mark a batch **✅ Complete** only after the batch implementation 
 | K | Cancellation substrate + coroutine capability normalization | ✅ Complete — certified `2c9b7e4bb823a18bb00c625fbcba2bacbf0b3724` (Benchmarks #78, Security #265) |
 | L | Fiber scheduler + Task/Future/Deferred core | ✅ Complete — certified `c7ef116aff09de2645ca918dfab061e182f103ae` (Benchmarks #88, Security #275) |
 | M | Structured concurrency + task-local context | ✅ Complete — certified `e7297fd90030b7f7e7d9abd61f94de186e3b48a5` (Benchmarks #93, Security #280) |
-| N | Channels + synchronization primitives | 🟨 In progress — implementation candidate `8eb664e839c71745c8fcae9e88789d180c7401bd`; exact-head certification pending |
-| O | Runtime/request/network/host integration | ⬜ Not started |
+| N | Channels + synchronization primitives | ✅ Complete — certified `94643b0c936b088c96744d5d13e41b768deceaae` (Benchmarks #98, Security #285) |
+| O | Runtime/request/network/host integration | 🟨 In progress — starting from certified Batch N head `94643b0c936b088c96744d5d13e41b768deceaae` |
 | P | Observability + soak/race/interop + benchmarks/docs + exact-head QA | ⬜ Not started |
 | Release | Explicit approval, merge/tag/publish | ⬜ Blocked until K–P complete and final exact-head certification is green |
 
