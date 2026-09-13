@@ -21,11 +21,11 @@ final class WorkerContext
 {
     private const int MAX_DIAGNOSTIC_MESSAGE_BYTES = 6_144;
 
-    private ?WorkerCoroutineScope $backgroundCoroutines = null;
-
     private readonly PeriodicTaskRegistry $periodicTasks;
 
     private readonly WorkerRecycleState $recycleState;
+
+    private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
     private int $activeRequests = 0;
 

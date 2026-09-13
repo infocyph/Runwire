@@ -19,6 +19,13 @@ use Throwable;
 
 final class WorkerCoroutineScope
 {
+    /** @var Closure(): void */
+    private readonly Closure $onFailure;
+
+    private readonly CoroutineScope $scope;
+
+    private readonly CancellationSource $source;
+
     private int $activeTasks = 0;
 
     private bool $closed = false;
@@ -28,13 +35,6 @@ final class WorkerCoroutineScope
     private bool $draining = false;
 
     private ?int $graceTimer = null;
-
-    /** @var Closure(): void */
-    private readonly Closure $onFailure;
-
-    private readonly CoroutineScope $scope;
-
-    private readonly CancellationSource $source;
 
     public function __construct(
         private readonly LoopInterface $loop,
