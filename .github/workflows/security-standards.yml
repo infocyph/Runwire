@@ -58,9 +58,9 @@ jobs:
         shell: bash
         run: composer ic:release:audit
 
-      - name: Enforce PHPStan and Psalm
+      - name: Enforce PHPForge quality and analyzers
         shell: bash
-        run: composer ic:ci --without-tests
+        run: composer ic:ci
 
   http3-quic:
     name: "HTTP/3 + QUIC - PHP ${{ matrix.php-version }}"
