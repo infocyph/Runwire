@@ -650,7 +650,6 @@ final class Connection
         }
         if ($this->writePressured && $bytes <= $this->limits->sendLowWatermarkBytes) {
             $this->writePressured = false;
-            ++$this->backpressureEvents;
             $this->invoke($this->drainCallback);
         }
     }
