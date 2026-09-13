@@ -62,6 +62,7 @@ final class Barrier
         if ($this->arrived === $this->parties) {
             if ($this->hasCancelledWaiter()) {
                 $this->breakGeneration($generation);
+
                 throw new BarrierBrokenException($generation);
             }
 
