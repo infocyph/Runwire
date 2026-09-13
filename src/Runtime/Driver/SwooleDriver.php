@@ -20,6 +20,7 @@ use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use InvalidArgumentException;
 use ReflectionClass;
+use ReflectionMethod;
 use RuntimeException;
 
 final class SwooleDriver implements HostDriverInterface
@@ -120,11 +121,29 @@ final class SwooleDriver implements HostDriverInterface
     private static function nativeServerFactory(): Closure
     {
         return static function (string $host, int $port): object {
+            self::configureOpenSwooleFiberContext();
             $class = self::serverClass();
             $reflection = new ReflectionClass($class);
 
             return $reflection->newInstance($host, $port);
         };
+    }
+
+    private static function configureOpenSwooleFiberContext(): void
+    {
+        $version = phpversion('openswoole');
+        if (!is_string($version) || version_compare($version, '26.2.0', '<')) {
+            return;
+        }
+
+        $coroutineClass = 'OpenSwoole\\Coroutine';
+        if (!class_exists($coroutineClass) || !method_exists($coroutineClass, 'set')) {
+            return;
+        }
+
+        (new ReflectionMethod($coroutineClass, 'set'))->invoke(null, [
+            'use_fiber_context' => true,
+        ]);
     }
 
     private static function protocolVersion(string $protocol): ProtocolVersion
