@@ -25,27 +25,17 @@ final readonly class LoopWaitSuspension implements Suspension
 
     public function arm(FiberScheduler $scheduler, Task $task): void
     {
-        $settled = false;
-        $handle = null;
-        $cancellation = null;
-
-        $finish = function (?Throwable $error = null) use (
-            &$settled,
-            &$handle,
-            &$cancellation,
-            $scheduler,
-            $task,
-        ): void {
-            if ($settled) {
+        $state = new SuspensionState();
+        $finish = function (?Throwable $error = null) use ($state, $scheduler, $task): void {
+            if (!$state->beginSettlement()) {
                 return;
             }
 
-            $settled = true;
+            $handle = $state->takeHandle();
             if ($handle !== null) {
                 $this->loop->cancel($handle);
-                $handle = null;
             }
-            $cancellation?->close();
+            $state->closeCancellation();
             $error === null
                 ? $scheduler->resume($task)
                 : $scheduler->resumeException($task, $error);
@@ -56,15 +46,16 @@ final readonly class LoopWaitSuspension implements Suspension
             $task->cancellation(),
             static fn(Throwable $error) => $finish($error),
         );
+        $state->setCancellation($cancellation);
         $cancellation->start();
-        if ($settled) {
+        if ($state->isSettled()) {
             return;
         }
 
         try {
-            $handle = ($this->register)(static fn() => $finish());
+            $state->setHandle(($this->register)(static fn() => $finish()));
         } catch (Throwable $error) {
-            $cancellation->close();
+            $state->closeCancellation();
 
             throw $error;
         }

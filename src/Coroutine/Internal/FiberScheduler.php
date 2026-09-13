@@ -148,6 +148,7 @@ final class FiberScheduler
         return $task;
     }
 
+    /** @param resource $stream */
     public function suspendReadable(mixed $stream): void
     {
         $this->requireCurrentTask();
@@ -163,6 +164,7 @@ final class FiberScheduler
         ));
     }
 
+    /** @param resource $stream */
     public function suspendWritable(mixed $stream): void
     {
         $this->requireCurrentTask();

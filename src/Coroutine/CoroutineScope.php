@@ -93,12 +93,14 @@ final class CoroutineScope
         return $task;
     }
 
+    /** @param resource $stream */
     public function waitReadable(mixed $stream): void
     {
         $this->assertOpen();
         $this->scheduler->suspendReadable($stream);
     }
 
+    /** @param resource $stream */
     public function waitWritable(mixed $stream): void
     {
         $this->assertOpen();

@@ -19,6 +19,7 @@ final class Task
 {
     private readonly Deferred $completion;
 
+    /** @var Fiber<mixed, mixed, mixed, mixed> */
     private readonly Fiber $fiber;
 
     private bool $observed = false;
@@ -107,6 +108,7 @@ final class Task
         return $this->id;
     }
 
+    /** @phpstan-impure */
     public function isComplete(): bool
     {
         return match ($this->state) {

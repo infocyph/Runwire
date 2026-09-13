@@ -21,45 +21,29 @@ final readonly class FutureSuspension implements Suspension
             return;
         }
 
-        $settled = false;
-        $waiterId = null;
-        $cancellation = null;
-        $finishFuture = function () use (
-            &$settled,
-            &$waiterId,
-            &$cancellation,
-            $scheduler,
-            $task,
-        ): void {
-            if ($settled) {
+        $state = new SuspensionState();
+        $finishFuture = function () use ($state, $scheduler, $task): void {
+            if (!$state->beginSettlement()) {
                 return;
             }
 
-            $settled = true;
+            $waiterId = $state->takeHandle();
             if ($waiterId !== null) {
                 $this->future->unsubscribe($waiterId);
-                $waiterId = null;
             }
-            $cancellation?->close();
+            $state->closeCancellation();
             $this->resumeFromFuture($scheduler, $task);
         };
-        $finishCancellation = function (Throwable $error) use (
-            &$settled,
-            &$waiterId,
-            &$cancellation,
-            $scheduler,
-            $task,
-        ): void {
-            if ($settled) {
+        $finishCancellation = function (Throwable $error) use ($state, $scheduler, $task): void {
+            if (!$state->beginSettlement()) {
                 return;
             }
 
-            $settled = true;
+            $waiterId = $state->takeHandle();
             if ($waiterId !== null) {
                 $this->future->unsubscribe($waiterId);
-                $waiterId = null;
             }
-            $cancellation?->close();
+            $state->closeCancellation();
             $scheduler->resumeException($task, $error);
         };
 
@@ -68,12 +52,14 @@ final readonly class FutureSuspension implements Suspension
             $task->cancellation(),
             $finishCancellation,
         );
+        $state->setCancellation($cancellation);
         $cancellation->start();
-        if ($settled) {
+        if ($state->isSettled()) {
             return;
         }
 
         $waiterId = $this->future->subscribe($finishFuture);
+        $state->setHandle($waiterId);
         if ($waiterId === null) {
             $finishFuture();
         }
