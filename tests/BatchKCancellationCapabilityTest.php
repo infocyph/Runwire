@@ -70,9 +70,9 @@ it('separates host-native coroutine capability from Runwire coroutine readiness'
     );
 
     expect($native->runwireLoopAvailable)->toBeTrue()
-        ->and($native->supportsRunwireCoroutines)->toBeFalse()
+        ->and($native->supportsRunwireCoroutines)->toBeTrue()
         ->and($native->hostNativeCoroutines)->toBeFalse()
-        ->and($native->supports(RuntimeCapability::CONCURRENT))->toBeFalse()
+        ->and($native->supports(RuntimeCapability::CONCURRENT))->toBeTrue()
         ->and($native->supports(RuntimeCapability::RUNWIRE_LOOP_AVAILABLE))->toBeTrue()
         ->and($swoole->hostOwnsEventLoop)->toBeTrue()
         ->and($swoole->hostNativeCoroutines)->toBeTrue()

@@ -79,6 +79,7 @@ final class RuntimeCapabilityResolver
             supportsFork: $environment->supportsFork,
             supportsSignals: $environment->supportsSignals,
             supportsAsyncIo: true,
+            supportsRunwireCoroutines: true,
             supportsGracefulReload: $environment->supportsSignals,
             supportsWorkerRecycle: $environment->supportsSignals,
             supportsHttp1: true,

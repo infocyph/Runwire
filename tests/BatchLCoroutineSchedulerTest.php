@@ -1,0 +1,201 @@
+<?php
+
+declare(strict_types=1);
+
+use Infocyph\Runwire\Coroutine\CoroutinePolicy;
+use Infocyph\Runwire\Coroutine\CoroutineRuntime;
+use Infocyph\Runwire\Coroutine\CoroutineScope;
+use Infocyph\Runwire\Coroutine\Enum\TaskState;
+use Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException;
+use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
+use Infocyph\Runwire\Coroutine\Exception\FutureCompletedException;
+use Infocyph\Runwire\Exception\CancelledException;
+use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+
+it('schedules tasks FIFO and yields without recursive Fiber resume', function (): void {
+    $runtime = new CoroutineRuntime();
+    $order = [];
+
+    $result = $runtime->run(function (CoroutineScope $scope) use (&$order): array {
+        $left = $scope->spawn(function () use ($scope, &$order): int {
+            $order[] = 'left-1';
+            $scope->yieldNow();
+            $order[] = 'left-2';
+
+            return 10;
+        });
+        $right = $scope->spawn(function () use (&$order): int {
+            $order[] = 'right';
+
+            return 20;
+        });
+
+        return [$left->await(), $right->await()];
+    });
+
+    expect($result)->toBe([10, 20])
+        ->and($order)->toBe(['left-1', 'right', 'left-2']);
+});
+
+it('supports multiple future waiters and preserves false and null payloads', function (): void {
+    $runtime = new CoroutineRuntime();
+
+    $result = $runtime->run(function (CoroutineScope $scope): array {
+        $falseDeferred = $scope->deferred();
+        $nullDeferred = $scope->deferred();
+        $left = $scope->spawn(fn(): mixed => $falseDeferred->future()->await());
+        $right = $scope->spawn(fn(): mixed => $falseDeferred->future()->await());
+        $null = $scope->spawn(fn(): mixed => $nullDeferred->future()->await());
+        $scope->spawn(function () use ($falseDeferred, $nullDeferred): void {
+            $falseDeferred->resolve(false);
+            $nullDeferred->resolve(null);
+        });
+
+        return [$left->await(), $right->await(), $null->await()];
+    });
+
+    expect($result)->toBe([false, false, null]);
+});
+
+it('rejects a future exactly once and propagates the original exception', function (): void {
+    $runtime = new CoroutineRuntime();
+
+    $result = $runtime->run(function (CoroutineScope $scope): string {
+        $deferred = $scope->deferred();
+        $task = $scope->spawn(fn(): mixed => $deferred->future()->await());
+        $scope->spawn(static function () use ($deferred): void {
+            $deferred->reject(new RuntimeException('future-failed'));
+        });
+
+        try {
+            $task->await();
+        } catch (RuntimeException $error) {
+            expect($error->getMessage())->toBe('future-failed');
+        }
+
+        expect(fn() => $deferred->resolve('late'))->toThrow(FutureCompletedException::class);
+
+        return 'handled';
+    });
+
+    expect($result)->toBe('handled');
+});
+
+it('cancels a suspended task cooperatively and executes Fiber cleanup', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $cleaned = false;
+
+    $reason = $runtime->run(function (CoroutineScope $scope) use (&$cleaned): CancellationReason {
+        $task = $scope->spawn(function () use ($scope, &$cleaned): void {
+            try {
+                $scope->sleep(30.0);
+            } finally {
+                $cleaned = true;
+            }
+        });
+        $scope->yieldNow();
+        $task->cancel(CancellationReason::WORKER_SHUTDOWN);
+
+        try {
+            $task->await();
+        } catch (CancelledException $error) {
+            return $error->reason;
+        }
+
+        throw new LogicException('Expected the task to be cancelled.');
+    });
+
+    expect($reason)->toBe(CancellationReason::WORKER_SHUTDOWN)
+        ->and($cleaned)->toBeTrue()
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('waits for real stream readability and unregisters the watcher', function (): void {
+    if (!function_exists('stream_socket_pair')) {
+        $this->markTestSkipped('stream_socket_pair is unavailable.');
+    }
+
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false) {
+        $this->markTestSkipped('Unable to create a local stream pair.');
+    }
+    [$left, $right] = $pair;
+    stream_set_blocking($left, false);
+    stream_set_blocking($right, false);
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+
+    try {
+        $payload = $runtime->run(function (CoroutineScope $scope) use ($left, $right): string {
+            $reader = $scope->spawn(function () use ($scope, $left): string {
+                $scope->waitReadable($left);
+
+                return (string) fread($left, 1);
+            });
+            $scope->spawn(function () use ($scope, $right): void {
+                $scope->yieldNow();
+                fwrite($right, 'x');
+            });
+
+            return $reader->await();
+        });
+
+        expect($payload)->toBe('x')
+            ->and($loop->diagnostics()->readWatchers)->toBe(0);
+    } finally {
+        fclose($left);
+        fclose($right);
+    }
+});
+
+it('detects unresolved-future deadlock and cancels suspended tasks for cleanup', function (): void {
+    $runtime = new CoroutineRuntime();
+
+    expect(fn() => $runtime->run(function (CoroutineScope $scope): mixed {
+        return $scope->deferred()->future()->await();
+    }))->toThrow(CoroutineDeadlockException::class);
+});
+
+it('enforces the configured live task bound including the root task', function (): void {
+    $runtime = new CoroutineRuntime(policy: new CoroutinePolicy(
+        maxTasks: 2,
+        maxReadyBacklog: 2,
+    ));
+
+    expect(fn() => $runtime->run(function (CoroutineScope $scope): void {
+        $scope->spawn(function () use ($scope): void {
+            $scope->yieldNow();
+        });
+        $scope->spawn(static function (): void {});
+    }))->toThrow(CoroutineOverflowException::class);
+});
+
+it('does not start a nested event loop on the same coroutine runtime', function (): void {
+    $runtime = new CoroutineRuntime();
+
+    $result = $runtime->run(function (CoroutineScope $scope) use ($runtime): string {
+        expect(fn() => $runtime->run(static fn(CoroutineScope $nested): null => null))
+            ->toThrow(LogicException::class);
+        $task = $scope->spawn(static fn(): string => 'still-running');
+
+        return $task->await();
+    });
+
+    expect($result)->toBe('still-running');
+});
+
+it('exposes terminal task state without retaining it in the scheduler registry', function (): void {
+    $runtime = new CoroutineRuntime();
+    $task = null;
+
+    $runtime->run(function (CoroutineScope $scope) use (&$task): void {
+        $task = $scope->spawn(static fn(): int => 42);
+        expect($task->await())->toBe(42);
+    });
+
+    expect($task)->not->toBeNull()
+        ->and($task->state())->toBe(TaskState::COMPLETED)
+        ->and($task->result())->toBe(42);
+});
