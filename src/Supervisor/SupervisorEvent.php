@@ -27,5 +27,6 @@ final readonly class SupervisorEvent
         public ?int $replacesPid = null,
         public ?ShutdownReason $shutdownReason = null,
         public ?WorkerExitReason $exitReason = null,
+        public ?string $requestId = null,
     ) {}
 }

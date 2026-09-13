@@ -14,15 +14,23 @@ enum SupervisorEventType: string
 
     case RELOAD_STARTED = 'reload_started';
 
+    case REQUEST_DEADLINE_EXCEEDED = 'request_deadline_exceeded';
+
     case SUPERVISOR_STARTING = 'supervisor_starting';
 
     case SUPERVISOR_STOPPED = 'supervisor_stopped';
 
     case SUPERVISOR_STOPPING = 'supervisor_stopping';
 
+    case WORKER_DRAIN_COMPLETED = 'worker_drain_completed';
+
+    case WORKER_DRAIN_STARTED = 'worker_drain_started';
+
     case WORKER_EXITED = 'worker_exited';
 
     case WORKER_READY = 'worker_ready';
+
+    case WORKER_RECYCLE_COMPLETED = 'worker_recycle_completed';
 
     case WORKER_RECYCLE_STARTED = 'worker_recycle_started';
 

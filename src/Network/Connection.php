@@ -24,7 +24,11 @@ final class Connection
 
     private readonly ByteQueue $sendBuffer;
 
+    private readonly int $startedAtNanoseconds;
+
     private readonly ConnectionTimeouts $timeouts;
+
+    private int $backpressureEvents = 0;
 
     private int $bytesRead = 0;
 
@@ -51,6 +55,8 @@ final class Connection
 
     private ?int $readWatcher = null;
 
+    private int $rejectedWrites = 0;
+
     private ConnectionState $state = ConnectionState::OPEN;
 
     /** @var resource|null */
@@ -60,9 +66,7 @@ final class Connection
 
     private ?int $writeWatcher = null;
 
-    /**
-     * @param resource $stream
-     */
+    /** @param resource $stream */
     public function __construct(
         private readonly LoopInterface $loop,
         mixed $stream,
@@ -78,6 +82,7 @@ final class Connection
 
         $this->stream = $stream;
         $this->id = get_resource_id($stream);
+        $this->startedAtNanoseconds = self::nowNanoseconds();
         $this->receiveBuffer = new ByteQueue();
         $this->sendBuffer = new ByteQueue();
         $this->timeouts = new ConnectionTimeouts(
@@ -100,6 +105,11 @@ final class Connection
 
         $this->sendBuffer->clear();
         $this->finalize($reason);
+    }
+
+    public function backpressureEvents(): int
+    {
+        return $this->backpressureEvents;
     }
 
     public function bytesRead(): int
@@ -149,6 +159,11 @@ final class Connection
     public function isWritePressured(): bool
     {
         return $this->writePressured;
+    }
+
+    public function lifetimeNanoseconds(): int
+    {
+        return max(0, self::nowNanoseconds() - $this->startedAtNanoseconds);
     }
 
     public function localAddress(): ?string
@@ -252,6 +267,11 @@ final class Connection
         return $this->receiveBuffer->bytes();
     }
 
+    public function rejectedWrites(): int
+    {
+        return $this->rejectedWrites;
+    }
+
     public function resumeReads(): void
     {
         if ($this->state !== ConnectionState::OPEN || !$this->manualReadPause) {
@@ -272,13 +292,14 @@ final class Connection
         if ($this->state !== ConnectionState::OPEN) {
             return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
         }
-
         if ($data === '') {
             return $this->writeResult();
         }
 
         $length = strlen($data);
         if ($length > $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes()) {
+            ++$this->rejectedWrites;
+
             return new WriteResult(WriteState::REJECTED_LIMIT, $this->sendBuffer->bytes());
         }
 
@@ -312,6 +333,13 @@ final class Connection
         $this->updateWritePressure();
 
         return $this->writeResult();
+    }
+
+    private static function nowNanoseconds(): int
+    {
+        $now = hrtime(true);
+
+        return is_int($now) ? $now : (int) $now;
     }
 
     private function beginDrain(CloseReason $reason): void
@@ -377,8 +405,7 @@ final class Connection
         while ($readThisTick < $this->limits->maxReadBytesPerTick) {
             $capacity = $this->limits->maxReceiveBufferBytes - $this->receiveBuffer->bytes();
             if ($capacity <= 0) {
-                $this->pressureReadPause = true;
-                $this->syncReadWatcher();
+                $this->pauseForPressure();
 
                 break;
             }
@@ -394,7 +421,6 @@ final class Connection
 
                 return;
             }
-
             if ($chunk === '') {
                 $sawEof = feof($stream);
 
@@ -409,8 +435,7 @@ final class Connection
             $this->timeouts->touch();
 
             if ($this->receiveBuffer->bytes() >= $this->limits->receiveHighWatermarkBytes) {
-                $this->pressureReadPause = true;
-                $this->syncReadWatcher();
+                $this->pauseForPressure();
 
                 break;
             }
@@ -419,7 +444,6 @@ final class Connection
         if ($received && $this->state === ConnectionState::OPEN) {
             $this->invoke($this->dataCallback);
         }
-
         if ($sawEof && $this->state !== ConnectionState::CLOSED) {
             $this->markPeerEof();
         }
@@ -451,7 +475,6 @@ final class Connection
 
                 return;
             }
-
             if ($written === 0) {
                 break;
             }
@@ -464,7 +487,6 @@ final class Connection
 
         $this->updateWritePressure();
         $this->syncWriteWatcher();
-
         if ($this->state === ConnectionState::DRAINING && $this->sendBuffer->isEmpty()) {
             $this->finalize($this->drainReason ?? CloseReason::LOCAL_GRACEFUL);
         }
@@ -494,10 +516,18 @@ final class Connection
         $this->peerReadClosed = true;
         $this->syncReadWatcher();
         $this->invoke($this->eofCallback);
-
         if ($this->state === ConnectionState::OPEN) {
             $this->beginDrain(CloseReason::PEER_CLOSED);
         }
+    }
+
+    private function pauseForPressure(): void
+    {
+        if (!$this->pressureReadPause) {
+            ++$this->backpressureEvents;
+        }
+        $this->pressureReadPause = true;
+        $this->syncReadWatcher();
     }
 
     private function syncReadWatcher(): void
@@ -519,7 +549,6 @@ final class Connection
 
             return;
         }
-
         if (!$shouldWatch && $this->readWatcher !== null) {
             $this->loop->cancel($this->readWatcher);
             $this->readWatcher = null;
@@ -543,7 +572,6 @@ final class Connection
 
             return;
         }
-
         if (!$shouldWatch && $this->writeWatcher !== null) {
             $this->loop->cancel($this->writeWatcher);
             $this->writeWatcher = null;
@@ -555,10 +583,10 @@ final class Connection
         $bytes = $this->sendBuffer->bytes();
         if (!$this->writePressured && $bytes >= $this->limits->sendHighWatermarkBytes) {
             $this->writePressured = true;
+            ++$this->backpressureEvents;
 
             return;
         }
-
         if ($this->writePressured && $bytes <= $this->limits->sendLowWatermarkBytes) {
             $this->writePressured = false;
             $this->invoke($this->drainCallback);

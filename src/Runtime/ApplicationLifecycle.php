@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\Exception\RequestLifecycleException;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\RuntimeContext;
@@ -103,6 +104,8 @@ final class ApplicationLifecycle
         $context->activate($this->runtimeContext, $this->requestExecution);
         $id = spl_object_id($context);
         $this->activeContexts[$id] = $context;
+        $memoryAtStart = memory_get_usage(true);
+        $this->runtimeContext->metrics->requestStarted($request->version);
         $requestFailure = null;
 
         try {
@@ -116,6 +119,13 @@ final class ApplicationLifecycle
 
         $resetFailures = $this->reset($context);
         unset($this->activeContexts[$id]);
+        $this->runtimeContext->metrics->requestCompleted(
+            $context,
+            $request->version,
+            $memoryAtStart,
+            self::requestErrorClass($context, $requestFailure, $resetFailures),
+        );
+        $this->runtimeContext->metrics->maybeCollectGarbage($this->requestExecution->gc);
         $context->complete();
 
         if ($requestFailure !== null) {
@@ -182,9 +192,29 @@ final class ApplicationLifecycle
             $this->started = true;
         } catch (Throwable $error) {
             $this->startupFailed = true;
+            $this->runtimeContext->metrics->recordError(ApplicationErrorClass::WARMUP_FAILURE);
 
             throw $error;
         }
+    }
+
+    /** @param list<Throwable> $resetFailures */
+    private static function requestErrorClass(
+        RequestContext $context,
+        ?Throwable $requestFailure,
+        array $resetFailures,
+    ): ?ApplicationErrorClass {
+        $cancellation = $context->cancellation->reason();
+
+        return match (true) {
+            $cancellation === CancellationReason::DEADLINE_EXCEEDED => ApplicationErrorClass::DEADLINE_EXCEEDED,
+            $cancellation === CancellationReason::TRANSPORT_CANCELLED => ApplicationErrorClass::CLIENT_CANCELLED,
+            $cancellation === CancellationReason::HOST_CANCELLED,
+            $cancellation === CancellationReason::WORKER_SHUTDOWN => ApplicationErrorClass::TRANSPORT_ERROR,
+            $requestFailure !== null => ApplicationErrorClass::HANDLER_EXCEPTION,
+            $resetFailures !== [] => ApplicationErrorClass::RESETTER_FAILURE,
+            default => null,
+        };
     }
 
     /** @return list<Throwable> */

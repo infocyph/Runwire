@@ -51,6 +51,11 @@ final class TimerQueue
         unset($this->timers[$id]);
     }
 
+    public function count(): int
+    {
+        return count($this->timers);
+    }
+
     public function hasTimers(): bool
     {
         return $this->timers !== [];
@@ -89,9 +94,7 @@ final class TimerQueue
         $this->push($id, $deadline);
     }
 
-    /**
-     * @return list<int>
-     */
+    /** @return list<int> */
     public function takeDue(): array
     {
         $now = hrtime(true);
@@ -118,9 +121,7 @@ final class TimerQueue
         return $due;
     }
 
-    /**
-     * @return array{deadline: int, interval: int, callback: Closure}|null
-     */
+    /** @return array{deadline: int, interval: int, callback: Closure}|null */
     public function timer(int $id): ?array
     {
         return $this->timers[$id] ?? null;
@@ -189,17 +190,13 @@ final class TimerQueue
         return $previousDeadline + ($missed * $interval);
     }
 
-    /**
-     * @return array{id: int, deadline: int}|null
-     */
+    /** @return array{id: int, deadline: int}|null */
     private function peek(): ?array
     {
         return $this->heap[0] ?? null;
     }
 
-    /**
-     * @return array{id: int, deadline: int}|null
-     */
+    /** @return array{id: int, deadline: int}|null */
     private function pop(): ?array
     {
         if ($this->heap === []) {
@@ -257,9 +254,7 @@ final class TimerQueue
         return $nanoseconds;
     }
 
-    /**
-     * @param array{id: int, deadline: int} $entry
-     */
+    /** @param array{id: int, deadline: int} $entry */
     private function siftDown(array $entry): void
     {
         $size = count($this->heap);

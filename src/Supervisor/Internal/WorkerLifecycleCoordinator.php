@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
+use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
@@ -51,6 +52,16 @@ final readonly class WorkerLifecycleCoordinator
 
             return;
         }
+        if (str_starts_with($message, 'M:')) {
+            $this->metrics($record, substr($message, 2));
+
+            return;
+        }
+        if (str_starts_with($message, 'D:')) {
+            ($this->emitWorker)(SupervisorEventType::REQUEST_DEADLINE_EXCEEDED, $record, null, null, null);
+
+            return;
+        }
         if (str_starts_with($message, 'X:')) {
             $this->shutdownReason($record, $message);
         }
@@ -62,7 +73,36 @@ final readonly class WorkerLifecycleCoordinator
             return;
         }
 
-        $record->state = $message === 'B' ? WorkerState::BUSY : WorkerState::IDLE;
+        if ($message === 'B') {
+            $record->state = WorkerState::BUSY;
+            $record->busySinceNs ??= self::nowNanoseconds();
+
+            return;
+        }
+
+        $record->state = WorkerState::IDLE;
+        $record->busySinceNs = null;
+    }
+
+    private function metrics(ChildRecord $record, string $payload): void
+    {
+        $decoded = json_decode($payload, true, 16);
+        if (!is_array($decoded) || array_is_list($decoded)) {
+            return;
+        }
+
+        /** @var array<string, mixed> $decoded */
+        $snapshot = RuntimeMetricsSnapshot::fromArray($decoded);
+        if ($snapshot !== null) {
+            $record->metrics = $snapshot;
+        }
+    }
+
+    private static function nowNanoseconds(): int
+    {
+        $now = hrtime(true);
+
+        return is_int($now) ? $now : (int) $now;
     }
 
     /**
@@ -80,6 +120,7 @@ final readonly class WorkerLifecycleCoordinator
             return;
         }
 
+        $record->busySinceNs = null;
         $record->state = WorkerState::READY;
         ReadinessChannel::ready($this->loop, $record);
         ($this->emitWorker)(SupervisorEventType::WORKER_READY, $record, null, null, null);
@@ -183,6 +224,7 @@ final readonly class WorkerLifecycleCoordinator
             return;
         }
 
+        $record->busySinceNs = null;
         $record->state = WorkerState::UNHEALTHY;
         ($this->emitWorker)(SupervisorEventType::WORKER_UNHEALTHY, $record, null, null, null);
     }

@@ -29,6 +29,8 @@ final class PhpQuicHttp3Worker
 
     private bool $accepting = true;
 
+    private int $connectionsAcceptedTotal = 0;
+
     /** @var array<int, PhpQuicHttp3Connection> */
     private array $connections = [];
 
@@ -66,6 +68,11 @@ final class PhpQuicHttp3Worker
     public function connectionCount(): int
     {
         return count($this->pendingConnections) + count($this->connections);
+    }
+
+    public function connectionsAcceptedTotal(): int
+    {
+        return $this->connectionsAcceptedTotal;
     }
 
     public function drainComplete(): bool
@@ -150,6 +157,7 @@ final class PhpQuicHttp3Worker
                 return;
             }
 
+            ++$this->connectionsAcceptedTotal;
             $this->pendingConnections[spl_object_id($connection->object())] = [
                 'connection' => $connection,
                 'deadline' => self::monotonicSeconds() + $this->handshakeTimeoutSeconds,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
+use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
@@ -30,5 +31,7 @@ final class ChildRecord
         public string $lifecycleBuffer = '',
         public ?ShutdownReason $shutdownReason = null,
         public ?WorkerExitReason $exitReason = null,
+        public ?int $busySinceNs = null,
+        public ?RuntimeMetricsSnapshot $metrics = null,
     ) {}
 }

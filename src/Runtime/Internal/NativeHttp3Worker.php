@@ -9,8 +9,11 @@ use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
+use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
 use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Server;
@@ -26,6 +29,7 @@ final class NativeHttp3Worker
         RuntimeContext $runtimeContext,
         RequestExecutionPolicy $requestExecution,
         ApplicationLifecycleHooks $lifecycle,
+        DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
     ): void {
         $options = $server->http3;
         $tls = $server->tls;
@@ -41,13 +45,18 @@ final class NativeHttp3Worker
             $requestExecution,
             $lifecycle,
         );
-        $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context): void {
+        $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics);
+        $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
             $context->recordRequestStarted();
 
             try {
                 $application->handle($request, $writer);
             } finally {
                 $context->recordRequestCompleted();
+                if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
+                    $context->reportDeadlineExceeded($request->context->requestId);
+                }
+                $sampler->sample();
             }
         };
         $worker = new PhpQuicHttp3Worker(
@@ -60,9 +69,13 @@ final class NativeHttp3Worker
 
         try {
             $application->start();
+            self::observeTransport($runtimeContext, $worker);
+            $sampler->sample(true);
             $context->ready();
             while (!$context->stopping()) {
                 $worker->tick($options->pollTimeoutSeconds);
+                self::observeTransport($runtimeContext, $worker);
+                $sampler->sample();
             }
 
             $context->consumeStopWake();
@@ -78,12 +91,18 @@ final class NativeHttp3Worker
                     break;
                 }
                 $worker->tick($options->pollTimeoutSeconds);
+                self::observeTransport($runtimeContext, $worker);
+                $sampler->sample();
             }
+            self::observeTransport($runtimeContext, $worker);
+            $sampler->sample(true);
         } finally {
             try {
                 $worker->stopAccepting();
             } finally {
                 $application->shutdown($context->shutdownReason());
+                self::observeTransport($runtimeContext, $worker);
+                $sampler->sample(true);
             }
         }
     }
@@ -100,5 +119,18 @@ final class NativeHttp3Worker
         }
 
         return [trim($host, '[]'), $port];
+    }
+
+    private static function observeTransport(RuntimeContext $runtime, PhpQuicHttp3Worker $worker): void
+    {
+        $runtime->metrics->observeNetwork(
+            activeConnections: $worker->connectionCount(),
+            acceptedConnections: $worker->connectionsAcceptedTotal(),
+            bytesRead: 0,
+            bytesWritten: 0,
+            rejectedConnections: 0,
+        );
+        $runtime->metrics->setProtocol(ProtocolMetric::HTTP3_CONNECTIONS_ACTIVE, $worker->connectionCount());
+        $runtime->metrics->setProtocol(ProtocolMetric::HTTP3_CONNECTIONS_TOTAL, $worker->connectionsAcceptedTotal());
     }
 }

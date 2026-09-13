@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use RuntimeException;
 
 final class WorkerContext
 {
+    private const int MAX_DIAGNOSTIC_MESSAGE_BYTES = 6_144;
+
     private readonly WorkerRecycleState $recycleState;
 
     private int $activeRequests = 0;
@@ -152,6 +155,25 @@ final class WorkerContext
         return $this->recycling;
     }
 
+    public function reportDeadlineExceeded(string $requestId): void
+    {
+        if ($requestId === '' || strlen($requestId) > 128) {
+            return;
+        }
+
+        $this->signalDiagnostic('D:' . $requestId);
+    }
+
+    public function reportMetrics(RuntimeMetricsSnapshot $snapshot): void
+    {
+        $json = json_encode($snapshot->toArray(), JSON_UNESCAPED_SLASHES);
+        if (!is_string($json)) {
+            return;
+        }
+
+        $this->signalDiagnostic('M:' . $json);
+    }
+
     public function requestRecycle(ShutdownReason $reason = ShutdownReason::MANUAL_RECYCLE): void
     {
         if ($this->recycling) {
@@ -241,5 +263,15 @@ final class WorkerContext
         if ($written !== strlen($payload)) {
             throw new RuntimeException('Unable to signal worker lifecycle state.');
         }
+    }
+
+    private function signalDiagnostic(string $message): void
+    {
+        if (!is_resource($this->readyStream) || strlen($message) > self::MAX_DIAGNOSTIC_MESSAGE_BYTES) {
+            return;
+        }
+
+        $payload = $message . "\n";
+        fwrite($this->readyStream, $payload);
     }
 }

@@ -118,6 +118,9 @@ final class ControlServer
             'replaces_pid' => $worker->replacesPid,
             'reloadable' => $worker->reloadable,
             'shutdown_reason' => $worker->shutdownReason?->value,
+            'busy_seconds' => $worker->busySeconds,
+            'busy_beyond_threshold' => $worker->busyBeyondThreshold,
+            'metrics' => $worker->metrics?->toArray(),
         ];
     }
 
@@ -245,8 +248,11 @@ final class ControlServer
             'ready_worker_count' => $status->readyWorkerCount,
             'pending_restart_count' => $status->pendingRestartCount,
             'lifecycle_listener_failures' => $status->lifecycleListenerFailures,
+            'lifecycle_listener_failure_counts' => $status->lifecycleListenerFailureCounts,
             'exit_reason_counts' => $status->exitReasonCounts,
             'restart_reason_counts' => $status->restartReasonCounts,
+            'health' => $status->health->toArray(),
+            'metrics' => $status->metrics->toArray(),
             'workers' => array_map(self::workerArray(...), $status->workers),
         ];
     }

@@ -6,6 +6,8 @@ namespace Infocyph\Runwire\Runtime\Host;
 
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Metrics\MetricsProviderInterface;
+use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -13,9 +15,11 @@ use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
-final readonly class RuntimeApplication
+final readonly class RuntimeApplication implements MetricsProviderInterface
 {
     private ApplicationLifecycle $lifecycle;
+
+    private RuntimeContext $runtimeContext;
 
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
@@ -30,9 +34,10 @@ final readonly class RuntimeApplication
         ?RequestExecutionPolicy $requestExecution = null,
         ?ApplicationLifecycleHooks $lifecycle = null,
     ) {
+        $this->runtimeContext = $runtimeContext ?? RuntimeContext::standalone();
         $this->lifecycle = new ApplicationLifecycle(
             $handler,
-            $runtimeContext ?? RuntimeContext::standalone(),
+            $this->runtimeContext,
             $requestExecution ?? new RequestExecutionPolicy(),
             $lifecycle,
             $requestCleanup,
@@ -61,6 +66,11 @@ final readonly class RuntimeApplication
     public function shutdown(?ShutdownReason $reason = null): void
     {
         $this->lifecycle->shutdown($reason);
+    }
+
+    public function snapshot(): RuntimeMetricsSnapshot
+    {
+        return $this->runtimeContext->snapshot();
     }
 
     public function start(): void

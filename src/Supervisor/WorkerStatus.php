@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 
@@ -22,5 +23,8 @@ final readonly class WorkerStatus
         public ?int $replacesPid = null,
         public bool $reloadable = true,
         public ?ShutdownReason $shutdownReason = null,
+        public float $busySeconds = 0.0,
+        public bool $busyBeyondThreshold = false,
+        public ?RuntimeMetricsSnapshot $metrics = null,
     ) {}
 }

@@ -11,7 +11,7 @@ use LogicException;
 use OverflowException;
 use Throwable;
 
-final class SelectLoop implements LoopInterface
+final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
     private const int MICROS_PER_SECOND = 1_000_000;
 
@@ -19,10 +19,20 @@ final class SelectLoop implements LoopInterface
 
     private const int SELECT_ERROR_BACKOFF_MICROS = 1_000;
 
+    private readonly int $callbackOverrunNanoseconds;
+
     private readonly TimerQueue $timers;
+
+    private int $callbackOverrunsTotal = 0;
 
     /** @var array<int, Closure> */
     private array $deferred = [];
+
+    private int $lastTickNanoseconds = 0;
+
+    private int $maxLagNanoseconds = 0;
+
+    private int $maxTickNanoseconds = 0;
 
     private int $nextId = 1;
 
@@ -40,8 +50,13 @@ final class SelectLoop implements LoopInterface
     /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
     private array $writeWatchers = [];
 
-    public function __construct()
+    public function __construct(float $callbackOverrunSeconds = 0.05)
     {
+        if (!is_finite($callbackOverrunSeconds) || $callbackOverrunSeconds <= 0 || $callbackOverrunSeconds > 60.0) {
+            throw new InvalidArgumentException('Callback overrun threshold must be finite and between 0 and 60 seconds.');
+        }
+
+        $this->callbackOverrunNanoseconds = (int) round($callbackOverrunSeconds * self::NANOS_PER_SECOND);
         $this->timers = new TimerQueue();
     }
 
@@ -50,11 +65,9 @@ final class SelectLoop implements LoopInterface
         if ($this->cancelWatcher($id, true) || $this->cancelWatcher($id, false)) {
             return true;
         }
-
         if ($this->timers->cancel($id)) {
             return true;
         }
-
         if (!isset($this->deferred[$id])) {
             return false;
         }
@@ -78,6 +91,21 @@ final class SelectLoop implements LoopInterface
         $this->timers->addDelay($id, $seconds, Closure::fromCallable($callback));
 
         return $id;
+    }
+
+    public function diagnostics(): LoopDiagnosticsSnapshot
+    {
+        return new LoopDiagnosticsSnapshot(
+            sampledAtMonotonicNanoseconds: self::nowNanoseconds(),
+            timersActive: $this->timers->count(),
+            deferredBacklog: count($this->deferred),
+            readWatchers: count($this->readWatchers),
+            writeWatchers: count($this->writeWatchers),
+            lastTickNanoseconds: $this->lastTickNanoseconds,
+            maxTickNanoseconds: $this->maxTickNanoseconds,
+            maxLagNanoseconds: $this->maxLagNanoseconds,
+            callbackOverrunsTotal: $this->callbackOverrunsTotal,
+        );
     }
 
     public function now(): float
@@ -113,8 +141,11 @@ final class SelectLoop implements LoopInterface
 
         try {
             while ($this->running) {
+                $tickStart = self::nowNanoseconds();
+                $this->recordTimerLag($tickStart);
                 $this->runDeferredBatch();
                 $this->runDueTimers();
+                $this->recordTick($tickStart);
 
                 if (!$this->running || !$this->hasReferences()) {
                     break;
@@ -139,6 +170,13 @@ final class SelectLoop implements LoopInterface
             && str_contains($message, 'Interrupted system call');
     }
 
+    private static function nowNanoseconds(): int
+    {
+        $now = hrtime(true);
+
+        return is_int($now) ? $now : (int) $now;
+    }
+
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -153,7 +191,6 @@ final class SelectLoop implements LoopInterface
         $watcher = $readable
             ? ($this->readWatchers[$id] ?? null)
             : ($this->writeWatchers[$id] ?? null);
-
         if ($watcher === null) {
             return false;
         }
@@ -190,7 +227,7 @@ final class SelectLoop implements LoopInterface
                 continue;
             }
 
-            $watcher['callback']($stream, $id);
+            $this->invoke($watcher['callback'], $stream, $id);
             if (!$this->running) {
                 return;
             }
@@ -203,6 +240,19 @@ final class SelectLoop implements LoopInterface
             || $this->writeWatchers !== []
             || $this->timers->hasTimers()
             || $this->deferred !== [];
+    }
+
+    private function invoke(Closure $callback, mixed ...$arguments): void
+    {
+        $started = self::nowNanoseconds();
+
+        try {
+            $callback(...$arguments);
+        } finally {
+            if (self::nowNanoseconds() - $started >= $this->callbackOverrunNanoseconds) {
+                ++$this->callbackOverrunsTotal;
+            }
+        }
     }
 
     private function poll(): void
@@ -231,7 +281,6 @@ final class SelectLoop implements LoopInterface
 
             return;
         }
-
         if ($result > 0) {
             $this->dispatchReady($read, true);
             if ($this->running) {
@@ -262,6 +311,20 @@ final class SelectLoop implements LoopInterface
         return $removed + $this->pruneClosedDirection(false);
     }
 
+    private function recordTick(int $tickStart): void
+    {
+        $this->lastTickNanoseconds = max(0, self::nowNanoseconds() - $tickStart);
+        $this->maxTickNanoseconds = max($this->maxTickNanoseconds, $this->lastTickNanoseconds);
+    }
+
+    private function recordTimerLag(int $now): void
+    {
+        $deadline = $this->timers->nextDeadline();
+        if ($deadline !== null && $deadline < $now) {
+            $this->maxLagNanoseconds = max($this->maxLagNanoseconds, $now - $deadline);
+        }
+    }
+
     private function runDeferredBatch(): void
     {
         if ($this->deferred === []) {
@@ -273,7 +336,7 @@ final class SelectLoop implements LoopInterface
             if ($callback === null) {
                 continue;
             }
-            $callback($id);
+            $this->invoke($callback, $id);
 
             if (!$this->running) {
                 return;
@@ -288,13 +351,12 @@ final class SelectLoop implements LoopInterface
             if ($timer === null) {
                 continue;
             }
-
             if ($timer['interval'] === 0) {
                 $this->timers->consumeOneShot($id);
             }
 
             try {
-                $timer['callback']($id);
+                $this->invoke($timer['callback'], $id);
             } catch (Throwable $throwable) {
                 $this->timers->cancel($id);
 
@@ -304,7 +366,6 @@ final class SelectLoop implements LoopInterface
             if ($timer['interval'] !== 0) {
                 $this->timers->rescheduleRepeat($id);
             }
-
             if (!$this->running) {
                 return;
             }

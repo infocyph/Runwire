@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Metrics\RuntimeHealthSnapshot;
+use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
+
 final readonly class SupervisorStatus
 {
     /**
      * @param array<string, int> $exitReasonCounts
+     * @param array<string, int> $lifecycleListenerFailureCounts
      * @param array<string, int> $restartReasonCounts
      * @param list<WorkerStatus> $workers
      */
@@ -27,9 +31,12 @@ final readonly class SupervisorStatus
         public int $pendingRestartCount,
         public int $lifecycleListenerFailures,
         public array $workers,
+        public RuntimeHealthSnapshot $health,
+        public RuntimeMetricsSnapshot $metrics,
         public bool $generationReady = false,
         public bool $reloadFailed = false,
         public array $exitReasonCounts = [],
         public array $restartReasonCounts = [],
+        public array $lifecycleListenerFailureCounts = [],
     ) {}
 }

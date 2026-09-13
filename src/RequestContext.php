@@ -50,7 +50,7 @@ final class RequestContext
 
         return new self(
             $runtime,
-            $requestId ?? self::generateRequestId(),
+            $policy->requestId($runtime, $requestId),
             $start,
             $policy->deadline($start),
             true,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
+use Infocyph\Runwire\Metrics\RuntimeHealthSnapshot;
+use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\SupervisorStatus;
 use Infocyph\Runwire\Supervisor\WorkerStatus;
 
@@ -15,6 +17,7 @@ final class SupervisorStatusBuilder
      * @param array<int, ChildRecord> $children
      * @param array<string, array<int, int>> $currentSlots
      * @param array<string, int> $exitReasonCounts
+     * @param array<string, int> $lifecycleListenerFailureCounts
      * @param array<string, int> $restartReasonCounts
      */
     public static function build(
@@ -35,17 +38,32 @@ final class SupervisorStatusBuilder
         bool $reloadFailed = false,
         array $exitReasonCounts = [],
         array $restartReasonCounts = [],
+        array $lifecycleListenerFailureCounts = [],
+        float $busyWorkerThresholdSeconds = 30.0,
     ): SupervisorStatus {
-        $now = hrtime(true) / self::NANOS_PER_SECOND;
+        $nowNs = self::nowNanoseconds();
+        $now = $nowNs / self::NANOS_PER_SECOND;
         $workers = [];
+        $snapshots = [];
         $ready = 0;
         $current = 0;
+        $currentServing = 0;
+        $unhealthy = false;
+        $draining = $stopping;
 
         foreach ($children as $record) {
             $isCurrent = ($currentSlots[$record->group->name][$record->slot] ?? null) === $record->pid;
+            $serving = $record->state->serving();
             $current += $isCurrent ? 1 : 0;
-            $ready += $record->state->serving() ? 1 : 0;
+            $ready += $serving ? 1 : 0;
+            $currentServing += $isCurrent && $serving ? 1 : 0;
+            $unhealthy = $unhealthy || ($isCurrent && self::unhealthyState($record->state));
+            $draining = $draining || in_array($record->state, [WorkerState::DRAINING, WorkerState::STOPPING], true);
             $started = $record->startedAtNs / self::NANOS_PER_SECOND;
+            $busySeconds = self::busySeconds($record, $nowNs);
+            if ($record->metrics !== null) {
+                $snapshots[] = $record->metrics;
+            }
             $workers[] = new WorkerStatus(
                 group: $record->group->name,
                 slot: $record->slot,
@@ -59,25 +77,25 @@ final class SupervisorStatusBuilder
                 replacesPid: $record->replacesPid,
                 reloadable: $record->group->reloadable,
                 shutdownReason: $record->shutdownReason,
+                busySeconds: $busySeconds,
+                busyBeyondThreshold: $busySeconds >= $busyWorkerThresholdSeconds,
+                metrics: $record->metrics,
             );
         }
 
-        usort(
-            $workers,
-            static fn(WorkerStatus $left, WorkerStatus $right): int => [
-                $left->group,
-                $left->slot,
-                $left->generation,
-                $left->pid,
-            ] <=> [
-                $right->group,
-                $right->slot,
-                $right->generation,
-                $right->pid,
-            ],
-        );
-
+        self::sortWorkers($workers);
         $started = $startedAtNs === null ? null : $startedAtNs / self::NANOS_PER_SECOND;
+        $health = new RuntimeHealthSnapshot(
+            live: $running,
+            ready: $running
+                && !$stopping
+                && $generationReady
+                && $pendingRestartCount === 0
+                && $current > 0
+                && $currentServing === $current,
+            healthy: $running && !$unhealthy && !$reloadFailed && $pendingRestartCount === 0,
+            draining: $draining,
+        );
 
         return new SupervisorStatus(
             runtimeId: $runtimeId,
@@ -95,10 +113,53 @@ final class SupervisorStatusBuilder
             pendingRestartCount: $pendingRestartCount,
             lifecycleListenerFailures: $lifecycleListenerFailures,
             workers: $workers,
+            health: $health,
+            metrics: RuntimeMetricsAggregator::aggregate($snapshots),
             generationReady: $generationReady,
             reloadFailed: $reloadFailed,
             exitReasonCounts: $exitReasonCounts,
             restartReasonCounts: $restartReasonCounts,
+            lifecycleListenerFailureCounts: $lifecycleListenerFailureCounts,
         );
+    }
+
+    private static function busySeconds(ChildRecord $record, int $nowNs): float
+    {
+        if ($record->busySinceNs !== null) {
+            return max(0.0, ($nowNs - $record->busySinceNs) / self::NANOS_PER_SECOND);
+        }
+
+        return $record->metrics?->workerBusySeconds ?? 0.0;
+    }
+
+    private static function nowNanoseconds(): int
+    {
+        $now = hrtime(true);
+
+        return is_int($now) ? $now : (int) $now;
+    }
+
+    /** @param list<WorkerStatus> $workers */
+    private static function sortWorkers(array &$workers): void
+    {
+        usort(
+            $workers,
+            static fn(WorkerStatus $left, WorkerStatus $right): int => [
+                $left->group,
+                $left->slot,
+                $left->generation,
+                $left->pid,
+            ] <=> [
+                $right->group,
+                $right->slot,
+                $right->generation,
+                $right->pid,
+            ],
+        );
+    }
+
+    private static function unhealthyState(WorkerState $state): bool
+    {
+        return $state === WorkerState::FAILED || $state === WorkerState::UNHEALTHY;
     }
 }
