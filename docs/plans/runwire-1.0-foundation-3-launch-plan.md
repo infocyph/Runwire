@@ -255,15 +255,17 @@ No mandatory global static `Coroutine::create()` API is required for 1.0. Ergono
 
 Last updated: **2026-09-13**
 
+Tracker rule: mark a batch **✅ Complete** only after the batch implementation and its exact-head Benchmarks + Security & Standards certification are green. Use **🟨 In progress** while implementation or exact-head certification is still active.
+
 | Batch | Scope | Status |
 | --- | --- | --- |
-| K | Cancellation substrate + coroutine capability normalization | ⬜ |
-| L | Fiber scheduler + Task/Future/Deferred core | ⬜ |
-| M | Structured concurrency + task-local context | ⬜ |
-| N | Channels + synchronization primitives | ⬜ |
-| O | Runtime/request/network/host integration | ⬜ |
-| P | Observability + soak/race/interop + benchmarks/docs + exact-head QA | ⬜ |
-| Release | Explicit approval, merge/tag/publish | ⬜ Blocked |
+| K | Cancellation substrate + coroutine capability normalization | ✅ Complete — certified `2c9b7e4bb823a18bb00c625fbcba2bacbf0b3724` (Benchmarks #78, Security #265) |
+| L | Fiber scheduler + Task/Future/Deferred core | ✅ Complete — certified `c7ef116aff09de2645ca918dfab061e182f103ae` (Benchmarks #88, Security #275) |
+| M | Structured concurrency + task-local context | 🟨 In progress — implementation at `9b35f5abcec0bb878e4a8deecd52e5634db7e16b`; Benchmarks #90 green; Security #277 has one remaining PHPStan callback-typing finding |
+| N | Channels + synchronization primitives | ⬜ Not started |
+| O | Runtime/request/network/host integration | ⬜ Not started |
+| P | Observability + soak/race/interop + benchmarks/docs + exact-head QA | ⬜ Not started |
+| Release | Explicit approval, merge/tag/publish | ⬜ Blocked until K–P complete and final exact-head certification is green |
 
 ---
 
