@@ -108,7 +108,6 @@ final class Task
         return $this->id;
     }
 
-    /** @phpstan-impure */
     public function isComplete(): bool
     {
         return match ($this->state) {
