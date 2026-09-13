@@ -9,6 +9,8 @@ use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime\ApplicationLifecycle;
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Server;
@@ -23,6 +25,7 @@ final class NativeHttp3Worker
         string $tcpAddress,
         RuntimeContext $runtimeContext,
         RequestExecutionPolicy $requestExecution,
+        ApplicationLifecycleHooks $lifecycle,
     ): void {
         $options = $server->http3;
         $tls = $server->tls;
@@ -32,19 +35,16 @@ final class NativeHttp3Worker
 
         [$host, $port] = self::endpoint($tcpAddress);
         $listener = PhpQuicListener::bind($host, $port, $options->listenerOptions($tls));
-        $applicationHandler = $server->handlerFor($context);
-        $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use (
-            $applicationHandler,
-            $context,
+        $application = new ApplicationLifecycle(
+            $server->handlerFor($context),
             $runtimeContext,
             $requestExecution,
-        ): void {
-            $request->context->activate($runtimeContext, $requestExecution);
-
+            $lifecycle,
+        );
+        $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context): void {
             try {
-                $applicationHandler($request, $writer);
+                $application->handle($request, $writer);
             } finally {
-                $request->context->complete();
                 $context->recordRequestCompleted();
             }
         };
@@ -57,12 +57,14 @@ final class NativeHttp3Worker
         );
 
         try {
+            $application->start();
             $context->ready();
             while (!$context->stopping()) {
                 $worker->tick($options->pollTimeoutSeconds);
             }
 
             $context->consumeStopWake();
+            $application->drain();
             $worker->stopAccepting();
             $deadline = $context->recycling()
                 ? hrtime(true) + (int) ($context->recyclePolicy->gracefulTimeoutSeconds * 1_000_000_000)
@@ -76,7 +78,11 @@ final class NativeHttp3Worker
                 $worker->tick($options->pollTimeoutSeconds);
             }
         } finally {
-            $worker->stopAccepting();
+            try {
+                $worker->stopAccepting();
+            } finally {
+                $application->shutdown();
+            }
         }
     }
 

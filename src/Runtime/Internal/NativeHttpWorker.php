@@ -12,6 +12,8 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Runtime\ApplicationLifecycle;
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
@@ -23,29 +25,44 @@ final class NativeHttpWorker
         BoundServer $bound,
         RuntimeContext $runtimeContext,
         RequestExecutionPolicy $requestExecution,
+        ApplicationLifecycleHooks $lifecycle,
     ): void {
         $loop = new SelectLoop();
         $sessions = [];
         $connections = [];
         $state = new WorkerStopState();
-        $handler = self::requestHandler($bound, $context, $runtimeContext, $requestExecution);
-
-        $bound->listener->start(
-            $loop,
-            static function (Connection $connection) use ($loop, $bound, $handler, &$sessions, &$connections, $state): void {
-                self::attachConnection($connection, $loop, $bound, $handler, $sessions, $connections, $state);
-            },
+        $application = new ApplicationLifecycle(
+            $bound->definition->handlerFor($context),
+            $runtimeContext,
+            $requestExecution,
+            $lifecycle,
         );
-        $loop->onReadable(
-            $context->stopStream(),
-            static function () use ($context, $bound, $loop, &$sessions, &$connections, $state): void {
-                self::beginDrain($context, $bound, $loop, $sessions, $connections, $state);
-            },
-        );
+        $handler = self::requestHandler($application, $context);
 
-        $context->ready();
-        $loop->run();
-        $bound->listener->close();
+        try {
+            $application->start();
+            $bound->listener->start(
+                $loop,
+                static function (Connection $connection) use ($loop, $bound, $handler, &$sessions, &$connections, $state): void {
+                    self::attachConnection($connection, $loop, $bound, $handler, $sessions, $connections, $state);
+                },
+            );
+            $loop->onReadable(
+                $context->stopStream(),
+                static function () use ($application, $context, $bound, $loop, &$sessions, &$connections, $state): void {
+                    self::beginDrain($application, $context, $bound, $loop, $sessions, $connections, $state);
+                },
+            );
+
+            $context->ready();
+            $loop->run();
+        } finally {
+            try {
+                $bound->listener->close();
+            } finally {
+                $application->shutdown();
+            }
+        }
     }
 
     /**
@@ -95,6 +112,7 @@ final class NativeHttpWorker
      * @param array<int, Connection> $connections
      */
     private static function beginDrain(
+        ApplicationLifecycle $application,
         WorkerContext $context,
         BoundServer $bound,
         LoopInterface $loop,
@@ -107,6 +125,7 @@ final class NativeHttpWorker
             return;
         }
 
+        $application->drain();
         $state->stop();
         $bound->listener->close();
         foreach ($sessions as $session) {
@@ -114,19 +133,14 @@ final class NativeHttpWorker
         }
         if ($sessions === []) {
             $loop->stop();
-
-            return;
+        } elseif ($context->recycling()) {
+            $loop->delay(
+                $context->recyclePolicy->gracefulTimeoutSeconds,
+                static function () use (&$connections, $loop): void {
+                    self::forceClose($connections, $loop);
+                },
+            );
         }
-        if (!$context->recycling()) {
-            return;
-        }
-
-        $loop->delay(
-            $context->recyclePolicy->gracefulTimeoutSeconds,
-            static function () use (&$connections, $loop): void {
-                self::forceClose($connections, $loop);
-            },
-        );
     }
 
     /** @param array<int, Connection> $connections */
@@ -139,26 +153,12 @@ final class NativeHttpWorker
     }
 
     /** @return Closure(HttpRequest, ResponseWriterInterface): void */
-    private static function requestHandler(
-        BoundServer $bound,
-        WorkerContext $context,
-        RuntimeContext $runtimeContext,
-        RequestExecutionPolicy $requestExecution,
-    ): Closure {
-        $applicationHandler = $bound->definition->handlerFor($context);
-
-        return static function (HttpRequest $request, ResponseWriterInterface $writer) use (
-            $applicationHandler,
-            $context,
-            $runtimeContext,
-            $requestExecution,
-        ): void {
-            $request->context->activate($runtimeContext, $requestExecution);
-
+    private static function requestHandler(ApplicationLifecycle $application, WorkerContext $context): Closure
+    {
+        return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context): void {
             try {
-                $applicationHandler($request, $writer);
+                $application->handle($request, $writer);
             } finally {
-                $request->context->complete();
                 $context->recordRequestCompleted();
             }
         };

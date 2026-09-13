@@ -43,6 +43,7 @@ final readonly class FpmDriver implements HostDriverInterface
     public function run(RuntimeApplication $application): void
     {
         try {
+            $application->start();
             $request = ($this->requestFactory)();
             $application->handle($request, ($this->writerFactory)($request->method));
         } finally {

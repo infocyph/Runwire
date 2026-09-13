@@ -13,7 +13,6 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Network\UnixListenerOptions;
-use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\HostDriverFactory;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
@@ -197,6 +196,7 @@ final class Runtime
             $shutdown,
             $this->hostRuntimeContext(),
             $this->options->requestExecution,
+            $this->options->applicationLifecycle,
         );
 
         try {
@@ -214,7 +214,7 @@ final class Runtime
 
     public function stop(bool $force = false): void
     {
-        $this->hostApplication?->cancelActive(CancellationReason::WORKER_SHUTDOWN);
+        $this->hostApplication?->drain();
         $this->hostDriver?->stop();
         $this->supervisor?->stop($force);
     }
@@ -368,6 +368,7 @@ final class Runtime
                             $target,
                             $this->nativeRuntimeContext($context),
                             $this->options->requestExecution,
+                            $this->options->applicationLifecycle,
                         ),
                         $target instanceof BoundStreamServer => NativeStreamWorker::run($context, $target),
                         $target instanceof BoundDatagramServer => NativeDatagramWorker::run($context, $target),
@@ -436,6 +437,7 @@ final class Runtime
                     $tcpAddress,
                     $this->nativeRuntimeContext($context),
                     $this->options->requestExecution,
+                    $this->options->applicationLifecycle,
                 );
             },
             recyclePolicy: $this->options->workerRecycle,

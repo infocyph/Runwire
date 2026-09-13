@@ -56,6 +56,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
     public function run(RuntimeApplication $application): void
     {
         try {
+            $application->start();
             if ($this->mode() === FrankenPhpMode::WORKER) {
                 $this->runWorker($application);
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
@@ -20,5 +21,6 @@ final readonly class RuntimeOptions
         public FrankenPhpOptions $frankenPhp = new FrankenPhpOptions(),
         public RoadRunnerOptions $roadRunner = new RoadRunnerOptions(),
         public SwooleOptions $swoole = new SwooleOptions(),
+        public ApplicationLifecycleHooks $applicationLifecycle = new ApplicationLifecycleHooks(),
     ) {}
 }

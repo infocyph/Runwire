@@ -38,6 +38,7 @@ final class RoadRunnerDriver implements HostDriverInterface
         $this->session = $session;
 
         try {
+            $application->start();
             $this->runRequests($session, $application);
         } finally {
             $this->session = null;
@@ -60,10 +61,7 @@ final class RoadRunnerDriver implements HostDriverInterface
                     $this->options->maxResponseBytes,
                     strtoupper($request->method) === 'HEAD',
                 );
-                $application->handle($request, $writer);
-                if (!$writer->isEnded()) {
-                    $writer->end();
-                }
+                $application->handle($request, $writer, completeResponse: true);
             } finally {
                 gc_collect_cycles();
                 if ($recycle->recordRequestCompleted()) {
