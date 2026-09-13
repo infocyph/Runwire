@@ -279,6 +279,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
     {
         return match ($context->cancellation->reason()) {
             CancellationReason::DEADLINE_EXCEEDED => ApplicationErrorClass::DEADLINE_EXCEEDED,
+            CancellationReason::SCOPE_FAILED => ApplicationErrorClass::HANDLER_EXCEPTION,
             CancellationReason::TRANSPORT_CANCELLED => ApplicationErrorClass::CLIENT_CANCELLED,
             CancellationReason::HOST_CANCELLED, CancellationReason::WORKER_SHUTDOWN => ApplicationErrorClass::TRANSPORT_ERROR,
             null => null,

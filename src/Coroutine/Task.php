@@ -27,8 +27,6 @@ final class Task
     /** @var null|Closure(self): void */
     private readonly ?Closure $onChange;
 
-    private readonly TaskLocalState $taskLocals;
-
     private bool $observed = false;
 
     private TaskState $state = TaskState::NEW;
@@ -41,7 +39,7 @@ final class Task
         FiberScheduler $scheduler,
         private readonly CancellationSource $cancellationSource,
         callable $callback,
-        TaskLocalState $taskLocals,
+        private readonly TaskLocalState $taskLocals,
         ?callable $onChange = null,
     ) {
         $closure = $callback(...);
@@ -52,8 +50,7 @@ final class Task
 
             return $closure();
         });
-        $this->onChange = $onChange === null ? null : $onChange(...);
-        $this->taskLocals = $taskLocals;
+        $this->onChange = $onChange === null ? null : Closure::fromCallable($onChange);
     }
 
     public function await(): mixed

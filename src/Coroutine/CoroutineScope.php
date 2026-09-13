@@ -23,6 +23,9 @@ final class CoroutineScope
 
     private bool $closed = false;
 
+    /** @var array<int, Throwable> */
+    private array $collectedFailures = [];
+
     /** @var array<int, int> */
     private array $failureChecks = [];
 
@@ -98,6 +101,12 @@ final class CoroutineScope
     /** @return list<Throwable> */
     public function failures(): array
     {
+        if ($this->failureMode === TaskGroupFailureMode::COLLECT_ALL) {
+            $failures = $this->collectedFailures;
+            ksort($failures);
+
+            return array_values($failures);
+        }
         if ($this->primaryFailure === null) {
             return [];
         }
@@ -147,19 +156,19 @@ final class CoroutineScope
         $this->children = [];
         $this->cancelFailureChecks();
 
-        if (!$propagateFailure || $this->primaryFailure === null) {
+        if (!$propagateFailure) {
+            return;
+        }
+
+        $failures = $this->failures();
+        if ($failures === []) {
             return;
         }
         if ($this->failureMode === TaskGroupFailureMode::COLLECT_ALL) {
-            $failures = $this->failures();
-            if ($failures === []) {
-                return;
-            }
-
             throw new TaskGroupException($failures);
         }
 
-        throw $this->primaryFailure;
+        throw $this->primaryFailure ?? $failures[0];
     }
 
     public function local(TaskLocal $key): mixed
@@ -241,6 +250,17 @@ final class CoroutineScope
         }
     }
 
+    private function awaitTask(Task $task, bool $cleanup): void
+    {
+        if ($cleanup) {
+            $task->awaitForCleanup();
+
+            return;
+        }
+
+        $task->await();
+    }
+
     private function cancelFailureCheck(int $taskId): void
     {
         $handle = $this->failureChecks[$taskId] ?? null;
@@ -271,6 +291,52 @@ final class CoroutineScope
         }
     }
 
+    private function handleDeferredFailure(Task $task): void
+    {
+        unset($this->failureChecks[$task->id()]);
+        if ($this->closed || $task->observed()) {
+            return;
+        }
+        if ($task->state() !== TaskState::FAILED) {
+            return;
+        }
+
+        $error = $task->failure();
+        if ($error === null) {
+            return;
+        }
+
+        $this->recordFailure($error);
+        $this->cancelSiblings($task->id());
+        unset($this->children[$task->id()]);
+    }
+
+    private function handleJoinedCancellation(CancelledException $error, bool $cleanup): void
+    {
+        if (!$cleanup && $this->cancellation()->isCancelled()) {
+            throw $error;
+        }
+    }
+
+    private function handleJoinedFailure(Task $task, Throwable $error, bool $cleanup): void
+    {
+        if ($task->state() !== TaskState::FAILED) {
+            if (!$cleanup) {
+                throw $error;
+            }
+
+            return;
+        }
+        if ($this->failureMode === TaskGroupFailureMode::COLLECT_ALL) {
+            $this->recordCollectAllFailure($task->id(), $error);
+
+            return;
+        }
+
+        $this->recordFailure($error);
+        $this->cancelSiblings($task->id());
+    }
+
     private function joinTask(Task $task, bool $cleanup): void
     {
         if ($task->isComplete() && $task->observed()) {
@@ -280,24 +346,11 @@ final class CoroutineScope
         }
 
         try {
-            if ($cleanup) {
-                $task->awaitForCleanup();
-            } else {
-                $task->await();
-            }
+            $this->awaitTask($task, $cleanup);
         } catch (CancelledException $error) {
-            if (!$cleanup && $this->cancellation()->isCancelled()) {
-                throw $error;
-            }
+            $this->handleJoinedCancellation($error, $cleanup);
         } catch (Throwable $error) {
-            if ($task->state() === TaskState::FAILED) {
-                $this->recordFailure($error);
-                if ($this->failureMode === TaskGroupFailureMode::FAIL_FAST) {
-                    $this->cancelSiblings($task->id());
-                }
-            } elseif (!$cleanup) {
-                throw $error;
-            }
+            $this->handleJoinedFailure($task, $error, $cleanup);
         }
 
         unset($this->children[$task->id()]);
@@ -325,7 +378,7 @@ final class CoroutineScope
             return;
         }
         if ($this->failureMode === TaskGroupFailureMode::COLLECT_ALL) {
-            $this->recordFailure($error);
+            $this->recordCollectAllFailure($task->id(), $error);
             unset($this->children[$task->id()]);
 
             return;
@@ -337,21 +390,14 @@ final class CoroutineScope
         $this->failureChecks[$task->id()] = $this->scheduler->loop()->defer(
             function (int $id) use ($task): void {
                 unset($id);
-                unset($this->failureChecks[$task->id()]);
-                if ($this->closed || $task->observed() || $task->state() !== TaskState::FAILED) {
-                    return;
-                }
-
-                $error = $task->failure();
-                if ($error === null) {
-                    return;
-                }
-
-                $this->recordFailure($error);
-                $this->cancelSiblings($task->id());
-                unset($this->children[$task->id()]);
+                $this->handleDeferredFailure($task);
             },
         );
+    }
+
+    private function recordCollectAllFailure(int $taskId, Throwable $error): void
+    {
+        $this->collectedFailures[$taskId] = $error;
     }
 
     private function recordFailure(Throwable $error): void
