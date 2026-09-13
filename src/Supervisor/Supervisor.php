@@ -71,10 +71,10 @@ final class Supervisor
 
     private bool $reloadFailed = false;
 
+    private bool $reloading = false;
+
     /** @var list<array{0: string, 1: int}> */
     private array $reloadPending = [];
-
-    private bool $reloading = false;
 
     private bool $reloadQueued = false;
 
