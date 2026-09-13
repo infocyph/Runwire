@@ -30,17 +30,17 @@ final class WorkerContext
     /** @var resource|null */
     private mixed $stopWrite = null;
 
-    /** @param resource $lifecycleStream */
+    /** @param resource $readyStream */
     public function __construct(
         public readonly string $group,
         public readonly int $slot,
         public readonly int $generation,
         public readonly int $pid,
         public readonly int $parentPid,
-        private mixed $lifecycleStream,
+        private mixed $readyStream,
         public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
-        if (!stream_set_blocking($this->lifecycleStream, false)) {
+        if (!stream_set_blocking($this->readyStream, false)) {
             throw new RuntimeException('Unable to configure worker lifecycle channel.');
         }
         $this->recycleState = new WorkerRecycleState(
@@ -62,10 +62,10 @@ final class WorkerContext
 
     public function close(): void
     {
-        if (is_resource($this->lifecycleStream)) {
-            fclose($this->lifecycleStream);
+        if (is_resource($this->readyStream)) {
+            fclose($this->readyStream);
         }
-        $this->lifecycleStream = null;
+        $this->readyStream = null;
 
         foreach (['stopRead', 'stopWrite'] as $property) {
             if (is_resource($this->{$property})) {
@@ -207,12 +207,12 @@ final class WorkerContext
 
     private function readControl(): void
     {
-        if (!is_resource($this->lifecycleStream)) {
+        if (!is_resource($this->readyStream)) {
             return;
         }
 
         do {
-            $chunk = fread($this->lifecycleStream, 1_024);
+            $chunk = fread($this->readyStream, 1_024);
             if (is_string($chunk) && $chunk !== '') {
                 $this->lifecycleBuffer .= $chunk;
             }
@@ -233,12 +233,12 @@ final class WorkerContext
 
     private function signal(string $message): void
     {
-        if (!is_resource($this->lifecycleStream)) {
+        if (!is_resource($this->readyStream)) {
             return;
         }
 
         $payload = $message . "\n";
-        $written = fwrite($this->lifecycleStream, $payload);
+        $written = fwrite($this->readyStream, $payload);
         if ($written !== strlen($payload)) {
             throw new RuntimeException('Unable to signal worker lifecycle state.');
         }

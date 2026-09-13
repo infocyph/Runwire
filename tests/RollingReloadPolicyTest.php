@@ -34,7 +34,7 @@ it('reports worker activity and receives a shutdown reason over lifecycle IPC', 
         generation: 1,
         pid: getmypid(),
         parentPid: posix_getppid(),
-        lifecycleStream: $worker,
+        readyStream: $worker,
     );
 
     try {
