@@ -33,14 +33,14 @@ final class Task
 
     private ?Throwable $terminalError = null;
 
-    /** @internal @param null|callable(self): void $onChange */
+    /** @internal @param null|Closure(self): void $onChange */
     public function __construct(
         private readonly int $id,
         FiberScheduler $scheduler,
         private readonly CancellationSource $cancellationSource,
         callable $callback,
         private readonly TaskLocalState $taskLocals,
-        ?callable $onChange = null,
+        ?Closure $onChange = null,
     ) {
         $closure = $callback(...);
         $token = $cancellationSource->token();
@@ -50,7 +50,7 @@ final class Task
 
             return $closure();
         });
-        $this->onChange = $onChange === null ? null : Closure::fromCallable($onChange);
+        $this->onChange = $onChange;
     }
 
     public function await(): mixed

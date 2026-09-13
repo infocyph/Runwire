@@ -155,11 +155,11 @@ final class FiberScheduler
         ));
     }
 
-    /** @internal @param null|callable(Task): void $onChange */
+    /** @internal */
     public function spawn(
         callable $callback,
         CancellationSource $source,
-        ?callable $onChange = null,
+        ?\Closure $onChange = null,
     ): Task {
         if (count($this->tasks) >= $this->context->policy->maxTasks) {
             throw new CoroutineOverflowException('Coroutine task limit exceeded.');
