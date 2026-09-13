@@ -10,10 +10,10 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Throwable;
 
-final class CancellationToken
+final readonly class CancellationToken
 {
     /** @internal Cancellation tokens are created by CancellationSource. */
-    public function __construct(private readonly CancellationState $state) {}
+    public function __construct(private CancellationState $state) {}
 
     public function deadline(): RequestDeadline
     {

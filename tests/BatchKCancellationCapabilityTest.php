@@ -39,12 +39,16 @@ it('throws a reason-carrying cancellation checkpoint exception', function (): vo
 });
 
 it('links child cancellation with the earliest deadline and deterministic unlinking', function (): void {
-    $parent = new CancellationSource(new RequestDeadline(2_000));
-    $child = $parent->child(new RequestDeadline(3_000));
-    $detachedByCompletion = $parent->child(new RequestDeadline(1_500));
+    $now = (int) hrtime(true);
+    $parentAt = $now + 2_000_000_000;
+    $childAt = $now + 3_000_000_000;
+    $detachedAt = $now + 1_500_000_000;
+    $parent = new CancellationSource(new RequestDeadline($parentAt));
+    $child = $parent->child(new RequestDeadline($childAt));
+    $detachedByCompletion = $parent->child(new RequestDeadline($detachedAt));
 
-    expect($child->token()->deadline()->monotonicNanoseconds)->toBe(2_000)
-        ->and($detachedByCompletion->token()->deadline()->monotonicNanoseconds)->toBe(1_500);
+    expect($child->token()->deadline()->monotonicNanoseconds)->toBe($parentAt)
+        ->and($detachedByCompletion->token()->deadline()->monotonicNanoseconds)->toBe($detachedAt);
 
     $detachedByCompletion->dispose();
     $parent->cancel(CancellationReason::HOST_CANCELLED);

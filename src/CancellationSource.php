@@ -10,11 +10,11 @@ use WeakReference;
 
 final class CancellationSource
 {
-    private ?CancellationSubscription $parentSubscription = null;
-
     private readonly CancellationState $state;
 
     private readonly CancellationToken $token;
+
+    private ?CancellationSubscription $parentSubscription = null;
 
     public function __construct(?RequestDeadline $deadline = null)
     {

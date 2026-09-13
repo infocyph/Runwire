@@ -261,7 +261,9 @@ it('reports Swoole persistence without claiming Runwire HTTP wire ownership', fu
 
     expect($selection->capabilities->persistentApplication)->toBeTrue()
         ->and($selection->capabilities->supportsAsyncIo)->toBeTrue()
-        ->and($selection->capabilities->supportsCoroutines)->toBeTrue()
+        ->and($selection->capabilities->hostOwnsEventLoop)->toBeTrue()
+        ->and($selection->capabilities->hostNativeCoroutines)->toBeTrue()
+        ->and($selection->capabilities->supportsRunwireCoroutines)->toBeFalse()
         ->and($selection->capabilities->supportsWorkerRecycle)->toBeTrue()
         ->and($selection->capabilities->supportsHttp1)->toBeTrue()
         ->and($selection->capabilities->supportsHttp2)->toBeTrue()

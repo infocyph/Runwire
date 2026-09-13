@@ -16,10 +16,10 @@ final class RequestContext
 
     public readonly CancellationToken $cancellation;
 
+    private readonly CancellationSource $cancellationSource;
+
     /** @var array<string, mixed> */
     private array $attributes = [];
-
-    private readonly CancellationSource $cancellationSource;
 
     private bool $completed = false;
 

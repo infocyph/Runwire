@@ -18,9 +18,6 @@ final class CancellationState
 {
     private const int MAX_SUBSCRIPTIONS = 64;
 
-    /** @var array<int, Closure(CancellationToken): void> */
-    private array $subscriptions = [];
-
     private bool $cancelled = false;
 
     private bool $disposed = false;
@@ -28,6 +25,9 @@ final class CancellationState
     private int $nextSubscriptionId = 1;
 
     private ?CancellationReason $reason = null;
+
+    /** @var array<int, Closure(CancellationToken): void> */
+    private array $subscriptions = [];
 
     public function __construct(private RequestDeadline $deadline) {}
 
