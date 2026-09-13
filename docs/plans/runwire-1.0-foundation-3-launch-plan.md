@@ -136,8 +136,8 @@ Tracker semantics:
 | D | 16–18, 45–50 | Rolling reload, health, generation and restart semantics | ✅ Green (`47cfb924`) |
 | E | 19–25, 39–44, 51–53 | Metrics, diagnostics, errors, timing and observability | ✅ Green (`e975e28e`) |
 | F | 26–30, 33–35, 57 | Admission, resource/environment policy and socket capabilities | ✅ Green (`597bde0e`) |
-| G | 31–32, 36, 55 | Timers, task/service workers, watcher and drain-aware background work | 🔄 Active |
-| H | 37–38, 54, 56 | Bootstrap/runtime contracts, warmup and capability-first APIs | ⬜ Pending |
+| G | 31–32, 36, 55 | Timers, task/service workers, watcher and drain-aware background work | ✅ Green (`afb32151`) |
+| H | 37–38, 54, 56 | Bootstrap/runtime contracts, warmup and capability-first APIs | 🔄 Active |
 | I | 58–60 | Cross-driver parity, soak/fault and final acceptance expansion | ⬜ Pending |
 | J | — | Benchmarks/docs refresh + comparative performance evidence + exact-head PHP 8.4/8.5 release QA | ⬜ Pending |
 | Release | — | Tag/publish Runwire 1.0 only after explicit approval | ⬜ Blocked |
@@ -221,13 +221,25 @@ QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
 QA warning-clean: green
 ```
 
+Batch G certification evidence:
+
+```text
+Exact head: afb321517bf453b0db5f00c0db382ac42d8e881e
+Benchmarks #49: green
+Security & Standards #236: green
+PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
+PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
+QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
+QA warning-clean: green
+```
+
 Current implementation handoff:
 
 ```text
-Batch G → timers, task/service workers, watcher and drain-aware background work
+Batch H → bootstrap/runtime contracts, warmup and capability-first APIs
 ```
 
-Batch G must be independently green before Batch H implementation begins.
+Batch G is independently certified green. Batch H is now active.
 
 ---
 
@@ -1287,15 +1299,15 @@ C. Points 11–15                Application lifecycle/reset/warmup/drain ✅ 04
 D. Points 16–18,45–50          Rolling reload/health/generation     ✅ 47cfb924
 E. Points 19–25,39–44,51–53    Metrics/diagnostics/errors/timing    ✅ e975e28e
 F. Points 26–30,33–35,57       Admission/resources/socket capabilities ✅ 597bde0e
-G. Points 31–32,36,55          Timers/tasks/watcher/drain behavior ← CURRENT
-H. Points 37–38,54,56          Bootstrap/warmup/capability contracts
+G. Points 31–32,36,55          Timers/tasks/watcher/drain behavior  ✅ afb32151
+H. Points 37–38,54,56          Bootstrap/warmup/capability contracts ← CURRENT
 I. Points 58–60                Cross-driver parity + soak/fault
 J. Benchmarks/docs refresh + comparative evidence + exact-head final release QA
 K. Explicit approval → Runwire 1.0 tag/release
 L. Then Webrick/Foundation/Omnibus integration
 ```
 
-The next code change must stay inside **Runwire Batch G**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
+The next code change must stay inside **Runwire Batch H**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
 
 ---
 
