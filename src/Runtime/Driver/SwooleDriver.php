@@ -20,6 +20,7 @@ use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use InvalidArgumentException;
 use ReflectionClass;
+use ReflectionException;
 use ReflectionMethod;
 use RuntimeException;
 
@@ -137,11 +138,16 @@ final class SwooleDriver implements HostDriverInterface
         }
 
         $coroutineClass = 'OpenSwoole\\Coroutine';
-        if (!class_exists($coroutineClass) || !method_exists($coroutineClass, 'set')) {
+        if (!class_exists($coroutineClass)) {
             return;
         }
 
-        (new ReflectionMethod($coroutineClass, 'set'))->invoke(null, [
+        try {
+            $set = new ReflectionMethod($coroutineClass, 'set');
+        } catch (ReflectionException) {
+            return;
+        }
+        $set->invoke(null, [
             'use_fiber_context' => true,
         ]);
     }
