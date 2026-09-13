@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
+use Infocyph\Runwire\Coroutine\TaskLocal;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
@@ -95,6 +96,44 @@ it('drains request-owned coroutine work before resetters and request completion'
     ])->and($runtime->activeTaskCount())->toBe(0)
         ->and($request->context->completed())->toBeTrue()
         ->and($request->context->cancellation->subscriptionCount())->toBe(0);
+});
+
+it('isolates task-local state across consecutive requests on one persistent coroutine runtime', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $local = new TaskLocal();
+    $seen = [];
+    $children = [];
+    $handler = new CoroutineRequestHandler(
+        $runtime,
+        static function (
+            HttpRequest $request,
+            ResponseWriterInterface $writer,
+            CoroutineScope $scope,
+        ) use ($local, &$seen, &$children): void {
+            $seen[] = $scope->local($local);
+            $scope->setLocal($local, $request->target);
+            $children[] = $scope->spawn(static fn() => $scope->local($local))->await();
+            $writer->end();
+        },
+    );
+    $application = new RuntimeApplication($handler);
+    $first = batchORequest('/first');
+    $second = batchORequest('/second');
+
+    $application->handle($first, batchOWriter());
+    expect($runtime->activeTaskCount())->toBe(0);
+
+    $application->handle($second, batchOWriter());
+
+    expect($seen)->toBe([null, null])
+        ->and($children)->toBe(['/first', '/second'])
+        ->and($runtime->activeTaskCount())->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0)
+        ->and($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($first->context->completed())->toBeTrue()
+        ->and($second->context->completed())->toBeTrue();
 });
 
 it('propagates request cancellation through suspended coroutine children before reset', function (): void {
