@@ -25,11 +25,12 @@ final class Barrier
     public function __construct(
         private readonly FiberScheduler $scheduler,
         private readonly int $parties,
-        private readonly int $maxWaiters,
+        int $maxWaiters,
     ) {
         if ($parties < 1) {
             throw new InvalidArgumentException('Coroutine barrier parties must be at least one.');
         }
+
         if ($parties - 1 > $maxWaiters) {
             throw new InvalidArgumentException('Coroutine barrier parties exceed the configured primitive waiter limit.');
         }
@@ -118,12 +119,9 @@ final class Barrier
 
     private function hasCancelledWaiter(): bool
     {
-        foreach ($this->waiters as $waiter) {
-            if ($waiter->cancellation->isCancelled()) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(
+            $this->waiters,
+            static fn(PrimitiveWaiter $waiter): bool => $waiter->cancellation->isCancelled(),
+        );
     }
 }
