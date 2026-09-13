@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Infocyph\Runwire\Metrics\RuntimeHealthSnapshot;
+use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\SupervisorStatus;
 use Infocyph\Runwire\Supervisor\WorkerStatus;
@@ -43,6 +44,87 @@ final class SupervisorStatusBuilder
     ): SupervisorStatus {
         $nowNs = self::nowNanoseconds();
         $now = $nowNs / self::NANOS_PER_SECOND;
+        $summary = self::collectWorkers(
+            $children,
+            $currentSlots,
+            $nowNs,
+            $now,
+            $busyWorkerThresholdSeconds,
+            $stopping,
+        );
+        self::sortWorkers($summary['workers']);
+        $started = $startedAtNs === null ? null : $startedAtNs / self::NANOS_PER_SECOND;
+        $health = self::healthSnapshot(
+            $running,
+            $stopping,
+            $generationReady,
+            $pendingRestartCount,
+            $summary['current'],
+            $summary['current_serving'],
+            $summary['unhealthy'],
+            $reloadFailed,
+            $summary['draining'],
+        );
+
+        return new SupervisorStatus(
+            runtimeId: $runtimeId,
+            masterPid: $masterPid,
+            startedAtUnix: $startedAtUnix,
+            uptimeSeconds: $started === null ? 0.0 : max(0.0, $now - $started),
+            running: $running,
+            stopping: $stopping,
+            reloading: $reloading,
+            reloadQueued: $reloadQueued,
+            generation: $generation,
+            workerCount: count($summary['workers']),
+            currentWorkerCount: $summary['current'],
+            readyWorkerCount: $summary['ready'],
+            pendingRestartCount: $pendingRestartCount,
+            lifecycleListenerFailures: $lifecycleListenerFailures,
+            workers: $summary['workers'],
+            health: $health,
+            metrics: RuntimeMetricsAggregator::aggregate($summary['snapshots']),
+            generationReady: $generationReady,
+            reloadFailed: $reloadFailed,
+            exitReasonCounts: $exitReasonCounts,
+            restartReasonCounts: $restartReasonCounts,
+            lifecycleListenerFailureCounts: $lifecycleListenerFailureCounts,
+        );
+    }
+
+    private static function busySeconds(ChildRecord $record, int $nowNs): float
+    {
+        if ($record->busySinceNs !== null) {
+            return max(0.0, ($nowNs - $record->busySinceNs) / self::NANOS_PER_SECOND);
+        }
+        if ($record->metrics === null) {
+            return 0.0;
+        }
+
+        return $record->metrics->workerBusySeconds;
+    }
+
+    /**
+     * @param array<int, ChildRecord> $children
+     * @param array<string, array<int, int>> $currentSlots
+     * @return array{
+     *     workers: list<WorkerStatus>,
+     *     snapshots: list<RuntimeMetricsSnapshot>,
+     *     ready: int,
+     *     current: int,
+     *     current_serving: int,
+     *     unhealthy: bool,
+     *     draining: bool
+     * }
+     */
+    private static function collectWorkers(
+        array $children,
+        array $currentSlots,
+        int $nowNs,
+        float $now,
+        float $busyWorkerThresholdSeconds,
+        bool $stopping,
+    ): array {
         $workers = [];
         $snapshots = [];
         $ready = 0;
@@ -83,9 +165,29 @@ final class SupervisorStatusBuilder
             );
         }
 
-        self::sortWorkers($workers);
-        $started = $startedAtNs === null ? null : $startedAtNs / self::NANOS_PER_SECOND;
-        $health = new RuntimeHealthSnapshot(
+        return [
+            'workers' => $workers,
+            'snapshots' => $snapshots,
+            'ready' => $ready,
+            'current' => $current,
+            'current_serving' => $currentServing,
+            'unhealthy' => $unhealthy,
+            'draining' => $draining,
+        ];
+    }
+
+    private static function healthSnapshot(
+        bool $running,
+        bool $stopping,
+        bool $generationReady,
+        int $pendingRestartCount,
+        int $current,
+        int $currentServing,
+        bool $unhealthy,
+        bool $reloadFailed,
+        bool $draining,
+    ): RuntimeHealthSnapshot {
+        return new RuntimeHealthSnapshot(
             live: $running,
             ready: $running
                 && !$stopping
@@ -96,40 +198,6 @@ final class SupervisorStatusBuilder
             healthy: $running && !$unhealthy && !$reloadFailed && $pendingRestartCount === 0,
             draining: $draining,
         );
-
-        return new SupervisorStatus(
-            runtimeId: $runtimeId,
-            masterPid: $masterPid,
-            startedAtUnix: $startedAtUnix,
-            uptimeSeconds: $started === null ? 0.0 : max(0.0, $now - $started),
-            running: $running,
-            stopping: $stopping,
-            reloading: $reloading,
-            reloadQueued: $reloadQueued,
-            generation: $generation,
-            workerCount: count($workers),
-            currentWorkerCount: $current,
-            readyWorkerCount: $ready,
-            pendingRestartCount: $pendingRestartCount,
-            lifecycleListenerFailures: $lifecycleListenerFailures,
-            workers: $workers,
-            health: $health,
-            metrics: RuntimeMetricsAggregator::aggregate($snapshots),
-            generationReady: $generationReady,
-            reloadFailed: $reloadFailed,
-            exitReasonCounts: $exitReasonCounts,
-            restartReasonCounts: $restartReasonCounts,
-            lifecycleListenerFailureCounts: $lifecycleListenerFailureCounts,
-        );
-    }
-
-    private static function busySeconds(ChildRecord $record, int $nowNs): float
-    {
-        if ($record->busySinceNs !== null) {
-            return max(0.0, ($nowNs - $record->busySinceNs) / self::NANOS_PER_SECOND);
-        }
-
-        return $record->metrics?->workerBusySeconds ?? 0.0;
     }
 
     private static function nowNanoseconds(): int

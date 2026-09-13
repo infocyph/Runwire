@@ -16,15 +16,36 @@ final class RuntimeMetricsAggregator
         $protocol = self::zeroedProtocol();
         $errors = self::zeroedErrors();
         $totals = self::zeroedTotals();
-        $highWater = self::zeroedHighWater();
         $sampledAt = 0;
+        $eventLoopTickNanoseconds = 0;
+        $eventLoopLagNanoseconds = 0;
+        $requestLifetimeHighWaterNanoseconds = 0;
+        $connectionLifetimeHighWaterNanoseconds = 0;
+        $requestMemoryDeltaHighWaterBytes = 0;
+        $workerAgeSeconds = 0.0;
+        $workerBusySeconds = 0.0;
 
         foreach ($snapshots as $snapshot) {
             $sampledAt = max($sampledAt, $snapshot->sampledAtMonotonicNanoseconds);
             self::addTotals($totals, $snapshot);
-            self::maxHighWater($highWater, $snapshot);
             self::addMap($protocol, $snapshot->protocol);
             self::addMap($errors, $snapshot->errors);
+            $eventLoopTickNanoseconds = max($eventLoopTickNanoseconds, $snapshot->eventLoopTickNanoseconds);
+            $eventLoopLagNanoseconds = max($eventLoopLagNanoseconds, $snapshot->eventLoopLagNanoseconds);
+            $requestLifetimeHighWaterNanoseconds = max(
+                $requestLifetimeHighWaterNanoseconds,
+                $snapshot->requestLifetimeHighWaterNanoseconds,
+            );
+            $connectionLifetimeHighWaterNanoseconds = max(
+                $connectionLifetimeHighWaterNanoseconds,
+                $snapshot->connectionLifetimeHighWaterNanoseconds,
+            );
+            $requestMemoryDeltaHighWaterBytes = max(
+                $requestMemoryDeltaHighWaterBytes,
+                $snapshot->requestMemoryDeltaHighWaterBytes,
+            );
+            $workerAgeSeconds = max($workerAgeSeconds, $snapshot->workerAgeSeconds);
+            $workerBusySeconds = max($workerBusySeconds, $snapshot->workerBusySeconds);
         }
 
         return new RuntimeMetricsSnapshot(
@@ -42,27 +63,30 @@ final class RuntimeMetricsAggregator
             memoryPeakBytes: $totals['memory_peak'],
             timersActive: $totals['timers_active'],
             deferredBacklog: $totals['deferred_backlog'],
-            eventLoopTickNanoseconds: $highWater['loop_tick'],
-            eventLoopLagNanoseconds: $highWater['loop_lag'],
+            eventLoopTickNanoseconds: $eventLoopTickNanoseconds,
+            eventLoopLagNanoseconds: $eventLoopLagNanoseconds,
             callbackOverrunsTotal: $totals['callback_overruns'],
             backpressureEventsTotal: $totals['backpressure_events'],
             rejectedConnectionsTotal: $totals['rejected_connections'],
             rejectedRequestsTotal: $totals['rejected_requests'],
-            requestLifetimeHighWaterNanoseconds: $highWater['request_lifetime'],
-            connectionLifetimeHighWaterNanoseconds: $highWater['connection_lifetime'],
-            requestMemoryDeltaHighWaterBytes: $highWater['request_memory_delta'],
-            workerAgeSeconds: $highWater['worker_age'],
-            workerBusySeconds: $highWater['worker_busy'],
+            requestLifetimeHighWaterNanoseconds: $requestLifetimeHighWaterNanoseconds,
+            connectionLifetimeHighWaterNanoseconds: $connectionLifetimeHighWaterNanoseconds,
+            requestMemoryDeltaHighWaterBytes: $requestMemoryDeltaHighWaterBytes,
+            workerAgeSeconds: $workerAgeSeconds,
+            workerBusySeconds: $workerBusySeconds,
             protocol: $protocol,
             errors: $errors,
         );
     }
 
-    /** @param array<string, int> $target @param array<string, int> $source */
+    /**
+     * @param array<string, int> $target
+     * @param array<string, int> $source
+     */
     private static function addMap(array &$target, array $source): void
     {
         foreach ($target as $key => $value) {
-            $target[$key] = $value + max(0, $source[$key] ?? 0);
+            $target[$key] = $value + ($source[$key] ?? 0);
         }
     }
 
@@ -88,18 +112,6 @@ final class RuntimeMetricsAggregator
         $totals['rejected_requests'] += $snapshot->rejectedRequestsTotal;
     }
 
-    /** @param array<string, int|float> $highWater */
-    private static function maxHighWater(array &$highWater, RuntimeMetricsSnapshot $snapshot): void
-    {
-        $highWater['loop_tick'] = max($highWater['loop_tick'], $snapshot->eventLoopTickNanoseconds);
-        $highWater['loop_lag'] = max($highWater['loop_lag'], $snapshot->eventLoopLagNanoseconds);
-        $highWater['request_lifetime'] = max($highWater['request_lifetime'], $snapshot->requestLifetimeHighWaterNanoseconds);
-        $highWater['connection_lifetime'] = max($highWater['connection_lifetime'], $snapshot->connectionLifetimeHighWaterNanoseconds);
-        $highWater['request_memory_delta'] = max($highWater['request_memory_delta'], $snapshot->requestMemoryDeltaHighWaterBytes);
-        $highWater['worker_age'] = max($highWater['worker_age'], $snapshot->workerAgeSeconds);
-        $highWater['worker_busy'] = max($highWater['worker_busy'], $snapshot->workerBusySeconds);
-    }
-
     /** @return array<string, int> */
     private static function zeroedErrors(): array
     {
@@ -107,20 +119,6 @@ final class RuntimeMetricsAggregator
             array_map(static fn(ApplicationErrorClass $item): string => $item->value, ApplicationErrorClass::cases()),
             0,
         );
-    }
-
-    /** @return array<string, int|float> */
-    private static function zeroedHighWater(): array
-    {
-        return [
-            'loop_tick' => 0,
-            'loop_lag' => 0,
-            'request_lifetime' => 0,
-            'connection_lifetime' => 0,
-            'request_memory_delta' => 0,
-            'worker_age' => 0.0,
-            'worker_busy' => 0.0,
-        ];
     }
 
     /** @return array<string, int> */
