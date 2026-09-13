@@ -445,7 +445,7 @@ final class Runtime
         return RuntimeContext::fromCapabilities(
             $capabilities,
             $mode,
-            concurrent: $capabilities->supportsCoroutines,
+            concurrent: $capabilities->supportsRunwireCoroutines,
         );
     }
 
