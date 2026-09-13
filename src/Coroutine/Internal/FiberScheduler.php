@@ -22,6 +22,10 @@ use Throwable;
 /** @internal */
 final class FiberScheduler
 {
+    private readonly LoopInterface $loop;
+
+    private readonly CoroutinePolicy $policy;
+
     private readonly ReadyQueue $ready;
 
     private ?Task $currentTask = null;
@@ -37,10 +41,10 @@ final class FiberScheduler
     /** @var array<int, Task> */
     private array $tasks = [];
 
-    public function __construct(
-        private readonly LoopInterface $loop,
-        private readonly CoroutinePolicy $policy,
-    ) {
+    public function __construct(LoopInterface $loop, CoroutinePolicy $policy)
+    {
+        $this->loop = $loop;
+        $this->policy = $policy;
         $this->ready = new ReadyQueue($policy->maxReadyBacklog);
     }
 
