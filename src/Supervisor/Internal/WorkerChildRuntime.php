@@ -28,7 +28,6 @@ final class WorkerChildRuntime
         $context = null;
 
         try {
-            $backgroundLoop = $group->role->background() ? new SelectLoop() : null;
             $context = new WorkerContext(
                 group: $group->name,
                 slot: $slot,
@@ -40,18 +39,8 @@ final class WorkerChildRuntime
                 admissionPolicy: $group->admissionPolicy,
                 role: $group->role,
             );
-            if ($backgroundLoop !== null) {
-                $context->attachLoop($backgroundLoop, $group->shutdownTimeoutSeconds);
-            }
-
-            pcntl_async_signals(true);
-            $stopHandler = static function () use ($context): void {
-                $context->requestStop();
-            };
-
-            if (!pcntl_signal(SIGTERM, $stopHandler) || !pcntl_signal(SIGINT, $stopHandler)) {
-                throw new SupervisorException('Unable to install worker stop signal handlers.');
-            }
+            $backgroundLoop = self::prepareBackgroundLoop($group, $context);
+            self::installSignalHandlers($context);
 
             $group->privilegeDropPolicy->apply();
             if ($group->automaticReady) {
@@ -59,20 +48,7 @@ final class WorkerChildRuntime
             }
 
             ($group->bootstrap)($context);
-            if ($backgroundLoop !== null) {
-                $backgroundLoop->onReadable(
-                    $context->stopStream(),
-                    static function () use ($backgroundLoop, $context): void {
-                        $context->consumeStopWake();
-                        if ($context->backgroundTaskCount() === 0) {
-                            $backgroundLoop->stop();
-                        }
-                    },
-                );
-                if (!$context->stopping() || $context->backgroundTaskCount() > 0) {
-                    $backgroundLoop->run();
-                }
-            }
+            self::runBackgroundLoop($backgroundLoop, $context);
 
             $exitCode = $context->recycling() ? self::RECYCLE_EXIT_CODE : 0;
             $context->close();
@@ -85,6 +61,50 @@ final class WorkerChildRuntime
             }
             $context?->close();
             self::terminate($warmupFailure ? self::WARMUP_FAILURE_EXIT_CODE : 70);
+        }
+    }
+
+    private static function installSignalHandlers(WorkerContext $context): void
+    {
+        pcntl_async_signals(true);
+        $stopHandler = static function () use ($context): void {
+            $context->requestStop();
+        };
+
+        if (!pcntl_signal(SIGTERM, $stopHandler) || !pcntl_signal(SIGINT, $stopHandler)) {
+            throw new SupervisorException('Unable to install worker stop signal handlers.');
+        }
+    }
+
+    private static function prepareBackgroundLoop(WorkerGroup $group, WorkerContext $context): ?SelectLoop
+    {
+        if (!$group->role->background()) {
+            return null;
+        }
+
+        $loop = new SelectLoop();
+        $context->attachLoop($loop, $group->shutdownTimeoutSeconds);
+
+        return $loop;
+    }
+
+    private static function runBackgroundLoop(?SelectLoop $loop, WorkerContext $context): void
+    {
+        if ($loop === null) {
+            return;
+        }
+
+        $loop->onReadable(
+            $context->stopStream(),
+            static function () use ($loop, $context): void {
+                $context->consumeStopWake();
+                if ($context->backgroundTaskCount() === 0) {
+                    $loop->stop();
+                }
+            },
+        );
+        if (!$context->stopping() || $context->backgroundTaskCount() > 0) {
+            $loop->run();
         }
     }
 

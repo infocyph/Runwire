@@ -25,9 +25,9 @@ final class WorkerContext
 
     private readonly WorkerRecycleState $recycleState;
 
-    private ?WorkerCoroutineScope $backgroundCoroutines = null;
-
     private int $activeRequests = 0;
+
+    private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
     private string $lifecycleBuffer = '';
 

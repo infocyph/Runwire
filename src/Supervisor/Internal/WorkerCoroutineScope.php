@@ -36,6 +36,7 @@ final class WorkerCoroutineScope
 
     private ?int $graceTimer = null;
 
+    /** @param callable(): void $onFailure */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly float $shutdownGraceSeconds,
@@ -46,7 +47,10 @@ final class WorkerCoroutineScope
             throw new InvalidArgumentException('Worker coroutine shutdown grace must be finite and positive.');
         }
 
-        $this->onFailure = Closure::fromCallable($onFailure);
+        $failure = Closure::fromCallable($onFailure);
+        $this->onFailure = static function () use ($failure): void {
+            $failure();
+        };
         $scheduler = new FiberScheduler($loop, $policy ?? new CoroutinePolicy());
         $this->source = new CancellationSource();
         $this->scope = new CoroutineScope($scheduler, $this->source);
