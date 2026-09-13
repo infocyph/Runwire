@@ -131,8 +131,8 @@ Tracker semantics:
 | --- | ---: | --- | --- |
 | 0 | — | Enum directory/namespace normalization | ✅ Green (`1868a82f`) |
 | A | 1–4 | Generic worker recycling and accounting | ✅ Green (`a95c743c`) |
-| B | 5–10 | Runtime/request context, cancellation and deadlines | 🔄 Active |
-| C | 11–15 | Application lifecycle, resetters, boot/warmup/drain | ⬜ Pending |
+| B | 5–10 | Runtime/request context, cancellation and deadlines | ✅ Green (`921b3589`) |
+| C | 11–15 | Application lifecycle, resetters, boot/warmup/drain | 🔄 Active |
 | D | 16–18, 45–50 | Rolling reload, health, generation and restart semantics | ⬜ Pending |
 | E | 19–25, 39–44, 51–53 | Metrics, diagnostics, errors, timing and observability | ⬜ Pending |
 | F | 26–30, 33–35, 57 | Admission, resource/environment policy and socket capabilities | ⬜ Pending |
@@ -163,13 +163,24 @@ PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
 QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
 ```
 
+Batch B certification evidence:
+
+```text
+Exact head: 921b3589d1af04998b54f8bcf8e678e7b2a3912f
+Benchmarks #27: green
+Security & Standards #214: green
+PHP 8.4/8.5 prefer-stable/prefer-lowest QA: green
+PHP 8.4/8.5 PHPStan/Psalm analyzers and clean install: green
+QUIC/aioquic/native H3 soak/ngtcp2+nghttp3 lanes: green
+```
+
 Current implementation handoff:
 
 ```text
-Batch B → runtime/request context, cancellation and deadlines
+Batch C → application lifecycle, resetters, boot/warmup/drain
 ```
 
-Batch B must be independently green before Batch C implementation begins.
+Batch C must be independently green before Batch D implementation begins.
 
 ---
 
@@ -1224,8 +1235,8 @@ Runwire 1.0 is release-ready only when all of the following are true:
 ```text
 0. Enum directory / namespace normalization                        ✅ 1868a82f
 A. Points 1–4                  Worker recycling/accounting          ✅ a95c743c
-B. Points 5–10                 Context/cancellation/deadlines       ← CURRENT
-C. Points 11–15                Application lifecycle/reset/warmup/drain
+B. Points 5–10                 Context/cancellation/deadlines       ✅ 921b3589
+C. Points 11–15                Application lifecycle/reset/warmup/drain ← CURRENT
 D. Points 16–18,45–50          Rolling reload/health/generation
 E. Points 19–25,39–44,51–53    Metrics/diagnostics/errors/timing
 F. Points 26–30,33–35,57       Admission/resources/socket capabilities
@@ -1237,7 +1248,7 @@ K. Explicit approval → Runwire 1.0 tag/release
 L. Then Webrick/Foundation/Omnibus integration
 ```
 
-The next code change must stay inside **Runwire Batch B**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
+The next code change must stay inside **Runwire Batch C**. Do not modify Foundation, Webrick or Omnibus until this Runwire 1.0 program is complete and released.
 
 ---
 
