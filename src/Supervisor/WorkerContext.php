@@ -16,9 +16,6 @@ final class WorkerContext
 
     private string $lifecycleBuffer = '';
 
-    /** @var resource|null */
-    private mixed $lifecycleStream;
-
     private bool $ready = false;
 
     private bool $recycling = false;
@@ -33,17 +30,16 @@ final class WorkerContext
     /** @var resource|null */
     private mixed $stopWrite = null;
 
-    /** @param resource $readyStream */
+    /** @param resource $lifecycleStream */
     public function __construct(
         public readonly string $group,
         public readonly int $slot,
         public readonly int $generation,
         public readonly int $pid,
         public readonly int $parentPid,
-        mixed $readyStream,
+        private mixed $lifecycleStream,
         public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
-        $this->lifecycleStream = $readyStream;
         if (!stream_set_blocking($this->lifecycleStream, false)) {
             throw new RuntimeException('Unable to configure worker lifecycle channel.');
         }
@@ -66,7 +62,12 @@ final class WorkerContext
 
     public function close(): void
     {
-        foreach (['lifecycleStream', 'stopRead', 'stopWrite'] as $property) {
+        if (is_resource($this->lifecycleStream)) {
+            fclose($this->lifecycleStream);
+        }
+        $this->lifecycleStream = null;
+
+        foreach (['stopRead', 'stopWrite'] as $property) {
             if (is_resource($this->{$property})) {
                 fclose($this->{$property});
             }

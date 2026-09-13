@@ -34,7 +34,7 @@ it('reports worker activity and receives a shutdown reason over lifecycle IPC', 
         generation: 1,
         pid: getmypid(),
         parentPid: posix_getppid(),
-        readyStream: $worker,
+        lifecycleStream: $worker,
     );
 
     try {
@@ -84,9 +84,11 @@ it('caps reload surge and marks the completed generation ready', function (): vo
     $snapshot = null;
 
     $supervisor->onEvent(static function (SupervisorEvent $event) use (
+        $supervisor,
         &$generationTwoSpawns,
         &$spawnsBeforeFirstReady,
         &$firstReady,
+        &$snapshot,
     ): void {
         if ($event->generation !== 2) {
             return;
@@ -97,6 +99,10 @@ it('caps reload surge and marks the completed generation ready', function (): vo
         }
         if ($event->type === SupervisorEventType::WORKER_READY) {
             $firstReady = true;
+        }
+        if ($event->type === SupervisorEventType::RELOAD_COMPLETED) {
+            $snapshot = $supervisor->status();
+            $supervisor->stop();
         }
     });
     $supervisor->group(WorkerGroup::callbacks(
@@ -117,10 +123,7 @@ it('caps reload surge and marks the completed generation ready', function (): vo
     ));
 
     $loop->delay(0.02, static fn() => $supervisor->reload());
-    $loop->delay(0.24, static function () use ($supervisor, &$snapshot): void {
-        $snapshot = $supervisor->status();
-        $supervisor->stop();
-    });
+    $loop->delay(1.0, static fn() => $supervisor->stop());
     $supervisor->run();
 
     expect($spawnsBeforeFirstReady)->toBe(1)

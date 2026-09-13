@@ -295,6 +295,17 @@ final class Supervisor
         }
     }
 
+    /** @return array<string, int> */
+    private static function reasonCounters(): array
+    {
+        $counts = [];
+        foreach (WorkerExitReason::cases() as $reason) {
+            $counts[$reason->value] = 0;
+        }
+
+        return $counts;
+    }
+
     private function abortReload(ChildRecord $failed): void
     {
         if (!$this->reloading) {
@@ -787,6 +798,17 @@ final class Supervisor
         $this->fail(new SupervisorException('Kernel child state diverged from the supervisor child table.'));
     }
 
+    private function replacementFor(int $pid): ?ChildRecord
+    {
+        foreach ($this->children as $record) {
+            if ($record->replacesPid === $pid) {
+                return $record;
+            }
+        }
+
+        return null;
+    }
+
     /** @param resource $childReady */
     private function runChild(WorkerGroup $group, int $slot, int $generation, mixed $childReady): never
     {
@@ -1012,27 +1034,5 @@ final class Supervisor
                 }
             },
         );
-    }
-
-    private function replacementFor(int $pid): ?ChildRecord
-    {
-        foreach ($this->children as $record) {
-            if ($record->replacesPid === $pid) {
-                return $record;
-            }
-        }
-
-        return null;
-    }
-
-    /** @return array<string, int> */
-    private static function reasonCounters(): array
-    {
-        $counts = [];
-        foreach (WorkerExitReason::cases() as $reason) {
-            $counts[$reason->value] = 0;
-        }
-
-        return $counts;
     }
 }

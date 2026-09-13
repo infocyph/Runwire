@@ -43,6 +43,7 @@ final class NativeHttp3Worker
         );
         $handler = static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context): void {
             $context->recordRequestStarted();
+
             try {
                 $application->handle($request, $writer);
             } finally {
