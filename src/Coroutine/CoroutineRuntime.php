@@ -60,6 +60,7 @@ final class CoroutineRuntime
     {
         if ($this->running) {
             $source->dispose();
+
             throw new LogicException('Nested CoroutineRuntime::run() cannot start a second event loop; use the active scope.');
         }
 

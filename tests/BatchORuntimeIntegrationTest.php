@@ -165,6 +165,10 @@ it('rejects coroutine execution against an already completed request context', f
 
     expect(static fn() => $runtime->runRequest(
         $context,
-        static fn(CoroutineScope $scope): null => null,
+        static function (CoroutineScope $scope): null {
+            unset($scope);
+
+            return null;
+        },
     ))->toThrow(LogicException::class, 'Completed request context cannot own coroutine work.');
 });
