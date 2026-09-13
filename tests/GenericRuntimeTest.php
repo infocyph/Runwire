@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Infocyph\Runwire\DatagramServer;
 use Infocyph\Runwire\Network\Datagram;
 use Infocyph\Runwire\Network\DatagramListener;
+use Infocyph\Runwire\Network\Enum\StreamTransport;
+use Infocyph\Runwire\Network\UnixListenerOptions;
 use Infocyph\Runwire\Protocol\FramedConnection;
 use Infocyph\Runwire\Protocol\LineCodec;
 use Infocyph\Runwire\Runtime;
@@ -127,15 +129,20 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
         throw new RuntimeException('Unable to fork Unix runtime test.');
     }
     if ($pid === 0) {
+        $server = new StreamServer(
+            name: 'unix-line',
+            transport: StreamTransport::UNIX,
+            address: $path,
+            codecFactory: static fn () => new LineCodec(),
+            handler: static function (string $frame, FramedConnection $connection): void {
+                $connection->send('unix:' . $frame);
+            },
+            workers: 2,
+            unix: new UnixListenerOptions(),
+            workerShutdownTimeoutSeconds: 1.0,
+        );
         Runtime::create(new RuntimeOptions(RuntimeDriver::NATIVE))
-            ->listen(StreamServer::unix(
-                $path,
-                static fn () => new LineCodec(),
-                static function (string $frame, FramedConnection $connection): void {
-                    $connection->send('unix:' . $frame);
-                },
-                'unix-line',
-            )->withWorkers(2))
+            ->listen($server)
             ->run();
         exit(0);
     }
