@@ -324,6 +324,15 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             || $this->writeWatchers !== [];
     }
 
+    /** @param resource $stream */
+    private function removeRegisteredWatcher(mixed $stream, int $resourceId): void
+    {
+        if (isset($this->registeredStreams[$resourceId]) && !$this->reactor->delete($stream)) {
+            throw new RuntimeException('Swoole/OpenSwoole failed to remove a Runwire stream watcher.');
+        }
+        unset($this->registeredStreams[$resourceId]);
+    }
+
     private function scheduleIdleCheck(): void
     {
         if (!$this->running || $this->idleCheckScheduled) {
@@ -351,10 +360,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $readable = isset($this->readIndex[$resourceId]);
         $writable = isset($this->writeIndex[$resourceId]);
         if (!$readable && !$writable) {
-            if (isset($this->registeredStreams[$resourceId]) && !$this->reactor->delete($stream)) {
-                throw new RuntimeException('Swoole/OpenSwoole failed to remove a Runwire stream watcher.');
-            }
-            unset($this->registeredStreams[$resourceId]);
+            $this->removeRegisteredWatcher($stream, $resourceId);
 
             return;
         }
