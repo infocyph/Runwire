@@ -209,7 +209,15 @@ final class SelectLoop implements LoopInterface
 
         [$seconds, $microseconds] = $this->selectTimeout();
         $except = null;
-        $result = @stream_select($read, $write, $except, $seconds, $microseconds);
+        set_error_handler(static fn (int $severity, string $message): bool => $severity === E_WARNING
+            && str_starts_with($message, 'stream_select():')
+            && str_contains($message, 'Interrupted system call'));
+
+        try {
+            $result = stream_select($read, $write, $except, $seconds, $microseconds);
+        } finally {
+            restore_error_handler();
+        }
 
         if ($result === false) {
             if ($this->pruneClosedWatchers() === 0) {

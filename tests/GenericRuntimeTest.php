@@ -61,13 +61,21 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
     $tcp = false;
     $udp = false;
     try {
-        for ($attempt = 0; $attempt < 100; ++$attempt) {
-            $tcp = @stream_socket_client('tcp://' . $tcpAddress, $errno, $error, 0.05);
-            if (is_resource($tcp)) {
-                break;
+        set_error_handler(static fn (int $severity, string $message): bool => $severity === E_WARNING
+            && str_starts_with($message, 'stream_socket_client(): Unable to connect'));
+
+        try {
+            for ($attempt = 0; $attempt < 100; ++$attempt) {
+                $tcp = stream_socket_client('tcp://' . $tcpAddress, $errno, $error, 0.05);
+                if (is_resource($tcp)) {
+                    break;
+                }
+                usleep(20_000);
             }
-            usleep(20_000);
+        } finally {
+            restore_error_handler();
         }
+
         if (!is_resource($tcp)) {
             throw new RuntimeException('TCP generic runtime worker did not become reachable.');
         }
@@ -134,15 +142,23 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
 
     $client = false;
     try {
-        for ($attempt = 0; $attempt < 150; ++$attempt) {
-            if (file_exists($path)) {
-                $client = @stream_socket_client('unix://' . $path, $errno, $error, 0.05);
-                if (is_resource($client)) {
-                    break;
+        set_error_handler(static fn (int $severity, string $message): bool => $severity === E_WARNING
+            && str_starts_with($message, 'stream_socket_client(): Unable to connect'));
+
+        try {
+            for ($attempt = 0; $attempt < 150; ++$attempt) {
+                if (file_exists($path)) {
+                    $client = stream_socket_client('unix://' . $path, $errno, $error, 0.05);
+                    if (is_resource($client)) {
+                        break;
+                    }
                 }
+                usleep(20_000);
             }
-            usleep(20_000);
+        } finally {
+            restore_error_handler();
         }
+
         if (!is_resource($client)) {
             throw new RuntimeException('Unix runtime worker did not become reachable.');
         }

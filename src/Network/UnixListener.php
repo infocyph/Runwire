@@ -275,7 +275,15 @@ final class UnixListener
                 break;
             }
             $peer = null;
-            $client = @stream_socket_accept($listener, 0, $peer);
+            set_error_handler(static fn (int $severity, string $message): bool => $severity === E_WARNING
+                && str_starts_with($message, 'stream_socket_accept(): Accept failed:'));
+
+            try {
+                $client = stream_socket_accept($listener, 0, $peer);
+            } finally {
+                restore_error_handler();
+            }
+
             if (!is_resource($client)) {
                 break;
             }

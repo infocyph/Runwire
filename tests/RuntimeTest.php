@@ -39,13 +39,21 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
 
     $client = false;
     try {
-        for ($attempt = 0; $attempt < 100; ++$attempt) {
-            $client = @stream_socket_client('tcp://' . $address, $errno, $error, 0.05);
-            if (is_resource($client)) {
-                break;
+        set_error_handler(static fn (int $severity, string $message): bool => $severity === E_WARNING
+            && str_starts_with($message, 'stream_socket_client(): Unable to connect'));
+
+        try {
+            for ($attempt = 0; $attempt < 100; ++$attempt) {
+                $client = stream_socket_client('tcp://' . $address, $errno, $error, 0.05);
+                if (is_resource($client)) {
+                    break;
+                }
+                usleep(20_000);
             }
-            usleep(20_000);
+        } finally {
+            restore_error_handler();
         }
+
         expect($client)->toBeResource();
 
         fwrite($client, "GET / HTTP/1.1\r\nHost: example.test\r\n\r\n");

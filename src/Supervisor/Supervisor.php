@@ -430,11 +430,13 @@ final class Supervisor
         switch ($transition->action) {
             case ChildExitAction::CHECK_RELOAD:
                 $this->checkReloadCompletion();
+
                 break;
             case ChildExitAction::NONE:
                 break;
             case ChildExitAction::RESTART:
                 $this->scheduleRestart($record);
+
                 break;
             case ChildExitAction::SPAWN_RECYCLE:
                 $this->spawnWorker(
@@ -445,9 +447,11 @@ final class Supervisor
                     replacesPid: null,
                     setCurrent: true,
                 );
+
                 break;
             case ChildExitAction::STOP_LOOP:
                 $this->loop->stop();
+
                 break;
         }
     }
