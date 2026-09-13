@@ -14,5 +14,6 @@ final readonly class ReadyItem
         public Task $task,
         public mixed $value = null,
         public ?Throwable $error = null,
+        public bool $ignoreCancellation = false,
     ) {}
 }

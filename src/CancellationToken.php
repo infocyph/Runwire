@@ -55,6 +55,12 @@ final readonly class CancellationToken
         return $this->state->reason();
     }
 
+    /** @internal */
+    public function subscriptionCount(): int
+    {
+        return $this->state->subscriptionCount();
+    }
+
     public function throwIfCancelled(?int $nowNanoseconds = null): void
     {
         $this->refreshDeadline($nowNanoseconds);

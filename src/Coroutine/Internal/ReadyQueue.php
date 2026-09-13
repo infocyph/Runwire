@@ -41,8 +41,12 @@ final class ReadyQueue
         return $item;
     }
 
-    public function enqueue(Task $task, mixed $value = null, ?Throwable $error = null): bool
-    {
+    public function enqueue(
+        Task $task,
+        mixed $value = null,
+        ?Throwable $error = null,
+        bool $ignoreCancellation = false,
+    ): bool {
         $id = $task->id();
         if (isset($this->queued[$id])) {
             return false;
@@ -52,7 +56,7 @@ final class ReadyQueue
         }
 
         $this->queued[$id] = true;
-        $this->queue->enqueue(new ReadyItem($task, $value, $error));
+        $this->queue->enqueue(new ReadyItem($task, $value, $error, $ignoreCancellation));
 
         return true;
     }

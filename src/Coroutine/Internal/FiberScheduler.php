@@ -13,6 +13,7 @@ use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
 use Infocyph\Runwire\Coroutine\Exception\InvalidSuspensionException;
 use Infocyph\Runwire\Coroutine\Future;
 use Infocyph\Runwire\Coroutine\Task;
+use Infocyph\Runwire\Coroutine\TaskLocal;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
@@ -45,7 +46,13 @@ final class FiberScheduler
         $this->ready = new ReadyQueue($policy->maxReadyBacklog);
     }
 
-    public function awaitFuture(Future $future): mixed
+    /** @internal */
+    public function activeTaskCount(): int
+    {
+        return count($this->tasks);
+    }
+
+    public function awaitFuture(Future $future, bool $cancellable = true): mixed
     {
         $this->requireCurrentTask();
 
@@ -53,7 +60,7 @@ final class FiberScheduler
             return $future->result();
         }
 
-        return Fiber::suspend(new FutureSuspension($future));
+        return Fiber::suspend(new FutureSuspension($future, $cancellable));
     }
 
     public function deferred(): Deferred
@@ -91,19 +98,37 @@ final class FiberScheduler
         }
     }
 
+    /** @internal */
+    public function hasTaskLocal(TaskLocal $key): bool
+    {
+        return $this->requireCurrentTask()->taskLocalState()->has($key);
+    }
+
     public function loop(): LoopInterface
     {
         return $this->context->loop;
     }
 
-    public function resume(Task $task, mixed $value = null): bool
+    /** @internal */
+    public function removeTaskLocal(TaskLocal $key): bool
     {
-        return $this->enqueueResume($task, $value, null);
+        return $this->requireCurrentTask()->taskLocalState()->remove($key);
     }
 
-    public function resumeException(Task $task, Throwable $error): bool
+    public function resume(Task $task, mixed $value = null, bool $ignoreCancellation = false): bool
     {
-        return $this->enqueueResume($task, null, $error);
+        return $this->enqueueResume($task, $value, null, $ignoreCancellation);
+    }
+
+    public function resumeException(Task $task, Throwable $error, bool $ignoreCancellation = false): bool
+    {
+        return $this->enqueueResume($task, null, $error, $ignoreCancellation);
+    }
+
+    /** @internal */
+    public function setTaskLocal(TaskLocal $key, mixed $value): void
+    {
+        $this->requireCurrentTask()->taskLocalState()->set($key, $value);
     }
 
     public function sleep(float $seconds): void
@@ -130,9 +155,12 @@ final class FiberScheduler
         ));
     }
 
-    /** @internal */
-    public function spawn(callable $callback, CancellationSource $source): Task
-    {
+    /** @internal @param null|callable(Task): void $onChange */
+    public function spawn(
+        callable $callback,
+        CancellationSource $source,
+        ?callable $onChange = null,
+    ): Task {
         if (count($this->tasks) >= $this->context->policy->maxTasks) {
             throw new CoroutineOverflowException('Coroutine task limit exceeded.');
         }
@@ -140,7 +168,15 @@ final class FiberScheduler
             throw new OverflowException('Coroutine task ID space is exhausted.');
         }
 
-        $task = new Task($this->nextTaskId++, $this, $source, $callback);
+        $taskLocals = $this->currentTask?->taskLocalState()->fork() ?? new TaskLocalState();
+        $task = new Task(
+            $this->nextTaskId++,
+            $this,
+            $source,
+            $callback,
+            $taskLocals,
+            $onChange,
+        );
         $this->tasks[$task->id()] = $task;
         $this->ready->enqueue($task);
         $this->scheduleDrain();
@@ -178,6 +214,12 @@ final class FiberScheduler
                 },
             ),
         ));
+    }
+
+    /** @internal */
+    public function taskLocal(TaskLocal $key): mixed
+    {
+        return $this->requireCurrentTask()->taskLocalState()->get($key);
     }
 
     public function yieldNow(): void
@@ -249,8 +291,12 @@ final class FiberScheduler
         }
     }
 
-    private function enqueueResume(Task $task, mixed $value, ?Throwable $error): bool
-    {
+    private function enqueueResume(
+        Task $task,
+        mixed $value,
+        ?Throwable $error,
+        bool $ignoreCancellation,
+    ): bool {
         if ($task->isComplete()) {
             return false;
         }
@@ -258,7 +304,7 @@ final class FiberScheduler
             return false;
         }
 
-        $enqueued = $this->ready->enqueue($task, $value, $error);
+        $enqueued = $this->ready->enqueue($task, $value, $error, $ignoreCancellation);
         if ($enqueued && !$this->draining) {
             $this->scheduleDrain();
         }

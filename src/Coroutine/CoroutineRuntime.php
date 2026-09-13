@@ -9,9 +9,7 @@ use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
-use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
-use Throwable;
 
 final class CoroutineRuntime
 {
@@ -29,6 +27,12 @@ final class CoroutineRuntime
         );
     }
 
+    /** @internal */
+    public function activeTaskCount(): int
+    {
+        return $this->scheduler->activeTaskCount();
+    }
+
     /** @param callable(CoroutineScope): mixed $callback */
     public function run(callable $callback): mixed
     {
@@ -41,19 +45,7 @@ final class CoroutineRuntime
         $scope = new CoroutineScope($this->scheduler, $source);
         $closure = Closure::fromCallable($callback);
         $root = $this->scheduler->spawn(
-            static function () use ($closure, $scope): mixed {
-                try {
-                    $result = $closure($scope);
-                    $scope->join();
-
-                    return $result;
-                } catch (Throwable $error) {
-                    $scope->cancelChildren(CancellationReason::HOST_CANCELLED);
-                    $scope->join(false);
-
-                    throw $error;
-                }
-            },
+            static fn(): mixed => $scope->execute($closure),
             $source,
         );
 

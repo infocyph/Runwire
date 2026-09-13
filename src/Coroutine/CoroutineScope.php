@@ -6,7 +6,12 @@ namespace Infocyph\Runwire\Coroutine;
 
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
+use Infocyph\Runwire\Coroutine\Enum\TaskGroupFailureMode;
+use Infocyph\Runwire\Coroutine\Enum\TaskState;
+use Infocyph\Runwire\Coroutine\Exception\TaskGroupException;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
+use Infocyph\Runwire\Exception\CancelledException;
+use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
 use Throwable;
@@ -18,10 +23,19 @@ final class CoroutineScope
 
     private bool $closed = false;
 
+    /** @var array<int, int> */
+    private array $failureChecks = [];
+
+    private ?Throwable $primaryFailure = null;
+
+    /** @var list<Throwable> */
+    private array $secondaryFailures = [];
+
     /** @internal */
     public function __construct(
         private readonly FiberScheduler $scheduler,
         private readonly CancellationSource $source,
+        private readonly TaskGroupFailureMode $failureMode = TaskGroupFailureMode::FAIL_FAST,
     ) {}
 
     /** @internal */
@@ -42,7 +56,12 @@ final class CoroutineScope
     /** @internal */
     public function close(): void
     {
+        if ($this->closed) {
+            return;
+        }
+
         $this->closed = true;
+        $this->cancelFailureChecks();
         $this->children = [];
         $this->source->dispose();
     }
@@ -54,27 +73,119 @@ final class CoroutineScope
         return $this->scheduler->deferred();
     }
 
-    /** @internal */
-    public function join(bool $propagateFailure = true): void
+    /** @internal @param callable(self): mixed $callback */
+    public function execute(callable $callback): mixed
     {
-        $firstError = null;
+        $closure = $callback(...);
 
-        foreach ($this->children as $task) {
-            if ($task->observed()) {
-                continue;
-            }
+        try {
+            $result = $closure($this);
+            $this->cancellation()->throwIfCancelled();
+            $this->join();
 
-            try {
-                $task->await();
-            } catch (Throwable $error) {
-                $firstError ??= $error;
-            }
+            return $result;
+        } catch (Throwable $error) {
+            $reason = $error instanceof CancelledException
+                ? $error->reason
+                : CancellationReason::SCOPE_FAILED;
+            $this->cancelChildren($reason);
+            $this->join(false, true);
+
+            throw $error;
         }
+    }
+
+    /** @return list<Throwable> */
+    public function failures(): array
+    {
+        if ($this->primaryFailure === null) {
+            return [];
+        }
+
+        return [$this->primaryFailure, ...$this->secondaryFailures];
+    }
+
+    /** @param callable(self): mixed $callback */
+    public function group(
+        callable $callback,
+        TaskGroupFailureMode $failureMode = TaskGroupFailureMode::FAIL_FAST,
+        ?RequestDeadline $deadline = null,
+    ): mixed {
+        $this->assertOpen();
+        $source = $this->source->child($deadline);
+        $group = new self($this->scheduler, $source, $failureMode);
+        $closure = $callback(...);
+
+        try {
+            $task = $this->spawnOwned(
+                static fn(): mixed => $group->execute($closure),
+                $source,
+            );
+
+            return $task->await();
+        } finally {
+            $group->close();
+        }
+    }
+
+    public function hasLocal(TaskLocal $key): bool
+    {
+        $this->assertOpen();
+
+        return $this->scheduler->hasTaskLocal($key);
+    }
+
+    /** @internal */
+    public function join(bool $propagateFailure = true, bool $cleanup = false): void
+    {
+        $tasks = $this->children;
+
+        foreach ($tasks as $task) {
+            $this->joinTask($task, $cleanup);
+        }
+
         $this->children = [];
+        $this->cancelFailureChecks();
 
-        if ($propagateFailure && $firstError !== null) {
-            throw $firstError;
+        if (!$propagateFailure || $this->primaryFailure === null) {
+            return;
         }
+        if ($this->failureMode === TaskGroupFailureMode::COLLECT_ALL) {
+            $failures = $this->failures();
+            if ($failures === []) {
+                return;
+            }
+
+            throw new TaskGroupException($failures);
+        }
+
+        throw $this->primaryFailure;
+    }
+
+    public function local(TaskLocal $key): mixed
+    {
+        $this->assertOpen();
+
+        return $this->scheduler->taskLocal($key);
+    }
+
+    public function removeLocal(TaskLocal $key): bool
+    {
+        $this->assertOpen();
+
+        return $this->scheduler->removeTaskLocal($key);
+    }
+
+    /** @return list<Throwable> */
+    public function secondaryFailures(): array
+    {
+        return $this->secondaryFailures;
+    }
+
+    public function setLocal(TaskLocal $key, mixed $value): void
+    {
+        $this->assertOpen();
+        $this->scheduler->setTaskLocal($key, $value);
     }
 
     public function sleep(float $seconds): void
@@ -87,10 +198,8 @@ final class CoroutineScope
     public function spawn(callable $callback): Task
     {
         $this->assertOpen();
-        $task = $this->scheduler->spawn($callback, $this->source->child());
-        $this->children[$task->id()] = $task;
 
-        return $task;
+        return $this->spawnOwned($callback, $this->source->child());
     }
 
     /** @param resource $stream */
@@ -107,6 +216,15 @@ final class CoroutineScope
         $this->scheduler->suspendWritable($stream);
     }
 
+    /** @param callable(self): mixed $callback */
+    public function withDeadline(
+        RequestDeadline $deadline,
+        callable $callback,
+        TaskGroupFailureMode $failureMode = TaskGroupFailureMode::FAIL_FAST,
+    ): mixed {
+        return $this->group($callback, $failureMode, $deadline);
+    }
+
     public function yieldNow(): void
     {
         $this->assertOpen();
@@ -118,5 +236,156 @@ final class CoroutineScope
         if ($this->closed) {
             throw new LogicException('Coroutine scope is already closed.');
         }
+        if ($this->failureMode === TaskGroupFailureMode::FAIL_FAST && $this->primaryFailure !== null) {
+            throw $this->primaryFailure;
+        }
+    }
+
+    private function cancelFailureCheck(int $taskId): void
+    {
+        $handle = $this->failureChecks[$taskId] ?? null;
+        if ($handle === null) {
+            return;
+        }
+
+        unset($this->failureChecks[$taskId]);
+        $this->scheduler->loop()->cancel($handle);
+    }
+
+    private function cancelFailureChecks(): void
+    {
+        $handles = $this->failureChecks;
+        $this->failureChecks = [];
+
+        foreach ($handles as $handle) {
+            $this->scheduler->loop()->cancel($handle);
+        }
+    }
+
+    private function cancelSiblings(int $failedTaskId): void
+    {
+        foreach ($this->children as $taskId => $task) {
+            if ($taskId !== $failedTaskId && !$task->isComplete()) {
+                $task->cancel(CancellationReason::SCOPE_FAILED);
+            }
+        }
+    }
+
+    private function joinTask(Task $task, bool $cleanup): void
+    {
+        if ($task->isComplete() && $task->observed()) {
+            unset($this->children[$task->id()]);
+
+            return;
+        }
+
+        try {
+            if ($cleanup) {
+                $task->awaitForCleanup();
+            } else {
+                $task->await();
+            }
+        } catch (CancelledException $error) {
+            if (!$cleanup && $this->cancellation()->isCancelled()) {
+                throw $error;
+            }
+        } catch (Throwable $error) {
+            if ($task->state() === TaskState::FAILED) {
+                $this->recordFailure($error);
+                if ($this->failureMode === TaskGroupFailureMode::FAIL_FAST) {
+                    $this->cancelSiblings($task->id());
+                }
+            } elseif (!$cleanup) {
+                throw $error;
+            }
+        }
+
+        unset($this->children[$task->id()]);
+    }
+
+    private function onTaskChange(Task $task): void
+    {
+        if (!$task->isComplete()) {
+            return;
+        }
+        if ($task->observed()) {
+            $this->cancelFailureCheck($task->id());
+            unset($this->children[$task->id()]);
+
+            return;
+        }
+        if ($task->state() !== TaskState::FAILED) {
+            unset($this->children[$task->id()]);
+
+            return;
+        }
+
+        $error = $task->failure();
+        if ($error === null || $this->closed) {
+            return;
+        }
+        if ($this->failureMode === TaskGroupFailureMode::COLLECT_ALL) {
+            $this->recordFailure($error);
+            unset($this->children[$task->id()]);
+
+            return;
+        }
+        if (isset($this->failureChecks[$task->id()])) {
+            return;
+        }
+
+        $this->failureChecks[$task->id()] = $this->scheduler->loop()->defer(
+            function (int $id) use ($task): void {
+                unset($id);
+                unset($this->failureChecks[$task->id()]);
+                if ($this->closed || $task->observed() || $task->state() !== TaskState::FAILED) {
+                    return;
+                }
+
+                $error = $task->failure();
+                if ($error === null) {
+                    return;
+                }
+
+                $this->recordFailure($error);
+                $this->cancelSiblings($task->id());
+                unset($this->children[$task->id()]);
+            },
+        );
+    }
+
+    private function recordFailure(Throwable $error): void
+    {
+        if ($this->primaryFailure === null) {
+            $this->primaryFailure = $error;
+
+            return;
+        }
+        if ($this->primaryFailure === $error) {
+            return;
+        }
+
+        foreach ($this->secondaryFailures as $secondary) {
+            if ($secondary === $error) {
+                return;
+            }
+        }
+
+        $this->secondaryFailures[] = $error;
+    }
+
+    /** @param callable(): mixed $callback */
+    private function spawnOwned(callable $callback, CancellationSource $source): Task
+    {
+        $task = $this->scheduler->spawn(
+            $callback,
+            $source,
+            function (Task $task): void {
+                $this->onTaskChange($task);
+            },
+        );
+        $this->children[$task->id()] = $task;
+
+        return $task;
     }
 }

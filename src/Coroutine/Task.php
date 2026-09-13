@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Coroutine;
 
+use Closure;
 use Fiber;
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Coroutine\Enum\TaskState;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
 use Infocyph\Runwire\Coroutine\Internal\ReadyItem;
+use Infocyph\Runwire\Coroutine\Internal\TaskLocalState;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
@@ -22,16 +24,25 @@ final class Task
     /** @var Fiber<mixed, mixed, mixed, mixed> */
     private readonly Fiber $fiber;
 
+    /** @var null|Closure(self): void */
+    private readonly ?Closure $onChange;
+
+    private readonly TaskLocalState $taskLocals;
+
     private bool $observed = false;
 
     private TaskState $state = TaskState::NEW;
 
-    /** @internal */
+    private ?Throwable $terminalError = null;
+
+    /** @internal @param null|callable(self): void $onChange */
     public function __construct(
         private readonly int $id,
         FiberScheduler $scheduler,
         private readonly CancellationSource $cancellationSource,
         callable $callback,
+        TaskLocalState $taskLocals,
+        ?callable $onChange = null,
     ) {
         $closure = $callback(...);
         $token = $cancellationSource->token();
@@ -41,15 +52,23 @@ final class Task
 
             return $closure();
         });
+        $this->onChange = $onChange === null ? null : $onChange(...);
+        $this->taskLocals = $taskLocals;
     }
 
     public function await(): mixed
     {
-        try {
-            return $this->completion->future()->await();
-        } finally {
-            $this->observed = true;
-        }
+        $this->markObserved();
+
+        return $this->completion->future()->await();
+    }
+
+    /** @internal */
+    public function awaitForCleanup(): mixed
+    {
+        $this->markObserved();
+
+        return $this->completion->future()->awaitForCleanup();
     }
 
     public function cancel(CancellationReason $reason = CancellationReason::HOST_CANCELLED): bool
@@ -103,6 +122,12 @@ final class Task
         return $signal;
     }
 
+    /** @internal */
+    public function failure(): ?Throwable
+    {
+        return $this->terminalError;
+    }
+
     public function id(): int
     {
         return $this->id;
@@ -139,9 +164,7 @@ final class Task
 
     public function result(): mixed
     {
-        if (!$this->isComplete()) {
-            throw new LogicException('Task result is unavailable before completion.');
-        }
+        $this->markObserved();
 
         return $this->completion->future()->result();
     }
@@ -151,31 +174,70 @@ final class Task
         return $this->state;
     }
 
+    /** @internal */
+    public function taskLocalState(): TaskLocalState
+    {
+        return $this->taskLocals;
+    }
+
     private function finishCancelled(CancelledException $error): void
     {
         $this->state = TaskState::CANCELLED;
+        $this->terminalError = $error;
         $this->cancellationSource->dispose();
+        $this->taskLocals->clear();
         $this->completion->reject($error);
+        $this->notifyChange();
     }
 
     private function finishCompleted(mixed $value): void
     {
         $this->state = TaskState::COMPLETED;
         $this->cancellationSource->dispose();
+        $this->taskLocals->clear();
         $this->completion->resolve($value);
+        $this->notifyChange();
     }
 
     private function finishFailed(Throwable $error): void
     {
         $this->state = TaskState::FAILED;
+        $this->terminalError = $error;
         $this->cancellationSource->dispose();
+        $this->taskLocals->clear();
         $this->completion->reject($error);
+        $this->notifyChange();
+    }
+
+    private function markObserved(): void
+    {
+        if ($this->observed) {
+            return;
+        }
+
+        $this->observed = true;
+        if ($this->isComplete()) {
+            $this->notifyChange();
+        }
+    }
+
+    private function notifyChange(): void
+    {
+        if ($this->onChange === null) {
+            return;
+        }
+
+        try {
+            ($this->onChange)($this);
+        } catch (Throwable) {
+            // Task ownership observers must never corrupt scheduler state.
+        }
     }
 
     private function resumeFiber(ReadyItem $item): mixed
     {
         $token = $this->cancellationSource->token();
-        if ($token->isCancelled()) {
+        if (!$item->ignoreCancellation && $token->isCancelled()) {
             $reason = $token->reason() ?? CancellationReason::HOST_CANCELLED;
 
             return $this->fiber->throw(new CancelledException($reason));

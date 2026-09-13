@@ -122,6 +122,11 @@ final class CancellationState
         return $id;
     }
 
+    public function subscriptionCount(): int
+    {
+        return count($this->subscriptions);
+    }
+
     public function unsubscribe(int $id): bool
     {
         if (!isset($this->subscriptions[$id])) {

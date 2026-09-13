@@ -25,6 +25,16 @@ final readonly class Future
         return $this->scheduler->awaitFuture($this);
     }
 
+    /** @internal */
+    public function awaitForCleanup(): mixed
+    {
+        if ($this->state->completed()) {
+            return $this->state->result();
+        }
+
+        return $this->scheduler->awaitFuture($this, false);
+    }
+
     public function isComplete(): bool
     {
         return $this->state->completed();
