@@ -22,9 +22,7 @@ use Throwable;
 /** @internal */
 final class FiberScheduler
 {
-    private readonly LoopInterface $loop;
-
-    private readonly CoroutinePolicy $policy;
+    private readonly SchedulerContext $context;
 
     private readonly ReadyQueue $ready;
 
@@ -43,8 +41,7 @@ final class FiberScheduler
 
     public function __construct(LoopInterface $loop, CoroutinePolicy $policy)
     {
-        $this->loop = $loop;
-        $this->policy = $policy;
+        $this->context = new SchedulerContext($loop, $policy);
         $this->ready = new ReadyQueue($policy->maxReadyBacklog);
     }
 
@@ -61,7 +58,7 @@ final class FiberScheduler
 
     public function deferred(): Deferred
     {
-        return new Deferred($this, $this->policy->maxFutureWaiters);
+        return new Deferred($this, $this->context->policy->maxFutureWaiters);
     }
 
     public function drive(): void
@@ -76,7 +73,7 @@ final class FiberScheduler
             if (!$this->ready->isEmpty()) {
                 $this->scheduleDrain();
             }
-            $this->loop->run();
+            $this->context->loop->run();
             if ($this->tasks === []) {
                 return;
             }
@@ -85,7 +82,7 @@ final class FiberScheduler
             $this->cancelAll(CancellationReason::HOST_CANCELLED);
             if (!$this->ready->isEmpty()) {
                 $this->scheduleDrain();
-                $this->loop->run();
+                $this->context->loop->run();
             }
 
             throw new CoroutineDeadlockException($liveTasks);
@@ -96,7 +93,7 @@ final class FiberScheduler
 
     public function loop(): LoopInterface
     {
-        return $this->loop;
+        return $this->context->loop;
     }
 
     public function resume(Task $task, mixed $value = null): bool
@@ -122,8 +119,8 @@ final class FiberScheduler
         }
 
         Fiber::suspend(new LoopWaitSuspension(
-            $this->loop,
-            fn(\Closure $wake): int => $this->loop->delay(
+            $this->context->loop,
+            fn(\Closure $wake): int => $this->context->loop->delay(
                 $seconds,
                 static function (int $id) use ($wake): void {
                     unset($id);
@@ -136,7 +133,7 @@ final class FiberScheduler
     /** @internal */
     public function spawn(callable $callback, CancellationSource $source): Task
     {
-        if (count($this->tasks) >= $this->policy->maxTasks) {
+        if (count($this->tasks) >= $this->context->policy->maxTasks) {
             throw new CoroutineOverflowException('Coroutine task limit exceeded.');
         }
         if ($this->nextTaskId === PHP_INT_MAX) {
@@ -155,8 +152,8 @@ final class FiberScheduler
     {
         $this->requireCurrentTask();
         Fiber::suspend(new LoopWaitSuspension(
-            $this->loop,
-            fn(\Closure $wake): int => $this->loop->onReadable(
+            $this->context->loop,
+            fn(\Closure $wake): int => $this->context->loop->onReadable(
                 $stream,
                 static function (mixed $readyStream, int $id) use ($wake): void {
                     unset($readyStream, $id);
@@ -170,8 +167,8 @@ final class FiberScheduler
     {
         $this->requireCurrentTask();
         Fiber::suspend(new LoopWaitSuspension(
-            $this->loop,
-            fn(\Closure $wake): int => $this->loop->onWritable(
+            $this->context->loop,
+            fn(\Closure $wake): int => $this->context->loop->onWritable(
                 $stream,
                 static function (mixed $readyStream, int $id) use ($wake): void {
                     unset($readyStream, $id);
@@ -243,7 +240,7 @@ final class FiberScheduler
 
         try {
             $resumes = 0;
-            while (!$this->ready->isEmpty() && $resumes < $this->policy->maxResumesPerTick) {
+            while (!$this->ready->isEmpty() && $resumes < $this->context->policy->maxResumesPerTick) {
                 $this->dispatch($this->ready->dequeue());
                 ++$resumes;
             }
@@ -289,7 +286,7 @@ final class FiberScheduler
         }
 
         $this->drainScheduled = true;
-        $this->loop->defer(function (int $id): void {
+        $this->context->loop->defer(function (int $id): void {
             unset($id);
             $this->drain();
         });
