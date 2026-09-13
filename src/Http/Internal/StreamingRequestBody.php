@@ -130,6 +130,25 @@ final class StreamingRequestBody implements RequestBodyInterface
         $this->invoke($this->endCallback);
     }
 
+    /**
+     * @internal
+     * @param callable(): void $callback
+     */
+    public function observeCancel(callable $callback): void
+    {
+        $closure = Closure::fromCallable($callback);
+        if ($this->cancelled) {
+            self::invokeObserver($closure);
+
+            return;
+        }
+        if (count($this->cancelObservers) >= self::MAX_CANCEL_OBSERVERS) {
+            throw new OverflowException('Streaming request body cancellation observer limit exceeded.');
+        }
+
+        $this->cancelObservers[] = $closure;
+    }
+
     /** @param callable(RequestBodyInterface): void $callback */
     public function onCancel(callable $callback): RequestBodyInterface
     {
@@ -161,25 +180,6 @@ final class StreamingRequestBody implements RequestBodyInterface
         }
 
         return $this;
-    }
-
-    /**
-     * @internal
-     * @param callable(): void $callback
-     */
-    public function observeCancel(callable $callback): void
-    {
-        $closure = Closure::fromCallable($callback);
-        if ($this->cancelled) {
-            self::invokeObserver($closure);
-
-            return;
-        }
-        if (count($this->cancelObservers) >= self::MAX_CANCEL_OBSERVERS) {
-            throw new OverflowException('Streaming request body cancellation observer limit exceeded.');
-        }
-
-        $this->cancelObservers[] = $closure;
     }
 
     public function pressured(): bool
