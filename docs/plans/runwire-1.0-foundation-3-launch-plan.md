@@ -253,7 +253,7 @@ No mandatory global static `Coroutine::create()` API is required for 1.0. Ergono
 
 # 7. Active implementation tracker
 
-Last updated: **2026-09-13**
+Last updated: **2026-09-14**
 
 Tracker rule: mark a batch **✅ Complete** only after the batch implementation and its exact-head Benchmarks + Security & Standards certification are green. Use **🟨 In progress** while implementation or exact-head certification is still active.
 
@@ -264,8 +264,8 @@ Tracker rule: mark a batch **✅ Complete** only after the batch implementation 
 | M | Structured concurrency + task-local context | ✅ Complete — certified `e7297fd90030b7f7e7d9abd61f94de186e3b48a5` (Benchmarks #93, Security #280) |
 | N | Channels + synchronization primitives | ✅ Complete — certified `94643b0c936b088c96744d5d13e41b768deceaae` (Benchmarks #98, Security #285) |
 | O | Runtime/request/network/host integration | ✅ Complete — certified `8fd574ebde21cd61839c388706f67255cfc366bf` (Benchmarks #137, Security #324, Swoole Coroutine #30) |
-| P | Observability + soak/race/interop + benchmarks/docs + exact-head QA | ⬜ Not started |
-| Release | Explicit approval, merge/tag/publish | ⬜ Blocked until K–P complete and final exact-head certification is green |
+| P | Observability + soak/race/interop + benchmarks/docs + exact-head QA | ✅ Complete — certified `c7ea3b8bbfecb0054c5cbe32a3f994992850dd48` (Benchmarks #146, Security #333, Swoole Coroutine #39) |
+| Release | Explicit approval, merge/tag/publish | 🟨 Final exact-head certification required after this tracker commit; explicit approval still required before merge/tag/publish |
 
 ---
 
