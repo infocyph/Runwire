@@ -65,7 +65,6 @@ final class WorkerContext
         if (is_resource($this->readyStream)) {
             fclose($this->readyStream);
         }
-        $this->readyStream = null;
 
         foreach (['stopRead', 'stopWrite'] as $property) {
             if (is_resource($this->{$property})) {
