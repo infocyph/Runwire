@@ -65,6 +65,7 @@ jobs:
         shell: bash
         run: |
           tmpdir="$(mktemp -d)"
+          logfile="$GITHUB_WORKSPACE/openswoole-acceptance-${{ matrix.php-version }}.log"
           server_pid=""
           cleanup() {
             if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
@@ -84,13 +85,13 @@ jobs:
           )"
 
           php tests/fixtures/swoole_coroutine_server.php "$port" \
-            >"$tmpdir/server.log" 2>&1 &
+            >"$logfile" 2>&1 &
           server_pid=$!
 
           response=""
           for attempt in $(seq 1 100); do
             if ! kill -0 "$server_pid" 2>/dev/null; then
-              cat "$tmpdir/server.log"
+              cat "$logfile"
               echo '::error::OpenSwoole coroutine acceptance server exited before becoming ready.'
               exit 1
             fi
@@ -107,10 +108,18 @@ jobs:
             echo "Expected: $expected"
             echo "Received: $response"
             echo '--- OpenSwoole coroutine acceptance server log ---'
-            cat "$tmpdir/server.log"
+            cat "$logfile"
             exit 1
           fi
 
           kill "$server_pid" 2>/dev/null || true
           wait "$server_pid" 2>/dev/null || true
           server_pid=""
+
+      - name: Upload OpenSwoole acceptance diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openswoole-acceptance-${{ matrix.php-version }}
+          path: openswoole-acceptance-${{ matrix.php-version }}.log
+          if-no-files-found: ignore
