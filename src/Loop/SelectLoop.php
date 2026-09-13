@@ -132,6 +132,13 @@ final class SelectLoop implements LoopInterface
         $this->running = false;
     }
 
+    private static function ignoreInterruptedSelectWarning(int $severity, string $message): bool
+    {
+        return $severity === E_WARNING
+            && str_starts_with($message, 'stream_select():')
+            && str_contains($message, 'Interrupted system call');
+    }
+
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -196,13 +203,6 @@ final class SelectLoop implements LoopInterface
             || $this->writeWatchers !== []
             || $this->timers->hasTimers()
             || $this->deferred !== [];
-    }
-
-    private static function ignoreInterruptedSelectWarning(int $severity, string $message): bool
-    {
-        return $severity === E_WARNING
-            && str_starts_with($message, 'stream_select():')
-            && str_contains($message, 'Interrupted system call');
     }
 
     private function poll(): void
