@@ -29,6 +29,7 @@ it('validates and maps bounded Swoole server settings with generic recycle polic
     );
 
     expect($options->serverSettings(new WorkerRecyclePolicy(maxRequests: 500, jitterRequests: 50)))->toBe([
+        'enable_coroutine' => true,
         'package_max_length' => 65_536,
         'worker_num' => 4,
         'max_request' => 500,
@@ -123,6 +124,7 @@ it('runs Swoole through the common request and response contract', function (): 
         ])
         ->and($response->chunks)->toBe(['accepted'])
         ->and($response->ends)->toBe(1)
+        ->and($server->settings['enable_coroutine'])->toBeTrue()
         ->and($server->settings['worker_num'])->toBe(2)
         ->and($server->settings['max_request'])->toBe(100)
         ->and($server->settings['max_request_grace'])->toBe(0)
@@ -244,7 +246,7 @@ it('delegates Swoole stop to the active host server', function (): void {
     expect($server->shutdownCalled)->toBeTrue();
 });
 
-it('reports Swoole persistence without claiming Runwire HTTP wire ownership', function (): void {
+it('reports host-owned Swoole persistence with the Runwire reactor bridge available', function (): void {
     $environment = new RuntimeEnvironment(
         sapi: 'cli',
         availableDrivers: [RuntimeDriver::SWOOLE],
@@ -262,8 +264,9 @@ it('reports Swoole persistence without claiming Runwire HTTP wire ownership', fu
     expect($selection->capabilities->persistentApplication)->toBeTrue()
         ->and($selection->capabilities->supportsAsyncIo)->toBeTrue()
         ->and($selection->capabilities->hostOwnsEventLoop)->toBeTrue()
+        ->and($selection->capabilities->runwireLoopAvailable)->toBeTrue()
         ->and($selection->capabilities->hostNativeCoroutines)->toBeTrue()
-        ->and($selection->capabilities->supportsRunwireCoroutines)->toBeFalse()
+        ->and($selection->capabilities->supportsRunwireCoroutines)->toBeTrue()
         ->and($selection->capabilities->supportsWorkerRecycle)->toBeTrue()
         ->and($selection->capabilities->supportsHttp1)->toBeTrue()
         ->and($selection->capabilities->supportsHttp2)->toBeTrue()

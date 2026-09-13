@@ -35,6 +35,7 @@ final readonly class SwooleOptions
     {
         $recyclePolicy ??= new WorkerRecyclePolicy();
         $settings = [
+            'enable_coroutine' => true,
             'package_max_length' => max(65_536, $this->maxRequestBodyBytes),
         ];
         if ($this->workerCount > 0) {
