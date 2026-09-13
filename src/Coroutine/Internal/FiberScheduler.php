@@ -129,9 +129,17 @@ final class FiberScheduler
             }
         }
 
-        $loopDiagnostics = $this->context->loop instanceof LoopDiagnosticsProviderInterface
-            ? $this->context->loop->diagnostics()
-            : null;
+        $loopTimersActive = 0;
+        $loopDeferredBacklog = 0;
+        $loopReadWatchers = 0;
+        $loopWriteWatchers = 0;
+        if ($this->context->loop instanceof LoopDiagnosticsProviderInterface) {
+            $loopDiagnostics = $this->context->loop->diagnostics();
+            $loopTimersActive = $loopDiagnostics->timersActive;
+            $loopDeferredBacklog = $loopDiagnostics->deferredBacklog;
+            $loopReadWatchers = $loopDiagnostics->readWatchers;
+            $loopWriteWatchers = $loopDiagnostics->writeWatchers;
+        }
         $now = hrtime(true);
 
         return new CoroutineDiagnosticsSnapshot(
@@ -150,10 +158,10 @@ final class FiberScheduler
             requestScopesActive: $requestScopesActive,
             backgroundScopesActive: $backgroundScopesActive,
             backgroundTasksActive: $backgroundTasksActive,
-            loopTimersActive: $loopDiagnostics?->timersActive ?? 0,
-            loopDeferredBacklog: $loopDiagnostics?->deferredBacklog ?? 0,
-            loopReadWatchers: $loopDiagnostics?->readWatchers ?? 0,
-            loopWriteWatchers: $loopDiagnostics?->writeWatchers ?? 0,
+            loopTimersActive: $loopTimersActive,
+            loopDeferredBacklog: $loopDeferredBacklog,
+            loopReadWatchers: $loopReadWatchers,
+            loopWriteWatchers: $loopWriteWatchers,
             maxTasks: $this->context->policy->maxTasks,
             maxReadyBacklog: $this->context->policy->maxReadyBacklog,
             maxWaitersPerPrimitive: $this->context->policy->maxWaitersPerPrimitive,
