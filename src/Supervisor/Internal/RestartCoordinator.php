@@ -73,15 +73,15 @@ final class RestartCoordinator
         return count($this->timers);
     }
 
-    public function register(WorkerGroup $group): void
-    {
-        $this->tracker->register($group);
-    }
-
     /** @return array<string, int> */
     public function reasonCounts(): array
     {
         return $this->reasonCounts;
+    }
+
+    public function register(WorkerGroup $group): void
+    {
+        $this->tracker->register($group);
     }
 
     /**

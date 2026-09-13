@@ -89,8 +89,8 @@ final class Supervisor
             $this->spawnWorker(...),
             $this->stopChild(...),
             $this->emit(...),
-            fn(string $key): mixed => $this->restartCoordinator->cancel($key),
-            fn(string $group, int $slot): int => $this->restartCoordinator->count($group, $slot),
+            $this->cancelRestart(...),
+            $this->restartCount(...),
             $this->now(...),
         );
         $this->restartCoordinator = new RestartCoordinator(
@@ -295,6 +295,11 @@ final class Supervisor
         }
 
         return $counts;
+    }
+
+    private function cancelRestart(string $key): null
+    {
+        return $this->restartCoordinator->cancel($key);
     }
 
     private function emit(SupervisorEvent $event): void
@@ -533,6 +538,11 @@ final class Supervisor
         }
 
         return null;
+    }
+
+    private function restartCount(string $group, int $slot): int
+    {
+        return $this->restartCoordinator->count($group, $slot);
     }
 
     /** @param resource $childReady */

@@ -37,7 +37,7 @@ final class WorkerContext
         public readonly int $generation,
         public readonly int $pid,
         public readonly int $parentPid,
-        private mixed $readyStream,
+        private readonly mixed $readyStream,
         public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
     ) {
         if (!stream_set_blocking($this->readyStream, false)) {

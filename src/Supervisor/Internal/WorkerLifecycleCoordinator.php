@@ -11,17 +11,17 @@ use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
-final class WorkerLifecycleCoordinator
+final readonly class WorkerLifecycleCoordinator
 {
     /**
      * @param Closure(SupervisorEventType, ChildRecord, ?int, ?int, ?bool): void $emitWorker
      * @param Closure(ChildRecord, WorkerState, bool, ShutdownReason, ?float): void $stopChild
      */
     public function __construct(
-        private readonly LoopInterface $loop,
-        private readonly ReloadCoordinator $reload,
-        private readonly Closure $emitWorker,
-        private readonly Closure $stopChild,
+        private LoopInterface $loop,
+        private ReloadCoordinator $reload,
+        private Closure $emitWorker,
+        private Closure $stopChild,
     ) {}
 
     /**
