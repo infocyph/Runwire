@@ -17,8 +17,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 $port = isset($argv[1]) ? (int) $argv[1] : 0;
 if ($port < 1 || $port > 65_535) {
-    fwrite(STDERR, "A valid TCP port is required.\n");
-    exit(64);
+    throw new InvalidArgumentException('A valid TCP port is required.');
 }
 
 $loop = new SwooleLoop();
