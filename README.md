@@ -2,7 +2,7 @@
 
 A high-performance process and network runtime for PHP.
 
-Runwire 1.0 is being finalized for the Foundation 3 launch. It provides the low-level runtime boundary for process supervision, event loops, network servers, native HTTP/1.1/2/3, host-runtime adaptation and persistent application lifecycle while remaining framework agnostic.
+Runwire 1.0 is being finalized for the Foundation 3 launch. It provides the low-level runtime boundary for process supervision, event loops, network servers, native HTTP/1.1/2/3, host-runtime adaptation, structured coroutines and persistent application lifecycle while remaining framework agnostic.
 
 ## Baseline
 
@@ -21,6 +21,7 @@ Runwire 1.0 provides:
 
 - prefork worker supervision, readiness, restart/recycle and bounded rolling reload;
 - immutable `RuntimeContext` plus isolated `RequestContext`, deadlines and cancellation;
+- PHP Fiber structured coroutines with task ownership, cancellation propagation, bounded channels/synchronization and host-loop integration;
 - application factory and boot/warmup/handle/reset/drain/shutdown lifecycle contracts;
 - bounded admission, worker recycling, cgroup-aware sizing and resource policy;
 - named timer/task/service worker support and a development-only reload watcher;
@@ -32,6 +33,7 @@ Runwire 1.0 provides:
 ## Documentation
 
 - [`docs/deployment.md`](docs/deployment.md) — runtime/capability ownership, application lifecycle, contexts/deadlines, reload/recycle, observability, admission/resource policy, HTTP/1.1/2/3, QUIC/QPACK and production tuning.
+- [`docs/coroutines.md`](docs/coroutines.md) — coroutine mental model, structured ownership, cancellation, synchronization, host integration, network adaptation, diagnostics, tuning and migration guidance.
 - [`docs/benchmarks.md`](docs/benchmarks.md) — protocol/lifecycle/host benchmark methodology, comparative-evidence rules and native HTTP/3 transport measurement.
 - [`docs/plans/runwire-1.0-foundation-3-launch-plan.md`](docs/plans/runwire-1.0-foundation-3-launch-plan.md) — canonical Runwire 1.0 development and release plan.
 

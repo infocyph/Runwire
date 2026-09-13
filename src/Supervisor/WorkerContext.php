@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor;
 
+use Infocyph\Runwire\Coroutine\CoroutineDiagnosticsSnapshot;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Loop\LoopInterface;
@@ -106,6 +107,11 @@ final class WorkerContext
                 $this->requestStop(ShutdownReason::FATAL_RUNTIME_ERROR);
             },
         );
+    }
+
+    public function backgroundCoroutineDiagnostics(): ?CoroutineDiagnosticsSnapshot
+    {
+        return $this->backgroundCoroutines?->diagnostics();
     }
 
     public function backgroundDrainExpired(): bool
