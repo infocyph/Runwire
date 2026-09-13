@@ -11,6 +11,7 @@ use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestContext;
+use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
 
@@ -104,6 +105,33 @@ it('reports worker background ownership through the same bounded diagnostic snap
 
     $scope->close();
     expect($scope->diagnostics()->backgroundScopesActive)->toBe(0);
+});
+
+it('keeps completed work terminal against later cancellation and pending timeout', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+
+    $result = $runtime->run(function (CoroutineScope $scope): array {
+        $task = $scope->spawn(static fn(): int => 42);
+        $value = $task->await();
+        $task->cancel(CancellationReason::HOST_CANCELLED);
+
+        $clock = hrtime(true);
+        $now = is_int($clock) ? $clock : (int) $clock;
+        $deadlineValue = $scope->withDeadline(
+            new RequestDeadline($now + 1_000_000_000),
+            static fn(): int => 7,
+        );
+
+        return [$value, $task->state(), $deadlineValue];
+    });
+
+    $diagnostics = $runtime->diagnostics();
+    expect($result)->toBe([42, TaskState::COMPLETED, 7])
+        ->and($diagnostics->cancelledTotal)->toBe(0)
+        ->and($diagnostics->failedTotal)->toBe(0)
+        ->and($diagnostics->activeTasks)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
 it('settles future resolution versus waiter cancellation exactly once', function (): void {
@@ -208,6 +236,34 @@ it('settles channel close against blocked send and receive exactly once', functi
     expect($states)->toBe([TaskState::FAILED, TaskState::FAILED])
         ->and($diagnostics->failedTotal)->toBe(2)
         ->and($diagnostics->activeTasks)->toBe(0);
+});
+
+it('drains suspended request children before the request root leaves the scheduler', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $context = RequestContext::standalone();
+    $caught = null;
+
+    try {
+        $runtime->runRequest($context, function (CoroutineScope $scope) use ($context): void {
+            $scope->spawn(static function () use ($scope): void {
+                $scope->sleep(60.0);
+            });
+            $scope->yieldNow();
+            $context->cancel(CancellationReason::HOST_CANCELLED);
+        });
+    } catch (CancelledException $error) {
+        $caught = $error;
+    } finally {
+        $context->complete();
+    }
+
+    $diagnostics = $runtime->diagnostics();
+    expect($caught)->not->toBeNull()
+        ->and($caught->reason)->toBe(CancellationReason::HOST_CANCELLED)
+        ->and($runtime->activeTaskCount())->toBe(0)
+        ->and($diagnostics->requestScopesActive)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
 it('drains sibling failure storms and cleanup exceptions without retaining tasks', function (): void {
