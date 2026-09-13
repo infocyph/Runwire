@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Coroutine;
 
 use Infocyph\Runwire\Coroutine\Exception\BarrierBrokenException;
+use Infocyph\Runwire\Coroutine\Exception\SynchronizationException;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
 use Infocyph\Runwire\Coroutine\Internal\PrimitiveWaiter;
 use Infocyph\Runwire\Exception\CancelledException;
@@ -74,9 +75,14 @@ final class Barrier
         $this->waiters[$id] = $waiter;
 
         try {
-            return $waiter->deferred->future()->awaitCommitted();
+            $completedGeneration = $waiter->deferred->future()->awaitCommitted();
+            if (!is_int($completedGeneration)) {
+                throw new SynchronizationException('Coroutine barrier resumed with an invalid generation result.');
+            }
+
+            return $completedGeneration;
         } catch (CancelledException $error) {
-            if ($this->generation === $generation && isset($this->waiters[$id])) {
+            if ($this->generation === $generation && array_key_exists($id, $this->waiters)) {
                 unset($this->waiters[$id]);
                 $this->breakGeneration($generation);
             }
