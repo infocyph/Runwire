@@ -29,10 +29,10 @@ final class PhpQuicHttp3Worker
 
     private bool $accepting = true;
 
-    private int $connectionsAcceptedTotal = 0;
-
     /** @var array<int, PhpQuicHttp3Connection> */
     private array $connections = [];
+
+    private int $connectionsAcceptedTotal = 0;
 
     /** @var array<int, array{connection: PhpQuicConnection, deadline: float}> */
     private array $pendingConnections = [];

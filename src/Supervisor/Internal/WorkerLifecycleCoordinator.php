@@ -67,6 +67,13 @@ final readonly class WorkerLifecycleCoordinator
         }
     }
 
+    private static function nowNanoseconds(): int
+    {
+        $now = hrtime(true);
+
+        return is_int($now) ? $now : (int) $now;
+    }
+
     private function activity(ChildRecord $record, string $message): void
     {
         if ($record->expectedStop || !$record->state->serving()) {
@@ -96,13 +103,6 @@ final readonly class WorkerLifecycleCoordinator
         if ($snapshot !== null) {
             $record->metrics = $snapshot;
         }
-    }
-
-    private static function nowNanoseconds(): int
-    {
-        $now = hrtime(true);
-
-        return is_int($now) ? $now : (int) $now;
     }
 
     /**

@@ -10,6 +10,10 @@ final readonly class RandomRequestIdGenerator implements RequestIdGeneratorInter
 {
     public function generate(RuntimeContext $runtime): string
     {
-        return bin2hex(random_bytes(16));
+        return substr(
+            hash('sha256', random_bytes(16) . ':' . $runtime->pid . ':' . ($runtime->generation ?? 0)),
+            0,
+            32,
+        );
     }
 }

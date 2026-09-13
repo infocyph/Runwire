@@ -15,6 +15,8 @@ final class RuntimeMetrics implements MetricsProviderInterface
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
 
+    private readonly int $startedAtNanoseconds;
+
     private int $backpressureEventsTotal = 0;
 
     private int $bytesReadTotal = 0;
@@ -62,8 +64,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
     private int $requestsSinceGc = 0;
 
     private int $requestsTotal = 0;
-
-    private readonly int $startedAtNanoseconds;
 
     private int $streamsPeak = 0;
 

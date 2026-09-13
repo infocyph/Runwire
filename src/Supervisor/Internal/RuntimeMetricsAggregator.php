@@ -88,6 +88,18 @@ final class RuntimeMetricsAggregator
         $totals['rejected_requests'] += $snapshot->rejectedRequestsTotal;
     }
 
+    /** @param array<string, int|float> $highWater */
+    private static function maxHighWater(array &$highWater, RuntimeMetricsSnapshot $snapshot): void
+    {
+        $highWater['loop_tick'] = max($highWater['loop_tick'], $snapshot->eventLoopTickNanoseconds);
+        $highWater['loop_lag'] = max($highWater['loop_lag'], $snapshot->eventLoopLagNanoseconds);
+        $highWater['request_lifetime'] = max($highWater['request_lifetime'], $snapshot->requestLifetimeHighWaterNanoseconds);
+        $highWater['connection_lifetime'] = max($highWater['connection_lifetime'], $snapshot->connectionLifetimeHighWaterNanoseconds);
+        $highWater['request_memory_delta'] = max($highWater['request_memory_delta'], $snapshot->requestMemoryDeltaHighWaterBytes);
+        $highWater['worker_age'] = max($highWater['worker_age'], $snapshot->workerAgeSeconds);
+        $highWater['worker_busy'] = max($highWater['worker_busy'], $snapshot->workerBusySeconds);
+    }
+
     /** @return array<string, int> */
     private static function zeroedErrors(): array
     {
@@ -142,17 +154,5 @@ final class RuntimeMetricsAggregator
             'rejected_connections' => 0,
             'rejected_requests' => 0,
         ];
-    }
-
-    /** @param array<string, int|float> $highWater */
-    private static function maxHighWater(array &$highWater, RuntimeMetricsSnapshot $snapshot): void
-    {
-        $highWater['loop_tick'] = max($highWater['loop_tick'], $snapshot->eventLoopTickNanoseconds);
-        $highWater['loop_lag'] = max($highWater['loop_lag'], $snapshot->eventLoopLagNanoseconds);
-        $highWater['request_lifetime'] = max($highWater['request_lifetime'], $snapshot->requestLifetimeHighWaterNanoseconds);
-        $highWater['connection_lifetime'] = max($highWater['connection_lifetime'], $snapshot->connectionLifetimeHighWaterNanoseconds);
-        $highWater['request_memory_delta'] = max($highWater['request_memory_delta'], $snapshot->requestMemoryDeltaHighWaterBytes);
-        $highWater['worker_age'] = max($highWater['worker_age'], $snapshot->workerAgeSeconds);
-        $highWater['worker_busy'] = max($highWater['worker_busy'], $snapshot->workerBusySeconds);
     }
 }

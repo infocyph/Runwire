@@ -84,6 +84,7 @@ final class NativeHttpWorker
             $loop->run();
         } finally {
             $sampler->sample(true);
+
             try {
                 $bound->listener->close();
             } finally {

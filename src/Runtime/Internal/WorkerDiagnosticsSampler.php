@@ -13,9 +13,9 @@ final class WorkerDiagnosticsSampler
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
 
-    private int $lastSampleNanoseconds = 0;
-
     private readonly int $sampleIntervalNanoseconds;
+
+    private int $lastSampleNanoseconds = 0;
 
     public function __construct(
         private readonly WorkerContext $context,
