@@ -28,9 +28,9 @@ final class FiberScheduler
 
     private ?Task $currentTask = null;
 
-    private bool $drainScheduled = false;
-
     private bool $draining = false;
+
+    private bool $drainScheduled = false;
 
     private bool $driving = false;
 
