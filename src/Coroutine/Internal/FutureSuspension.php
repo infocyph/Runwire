@@ -14,6 +14,7 @@ final readonly class FutureSuspension implements Suspension
     public function __construct(
         private Future $future,
         private bool $cancellable = true,
+        private bool $ignoreCancellationOnCompletion = false,
     ) {}
 
     public function arm(FiberScheduler $scheduler, Task $task): void
@@ -71,7 +72,7 @@ final readonly class FutureSuspension implements Suspension
 
     private function resumeFromFuture(FiberScheduler $scheduler, Task $task): void
     {
-        $ignoreCancellation = !$this->cancellable;
+        $ignoreCancellation = !$this->cancellable || $this->ignoreCancellationOnCompletion;
 
         try {
             $scheduler->resume($task, $this->future->result(), $ignoreCancellation);

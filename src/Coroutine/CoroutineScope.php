@@ -41,6 +41,13 @@ final class CoroutineScope
         private readonly TaskGroupFailureMode $failureMode = TaskGroupFailureMode::FAIL_FAST,
     ) {}
 
+    public function barrier(int $parties): Barrier
+    {
+        $this->assertOpen();
+
+        return new Barrier($this->scheduler, $parties, $this->scheduler->maxWaitersPerPrimitive());
+    }
+
     /** @internal */
     public function cancelChildren(CancellationReason $reason): void
     {
@@ -54,6 +61,13 @@ final class CoroutineScope
     public function cancellation(): CancellationToken
     {
         return $this->source->token();
+    }
+
+    public function channel(int $capacity = 0): Channel
+    {
+        $this->assertOpen();
+
+        return new Channel($this->scheduler, $capacity, $this->scheduler->maxWaitersPerPrimitive());
     }
 
     /** @internal */
@@ -178,6 +192,13 @@ final class CoroutineScope
         return $this->scheduler->taskLocal($key);
     }
 
+    public function mutex(): Mutex
+    {
+        $this->assertOpen();
+
+        return new Mutex($this->scheduler, $this->scheduler->maxWaitersPerPrimitive());
+    }
+
     public function removeLocal(TaskLocal $key): bool
     {
         $this->assertOpen();
@@ -189,6 +210,13 @@ final class CoroutineScope
     public function secondaryFailures(): array
     {
         return $this->secondaryFailures;
+    }
+
+    public function semaphore(int $permits): Semaphore
+    {
+        $this->assertOpen();
+
+        return new Semaphore($this->scheduler, $permits, $this->scheduler->maxWaitersPerPrimitive());
     }
 
     public function setLocal(TaskLocal $key, mixed $value): void

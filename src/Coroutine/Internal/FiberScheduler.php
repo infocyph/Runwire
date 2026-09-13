@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Coroutine\Internal;
 
 use Fiber;
 use Infocyph\Runwire\CancellationSource;
+use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\Deferred;
 use Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException;
@@ -52,15 +53,34 @@ final class FiberScheduler
         return count($this->tasks);
     }
 
-    public function awaitFuture(Future $future, bool $cancellable = true): mixed
-    {
+    public function awaitFuture(
+        Future $future,
+        bool $cancellable = true,
+        bool $ignoreCancellationOnCompletion = false,
+    ): mixed {
         $this->requireCurrentTask();
 
         if ($future->isComplete()) {
             return $future->result();
         }
 
-        return Fiber::suspend(new FutureSuspension($future, $cancellable));
+        return Fiber::suspend(new FutureSuspension(
+            $future,
+            $cancellable,
+            $ignoreCancellationOnCompletion,
+        ));
+    }
+
+    /** @internal */
+    public function currentCancellation(): CancellationToken
+    {
+        return $this->requireCurrentTask()->cancellation();
+    }
+
+    /** @internal */
+    public function currentTaskId(): int
+    {
+        return $this->requireCurrentTask()->id();
     }
 
     public function deferred(): Deferred
@@ -107,6 +127,12 @@ final class FiberScheduler
     public function loop(): LoopInterface
     {
         return $this->context->loop;
+    }
+
+    /** @internal */
+    public function maxWaitersPerPrimitive(): int
+    {
+        return $this->context->policy->maxWaitersPerPrimitive;
     }
 
     /** @internal */

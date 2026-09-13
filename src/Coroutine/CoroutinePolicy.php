@@ -13,6 +13,7 @@ final readonly class CoroutinePolicy
         public int $maxReadyBacklog = 1_024,
         public int $maxFutureWaiters = 1_024,
         public int $maxResumesPerTick = 128,
+        public int $maxWaitersPerPrimitive = 1_024,
     ) {
         if ($maxTasks < 1 || $maxTasks > 1_000_000) {
             throw new InvalidArgumentException('Coroutine max task count must be between 1 and 1000000.');
@@ -25,6 +26,9 @@ final readonly class CoroutinePolicy
         }
         if ($maxResumesPerTick < 1 || $maxResumesPerTick > 10_000) {
             throw new InvalidArgumentException('Coroutine resume budget must be between 1 and 10000 per loop tick.');
+        }
+        if ($maxWaitersPerPrimitive < 1 || $maxWaitersPerPrimitive > 100_000) {
+            throw new InvalidArgumentException('Coroutine primitive waiter limit must be between 1 and 100000.');
         }
     }
 }
