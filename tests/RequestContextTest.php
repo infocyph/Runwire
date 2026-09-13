@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
@@ -77,7 +78,8 @@ it('isolates and bounds request-scoped attributes then clears them on completion
 });
 
 it('cancels once and isolates observer failures', function (): void {
-    $token = new CancellationToken(RequestDeadline::unlimited());
+    $source = new CancellationSource(RequestDeadline::unlimited());
+    $token = $source->token();
     $called = 0;
 
     $token->onCancel(static function (CancellationToken $token): void {
@@ -89,8 +91,8 @@ it('cancels once and isolates observer failures', function (): void {
         }
     });
 
-    expect($token->cancel(CancellationReason::TRANSPORT_CANCELLED))->toBeTrue()
-        ->and($token->cancel(CancellationReason::WORKER_SHUTDOWN))->toBeFalse()
+    expect($source->cancel(CancellationReason::TRANSPORT_CANCELLED))->toBeTrue()
+        ->and($source->cancel(CancellationReason::WORKER_SHUTDOWN))->toBeFalse()
         ->and($token->isCancelled())->toBeTrue()
         ->and($token->reason())->toBe(CancellationReason::TRANSPORT_CANCELLED)
         ->and($called)->toBe(1);
@@ -98,7 +100,8 @@ it('cancels once and isolates observer failures', function (): void {
 
 it('uses monotonic request deadlines to request cooperative cancellation', function (): void {
     $deadline = RequestDeadline::afterSeconds(0.5, 1_000_000_000);
-    $token = new CancellationToken($deadline);
+    $source = new CancellationSource($deadline);
+    $token = $source->token();
 
     expect($token->isCancelled(1_499_999_999))->toBeFalse()
         ->and($token->isCancelled(1_500_000_000))->toBeTrue()

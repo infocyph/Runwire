@@ -61,7 +61,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
             generation: $generation,
             pid: $pid ?? self::currentPid(),
             persistent: $capabilities->persistentApplication,
-            concurrent: $concurrent ?? $capabilities->supportsCoroutines,
+            concurrent: $concurrent ?? $capabilities->supportsRunwireCoroutines,
             ownsListener: $capabilities->ownsListener,
             ownsEventLoop: $capabilities->ownsEventLoop,
             ownsWorkerPool: $capabilities->ownsWorkerPool,

@@ -19,6 +19,8 @@ final class RequestContext
     /** @var array<string, mixed> */
     private array $attributes = [];
 
+    private readonly CancellationSource $cancellationSource;
+
     private bool $completed = false;
 
     private function __construct(
@@ -36,7 +38,9 @@ final class RequestContext
         if ($maxAttributes < 1 || $maxAttributes > 1_024) {
             throw new InvalidArgumentException('Request context attribute limit must be between 1 and 1024.');
         }
-        $this->cancellation = new CancellationToken($this->deadline);
+
+        $this->cancellationSource = new CancellationSource($this->deadline);
+        $this->cancellation = $this->cancellationSource->token();
     }
 
     public static function create(
@@ -89,7 +93,7 @@ final class RequestContext
         $this->runtime = $runtime;
         $this->deadline = $deadline;
         $this->bound = true;
-        $this->cancellation->setDeadline($deadline);
+        $this->cancellationSource->setDeadline($deadline);
     }
 
     public function attribute(string $key, mixed $default = null): mixed
@@ -105,7 +109,7 @@ final class RequestContext
 
     public function cancel(CancellationReason $reason): bool
     {
-        return $this->cancellation->cancel($reason);
+        return $this->cancellationSource->cancel($reason);
     }
 
     public function cancelled(?int $nowNanoseconds = null): bool
@@ -120,6 +124,7 @@ final class RequestContext
         }
 
         $this->attributes = [];
+        $this->cancellationSource->dispose();
         $this->completed = true;
     }
 

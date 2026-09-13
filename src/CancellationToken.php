@@ -5,94 +5,63 @@ declare(strict_types=1);
 namespace Infocyph\Runwire;
 
 use Closure;
+use Infocyph\Runwire\Cancellation\Internal\CancellationState;
+use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
-use InvalidArgumentException;
-use OverflowException;
 use Throwable;
 
 final class CancellationToken
 {
-    private const int MAX_CALLBACKS = 64;
-
-    /** @var list<Closure(self): void> */
-    private array $callbacks = [];
-
-    private bool $cancelled = false;
-
-    private ?CancellationReason $reason = null;
-
-    public function __construct(private RequestDeadline $deadline) {}
-
-    public function cancel(CancellationReason $reason): bool
-    {
-        if ($this->cancelled) {
-            return false;
-        }
-
-        $this->cancelled = true;
-        $this->reason = $reason;
-        $callbacks = $this->callbacks;
-        $this->callbacks = [];
-
-        foreach ($callbacks as $callback) {
-            self::invoke($callback, $this);
-        }
-
-        return true;
-    }
-
-    public function clearCallbacks(): void
-    {
-        $this->callbacks = [];
-    }
+    /** @internal Cancellation tokens are created by CancellationSource. */
+    public function __construct(private readonly CancellationState $state) {}
 
     public function deadline(): RequestDeadline
     {
-        return $this->deadline;
+        return $this->state->deadline();
     }
 
     public function isCancelled(?int $nowNanoseconds = null): bool
     {
         $this->refreshDeadline($nowNanoseconds);
 
-        return $this->cancelled;
+        return $this->state->cancelled();
     }
 
     /** @param callable(self): void $callback */
-    public function onCancel(callable $callback): self
+    public function onCancel(callable $callback): CancellationSubscription
     {
         $closure = Closure::fromCallable($callback);
         $this->refreshDeadline();
-        if ($this->cancelled) {
+
+        if ($this->state->cancelled()) {
             self::invoke($closure, $this);
 
-            return $this;
+            return new CancellationSubscription($this->state, null);
         }
-        if (count($this->callbacks) >= self::MAX_CALLBACKS) {
-            throw new OverflowException('Cancellation callback limit exceeded.');
+        if ($this->state->disposed()) {
+            return new CancellationSubscription($this->state, null);
         }
 
-        $this->callbacks[] = $closure;
-
-        return $this;
+        return new CancellationSubscription(
+            $this->state,
+            $this->state->subscribe($closure),
+        );
     }
 
     public function reason(?int $nowNanoseconds = null): ?CancellationReason
     {
         $this->refreshDeadline($nowNanoseconds);
 
-        return $this->reason;
+        return $this->state->reason();
     }
 
-    /** @internal */
-    public function setDeadline(RequestDeadline $deadline): void
+    public function throwIfCancelled(?int $nowNanoseconds = null): void
     {
-        if ($this->deadline->monotonicNanoseconds !== null && $deadline->monotonicNanoseconds !== $this->deadline->monotonicNanoseconds) {
-            throw new InvalidArgumentException('Cancellation token deadline can only be bound once.');
+        $this->refreshDeadline($nowNanoseconds);
+        $reason = $this->state->reason();
+        if ($reason !== null) {
+            throw new CancelledException($reason);
         }
-
-        $this->deadline = $deadline;
-        $this->refreshDeadline();
     }
 
     private static function invoke(Closure $callback, self $token): void
@@ -100,14 +69,18 @@ final class CancellationToken
         try {
             $callback($token);
         } catch (Throwable) {
-            // Cancellation observers are isolated from request/runtime control flow.
+            // Cancellation observers are isolated from runtime control flow.
         }
     }
 
     private function refreshDeadline(?int $nowNanoseconds = null): void
     {
-        if (!$this->cancelled && $this->deadline->expired($nowNanoseconds)) {
-            $this->cancel(CancellationReason::DEADLINE_EXCEEDED);
+        if (
+            !$this->state->cancelled()
+            && !$this->state->disposed()
+            && $this->state->deadline()->expired($nowNanoseconds)
+        ) {
+            $this->state->cancel(CancellationReason::DEADLINE_EXCEEDED, $this);
         }
     }
 }
