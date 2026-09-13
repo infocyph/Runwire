@@ -56,6 +56,10 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     public function add(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
+        $read ??= static function (mixed $readyStream): void {
+            unset($readyStream);
+        };
+
         return ($this->eventAdd)($stream, $read, $write, $flags) === true;
     }
 
