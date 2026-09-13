@@ -39,7 +39,7 @@ final class NativeSwooleReactor implements SwooleReactorInterface
 
     public function __construct()
     {
-        [$eventClass, $timerClass, $coroutineClass, $constantClass] = self::resolveClassFamily();
+        [$eventClass, $timerClass, $coroutineClass, $namespace] = self::resolveClassFamily();
         $this->coroutineGetCid = self::method($coroutineClass, 'getCid');
         $this->coroutineResume = self::method($coroutineClass, 'resume');
         $this->coroutineYield = self::method($coroutineClass, 'yield');
@@ -47,11 +47,11 @@ final class NativeSwooleReactor implements SwooleReactorInterface
         $this->eventDefer = self::method($eventClass, 'defer');
         $this->eventDelete = self::method($eventClass, 'del');
         $this->eventSet = self::method($eventClass, 'set');
-        $this->readFlagValue = self::constantInt($constantClass . '::EVENT_READ');
+        $this->readFlagValue = self::eventFlag($namespace, 'READ');
         $this->timerAfter = self::method($timerClass, 'after');
         $this->timerClear = self::method($timerClass, 'clear');
         $this->timerRepeat = self::method($timerClass, 'tick');
-        $this->writeFlagValue = self::constantInt($constantClass . '::EVENT_WRITE');
+        $this->writeFlagValue = self::eventFlag($namespace, 'WRITE');
     }
 
     public function add(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
@@ -128,14 +128,26 @@ final class NativeSwooleReactor implements SwooleReactorInterface
         return $this->writeFlagValue;
     }
 
-    private static function constantInt(string $name): int
+    private static function eventFlag(string $namespace, string $direction): int
     {
-        $value = defined($name) ? constant($name) : null;
-        if (!is_int($value)) {
-            throw new RuntimeUnavailableException(sprintf('Required Swoole/OpenSwoole constant %s is unavailable.', $name));
+        $candidates = array_values(array_unique([
+            $namespace . '\\Constant::EVENT_' . $direction,
+            $namespace . '\\Socket::EVENT_' . $direction,
+            strtoupper($namespace) . '_EVENT_' . $direction,
+            'SWOOLE_EVENT_' . $direction,
+        ]));
+
+        foreach ($candidates as $name) {
+            $value = defined($name) ? constant($name) : null;
+            if (is_int($value)) {
+                return $value;
+            }
         }
 
-        return $value;
+        throw new RuntimeUnavailableException(sprintf(
+            'Required %s event flag is unavailable from the Swoole/OpenSwoole runtime.',
+            strtolower($direction),
+        ));
     }
 
     /** @param class-string $class */
@@ -152,7 +164,7 @@ final class NativeSwooleReactor implements SwooleReactorInterface
         }
     }
 
-    /** @return array{class-string, class-string, class-string, class-string} */
+    /** @return array{class-string, class-string, class-string, string} */
     private static function resolveClassFamily(): array
     {
         foreach (['OpenSwoole', 'Swoole'] as $namespace) {
@@ -160,19 +172,17 @@ final class NativeSwooleReactor implements SwooleReactorInterface
                 $namespace . '\\Event',
                 $namespace . '\\Timer',
                 $namespace . '\\Coroutine',
-                $namespace . '\\Constant',
             ];
             if (class_exists($classes[0])
                 && class_exists($classes[1])
-                && class_exists($classes[2])
-                && class_exists($classes[3])) {
-                /** @var array{class-string, class-string, class-string, class-string} $classes */
-                return $classes;
+                && class_exists($classes[2])) {
+                /** @var array{class-string, class-string, class-string} $classes */
+                return [$classes[0], $classes[1], $classes[2], $namespace];
             }
         }
 
         throw new RuntimeUnavailableException(
-            'The Swoole/OpenSwoole event, timer, coroutine, and constant APIs are unavailable.',
+            'The Swoole/OpenSwoole event, timer, and coroutine APIs are unavailable.',
         );
     }
 }
