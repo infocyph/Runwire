@@ -16,6 +16,9 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
 use Throwable;
 
+/**
+ * Owns structured child tasks, cancellation, synchronization, and task-local state.
+ */
 final class CoroutineScope
 {
     /** @var array<int, Task> */
@@ -41,6 +44,9 @@ final class CoroutineScope
         private readonly TaskGroupFailureMode $failureMode = TaskGroupFailureMode::FAIL_FAST,
     ) {}
 
+    /**
+     * Creates a reusable barrier bound to this scope's scheduler.
+     */
     public function barrier(int $parties): Barrier
     {
         $this->assertOpen();
@@ -58,11 +64,17 @@ final class CoroutineScope
         }
     }
 
+    /**
+     * Returns the cancellation token shared by work owned by this scope.
+     */
     public function cancellation(): CancellationToken
     {
         return $this->source->token();
     }
 
+    /**
+     * Creates a channel bound to this scope's scheduler.
+     */
     public function channel(int $capacity = 0): Channel
     {
         $this->assertOpen();
@@ -83,6 +95,9 @@ final class CoroutineScope
         $this->source->dispose();
     }
 
+    /**
+     * Creates a deferred result bound to this scope's scheduler.
+     */
     public function deferred(): Deferred
     {
         $this->assertOpen();
@@ -151,6 +166,9 @@ final class CoroutineScope
         }
     }
 
+    /**
+     * Reports whether the current task has a value for the given task-local key.
+     */
     public function hasLocal(TaskLocal $key): bool
     {
         $this->assertOpen();
@@ -185,6 +203,9 @@ final class CoroutineScope
         throw $this->primaryFailure ?? $failures[0];
     }
 
+    /**
+     * Returns the current task-local value for the given key.
+     */
     public function local(TaskLocal $key): mixed
     {
         $this->assertOpen();
@@ -192,6 +213,9 @@ final class CoroutineScope
         return $this->scheduler->taskLocal($key);
     }
 
+    /**
+     * Creates a mutex bound to this scope's scheduler.
+     */
     public function mutex(): Mutex
     {
         $this->assertOpen();
@@ -199,6 +223,9 @@ final class CoroutineScope
         return new Mutex($this->scheduler, $this->scheduler->maxWaitersPerPrimitive());
     }
 
+    /**
+     * Removes the current task-local value for the given key.
+     */
     public function removeLocal(TaskLocal $key): bool
     {
         $this->assertOpen();
@@ -212,6 +239,9 @@ final class CoroutineScope
         return $this->secondaryFailures;
     }
 
+    /**
+     * Creates a semaphore bound to this scope's scheduler.
+     */
     public function semaphore(int $permits): Semaphore
     {
         $this->assertOpen();
@@ -219,12 +249,18 @@ final class CoroutineScope
         return new Semaphore($this->scheduler, $permits, $this->scheduler->maxWaitersPerPrimitive());
     }
 
+    /**
+     * Sets the current task-local value for the given key.
+     */
     public function setLocal(TaskLocal $key, mixed $value): void
     {
         $this->assertOpen();
         $this->scheduler->setTaskLocal($key, $value);
     }
 
+    /**
+     * Suspends the current task for at least the requested duration.
+     */
     public function sleep(float $seconds): void
     {
         $this->assertOpen();
@@ -262,6 +298,9 @@ final class CoroutineScope
         return $this->group($callback, $failureMode, $deadline);
     }
 
+    /**
+     * Cooperatively yields execution to other runnable tasks.
+     */
     public function yieldNow(): void
     {
         $this->assertOpen();

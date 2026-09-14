@@ -12,6 +12,9 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestContext;
 use LogicException;
 
+/**
+ * Runs structured coroutine scopes on a single scheduler and event loop.
+ */
 final class CoroutineRuntime
 {
     private readonly FiberScheduler $scheduler;
@@ -20,6 +23,9 @@ final class CoroutineRuntime
 
     private bool $running = false;
 
+    /**
+     * Creates a coroutine runtime with optional loop and scheduler policy overrides.
+     */
     public function __construct(
         ?LoopInterface $loop = null,
         ?CoroutinePolicy $policy = null,
@@ -36,6 +42,9 @@ final class CoroutineRuntime
         return $this->scheduler->activeTaskCount();
     }
 
+    /**
+     * Returns a snapshot of the current coroutine runtime diagnostics.
+     */
     public function diagnostics(): CoroutineDiagnosticsSnapshot
     {
         return $this->scheduler->diagnostics(
