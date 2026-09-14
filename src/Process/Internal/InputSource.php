@@ -20,6 +20,7 @@ final class InputSource
 
     private ?Closure $producer = null;
 
+    /** @var resource|null */
     private mixed $stream = null;
 
     private ?bool $streamWasBlocked = null;
@@ -121,6 +122,10 @@ final class InputSource
     /** @return resource */
     public function resource(): mixed
     {
+        if (!is_resource($this->stream)) {
+            throw new ProcessException('stdin source is not backed by a stream resource.');
+        }
+
         return $this->stream;
     }
 
