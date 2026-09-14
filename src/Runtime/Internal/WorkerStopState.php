@@ -13,6 +13,10 @@ final class WorkerStopState
 {
     private bool $stopping = false;
 
+    public function __construct(
+        private readonly bool $stopLoopWhenDrained = true,
+    ) {}
+
     /**
      * Reports whether worker shutdown has started.
      */
@@ -30,11 +34,11 @@ final class WorkerStopState
     }
 
     /**
-     * Stops the supplied loop when worker shutdown is active.
+     * Stops the supplied loop when this worker owns it and shutdown is active.
      */
     public function stopLoopIfStopping(LoopInterface $loop): void
     {
-        if ($this->stopping) {
+        if ($this->stopping && $this->stopLoopWhenDrained) {
             $loop->stop();
         }
     }

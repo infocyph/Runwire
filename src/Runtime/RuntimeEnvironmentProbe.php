@@ -34,7 +34,7 @@ final readonly class RuntimeEnvironmentProbe
         return new RuntimeEnvironment(
             sapi: $sapi,
             hostedDrivers: $this->hostedDrivers($sapi),
-            availableDrivers: $this->availableDrivers($sapi, $supportsFork, $supportsSignals, $supportsPosix),
+            availableDrivers: $this->availableDrivers($sapi),
             supportsFork: $supportsFork,
             supportsSignals: $supportsSignals,
             supportsPosix: $supportsPosix,
@@ -118,14 +118,10 @@ final readonly class RuntimeEnvironmentProbe
     }
 
     /** @return list<RuntimeDriver> */
-    private function availableDrivers(
-        string $sapi,
-        bool $supportsFork,
-        bool $supportsSignals,
-        bool $supportsPosix,
-    ): array {
+    private function availableDrivers(string $sapi): array
+    {
         $drivers = [];
-        if ($sapi === 'cli' && $supportsFork && $supportsSignals && $supportsPosix) {
+        if ($sapi === 'cli') {
             $drivers[] = RuntimeDriver::NATIVE;
         }
         if (extension_loaded('swoole') || extension_loaded('openswoole')) {

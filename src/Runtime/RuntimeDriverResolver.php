@@ -52,9 +52,7 @@ final class RuntimeDriverResolver
                 return $driver;
             }
 
-            throw new RuntimeUnavailableException(
-                'The native runtime requires CLI with working PCNTL fork/signal and POSIX support.',
-            );
+            throw new RuntimeUnavailableException('The native runtime requires the CLI SAPI.');
         }
 
         if ($driver === RuntimeDriver::SWOOLE) {

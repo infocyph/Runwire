@@ -29,6 +29,9 @@ final readonly class RuntimeSelector
     {
         $driver = $this->driverResolver->resolve($options, $environment);
         $warnings = $this->validateOpcache($options, $environment);
+        if ($driver === RuntimeDriver::NATIVE && !$environment->nativePreforkEligible()) {
+            $warnings[] = 'PCNTL/POSIX process capabilities are unavailable; using the single-process native runtime.';
+        }
         $capabilities = $this->capabilityResolver->resolve($driver, $environment, $options);
         $this->validatePrivilegeDrop($options, $driver, $capabilities->supportsPrivilegeDrop);
 

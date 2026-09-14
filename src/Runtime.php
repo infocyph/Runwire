@@ -26,6 +26,7 @@ use Infocyph\Runwire\Runtime\Internal\NativeDatagramWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttp3Worker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttpWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeStreamWorker;
+use Infocyph\Runwire\Runtime\Internal\PortableNativeRuntime;
 use Infocyph\Runwire\Runtime\RuntimeApplicationFactoryInterface;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe;
@@ -54,6 +55,8 @@ final class Runtime
 
     /** @var list<Closure(SupervisorEvent): void> */
     private array $lifecycleListeners = [];
+
+    private ?PortableNativeRuntime $portableRuntime = null;
 
     private ?RuntimeSelection $selection = null;
 
@@ -116,6 +119,12 @@ final class Runtime
     /** @param callable(SupervisorEvent): void $listener */
     public function onEvent(callable $listener): self
     {
+        if ($this->portableRuntime !== null) {
+            throw new RuntimeUnavailableException(
+                'Supervisor lifecycle events are unavailable in the single-process native runtime.',
+            );
+        }
+
         $closure = Closure::fromCallable($listener);
         $this->lifecycleListeners[] = $closure;
         $this->supervisor?->onEvent($closure);
@@ -137,7 +146,11 @@ final class Runtime
         }
 
         $recycled = $this->supervisor->recycle(self::serverGroupName($server), $slot);
-        if (!$server instanceof Server || $server->http3 === null) {
+        if (
+            !$server instanceof Server
+            || $server->http3 === null
+            || $this->selection?->capabilities->supportsQuic !== true
+        ) {
             return $recycled;
         }
 
@@ -151,11 +164,17 @@ final class Runtime
      */
     public function reload(): void
     {
+        if ($this->portableRuntime !== null) {
+            throw new RuntimeUnavailableException(
+                'Worker reload requires PCNTL/POSIX prefork capabilities and is unavailable in single-process mode.',
+            );
+        }
+
         $this->supervisor?->reload();
     }
 
     /**
-     * Runs the configured native listener topology under the supervisor.
+     * Runs the configured native listener topology using prefork or portable single-process mode.
      */
     public function run(): void
     {
@@ -174,17 +193,24 @@ final class Runtime
                 $this->selection->driver->value,
             ));
         }
-        $this->assertNativeHttp3Available();
+        $this->assertNativeTopology();
 
         $bound = $this->bindServers();
 
         try {
-            $this->supervisor = $this->buildSupervisor($bound);
-            $this->supervisor->run();
+            if ($this->selection->capabilities->ownsWorkerPool) {
+                $this->supervisor = $this->buildSupervisor($bound);
+                $this->supervisor->run();
+            } else {
+                $this->assertPortableNativeConfiguration();
+                $this->portableRuntime = new PortableNativeRuntime($bound, $this->selection, $this->options);
+                $this->portableRuntime->run();
+            }
         } finally {
             foreach ($bound as $target) {
                 self::closeBound($target, true);
             }
+            $this->portableRuntime = null;
             $this->supervisor = null;
         }
     }
@@ -240,6 +266,7 @@ final class Runtime
     {
         $this->hostApplication?->drain();
         $this->hostDriver?->stop();
+        $this->portableRuntime?->stop($force);
         $this->supervisor?->stop($force);
     }
 
@@ -320,22 +347,41 @@ final class Runtime
         );
     }
 
-    private function assertNativeHttp3Available(): void
+    private function assertNativeTopology(): void
     {
+        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
+        if (!$selection->capabilities->supportsQuic || !$selection->capabilities->ownsWorkerPool) {
+            return;
+        }
+
         foreach ($this->servers as $server) {
             if (!$server instanceof Server || $server->http3 === null) {
                 continue;
-            }
-            if ($this->selection?->capabilities->supportsQuic !== true) {
-                throw new RuntimeUnavailableException(
-                    'Native HTTP/3 is configured, but the required QUIC runtime capability is unavailable.',
-                );
             }
             if ($this->resolvedWorkerCount($server->workers) > 1 && !$server->listener->reusePort) {
                 throw new RuntimeUnavailableException(
                     'Native HTTP/3 with multiple workers requires explicit ListenerOptions::reusePort support.',
                 );
             }
+        }
+    }
+
+    private function assertPortableNativeConfiguration(): void
+    {
+        if ($this->controlOptions !== null) {
+            throw new RuntimeUnavailableException(
+                'The native control endpoint requires PCNTL/POSIX prefork capabilities.',
+            );
+        }
+        if ($this->developmentWatchPolicy?->enabled === true) {
+            throw new RuntimeUnavailableException(
+                'Development worker watching requires PCNTL/POSIX prefork capabilities.',
+            );
+        }
+        if ($this->lifecycleListeners !== []) {
+            throw new RuntimeUnavailableException(
+                'Supervisor lifecycle events require PCNTL/POSIX prefork capabilities.',
+            );
         }
     }
 
@@ -446,7 +492,11 @@ final class Runtime
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
                 role: $target instanceof BoundServer ? WorkerRole::HTTP : WorkerRole::CUSTOM,
             ));
-            if ($target instanceof BoundServer && $target->definition->http3 !== null) {
+            if (
+                $target instanceof BoundServer
+                && $target->definition->http3 !== null
+                && $this->selection?->capabilities->supportsQuic === true
+            ) {
                 $this->registerHttp3Group($supervisor, $bound, $target);
             }
         }

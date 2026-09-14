@@ -50,9 +50,9 @@ final class WorkerContext
     private mixed $stopWrite = null;
 
     /**
-     * Create a worker context bound to its parent lifecycle channel.
+     * Create a worker context optionally bound to a parent lifecycle channel.
      *
-     * @param resource $readyStream
+     * @param resource|null $readyStream
      */
     public function __construct(
         public readonly string $group,
@@ -60,13 +60,15 @@ final class WorkerContext
         public readonly int $generation,
         public readonly int $pid,
         public readonly int $parentPid,
-        private readonly mixed $readyStream,
+        private readonly mixed $readyStream = null,
         public readonly WorkerRecyclePolicy $recyclePolicy = new WorkerRecyclePolicy(),
         public readonly AdmissionPolicy $admissionPolicy = new AdmissionPolicy(),
         public readonly WorkerRole $role = WorkerRole::CUSTOM,
     ) {
-        if (!stream_set_blocking($this->readyStream, false)) {
-            throw new RuntimeException('Unable to configure worker lifecycle channel.');
+        if ($this->readyStream !== null) {
+            if (!is_resource($this->readyStream) || !stream_set_blocking($this->readyStream, false)) {
+                throw new RuntimeException('Unable to configure worker lifecycle channel.');
+            }
         }
 
         $this->periodicTasks = new PeriodicTaskRegistry();

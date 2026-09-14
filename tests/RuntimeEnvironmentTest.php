@@ -21,7 +21,17 @@ it('normalizes hosted drivers into the available set', function (): void {
         ->and($environment->isAvailable(RuntimeDriver::SWOOLE))->toBeTrue();
 });
 
-it('requires the complete unix process baseline for native eligibility', function (): void {
+it('keeps native CLI eligible without prefork process extensions', function (): void {
+    $environment = new RuntimeEnvironment(
+        sapi: 'cli',
+        availableDrivers: [RuntimeDriver::NATIVE],
+    );
+
+    expect($environment->nativeEligible())->toBeTrue()
+        ->and($environment->nativePreforkEligible())->toBeFalse();
+});
+
+it('requires the complete process baseline only for native prefork mode', function (): void {
     $environment = new RuntimeEnvironment(
         sapi: 'cli',
         availableDrivers: [RuntimeDriver::NATIVE],
@@ -30,7 +40,8 @@ it('requires the complete unix process baseline for native eligibility', functio
         supportsPosix: true,
     );
 
-    expect($environment->nativeEligible())->toBeTrue();
+    expect($environment->nativeEligible())->toBeTrue()
+        ->and($environment->nativePreforkEligible())->toBeTrue();
 });
 
 it('rejects auto as an environment capability', function (): void {

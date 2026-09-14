@@ -80,11 +80,19 @@ final readonly class RuntimeEnvironment
     }
 
     /**
-     * Reports whether the environment can run the native prefork runtime.
+     * Reports whether the environment can run a native listener runtime.
      */
     public function nativeEligible(): bool
     {
-        return $this->sapi === 'cli'
+        return $this->sapi === 'cli';
+    }
+
+    /**
+     * Reports whether native process capabilities support the prefork worker pool.
+     */
+    public function nativePreforkEligible(): bool
+    {
+        return $this->nativeEligible()
             && $this->supportsFork
             && $this->supportsSignals
             && $this->supportsPosix;

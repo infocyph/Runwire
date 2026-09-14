@@ -23,6 +23,16 @@ it('resolves hosted runtimes in deterministic precedence order', function (): vo
         ->toBe(RuntimeDriver::FRANKENPHP);
 });
 
+it('auto-selects native CLI even when prefork extensions are unavailable', function (): void {
+    $environment = new RuntimeEnvironment(
+        sapi: 'cli',
+        availableDrivers: [RuntimeDriver::NATIVE],
+    );
+
+    expect((new RuntimeDriverResolver())->resolve(new RuntimeOptions(), $environment))
+        ->toBe(RuntimeDriver::NATIVE);
+});
+
 it('does not auto-select an installed but inactive swoole runtime', function (): void {
     $environment = new RuntimeEnvironment(
         sapi: 'cli',

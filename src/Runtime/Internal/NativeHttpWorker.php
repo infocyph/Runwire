@@ -22,26 +22,27 @@ use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
 /**
- * Runs native HTTP/1.1 and HTTP/2 sessions inside a supervised worker loop.
+ * Runs native HTTP/1.1 and HTTP/2 sessions inside native event loops.
  */
 final class NativeHttpWorker
 {
     /**
-     * Runs the bound HTTP listener until worker shutdown and drains active sessions.
+     * Attach an HTTP worker to an existing loop without taking loop ownership.
      */
-    public static function run(
+    public static function attach(
+        LoopInterface $loop,
         WorkerContext $context,
         BoundServer $bound,
         RuntimeContext $runtimeContext,
         RequestExecutionPolicy $requestExecution,
         ApplicationLifecycleHooks $lifecycle,
         DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
-    ): void {
-        $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        bool $ownsLoop = false,
+    ): NativeWorkerHandle {
         $context->attachLoop($loop);
         $sessions = [];
         $connections = [];
-        $state = new WorkerStopState();
+        $state = new WorkerStopState($ownsLoop);
         $application = $bound->definition->applicationFor(
             $context,
             $runtimeContext,
@@ -50,6 +51,8 @@ final class NativeHttpWorker
         );
         $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics, $loop);
         $handler = self::requestHandler($application, $context, $sampler);
+        $stopWatcher = null;
+        $shutdown = false;
 
         try {
             $application->start();
@@ -78,7 +81,7 @@ final class NativeHttpWorker
                     );
                 },
             );
-            $loop->onReadable(
+            $stopWatcher = $loop->onReadable(
                 $context->stopStream(),
                 static function () use ($application, $context, $bound, $loop, &$sessions, &$connections, $state, $sampler): void {
                     self::beginDrain($application, $context, $bound, $loop, $sessions, $connections, $state);
@@ -88,15 +91,89 @@ final class NativeHttpWorker
 
             $sampler->sample(true);
             $context->ready();
+        } catch (\Throwable $error) {
+            $bound->listener->close();
+            $application->shutdown($context->shutdownReason());
+
+            throw $error;
+        }
+
+        return new NativeWorkerHandle(
+            stop: static function () use ($context): void {
+                $context->requestStop();
+            },
+            forceStop: static function () use (
+                $application,
+                $context,
+                $bound,
+                $loop,
+                &$sessions,
+                &$connections,
+                $state,
+                $sampler,
+            ): void {
+                $context->requestStop();
+                self::beginDrain($application, $context, $bound, $loop, $sessions, $connections, $state);
+                self::forceClose($connections, $loop, $state);
+                $sampler->sample(true);
+            },
+            close: static function () use (
+                $loop,
+                &$stopWatcher,
+                $bound,
+                &$connections,
+                $application,
+                $context,
+                $sampler,
+                &$shutdown,
+            ): void {
+                if ($stopWatcher !== null) {
+                    $loop->cancel($stopWatcher);
+                    $stopWatcher = null;
+                }
+                foreach ($connections as $connection) {
+                    $connection->abort(CloseReason::LOCAL_ABORT);
+                }
+                $sampler->sample(true);
+                $bound->listener->close();
+                if (!$shutdown) {
+                    $shutdown = true;
+                    $application->shutdown($context->shutdownReason());
+                }
+            },
+            drained: static function () use (&$sessions, $state): bool {
+                return $state->isStopping() && $sessions === [];
+            },
+        );
+    }
+
+    /**
+     * Runs the bound HTTP listener until worker shutdown and drains active sessions.
+     */
+    public static function run(
+        WorkerContext $context,
+        BoundServer $bound,
+        RuntimeContext $runtimeContext,
+        RequestExecutionPolicy $requestExecution,
+        ApplicationLifecycleHooks $lifecycle,
+        DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
+    ): void {
+        $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        $handle = self::attach(
+            $loop,
+            $context,
+            $bound,
+            $runtimeContext,
+            $requestExecution,
+            $lifecycle,
+            $diagnostics,
+            ownsLoop: true,
+        );
+
+        try {
             $loop->run();
         } finally {
-            $sampler->sample(true);
-
-            try {
-                $bound->listener->close();
-            } finally {
-                $application->shutdown($context->shutdownReason());
-            }
+            $handle->close();
         }
     }
 
@@ -188,24 +265,24 @@ final class NativeHttpWorker
             $session->drain();
         }
         if ($sessions === []) {
-            $loop->stop();
+            $state->stopLoopIfStopping($loop);
         } elseif ($context->recycling()) {
             $loop->delay(
                 $context->recyclePolicy->gracefulTimeoutSeconds,
-                static function () use (&$connections, $loop): void {
-                    self::forceClose($connections, $loop);
+                static function () use (&$connections, $loop, $state): void {
+                    self::forceClose($connections, $loop, $state);
                 },
             );
         }
     }
 
     /** @param array<int, Connection> $connections */
-    private static function forceClose(array $connections, LoopInterface $loop): void
+    private static function forceClose(array $connections, LoopInterface $loop, WorkerStopState $state): void
     {
         foreach ($connections as $connection) {
             $connection->abort(CloseReason::LOCAL_ABORT);
         }
-        $loop->stop();
+        $state->stopLoopIfStopping($loop);
     }
 
     /** @return Closure(HttpRequest, ResponseWriterInterface): void */

@@ -74,20 +74,22 @@ final class RuntimeCapabilityResolver
 
     private function native(RuntimeEnvironment $environment): RuntimeCapabilities
     {
+        $prefork = $environment->nativePreforkEligible();
+
         return new RuntimeCapabilities(
             driver: RuntimeDriver::NATIVE,
             persistentProcess: true,
             persistentApplication: true,
             ownsListener: true,
             ownsEventLoop: true,
-            ownsWorkerPool: true,
+            ownsWorkerPool: $prefork,
             runwireLoopAvailable: true,
             supportsFork: $environment->supportsFork,
             supportsSignals: $environment->supportsSignals,
             supportsAsyncIo: true,
             supportsRunwireCoroutines: true,
-            supportsGracefulReload: $environment->supportsSignals,
-            supportsWorkerRecycle: $environment->supportsSignals,
+            supportsGracefulReload: $prefork,
+            supportsWorkerRecycle: $prefork,
             supportsHttp1: true,
             supportsHttp2: true,
             supportsHttp3: $environment->supportsQuic,
@@ -100,7 +102,7 @@ final class RuntimeCapabilityResolver
             supportsOpcacheCli: $environment->opcacheCliEnabled,
             supportsReusePort: $environment->supportsReusePort,
             supportsUnixSockets: $environment->supportsUnixSockets,
-            supportsPrivilegeDrop: $environment->supportsPrivilegeDrop,
+            supportsPrivilegeDrop: $prefork && $environment->supportsPrivilegeDrop,
             resources: $environment->resources,
         );
     }
