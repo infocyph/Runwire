@@ -7,8 +7,14 @@ namespace Infocyph\Runwire\Http\Http1\Internal;
 use Infocyph\Runwire\Http\HeaderField;
 use InvalidArgumentException;
 
+/**
+ * Validates and parses HTTP/1.1 request-line and field syntax.
+ */
 final class Http1Syntax
 {
+    /**
+     * Parse and validate one HTTP header field line.
+     */
     public function headerField(string $line): HeaderField
     {
         if ($line[0] === ' ' || $line[0] === "\t") {
@@ -35,6 +41,9 @@ final class Http1Syntax
         return [$matches[1], $matches[2]];
     }
 
+    /**
+     * Parse a trailer field while rejecting framing and routing fields.
+     */
     public function trailerField(string $line): HeaderField
     {
         $field = $this->headerField($line);

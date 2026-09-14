@@ -8,6 +8,9 @@ use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 
+/**
+ * Incrementally parses HTTP/2 frames from arbitrary byte chunks.
+ */
 final class FrameParser
 {
     private readonly ByteQueue $buffer;
@@ -15,12 +18,18 @@ final class FrameParser
     /** @var array{length: int, type: int, flags: int, stream_id: int}|null */
     private ?array $pending = null;
 
+    /**
+     * Create a frame parser with an inbound frame-size limit.
+     */
     public function __construct(private int $maxFrameSize = 16_384)
     {
         $this->validateMaxFrameSize($maxFrameSize);
         $this->buffer = new ByteQueue();
     }
 
+    /**
+     * Return the number of buffered unparsed bytes.
+     */
     public function bufferedBytes(): int
     {
         return $this->buffer->bytes();
@@ -59,6 +68,9 @@ final class FrameParser
         return $frames;
     }
 
+    /**
+     * Update the maximum accepted inbound frame size.
+     */
     public function setMaxFrameSize(int $bytes): void
     {
         $this->validateMaxFrameSize($bytes);

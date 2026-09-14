@@ -14,6 +14,9 @@ use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 use LogicException;
 
+/**
+ * Serializes bounded HTTP/1.1 responses onto a network connection.
+ */
 final class Http1ResponseWriter implements ResponseWriterInterface
 {
     /** @var Closure(bool): void */
@@ -47,6 +50,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         $this->onEnd = $onEndClosure;
     }
 
+    /**
+     * End the response, optionally writing one final body chunk.
+     */
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -72,21 +78,33 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->endChunked($finalChunk);
     }
 
+    /**
+     * Force the connection to close after this response completes.
+     */
     public function forceCloseAfterResponse(): void
     {
         $this->closeAfter = true;
     }
 
+    /**
+     * Determine whether the response has ended.
+     */
     public function isEnded(): bool
     {
         return $this->ended;
     }
 
+    /**
+     * Determine whether response headers have been started.
+     */
     public function isStarted(): bool
     {
         return $this->started;
     }
 
+    /**
+     * Register a callback invoked when connection write pressure drains.
+     */
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);
@@ -99,6 +117,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this;
     }
 
+    /**
+     * Start the response with status and headers.
+     */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -150,6 +171,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $result;
     }
 
+    /**
+     * Write a response body chunk.
+     */
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {

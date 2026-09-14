@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Hpack;
 
+/**
+ * Maintains the bounded HPACK dynamic header table.
+ */
 final class DynamicTable
 {
     private int $bytes = 0;
@@ -11,6 +14,9 @@ final class DynamicTable
     /** @var list<array{0: string, 1: string, 2: int}> */
     private array $entries = [];
 
+    /**
+     * Create a dynamic table with the supplied byte capacity.
+     */
     public function __construct(private int $maxBytes)
     {
         if ($maxBytes < 0) {
@@ -18,6 +24,9 @@ final class DynamicTable
         }
     }
 
+    /**
+     * Add an entry and evict older entries as needed.
+     */
     public function add(string $name, string $value): void
     {
         $size = 32 + strlen($name) + strlen($value);
@@ -33,16 +42,25 @@ final class DynamicTable
         $this->evict();
     }
 
+    /**
+     * Return the current table byte usage.
+     */
     public function bytes(): int
     {
         return $this->bytes;
     }
 
+    /**
+     * Return the current number of table entries.
+     */
     public function count(): int
     {
         return count($this->entries);
     }
 
+    /**
+     * Find the one-based dynamic-table index matching both name and value.
+     */
     public function exactIndex(string $name, string $value): ?int
     {
         foreach ($this->entries as $offset => $entry) {
@@ -65,11 +83,17 @@ final class DynamicTable
         return [$name, $value];
     }
 
+    /**
+     * Return the configured dynamic-table byte capacity.
+     */
     public function maxBytes(): int
     {
         return $this->maxBytes;
     }
 
+    /**
+     * Find the one-based dynamic-table index matching a name.
+     */
     public function nameIndex(string $name): ?int
     {
         foreach ($this->entries as $offset => $entry) {
@@ -81,6 +105,9 @@ final class DynamicTable
         return null;
     }
 
+    /**
+     * Update the table capacity and evict entries as necessary.
+     */
     public function setMaxBytes(int $bytes): void
     {
         if ($bytes < 0) {

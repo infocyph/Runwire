@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Http\Http1\Internal;
 
 use Infocyph\Runwire\Http\Headers;
 
+/**
+ * Validates HTTP/1.1 request framing and routing headers.
+ */
 final class RequestHeadValidator
 {
+    /**
+     * Validate request headers and return normalized framing metadata.
+     */
     public function validate(Headers $headers, int $maxBodyBytes): RequestHead
     {
         $this->validateHost($headers);

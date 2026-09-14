@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Hpack;
 
+/**
+ * Encodes and decodes the HPACK static Huffman code.
+ */
 final class HuffmanCodec
 {
     /** @var array<int, array<int, int>> */
     private array $decode = [];
 
+    /**
+     * Build the decoding lookup table from the RFC code table.
+     */
     public function __construct()
     {
         foreach (HuffmanTable::CODES as $symbol => $code) {
@@ -17,6 +23,9 @@ final class HuffmanCodec
         }
     }
 
+    /**
+     * Decode an HPACK Huffman string within the output limit.
+     */
     public function decode(string $encoded, int $maxOutputBytes): string
     {
         if ($maxOutputBytes < 0) {
@@ -41,6 +50,9 @@ final class HuffmanCodec
         return $output;
     }
 
+    /**
+     * Encode a string with the HPACK static Huffman table.
+     */
     public function encode(string $value): string
     {
         $buffer = 0;

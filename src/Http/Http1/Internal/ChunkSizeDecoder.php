@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http1\Internal;
 
+/**
+ * Decodes bounded HTTP/1.1 chunk-size lines.
+ */
 final class ChunkSizeDecoder
 {
+    /**
+     * Decode a chunk-size line while enforcing the remaining body limit.
+     */
     public function decode(string $line, int $maxBodyBytes, int $bodyReceived): int
     {
         $semicolon = strpos($line, ';');

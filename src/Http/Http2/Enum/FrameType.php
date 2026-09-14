@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Enum;
 
+/**
+ * Defines standard HTTP/2 frame type identifiers.
+ */
 enum FrameType: int
 {
     case CONTINUATION = 0x9;

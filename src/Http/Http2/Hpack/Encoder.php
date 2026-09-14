@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Hpack;
 
+/**
+ * Encodes HTTP headers into HPACK blocks while maintaining dynamic-table state.
+ */
 final class Encoder
 {
     /** @var array<string, true> */
@@ -20,6 +23,9 @@ final class Encoder
 
     private ?int $pendingTableSize = null;
 
+    /**
+     * Create an HPACK encoder with a dynamic-table capacity.
+     */
     public function __construct(int $maxDynamicTableBytes = 4_096)
     {
         if ($maxDynamicTableBytes < 0) {
@@ -29,6 +35,9 @@ final class Encoder
         $this->huffman = new HuffmanCodec();
     }
 
+    /**
+     * Return the current dynamic-table byte usage.
+     */
     public function dynamicTableBytes(): int
     {
         return $this->dynamic->bytes();
@@ -69,6 +78,9 @@ final class Encoder
         return $encoded;
     }
 
+    /**
+     * Update the dynamic-table capacity advertised by the peer.
+     */
     public function setPeerMaxDynamicTableBytes(int $bytes): void
     {
         if ($bytes < 0) {

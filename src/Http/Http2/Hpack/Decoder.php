@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Hpack;
 
+/**
+ * Decodes bounded HPACK header blocks while maintaining dynamic-table state.
+ */
 final class Decoder
 {
     private readonly DynamicTable $dynamic;
@@ -12,6 +15,9 @@ final class Decoder
 
     private int $allowedDynamicTableBytes;
 
+    /**
+     * Create an HPACK decoder with table and header-list limits.
+     */
     public function __construct(
         int $maxDynamicTableBytes = 4_096,
         private readonly int $maxHeaderListBytes = 65_536,
@@ -80,16 +86,25 @@ final class Decoder
         return $headers;
     }
 
+    /**
+     * Return the current dynamic-table byte usage.
+     */
     public function dynamicTableBytes(): int
     {
         return $this->dynamic->bytes();
     }
 
+    /**
+     * Return the current dynamic-table entry count.
+     */
     public function dynamicTableCount(): int
     {
         return $this->dynamic->count();
     }
 
+    /**
+     * Update the maximum dynamic-table size accepted from the peer.
+     */
     public function setAllowedDynamicTableBytes(int $bytes): void
     {
         if ($bytes < 0) {

@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Http\Http1;
 
 use InvalidArgumentException;
 
+/**
+ * Defines parser, buffering, response, and timeout limits for HTTP/1.1.
+ */
 final readonly class Http1Limits
 {
+    /**
+     * Create and validate HTTP/1.1 connection limits.
+     */
     public function __construct(
         public int $maxRequestLineBytes = 8_192,
         public int $maxHeaderLineBytes = 8_192,

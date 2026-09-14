@@ -24,6 +24,9 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Throwable;
 
+/**
+ * Parses and serves HTTP/1.1 exchanges over a single network connection.
+ */
 final class Http1Connection
 {
     private readonly ChunkSizeDecoder $chunkSizeDecoder;
@@ -123,6 +126,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * Stop accepting further keep-alive work and drain the active exchange.
+     */
     public function drain(): void
     {
         if ($this->closed || $this->draining) {
@@ -139,6 +145,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * Return the number of requests processed on this connection.
+     */
     public function requestCount(): int
     {
         return $this->requestCount;

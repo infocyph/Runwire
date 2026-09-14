@@ -7,8 +7,14 @@ namespace Infocyph\Runwire\Http\Http2;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 
+/**
+ * Encodes HTTP/2 frames and common control-frame payloads.
+ */
 final class FrameWriter
 {
+    /**
+     * Encode a frame to its wire representation.
+     */
     public static function encode(Frame $frame): string
     {
         $length = strlen($frame->payload);
@@ -22,6 +28,9 @@ final class FrameWriter
             . $frame->payload;
     }
 
+    /**
+     * Build a GOAWAY frame.
+     */
     public static function goAway(int $lastStreamId, ErrorCode $error, string $debug = ''): Frame
     {
         return new Frame(
@@ -32,6 +41,9 @@ final class FrameWriter
         );
     }
 
+    /**
+     * Build an RST_STREAM frame.
+     */
     public static function rstStream(int $streamId, ErrorCode $error): Frame
     {
         if ($streamId === 0) {
@@ -55,6 +67,9 @@ final class FrameWriter
         return new Frame(FrameType::SETTINGS->value, 0, 0, $payload);
     }
 
+    /**
+     * Build a WINDOW_UPDATE frame.
+     */
     public static function windowUpdate(int $streamId, int $increment): Frame
     {
         if ($increment <= 0 || $increment > 0x7FFF_FFFF) {

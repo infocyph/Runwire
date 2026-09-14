@@ -7,8 +7,14 @@ namespace Infocyph\Runwire\Http\Http2;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use InvalidArgumentException;
 
+/**
+ * Represents one validated HTTP/2 frame.
+ */
 final readonly class Frame
 {
+    /**
+     * Create an HTTP/2 frame.
+     */
     public function __construct(
         public int $type,
         public int $flags,
@@ -29,11 +35,17 @@ final readonly class Frame
         }
     }
 
+    /**
+     * Determine whether the supplied flag bits are set.
+     */
     public function hasFlag(int $flag): bool
     {
         return ($this->flags & $flag) === $flag;
     }
 
+    /**
+     * Return the known frame type when this identifier is standardized.
+     */
     public function knownType(): ?FrameType
     {
         return FrameType::tryFrom($this->type);
