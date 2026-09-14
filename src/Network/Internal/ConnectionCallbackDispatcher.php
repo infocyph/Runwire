@@ -9,6 +9,9 @@ use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Throwable;
 
+/**
+ * Dispatches connection callbacks while preserving deterministic cleanup semantics.
+ */
 final class ConnectionCallbackDispatcher
 {
     /** @param list<Closure> $callbacks */
@@ -29,6 +32,9 @@ final class ConnectionCallbackDispatcher
         }
     }
 
+    /**
+     * Invokes a connection callback and runs the supplied failure cleanup on error.
+     */
     public static function invoke(?Closure $callback, Connection $connection, Closure $onFailure): void
     {
         if ($callback === null) {

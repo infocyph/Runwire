@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Network;
 
 use InvalidArgumentException;
 
+/**
+ * Configures server-side TLS certificates, ALPN, and handshake behavior.
+ */
 final readonly class TlsOptions
 {
     /**
@@ -56,6 +59,9 @@ final readonly class TlsOptions
         ];
     }
 
+    /**
+     * Returns the OpenSSL crypto method used for server handshakes.
+     */
     public function method(): int
     {
         return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);

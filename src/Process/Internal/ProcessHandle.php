@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Process\Internal;
 
 use Infocyph\Runwire\Exception\ProcessException;
 
+/**
+ * Owns a child-process resource and its termination lifecycle.
+ */
 final class ProcessHandle
 {
     /** @var resource|null */
@@ -17,6 +20,9 @@ final class ProcessHandle
         $this->resource = $resource;
     }
 
+    /**
+     * Forcefully terminates the process if it is still running.
+     */
     public function abort(): void
     {
         if (!is_resource($this->resource)) {
@@ -29,6 +35,9 @@ final class ProcessHandle
         }
     }
 
+    /**
+     * Closes the process handle and returns its exit code when available.
+     */
     public function close(): ?int
     {
         if (!is_resource($this->resource)) {

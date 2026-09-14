@@ -8,12 +8,18 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Protocol\Enum\LengthPrefixFormat;
 use InvalidArgumentException;
 
+/**
+ * Encodes and incrementally decodes frames using a fixed-width length prefix.
+ */
 final class LengthPrefixedCodec implements FrameCodecInterface
 {
     private readonly ByteQueue $buffer;
 
     private ?int $pendingLength = null;
 
+    /**
+     * Creates a length-prefixed codec with the selected prefix format and frame limit.
+     */
     public function __construct(
         private readonly LengthPrefixFormat $format = LengthPrefixFormat::UINT32_BE,
         private readonly int $maxFrameBytes = 16_777_216,
@@ -24,11 +30,17 @@ final class LengthPrefixedCodec implements FrameCodecInterface
         $this->buffer = new ByteQueue();
     }
 
+    /**
+     * Returns bytes currently buffered awaiting a complete frame.
+     */
     public function bufferedBytes(): int
     {
         return $this->buffer->bytes();
     }
 
+    /**
+     * Encodes one frame with its configured length prefix.
+     */
     public function encode(string $frame): string
     {
         $length = strlen($frame);
@@ -39,6 +51,9 @@ final class LengthPrefixedCodec implements FrameCodecInterface
         return $this->encodeLength($length) . $frame;
     }
 
+    /**
+     * Decodes up to the requested number of complete frames from incoming bytes.
+     */
     public function push(string $bytes, int $maxFrames = 256): array
     {
         if ($maxFrames <= 0) {
@@ -71,6 +86,9 @@ final class LengthPrefixedCodec implements FrameCodecInterface
         return $frames;
     }
 
+    /**
+     * Clears buffered bytes and any pending frame length.
+     */
     public function reset(): void
     {
         $this->buffer->clear();

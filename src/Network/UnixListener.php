@@ -10,6 +10,9 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use LogicException;
 use Throwable;
 
+/**
+ * Accepts non-blocking Unix-domain stream connections on a filesystem socket.
+ */
 final class UnixListener
 {
     private readonly ?int $socketInode;
@@ -50,6 +53,9 @@ final class UnixListener
         $this->socketInode = is_int($inode) ? $inode : null;
     }
 
+    /**
+     * Binds a Unix-domain listener at the supplied absolute socket path.
+     */
     public static function bind(
         string $path,
         ?UnixListenerOptions $options = null,
@@ -66,6 +72,9 @@ final class UnixListener
         return new self($stream, $path, $options, $connectionLimits);
     }
 
+    /**
+     * Immediately aborts every active connection.
+     */
     public function abortConnections(): void
     {
         foreach ($this->connections as $connection) {
@@ -73,16 +82,25 @@ final class UnixListener
         }
     }
 
+    /**
+     * Returns the total number of accepted client connections.
+     */
     public function acceptedConnections(): int
     {
         return $this->acceptedConnections;
     }
 
+    /**
+     * Returns the number of currently active connections.
+     */
     public function activeConnections(): int
     {
         return count($this->connections);
     }
 
+    /**
+     * Returns cumulative bytes read across active and closed connections.
+     */
     public function bytesRead(): int
     {
         $total = $this->closedBytesRead;
@@ -93,6 +111,9 @@ final class UnixListener
         return $total;
     }
 
+    /**
+     * Returns cumulative bytes written across active and closed connections.
+     */
     public function bytesWritten(): int
     {
         $total = $this->closedBytesWritten;
@@ -103,6 +124,9 @@ final class UnixListener
         return $total;
     }
 
+    /**
+     * Closes the listener and optionally unlinks its owned socket path.
+     */
     public function close(bool $unlinkPath = true): void
     {
         if ($this->closed) {
@@ -121,6 +145,9 @@ final class UnixListener
         }
     }
 
+    /**
+     * Begins graceful closure of all active connections.
+     */
     public function closeConnectionsGracefully(): void
     {
         foreach ($this->connections as $connection) {
@@ -128,37 +155,58 @@ final class UnixListener
         }
     }
 
+    /**
+     * Reports whether the listener is currently accepting connections.
+     */
     public function isAccepting(): bool
     {
         return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
     }
 
+    /**
+     * Reports whether the listener has been closed.
+     */
     public function isClosed(): bool
     {
         return $this->closed;
     }
 
+    /**
+     * Returns the configured concurrent connection ceiling.
+     */
     public function maxConnections(): int
     {
         return $this->options->listener->maxConnections;
     }
 
+    /**
+     * Returns the bound Unix-domain socket path.
+     */
     public function path(): string
     {
         return $this->path;
     }
 
+    /**
+     * Temporarily pauses accepting new connections.
+     */
     public function pauseAccepting(): void
     {
         $this->acceptPaused = true;
         $this->syncAcceptWatcher();
     }
 
+    /**
+     * Returns the total number of rejected connection attempts.
+     */
     public function rejectedConnections(): int
     {
         return $this->rejectedConnections;
     }
 
+    /**
+     * Resumes accepting connections after a pause.
+     */
     public function resumeAccepting(): void
     {
         if ($this->closed) {

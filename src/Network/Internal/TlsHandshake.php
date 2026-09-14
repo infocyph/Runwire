@@ -9,6 +9,9 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\TlsOptions;
 use InvalidArgumentException;
 
+/**
+ * Drives a non-blocking server-side TLS handshake on the event loop.
+ */
 final class TlsHandshake
 {
     private bool $finished = false;
@@ -68,6 +71,9 @@ final class TlsHandshake
         return $handshake;
     }
 
+    /**
+     * Cancels the handshake and triggers failure cleanup if it is still active.
+     */
     public function cancel(): void
     {
         if (!$this->finished) {

@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Network\Internal;
 
 use InvalidArgumentException;
 
+/**
+ * Stores byte chunks with efficient front reads, discards, and compaction.
+ */
 final class ByteQueue
 {
     private const int COMPACT_HEAD = 64;
@@ -19,6 +22,9 @@ final class ByteQueue
 
     private int $headOffset = 0;
 
+    /**
+     * Append non-empty bytes to the queue.
+     */
     public function append(string $bytes): void
     {
         if ($bytes === '') {
@@ -28,11 +34,17 @@ final class ByteQueue
         $this->bytes += strlen($bytes);
     }
 
+    /**
+     * Return the total queued byte count.
+     */
     public function bytes(): int
     {
         return $this->bytes;
     }
 
+    /**
+     * Remove all queued bytes.
+     */
     public function clear(): void
     {
         $this->chunks = [];
@@ -41,6 +53,9 @@ final class ByteQueue
         $this->bytes = 0;
     }
 
+    /**
+     * Discard an exact number of bytes from the front.
+     */
     public function discard(int $bytes): void
     {
         if ($bytes < 0 || $bytes > $this->bytes) {
@@ -64,6 +79,9 @@ final class ByteQueue
         $this->compact();
     }
 
+    /**
+     * Return up to the requested bytes from the front without consuming them.
+     */
     public function front(int $maxBytes): string
     {
         if ($maxBytes <= 0 || $this->bytes === 0 || !isset($this->chunks[$this->head])) {
@@ -78,11 +96,17 @@ final class ByteQueue
             : substr($chunk, $this->headOffset, $length);
     }
 
+    /**
+     * Determine whether the queue contains no bytes.
+     */
     public function isEmpty(): bool
     {
         return $this->bytes === 0;
     }
 
+    /**
+     * Consume and return up to the requested number of bytes.
+     */
     public function read(int $maxBytes): string
     {
         if ($maxBytes < 0) {

@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Network;
 
 use InvalidArgumentException;
 
+/**
+ * Configures stream-listener capacity, batching, and socket context behavior.
+ */
 final readonly class ListenerOptions
 {
     /** @var array<string, mixed> */

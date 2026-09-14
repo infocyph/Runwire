@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Protocol\Enum;
 
+/**
+ * Defines supported fixed-width frame length-prefix encodings.
+ */
 enum LengthPrefixFormat: int
 {
     case UINT16_BE = 2;
@@ -12,6 +15,9 @@ enum LengthPrefixFormat: int
 
     case UINT8 = 1;
 
+    /**
+     * Returns the largest frame length representable by this prefix format.
+     */
     public function maximum(): int
     {
         return match ($this) {

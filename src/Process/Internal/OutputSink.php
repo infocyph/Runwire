@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Process\Internal;
 use Closure;
 use Infocyph\Runwire\Process\Enum\IoMode;
 
+/**
+ * Collects or streams child-process output while tracking truncation.
+ */
 final class OutputSink
 {
     private int $bytes = 0;
@@ -15,21 +18,33 @@ final class OutputSink
 
     private bool $truncated = false;
 
+    /**
+     * Creates an output sink for the selected I/O mode.
+     */
     public function __construct(
         private readonly IoMode $mode,
         private readonly ?Closure $consumer,
     ) {}
 
+    /**
+     * Returns the total number of output bytes observed.
+     */
     public function bytes(): int
     {
         return $this->bytes;
     }
 
+    /**
+     * Returns output captured by CAPTURE mode.
+     */
     public function capture(): string
     {
         return $this->capture;
     }
 
+    /**
+     * Consumes an output chunk and records the accepted prefix.
+     */
     public function consume(string $chunk, int $acceptedBytes): void
     {
         $length = strlen($chunk);
@@ -56,6 +71,9 @@ final class OutputSink
         }
     }
 
+    /**
+     * Reports whether any observed output was truncated.
+     */
     public function truncated(): bool
     {
         return $this->truncated;

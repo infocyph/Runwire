@@ -8,6 +8,9 @@ use Infocyph\Runwire\Process\Enum\IoMode;
 use Infocyph\Runwire\Process\Enum\OutputOverflowPolicy;
 use InvalidArgumentException;
 
+/**
+ * Immutable child-process command definition with fluent copy helpers.
+ */
 final readonly class Command
 {
     /**
@@ -60,6 +63,9 @@ final readonly class Command
         return $this->copy(arguments: $arguments);
     }
 
+    /**
+     * Returns a copy using the supplied working directory.
+     */
     public function cwd(?string $cwd): self
     {
         return $this->copy(cwd: $cwd, replaceCwd: true);
@@ -71,31 +77,49 @@ final readonly class Command
         return $this->copy(environment: $environment);
     }
 
+    /**
+     * Returns a copy using the supplied output byte ceiling.
+     */
     public function maxOutputBytes(int $bytes): self
     {
         return $this->copy(maxOutputBytes: $bytes);
     }
 
+    /**
+     * Returns a copy using the supplied stdout and stderr modes.
+     */
     public function output(IoMode $stdout, IoMode $stderr): self
     {
         return $this->copy(stdoutMode: $stdout, stderrMode: $stderr);
     }
 
+    /**
+     * Returns a copy using the supplied output-overflow policy.
+     */
     public function overflowPolicy(OutputOverflowPolicy $policy): self
     {
         return $this->copy(overflowPolicy: $policy);
     }
 
+    /**
+     * Returns a copy using the supplied stdin source.
+     */
     public function stdin(mixed $stdin): self
     {
         return $this->copy(stdin: $stdin, replaceStdin: true);
     }
 
+    /**
+     * Returns a copy using the supplied termination grace period.
+     */
     public function terminationGrace(float $seconds): self
     {
         return $this->copy(terminationGraceSeconds: $seconds);
     }
 
+    /**
+     * Returns a copy using the supplied execution timeout.
+     */
     public function timeout(float $seconds): self
     {
         return $this->copy(timeoutSeconds: $seconds);

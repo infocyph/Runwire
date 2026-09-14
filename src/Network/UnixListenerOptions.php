@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Network;
 
 use InvalidArgumentException;
 
+/**
+ * Configures Unix-domain listener path ownership and permissions.
+ */
 final readonly class UnixListenerOptions
 {
+    /**
+     * Creates Unix-domain listener options.
+     */
     public function __construct(
         public ListenerOptions $listener = new ListenerOptions(),
         public bool $removeStaleSocket = false,

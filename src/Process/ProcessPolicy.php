@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Process;
 
 use InvalidArgumentException;
 
+/**
+ * Defines security and resource ceilings for child-process execution.
+ */
 final readonly class ProcessPolicy
 {
     /**

@@ -11,6 +11,9 @@ use Infocyph\Runwire\Network\Internal\TlsHandshake;
 use LogicException;
 use Throwable;
 
+/**
+ * Accepts non-blocking TCP connections and optionally upgrades them through TLS.
+ */
 final class TcpListener
 {
     private int $acceptedConnections = 0;
@@ -51,6 +54,9 @@ final class TcpListener
         $this->stream = $stream;
     }
 
+    /**
+     * Binds a TCP listener to the supplied address.
+     */
     public static function bind(
         string $address,
         ?ListenerOptions $options = null,
@@ -108,6 +114,9 @@ final class TcpListener
         );
     }
 
+    /**
+     * Immediately aborts every active connection.
+     */
     public function abortConnections(): void
     {
         foreach ($this->connections as $connection) {
@@ -115,21 +124,33 @@ final class TcpListener
         }
     }
 
+    /**
+     * Returns the total number of accepted client connections.
+     */
     public function acceptedConnections(): int
     {
         return $this->acceptedConnections;
     }
 
+    /**
+     * Returns the number of currently active connections.
+     */
     public function activeConnections(): int
     {
         return count($this->connections);
     }
 
+    /**
+     * Returns the listener's bound address.
+     */
     public function address(): string
     {
         return $this->address;
     }
 
+    /**
+     * Returns cumulative bytes read across active and closed connections.
+     */
     public function bytesRead(): int
     {
         $total = $this->closedBytesRead;
@@ -140,6 +161,9 @@ final class TcpListener
         return $total;
     }
 
+    /**
+     * Returns cumulative bytes written across active and closed connections.
+     */
     public function bytesWritten(): int
     {
         $total = $this->closedBytesWritten;
@@ -150,6 +174,9 @@ final class TcpListener
         return $total;
     }
 
+    /**
+     * Closes the listener and cancels pending TLS handshakes.
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -170,6 +197,9 @@ final class TcpListener
         $this->loop = null;
     }
 
+    /**
+     * Begins graceful closure of all active connections.
+     */
     public function closeConnectionsGracefully(): void
     {
         foreach ($this->connections as $connection) {
@@ -177,21 +207,33 @@ final class TcpListener
         }
     }
 
+    /**
+     * Reports whether the listener is currently accepting connections.
+     */
     public function isAccepting(): bool
     {
         return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
     }
 
+    /**
+     * Reports whether the listener has been closed.
+     */
     public function isClosed(): bool
     {
         return $this->closed;
     }
 
+    /**
+     * Returns the configured concurrent connection ceiling.
+     */
     public function maxConnections(): int
     {
         return $this->options->maxConnections;
     }
 
+    /**
+     * Temporarily pauses accepting new connections.
+     */
     public function pauseAccepting(): void
     {
         if ($this->closed) {
@@ -201,16 +243,25 @@ final class TcpListener
         $this->syncAcceptWatcher();
     }
 
+    /**
+     * Returns the number of TLS handshakes currently in progress.
+     */
     public function pendingHandshakes(): int
     {
         return count($this->handshakes);
     }
 
+    /**
+     * Returns the total number of rejected connection attempts.
+     */
     public function rejectedConnections(): int
     {
         return $this->rejectedConnections;
     }
 
+    /**
+     * Resumes accepting connections after a pause.
+     */
     public function resumeAccepting(): void
     {
         if ($this->closed) {

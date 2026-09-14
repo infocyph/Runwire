@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Process\Internal;
 use Closure;
 use Infocyph\Runwire\Exception\ProcessException;
 
+/**
+ * Normalizes process stdin from strings, streams, or callable producers.
+ */
 final class InputSource
 {
     private int $bytesProduced = 0;
@@ -23,6 +26,9 @@ final class InputSource
 
     private ?string $string = null;
 
+    /**
+     * Creates an input source with a maximum produced-byte limit.
+     */
     public function __construct(mixed $input, private readonly int $maxBytes)
     {
         if (is_string($input)) {
@@ -55,6 +61,9 @@ final class InputSource
         $this->eof = true;
     }
 
+    /**
+     * Restores the original blocking mode of a stream-backed source.
+     */
     public function close(): void
     {
         if (is_resource($this->stream) && $this->streamWasBlocked !== null) {
@@ -62,16 +71,25 @@ final class InputSource
         }
     }
 
+    /**
+     * Reports whether the input source has reached end-of-input.
+     */
     public function eof(): bool
     {
         return $this->eof;
     }
 
+    /**
+     * Reports whether the input is backed by a stream resource.
+     */
     public function isResource(): bool
     {
         return is_resource($this->stream);
     }
 
+    /**
+     * Pulls up to the requested number of stdin bytes.
+     */
     public function pull(int $maxBytes): ?string
     {
         if ($maxBytes <= 0) {
@@ -100,6 +118,7 @@ final class InputSource
         return $chunk;
     }
 
+    /** @return resource */
     public function resource(): mixed
     {
         return $this->stream;

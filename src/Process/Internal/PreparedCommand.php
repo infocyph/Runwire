@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Process\Internal;
 
 use Infocyph\Runwire\Process\Command;
 
+/**
+ * Holds a validated command and normalized execution arguments.
+ */
 final readonly class PreparedCommand
 {
     /**

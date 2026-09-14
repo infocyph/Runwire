@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network\Enum;
 
+/**
+ * Describes acceptance, pressure, closure, or limit rejection for stream writes.
+ */
 enum WriteState: string
 {
     case ACCEPTED = 'accepted';

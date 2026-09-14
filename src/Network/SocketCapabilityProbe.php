@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network;
 
+/**
+ * Probes runtime support for optional socket capabilities used by listeners.
+ */
 final class SocketCapabilityProbe
 {
+    /**
+     * Reports whether SO_REUSEPORT can be configured by the runtime.
+     */
     public static function supportsReusePort(): bool
     {
         if (!function_exists('socket_create')
@@ -27,6 +33,9 @@ final class SocketCapabilityProbe
         }
     }
 
+    /**
+     * Reports whether Unix-domain stream sockets are available.
+     */
     public static function supportsUnixSockets(): bool
     {
         return in_array('unix', stream_get_transports(), true);

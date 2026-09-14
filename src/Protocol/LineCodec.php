@@ -6,10 +6,16 @@ namespace Infocyph\Runwire\Protocol;
 
 use InvalidArgumentException;
 
+/**
+ * Encodes and incrementally decodes delimiter-terminated text frames.
+ */
 final class LineCodec implements FrameCodecInterface
 {
     private string $buffer = '';
 
+    /**
+     * Creates a line codec with the supplied delimiter and frame-size limit.
+     */
     public function __construct(
         private readonly string $delimiter = "\n",
         private readonly int $maxFrameBytes = 65_536,
@@ -26,11 +32,17 @@ final class LineCodec implements FrameCodecInterface
         }
     }
 
+    /**
+     * Returns bytes currently buffered awaiting a delimiter.
+     */
     public function bufferedBytes(): int
     {
         return strlen($this->buffer);
     }
 
+    /**
+     * Encodes one frame terminated by the configured delimiter.
+     */
     public function encode(string $frame): string
     {
         $payload = $frame;
@@ -47,6 +59,9 @@ final class LineCodec implements FrameCodecInterface
         return $payload . $this->delimiter;
     }
 
+    /**
+     * Decodes up to the requested number of complete line frames.
+     */
     public function push(string $bytes, int $maxFrames = 256): array
     {
         if ($maxFrames <= 0) {
@@ -80,6 +95,9 @@ final class LineCodec implements FrameCodecInterface
         return $frames;
     }
 
+    /**
+     * Clears buffered partial line data.
+     */
     public function reset(): void
     {
         $this->buffer = '';

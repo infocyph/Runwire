@@ -8,10 +8,19 @@ use Infocyph\Runwire\Exception\ProcessStartException;
 use Infocyph\Runwire\Process\Command;
 use Infocyph\Runwire\Process\ProcessPolicy;
 
+/**
+ * Validates process commands against the configured execution policy.
+ */
 final readonly class CommandValidator
 {
+    /**
+     * Creates a validator for the supplied process policy.
+     */
     public function __construct(private ProcessPolicy $policy) {}
 
+    /**
+     * Validates and normalizes a command for execution.
+     */
     public function validate(Command $command): PreparedCommand
     {
         if ($command->timeoutSeconds > $this->policy->maxTimeoutSeconds) {

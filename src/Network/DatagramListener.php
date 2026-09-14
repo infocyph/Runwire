@@ -11,6 +11,9 @@ use Infocyph\Runwire\Network\Enum\DatagramWriteState;
 use LogicException;
 use Throwable;
 
+/**
+ * Provides bounded non-blocking UDP receive and send operations on an event loop.
+ */
 final class DatagramListener
 {
     private int $bytesRead = 0;
@@ -43,6 +46,9 @@ final class DatagramListener
         $this->stream = $stream;
     }
 
+    /**
+     * Bind a non-blocking UDP listener to an address.
+     */
     public static function bind(string $address, ?DatagramOptions $options = null): self
     {
         $options ??= new DatagramOptions();
@@ -73,21 +79,33 @@ final class DatagramListener
         return new self($stream, is_string($bound) ? $bound : $address, $options);
     }
 
+    /**
+     * Return the bound listener address.
+     */
     public function address(): string
     {
         return $this->address;
     }
 
+    /**
+     * Return cumulative payload bytes received.
+     */
     public function bytesRead(): int
     {
         return $this->bytesRead;
     }
 
+    /**
+     * Return cumulative payload bytes sent.
+     */
     public function bytesWritten(): int
     {
         return $this->bytesWritten;
     }
 
+    /**
+     * Close the listener and detach it from its event loop.
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -103,32 +121,50 @@ final class DatagramListener
         $this->loop = null;
     }
 
+    /**
+     * Determine whether the listener is closed.
+     */
     public function isClosed(): bool
     {
         return $this->closed;
     }
 
+    /**
+     * Determine whether datagram receive events are active.
+     */
     public function isReceiving(): bool
     {
         return !$this->closed && !$this->paused && $this->readWatcher !== null;
     }
 
+    /**
+     * Pause datagram receive events.
+     */
     public function pause(): void
     {
         $this->paused = true;
         $this->syncWatcher();
     }
 
+    /**
+     * Return the cumulative accepted datagram count.
+     */
     public function receivedDatagrams(): int
     {
         return $this->receivedDatagrams;
     }
 
+    /**
+     * Return the cumulative rejected datagram count.
+     */
     public function rejectedDatagrams(): int
     {
         return $this->rejectedDatagrams;
     }
 
+    /**
+     * Resume datagram receive events.
+     */
     public function resume(): void
     {
         if ($this->closed) {
@@ -138,6 +174,9 @@ final class DatagramListener
         $this->syncWatcher();
     }
 
+    /**
+     * Send one datagram to a peer address.
+     */
     public function sendTo(string $payload, string $peerAddress): DatagramWriteResult
     {
         $stream = $this->stream;

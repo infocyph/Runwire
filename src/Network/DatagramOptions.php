@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Network;
 
 use InvalidArgumentException;
 
+/**
+ * Defines UDP datagram sizing, batching, socket context, and port-reuse options.
+ */
 final readonly class DatagramOptions
 {
     /** @var array<string, mixed> */

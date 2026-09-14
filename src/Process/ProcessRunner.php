@@ -16,6 +16,9 @@ use Infocyph\Runwire\Process\Internal\PreparedCommand;
 use Infocyph\Runwire\Process\Internal\ProcessHandle;
 use Throwable;
 
+/**
+ * Executes validated child-process commands with bounded I/O and termination handling.
+ */
 final readonly class ProcessRunner
 {
     private const int IO_CHUNK_BYTES = 65_536;
@@ -28,12 +31,18 @@ final readonly class ProcessRunner
 
     private CommandValidator $validator;
 
+    /**
+     * Creates a process runner using the supplied execution policy.
+     */
     public function __construct(?ProcessPolicy $policy = null)
     {
         $this->policy = $policy ?? new ProcessPolicy();
         $this->validator = new CommandValidator($this->policy);
     }
 
+    /**
+     * Executes a command and returns its captured execution result.
+     */
     public function run(Command $command, ?callable $stdoutConsumer = null, ?callable $stderrConsumer = null): ProcessResult
     {
         $this->ensureProcessFunctions();

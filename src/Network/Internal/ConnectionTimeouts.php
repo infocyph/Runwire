@@ -8,6 +8,9 @@ use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 
+/**
+ * Manages idle and lifetime timers for a network connection.
+ */
 final class ConnectionTimeouts
 {
     /** @var Closure(CloseReason): void */
@@ -34,6 +37,9 @@ final class ConnectionTimeouts
         $this->armLifetime($lifetimeTimeoutSeconds);
     }
 
+    /**
+     * Cancels all active connection timeout timers.
+     */
     public function cancel(): void
     {
         foreach ([$this->idleTimer, $this->lifetimeTimer] as $handle) {
@@ -45,6 +51,9 @@ final class ConnectionTimeouts
         $this->lifetimeTimer = null;
     }
 
+    /**
+     * Records current loop time as the connection's latest activity.
+     */
     public function touch(): void
     {
         $this->lastActivityAt = $this->loop->now();

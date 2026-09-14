@@ -6,11 +6,18 @@ namespace Infocyph\Runwire\Network\Internal;
 
 use LogicException;
 
-/** @internal */
+/**
+ * Tracks exclusive ownership of a connection's callback slots.
+ *
+ * @internal
+ */
 final class ConnectionCallbackOwnership
 {
     private ?object $owner = null;
 
+    /**
+     * Ensures no adapter currently owns the connection callback slots.
+     */
     public function assertUnclaimed(): void
     {
         if ($this->owner !== null) {
@@ -18,6 +25,9 @@ final class ConnectionCallbackOwnership
         }
     }
 
+    /**
+     * Grants exclusive callback-slot ownership to an adapter.
+     */
     public function claim(object $owner, bool $slotsConfigured, bool $closed): void
     {
         if ($this->owner !== null) {
@@ -33,6 +43,9 @@ final class ConnectionCallbackOwnership
         $this->owner = $owner;
     }
 
+    /**
+     * Releases callback-slot ownership held by the supplied adapter.
+     */
     public function release(object $owner): void
     {
         if ($this->owner !== $owner) {

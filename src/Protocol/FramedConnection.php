@@ -13,6 +13,9 @@ use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 use Throwable;
 
+/**
+ * Adapts a byte-stream connection to framed message send and receive operations.
+ */
 final class FramedConnection
 {
     private readonly Closure $frameHandler;
@@ -44,16 +47,25 @@ final class FramedConnection
         });
     }
 
+    /**
+     * Aborts the underlying transport with the supplied close reason.
+     */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
         $this->connection->abort($reason);
     }
 
+    /**
+     * Begins graceful closure of the underlying transport.
+     */
     public function closeGracefully(): void
     {
         $this->connection->closeGracefully();
     }
 
+    /**
+     * Returns the frame codec used by this connection.
+     */
     public function codec(): FrameCodecInterface
     {
         return $this->codec;
@@ -70,11 +82,17 @@ final class FramedConnection
         return $this;
     }
 
+    /**
+     * Encodes and writes one application frame.
+     */
     public function send(string $frame): WriteResult
     {
         return $this->connection->write($this->codec->encode($frame));
     }
 
+    /**
+     * Returns the underlying byte-stream connection.
+     */
     public function transport(): Connection
     {
         return $this->connection;

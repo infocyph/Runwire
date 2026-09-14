@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network\Enum;
 
+/**
+ * Classifies connection termination reasons.
+ */
 enum CloseReason: string
 {
     case IDLE_TIMEOUT = 'idle_timeout';
