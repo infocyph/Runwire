@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Metrics;
 
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Loop\LoopDiagnosticsSnapshot;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
@@ -16,8 +17,6 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
  */
 final class RuntimeMetrics implements MetricsProviderInterface
 {
-    private const int NANOS_PER_SECOND = 1_000_000_000;
-
     private readonly int $startedAtNanoseconds;
 
     private int $backpressureEventsTotal = 0;
@@ -79,7 +78,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
      */
     public function __construct(?int $startedAtNanoseconds = null)
     {
-        $this->startedAtNanoseconds = $startedAtNanoseconds ?? self::nowNanoseconds();
+        $this->startedAtNanoseconds = $startedAtNanoseconds ?? MonotonicTime::nowNanoseconds();
         $this->lastGcAtNanoseconds = $this->startedAtNanoseconds;
         $this->lastGcMemoryBytes = memory_get_usage(true);
         $this->errors = self::zeroedErrors();
@@ -130,8 +129,8 @@ final class RuntimeMetrics implements MetricsProviderInterface
             return;
         }
 
-        $now = self::nowNanoseconds();
-        $minimumInterval = (int) round($policy->minimumIntervalSeconds * self::NANOS_PER_SECOND);
+        $now = MonotonicTime::nowNanoseconds();
+        $minimumInterval = MonotonicTime::secondsToNanoseconds($policy->minimumIntervalSeconds);
         if ($now - $this->lastGcAtNanoseconds < $minimumInterval) {
             return;
         }
@@ -236,7 +235,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
             $this->workerBusySinceNanoseconds = null;
         }
 
-        $duration = max(0, self::nowNanoseconds() - $context->startMonotonicNanoseconds);
+        $duration = max(0, MonotonicTime::nowNanoseconds() - $context->startMonotonicNanoseconds);
         $this->requestLifetimeHighWaterNanoseconds = max($this->requestLifetimeHighWaterNanoseconds, $duration);
         $memoryDelta = max(0, memory_get_usage(true) - max(0, $memoryAtStartBytes));
         $this->requestMemoryDeltaHighWaterBytes = max($this->requestMemoryDeltaHighWaterBytes, $memoryDelta);
@@ -255,7 +254,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
     {
         ++$this->requestsTotal;
         ++$this->requestsActive;
-        $this->workerBusySinceNanoseconds ??= self::nowNanoseconds();
+        $this->workerBusySinceNanoseconds ??= MonotonicTime::nowNanoseconds();
 
         match ($version) {
             ProtocolVersion::HTTP_1_1 => ++$this->protocol[ProtocolMetric::HTTP1_REQUESTS_TOTAL->value],
@@ -287,7 +286,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
      */
     public function snapshot(): RuntimeMetricsSnapshot
     {
-        $now = self::nowNanoseconds();
+        $now = MonotonicTime::nowNanoseconds();
 
         return new RuntimeMetricsSnapshot(
             sampledAtMonotonicNanoseconds: $now,
@@ -313,7 +312,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
             requestLifetimeHighWaterNanoseconds: $this->requestLifetimeHighWaterNanoseconds,
             connectionLifetimeHighWaterNanoseconds: $this->connectionLifetimeHighWaterNanoseconds,
             requestMemoryDeltaHighWaterBytes: $this->requestMemoryDeltaHighWaterBytes,
-            workerAgeSeconds: max(0.0, ($now - $this->startedAtNanoseconds) / self::NANOS_PER_SECOND),
+            workerAgeSeconds: max(0.0, ($now - $this->startedAtNanoseconds) / MonotonicTime::NANOSECONDS_PER_SECOND),
             workerBusySeconds: $this->busySeconds($now),
             protocol: $this->protocol,
             errors: $this->errors,
@@ -349,13 +348,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
         };
     }
 
-    private static function nowNanoseconds(): int
-    {
-        $now = hrtime(true);
-
-        return is_int($now) ? $now : (int) $now;
-    }
-
     /** @return array<string, int> */
     private static function zeroedErrors(): array
     {
@@ -378,7 +370,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
     {
         return $this->workerBusySinceNanoseconds === null
             ? 0.0
-            : max(0.0, ($now - $this->workerBusySinceNanoseconds) / self::NANOS_PER_SECOND);
+            : max(0.0, ($now - $this->workerBusySinceNanoseconds) / MonotonicTime::NANOSECONDS_PER_SECOND);
     }
 
     private function completeProtocolRequest(ProtocolVersion $version, RequestContext $context): void

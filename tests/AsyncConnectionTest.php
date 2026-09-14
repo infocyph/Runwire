@@ -193,6 +193,33 @@ it('prevents callback-core consumers from overwriting adapter-owned callback slo
     }
 });
 
+it('detaches callback ownership without closing the underlying connection', function (): void {
+    [$server, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $connection = new Connection($loop, $server);
+
+    try {
+        $runtime->run(function (CoroutineScope $scope) use ($connection, $loop): void {
+            $async = new AsyncConnection($scope, $connection);
+            $async->dispose();
+
+            expect(static fn() => $async->receive())
+                ->toThrow(LogicException::class, 'Async connection adapter is disposed.');
+
+            $connection->onData(static function (): void {});
+            $loop->stop();
+        });
+
+        expect($connection->state())->toBe(ConnectionState::OPEN);
+    } finally {
+        if ($connection->state() !== ConnectionState::CLOSED) {
+            $connection->abort();
+        }
+        fclose($peer);
+    }
+});
+
 it('completes graceful close synchronously through the coroutine adapter', function (): void {
     [$server, $peer] = runwireAsyncConnectionPair();
     $loop = new SelectLoop();

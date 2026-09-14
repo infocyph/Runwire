@@ -151,11 +151,12 @@ final class DynamicTable
      */
     public function postBaseIndex(int $base, int $postBaseIndex): int
     {
-        if ($base < 0 || $postBaseIndex < 0) {
-            throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Invalid QPACK post-base index.');
-        }
-
-        return $base + $postBaseIndex;
+        return CheckedInteger::add(
+            $base,
+            $postBaseIndex,
+            ErrorCode::QPACK_DECOMPRESSION_FAILED,
+            'QPACK post-base index exceeds the platform integer range.',
+        );
     }
 
     /**
@@ -245,6 +246,12 @@ final class DynamicTable
         $entrySize = self::entrySize($name, $value);
         if ($entrySize > $this->capacity || !$this->makeRoom($entrySize, $ignorePins)) {
             return null;
+        }
+        if ($this->insertCount === PHP_INT_MAX) {
+            throw new Http3Exception(
+                $ignorePins ? ErrorCode::QPACK_ENCODER_STREAM_ERROR : ErrorCode::INTERNAL_ERROR,
+                'QPACK dynamic table insert count exhausted the platform integer range.',
+            );
         }
 
         $index = $this->insertCount++;

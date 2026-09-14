@@ -60,13 +60,17 @@ it('exposes immutable runtime facts without driver-name branching', function ():
 
 it('isolates and bounds request-scoped attributes then clears them on completion', function (): void {
     $runtime = batchBRuntimeContext();
-    $first = RequestContext::create($runtime, maxAttributes: 2);
-    $second = RequestContext::create($runtime, maxAttributes: 2);
+    $first = RequestContext::create($runtime, maxAttributes: 3);
+    $second = RequestContext::create($runtime, maxAttributes: 3);
 
     $first->setAttribute('trace', 'one');
     $first->setAttribute('auth', ['user' => 42]);
+    $first->setAttribute('nullable', null);
 
     expect($first->attribute('trace'))->toBe('one')
+        ->and($first->hasAttribute('nullable'))->toBeTrue()
+        ->and($first->attribute('nullable', 'fallback'))->toBeNull()
+        ->and($first->attribute('missing', 'fallback'))->toBe('fallback')
         ->and($second->hasAttribute('trace'))->toBeFalse()
         ->and(fn() => $first->setAttribute('overflow', true))->toThrow(OverflowException::class);
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Loop\Internal;
 
 use Closure;
+use Infocyph\Runwire\Internal\MonotonicTime;
 use InvalidArgumentException;
 use OverflowException;
 
@@ -14,8 +15,6 @@ use OverflowException;
 final class TimerQueue
 {
     private const int COMPACTION_FLOOR = 64;
-
-    private const int NANOS_PER_SECOND = 1_000_000_000;
 
     private int $cancelledEntries = 0;
 
@@ -115,7 +114,7 @@ final class TimerQueue
         $deadline = $this->nextRepeatDeadline(
             previousDeadline: $timer['deadline'],
             interval: $timer['interval'],
-            now: hrtime(true),
+            now: MonotonicTime::nowNanoseconds(),
         );
         $this->timers[$id]['deadline'] = $deadline;
         $this->push($id, $deadline);
@@ -124,7 +123,7 @@ final class TimerQueue
     /** @return list<int> */
     public function takeDue(): array
     {
-        $now = hrtime(true);
+        $now = MonotonicTime::nowNanoseconds();
         $due = [];
 
         while (($next = $this->peek()) !== null && $next['deadline'] <= $now) {
@@ -157,13 +156,7 @@ final class TimerQueue
     private function add(int $id, float $seconds, int $interval, Closure $callback): void
     {
         $delay = $this->secondsToNanoseconds($seconds, true);
-        $now = hrtime(true);
-
-        if ($delay > PHP_INT_MAX - $now) {
-            throw new OverflowException('Timer deadline exceeds the platform integer range.');
-        }
-
-        $deadline = $now + $delay;
+        $deadline = MonotonicTime::addNanoseconds(MonotonicTime::nowNanoseconds(), $delay);
         $this->timers[$id] = [
             'deadline' => $deadline,
             'interval' => $interval,
@@ -269,11 +262,7 @@ final class TimerQueue
             );
         }
 
-        if ($seconds > PHP_INT_MAX / self::NANOS_PER_SECOND) {
-            throw new OverflowException('Timer duration exceeds the platform integer range.');
-        }
-
-        $nanoseconds = (int) round($seconds * self::NANOS_PER_SECOND);
+        $nanoseconds = MonotonicTime::secondsToNanoseconds($seconds);
         if (!$allowZero && $nanoseconds === 0) {
             throw new InvalidArgumentException('Repeating timer interval is below timer resolution.');
         }

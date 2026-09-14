@@ -48,7 +48,8 @@ it('links child cancellation with the earliest deadline and deterministic unlink
     $detachedByCompletion = $parent->child(new RequestDeadline($detachedAt));
 
     expect($child->token()->deadline()->monotonicNanoseconds)->toBe($parentAt)
-        ->and($detachedByCompletion->token()->deadline()->monotonicNanoseconds)->toBe($detachedAt);
+        ->and($detachedByCompletion->token()->deadline()->monotonicNanoseconds)->toBe($detachedAt)
+        ->and($parent->token()->subscriptionCount())->toBe(0);
 
     $detachedByCompletion->dispose();
     $parent->cancel(CancellationReason::HOST_CANCELLED);
@@ -56,6 +57,32 @@ it('links child cancellation with the earliest deadline and deterministic unlink
     expect($child->token()->isCancelled())->toBeTrue()
         ->and($child->token()->reason())->toBe(CancellationReason::HOST_CANCELLED)
         ->and($detachedByCompletion->token()->isCancelled())->toBeFalse();
+});
+
+it('propagates structured cancellation beyond the public observer limit', function (): void {
+    $parent = new CancellationSource();
+    $children = [];
+
+    for ($index = 0; $index < 128; ++$index) {
+        $children[] = $parent->child();
+    }
+
+    expect($parent->token()->subscriptionCount())->toBe(0)
+        ->and($parent->cancel(CancellationReason::WORKER_SHUTDOWN))->toBeTrue();
+
+    foreach ($children as $child) {
+        expect($child->token()->reason())->toBe(CancellationReason::WORKER_SHUTDOWN);
+    }
+});
+
+it('propagates deadline-triggered cancellation through structured child links', function (): void {
+    $parent = new CancellationSource(new RequestDeadline(0));
+    $child = $parent->child();
+
+    expect($parent->token()->isCancelled())->toBeTrue()
+        ->and($parent->token()->reason())->toBe(CancellationReason::DEADLINE_EXCEEDED)
+        ->and($child->token()->isCancelled())->toBeTrue()
+        ->and($child->token()->reason())->toBe(CancellationReason::DEADLINE_EXCEEDED);
 });
 
 it('separates host-native coroutine capability from Runwire coroutine readiness', function (): void {

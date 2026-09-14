@@ -33,6 +33,13 @@ function http3SessionWriter(int $streamId, string $method): ResponseWriterInterf
     );
 }
 
+function http3SessionDispatchedCount(Http3Session $session): int
+{
+    $property = new ReflectionProperty($session, 'dispatchedRequestStreams');
+
+    return count($property->getValue($session));
+}
+
 it('dispatches a decoded HTTP/3 request through the version-neutral application contract once', function (): void {
     $requests = [];
     $writers = [];
@@ -117,5 +124,29 @@ it('drops pending dispatch state when a request stream is cancelled', function (
     $session->cancelRequestStream(0);
 
     expect($dispatched)->toBe(0)
+        ->and($session->state()->requestStream(0))->toBeNull()
+        ->and(http3SessionDispatchedCount($session))->toBe(0);
+});
+
+it('releases dispatched stream bookkeeping after response processing', function (): void {
+    $session = new Http3Session(
+        new ConnectionState(),
+        static function (): void {},
+        http3SessionWriter(...),
+    );
+    $encoder = new Encoder(0, 0);
+    $headers = $encoder->encode([
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', 'example.com'],
+        [':path', '/'],
+    ], 0)->block;
+
+    $session->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+    expect(http3SessionDispatchedCount($session))->toBe(1);
+
+    $session->releaseRequestStream(0);
+
+    expect(http3SessionDispatchedCount($session))->toBe(0)
         ->and($session->state()->requestStream(0))->toBeNull();
 });

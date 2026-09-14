@@ -165,7 +165,13 @@ final class Encoder
 
     private function canReference(int $absoluteIndex, bool $sectionBlocking): bool
     {
-        if ($absoluteIndex + 1 <= $this->knownReceivedCount) {
+        $required = CheckedInteger::add(
+            $absoluteIndex,
+            1,
+            ErrorCode::INTERNAL_ERROR,
+            'QPACK dynamic reference exceeds the platform integer range.',
+        );
+        if ($required <= $this->knownReceivedCount) {
             return true;
         }
 
@@ -188,8 +194,14 @@ final class Encoder
             $references[$absoluteIndex] = $absoluteIndex;
         }
 
-        $required = max($required, $absoluteIndex + 1);
-        $sectionBlocking = $sectionBlocking || $absoluteIndex + 1 > $this->knownReceivedCount;
+        $requiredForIndex = CheckedInteger::add(
+            $absoluteIndex,
+            1,
+            ErrorCode::INTERNAL_ERROR,
+            'QPACK dynamic reference exceeds the platform integer range.',
+        );
+        $required = max($required, $requiredForIndex);
+        $sectionBlocking = $sectionBlocking || $requiredForIndex > $this->knownReceivedCount;
 
         return $absoluteIndex < $base
             ? IntegerCodec::encode($base - $absoluteIndex - 1, 6, 0x80)
@@ -245,7 +257,7 @@ final class Encoder
 
     private function increment(int $increment): void
     {
-        if ($increment <= 0 || $this->knownReceivedCount + $increment > $this->table->insertCount()) {
+        if ($increment <= 0 || $increment > $this->table->insertCount() - $this->knownReceivedCount) {
             throw new Http3Exception(
                 ErrorCode::QPACK_DECODER_STREAM_ERROR,
                 'Invalid QPACK Insert Count Increment.',
@@ -304,7 +316,13 @@ final class Encoder
             );
         }
 
-        $encodedRequired = ($requiredInsertCount % (2 * $maxEntries)) + 1;
+        $fullRange = CheckedInteger::multiply(
+            $maxEntries,
+            2,
+            ErrorCode::INTERNAL_ERROR,
+            'QPACK Required Insert Count range exceeds the platform integer range.',
+        );
+        $encodedRequired = ($requiredInsertCount % $fullRange) + 1;
         $prefix = IntegerCodec::encode($encodedRequired, 8);
 
         return $base >= $requiredInsertCount

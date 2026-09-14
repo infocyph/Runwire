@@ -106,11 +106,13 @@ final class RequestContext
     }
 
     /**
-     * Returns a request attribute or the supplied default value.
+     * Returns a request attribute or the supplied default value when the key is absent.
      */
     public function attribute(string $key, mixed $default = null): mixed
     {
-        return $this->attributes[$key] ?? $default;
+        return array_key_exists($key, $this->attributes)
+            ? $this->attributes[$key]
+            : $default;
     }
 
     /** @return array<string, mixed> */

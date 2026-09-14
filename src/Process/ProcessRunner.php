@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Process;
 
 use Closure;
 use Infocyph\Runwire\Exception\ProcessStartException;
+use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Process\Enum\IoMode;
 use Infocyph\Runwire\Process\Enum\OutputOverflowPolicy;
 use Infocyph\Runwire\Process\Enum\TerminationReason;
@@ -22,8 +23,6 @@ use Throwable;
 final readonly class ProcessRunner
 {
     private const int IO_CHUNK_BYTES = 65_536;
-
-    private const int NANOS_PER_SECOND = 1_000_000_000;
 
     private const int POLL_MICROS = 50_000;
 
@@ -102,7 +101,13 @@ final readonly class ProcessRunner
         }
         proc_terminate($process, SIGTERM);
 
-        return [TerminationReason::TIMEOUT, $now + $this->secondsToNanos($command->terminationGraceSeconds)];
+        return [
+            TerminationReason::TIMEOUT,
+            MonotonicTime::addNanoseconds(
+                $now,
+                MonotonicTime::secondsToNanoseconds($command->terminationGraceSeconds),
+            ),
+        ];
     }
 
     /** @param resource $process */
@@ -139,7 +144,10 @@ final readonly class ProcessRunner
 
         return [
             TerminationReason::OUTPUT_LIMIT,
-            (int) hrtime(true) + $this->secondsToNanos($command->terminationGraceSeconds),
+            MonotonicTime::addNanoseconds(
+                MonotonicTime::nowNanoseconds(),
+                MonotonicTime::secondsToNanoseconds($command->terminationGraceSeconds),
+            ),
         ];
     }
 
@@ -157,8 +165,11 @@ final readonly class ProcessRunner
     {
         $child = $process->resource();
         $command = $prepared->command;
-        $startedAt = (int) hrtime(true);
-        $deadline = $startedAt + $this->secondsToNanos($command->timeoutSeconds);
+        $startedAt = MonotonicTime::nowNanoseconds();
+        $deadline = MonotonicTime::addNanoseconds(
+            $startedAt,
+            MonotonicTime::secondsToNanoseconds($command->timeoutSeconds),
+        );
         $terminationDeadline = null;
         $postExitDeadline = null;
         $reason = TerminationReason::EXITED;
@@ -169,7 +180,7 @@ final readonly class ProcessRunner
         $terminalStatus = null;
 
         while (true) {
-            $now = (int) hrtime(true);
+            $now = MonotonicTime::nowNanoseconds();
             $status = proc_get_status($child);
             $running = $status['running'];
             if (!$running) {
@@ -180,7 +191,10 @@ final readonly class ProcessRunner
                 [$reason, $terminationDeadline] = $this->enforceDeadline($child, $reason, $terminationDeadline, $deadline, $command, $now);
                 $killSent = $this->enforceKill($child, $terminationDeadline, $killSent, $now);
             } else {
-                $postExitDeadline ??= $now + $this->secondsToNanos($this->policy->postExitDrainSeconds);
+                $postExitDeadline ??= MonotonicTime::addNanoseconds(
+                    $now,
+                    MonotonicTime::secondsToNanoseconds($this->policy->postExitDrainSeconds),
+                );
                 $this->closePipe($pipes, 0);
             }
 
@@ -220,7 +234,7 @@ final readonly class ProcessRunner
             stderrTruncated: $stderr->truncated(),
             terminationReason: $reason,
             terminationSignal: $signal === 0 ? null : $signal,
-            durationSeconds: ((int) hrtime(true) - $startedAt) / self::NANOS_PER_SECOND,
+            durationSeconds: (MonotonicTime::nowNanoseconds() - $startedAt) / MonotonicTime::NANOSECONDS_PER_SECOND,
         );
     }
 
@@ -337,11 +351,6 @@ final readonly class ProcessRunner
         }
 
         return $overflowed;
-    }
-
-    private function secondsToNanos(float $seconds): int
-    {
-        return (int) round($seconds * self::NANOS_PER_SECOND);
     }
 
     /**

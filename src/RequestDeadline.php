@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Infocyph\Runwire\Internal\MonotonicTime;
 use InvalidArgumentException;
 
 /**
@@ -11,8 +12,6 @@ use InvalidArgumentException;
  */
 final readonly class RequestDeadline
 {
-    private const int NANOSECONDS_PER_SECOND = 1_000_000_000;
-
     /**
      * Creates a request deadline from an absolute monotonic timestamp.
      */
@@ -35,7 +34,7 @@ final readonly class RequestDeadline
             throw new InvalidArgumentException('Request deadline start time must be non-negative.');
         }
 
-        return new self($startNanoseconds + (int) ceil($seconds * self::NANOSECONDS_PER_SECOND));
+        return new self(MonotonicTime::deadlineAfterSeconds($startNanoseconds, $seconds));
     }
 
     /**
@@ -55,7 +54,7 @@ final readonly class RequestDeadline
             return false;
         }
 
-        return ($nowNanoseconds ?? self::nowNanoseconds()) >= $this->monotonicNanoseconds;
+        return ($nowNanoseconds ?? MonotonicTime::nowNanoseconds()) >= $this->monotonicNanoseconds;
     }
 
     /**
@@ -67,15 +66,8 @@ final readonly class RequestDeadline
             return null;
         }
 
-        $remaining = $this->monotonicNanoseconds - ($nowNanoseconds ?? self::nowNanoseconds());
+        $remaining = $this->monotonicNanoseconds - ($nowNanoseconds ?? MonotonicTime::nowNanoseconds());
 
-        return max(0, $remaining) / self::NANOSECONDS_PER_SECOND;
-    }
-
-    private static function nowNanoseconds(): int
-    {
-        $now = hrtime(true);
-
-        return is_int($now) ? $now : (int) $now;
+        return max(0, $remaining) / MonotonicTime::NANOSECONDS_PER_SECOND;
     }
 }

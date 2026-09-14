@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Loop;
 
 use Closure;
+use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Loop\Internal\TimerQueue;
 use InvalidArgumentException;
 use LogicException;
@@ -17,8 +18,6 @@ use Throwable;
 final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
     private const int MICROS_PER_SECOND = 1_000_000;
-
-    private const int NANOS_PER_SECOND = 1_000_000_000;
 
     private const int SELECT_ERROR_BACKOFF_MICROS = 1_000;
 
@@ -62,7 +61,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             throw new InvalidArgumentException('Callback overrun threshold must be finite and between 0 and 60 seconds.');
         }
 
-        $this->callbackOverrunNanoseconds = (int) round($callbackOverrunSeconds * self::NANOS_PER_SECOND);
+        $this->callbackOverrunNanoseconds = MonotonicTime::secondsToNanoseconds($callbackOverrunSeconds);
         $this->timers = new TimerQueue();
     }
 
@@ -114,7 +113,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         return new LoopDiagnosticsSnapshot(
-            sampledAtMonotonicNanoseconds: self::nowNanoseconds(),
+            sampledAtMonotonicNanoseconds: MonotonicTime::nowNanoseconds(),
             timersActive: $this->timers->count(),
             deferredBacklog: count($this->deferred),
             readWatchers: count($this->readWatchers),
@@ -131,7 +130,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
      */
     public function now(): float
     {
-        return hrtime(true) / self::NANOS_PER_SECOND;
+        return MonotonicTime::nowNanoseconds() / MonotonicTime::NANOSECONDS_PER_SECOND;
     }
 
     /**
@@ -220,13 +219,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             && str_contains($message, 'Interrupted system call');
     }
 
-    private static function nowNanoseconds(): int
-    {
-        $now = hrtime(true);
-
-        return is_int($now) ? $now : (int) $now;
-    }
-
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -294,12 +286,12 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function invoke(Closure $callback, mixed ...$arguments): void
     {
-        $started = self::nowNanoseconds();
+        $started = MonotonicTime::nowNanoseconds();
 
         try {
             $callback(...$arguments);
         } finally {
-            if (self::nowNanoseconds() - $started >= $this->callbackOverrunNanoseconds) {
+            if (MonotonicTime::nowNanoseconds() - $started >= $this->callbackOverrunNanoseconds) {
                 ++$this->callbackOverrunsTotal;
             }
         }
@@ -363,7 +355,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function recordTick(int $tickStart): void
     {
-        $this->lastTickNanoseconds = max(0, self::nowNanoseconds() - $tickStart);
+        $this->lastTickNanoseconds = max(0, MonotonicTime::nowNanoseconds() - $tickStart);
         $this->maxTickNanoseconds = max($this->maxTickNanoseconds, $this->lastTickNanoseconds);
     }
 
@@ -424,10 +416,12 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function runTick(): void
     {
-        $tickStart = self::nowNanoseconds();
+        $tickStart = MonotonicTime::nowNanoseconds();
         $this->recordTimerLag($tickStart);
         $this->runDeferredBatch();
-        $this->runDueTimers();
+        if ($this->running) {
+            $this->runDueTimers();
+        }
         $this->recordTick($tickStart);
     }
 
@@ -461,12 +455,12 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return [null, 0];
         }
 
-        $remaining = (int) max(0, $deadline - hrtime(true));
+        $remaining = max(0, $deadline - MonotonicTime::nowNanoseconds());
 
         return [
-            intdiv($remaining, self::NANOS_PER_SECOND),
+            intdiv($remaining, MonotonicTime::NANOSECONDS_PER_SECOND),
             min(
-                intdiv($remaining % self::NANOS_PER_SECOND, 1_000),
+                intdiv($remaining % MonotonicTime::NANOSECONDS_PER_SECOND, 1_000),
                 self::MICROS_PER_SECOND - 1,
             ),
         ];
@@ -483,14 +477,14 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return;
         }
 
-        $remaining = $deadline - hrtime(true);
+        $remaining = $deadline - MonotonicTime::nowNanoseconds();
         if ($remaining <= 0) {
             return;
         }
 
         time_nanosleep(
-            intdiv($remaining, self::NANOS_PER_SECOND),
-            $remaining % self::NANOS_PER_SECOND,
+            intdiv($remaining, MonotonicTime::NANOSECONDS_PER_SECOND),
+            $remaining % MonotonicTime::NANOSECONDS_PER_SECOND,
         );
     }
 

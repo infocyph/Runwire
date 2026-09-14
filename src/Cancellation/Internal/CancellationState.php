@@ -33,6 +33,9 @@ final class CancellationState
     /** @var array<int, Closure(CancellationToken): void> */
     private array $subscriptions = [];
 
+    /** @var null|Closure(CancellationReason): void */
+    private ?Closure $terminalHook = null;
+
     /** Creates cancellation state with the supplied deadline. */
     public function __construct(private RequestDeadline $deadline) {}
 
@@ -63,6 +66,16 @@ final class CancellationState
         $this->reason = $reason;
         $subscriptions = $this->subscriptions;
         $this->subscriptions = [];
+        $terminalHook = $this->terminalHook;
+        $this->terminalHook = null;
+
+        if ($terminalHook !== null) {
+            try {
+                $terminalHook($reason);
+            } catch (Throwable) {
+                // Internal cancellation propagation must not corrupt control flow.
+            }
+        }
 
         foreach ($subscriptions as $callback) {
             try {
@@ -95,6 +108,7 @@ final class CancellationState
         }
 
         $this->subscriptions = [];
+        $this->terminalHook = null;
         $this->disposed = true;
     }
 
@@ -114,6 +128,21 @@ final class CancellationState
     public function reason(): ?CancellationReason
     {
         return $this->reason;
+    }
+
+    /**
+     * Installs the source-owned terminal propagation hook outside the user observer budget.
+     *
+     * @internal
+     * @param Closure(CancellationReason): void $hook
+     */
+    public function setTerminalHook(Closure $hook): void
+    {
+        if ($this->cancelled || $this->disposed || $this->terminalHook !== null) {
+            throw new LogicException('Cancellation terminal hook cannot be replaced after state activation.');
+        }
+
+        $this->terminalHook = $hook;
     }
 
     /**

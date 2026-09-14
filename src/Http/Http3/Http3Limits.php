@@ -79,6 +79,15 @@ final readonly class Http3Limits
                 throw new \InvalidArgumentException(sprintf('%s must be positive.', $name));
             }
         }
+        foreach ([
+            'maxFieldSectionBytes' => $maxFieldSectionBytes,
+            'qpackMaxTableCapacity' => $qpackMaxTableCapacity,
+            'qpackMaxBlockedStreams' => $qpackMaxBlockedStreams,
+        ] as $name => $value) {
+            if ($value > VarIntCodec::MAX_VALUE) {
+                throw new \InvalidArgumentException(sprintf('%s must fit a QUIC variable-length integer.', $name));
+            }
+        }
         if ($bodyLowWatermarkBytes >= $bodyHighWatermarkBytes
             || $bodyHighWatermarkBytes > $maxPendingBodyBytesPerStream) {
             throw new \InvalidArgumentException(

@@ -490,13 +490,20 @@ final class CoroutineScope
     /** @param callable(): mixed $callback */
     private function spawnOwned(callable $callback, CancellationSource $source): Task
     {
-        $task = $this->scheduler->spawn(
-            $callback,
-            $source,
-            function (Task $task): void {
-                $this->onTaskChange($task);
-            },
-        );
+        try {
+            $task = $this->scheduler->spawn(
+                $callback,
+                $source,
+                function (Task $task): void {
+                    $this->onTaskChange($task);
+                },
+            );
+        } catch (Throwable $error) {
+            $source->dispose();
+
+            throw $error;
+        }
+
         $this->children[$task->id()] = $task;
 
         return $task;

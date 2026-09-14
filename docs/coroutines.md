@@ -54,7 +54,7 @@ There is no request-level detached-task escape hatch. Work intended to outlive o
 
 ## Cancellation and deadlines
 
-Children inherit parent cancellation and the earliest applicable monotonic deadline. A child may tighten a deadline but cannot extend its parent deadline.
+Children inherit parent cancellation and the earliest applicable monotonic deadline. A child may tighten a deadline but cannot extend its parent deadline. Structured parent/child cancellation links are tracked separately from general cancellation observers, so task fan-out is governed by coroutine policy rather than the public observer-subscription limit.
 
 Suspending primitives register cancellation-aware waiters and clean up losing timer/watcher/subscription paths when another completion path wins. Cancellation is represented by `CancelledException` with a `CancellationReason`, so it remains distinguishable from application failure.
 
@@ -165,14 +165,17 @@ $reason = $async->close();
 
 The adapter claims exclusive `onData`, `onDrain`, and EOF callback ownership from `Connection`. Constructing an adapter when those callbacks are already owned is a contract conflict and must fail instead of silently replacing application callbacks. `onClose` remains used to resolve pending receive/drain/close waits and preserve the actual `CloseReason`.
 
+When the adapter must stop owning callback slots while the transport intentionally remains open, call `AsyncConnection::dispose()`. Disposal settles adapter-owned waiters, releases the exclusive callback claim, leaves the underlying `Connection` open, and makes that adapter instance unusable.
+
 Only one concurrent `receive()`, `drain()`, or graceful `close()` waiter is supported per `AsyncConnection`. `write()` continues to return the normal `WriteResult`; callers may await `drain()` when backpressure is active.
 
 Migration strategy:
 
 1. leave connection creation, limits, buffering, TLS, close reasons, and writes on `Connection`;
 2. replace callback-driven data/drain waiting with one `AsyncConnection` owner inside a coroutine scope;
-3. keep protocol parsing/application semantics above this adapter;
-4. do not obtain the underlying stream to bypass `Connection` state.
+3. call `dispose()` before transferring callback ownership while keeping the transport open;
+4. keep protocol parsing/application semantics above this adapter;
+5. do not obtain the underlying stream to bypass `Connection` state.
 
 ## Host integration
 
@@ -239,9 +242,9 @@ Operationally useful signals include:
 ```php
 new CoroutinePolicy(
     maxTasks: 1024,
-    maxReadyBacklog: 4096,
+    maxReadyBacklog: 1024,
     maxFutureWaiters: 1024,
-    maxResumesPerTick: 256,
+    maxResumesPerTick: 128,
     maxWaitersPerPrimitive: 1024,
 );
 ```

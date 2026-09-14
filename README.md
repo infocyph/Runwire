@@ -6,12 +6,14 @@ Runwire 1.0 is being finalized for the Foundation 3 launch. It provides the low-
 
 ## Baseline
 
-- PHP `^8.4`
+- 64-bit PHP `^8.4`
 - `ext-pcntl`
 - `ext-posix`
 - PHPForge `dev-main@dev` for development QA
 
-Optional runtime capabilities such as native TLS/ALPN, accelerated event-loop backends, privilege reduction, reuse-port and QUIC are detected and validated separately. Ordinary Runwire installation remains valid without QUIC; selecting native HTTP/3 fails fast when the required QUIC capability is unavailable.
+Runwire requires a 64-bit PHP build because monotonic nanosecond deadlines and QUIC/HTTP/3 variable-length integers rely on integer ranges unavailable on 32-bit PHP.
+
+Optional runtime capabilities such as native TLS/ALPN, custom accelerated event-loop adapters, privilege reduction, reuse-port and QUIC are detected and validated separately. Ordinary Runwire installation remains valid without QUIC; selecting native HTTP/3 fails fast when the required QUIC capability is unavailable.
 
 ## Runtime model
 

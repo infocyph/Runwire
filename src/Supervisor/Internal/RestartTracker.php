@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Internal;
 
+use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
 /**
@@ -11,8 +12,6 @@ use Infocyph\Runwire\Supervisor\WorkerGroup;
  */
 final class RestartTracker
 {
-    private const int NANOS_PER_SECOND = 1_000_000_000;
-
     /** @var array<string, array<int, int>> */
     private array $counts = [];
 
@@ -32,7 +31,7 @@ final class RestartTracker
      */
     public function nextAttempt(WorkerGroup $group, int $slot): ?RestartAttempt
     {
-        $now = (int) hrtime(true);
+        $now = MonotonicTime::nowNanoseconds();
         $history = $this->recentHistory($group, $now);
 
         if (count($history) >= $group->restartPolicy->maxRestarts) {
@@ -64,7 +63,7 @@ final class RestartTracker
     /** @return list<int> */
     private function recentHistory(WorkerGroup $group, int $now): array
     {
-        $window = (int) round($group->restartPolicy->windowSeconds * self::NANOS_PER_SECOND);
+        $window = MonotonicTime::secondsToNanoseconds($group->restartPolicy->windowSeconds);
         $cutoff = $now - $window;
 
         return array_values(array_filter(

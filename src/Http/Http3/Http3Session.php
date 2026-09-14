@@ -51,7 +51,7 @@ final class Http3Session
      */
     public function cancelRequestStream(int $streamId): void
     {
-        unset($this->pendingRequestStreams[$streamId]);
+        unset($this->pendingRequestStreams[$streamId], $this->dispatchedRequestStreams[$streamId]);
         $this->state->cancelRequestStream($streamId);
     }
 
@@ -98,7 +98,7 @@ final class Http3Session
      */
     public function releaseRequestStream(int $streamId): void
     {
-        unset($this->pendingRequestStreams[$streamId]);
+        unset($this->pendingRequestStreams[$streamId], $this->dispatchedRequestStreams[$streamId]);
         $this->state->releaseRequestStream($streamId);
     }
 

@@ -89,7 +89,12 @@ final readonly class FieldSectionDecoder
         $negative = (ord($block[$offset]) & 0x80) !== 0;
         $delta = IntegerCodec::decode($block, $offset, 7, ErrorCode::QPACK_DECOMPRESSION_FAILED);
         if (!$negative) {
-            return $requiredInsertCount + $delta;
+            return CheckedInteger::add(
+                $requiredInsertCount,
+                $delta,
+                ErrorCode::QPACK_DECOMPRESSION_FAILED,
+                'QPACK Base exceeds the platform integer range.',
+            );
         }
         if ($requiredInsertCount <= $delta) {
             throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'QPACK Base would be negative.');
@@ -217,7 +222,12 @@ final readonly class FieldSectionDecoder
             );
         }
 
-        $fullRange = 2 * $maxEntries;
+        $fullRange = CheckedInteger::multiply(
+            $maxEntries,
+            2,
+            ErrorCode::QPACK_DECOMPRESSION_FAILED,
+            'QPACK Required Insert Count range exceeds the platform integer range.',
+        );
         if ($encodedInsertCount > $fullRange) {
             throw new Http3Exception(
                 ErrorCode::QPACK_DECOMPRESSION_FAILED,
@@ -225,9 +235,19 @@ final readonly class FieldSectionDecoder
             );
         }
 
-        $maxValue = $this->table->insertCount() + $maxEntries;
+        $maxValue = CheckedInteger::add(
+            $this->table->insertCount(),
+            $maxEntries,
+            ErrorCode::QPACK_DECOMPRESSION_FAILED,
+            'QPACK Required Insert Count window exceeds the platform integer range.',
+        );
         $maxWrapped = intdiv($maxValue, $fullRange) * $fullRange;
-        $required = $maxWrapped + $encodedInsertCount - 1;
+        $required = CheckedInteger::add(
+            $maxWrapped,
+            $encodedInsertCount - 1,
+            ErrorCode::QPACK_DECOMPRESSION_FAILED,
+            'QPACK Required Insert Count exceeds the platform integer range.',
+        );
         if ($required > $maxValue) {
             if ($required <= $fullRange) {
                 throw new Http3Exception(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime\Internal;
 
+use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Loop\LoopDiagnosticsProviderInterface;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
@@ -14,8 +15,6 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
  */
 final class WorkerDiagnosticsSampler
 {
-    private const int NANOS_PER_SECOND = 1_000_000_000;
-
     private readonly int $sampleIntervalNanoseconds;
 
     private int $lastSampleNanoseconds = 0;
@@ -29,8 +28,8 @@ final class WorkerDiagnosticsSampler
         DiagnosticsPolicy $policy,
         private readonly ?LoopDiagnosticsProviderInterface $loop = null,
     ) {
-        $this->sampleIntervalNanoseconds = (int) round(
-            $policy->workerReportIntervalSeconds * self::NANOS_PER_SECOND,
+        $this->sampleIntervalNanoseconds = MonotonicTime::secondsToNanoseconds(
+            $policy->workerReportIntervalSeconds,
         );
     }
 
@@ -39,7 +38,7 @@ final class WorkerDiagnosticsSampler
      */
     public function sample(bool $force = false): void
     {
-        $now = self::nowNanoseconds();
+        $now = MonotonicTime::nowNanoseconds();
         if (!$force && $now - $this->lastSampleNanoseconds < $this->sampleIntervalNanoseconds) {
             return;
         }
@@ -50,12 +49,5 @@ final class WorkerDiagnosticsSampler
 
         $this->context->reportMetrics($this->metrics->snapshot());
         $this->lastSampleNanoseconds = $now;
-    }
-
-    private static function nowNanoseconds(): int
-    {
-        $now = hrtime(true);
-
-        return is_int($now) ? $now : (int) $now;
     }
 }

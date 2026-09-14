@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\DynamicTable;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Http\Http3\Qpack\EncoderStreamDecoder;
 use Infocyph\Runwire\Http\Http3\Qpack\FieldSectionDecoder;
+use Infocyph\Runwire\Http\Http3\Qpack\IntegerCodec;
 
 it('decodes the RFC 9204 static-name literal example', function (): void {
     $decoder = new FieldSectionDecoder(new DynamicTable(0));
@@ -33,4 +36,29 @@ it('blocks and later releases a field section when encoder inserts arrive', func
     expect($ready)->toHaveCount(1)->and($ready[0]->streamId)->toBe(4)->and($ready[0]->section->fields)->toBe([[':authority', 'www.example.com'], [':path', '/sample/path']]);
     $encoder->pushDecoderInstructions($decoder->takeDecoderInstructions());
     expect($encoder->knownReceivedCount())->toBeGreaterThanOrEqual($encoded->requiredInsertCount);
+});
+
+it('rejects QPACK Base arithmetic overflow as a decompression failure', function (): void {
+    $decoder = new FieldSectionDecoder(new DynamicTable(PHP_INT_MAX));
+    $block = IntegerCodec::encode(2, 8) . IntegerCodec::encode(PHP_INT_MAX, 7);
+
+    try {
+        $decoder->decode($block);
+        test()->fail('Expected QPACK arithmetic overflow to fail.');
+    } catch (Http3Exception $error) {
+        expect($error->errorCode)->toBe(ErrorCode::QPACK_DECOMPRESSION_FAILED)
+            ->and($error->getMessage())->toContain('Base exceeds');
+    }
+});
+
+it('rejects QPACK post-base index overflow as a decompression failure', function (): void {
+    $table = new DynamicTable(0);
+
+    try {
+        $table->postBaseIndex(PHP_INT_MAX, 1);
+        test()->fail('Expected QPACK post-base arithmetic overflow to fail.');
+    } catch (Http3Exception $error) {
+        expect($error->errorCode)->toBe(ErrorCode::QPACK_DECOMPRESSION_FAILED)
+            ->and($error->getMessage())->toContain('post-base index');
+    }
 });

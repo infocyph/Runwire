@@ -31,6 +31,19 @@ it('bounds line decoding by the requested frame batch', function (): void {
         ->and($codec->push('', 2))->toBe(['c']);
 });
 
+it('decodes large line batches while slicing the residual buffer only once', function (): void {
+    $codec = new LineCodec("\n", 16);
+    $wire = str_repeat("frame\n", 1_024) . 'partial';
+
+    $frames = $codec->push($wire, 1_024);
+
+    expect($frames)->toHaveCount(1_024)
+        ->and($frames[0])->toBe('frame')
+        ->and($frames[1_023])->toBe('frame')
+        ->and($codec->bufferedBytes())->toBe(7)
+        ->and($codec->push("-end\n"))->toBe(['partial-end']);
+});
+
 it('round trips supported length-prefix formats under fragmentation', function (LengthPrefixFormat $format): void {
     $codec = new LengthPrefixedCodec($format, 128);
     $wire = $codec->encode('abc') . $codec->encode('hello');

@@ -25,6 +25,7 @@
     ],
     "require": {
         "php": "^8.4",
+        "php-64bit": "*",
         "ext-pcntl": "*",
         "ext-posix": "*"
     },
@@ -32,7 +33,7 @@
         "infocyph/phpforge": "dev-main@dev"
     },
     "suggest": {
-        "ext-event": "Optional high-performance event-loop backend.",
+        "ext-event": "Can be used by a custom LoopInterface adapter; Runwire does not ship an ext-event backend.",
         "ext-openssl": "Required for native TLS listeners and HTTP/2 ALPN negotiation.",
         "ext-sockets": "Optional for lower-level socket tuning where a transport adapter uses it."
     },

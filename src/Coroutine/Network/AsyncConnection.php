@@ -12,12 +12,15 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 use LogicException;
+use WeakReference;
 
 /**
  * Provides coroutine-friendly waiting around a network connection.
  */
 final class AsyncConnection
 {
+    private bool $attached = false;
+
     private ?Deferred $closeDeferred = null;
 
     private bool $closing = false;
@@ -25,6 +28,8 @@ final class AsyncConnection
     private ?Deferred $drainDeferred = null;
 
     private bool $draining = false;
+
+    private bool $disposed = false;
 
     private string $eofBuffer = '';
 
@@ -41,15 +46,35 @@ final class AsyncConnection
         private readonly CoroutineScope $scope,
         private readonly Connection $connection,
     ) {
+        $weakSelf = WeakReference::create($this);
         $connection->claimCallbacks(
             $this,
-            fn(Connection $connection) => $this->handleData($connection),
-            fn(Connection $connection) => $this->handleDrain($connection),
-            fn(Connection $connection) => $this->handleEof($connection),
+            static function (Connection $connection) use ($weakSelf): void {
+                $adapter = $weakSelf->get();
+                if ($adapter instanceof self) {
+                    $adapter->handleData($connection);
+                }
+            },
+            static function (Connection $connection) use ($weakSelf): void {
+                $adapter = $weakSelf->get();
+                if ($adapter instanceof self) {
+                    $adapter->handleDrain($connection);
+                }
+            },
+            static function (Connection $connection) use ($weakSelf): void {
+                $adapter = $weakSelf->get();
+                if ($adapter instanceof self) {
+                    $adapter->handleEof($connection);
+                }
+            },
         );
-        $connection->onClose(
-            fn(Connection $connection, CloseReason $reason) => $this->handleClose($connection, $reason),
-        );
+        $this->attached = true;
+        $connection->onClose(static function (Connection $connection, CloseReason $reason) use ($weakSelf): void {
+            $adapter = $weakSelf->get();
+            if ($adapter instanceof self) {
+                $adapter->handleClose($connection, $reason);
+            }
+        });
     }
 
     /**
@@ -57,6 +82,7 @@ final class AsyncConnection
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
+        $this->assertUsable();
         $this->connection->abort($reason);
     }
 
@@ -65,6 +91,7 @@ final class AsyncConnection
      */
     public function close(): CloseReason
     {
+        $this->assertUsable();
         $reason = $this->connection->closeReason();
         if ($this->connection->state() === ConnectionState::CLOSED && $reason !== null) {
             return $reason;
@@ -102,10 +129,40 @@ final class AsyncConnection
     }
 
     /**
+     * Detach coroutine callback ownership without closing the underlying connection.
+     */
+    public function dispose(): void
+    {
+        if ($this->disposed) {
+            return;
+        }
+
+        $this->disposed = true;
+        $error = new LogicException('Async connection adapter was disposed.');
+        $receive = $this->receiveDeferred;
+        $drain = $this->drainDeferred;
+        $close = $this->closeDeferred;
+        $this->receiveDeferred = null;
+        $this->drainDeferred = null;
+        $this->closeDeferred = null;
+        $this->receiveLimit = PHP_INT_MAX;
+        $this->receiving = false;
+        $this->draining = false;
+        $this->closing = false;
+        $this->eofBuffer = '';
+        $this->detachCallbacks();
+
+        $receive?->reject($error);
+        $drain?->reject($error);
+        $close?->reject($error);
+    }
+
+    /**
      * Wait until write pressure drains or the connection closes.
      */
     public function drain(): ?CloseReason
     {
+        $this->assertUsable();
         if (!$this->connection->isWritePressured()) {
             return $this->connection->state() === ConnectionState::CLOSED
                 ? $this->connection->closeReason()
@@ -139,6 +196,7 @@ final class AsyncConnection
      */
     public function receive(int $maxBytes = PHP_INT_MAX): string
     {
+        $this->assertUsable();
         if ($maxBytes < 0) {
             throw new InvalidArgumentException('Maximum receive length cannot be negative.');
         }
@@ -192,7 +250,26 @@ final class AsyncConnection
      */
     public function write(string $data): WriteResult
     {
+        $this->assertUsable();
+
         return $this->connection->write($data);
+    }
+
+    private function assertUsable(): void
+    {
+        if ($this->disposed) {
+            throw new LogicException('Async connection adapter is disposed.');
+        }
+    }
+
+    private function detachCallbacks(): void
+    {
+        if (!$this->attached) {
+            return;
+        }
+
+        $this->attached = false;
+        $this->connection->releaseCallbacks($this);
     }
 
     private function handleClose(Connection $connection, CloseReason $reason): void
@@ -204,7 +281,8 @@ final class AsyncConnection
         $this->closeDeferred = null;
         $deferred?->resolve($reason);
 
-        $connection->releaseCallbacks($this);
+        $this->detachCallbacks();
+        unset($connection);
     }
 
     private function handleData(Connection $connection): void

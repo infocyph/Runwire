@@ -23,6 +23,23 @@ it('runs deferred callbacks in registration order without consuming newly deferr
     expect($events)->toBe(['first', 'second', 'third']);
 });
 
+it('stops immediately after a deferred callback without running due timers in the same tick', function (): void {
+    $loop = new SelectLoop();
+    $events = [];
+    $timer = $loop->delay(0.0, function () use (&$events): void {
+        $events[] = 'timer';
+    });
+    $loop->defer(function () use ($loop, &$events): void {
+        $events[] = 'deferred';
+        $loop->stop();
+    });
+
+    $loop->run();
+
+    expect($events)->toBe(['deferred'])
+        ->and($loop->cancel($timer))->toBeTrue();
+});
+
 it('runs and cancels a repeating timer from its callback', function (): void {
     $loop = new SelectLoop();
     $runs = 0;
