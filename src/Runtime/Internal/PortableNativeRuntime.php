@@ -114,15 +114,20 @@ final class PortableNativeRuntime
         });
     }
 
+    private static function groupName(
+        string $name,
+        BoundServer|BoundStreamServer|BoundDatagramServer $target,
+    ): string {
+        return match (true) {
+            $target instanceof BoundServer => 'http:' . $name,
+            $target instanceof BoundStreamServer => $target->definition->transport->value . ':' . $name,
+            $target instanceof BoundDatagramServer => 'udp:' . $name,
+        };
+    }
+
     private function allDrained(): bool
     {
-        foreach ($this->handles as $handle) {
-            if (!$handle->drained()) {
-                return false;
-            }
-        }
-
-        return true;
+        return array_all($this->handles, fn($handle) => $handle->drained());
     }
 
     private function attachHttp3(string $name, BoundServer $target): void
@@ -211,17 +216,6 @@ final class PortableNativeRuntime
         }
 
         return $timeout;
-    }
-
-    private static function groupName(
-        string $name,
-        BoundServer|BoundStreamServer|BoundDatagramServer $target,
-    ): string {
-        return match (true) {
-            $target instanceof BoundServer => 'http:' . $name,
-            $target instanceof BoundStreamServer => $target->definition->transport->value . ':' . $name,
-            $target instanceof BoundDatagramServer => 'udp:' . $name,
-        };
     }
 
     private function newContext(string $group, WorkerRole $role): WorkerContext

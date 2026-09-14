@@ -77,29 +77,7 @@ final class NativeHttp3Worker
         $pollTimer = null;
         $stopWatcher = null;
 
-        $finishDrain = static function () use (
-            $loop,
-            $worker,
-            &$pollTimer,
-            &$drained,
-            &$draining,
-            &$drainDeadline,
-        ): void {
-            if (!$draining || $drained) {
-                return;
-            }
-            if (!$worker->drainComplete() && ($drainDeadline === null || MonotonicTime::nowNanoseconds() < $drainDeadline)) {
-                return;
-            }
-            if (!$worker->drainComplete()) {
-                $worker->forceClose();
-            }
-            $drained = true;
-            if ($pollTimer !== null) {
-                $loop->cancel($pollTimer);
-                $pollTimer = null;
-            }
-        };
+        $finishDrain = static function (): void {};
 
         $beginDrain = static function () use (
             $context,
@@ -328,6 +306,19 @@ final class NativeHttp3Worker
         return [trim($host, '[]'), $port];
     }
 
+    private static function observeTransport(RuntimeContext $runtime, PhpQuicHttp3Worker $worker): void
+    {
+        $runtime->metrics->observeNetwork(
+            activeConnections: $worker->connectionCount(),
+            acceptedConnections: $worker->connectionsAcceptedTotal(),
+            bytesRead: 0,
+            bytesWritten: 0,
+            rejectedConnections: 0,
+        );
+        $runtime->metrics->setProtocol(ProtocolMetric::HTTP3_CONNECTIONS_ACTIVE, $worker->connectionCount());
+        $runtime->metrics->setProtocol(ProtocolMetric::HTTP3_CONNECTIONS_TOTAL, $worker->connectionsAcceptedTotal());
+    }
+
     /** @return \Closure(HttpRequest, ResponseWriterInterface): void */
     private static function requestHandler(
         \Infocyph\Runwire\Runtime\RuntimeApplicationInterface $application,
@@ -347,18 +338,5 @@ final class NativeHttp3Worker
                 $sampler->sample();
             }
         };
-    }
-
-    private static function observeTransport(RuntimeContext $runtime, PhpQuicHttp3Worker $worker): void
-    {
-        $runtime->metrics->observeNetwork(
-            activeConnections: $worker->connectionCount(),
-            acceptedConnections: $worker->connectionsAcceptedTotal(),
-            bytesRead: 0,
-            bytesWritten: 0,
-            rejectedConnections: 0,
-        );
-        $runtime->metrics->setProtocol(ProtocolMetric::HTTP3_CONNECTIONS_ACTIVE, $worker->connectionCount());
-        $runtime->metrics->setProtocol(ProtocolMetric::HTTP3_CONNECTIONS_TOTAL, $worker->connectionsAcceptedTotal());
     }
 }
