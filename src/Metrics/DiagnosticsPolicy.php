@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Metrics;
 
 use InvalidArgumentException;
 
+/**
+ * Defines runtime diagnostics thresholds and worker reporting cadence.
+ */
 final readonly class DiagnosticsPolicy
 {
+    /**
+     * Create and validate diagnostics policy values.
+     */
     public function __construct(
         public bool $debug = false,
         public float $busyWorkerThresholdSeconds = 30.0,

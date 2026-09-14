@@ -16,6 +16,9 @@ use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use InvalidArgumentException;
 use RuntimeException;
 
+/**
+ * Manages a non-blocking stream connection with bounded buffering, callbacks, backpressure, and timeouts.
+ */
 final class Connection
 {
     private readonly ConnectionCallbackOwnership $callbackOwnership;
@@ -100,6 +103,9 @@ final class Connection
         $this->syncReadWatcher();
     }
 
+    /**
+     * Abort the connection immediately with a close reason.
+     */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
         if ($this->state === ConnectionState::CLOSED) {
@@ -110,16 +116,25 @@ final class Connection
         $this->finalize($reason);
     }
 
+    /**
+     * Return cumulative backpressure events.
+     */
     public function backpressureEvents(): int
     {
         return $this->backpressureEvents;
     }
 
+    /**
+     * Return cumulative bytes read from the transport.
+     */
     public function bytesRead(): int
     {
         return $this->bytesRead;
     }
 
+    /**
+     * Return cumulative bytes written to the transport.
+     */
     public function bytesWritten(): int
     {
         return $this->bytesWritten;
@@ -155,6 +170,9 @@ final class Connection
         }
     }
 
+    /**
+     * Begin a graceful local close after queued writes drain.
+     */
     public function closeGracefully(): void
     {
         if ($this->state !== ConnectionState::OPEN) {
@@ -164,46 +182,73 @@ final class Connection
         $this->beginDrain(CloseReason::LOCAL_GRACEFUL);
     }
 
+    /**
+     * Return the terminal close reason when closed.
+     */
     public function closeReason(): ?CloseReason
     {
         return $this->closeReason;
     }
 
+    /**
+     * Return the underlying stream resource identifier.
+     */
     public function id(): int
     {
         return $this->id;
     }
 
+    /**
+     * Determine whether the transport is encrypted.
+     */
     public function isEncrypted(): bool
     {
         return $this->encrypted;
     }
 
+    /**
+     * Determine whether reads are manually or pressure paused.
+     */
     public function isReadPaused(): bool
     {
         return $this->manualReadPause || $this->pressureReadPause;
     }
 
+    /**
+     * Determine whether receive-buffer pressure paused reads.
+     */
     public function isReadPressurePaused(): bool
     {
         return $this->pressureReadPause;
     }
 
+    /**
+     * Determine whether the send buffer is under write pressure.
+     */
     public function isWritePressured(): bool
     {
         return $this->writePressured;
     }
 
+    /**
+     * Return connection lifetime in monotonic nanoseconds.
+     */
     public function lifetimeNanoseconds(): int
     {
         return max(0, self::nowNanoseconds() - $this->startedAtNanoseconds);
     }
 
+    /**
+     * Return the local transport address when known.
+     */
     public function localAddress(): ?string
     {
         return $this->localAddress;
     }
 
+    /**
+     * Return the negotiated application protocol when known.
+     */
     public function negotiatedProtocol(): ?string
     {
         return $this->negotiatedProtocol;
@@ -257,6 +302,9 @@ final class Connection
         return $this;
     }
 
+    /**
+     * Pause transport reads manually.
+     */
     public function pauseReads(): void
     {
         if ($this->state === ConnectionState::CLOSED || $this->manualReadPause) {
@@ -267,21 +315,33 @@ final class Connection
         $this->syncReadWatcher();
     }
 
+    /**
+     * Return the peer transport address when known.
+     */
     public function peerAddress(): ?string
     {
         return $this->peerAddress;
     }
 
+    /**
+     * Determine whether the peer closed its read side.
+     */
     public function peerReadClosed(): bool
     {
         return $this->peerReadClosed;
     }
 
+    /**
+     * Return queued outbound bytes.
+     */
     public function pendingWriteBytes(): int
     {
         return $this->sendBuffer->bytes();
     }
 
+    /**
+     * Consume up to the requested number of buffered inbound bytes.
+     */
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
         if ($maxBytes < 0) {
@@ -298,11 +358,17 @@ final class Connection
         return $data;
     }
 
+    /**
+     * Return currently buffered inbound bytes.
+     */
     public function receivedBytes(): int
     {
         return $this->receiveBuffer->bytes();
     }
 
+    /**
+     * Return cumulative writes rejected by send-buffer limits.
+     */
     public function rejectedWrites(): int
     {
         return $this->rejectedWrites;
@@ -317,6 +383,9 @@ final class Connection
         $this->eofCallback = null;
     }
 
+    /**
+     * Resume manually paused reads.
+     */
     public function resumeReads(): void
     {
         if ($this->state !== ConnectionState::OPEN || !$this->manualReadPause) {
@@ -327,11 +396,17 @@ final class Connection
         $this->syncReadWatcher();
     }
 
+    /**
+     * Return the current connection lifecycle state.
+     */
     public function state(): ConnectionState
     {
         return $this->state;
     }
 
+    /**
+     * Write bytes immediately when possible or queue them within configured bounds.
+     */
     public function write(string $data): WriteResult
     {
         if ($this->state !== ConnectionState::OPEN) {

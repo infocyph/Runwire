@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Metrics;
 
 use InvalidArgumentException;
 
+/**
+ * Defines request-count, memory-growth, and cadence thresholds for explicit GC collection.
+ */
 final readonly class GcPolicy
 {
+    /**
+     * Create and validate garbage-collection policy thresholds.
+     */
     public function __construct(
         public bool $enabled = true,
         public int $requestInterval = 256,

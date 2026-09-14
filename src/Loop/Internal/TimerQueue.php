@@ -8,6 +8,9 @@ use Closure;
 use InvalidArgumentException;
 use OverflowException;
 
+/**
+ * Maintains one-shot and repeating loop timers in a deadline-ordered heap.
+ */
 final class TimerQueue
 {
     private const int COMPACTION_FLOOR = 64;
@@ -22,17 +25,26 @@ final class TimerQueue
     /** @var array<int, array{deadline: int, interval: int, callback: Closure}> */
     private array $timers = [];
 
+    /**
+     * Add a one-shot timer.
+     */
     public function addDelay(int $id, float $seconds, Closure $callback): void
     {
         $this->add($id, $seconds, 0, $callback);
     }
 
+    /**
+     * Add a repeating timer.
+     */
     public function addRepeat(int $id, float $seconds, Closure $callback): void
     {
         $interval = $this->secondsToNanoseconds($seconds, false);
         $this->add($id, $seconds, $interval, $callback);
     }
 
+    /**
+     * Cancel a timer by handle.
+     */
     public function cancel(int $id): bool
     {
         if (!isset($this->timers[$id])) {
@@ -46,21 +58,33 @@ final class TimerQueue
         return true;
     }
 
+    /**
+     * Remove a completed one-shot timer.
+     */
     public function consumeOneShot(int $id): void
     {
         unset($this->timers[$id]);
     }
 
+    /**
+     * Return the active timer count.
+     */
     public function count(): int
     {
         return count($this->timers);
     }
 
+    /**
+     * Determine whether any timers remain active.
+     */
     public function hasTimers(): bool
     {
         return $this->timers !== [];
     }
 
+    /**
+     * Return the next valid monotonic deadline in nanoseconds.
+     */
     public function nextDeadline(): ?int
     {
         while (($entry = $this->peek()) !== null) {
@@ -78,6 +102,9 @@ final class TimerQueue
         return null;
     }
 
+    /**
+     * Advance a repeating timer to its next future deadline.
+     */
     public function rescheduleRepeat(int $id): void
     {
         $timer = $this->timers[$id] ?? null;

@@ -11,6 +11,9 @@ use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
+/**
+ * Accumulates bounded runtime, protocol, request, connection, and error metrics.
+ */
 final class RuntimeMetrics implements MetricsProviderInterface
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
@@ -71,6 +74,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
 
     private ?int $workerBusySinceNanoseconds = null;
 
+    /**
+     * Create a runtime metrics accumulator.
+     */
     public function __construct(?int $startedAtNanoseconds = null)
     {
         $this->startedAtNanoseconds = $startedAtNanoseconds ?? self::nowNanoseconds();
@@ -80,6 +86,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         $this->protocol = self::zeroedProtocol();
     }
 
+    /**
+     * Record a closed protocol connection and its final counters.
+     */
     public function connectionClosed(
         ProtocolVersion $version,
         int $bytesRead = 0,
@@ -99,6 +108,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         $this->protocol[$metric->value] = max(0, $this->protocol[$metric->value] - 1);
     }
 
+    /**
+     * Record an opened protocol connection.
+     */
     public function connectionOpened(ProtocolVersion $version): void
     {
         ++$this->connectionsActive;
@@ -108,6 +120,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         ++$this->protocol[self::connectionTotalMetric($version)->value];
     }
 
+    /**
+     * Collect cyclic garbage when the configured thresholds are reached.
+     */
     public function maybeCollectGarbage(GcPolicy $policy): void
     {
         ++$this->requestsSinceGc;
@@ -132,6 +147,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         $this->requestsSinceGc = 0;
     }
 
+    /**
+     * Merge event-loop diagnostics into runtime metrics.
+     */
     public function observeLoop(LoopDiagnosticsSnapshot $diagnostics): void
     {
         $this->timersActive = $diagnostics->timersActive;
@@ -141,6 +159,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         $this->callbackOverrunsTotal = max($this->callbackOverrunsTotal, $diagnostics->callbackOverrunsTotal);
     }
 
+    /**
+     * Merge aggregate network counters into runtime metrics.
+     */
     public function observeNetwork(
         int $activeConnections,
         int $acceptedConnections,
@@ -161,11 +182,17 @@ final class RuntimeMetrics implements MetricsProviderInterface
         );
     }
 
+    /**
+     * Increment recorded backpressure events.
+     */
     public function recordBackpressure(int $events = 1): void
     {
         $this->backpressureEventsTotal += max(0, $events);
     }
 
+    /**
+     * Record an application error classification.
+     */
     public function recordError(ApplicationErrorClass $error, int $amount = 1, bool $requestFailure = false): void
     {
         if ($amount <= 0) {
@@ -178,17 +205,26 @@ final class RuntimeMetrics implements MetricsProviderInterface
         }
     }
 
+    /**
+     * Record a rejected connection.
+     */
     public function recordRejectedConnection(): void
     {
         ++$this->rejectedConnectionsTotal;
     }
 
+    /**
+     * Record a rejected request and overload failure.
+     */
     public function recordRejectedRequest(): void
     {
         ++$this->rejectedRequestsTotal;
         $this->recordError(ApplicationErrorClass::OVERLOAD_REJECTION, requestFailure: true);
     }
 
+    /**
+     * Record completion, resource usage, and failure state for a request.
+     */
     public function requestCompleted(
         RequestContext $context,
         ProtocolVersion $version,
@@ -212,6 +248,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         }
     }
 
+    /**
+     * Record the start of a request for a protocol version.
+     */
     public function requestStarted(ProtocolVersion $version): void
     {
         ++$this->requestsTotal;
@@ -231,6 +270,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         };
     }
 
+    /**
+     * Set a protocol metric to a non-negative value.
+     */
     public function setProtocol(ProtocolMetric $metric, int $value): void
     {
         $value = max(0, $value);
@@ -240,6 +282,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
         }
     }
 
+    /**
+     * Capture the current immutable runtime metrics snapshot.
+     */
     public function snapshot(): RuntimeMetricsSnapshot
     {
         $now = self::nowNanoseconds();

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Metrics\Enum;
 
+/**
+ * Names protocol-specific counters and gauges exposed in runtime metrics.
+ */
 enum ProtocolMetric: string
 {
     case HPACK_TABLE_BYTES = 'hpack_table_bytes';

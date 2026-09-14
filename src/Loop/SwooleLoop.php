@@ -13,6 +13,9 @@ use OverflowException;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Bridges Runwire loop semantics onto an active Swoole/OpenSwoole coroutine reactor.
+ */
 final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
     private const int MILLISECONDS_PER_SECOND = 1_000;
@@ -58,6 +61,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->reactor = $reactor ?? new NativeSwooleReactor();
     }
 
+    /**
+     * Cancel a deferred callback, timer, or stream watcher.
+     */
     public function cancel(int $id): bool
     {
         if (isset($this->deferred[$id])) {
@@ -73,6 +79,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $this->cancelWatcher($id);
     }
 
+    /**
+     * Queue a callback on the host reactor.
+     */
     public function defer(callable $callback): int
     {
         $id = $this->allocateId();
@@ -95,6 +104,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $id;
     }
 
+    /**
+     * Schedule a one-shot timer.
+     */
     public function delay(float $seconds, callable $callback): int
     {
         $milliseconds = self::milliseconds($seconds, true);
@@ -122,6 +134,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $id;
     }
 
+    /**
+     * Capture current host-loop diagnostics.
+     */
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         $now = hrtime(true);
@@ -135,21 +150,33 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         );
     }
 
+    /**
+     * Return monotonic time in seconds.
+     */
     public function now(): float
     {
         return hrtime(true) / self::NANOS_PER_SECOND;
     }
 
+    /**
+     * Register a readable stream watcher.
+     */
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, true);
     }
 
+    /**
+     * Register a writable stream watcher.
+     */
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, false);
     }
 
+    /**
+     * Schedule a repeating timer.
+     */
     public function repeat(float $interval, callable $callback): int
     {
         $milliseconds = self::milliseconds($interval, false);
@@ -173,6 +200,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $id;
     }
 
+    /**
+     * Suspend the host coroutine until the Runwire loop becomes idle or stops.
+     */
     public function run(): void
     {
         if ($this->running) {
@@ -206,6 +236,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * Request that the running bridge resume its host coroutine and stop.
+     */
     public function stop(): void
     {
         if (!$this->running) {

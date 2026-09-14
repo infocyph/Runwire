@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Metrics;
 
+/**
+ * Carries liveness, readiness, health, and draining state for a runtime.
+ */
 final readonly class RuntimeHealthSnapshot
 {
+    /**
+     * Create an immutable runtime health sample.
+     */
     public function __construct(
         public bool $live,
         public bool $ready,

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Metrics\Enum;
 
+/**
+ * Classifies application and transport failures for runtime metrics.
+ */
 enum ApplicationErrorClass: string
 {
     case CLIENT_CANCELLED = 'client_cancelled';

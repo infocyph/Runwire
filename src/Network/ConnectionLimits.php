@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Network;
 
 use InvalidArgumentException;
 
+/**
+ * Defines bounded connection I/O, buffering, watermark, and timeout limits.
+ */
 final readonly class ConnectionLimits
 {
+    /**
+     * Create and validate connection resource limits.
+     */
     public function __construct(
         public int $readChunkBytes = 65_536,
         public int $maxReadBytesPerTick = 262_144,

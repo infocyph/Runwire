@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Metrics;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
 
+/**
+ * Carries a versioned immutable runtime metrics sample suitable for serialization.
+ */
 final readonly class RuntimeMetricsSnapshot
 {
     public const int SCHEMA_VERSION = 1;

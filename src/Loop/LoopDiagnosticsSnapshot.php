@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Loop;
 
+/**
+ * Carries event-loop activity, latency, watcher, and callback-overrun diagnostics.
+ */
 final readonly class LoopDiagnosticsSnapshot
 {
+    /**
+     * Create an immutable event-loop diagnostics sample.
+     */
     public function __construct(
         public int $sampledAtMonotonicNanoseconds,
         public int $timersActive = 0,

@@ -11,6 +11,9 @@ use LogicException;
 use OverflowException;
 use Throwable;
 
+/**
+ * Implements a portable stream-select event loop with timers and diagnostics.
+ */
 final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
     private const int MICROS_PER_SECOND = 1_000_000;
@@ -50,6 +53,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
     private array $writeWatchers = [];
 
+    /**
+     * Create a select-loop with the callback-overrun threshold.
+     */
     public function __construct(float $callbackOverrunSeconds = 0.05)
     {
         if (!is_finite($callbackOverrunSeconds) || $callbackOverrunSeconds <= 0 || $callbackOverrunSeconds > 60.0) {
@@ -60,6 +66,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->timers = new TimerQueue();
     }
 
+    /**
+     * Cancel a watcher, timer, or deferred callback handle.
+     */
     public function cancel(int $id): bool
     {
         if ($this->cancelWatcher($id, true) || $this->cancelWatcher($id, false)) {
@@ -77,6 +86,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return true;
     }
 
+    /**
+     * Queue a callback for the next loop turn.
+     */
     public function defer(callable $callback): int
     {
         $id = $this->allocateId();
@@ -85,6 +97,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $id;
     }
 
+    /**
+     * Schedule a one-shot timer.
+     */
     public function delay(float $seconds, callable $callback): int
     {
         $id = $this->allocateId();
@@ -93,6 +108,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $id;
     }
 
+    /**
+     * Capture current loop diagnostics.
+     */
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         return new LoopDiagnosticsSnapshot(
@@ -108,21 +126,33 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         );
     }
 
+    /**
+     * Return monotonic time in seconds.
+     */
     public function now(): float
     {
         return hrtime(true) / self::NANOS_PER_SECOND;
     }
 
+    /**
+     * Register a readable stream watcher.
+     */
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, true);
     }
 
+    /**
+     * Register a writable stream watcher.
+     */
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, false);
     }
 
+    /**
+     * Schedule a repeating timer.
+     */
     public function repeat(float $interval, callable $callback): int
     {
         $id = $this->allocateId();
@@ -131,6 +161,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $id;
     }
 
+    /**
+     * Run the event loop until stopped or idle.
+     */
     public function run(): void
     {
         if ($this->running) {
@@ -154,11 +187,17 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * Stop a running event loop.
+     */
     public function stop(): void
     {
         $this->running = false;
     }
 
+    /**
+     * Execute one non-polling loop tick.
+     */
     public function tick(): void
     {
         if ($this->running) {
