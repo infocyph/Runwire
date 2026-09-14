@@ -1,0 +1,227 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire\Loop\Internal;
+
+use Closure;
+use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use ReflectionException;
+use ReflectionMethod;
+use RuntimeException;
+
+/**
+ * @internal
+ * Bridges Runwire loop operations to the available Swoole/OpenSwoole reactor APIs.
+ */
+final readonly class NativeSwooleReactor implements SwooleReactorInterface
+{
+    private Closure $coroutineGetCid;
+
+    private Closure $coroutineResume;
+
+    private Closure $coroutineYield;
+
+    private Closure $eventAdd;
+
+    private Closure $eventDefer;
+
+    private Closure $eventDelete;
+
+    private Closure $eventSet;
+
+    private int $readFlagValue;
+
+    private Closure $timerAfter;
+
+    private Closure $timerClear;
+
+    private Closure $timerRepeat;
+
+    private int $writeFlagValue;
+
+    /** @internal */
+    public function __construct()
+    {
+        [$eventClass, $timerClass, $coroutineClass, $namespace] = self::resolveClassFamily();
+        $this->coroutineGetCid = self::method($coroutineClass, 'getCid');
+        $this->coroutineResume = self::method($coroutineClass, 'resume');
+        $this->coroutineYield = self::method($coroutineClass, 'yield');
+        $this->eventAdd = self::method($eventClass, 'add');
+        $this->eventDefer = self::method($eventClass, 'defer');
+        $this->eventDelete = self::method($eventClass, 'del');
+        $this->eventSet = self::method($eventClass, 'set');
+        $this->readFlagValue = self::eventFlag($namespace, 'READ');
+        $this->timerAfter = self::method($timerClass, 'after');
+        $this->timerClear = self::method($timerClass, 'clear');
+        $this->timerRepeat = self::method($timerClass, 'tick');
+        $this->writeFlagValue = self::eventFlag($namespace, 'WRITE');
+    }
+
+    /**
+     * Register read and write callbacks for a stream.
+     */
+    public function add(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
+    {
+        $result = ($this->eventAdd)($stream, $read, $write, $flags);
+
+        return $result === true || (is_int($result) && $result >= 0);
+    }
+
+    /**
+     * Schedule a one-shot reactor timer.
+     */
+    public function after(int $milliseconds, Closure $callback): int
+    {
+        $timerId = ($this->timerAfter)($milliseconds, $callback);
+        if (!is_int($timerId)) {
+            throw new RuntimeException('Swoole/OpenSwoole rejected the one-shot timer.');
+        }
+
+        return $timerId;
+    }
+
+    /**
+     * Cancel a reactor timer.
+     */
+    public function clearTimer(int $timerId): bool
+    {
+        return ($this->timerClear)($timerId) === true;
+    }
+
+    /**
+     * Return the current host coroutine ID.
+     */
+    public function coroutineId(): int
+    {
+        $coroutineId = ($this->coroutineGetCid)();
+
+        return is_int($coroutineId) ? $coroutineId : -1;
+    }
+
+    /**
+     * Defer a callback onto the reactor.
+     */
+    public function defer(Closure $callback): void
+    {
+        ($this->eventDefer)($callback);
+    }
+
+    /**
+     * Remove a stream from the reactor.
+     */
+    public function delete(mixed $stream): bool
+    {
+        return ($this->eventDelete)($stream) === true;
+    }
+
+    /**
+     * Return the native readable event flag.
+     */
+    public function readFlag(): int
+    {
+        return $this->readFlagValue;
+    }
+
+    /**
+     * Schedule a repeating reactor timer.
+     */
+    public function repeat(int $milliseconds, Closure $callback): int
+    {
+        $timerId = ($this->timerRepeat)($milliseconds, $callback);
+        if (!is_int($timerId)) {
+            throw new RuntimeException('Swoole/OpenSwoole rejected the repeating timer.');
+        }
+
+        return $timerId;
+    }
+
+    /**
+     * Resume a suspended host coroutine.
+     */
+    public function resumeCoroutine(int $coroutineId): bool
+    {
+        return ($this->coroutineResume)($coroutineId) === true;
+    }
+
+    /**
+     * Update callbacks and flags for an existing stream registration.
+     */
+    public function set(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
+    {
+        return ($this->eventSet)($stream, $read, $write, $flags) === true;
+    }
+
+    /**
+     * Suspend the current host coroutine.
+     */
+    public function suspendCoroutine(): void
+    {
+        if (($this->coroutineYield)() !== true) {
+            throw new RuntimeException('Swoole/OpenSwoole failed to suspend the current host coroutine.');
+        }
+    }
+
+    /**
+     * Return the native writable event flag.
+     */
+    public function writeFlag(): int
+    {
+        return $this->writeFlagValue;
+    }
+
+    private static function eventFlag(string $namespace, string $direction): int
+    {
+        $candidates = array_values(array_unique([
+            $namespace . '\\Constant::EVENT_' . $direction,
+            $namespace . '\\Socket::EVENT_' . $direction,
+            strtoupper($namespace) . '_EVENT_' . $direction,
+            'SWOOLE_EVENT_' . $direction,
+        ]));
+
+        foreach ($candidates as $name) {
+            $value = defined($name) ? constant($name) : null;
+            if (is_int($value)) {
+                return $value;
+            }
+        }
+
+        throw new RuntimeUnavailableException(sprintf(
+            'Required %s event flag is unavailable from the Swoole/OpenSwoole runtime.',
+            strtolower($direction),
+        ));
+    }
+
+    /** @param class-string $class */
+    private static function method(string $class, string $method): Closure
+    {
+        try {
+            return new ReflectionMethod($class, $method)->getClosure();
+        } catch (ReflectionException) {
+            throw new RuntimeUnavailableException(sprintf(
+                'Required Swoole/OpenSwoole method %s::%s is unavailable.',
+                $class,
+                $method,
+            ));
+        }
+    }
+
+    /** @return array{class-string, class-string, class-string, string} */
+    private static function resolveClassFamily(): array
+    {
+        foreach (['OpenSwoole', 'Swoole'] as $namespace) {
+            $eventClass = $namespace . '\\Event';
+            $timerClass = $namespace . '\\Timer';
+            $coroutineClass = $namespace . '\\Coroutine';
+            if (class_exists($eventClass)
+                && class_exists($timerClass)
+                && class_exists($coroutineClass)) {
+                return [$eventClass, $timerClass, $coroutineClass, $namespace];
+            }
+        }
+
+        throw new RuntimeUnavailableException(
+            'The Swoole/OpenSwoole event, timer, and coroutine APIs are unavailable.',
+        );
+    }
+}

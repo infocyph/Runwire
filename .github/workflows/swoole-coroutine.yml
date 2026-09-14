@@ -1,0 +1,130 @@
+name: "Swoole/OpenSwoole Coroutine"
+
+on:
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  swoole-family:
+    name: "${{ matrix.extension }} Coroutine - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+        extension: ["openswoole", "swoole"]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP and Swoole family extension
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: ${{ matrix.extension }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Verify Swoole family reactor API
+        shell: bash
+        env:
+          RUNWIRE_SWOOLE_EXTENSION: ${{ matrix.extension }}
+        run: |
+          php --ri "$RUNWIRE_SWOOLE_EXTENSION"
+          php -r '
+          $extension = getenv("RUNWIRE_SWOOLE_EXTENSION");
+          $namespace = $extension === "openswoole" ? "OpenSwoole" : "Swoole";
+          $valid = is_string($extension)
+              && extension_loaded($extension)
+              && class_exists($namespace . "\\Event")
+              && class_exists($namespace . "\\Timer")
+              && class_exists($namespace . "\\Coroutine")
+              && class_exists($namespace . "\\Http\\Server");
+          if (!$valid) {
+              fwrite(STDERR, "Required Swoole/OpenSwoole reactor API is unavailable.\n");
+              exit(1);
+          }
+          '
+
+      - name: Install dependencies
+        shell: bash
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run focused Swoole coroutine tests
+        shell: bash
+        run: |
+          cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest.xml
+          trap 'rm -f .phpforge-pest.xml' EXIT
+          vendor/bin/pest \
+            --configuration=.phpforge-pest.xml \
+            tests/SwooleLoopTest.php \
+            tests/SwooleDriverTest.php \
+            tests/BatchORuntimeIntegrationTest.php
+
+      - name: Run live Swoole family coroutine acceptance
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          logfile="$GITHUB_WORKSPACE/${{ matrix.extension }}-acceptance-${{ matrix.php-version }}.log"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          port="$(python3 - <<'PY'
+          import socket
+          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+              sock.bind(('127.0.0.1', 0))
+              print(sock.getsockname()[1])
+          PY
+          )"
+
+          php tests/fixtures/swoole_coroutine_server.php "$port" \
+            >"$logfile" 2>&1 &
+          server_pid=$!
+
+          response=""
+          for attempt in $(seq 1 100); do
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$logfile"
+              echo '::error::Swoole/OpenSwoole coroutine acceptance server exited before becoming ready.'
+              exit 1
+            fi
+
+            if response="$(curl --fail --silent --show-error --max-time 1 \
+              "http://127.0.0.1:$port/coroutine" 2>/dev/null)"; then
+              break
+            fi
+            sleep 0.05
+          done
+
+          expected='runwire-swoole-ok:s:1:0:0:0:/coroutine'
+          if [ "$response" != "$expected" ]; then
+            echo "Expected: $expected"
+            echo "Received: $response"
+            echo '--- Swoole/OpenSwoole coroutine acceptance server log ---'
+            cat "$logfile"
+            exit 1
+          fi
+
+          kill "$server_pid" 2>/dev/null || true
+          wait "$server_pid" 2>/dev/null || true
+          server_pid=""
+
+      - name: Upload Swoole family acceptance diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.extension }}-acceptance-${{ matrix.php-version }}
+          path: ${{ matrix.extension }}-acceptance-${{ matrix.php-version }}.log
+          if-no-files-found: ignore

@@ -1,0 +1,83 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire\Coroutine\Internal;
+
+use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
+use Infocyph\Runwire\Coroutine\Task;
+use LogicException;
+use SplQueue;
+use Throwable;
+
+/** @internal */
+final class ReadyQueue
+{
+    /** @var SplQueue<ReadyItem> */
+    private readonly SplQueue $queue;
+
+    /** @var array<int, true> */
+    private array $queued = [];
+
+    /**
+     * Create a ready queue with a bounded backlog.
+     */
+    public function __construct(private readonly int $maxBacklog)
+    {
+        $this->queue = new SplQueue();
+    }
+
+    /**
+     * Return the number of queued tasks.
+     */
+    public function count(): int
+    {
+        return $this->queue->count();
+    }
+
+    /**
+     * Remove and return the next ready item.
+     */
+    public function dequeue(): ReadyItem
+    {
+        if ($this->queue->isEmpty()) {
+            throw new LogicException('Cannot dequeue an empty coroutine ready queue.');
+        }
+
+        $item = $this->queue->dequeue();
+        unset($this->queued[$item->task->id()]);
+
+        return $item;
+    }
+
+    /**
+     * Queue a task for resumption when it is not already pending.
+     */
+    public function enqueue(
+        Task $task,
+        mixed $value = null,
+        ?Throwable $error = null,
+        bool $ignoreCancellation = false,
+    ): bool {
+        $id = $task->id();
+        if (isset($this->queued[$id])) {
+            return false;
+        }
+        if ($this->queue->count() >= $this->maxBacklog) {
+            throw new CoroutineOverflowException('Coroutine ready backlog limit exceeded.');
+        }
+
+        $this->queued[$id] = true;
+        $this->queue->enqueue(new ReadyItem($task, $value, $error, $ignoreCancellation));
+
+        return true;
+    }
+
+    /**
+     * Determine whether the ready queue is empty.
+     */
+    public function isEmpty(): bool
+    {
+        return $this->queue->isEmpty();
+    }
+}

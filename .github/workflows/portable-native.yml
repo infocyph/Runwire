@@ -1,0 +1,93 @@
+name: "Portable Native"
+
+on:
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  portable-native:
+    name: "Portable Native - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    container: "php:${{ matrix.php-version }}-cli"
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Bootstrap container tools
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git unzip
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Verify prefork is genuinely unavailable
+        shell: bash
+        run: |
+          php -r '
+          $invalid = function_exists("pcntl_fork")
+              || function_exists("pcntl_waitpid")
+              || defined("SIGTERM")
+              || defined("SIGKILL");
+          if ($invalid) {
+              fwrite(STDERR, "Portable-native CI unexpectedly has PCNTL/signal capability.\n");
+              exit(1);
+          }
+          '
+
+      - name: Verify OpenSSL baseline
+        shell: bash
+        run: |
+          php -r '
+          if (!extension_loaded("openssl") || !function_exists("stream_socket_enable_crypto")) {
+              fwrite(STDERR, "Portable-native CI requires usable OpenSSL for TLS acceptance.\n");
+              exit(1);
+          }
+          '
+
+      - name: Install Composer
+        shell: bash
+        run: |
+          php -r 'copy("https://getcomposer.org/installer", "/tmp/composer-setup.php");'
+          php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+          rm -f /tmp/composer-setup.php
+          composer --version
+
+      - name: Generate production autoloader
+        shell: bash
+        run: |
+          composer dump-autoload --no-dev --classmap-authoritative --no-interaction
+          test -f vendor/autoload.php
+
+      - name: Audit optional process subsystem for PCNTL assumptions
+        shell: bash
+        run: |
+          if grep -R -nE '\bpcntl_|\bposix_|\bSIG[A-Z0-9_]+' src/Process; then
+            echo '::error::Process subsystem contains an implicit PCNTL/POSIX dependency.'
+            exit 1
+          fi
+
+      - name: Run ProcessRunner without PCNTL
+        shell: bash
+        run: php tests/fixtures/no_pcntl_process_runner.php
+
+      - name: Run portable-native transport and capability acceptance
+        shell: bash
+        run: php tests/fixtures/portable_native_acceptance.php
+
+      - name: Run portable-native TLS acceptance
+        shell: bash
+        run: php tests/fixtures/portable_optional_protocol_acceptance.php
+
+      - name: Run portable-native TLS unavailable acceptance
+        shell: bash
+        run: php -d disable_functions=stream_socket_enable_crypto tests/fixtures/portable_optional_protocol_acceptance.php unavailable

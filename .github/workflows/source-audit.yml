@@ -1,0 +1,52 @@
+name: Source Audit
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - src/**
+      - tests/**
+      - composer.json
+      - composer.lock
+      - .github/workflows/source-audit.yml
+  pull_request:
+    paths:
+      - src/**
+      - tests/**
+      - composer.json
+      - composer.lock
+      - .github/workflows/source-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Syntax check source
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file" >/dev/null
+          done < <(find src -type f -name '*.php' -print0 | sort -z)
+          printf 'syntax-ok files=%s\n' "$(find src -type f -name '*.php' | wc -l)"
+
+      - name: Risk-pattern scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' '=== RISK PATTERN SCAN ==='
+          grep -RInE --include='*.php' \
+            '(TODO|FIXME|HACK|XXX|\beval\s*\(|\bexec\s*\(|\bshell_exec\s*\(|\bpassthru\s*\(|\bsystem\s*\(|\bproc_open\s*\(|\bunserialize\s*\(|\bserialize\s*\(|\bsleep\s*\(|\busleep\s*\(|\bexit\s*\(|\bdie\s*\()' \
+            src || true

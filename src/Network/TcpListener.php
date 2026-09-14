@@ -1,0 +1,458 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire\Network;
+
+use Closure;
+use Infocyph\Runwire\Exception\ListenerException;
+use Infocyph\Runwire\Loop\LoopInterface;
+use Infocyph\Runwire\Network\Internal\TlsHandshake;
+use LogicException;
+use Throwable;
+
+/**
+ * Accepts non-blocking TCP connections and optionally upgrades them through TLS.
+ */
+final class TcpListener
+{
+    private int $acceptedConnections = 0;
+
+    private bool $acceptPaused = false;
+
+    private ?int $acceptWatcher = null;
+
+    private bool $closed = false;
+
+    private int $closedBytesRead = 0;
+
+    private int $closedBytesWritten = 0;
+
+    private ?Closure $connectionCallback = null;
+
+    /** @var array<int, Connection> */
+    private array $connections = [];
+
+    /** @var array<int, TlsHandshake> */
+    private array $handshakes = [];
+
+    private ?LoopInterface $loop = null;
+
+    private int $rejectedConnections = 0;
+
+    /** @var resource|null */
+    private mixed $stream;
+
+    /** @param resource $stream */
+    private function __construct(
+        mixed $stream,
+        private readonly string $address,
+        private readonly ListenerOptions $options,
+        private readonly ConnectionLimits $connectionLimits,
+        private readonly ?TlsOptions $tls,
+    ) {
+        $this->stream = $stream;
+    }
+
+    /**
+     * Binds a TCP listener to the supplied address.
+     */
+    public static function bind(
+        string $address,
+        ?ListenerOptions $options = null,
+        ?ConnectionLimits $connectionLimits = null,
+        ?TlsOptions $tls = null,
+    ): self {
+        $options ??= new ListenerOptions();
+        $connectionLimits ??= new ConnectionLimits();
+        if ($tls !== null && (!extension_loaded('openssl') || !function_exists('stream_socket_enable_crypto'))) {
+            throw new ListenerException('TLS listeners require the OpenSSL extension.');
+        }
+        $uri = self::normalizeAddress($address);
+        $contextOptions = [
+            'socket' => [
+                ...$options->socketContext,
+                'backlog' => $options->backlog,
+            ],
+        ];
+        if ($tls !== null) {
+            $contextOptions['ssl'] = $tls->context();
+        }
+
+        $context = stream_context_create($contextOptions);
+        $errno = 0;
+        $error = '';
+        $stream = stream_socket_server(
+            $uri,
+            $errno,
+            $error,
+            STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+            $context,
+        );
+        if (!is_resource($stream)) {
+            throw new ListenerException(sprintf(
+                'Unable to bind TCP listener "%s": %s (%d).',
+                $address,
+                $error !== '' ? $error : 'unknown error',
+                $errno,
+            ));
+        }
+
+        if (!stream_set_blocking($stream, false)) {
+            fclose($stream);
+
+            throw new ListenerException(sprintf('Unable to make TCP listener "%s" non-blocking.', $address));
+        }
+        $boundAddress = stream_socket_get_name($stream, false);
+
+        return new self(
+            $stream,
+            is_string($boundAddress) ? $boundAddress : $address,
+            $options,
+            $connectionLimits,
+            $tls,
+        );
+    }
+
+    /**
+     * Immediately aborts every active connection.
+     */
+    public function abortConnections(): void
+    {
+        foreach ($this->connections as $connection) {
+            $connection->abort();
+        }
+    }
+
+    /**
+     * Returns the total number of accepted client connections.
+     */
+    public function acceptedConnections(): int
+    {
+        return $this->acceptedConnections;
+    }
+
+    /**
+     * Returns the number of currently active connections.
+     */
+    public function activeConnections(): int
+    {
+        return count($this->connections);
+    }
+
+    /**
+     * Returns the listener's bound address.
+     */
+    public function address(): string
+    {
+        return $this->address;
+    }
+
+    /**
+     * Returns cumulative bytes read across active and closed connections.
+     */
+    public function bytesRead(): int
+    {
+        $total = $this->closedBytesRead;
+        foreach ($this->connections as $connection) {
+            $total += $connection->bytesRead();
+        }
+
+        return $total;
+    }
+
+    /**
+     * Returns cumulative bytes written across active and closed connections.
+     */
+    public function bytesWritten(): int
+    {
+        $total = $this->closedBytesWritten;
+        foreach ($this->connections as $connection) {
+            $total += $connection->bytesWritten();
+        }
+
+        return $total;
+    }
+
+    /**
+     * Closes the listener and cancels pending TLS handshakes.
+     */
+    public function close(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+
+        $this->closed = true;
+        $this->syncAcceptWatcher();
+        foreach ($this->handshakes as $handshake) {
+            $handshake->cancel();
+        }
+        $this->handshakes = [];
+        if (is_resource($this->stream)) {
+            fclose($this->stream);
+        }
+        $this->stream = null;
+        $this->connectionCallback = null;
+        $this->loop = null;
+    }
+
+    /**
+     * Begins graceful closure of all active connections.
+     */
+    public function closeConnectionsGracefully(): void
+    {
+        foreach ($this->connections as $connection) {
+            $connection->closeGracefully();
+        }
+    }
+
+    /**
+     * Reports whether the listener is currently accepting connections.
+     */
+    public function isAccepting(): bool
+    {
+        return !$this->closed && !$this->acceptPaused && $this->acceptWatcher !== null;
+    }
+
+    /**
+     * Reports whether the listener has been closed.
+     */
+    public function isClosed(): bool
+    {
+        return $this->closed;
+    }
+
+    /**
+     * Returns the configured concurrent connection ceiling.
+     */
+    public function maxConnections(): int
+    {
+        return $this->options->maxConnections;
+    }
+
+    /**
+     * Temporarily pauses accepting new connections.
+     */
+    public function pauseAccepting(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        $this->acceptPaused = true;
+        $this->syncAcceptWatcher();
+    }
+
+    /**
+     * Returns the number of TLS handshakes currently in progress.
+     */
+    public function pendingHandshakes(): int
+    {
+        return count($this->handshakes);
+    }
+
+    /**
+     * Returns the total number of rejected connection attempts.
+     */
+    public function rejectedConnections(): int
+    {
+        return $this->rejectedConnections;
+    }
+
+    /**
+     * Resumes accepting connections after a pause.
+     */
+    public function resumeAccepting(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        $this->acceptPaused = false;
+        $this->syncAcceptWatcher();
+    }
+
+    /** @param callable(Connection): void $onConnection */
+    public function start(LoopInterface $loop, callable $onConnection): void
+    {
+        if ($this->closed) {
+            throw new LogicException('Closed listener cannot be started.');
+        }
+        if ($this->loop !== null) {
+            throw new LogicException('Listener is already attached to an event loop.');
+        }
+
+        $this->loop = $loop;
+        $this->connectionCallback = Closure::fromCallable($onConnection);
+        $this->syncAcceptWatcher();
+    }
+
+    private static function ignoreAcceptWarning(int $severity, string $message): bool
+    {
+        return $severity === E_WARNING
+            && str_starts_with($message, 'stream_socket_accept(): Accept failed:');
+    }
+
+    private static function normalizeAddress(string $address): string
+    {
+        if (str_contains($address, '://')) {
+            if (!str_starts_with($address, 'tcp://')) {
+                throw new ListenerException('TcpListener accepts only tcp:// addresses.');
+            }
+
+            return $address;
+        }
+
+        return 'tcp://' . $address;
+    }
+
+    /** @param resource $stream */
+    private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
+    {
+        $loop = $this->loop;
+        $callback = $this->connectionCallback;
+        if (!is_resource($stream)) {
+            ++$this->rejectedConnections;
+
+            return;
+        }
+        if ($loop === null || $callback === null) {
+            fclose($stream);
+            ++$this->rejectedConnections;
+
+            return;
+        }
+
+        $connection = new Connection(
+            $loop,
+            $stream,
+            $this->connectionLimits,
+            $peer,
+            $local,
+            $protocol,
+            $this->tls !== null,
+        );
+        $id = spl_object_id($connection);
+        $this->connections[$id] = $connection;
+        $connection->onClose(function (Connection $closed) use ($id): void {
+            $this->closedBytesRead += $closed->bytesRead();
+            $this->closedBytesWritten += $closed->bytesWritten();
+            unset($this->connections[$id]);
+            $this->syncAcceptWatcher();
+        });
+
+        try {
+            $callback($connection);
+        } catch (Throwable $throwable) {
+            try {
+                $connection->abort();
+            } catch (Throwable) {
+                // Preserve the originating connection callback failure.
+            }
+
+            throw $throwable;
+        }
+    }
+
+    private function handleAccept(): void
+    {
+        $loop = $this->loop;
+        $callback = $this->connectionCallback;
+        $listener = $this->stream;
+        if ($this->closed || $loop === null || $callback === null || !is_resource($listener)) {
+            return;
+        }
+
+        for ($accepted = 0; $accepted < $this->options->acceptBatchSize; ++$accepted) {
+            if ($this->load() >= $this->options->maxConnections) {
+                break;
+            }
+
+            $peer = null;
+            set_error_handler(self::ignoreAcceptWarning(...));
+
+            try {
+                $client = stream_socket_accept($listener, 0, $peer);
+            } finally {
+                restore_error_handler();
+            }
+
+            if (!is_resource($client)) {
+                break;
+            }
+
+            if (!stream_set_blocking($client, false)) {
+                fclose($client);
+                ++$this->rejectedConnections;
+
+                continue;
+            }
+            ++$this->acceptedConnections;
+            $local = stream_socket_get_name($client, false);
+            $peerAddress = is_string($peer) ? $peer : null;
+            $localAddress = is_string($local) ? $local : null;
+
+            if ($this->tls === null) {
+                $this->activateConnection($client, $peerAddress, $localAddress, null);
+
+                continue;
+            }
+
+            $id = get_resource_id($client);
+            $this->handshakes[$id] = TlsHandshake::start(
+                $loop,
+                $client,
+                $this->tls,
+                function (mixed $stream, ?string $protocol) use ($id, $peerAddress, $localAddress): void {
+                    unset($this->handshakes[$id]);
+                    if (!is_resource($stream)) {
+                        ++$this->rejectedConnections;
+                        $this->syncAcceptWatcher();
+
+                        return;
+                    }
+                    $this->activateConnection($stream, $peerAddress, $localAddress, $protocol);
+                    $this->syncAcceptWatcher();
+                },
+                function () use ($id): void {
+                    unset($this->handshakes[$id]);
+                    ++$this->rejectedConnections;
+                    $this->syncAcceptWatcher();
+                },
+            );
+        }
+
+        $this->syncAcceptWatcher();
+    }
+
+    private function load(): int
+    {
+        return count($this->connections) + count($this->handshakes);
+    }
+
+    private function syncAcceptWatcher(): void
+    {
+        $loop = $this->loop;
+        $stream = $this->stream;
+        $shouldWatch = !$this->closed
+            && !$this->acceptPaused
+            && $loop !== null
+            && is_resource($stream)
+            && $this->load() < $this->options->maxConnections;
+
+        if ($shouldWatch && $this->acceptWatcher === null) {
+            $this->acceptWatcher = $loop->onReadable(
+                $stream,
+                function (): void {
+                    $this->handleAccept();
+                },
+            );
+
+            return;
+        }
+
+        if (!$shouldWatch && $this->acceptWatcher !== null && $loop !== null) {
+            $loop->cancel($this->acceptWatcher);
+            $this->acceptWatcher = null;
+        }
+    }
+}
