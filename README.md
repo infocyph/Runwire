@@ -23,14 +23,14 @@ Optional runtime capabilities:
 
 | Extension/capability | Enables |
 | --- | --- |
-| `ext-pcntl` + `ext-posix` | native prefork supervision, reload, worker replacement/recycle, signals, control operations |
+| `ext-pcntl` + `ext-posix` | native prefork supervision, reload, worker replacement/recycle, signals, control operations, privilege reduction |
 | `ext-openssl` | native TLS and HTTP/2 ALPN |
 | `ext-quic` | native QUIC / HTTP/3 |
 | `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host runtime integration |
 | `ext-sockets` | optional low-level socket features |
 | OPcache | persistent bytecode caching |
 
-Without PCNTL/POSIX, native CLI can use Runwire's portable single-process runtime. Prefork-only capabilities are not advertised there.
+Without PCNTL/POSIX, native CLI uses Runwire's portable single-process runtime. Prefork-only capabilities are not advertised there.
 
 ## Native HTTP quick start
 
@@ -98,6 +98,23 @@ Runtime::create()->serveApplication($applicationFactory);
 
 Do not combine host-owned serving with a competing Runwire listener.
 
+### Portable native contract
+
+Portable native is intentionally not a substitute supervisor:
+
+```text
+workers 0 or 1            one process
+workers > 1               startup error
+enabled recycle threshold startup error
+control endpoint           startup error
+development watcher        startup error
+lifecycle listener         startup error
+worker privilege drop      startup error
+HTTP/3 without QUIC        startup error
+```
+
+HTTP/1.1, framed TCP/Unix, and UDP remain available when their platform capabilities are present. External supervision owns process restart/replacement.
+
 ## Native protocols
 
 Runwire 1.0 provides:
@@ -134,9 +151,7 @@ $server = Server::http('0.0.0.0:8443', $handler)
     ->withHttp3();
 ```
 
-HTTP/3 requires TLS plus the supported QUIC capability. 0-RTT application dispatch is disabled in Runwire 1.0.
-
-The active release plan contains the final pre-1.0 hard-fail validation for explicit HTTP/3 configuration without QUIC and unsupported portable multi-worker/recycle settings. See the plan before treating those combinations as release-complete.
+HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 1.0.
 
 ## Framed TCP example
 
@@ -250,6 +265,8 @@ boot
 
 Frameworks can implement `RuntimeApplicationFactoryInterface` so application construction happens after the concrete runtime context/capabilities are known.
 
+Request cleanup is part of the persistent-runtime security boundary. Framework adapters must reset framework-owned request-local state after every request, including failure/cancellation/deadline paths.
+
 ## Worker lifecycle
 
 Native prefork supports:
@@ -264,7 +281,9 @@ Native prefork supports:
 - optional development watcher;
 - optional privilege reduction.
 
-Portable native keeps the network/application contract but intentionally does not pretend to own a prefork supervisor.
+When UID-based privilege reduction is configured, Runwire resolves the target account, initializes supplementary groups, sets GID before UID, verifies the final effective identity, and only then proceeds to application bootstrap/readiness. A partial transition fails startup.
+
+Native prefork running as root without worker privilege dropping reports a `SECURITY:` runtime-selection warning. Prefer starting the service unprivileged whenever possible.
 
 ## Resource safety
 
@@ -281,7 +300,15 @@ Runwire is designed around bounded state:
 - diagnostics/status payloads;
 - restart/reload/recycle policies.
 
-Treat limit increases as capacity planning decisions and verify them with soak/load tests.
+Treat limit increases as capacity-planning decisions and verify them with soak/load tests.
+
+`WorkerRecyclePolicy::maxMemoryBytes` is based on PHP allocator memory, not process RSS/cgroup/native-extension/kernel memory. Use OS/container memory limits as the hard process-memory boundary.
+
+## Process execution
+
+`ProcessRunner` executes validated argv directly with shell bypass and does not require PCNTL. Its default `allowedExecutables: null` means any validated **absolute** executable path is permitted. Security-sensitive consumers should supply an explicit executable allowlist and bound environment, cwd, stdin, output, and timeout policies.
+
+See the security guide before exposing process execution to application-controlled input.
 
 ## Performance
 
@@ -305,9 +332,10 @@ Start here for complete examples and operational guidance:
 - [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, TCP/Unix, UDP, hosted-runtime, application-factory, capability, and coroutine examples.
 - [`docs/architecture.md`](docs/architecture.md) — runtime selection, ownership boundaries, capability model, contexts, lifecycle, networking, protocol, coroutine, observability, and security contracts.
 - [`docs/deployment.md`](docs/deployment.md) — production topology, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, backpressure, resource limits, and deployment acceptance.
+- [`docs/security.md`](docs/security.md) — least privilege, persistent-state isolation, ProcessRunner policy, `disable_functions`, resource ceilings, and systemd/container hardening.
 - [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
 - [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.
-- [`docs/plans/runwire-1.0-foundation-3-launch-plan.md`](docs/plans/runwire-1.0-foundation-3-launch-plan.md) — **only remaining Runwire 1.0 work** and release sequence.
+- [`docs/plans/runwire-1.0-foundation-3-launch-plan.md`](docs/plans/runwire-1.0-foundation-3-launch-plan.md) — final hardening status, exact-head certification matrix, and human-controlled release sequence.
 
 ## Development
 
@@ -329,7 +357,7 @@ Run the automated formatting/refactor processing pipeline:
 composer ic:process
 ```
 
-The CI matrix covers supported PHP versions/dependency modes, static analysis, clean production installation, benchmarks, Swoole/OpenSwoole acceptance, and dedicated QUIC/HTTP/3 interoperability/soak lanes.
+The CI matrix covers supported PHP versions/dependency modes, static analysis, clean production installation, genuine no-PCNTL portable-native acceptance, benchmarks, Swoole/OpenSwoole acceptance, and dedicated QUIC/HTTP/3 interoperability/soak lanes.
 
 ## License
 
