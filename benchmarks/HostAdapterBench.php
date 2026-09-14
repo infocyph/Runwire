@@ -62,6 +62,9 @@ final class HostAdapterBench
         );
     }
 
+    #[Iterations(20)]
+    #[Revs(1)]
+    #[Warmup(0)]
     public function benchApplicationDispatchAndCleanup(): int
     {
         $this->application->handle($this->request, $this->writer);
