@@ -17,6 +17,8 @@ final class TestIdentitySystem implements IdentitySystemInterface
     public bool $initGroupsResult = true;
     public bool $setGidResult = true;
     public bool $setUidResult = true;
+    public bool $applyGid = true;
+    public bool $applyUid = true;
 
     public function __construct(
         public int $uid = 0,
@@ -50,7 +52,7 @@ final class TestIdentitySystem implements IdentitySystemInterface
     public function setGid(int $gid): bool
     {
         $this->calls[] = 'setgid:' . $gid;
-        if ($this->setGidResult) {
+        if ($this->setGidResult && $this->applyGid) {
             $this->gid = $gid;
         }
 
@@ -60,7 +62,7 @@ final class TestIdentitySystem implements IdentitySystemInterface
     public function setUid(int $uid): bool
     {
         $this->calls[] = 'setuid:' . $uid;
-        if ($this->setUidResult) {
+        if ($this->setUidResult && $this->applyUid) {
             $this->uid = $uid;
         }
 
@@ -136,6 +138,22 @@ it('fails when uid transition is rejected', function (): void {
 
     expect(fn() => (new PrivilegeDropper($system))->apply(1001, 2001))
         ->toThrow(SupervisorException::class, 'Unable to set worker UID to 1001.');
+});
+
+it('fails when the final effective uid does not match the target', function (): void {
+    $system = new TestIdentitySystem();
+    $system->applyUid = false;
+
+    expect(fn() => (new PrivilegeDropper($system))->apply(1001, 2001))
+        ->toThrow(SupervisorException::class, 'Worker UID verification failed after transition to 1001.');
+});
+
+it('fails when the final effective gid does not match the target', function (): void {
+    $system = new TestIdentitySystem();
+    $system->applyGid = false;
+
+    expect(fn() => (new PrivilegeDropper($system))->apply(null, 2001))
+        ->toThrow(SupervisorException::class, 'Worker GID verification failed after transition to 2001.');
 });
 
 it('rejects identity changes from a non-root process', function (): void {
