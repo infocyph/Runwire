@@ -19,10 +19,6 @@ use WeakReference;
  */
 final class AsyncConnection
 {
-    private readonly Connection $connection;
-
-    private readonly CoroutineScope $scope;
-
     private bool $attached;
 
     private ?Deferred $closeDeferred = null;
@@ -46,12 +42,10 @@ final class AsyncConnection
     /**
      * Bind coroutine waits to the supplied connection.
      */
-    public function __construct(CoroutineScope $scope, Connection $connection)
+    public function __construct(private readonly CoroutineScope $scope, private readonly Connection $connection)
     {
-        $this->connection = $connection;
-        $this->scope = $scope;
         $weakSelf = WeakReference::create($this);
-        $connection->claimCallbacks(
+        $this->connection->claimCallbacks(
             $this,
             static function (Connection $connection) use ($weakSelf): void {
                 $adapter = $weakSelf->get();
@@ -73,7 +67,7 @@ final class AsyncConnection
             },
         );
         $this->attached = true;
-        $connection->onClose(static function (Connection $connection, CloseReason $reason) use ($weakSelf): void {
+        $this->connection->onClose(static function (Connection $connection, CloseReason $reason) use ($weakSelf): void {
             $adapter = $weakSelf->get();
             if ($adapter instanceof self) {
                 $adapter->handleClose($connection, $reason);
