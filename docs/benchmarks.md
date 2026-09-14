@@ -1,63 +1,65 @@
 # Runwire 1.0 Benchmark Methodology
 
-Runwire benchmarks are release evidence and regression signals. They are not universal capacity claims: GitHub-hosted runners, local developer machines and production hosts have different CPU, kernel, crypto and virtualization characteristics.
+Runwire benchmarks are regression evidence and workload-specific measurements. They are not universal capacity claims and must not be presented as proof that Runwire is the fastest PHP runtime or framework.
 
-The benchmark suite deliberately keeps protocol-core cost, lifecycle/runtime cost, host-adapter cost and native transport cost separate. Combining them into one headline number would hide where time is actually spent.
+## 1. Evidence layers
 
-## Benchmark layers
+Runwire deliberately separates different cost layers.
 
-### Protocol core
+### Protocol-core microbenchmarks
 
-`benchmarks/ProtocolCoreBench.php` records deterministic PHPBench subjects for:
+`benchmarks/ProtocolCoreBench.php` measures deterministic in-process protocol work such as:
 
 - HTTP/1.1 request-head validation;
 - HTTP/2 HPACK encode/decode;
 - HTTP/3 frame encode/decode;
-- HTTP/3 QPACK static encode/decode;
-- HTTP/3 QPACK dynamic-table round trip including encoder/decoder instruction exchange.
+- QPACK static operations;
+- QPACK dynamic-table round trips and encoder/decoder instruction exchange.
 
-These are in-process protocol measurements. They intentionally exclude sockets, TLS, QUIC handshake, kernel scheduling and application work.
+These exclude socket, TLS, kernel, QUIC handshake, host-runtime, and application costs.
 
-### Lifecycle, metrics and recycle overhead
+### Lifecycle/runtime microbenchmarks
 
-`benchmarks/LifecycleRuntimeBench.php` isolates the generic persistent-runtime costs introduced by the 1.0 hardening work:
+`benchmarks/LifecycleRuntimeBench.php` measures bounded runtime overhead such as:
 
-- request-context creation, bounded request-local attributes and completion;
-- request-resetter registry dispatch;
-- request metrics start/completion accounting;
-- bounded metrics snapshot creation;
-- worker recycle accounting at a safe request boundary.
+- request-context creation/completion;
+- request-local attribute handling;
+- request resetter dispatch;
+- metrics accounting/snapshot creation;
+- worker recycle accounting at safe boundaries.
 
-These subjects are intentionally independent from HTTP wire parsing. They make request-lifecycle/resource-policy regressions visible without hiding them inside an end-to-end server result.
+### Host-adapter microbenchmarks
 
-Core bounded metrics are part of the runtime contract and are therefore measured as always-on accounting. Debug diagnostics are a separate policy and should not be confused with the fixed-cardinality request counters. When comparing diagnostic configurations, record the `instrumentation` field in comparative evidence explicitly.
+`benchmarks/HostAdapterBench.php` measures Runwire-owned host adaptation such as:
 
-### Host adapter overhead
+- host request normalization;
+- `RuntimeApplication` dispatch;
+- cleanup/reset boundaries;
+- response-writer lifecycle.
 
-`benchmarks/HostAdapterBench.php` records the common host-runtime adapter costs separately:
+A host-adapter microbenchmark is **not** FrankenPHP/RoadRunner/Swoole server throughput. Real host throughput must run the real host.
 
-- host request normalization into `HttpRequest`;
-- `RuntimeApplication` dispatch plus per-request cleanup boundary;
-- bounded host response-writer lifecycle.
+### End-to-end native HTTP/3
 
-These measurements do not fabricate FrankenPHP, Swoole or RoadRunner engine throughput with mocks. Engine-specific throughput belongs in a deployment running the real host engine. The PHPBench subjects quantify the Runwire-owned adapter layer that is common to those hosted modes.
+Dedicated QUIC CI exercises a real HTTP/3 client against the production native adapter and validates:
 
-### Native HTTP/3 transport
+- protocol behavior;
+- response correctness;
+- interoperability;
+- sustained request handling;
+- graceful drain/GOAWAY behavior.
 
-The QUIC-present CI lane performs a real aioquic-to-Runwire HTTP/3 soak over one native QUIC connection. The first 32 requests are treated as warmup and the remaining requests report measured elapsed time, requests/second and amortized microseconds/request. The same run still validates every response and requires bounded GOAWAY/drain completion.
+This includes native transport and therefore must not be compared directly with in-process PHPBench subjects.
 
-`benchmarks/http3_server.php` and `benchmarks/aioquic_http3_bench.py` provide a dedicated reproducible loopback harness for longer manual runs. They use the production `PhpQuicHttp3Worker`; there is no benchmark-only Runwire transport path.
+## 2. Run PHPBench locally
 
-## Automated PHPBench evidence
+Install development dependencies:
 
-`.github/workflows/benchmarks.yml` runs the PHPBench suite on PHP 8.4 and PHP 8.5 and uploads two artifacts:
+```bash
+composer install
+```
 
-- `runwire-benchmarks-php-8.4`;
-- `runwire-benchmarks-php-8.5`.
-
-Each artifact contains the raw PHPBench JSON and environment metadata (`php -v`, Composer version, kernel and CPU information). Retention is 61 days.
-
-Equivalent local command:
+Run the repository benchmark suite:
 
 ```bash
 vendor/bin/phpbench run \
@@ -69,63 +71,99 @@ vendor/bin/phpbench run \
   benchmarks
 ```
 
-PHPForge's `ic:benchmark`, `ic:bench:run` and `ic:bench:quick` commands can also be used during development. The dedicated Runwire workflow exists so PR benchmark evidence is recorded even though PHPForge's reusable benchmark job is intentionally conditional on its own benchmark inputs/main-branch reporting flow.
+PHPForge benchmark commands may also be used where available:
 
-### Latest pre-J regression snapshot
+```bash
+composer ic:benchmark
+composer ic:bench:run
+composer ic:bench:quick
+```
 
-Batch I exact head `1d1ff98cb53facf39b9af98cd7a6cc2c559fb7a9` passed Benchmarks #56. Its artifacts provide a stable pre-J reference for the existing subjects. Representative aggregate modes are shown below in microseconds/op as emitted by PHPBench:
+Use the dedicated repository workflow as the release evidence because it records the exact tested commit and environment metadata.
 
-| Subject | PHP 8.4 | PHP 8.5 |
-| --- | ---: | ---: |
-| Host application dispatch + cleanup | 1.275 | 2.469 |
-| Host request normalization | 6.582 | 12.943 |
-| Host response-writer lifecycle | 0.703 | 1.425 |
-| HTTP/1 head validation | 1.088 | 2.256 |
-| HTTP/2 HPACK decode | 20.604 | 41.959 |
-| HTTP/2 HPACK encode | 13.532 | 27.744 |
-| HTTP/3 frame decode | 0.539 | 1.147 |
-| HTTP/3 frame encode | 0.121 | 0.227 |
-| HTTP/3 QPACK dynamic round trip | 143.188 | 283.815 |
+## 3. Native HTTP/3 loopback benchmark
 
-The PHP 8.4 and PHP 8.5 rows came from different GitHub-hosted CPU models, so **do not interpret the columns as a PHP-version shootout**. They are per-environment regression references only. The final PR-head workflow supersedes this snapshot for the release candidate.
+Requirements:
 
-## Reproducing the native HTTP/3 benchmark
+```text
+64-bit PHP 8.4/8.5
+supported ext-quic build
+supported QUIC-capable OpenSSL baseline
+certificate/private key
+Python + aioquic version used by CI
+```
 
-Requirements are the same as the supported native HTTP/3 adapter: PHP 8.4/8.5, `ext-quic`, OpenSSL 3.5+, a local certificate/key and Python with `aioquic==1.3.0`.
-
-A representative run uses 32 warmup requests followed by 256 measured requests over one QUIC connection:
+Representative loopback run:
 
 ```bash
 php benchmarks/http3_server.php \
-  8443 /path/to/cert.pem /path/to/key.pem /tmp/runwire-h3-ready 288 &
+  8443 \
+  /path/to/cert.pem \
+  /path/to/key.pem \
+  /tmp/runwire-h3-ready \
+  288 &
 
 python benchmarks/aioquic_http3_bench.py 8443 256 32
 ```
 
-The client emits JSON containing `requests`, `warmup_requests`, `elapsed_ms`, `requests_per_second` and `amortized_us_per_request`.
+The final two numbers represent measured requests and warmup requests for this example.
 
-## Rolling reload and recycle measurements
+The client emits structured measurement fields such as:
 
-Operational lifecycle measurements must use real supervised workers rather than a synthetic branch inside production code.
+```text
+requests
+warmup_requests
+elapsed_ms
+requests_per_second
+amortized_us_per_request
+```
 
-For rolling reload, record at minimum:
+Keep loopback results labeled as loopback results. They are useful for regressions and protocol/runtime tuning, not public Internet capacity claims.
 
-- steady-state successful request rate before reload;
-- minimum successful request rate during replacement;
-- time from reload request to replacement generation readiness;
-- time until old-generation drain completes;
-- request/error totals during the window;
-- configured `maxSurge`, `maxUnavailable`, readiness timeout and drain timeout.
+## 4. Release CI evidence
 
-A valid zero-unavailable configuration should show replacement readiness before old capacity is retired. Report the capacity dip/recovery curve; do not summarize it as one RPS number.
+The final Runwire 1.0 release candidate should have exact-head evidence for:
 
-For recycle overhead, record request rate and latency before, during and after request-count, memory or lifetime-triggered worker replacement. Include the recycle reason and effective jittered threshold. Planned recycle exits must not be mixed into crash-restart statistics.
+- benchmark workflow on supported PHP versions;
+- PHPForge QA/analysis lanes;
+- clean production install;
+- Swoole/OpenSwoole focused acceptance;
+- native QUIC/HTTP/3 protocol tests;
+- aioquic interoperability;
+- ngtcp2/nghttp3 interoperability where supported;
+- native HTTP/3 soak/drain acceptance.
 
-The Batch I acceptance suite exercises repeated reload/recycle/drain correctness and child reaping. Performance sampling should be run on the deployment class being evaluated because process scheduling noise on shared CI runners can dominate short lifecycle windows.
+A later source/runtime change invalidates earlier exact-head certification.
 
-## Reproducible cross-runtime evidence
+Documentation-only changes may still trigger CI according to repository policy; the release decision should reference the final commit that is actually merged/tagged.
 
-`benchmarks/comparative_evidence.php` validates and renders independently collected runtime/server evidence. It deliberately refuses a comparison unless these fields match across every record:
+## 5. Regression comparison rules
+
+When comparing one Runwire commit against another, keep these constant as far as practical:
+
+```text
+hardware / runner class
+PHP version
+extension versions
+Composer dependency set
+protocol
+TLS settings
+worker count
+concurrency
+workload
+measurement duration
+instrumentation
+```
+
+Treat a runner CPU model or virtualization change as an environment change before attributing a small timing difference to Runwire.
+
+Use repeated evidence for performance decisions. Do not change safety limits because of one noisy sample.
+
+## 6. Cross-runtime evidence schema
+
+`benchmarks/comparative_evidence.php` validates independently collected records before rendering a comparison.
+
+Comparable records must match key environment/workload dimensions:
 
 ```text
 hardware_id
@@ -137,7 +175,7 @@ concurrency
 duration_seconds
 ```
 
-Every evidence record must also contain:
+Each record should include:
 
 ```text
 runtime
@@ -153,22 +191,26 @@ cpu_percent
 rss_peak_bytes
 ```
 
-Example:
+Schema example:
 
 ```json
 {
   "runtime": "runwire-native",
-  "runtime_version": "1.0-pr",
+  "runtime_version": "1.0",
   "protocol": "http/1.1",
   "workload": "plaintext-minimal",
   "hardware_id": "bench-host-01",
-  "php_version": "8.4.25",
+  "php_version": "8.4.x",
   "instrumentation": "default",
   "workers": 4,
   "concurrency": 128,
   "duration_seconds": 60,
   "throughput_rps": 0,
-  "latency_ms": {"p50": 0, "p95": 0, "p99": 0},
+  "latency_ms": {
+    "p50": 0,
+    "p95": 0,
+    "p99": 0
+  },
   "errors_total": 0,
   "error_rate": 0,
   "cpu_percent": 0,
@@ -176,43 +218,175 @@ Example:
 }
 ```
 
-The zero values above are a **schema example, not benchmark evidence**. Never publish them as results.
+The zero values are **schema placeholders only**, not benchmark results.
 
-Render two or more completed records with:
+Validate/render completed real records:
 
 ```bash
-php benchmarks/comparative_evidence.php runwire.json workerman.json openswoole.json
+php benchmarks/comparative_evidence.php \
+  runwire.json \
+  workerman.json \
+  openswoole.json
 ```
 
-Relevant comparison candidates include Workerman, Swoole/OpenSwoole where directly comparable, FrankenPHP worker mode, RoadRunner and applicable Octane-backed modes. Use the real runtime/server and the same application workload on the same host. A Runwire host-adapter PHPBench result is not a substitute for running the actual host engine.
+## 7. Valid peer comparisons
 
-Separate at least these workload classes when collecting comparative evidence:
+Reasonable peer candidates include, where equivalent deployment/protocol is possible:
 
-- plaintext/minimal handler;
-- JSON response and JSON request body;
-- streaming request/response;
-- concurrency/multiplexing where the compared protocol supports it.
+- Workerman;
+- Swoole/OpenSwoole;
+- FrankenPHP worker mode;
+- RoadRunner;
+- applicable Octane-backed runtimes.
 
-Run native HTTP/1.1, HTTP/2 and HTTP/3 separately when equivalent peer/runtime configurations exist. If a peer cannot expose an equivalent protocol, mark the comparison inapplicable instead of silently substituting HTTP/1.1.
+Rules:
 
-## Benchmark integrity rules
+1. run the real peer runtime;
+2. use the same physical/virtual host;
+3. use the same PHP version/configuration where applicable;
+4. use the same protocol/TLS configuration;
+5. use the same worker count and concurrency;
+6. use the same application behavior;
+7. collect the same duration and telemetry.
 
-Release benchmarks must obey these rules:
+Do not substitute a Runwire host-adapter microbenchmark for running the real host engine.
 
-1. Do not add production branches, disabled validation, larger hidden limits or alternative codecs only for benchmarks.
-2. Do not compare in-process PHPBench numbers directly with end-to-end transport throughput.
-3. Keep HTTP/3 QUIC/TLS cost separate from QPACK/frame microbenchmarks.
-4. Keep host adapter cost separate from the host engine's own networking/event-loop cost.
-5. Record PHP/runtime version, worker count, concurrency and environment alongside results.
-6. Record p50/p95/p99, errors, CPU and RSS with throughput for comparative runs.
-7. Treat GitHub-hosted-runner changes as environment changes before concluding that a small timing shift is a Runwire regression.
-8. Investigate sustained regressions with profiling before changing safety limits or protocol behavior.
-9. Do not rank runtimes by RPS alone.
-10. Do not describe Runwire as the fastest PHP framework/runtime from Runwire-only evidence.
-11. Do not present Runwire runtime-layer results as Foundation/Webrick full-framework results.
+## 8. Workload classes
 
-## Runwire 1.0 PR baseline and release evidence
+Do not collapse unrelated workload shapes into one ranking.
 
-The final PR-head benchmark workflow is the authoritative Runwire-only regression baseline for this 1.0 hardening program. Cross-runtime performance positioning requires separately populated comparative evidence records from equivalent real deployments.
+At minimum separate:
 
-The PR may be technically green without publishing a performance ranking. A release or public performance claim must not invent missing peer results; the explicit release-approval step remains the point at which external comparative evidence and positioning are reviewed.
+```text
+plaintext/minimal handler
+JSON response
+JSON request + response
+streaming response
+streaming request
+multiplexed protocol concurrency where supported
+```
+
+Measure HTTP/1.1, HTTP/2, and HTTP/3 separately. If a peer cannot expose an equivalent protocol, mark that comparison inapplicable rather than substituting a different protocol.
+
+## 9. Metrics to report
+
+Throughput alone is insufficient.
+
+Report together:
+
+```text
+throughput
+p50 latency
+p95 latency
+p99 latency
+error count/rate
+CPU
+peak RSS
+worker count
+concurrency
+duration
+protocol
+TLS state
+```
+
+For persistent runtimes, also observe:
+
+- memory growth over time;
+- file-descriptor stability;
+- event-loop backlog;
+- worker recycle/reload impact;
+- error recovery after overload.
+
+## 10. Reload/recycle measurement
+
+Operational lifecycle measurements must run real supervised workers.
+
+### Rolling reload
+
+Record:
+
+- steady-state throughput before reload;
+- minimum successful capacity during replacement;
+- replacement readiness time;
+- old-generation drain duration;
+- errors/latency during the window;
+- `maxSurge` and `maxUnavailable`;
+- readiness/drain timeouts.
+
+A zero-unavailable policy should demonstrate replacement readiness before healthy old capacity is retired.
+
+### Worker recycle
+
+Record:
+
+- trigger reason;
+- effective jittered threshold;
+- latency/throughput before, during, after replacement;
+- active-request drain behavior;
+- restart/reap outcome;
+- memory before/after replacement.
+
+Planned recycle exits must not be counted as crashes.
+
+## 11. Coroutine benchmarking
+
+Coroutine microbenchmarks should isolate:
+
+```text
+task spawn/join
+ready-queue dispatch
+future resolve/await
+channel rendezvous/buffering
+mutex/semaphore contention
+sleep/timer wakeup
+stream readiness wakeup
+request-scope creation/drain
+```
+
+Always include policy settings such as `maxResumesPerTick` when comparing scheduler behavior.
+
+Do not benchmark a blocking API inside a coroutine and then describe the result as asynchronous I/O throughput.
+
+## 12. Instrumentation effects
+
+Fixed-cardinality runtime metrics are part of normal runtime behavior. Optional diagnostics/profilers/APM can materially affect results.
+
+Record an `instrumentation` label for comparative evidence, for example:
+
+```text
+default
+metrics-only
+xdebug-off-apm-off
+production-apm
+```
+
+Never compare an instrumented peer with an uninstrumented Runwire run without stating the difference.
+
+## 13. Benchmark integrity rules
+
+1. Do not add benchmark-only production branches that bypass normal validation or safety behavior.
+2. Do not disable limits to inflate a benchmark without reporting the changed limit.
+3. Do not compare microbenchmark operations with end-to-end requests/second.
+4. Keep QUIC/TLS transport cost separate from QPACK/frame microbenchmarks.
+5. Keep host-adapter cost separate from host-engine networking cost.
+6. Record environment metadata with every durable result.
+7. Investigate sustained regressions with profiling before changing architecture.
+8. Report latency/errors/CPU/RSS with throughput.
+9. Do not rank by RPS alone.
+10. Do not describe Runwire-only CI evidence as a Foundation/Webrick full-stack result.
+11. Do not publish synthetic validator fixtures as measurements.
+12. Do not invent missing peer results.
+
+## 14. Release-claim boundary
+
+Runwire 1.0 may be released without a public cross-runtime ranking.
+
+A public statement such as “fastest”, “faster than X”, or “top-tier” requires equivalent real peer evidence. Until that evidence exists, benchmark artifacts should be described as regression, protocol, interoperability, or workload-specific measurements.
+
+## Related documentation
+
+- [Getting started](getting-started.md)
+- [Architecture and runtime contracts](architecture.md)
+- [Deployment and operations](deployment.md)
+- [Coroutines and structured concurrency](coroutines.md)
+- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)

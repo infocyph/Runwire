@@ -1,305 +1,541 @@
-# Runwire 1.0 Deployment and Tuning
+# Runwire 1.0 Deployment and Operations
 
-Runwire is a framework-agnostic process and network runtime. It can own native HTTP wire handling or adapt an application to an existing PHP host runtime. These modes have different ownership and deployment requirements and should not be mixed inside one process.
+This guide covers production topology, capability requirements, lifecycle, TLS/HTTP3 deployment, admission/resource limits, control/reload behavior, and operational tuning.
 
-## Runtime ownership and capability matrix
+For complete first-run examples, see [Getting Started](getting-started.md). For ownership rules, see [Architecture](architecture.md).
 
-| Mode | Listener / wire owner | Persistent application | Concurrent requests | Runwire worker pool | Graceful reload/recycle |
-| --- | --- | --- | --- | --- | --- |
-| `native` | Runwire | yes | protocol/application dependent | yes | yes |
-| `fpm` | PHP-FPM / web server | no from Runwire's request boundary | host-managed | no | host-managed |
-| `frankenphp` worker | FrankenPHP | yes | host capability dependent | no | supported through host/runtime contract |
-| `swoole` / `openswoole` | Swoole/OpenSwoole | yes | host capability dependent | no | host-native plus Runwire generic policy where supported |
-| `roadrunner` | RoadRunner | yes | host/session dependent | no | supported through host/runtime contract |
-| `auto` | detected environment | capability-derived | capability-derived | capability-derived | capability-derived |
+## 1. Production baseline
 
-Hosted modes must not start a competing Runwire listener, event loop, worker pool or HTTP server. Framework integrations should query `RuntimeContext::supports()` / `requireCapability()` instead of switching on a driver name for generic behavior.
-
-Important capability facts include persistence, concurrency, listener ownership, event-loop ownership, worker-pool ownership, HTTP/2, HTTP/3, graceful reload and worker recycle. Host-specific integration code may still use a concrete host adapter when it genuinely needs host-native APIs.
-
-## RuntimeContext and RequestContext
-
-`RuntimeContext` is immutable for one application/worker lifetime and exposes bounded runtime facts such as:
+Hard package requirement:
 
 ```text
-driver / mode
-worker slot / generation / pid
-persistent / concurrent
-listener / event-loop / worker-pool ownership
-runtime capabilities
-metrics provider
+64-bit PHP ^8.4
 ```
 
-`RequestContext` is one logical request/stream's isolated execution state. It contains a bounded request ID, monotonic start time, request deadline, cancellation token, bounded request-local attributes and a reference to the owning `RuntimeContext`.
-
-Request-local attributes are cleared at completion. They are intended for small execution metadata such as trace IDs, scoped auth metadata, locale or request-local cache references—not arbitrary unbounded process storage.
-
-### Cancellation and deadlines
-
-Cancellation is cooperative and request-local. Sources include transport cancellation, host cancellation, deadline expiry and worker shutdown. HTTP/2/HTTP/3 stream cancellation does not require a process-global alarm and does not cancel sibling streams.
-
-`RuntimeOptions::requestExecution` controls the generic request deadline. `null`/disabled means no Runwire request execution deadline, but outer worker/server drain deadlines still apply. All elapsed/deadline calculations use monotonic time.
-
-Applications should periodically check long-running cooperative work when cancellation responsiveness matters. A cancellation token communicates intent; it is not an unsafe asynchronous interruption mechanism.
-
-## Application factory and lifecycle
-
-Framework/runtime integrations can supply a `RuntimeApplicationFactoryInterface`. The factory receives the resolved `RuntimeContext`, allowing the integration to validate persistence/concurrency/capabilities before it creates worker-local application state.
-
-One managed application instance follows this lifecycle:
+Recommended native prefork extensions:
 
 ```text
-boot      once per application/worker instance
-warmup    before readiness
-handle    for each admitted request
-reset     after every request, including failure paths
-drain     stop starting optional/new application work
-shutdown  exactly once
+ext-pcntl
+ext-posix
 ```
 
-A worker is not ready until required boot/warmup succeeds. Warmup failure is classified separately and participates in bounded supervisor restart/backoff. During a rolling replacement, failed warmup must not force healthy old-generation capacity out of service.
-
-Request resetters are composable. Every registered resetter gets a chance to run even if the handler or an earlier resetter fails. Cleanup failures are reported without retaining stale request state for the next request.
-
-## Native HTTP protocol stack
-
-Runwire 1.0 supports:
-
-- HTTP/1.1 over TCP or TLS;
-- HTTP/2 over TLS ALPN (`h2`) with HTTP/1.1 fallback (`http/1.1`);
-- HTTP/3 over QUIC v1 / TLS 1.3 with ALPN `h3` when the optional QUIC capability is available.
-
-HTTP/1.1, HTTP/2 and HTTP/3 dispatch the same application-visible `HttpRequest` / `ResponseWriterInterface` contract. Protocol framing, HPACK/QPACK, stream management and transport errors remain runtime concerns.
-
-## HTTP/3 and QUIC
-
-The ordinary Composer installation does not require QUIC. Native HTTP/3 is capability-based and fails fast when selected without a supported QUIC engine.
-
-The Runwire 1.0 CI-backed QUIC adapter uses `mikepultz/php-quic` (`ext-quic`). The current native adapter requires an OpenSSL 3.5+ QUIC-capable baseline. Deployments enabling HTTP/3 must provide:
-
-1. the supported QUIC extension/engine;
-2. TLS certificate and private-key material;
-3. UDP reachability for the selected listener port;
-4. ALPN `h3` capability;
-5. resource limits appropriate for expected QUIC connection and stream concurrency.
-
-Runwire delegates QUIC cryptography, congestion control and loss recovery to the maintained native QUIC engine. It does not implement those algorithms in PHP.
-
-### 0-RTT and peer addresses
-
-0-RTT application dispatch is disabled for Runwire 1.0. Replay-unsafe requests are therefore not silently promoted into ordinary trusted application requests.
-
-QUIC connection migration or address rebinding may change peer-address metadata during a connection. Do not use peer-address stability as an authentication or authorization boundary.
-
-## Graceful shutdown and rolling reload
-
-Native shutdown follows a bounded drain model:
-
-1. stop accepting new work;
-2. HTTP/2 and HTTP/3 enter drain state and send GOAWAY where applicable;
-3. application drain hooks stop optional/new background work;
-4. already-admitted requests/streams are allowed to complete within configured bounds;
-5. remaining work/connections are terminated according to policy when the deadline expires;
-6. supervised children are reaped before shutdown completes.
-
-Rolling reload is controlled by `ReloadPolicy`. The default replacement sequence is:
+Optional capabilities:
 
 ```text
-spawn replacement
-→ wait for boot/warmup/readiness
-→ mark replacement ready
-→ request old worker drain
-→ old worker exits
-→ continue to the next slot
+ext-openssl       TLS / HTTP/2 ALPN
+ext-quic          native QUIC / HTTP/3
+ext-swoole        Swoole host integration
+ext-openswoole    OpenSwoole host integration
+ext-sockets       optional socket features
+ext-zend-opcache  bytecode cache
 ```
 
-`maxSurge`, `maxUnavailable`, replacement readiness timeout and drain timeout are supervisor policy, not application convention. Groups can be marked non-reloadable when infrastructure/service workers should survive application-code reloads.
+## 2. Correct ownership model
 
-If replacement startup/readiness repeatedly fails, rollout stops rather than destructively consuming healthy old capacity. Restart/backoff budgets remain bounded and the failed rollout is visible in status/events.
-
-Drain/shutdown hooks receive a stable reason such as deployment reload, request/memory/lifetime recycle, manual recycle, supervisor stop or fatal runtime failure. Exit/restart diagnostics distinguish planned retirement from crash/startup/readiness failures.
-
-## Worker recycling
-
-Persistent worker recycling is configured through `RuntimeOptions::workerRecycle` using the generic `WorkerRecyclePolicy`. Request-count, lifetime and memory thresholds are soft retirement triggers evaluated at safe request boundaries; they do not kill active application work immediately. Request and lifetime jitter can stagger retirement so workers started together do not all recycle at the same threshold.
-
-Example:
+Runwire-owned native server:
 
 ```php
+Runtime::create($options)
+    ->listen(Server::http('0.0.0.0:8080', $handler))
+    ->run();
+```
+
+Host-owned server:
+
+```php
+Runtime::create($options)->serve($handler);
+```
+
+or:
+
+```php
+Runtime::create($options)->serveApplication($factory);
+```
+
+Do not combine `listen()` with host-owned serving.
+
+## 3. Native prefork versus portable native
+
+| Feature | Prefork | Portable |
+| --- | --- | --- |
+| Runwire listener/event loop | yes | yes |
+| Persistent application | yes | yes |
+| Multiple worker processes | yes | no |
+| Rolling reload | yes | no |
+| Worker replacement/recycle | yes | no |
+| Supervisor events/control | yes | no |
+| Development watcher | yes | no |
+| Privilege drop | capability-gated | no |
+| HTTP/1.1 / HTTP/2 | yes | yes |
+| HTTP/3 | with QUIC | with QUIC |
+| Structured coroutines | yes | yes |
+
+Portable mode keeps ordinary native serving available when PCNTL/POSIX are missing; it is not a substitute supervisor.
+
+### Pre-release portable caveat
+
+The active 1.0 plan still tracks hard-fail validation for:
+
+- explicit `workers > 1` without prefork;
+- enabled worker-recycle thresholds without replacement capability;
+- explicit HTTP/3 configuration when QUIC is unavailable.
+
+Do not rely on those unsupported combinations until the plan item is closed and exact-head certified.
+
+## 4. Worker sizing
+
+Explicit workers:
+
+```php
+$server = Server::http('0.0.0.0:8080', $handler)
+    ->withWorkers(4);
+```
+
+Automatic prefork sizing:
+
+```php
+$server = new Server(
+    name: 'web',
+    address: '0.0.0.0:8080',
+    handler: $handler,
+    workers: 0,
+);
+```
+
+Automatic sizing uses effective detected resources where available, including cgroup constraints.
+
+Guidance:
+
+- explicit counts override automatic sizing;
+- measure memory per worker;
+- do not configure multiple workers for portable-only deployment;
+- HTTP/3 multi-worker topology requires explicit reuse-port support.
+
+## 5. Admission
+
+```php
+use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\RuntimeOptions;
-use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 $options = new RuntimeOptions(
-    workerRecycle: new WorkerRecyclePolicy(
-        maxRequests: 10_000,
-        maxLifetimeSeconds: 3_600,
-        maxMemoryBytes: 268_435_456,
-        jitterRequests: 500,
-        jitterSeconds: 120,
-        gracefulTimeoutSeconds: 10.0,
+    admission: new AdmissionPolicy(
+        maxActiveRequests: 512,
+        maxConcurrentConnections: 8_000,
+        maxStreamsPerWorker: 2_000,
+        retryAfterSeconds: 1,
     ),
 );
 ```
 
-All recycle thresholds default to disabled. This avoids silently imposing operational limits before an application has measured its workload. FPM is request-scoped from Runwire's point of view and therefore does not pretend to apply persistent-worker recycle dimensions. Swoole/OpenSwoole keeps native request-count enforcement where required while Runwire uses the generic policy contract for supported shared dimensions.
+A value of `0` disables that dimension. Tune from measured memory and latency rather than maximizing the numbers.
 
-## Admission and overload behavior
+## 6. Request deadlines
 
-`RuntimeOptions::admission` provides bounded application-level admission above transport/protocol limits. Per-worker/group policy can limit active requests, connections or streams without creating an unbounded queue.
+```php
+use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 
-Overload is request/stream local where the protocol permits it:
-
-- HTTP/1.1 uses a bounded service-unavailable response/connection behavior;
-- HTTP/2 and HTTP/3 reject/refuse the affected stream/request rather than crashing the worker;
-- host runtimes use their supported response path.
-
-Rejected requests/connections are classified in metrics. Capacity returning after one rejected request must immediately be usable by later work.
-
-Treat admission limits as safety boundaries. Raising them increases the amount of simultaneously retained application/protocol state and should be tested together with memory, connection and stream ceilings.
-
-## Metrics, diagnostics and control status
-
-Runwire maintains fixed-cardinality runtime metrics rather than per-request/per-connection history. The versioned snapshot includes bounded counters/gauges for requests, failures, connections, bytes, memory, streams, backpressure, overload, event-loop health, worker age/busy time and protocol-specific state.
-
-Application errors are classified separately, including protocol/transport failures, handler exceptions, resetter failures, deadline expiry, client cancellation, overload rejection and warmup failure.
-
-The control server serializes bounded status and supports the established control actions (`status`, `reload`, `recycle`, `stop`) subject to its version and response-size limits. Normal status must never dump unbounded request/connection collections or sensitive body/header/argv/environment data.
-
-Operational state distinguishes:
-
-```text
-live       runtime/process control path is functioning
-ready      capacity can accept new work
-healthy    no configured health failure is active
-draining   new work is intentionally refused while admitted work finishes
+$options = new RuntimeOptions(
+    requestExecution: new RequestExecutionPolicy(
+        maxExecutionSeconds: 30.0,
+    ),
+);
 ```
 
-Worker activity state additionally distinguishes starting, ready/idle, busy, draining, unhealthy, stopping and exited. PID existence alone is not a health signal.
+Deadlines are monotonic and cooperative. Application code must check cancellation or use Runwire-aware coroutine waits to respond promptly.
 
-`DiagnosticsPolicy` controls bounded diagnostic thresholds such as busy-worker duration, callback overrun and worker report interval. Debug diagnostics should remain bounded and are not a substitute for an external tracing/APM product.
+## 7. Worker recycle
 
-## GC policy
+Prefork workers can retire at safe boundaries:
 
-Request execution policy includes controlled GC behavior. Do not call `gc_collect_cycles()` unconditionally after every request. Use request-count/memory-growth thresholds and minimum intervals appropriate for the application, then verify the result with long-running soak measurements.
+```php
+use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
-## CPU/cgroup-aware worker sizing
+$options = new RuntimeOptions(
+    workerRecycle: new WorkerRecyclePolicy(
+        maxRequests: 20_000,
+        maxLifetimeSeconds: 3_600,
+        maxMemoryBytes: 268_435_456,
+        jitterRequests: 1_000,
+        jitterSeconds: 120,
+        gracefulTimeoutSeconds: 15.0,
+    ),
+);
+```
 
-Explicit worker counts always win. A native server may opt into automatic sizing with `workers: 0`; Runwire then uses effective execution capacity rather than blindly using the physical-host CPU count.
+All thresholds default disabled. Jitter avoids synchronized retirement. Portable mode does not own worker replacement.
 
-On supported Linux/container environments, resource detection considers cgroup CPU quota/cpuset and memory limits. Unsupported or unreadable platforms fall back conservatively rather than failing normal startup.
+## 8. Rolling reload
 
-Expose/review the resolved worker count and detected limits in diagnostics. Automatic sizing is a starting point, not a substitute for measuring blocking application work, CPU saturation and memory per worker.
+```php
+use Infocyph\Runwire\Supervisor\ReloadPolicy;
 
-## Privilege drop
+$options = new RuntimeOptions(
+    reload: new ReloadPolicy(
+        maxUnavailable: 0,
+        maxSurge: 1,
+        replacementReadyTimeoutSeconds: 15.0,
+        drainTimeoutSeconds: 30.0,
+    ),
+);
+```
 
-Native Unix prefork deployments can opt into worker UID/GID reduction through `PrivilegeDropPolicy` after privileged master setup/listener binding.
+Safe order:
 
-Rules:
+```text
+spawn replacement
+→ boot/warmup
+→ wait ready
+→ drain old worker
+→ retire/reap old worker
+→ next slot
+```
 
-- disabled unless explicitly configured;
-- preflight validation happens before serving;
-- failure is explicit when POSIX identity changes are unavailable or invalid;
-- application worker resources are created after the child identity/ownership boundary as appropriate;
-- do not use privilege-drop configuration as a replacement for filesystem/network permission design.
+Programmatic reload:
 
-Test the real service account and listener ownership in the target deployment before enabling production traffic.
+```php
+$runtime->reload();
+```
 
-## SO_REUSEPORT
+Reload is prefork-only.
 
-`SO_REUSEPORT` is an advanced capability and is **off by default**. Standard native prefork uses master-owned/inherited listener semantics.
+## 9. Manual recycle
 
-When explicitly enabled, Runwire probes runtime support first. Unsupported platforms/configurations fail clearly instead of silently ignoring the request. TCP and UDP/QUIC ownership must be evaluated separately.
+```php
+$ok = $runtime->recycle('web', 0);
+```
 
-Native HTTP/3 with more than one independently bound QUIC worker requires explicit reuse-port configuration because each worker owns its QUIC socket. Do not enable it merely because the host kernel exposes the option; verify load-distribution and operational behavior for the deployment.
+When the server also has HTTP/3 and QUIC capability, the matching HTTP/3 slot is coordinated too. `recycle()` returns `false` when no native supervisor is active.
 
-## Worker roles, periodic tasks and service workers
+## 10. Graceful stop
 
-Worker groups can identify roles such as HTTP, TASK, SERVICE and CUSTOM. Roles improve lifecycle defaults/status clarity without creating a second task framework.
+```php
+$runtime->stop();
+```
 
-`WorkerContext::every()` registers bounded, named recurring work on the existing worker timer infrastructure. Names are unique per worker context and return a cancellation handle.
+Forced:
 
-When drain begins:
+```php
+$runtime->stop(force: true);
+```
 
-- future periodic executions stop being scheduled;
-- optional new background work must not be claimed;
-- already-running work may finish within the worker drain/shutdown deadline;
-- a stuck callback remains bounded by supervisor shutdown enforcement.
+Graceful sequence:
 
-SERVICE groups default toward stable/non-application-reload behavior where configured; all groups still participate in full supervisor shutdown.
+```text
+stop accepting
+→ application drain
+→ protocol drain / GOAWAY
+→ finish admitted work
+→ timeout
+→ force remaining work
+→ close resources
+```
 
-## Development watcher
+Portable mode drains all attachments on its shared `SelectLoop` until complete or deadline expiry.
 
-The optional development watcher triggers the existing graceful rolling-reload path. It is **disabled by default** and should remain disabled in production.
+## 11. Application lifecycle hooks
 
-The watcher uses bounded file scanning/polling with debounce behavior and failure isolation. A watcher error is observable but must not kill a healthy runtime. Production deployments should use their normal deployment/reload control plane instead of filesystem polling.
+```php
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
+use Infocyph\Runwire\RuntimeContext;
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
-## Default protocol ceilings
+$hooks = new ApplicationLifecycleHooks(
+    boot: static function (RuntimeContext $context): void {
+        // Open worker-lifetime resources.
+    },
+    warmup: static function (RuntimeContext $context): void {
+        // Verify dependencies before readiness.
+    },
+    drain: static function (RuntimeContext $context, ShutdownReason $reason): void {
+        // Stop optional/new background work.
+    },
+    shutdown: static function (RuntimeContext $context, ShutdownReason $reason): void {
+        // Close worker-lifetime resources.
+    },
+);
 
-Defaults are intentionally conservative. Increase them only after measuring memory, file-descriptor and latency behavior in the real deployment.
+$options = new RuntimeOptions(applicationLifecycle: $hooks);
+```
+
+Warmup failure prevents readiness.
+
+## 12. Request resetters
+
+Persistent integrations should reset framework request-local state after every request.
+
+```php
+use Infocyph\Runwire\RequestContext;
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
+use Infocyph\Runwire\Runtime\RequestResetterInterface;
+
+final class ContainerResetter implements RequestResetterInterface
+{
+    public function reset(RequestContext $context): void
+    {
+        // Clear request-scoped framework/container state.
+    }
+}
+
+$hooks = new ApplicationLifecycleHooks(
+    resetters: [new ContainerResetter()],
+);
+```
+
+Cleanup failures should be observable but must not intentionally retain stale request state for the next request.
+
+## 13. Native control socket
+
+Prefork only:
+
+```php
+use Infocyph\Runwire\Control\ControlOptions;
+
+$runtime = Runtime::create($options)
+    ->control(new ControlOptions(
+        path: '/run/runwire/control.sock',
+        permissions: 0o600,
+        maxRequestBytes: 8_192,
+        maxResponseBytes: 1_048_576,
+        maxConnections: 16,
+        idleTimeoutSeconds: 10.0,
+        lifetimeTimeoutSeconds: 60.0,
+    ))
+    ->listen($server);
+
+$runtime->run();
+```
+
+Use an absolute Unix socket path, owner read/write access, no world access, and bounded request/response sizes. Portable mode rejects control configuration.
+
+## 14. Development watcher
+
+```php
+use Infocyph\Runwire\Runtime\DevelopmentWatchPolicy;
+
+$runtime = Runtime::create($options)
+    ->watch(new DevelopmentWatchPolicy(
+        enabled: true,
+        paths: [__DIR__ . '/src', __DIR__ . '/config'],
+        pollIntervalSeconds: 0.5,
+        debounceSeconds: 0.25,
+        maxFiles: 4_096,
+    ))
+    ->listen($server);
+
+$runtime->run();
+```
+
+This is development-only and uses the prefork rolling-reload path. Portable mode rejects an enabled watcher.
+
+## 15. Supervisor events
+
+```php
+use Infocyph\Runwire\Supervisor\SupervisorEvent;
+
+$runtime->onEvent(
+    static function (SupervisorEvent $event): void {
+        error_log(sprintf(
+            '[runwire] %s group=%s slot=%s pid=%s',
+            $event->type->value,
+            $event->group ?? '-',
+            $event->slot === null ? '-' : (string) $event->slot,
+            $event->pid === null ? '-' : (string) $event->pid,
+        ));
+    },
+);
+```
+
+Keep handlers quick and bounded. Portable mode does not expose supervisor lifecycle events.
+
+## 16. Privilege drop
+
+```php
+use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
+
+$options = new RuntimeOptions(
+    privilegeDrop: new PrivilegeDropPolicy(
+        uid: 1001,
+        gid: 1001,
+    ),
+);
+```
+
+Runwire validates this during runtime selection. It requires native prefork plus supported POSIX identity operations and sufficient master permissions.
+
+Test filesystem/socket/certificate permissions under the final worker identity.
+
+## 17. TLS / HTTP/2
+
+```php
+use Infocyph\Runwire\Network\TlsOptions;
+
+$tls = new TlsOptions(
+    localCertificate: '/etc/runwire/tls/fullchain.pem',
+    privateKey: '/etc/runwire/tls/privkey.pem',
+    handshakeTimeoutSeconds: 10.0,
+);
+
+$server = Server::http('0.0.0.0:8443', $handler)
+    ->withTls($tls);
+```
+
+Defaults include TLS 1.2/1.3 server methods and ALPN `h2,http/1.1`. Runwire validates certificate/key paths and checks OpenSSL before binding.
+
+## 18. HTTP/3
+
+```php
+$server = Server::http('0.0.0.0:8443', $handler)
+    ->withTls($tls)
+    ->withHttp3();
+```
+
+Production requirements:
+
+1. supported `ext-quic` adapter;
+2. supported QUIC-capable OpenSSL baseline;
+3. certificate/private key;
+4. UDP reachability on the listener port;
+5. ALPN `h3`;
+6. suitable QUIC/stream resource ceilings.
+
+0-RTT application dispatch is disabled in 1.0. QUIC peer address changes must not be used as an authentication identity.
+
+## 19. SO_REUSEPORT
+
+Reuse-port is explicit and off by default. Use only after validating platform support and load distribution.
+
+Native HTTP/3 with multiple independently bound QUIC workers requires explicit reuse-port configuration.
+
+## 20. Resource ceilings
+
+Defaults are conservative. Constructor validation in the protocol limit objects is authoritative.
 
 | Area | HTTP/1.1 | HTTP/2 | HTTP/3 |
 | --- | ---: | ---: | ---: |
 | Request body | 16 MiB | 16 MiB | 16 MiB |
-| Header / field-section bytes | 64 KiB | 64 KiB | 64 KiB |
+| Header / field-section | 64 KiB | 64 KiB | 64 KiB |
 | Header fields | 100 | 100 | 128 |
 | Concurrent streams | n/a | 100 | 100 |
-| Lifetime request streams | keep-alive: 1,000 | 10,000 | 10,000 |
-| Pending response per stream | bounded by response writer | 1 MiB | 1 MiB |
-| Pending response per connection | bounded connection buffer | 8 MiB | 8 MiB |
-| Compression table | n/a | HPACK 4 KiB | QPACK 64 KiB maximum |
+| Lifetime request streams | bounded | 10,000 | 10,000 |
+| Pending response / stream | bounded writer | 1 MiB | 1 MiB |
+| Pending response / connection | bounded connection buffer | 8 MiB | 8 MiB |
+| Compression table | n/a | HPACK 4 KiB | QPACK max 64 KiB |
 | Blocked compression streams | n/a | n/a | 32 |
 
-Additional bounded defaults include HTTP/2 control-frame work, continuation count, response wire queue, HTTP/3 peer unidirectional-stream churn, QPACK blocked bytes, QPACK encoder queue bytes, reads/writes per pump and inbound bytes per pump.
+Increase limits only after measuring memory, file-descriptor usage, and tail latency.
 
-The constructor validation in `Http1Limits`, `Http2Limits` and `Http3Limits` is authoritative. Invalid watermark relationships or non-positive hard ceilings are rejected before serving traffic.
+## 21. Backpressure
 
-## Backpressure tuning
+```php
+$result = $writer->write($chunk);
 
-Treat backpressure ceilings as protection boundaries, not throughput targets.
+if ($result->pressured()) {
+    $writer->onDrain(
+        static function (ResponseWriterInterface $writer): void {
+            // Continue bounded production.
+        },
+    );
+}
+```
 
-- Keep low/high watermarks separated enough to avoid pause/resume thrashing.
-- Do not raise per-stream response buffering without considering aggregate connection buffering and worker concurrency.
-- Raising HTTP/2 or HTTP/3 concurrent-stream counts multiplies per-connection state and should be paired with connection-level limits.
-- Larger HPACK/QPACK dynamic tables may improve compression at the cost of retained state and more expensive churn.
-- Large request-body allowances should not imply equally large in-memory pending-body buffers; Runwire streams bodies and maintains independent pending-buffer ceilings.
-- Increase HTTP/3 per-pump read/write budgets only when event-loop fairness remains acceptable under multiplexed load.
+Do not respond to slow consumers by creating an unbounded application buffer.
 
-## Event loop and worker sizing
+## 22. Coroutine resource policy
 
-`SelectLoop` is the portable native baseline. `ext-event` is optional for deployments that benefit from a different event backend.
+Default limits:
 
-Worker count should be chosen from measured CPU saturation, blocking application work and memory per worker. More workers do not compensate for unbounded application blocking. For persistent runtimes, configure recycle/admission policy from observed request volume, retained memory and expected worker lifetime; keep per-request cleanup enabled regardless of the host runtime.
+```text
+maxTasks                1024
+maxReadyBacklog         1024
+maxFutureWaiters        1024
+maxResumesPerTick       128
+maxWaitersPerPrimitive  1024
+```
 
-## Reverse proxies and load balancers
+Override intentionally:
 
-When a proxy terminates HTTP/TLS/QUIC, the proxy owns that wire protocol. Runwire should be configured for the actual downstream mode rather than claiming native wire ownership it does not have.
+```php
+use Infocyph\Runwire\Coroutine\CoroutinePolicy;
+use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 
-For native HTTP/3, the load-balancing path must support UDP/QUIC to the Runwire listener. A TCP-only forwarding path cannot carry native HTTP/3. HTTP/3 capability advertised by an upstream proxy does not mean the downstream Runwire process owns HTTP/3.
+$coroutines = new CoroutineRuntime(
+    policy: new CoroutinePolicy(
+        maxTasks: 2_048,
+        maxReadyBacklog: 2_048,
+        maxFutureWaiters: 2_048,
+        maxResumesPerTick: 256,
+        maxWaitersPerPrimitive: 2_048,
+    ),
+);
+```
 
-## Security and operations checklist
+Higher limits retain more task/waiter state.
 
-Before production rollout, verify that:
+## 23. Metrics and diagnostics
 
-- no untrusted value is passed through an implicit shell path;
-- process children are bounded, supervised and reaped;
-- request, header, stream, frame, body, queue and response limits are explicitly reviewed;
-- TLS key material has appropriate filesystem permissions;
-- HTTP/3 0-RTT remains disabled unless a future replay-safety policy explicitly enables it;
-- persistent application state is reset after every request, including failed handlers/cancellation paths;
-- request deadline/cancellation behavior is exercised with the application;
-- boot/warmup failure cannot advertise readiness;
-- reload replacement readiness and rollback behavior are exercised before deployment;
-- worker recycle thresholds and jitter are explicitly reviewed rather than assumed;
-- admission/rejection thresholds are measured under overload;
-- metrics/control output stays bounded and does not expose sensitive values;
-- application DB/cache/broker connections are created in the correct post-fork worker lifetime;
-- privilege-drop UID/GID and filesystem permissions are verified when enabled;
-- `SO_REUSEPORT` remains off unless explicitly required and validated;
-- the development watcher is disabled in production;
-- shutdown/reload/recycle deadlines are exercised before production traffic is enabled.
+Runtime metrics:
 
-## Validation before rollout
+```php
+$snapshot = $context->snapshot();
+```
 
-Use the same supported PHP versions and optional capabilities as production. At minimum run the full PHPForge QA matrix, the QUIC-present HTTP/3 lane when enabling native HTTP/3, cross-driver lifecycle acceptance, portable soak/fault coverage and the dedicated benchmark workflow.
+Coroutine diagnostics:
 
-Benchmark results are evidence for regression tracking, not universal capacity claims. Cross-runtime comparisons must use equivalent real runtimes, workload, protocol, PHP version, worker count, concurrency and hardware and must record throughput, latency percentiles, errors, CPU and RSS. See `docs/benchmarks.md`.
+```php
+$diagnostics = $coroutines->diagnostics();
+```
+
+Keep labels fixed-cardinality. Do not emit request IDs, connection IDs, URLs, or arbitrary headers as unbounded metric labels.
+
+Operational state should distinguish:
+
+```text
+live
+ready
+healthy
+draining
+```
+
+A PID existing is not sufficient evidence of readiness or health.
+
+## 24. Production checklist
+
+Before traffic, verify:
+
+- 64-bit PHP and required extensions;
+- effective CPU/memory limits;
+- file-descriptor limits;
+- worker count versus memory footprint;
+- admission thresholds;
+- request/body/header/stream ceilings;
+- graceful timeout versus real request duration;
+- recycle thresholds from soak evidence;
+- TLS key/certificate permissions;
+- UDP firewall/LB rules for HTTP/3;
+- control socket permissions if enabled;
+- Unix-socket directory permissions if used;
+- logs/metrics during reload and shutdown.
+
+## 25. Deployment acceptance
+
+A production candidate should exercise:
+
+- HTTP/1.1;
+- HTTP/2 ALPN when enabled;
+- HTTP/3 interoperability when enabled;
+- request body/response streaming;
+- backpressure;
+- request cancellation/deadlines;
+- overload rejection and recovery;
+- prefork restart/reload/recycle;
+- graceful stop with active work;
+- persistent-worker memory/FD soak;
+- hosted-runtime acceptance for the selected host.
+
+## Related documentation
+
+- [Getting started](getting-started.md)
+- [Architecture and runtime contracts](architecture.md)
+- [Coroutines and structured concurrency](coroutines.md)
+- [Benchmark methodology](benchmarks.md)
+- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)

@@ -1,12 +1,21 @@
 # Runwire 1.0 Coroutines and Structured Concurrency
 
-Runwire 1.0 provides a lightweight coroutine runtime built on PHP `Fiber`, Runwire `LoopInterface`, and structured task ownership. The coroutine layer is intentionally low level: it coordinates Runwire-aware timers, stream readiness, cancellation, request lifecycles, worker background work, and the callback-based `Network\Connection` core. It does not transparently convert arbitrary blocking PHP APIs into asynchronous operations.
+Runwire provides structured concurrency built on PHP `Fiber`, `LoopInterface`, and explicit task ownership. It coordinates Runwire-aware timers, I/O readiness, cancellation, request lifecycles, and worker background work without pretending that arbitrary blocking PHP APIs become asynchronous.
 
-## Mental model
+## 1. Mental model
 
-A `CoroutineRuntime` owns one scheduler and one concrete event loop. Every task belongs to that scheduler for its full lifetime. Work is structured through `CoroutineScope`: a scope cannot finish while owned children are still live, and request or worker shutdown cancels/drains work through the same ownership tree.
+One `CoroutineRuntime` owns one scheduler and one event loop.
 
-The normal ownership hierarchy is:
+```text
+CoroutineRuntime
+└── root CoroutineScope
+    ├── Task
+    ├── Task
+    └── nested CoroutineScope
+        └── Task
+```
+
+Managed server ownership:
 
 ```text
 runtime
@@ -17,70 +26,389 @@ runtime
     └── tasks
 ```
 
-Runwire tasks always use the Runwire Fiber scheduler. Host runtimes may supply reactor integration, but they do not replace Runwire task semantics.
+A scope does not silently finish while owned children remain live.
 
-## Basic execution
+## 2. Basic execution
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 
+require __DIR__ . '/vendor/autoload.php';
+
 $runtime = new CoroutineRuntime();
 
-$result = $runtime->run(function (CoroutineScope $scope): array {
-    $left = $scope->spawn(static fn(): string => 'left');
-    $right = $scope->spawn(static fn(): string => 'right');
+$result = $runtime->run(
+    static function (CoroutineScope $scope): array {
+        $left = $scope->spawn(static function () use ($scope): string {
+            $scope->sleep(0.010);
+            return 'left';
+        });
 
-    return [$left->await(), $right->await()];
-});
+        $right = $scope->spawn(static function () use ($scope): string {
+            $scope->yieldNow();
+            return 'right';
+        });
+
+        return [$left->await(), $right->await()];
+    },
+);
 ```
 
-`CoroutineRuntime::run()` owns the root scope, drives the scheduler, joins structured children, and returns or rethrows the root task result. Starting a nested `run()` on the same runtime is rejected; use the active scope instead.
+`CoroutineRuntime::run()` creates the root scope, drives the scheduler/loop, joins structured children, and returns or rethrows the root result.
 
-## Structured ownership and failure
+Nested `run()` on the same runtime is rejected; use the active scope instead.
 
-`CoroutineScope::spawn()` creates an owned child. `CoroutineScope::group()` creates a nested structured group and supports the configured `TaskGroupFailureMode`.
+## 3. Resource policy
 
-Default fail-fast behavior is:
+Defaults:
 
-1. the first unhandled child failure is recorded;
-2. live siblings are cancelled;
-3. sibling cleanup is joined;
-4. the primary failure is propagated.
+```text
+maxTasks                1024
+maxReadyBacklog         1024
+maxFutureWaiters        1024
+maxResumesPerTick       128
+maxWaitersPerPrimitive  1024
+```
 
-Use collect-all mode only when all child outcomes must be observed before the group returns.
+Override deliberately:
 
-There is no request-level detached-task escape hatch. Work intended to outlive one request belongs to a worker background scope instead.
+```php
+use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 
-## Cancellation and deadlines
+$runtime = new CoroutineRuntime(
+    policy: new CoroutinePolicy(
+        maxTasks: 2_048,
+        maxReadyBacklog: 2_048,
+        maxFutureWaiters: 2_048,
+        maxResumesPerTick: 256,
+        maxWaitersPerPrimitive: 2_048,
+    ),
+);
+```
 
-Children inherit parent cancellation and the earliest applicable monotonic deadline. A child may tighten a deadline but cannot extend its parent deadline. Structured parent/child cancellation links are tracked separately from general cancellation observers, so task fan-out is governed by coroutine policy rather than the public observer-subscription limit.
+`maxReadyBacklog` must be at least `maxTasks`. Higher limits retain more scheduler state.
 
-Suspending primitives register cancellation-aware waiters and clean up losing timer/watcher/subscription paths when another completion path wins. Cancellation is represented by `CancelledException` with a `CancellationReason`, so it remains distinguishable from application failure.
+## 4. Tasks
 
-Useful cooperative checkpoints include:
+```php
+$task = $scope->spawn(static fn(): int => 42);
+$value = $task->await();
+```
+
+Consumers never resume the underlying Fiber directly. Task result/failure is propagated through scheduler and scope ownership.
+
+## 5. Fail-fast structured groups
+
+```php
+$scope->group(
+    static function (CoroutineScope $group): void {
+        $group->spawn(static function (): void {
+            throw new RuntimeException('primary failure');
+        });
+
+        $group->spawn(static function () use ($group): void {
+            while (true) {
+                $group->cancellation()->throwIfCancelled();
+                $group->yieldNow();
+            }
+        });
+    },
+);
+```
+
+Default failure behavior:
+
+1. retain the first unhandled child failure;
+2. cancel live siblings;
+3. join sibling cleanup;
+4. propagate the primary failure.
+
+Collect all failures:
+
+```php
+use Infocyph\Runwire\Coroutine\Enum\TaskGroupFailureMode;
+
+$scope->group(
+    static function (CoroutineScope $group): void {
+        $group->spawn(static fn() => throw new RuntimeException('a'));
+        $group->spawn(static fn() => throw new RuntimeException('b'));
+    },
+    TaskGroupFailureMode::COLLECT_ALL,
+);
+```
+
+Use collect-all only when observing every child outcome is required.
+
+## 6. Cancellation
 
 ```php
 $scope->cancellation()->throwIfCancelled();
-$scope->yieldNow();
-$scope->sleep(0.010);
 ```
 
-Blocking CPU work is still cooperative: long loops must yield explicitly or be moved to process-level scaling/offloading.
-
-## Request-scoped execution
-
-For direct request integration, bind the existing `RequestContext` to `CoroutineRuntime::runRequest()` or use `Runtime\CoroutineRequestHandler`.
+Cancellation is cooperative. Long CPU loops should checkpoint and yield:
 
 ```php
+for ($i = 0; $i < 1_000_000; ++$i) {
+    if (($i % 1_000) === 0) {
+        $scope->cancellation()->throwIfCancelled();
+        $scope->yieldNow();
+    }
+
+    // bounded CPU work
+}
+```
+
+Cancellation/timer/I/O callbacks enqueue task readiness; they do not recursively resume a Fiber inline.
+
+## 7. Deadlines
+
+Children may tighten but never extend a parent deadline.
+
+```php
+use Infocyph\Runwire\RequestDeadline;
+
+$start = hrtime(true);
+$start = is_int($start) ? $start : (int) $start;
+$deadline = RequestDeadline::afterSeconds(0.250, $start);
+
+$scope->withDeadline(
+    $deadline,
+    static function (CoroutineScope $limited): void {
+        $limited->sleep(0.050);
+        $limited->cancellation()->throwIfCancelled();
+    },
+);
+```
+
+The effective child deadline is the earliest applicable monotonic deadline.
+
+## 8. Cooperative sleep and yield
+
+```php
+$scope->yieldNow();
+$scope->sleep(0.100);
+```
+
+These use the Runwire scheduler/loop; they do not call blocking `sleep()`/`usleep()`.
+
+## 9. Stream readiness
+
+For a PHP stream resource:
+
+```php
+$scope->waitReadable($stream);
+$data = fread($stream, 8192);
+
+$scope->waitWritable($stream);
+fwrite($stream, $payload);
+```
+
+Only Runwire-aware waiting is cooperative. Arbitrary synchronous APIs remain blocking.
+
+## 10. Channels
+
+Bounded channel:
+
+```php
+$channel = $scope->channel(capacity: 2);
+```
+
+Producer/consumer:
+
+```php
+use Infocyph\Runwire\Coroutine\Exception\ChannelClosedException;
+
+$channel = $scope->channel(2);
+
+$producer = $scope->spawn(static function () use ($channel): void {
+    foreach ([1, 2, 3, 4] as $value) {
+        $channel->send($value);
+    }
+
+    $channel->close();
+});
+
+$consumer = $scope->spawn(static function () use ($channel): array {
+    $values = [];
+
+    try {
+        while (true) {
+            $values[] = $channel->receive();
+        }
+    } catch (ChannelClosedException) {
+        return $values;
+    }
+});
+
+$producer->await();
+$values = $consumer->await();
+```
+
+Capacity `0` is rendezvous/unbuffered; capacity `>0` is bounded FIFO buffering. `null`, `false`, `0`, and empty strings are valid payloads.
+
+## 11. Future and Deferred
+
+```php
+$deferred = $scope->deferred();
+$future = $deferred->future();
+
+$scope->spawn(static function () use ($scope, $deferred): void {
+    $scope->sleep(0.020);
+    $deferred->resolve(['ready' => true]);
+});
+
+$value = $future->await();
+```
+
+Reject:
+
+```php
+$deferred->reject(new RuntimeException('failed'));
+```
+
+Completion is one-shot. Future waiters are bounded by policy.
+
+## 12. Semaphore
+
+```php
+$semaphore = $scope->semaphore(4);
+
+$tasks = [];
+for ($i = 0; $i < 20; ++$i) {
+    $tasks[] = $scope->spawn(
+        static function () use ($semaphore, $i): int {
+            return $semaphore->withPermit(
+                static fn(): int => $i * 2,
+            );
+        },
+    );
+}
+
+$values = array_map(static fn($task) => $task->await(), $tasks);
+```
+
+Manual form:
+
+```php
+$semaphore->acquire();
+try {
+    // guarded work
+} finally {
+    $semaphore->release();
+}
+```
+
+## 13. Mutex
+
+```php
+$mutex = $scope->mutex();
+$counter = 0;
+
+$tasks = [];
+for ($i = 0; $i < 10; ++$i) {
+    $tasks[] = $scope->spawn(
+        static function () use ($mutex, &$counter): void {
+            $mutex->synchronized(
+                static function () use (&$counter): void {
+                    ++$counter;
+                },
+            );
+        },
+    );
+}
+
+foreach ($tasks as $task) {
+    $task->await();
+}
+```
+
+The mutex is non-recursive and may only be unlocked by its owning task.
+
+## 14. Barrier
+
+```php
+$barrier = $scope->barrier(3);
+
+for ($i = 0; $i < 3; ++$i) {
+    $scope->spawn(
+        static function () use ($barrier, $i): void {
+            // phase 1
+            $generation = $barrier->wait();
+
+            // phase 2
+            printf("task %d passed generation %d\n", $i, $generation);
+        },
+    );
+}
+```
+
+Cancellation of a waiting party breaks that generation rather than leaving peers suspended forever.
+
+Use ordinary structured groups for task completion; use barriers for genuine multi-phase coordination.
+
+## 15. Task-local state
+
+```php
+use Infocyph\Runwire\Coroutine\TaskLocal;
+
+$traceId = new TaskLocal(default: 'unknown');
+
+$runtime->run(
+    static function (CoroutineScope $scope) use ($traceId): void {
+        $scope->setLocal($traceId, 'trace-parent');
+
+        $child = $scope->spawn(
+            static function () use ($scope, $traceId): string {
+                return (string) $scope->local($traceId);
+            },
+        );
+
+        assert($child->await() === 'trace-parent');
+        $scope->removeLocal($traceId);
+    },
+);
+```
+
+Default inheritance is snapshot-based. Task-local state is lifecycle-scoped and does not fall back to mutable process-global storage.
+
+## 16. HTTP request-scoped coroutine handler
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
+use Infocyph\Runwire\Server;
+
+$coroutines = new CoroutineRuntime();
 
 $handler = new CoroutineRequestHandler(
-    $runtime,
-    function ($request, $writer, CoroutineScope $scope): void {
-        $profile = $scope->spawn(static fn() => loadProfile());
-        $settings = $scope->spawn(static fn() => loadSettings());
+    $coroutines,
+    static function (
+        HttpRequest $request,
+        ResponseWriterInterface $writer,
+        CoroutineScope $scope,
+    ): void {
+        $profile = $scope->spawn(static function () use ($scope): array {
+            $scope->sleep(0.010);
+            return ['name' => 'Ada'];
+        });
+
+        $settings = $scope->spawn(static function () use ($scope): array {
+            $scope->sleep(0.010);
+            return ['theme' => 'dark'];
+        });
 
         $writer->end(json_encode([
             'profile' => $profile->await(),
@@ -88,63 +416,61 @@ $handler = new CoroutineRequestHandler(
         ], JSON_THROW_ON_ERROR));
     },
 );
+
+Runtime::create()
+    ->listen(Server::http('127.0.0.1:8080', $handler))
+    ->run();
 ```
 
-Request completion remains ordered so structured coroutine work drains before request resetters and final `RequestContext` completion. Persistent hosts therefore cannot carry request-owned tasks, task-local state, timers, stream watchers, or request cancellation subscriptions into the next request.
+`CoroutineRuntime::runRequest()` links cancellation/deadline to the request context. A completed request context cannot own new coroutine work.
 
-FPM, RoadRunner, and FrankenPHP may use an execution-local Runwire coroutine runtime when explicitly invoked. Their host lifecycle remains authoritative; Runwire does not claim that arbitrary host I/O becomes asynchronous.
-
-## Worker background work
-
-Longer-lived work belongs to task/service worker generations through `WorkerContext::spawnBackground()`. Attach the worker loop first.
+## 17. Direct request binding
 
 ```php
-use Infocyph\Runwire\Coroutine\CoroutineScope;
+$coroutines->runRequest(
+    $request->context,
+    static function (CoroutineScope $scope): void {
+        // structured request work
+    },
+);
+```
 
+Request completion should leave no request-owned live tasks, timers, stream watchers, cancellation subscriptions, or task-local state.
+
+## 18. Worker background work
+
+Longer-lived work belongs to the worker generation, not a detached request task.
+
+```php
 $worker->attachLoop($loop, backgroundShutdownGraceSeconds: 5.0);
 
-$worker->spawnBackground(function (CoroutineScope $scope): void {
-    while (true) {
-        $scope->cancellation()->throwIfCancelled();
-        processOneUnit();
-        $scope->yieldNow();
-    }
-});
+$worker->spawnBackground(
+    static function (CoroutineScope $scope): void {
+        while (true) {
+            $scope->cancellation()->throwIfCancelled();
+
+            // process one bounded work unit
+
+            $scope->yieldNow();
+        }
+    },
+);
 ```
 
-When drain/reload/shutdown begins, the worker stops admitting new background work, cancels/drains generation-owned tasks within the configured grace period, and prevents old-generation tasks from surviving into a replacement generation.
+Drain/reload/shutdown stops background admission and cancels/drains generation-owned tasks so old-generation work cannot survive into replacement workers.
 
-`WorkerContext::backgroundCoroutineDiagnostics()` exposes the bounded scheduler snapshot for a configured background scope. `backgroundTaskCount()`, `backgroundDrainExpired()`, and `acceptingBackgroundWork()` remain the small lifecycle-oriented helpers.
-
-## Channels and synchronization
-
-Runwire provides scheduler-aware synchronization primitives through the active scope:
-
-- `channel($capacity)` — FIFO rendezvous at capacity `0`, bounded buffering above `0`;
-- `semaphore($permits)` — bounded FIFO permit control;
-- `mutex()` — single-owner locking with cancellation-safe waiting;
-- `barrier($parties)` — explicit generation-based phase coordination;
-- `deferred()` / `Future` — one-shot producer/consumer completion;
-- `TaskLocal` — task-local context inherited according to Runwire task rules.
-
-Channels preserve all PHP payload values, including `false`, `null`, `0`, and empty strings. Close and timeout state are expressed through dedicated control flow rather than payload sentinels.
-
-Prefer structured task groups for task completion. `Barrier` is intended only for genuine multi-phase coordination.
-
-## Stream readiness and blocking boundary
-
-Runwire-aware stream operations can suspend cooperatively:
+Diagnostics:
 
 ```php
-$scope->waitReadable($stream);
-$scope->waitWritable($stream);
+$worker->backgroundTaskCount();
+$worker->backgroundDrainExpired();
+$worker->acceptingBackgroundWork();
+$worker->backgroundCoroutineDiagnostics();
 ```
 
-These calls use the runtime's `LoopInterface`. They do not make unrelated synchronous functions cooperative. PDO calls, filesystem functions, third-party HTTP clients, and other blocking APIs still block the current worker unless the consumer chooses a non-blocking integration.
+## 19. AsyncConnection
 
-## Network migration: callback `Connection` to `AsyncConnection`
-
-`Network\Connection` remains the callback/event-loop core. `Coroutine\Network\AsyncConnection` adapts that core without exposing its raw stream or bypassing buffering/backpressure invariants.
+`Network\Connection` remains the callback/event-loop transport core. `AsyncConnection` adapts waiting without exposing the raw stream.
 
 ```php
 use Infocyph\Runwire\Coroutine\Network\AsyncConnection;
@@ -152,10 +478,10 @@ use Infocyph\Runwire\Coroutine\Network\AsyncConnection;
 $async = new AsyncConnection($connection, $scope);
 
 $write = $async->write("hello\n");
-if ($connection->isWritePressured()) {
-    $closeReason = $async->drain();
-    if ($closeReason !== null) {
-        // The connection closed while waiting for pressure to clear.
+if ($write->pressured()) {
+    $closed = $async->drain();
+    if ($closed !== null) {
+        // Connection closed while pressure was draining.
     }
 }
 
@@ -163,114 +489,72 @@ $data = $async->receive(8192);
 $reason = $async->close();
 ```
 
-The adapter claims exclusive `onData`, `onDrain`, and EOF callback ownership from `Connection`. Constructing an adapter when those callbacks are already owned is a contract conflict and must fail instead of silently replacing application callbacks. `onClose` remains used to resolve pending receive/drain/close waits and preserve the actual `CloseReason`.
+Only one concurrent `receive()`, `drain()`, or graceful `close()` wait is supported per adapter.
 
-When the adapter must stop owning callback slots while the transport intentionally remains open, call `AsyncConnection::dispose()`. Disposal settles adapter-owned waiters, releases the exclusive callback claim, leaves the underlying `Connection` open, and makes that adapter instance unusable.
+Release callback ownership without closing the transport:
 
-Only one concurrent `receive()`, `drain()`, or graceful `close()` waiter is supported per `AsyncConnection`. `write()` continues to return the normal `WriteResult`; callers may await `drain()` when backpressure is active.
+```php
+$async->dispose();
+```
 
-Migration strategy:
+Disposal settles adapter waiters, releases exclusive callback ownership, keeps the underlying connection open, and makes the adapter unusable.
 
-1. leave connection creation, limits, buffering, TLS, close reasons, and writes on `Connection`;
-2. replace callback-driven data/drain waiting with one `AsyncConnection` owner inside a coroutine scope;
-3. call `dispose()` before transferring callback ownership while keeping the transport open;
-4. keep protocol parsing/application semantics above this adapter;
-5. do not obtain the underlying stream to bypass `Connection` state.
+## 20. Blocking boundary
 
-## Host integration
+These can still block a worker unless the consumer chooses a cooperative/non-blocking integration:
+
+```text
+blocking PDO drivers
+filesystem calls
+blocking curl / HTTP clients
+blocking DNS APIs
+CPU-heavy loops without yield
+arbitrary extension calls
+```
+
+Runwire does not install a hook-all monkey patch layer.
+
+## 21. Host integration
 
 ### Native / SelectLoop
 
-`SelectLoop` is the reference Runwire-owned event loop. Coroutine timers and real stream readiness are driven directly by the Runwire Fiber scheduler.
+`SelectLoop` is the built-in Runwire-owned loop. Timers and stream readiness feed the Fiber scheduler.
 
 ### Swoole / OpenSwoole
 
-`SwooleLoop` bridges Runwire `LoopInterface` operations to the host reactor and timers. Runwire still uses the same Fiber scheduler and structured semantics; OpenSwoole native coroutines are a host capability/reactor mechanism, not a second Runwire task backend.
+Runwire bridges `LoopInterface` to the host reactor while preserving one Runwire Fiber/task model. Host-native coroutine capability is reported separately.
 
-The supported bridge is verified against the real OpenSwoole extension on PHP 8.4 and 8.5, including a live HTTP server acceptance lane. It does not run a nested blocking `SelectLoop` inside the host reactor.
+### FPM / FrankenPHP / RoadRunner
 
-### RoadRunner / FrankenPHP / FPM
+Consumers may explicitly use a bounded `CoroutineRuntime`, but Runwire does not take listener/event-loop ownership from the host or make arbitrary host I/O asynchronous.
 
-These hosts can invoke an execution-local `CoroutineRuntime` explicitly. Runwire does not take listener/event-loop ownership away from the host and does not promise transparent asynchronous behavior for arbitrary host APIs.
-
-## Diagnostics
-
-`CoroutineRuntime::diagnostics()` returns a fixed-cardinality `CoroutineDiagnosticsSnapshot`. Worker background scopes expose the same shape through `WorkerContext::backgroundCoroutineDiagnostics()`.
-
-The snapshot includes:
-
-```text
-activeTasks
-runnableTasks
-suspendedTasks
-completedTotal
-failedTotal
-cancelledTotal
-spawnedTotal
-readyQueueDepth
-readyQueueMaxDepth
-resumesTotal
-rootScopesActive
-requestScopesActive
-backgroundScopesActive
-backgroundTasksActive
-loopTimersActive
-loopDeferredBacklog
-loopReadWatchers
-loopWriteWatchers
-maxTasks
-maxReadyBacklog
-maxWaitersPerPrimitive
-maxResumesPerTick
-```
-
-Counters are scheduler-local and bounded in cardinality. Runwire deliberately does not retain per-task names, labels, completed-task registries, or other unbounded production diagnostic dimensions.
-
-Operationally useful signals include:
-
-- sustained `readyQueueDepth` close to `maxReadyBacklog` — scheduler admission/fairness pressure;
-- sustained `activeTasks` close to `maxTasks` — task admission pressure;
-- increasing `failedTotal` — application/task failures requiring classification;
-- increasing `cancelledTotal` during reload/drain — expected only when lifecycle cancellation is occurring;
-- non-zero loop timers/watchers after a completed request/scope — investigate a cleanup leak;
-- non-zero `backgroundTasksActive` while a worker should be fully drained — inspect shutdown grace and task cleanup.
-
-## CoroutinePolicy tuning
-
-`CoroutinePolicy` centralizes safety bounds. Current defaults are intentionally finite:
+## 22. Diagnostics
 
 ```php
-new CoroutinePolicy(
-    maxTasks: 1024,
-    maxReadyBacklog: 1024,
-    maxFutureWaiters: 1024,
-    maxResumesPerTick: 128,
-    maxWaitersPerPrimitive: 1024,
-);
+$snapshot = $runtime->diagnostics();
 ```
 
-Tune only with workload evidence. Raising task or waiter limits increases the amount of work and memory one scheduler can retain during pressure. Raising `maxResumesPerTick` can improve batch throughput but may reduce event-loop fairness. Lower limits fail admission predictably rather than allowing unbounded growth.
+Fixed-cardinality diagnostics include task state/counts, ready-queue depth, resumes, active root/request/background scopes, and loop timer/deferred/read/write watcher counts.
 
-Worker shutdown grace is a lifecycle setting on the worker coroutine scope/loop attachment, not a hidden scheduler timeout.
+Use diagnostics for operational visibility, not unbounded task history.
 
-## Hardening and soak acceptance
+## 23. Consumer rules
 
-The release suite includes deterministic race/fault coverage for completion/cancellation, deadline/timer cancellation, real readable/writable stream cancellation, future resolution races, channel close races, sibling failure storms, cleanup exceptions, request isolation, and worker background drain.
+1. Keep tasks under an owning scope.
+2. Do not create request-level fire-and-forget work.
+3. Check cancellation in long cooperative loops.
+4. Use bounded channels/semaphores instead of unbounded queues.
+5. Avoid nested `CoroutineRuntime::run()`.
+6. Never directly resume a Runwire-owned Fiber.
+7. Understand blocking APIs before placing them in cooperative paths.
+8. Dispose `AsyncConnection` before transferring callbacks while keeping the transport open.
+9. Keep task-local state small and scoped.
+10. Measure scheduler diagnostics before increasing limits.
 
-Soak coverage repeatedly exercises sequential and bounded-concurrent task churn, channels, cancellation storms, deadline storms, nested groups, persistent request reuse, task-local release, and worker generation replacement. Acceptance requires zero remaining active tasks and zero loop timers/read/write watchers at completed scope boundaries.
+## Related documentation
 
-## Benchmark evidence
-
-`benchmarks/CoroutineRuntimeBench.php` records PHPBench subjects for:
-
-- task create/start/complete;
-- scheduler yield/resume;
-- Future await/resolve;
-- structured group spawn/join;
-- unbuffered channel handoff;
-- buffered channel throughput;
-- semaphore acquire/release;
-- request-root coroutine execution;
-- request-context lifecycle without coroutine execution as an adjacent baseline.
-
-These are Runwire-only regression measurements. They are not evidence that Runwire is faster than another coroutine/runtime implementation. Cross-runtime claims still require equivalent real runtimes, hardware, PHP version, protocol, workload, worker count, concurrency, latency, errors, CPU, and RSS as defined in `docs/benchmarks.md`.
+- [Getting started](getting-started.md)
+- [Architecture and runtime contracts](architecture.md)
+- [Deployment and operations](deployment.md)
+- [Benchmark methodology](benchmarks.md)
+- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
