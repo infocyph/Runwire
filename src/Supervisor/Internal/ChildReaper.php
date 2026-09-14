@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Infocyph\Runwire\Exception\SupervisorException;
+use Infocyph\Runwire\Internal\MonotonicTime;
 
 /**
  * Normalizes child-process wait status and performs non-blocking reap cycles.
@@ -80,13 +81,34 @@ final class ChildReaper
     }
 
     /**
-     * Wait synchronously for one child process, retrying interrupted waits.
+     * Poll for one child until it is reaped or the monotonic deadline expires.
      */
-    public static function waitFor(int $pid): void
+    public static function waitForUntil(int $pid, int $deadlineNanoseconds): bool
     {
-        do {
+        while (true) {
             $status = 0;
-            $result = pcntl_waitpid($pid, $status);
-        } while ($result === -1 && pcntl_get_last_error() === PCNTL_EINTR);
+            $result = pcntl_waitpid($pid, $status, WNOHANG);
+            if ($result === $pid) {
+                return true;
+            }
+            if ($result === -1) {
+                $error = pcntl_get_last_error();
+                if ($error === PCNTL_EINTR) {
+                    continue;
+                }
+                if ($error === PCNTL_ECHILD) {
+                    return true;
+                }
+
+                throw new SupervisorException(sprintf('waitpid failed with PCNTL error %d.', $error));
+            }
+
+            $now = MonotonicTime::nowNanoseconds();
+            if ($now >= $deadlineNanoseconds) {
+                return false;
+            }
+
+            usleep((int) min(1_000, max(1, ceil(($deadlineNanoseconds - $now) / 1_000))));
+        }
     }
 }

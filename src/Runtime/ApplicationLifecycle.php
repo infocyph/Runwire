@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime;
 
 use Closure;
+use Infocyph\Runwire\Exception\ApplicationShutdownException;
 use Infocyph\Runwire\Exception\ApplicationStartupException;
 use Infocyph\Runwire\Exception\RequestLifecycleException;
 use Infocyph\Runwire\Http\HttpRequest;
@@ -42,7 +43,8 @@ final class ApplicationLifecycle
 
     private bool $booted = false;
 
-    private ?Throwable $drainFailure = null;
+    /** @var list<Throwable> */
+    private array $drainFailures = [];
 
     private bool $draining = false;
 
@@ -100,7 +102,7 @@ final class ApplicationLifecycle
         try {
             ($this->hooks->drain)?->__invoke($this->runtimeContext, $reason);
         } catch (Throwable $error) {
-            $this->drainFailure = $error;
+            $this->drainFailures[] = $error;
         }
     }
 
@@ -148,22 +150,22 @@ final class ApplicationLifecycle
             $this->shutdownReason = $reason;
         }
         $this->cancelActive(CancellationReason::WORKER_SHUTDOWN);
-        $failure = $this->drainFailure;
+        $failures = $this->drainFailures;
 
         try {
             ($this->hooks->shutdown)?->__invoke($this->runtimeContext, $this->shutdownReason);
         } catch (Throwable $error) {
-            $failure ??= $error;
+            $failures[] = $error;
         }
 
         try {
             ($this->legacyShutdown)?->__invoke();
         } catch (Throwable $error) {
-            $failure ??= $error;
+            $failures[] = $error;
         }
 
-        if ($failure !== null) {
-            throw $failure;
+        if ($failures !== []) {
+            throw new ApplicationShutdownException(null, $failures);
         }
     }
 
@@ -263,7 +265,10 @@ final class ApplicationLifecycle
             $hook($this->runtimeContext);
         } catch (Throwable $error) {
             $this->startupFailed = true;
-            $this->runtimeContext->metrics->recordError(ApplicationErrorClass::WARMUP_FAILURE);
+            $this->runtimeContext->metrics->recordError(match ($phase) {
+                ApplicationStartupPhase::BOOT => ApplicationErrorClass::BOOT_FAILURE,
+                ApplicationStartupPhase::WARMUP => ApplicationErrorClass::WARMUP_FAILURE,
+            });
 
             throw new ApplicationStartupException($phase, $error);
         }

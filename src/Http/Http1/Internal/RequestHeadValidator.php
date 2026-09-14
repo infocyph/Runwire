@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http1\Internal;
 
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Internal\AuthorityValidator;
+use InvalidArgumentException;
 
 /**
  * Validates HTTP/1.1 request framing and routing headers.
@@ -14,9 +16,13 @@ final class RequestHeadValidator
     /**
      * Validate request headers and return normalized framing metadata.
      */
-    public function validate(Headers $headers, int $maxBodyBytes): RequestHead
-    {
-        $this->validateHost($headers);
+    public function validate(
+        Headers $headers,
+        int $maxBodyBytes,
+        string $method = 'GET',
+        string $target = '/',
+    ): RequestHead {
+        $this->validateHost($headers, $method, $target);
         $contentLengths = $this->contentLengths($headers);
         $transfer = $this->tokens($headers->all('transfer-encoding'));
 
@@ -44,6 +50,25 @@ final class RequestHeadValidator
             expectContinue: $expect === ['100-continue'],
             closeRequested: in_array('close', $this->tokens($headers->all('connection')), true),
         );
+    }
+
+    private function absoluteAuthority(string $target): ?string
+    {
+        if (preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:\/\/([^\/?#]*)/D', $target, $matches) !== 1) {
+            return null;
+        }
+        if ($matches[1] === '') {
+            throw new ParseFailure(400, 'Absolute-form request-target requires an authority.');
+        }
+
+        return $matches[1];
+    }
+
+    private function absoluteScheme(string $target): ?string
+    {
+        return preg_match('/^([A-Za-z][A-Za-z0-9+.-]*):\/\//D', $target, $matches) === 1
+            ? $matches[1]
+            : null;
     }
 
     /** @return list<int> */
@@ -99,11 +124,44 @@ final class RequestHeadValidator
         return $tokens;
     }
 
-    private function validateHost(Headers $headers): void
+    private function validateHost(Headers $headers, string $method, string $target): void
     {
         $host = $headers->all('host');
         if (count($host) !== 1 || trim($host[0]) === '') {
             throw new ParseFailure(400, 'HTTP/1.1 requires exactly one non-empty Host field.');
+        }
+
+        try {
+            $normalizedHost = AuthorityValidator::normalize($host[0], $this->absoluteScheme($target));
+        } catch (InvalidArgumentException) {
+            throw new ParseFailure(400, 'HTTP/1.1 Host field contains an invalid authority.');
+        }
+
+        if (strcasecmp($method, 'CONNECT') === 0) {
+            try {
+                $normalizedTarget = AuthorityValidator::normalize($target);
+            } catch (InvalidArgumentException) {
+                throw new ParseFailure(400, 'CONNECT requires a valid authority-form request-target.');
+            }
+            if (!hash_equals($normalizedTarget, $normalizedHost)) {
+                throw new ParseFailure(400, 'CONNECT request-target conflicts with Host.');
+            }
+
+            return;
+        }
+
+        $absoluteAuthority = $this->absoluteAuthority($target);
+        if ($absoluteAuthority === null) {
+            return;
+        }
+
+        try {
+            $normalizedTarget = AuthorityValidator::normalize($absoluteAuthority, $this->absoluteScheme($target));
+        } catch (InvalidArgumentException) {
+            throw new ParseFailure(400, 'Absolute-form request-target contains an invalid authority.');
+        }
+        if (!hash_equals($normalizedTarget, $normalizedHost)) {
+            throw new ParseFailure(400, 'Absolute-form request-target authority conflicts with Host.');
         }
     }
 }

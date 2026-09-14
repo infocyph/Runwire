@@ -49,6 +49,9 @@ final readonly class Command
         if ($stdin !== null && !is_string($stdin) && !is_resource($stdin) && !is_callable($stdin)) {
             throw new InvalidArgumentException('stdin must be null, a string, stream resource or callable chunk producer.');
         }
+        if (is_resource($stdin) && get_resource_type($stdin) !== 'stream') {
+            throw new InvalidArgumentException('stdin resource must be a stream.');
+        }
     }
 
     /** @param list<string> $arguments */

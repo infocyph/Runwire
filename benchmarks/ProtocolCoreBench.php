@@ -91,7 +91,12 @@ final class ProtocolCoreBench
 
     public function benchHttp1HeadValidation(): int
     {
-        return $this->http1Validator->validate($this->http1Headers, 16_777_216)->contentLength;
+        return $this->http1Validator->validate(
+            $this->http1Headers,
+            16_777_216,
+            'POST',
+            '/benchmark?transport=h1',
+        )->contentLength;
     }
 
     public function benchHttp2HpackDecode(): int

@@ -10,9 +10,11 @@ use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerResponseWriter;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSession;
 use Infocyph\Runwire\Runtime\Host\RoadRunnerSessionInterface;
+use Infocyph\Runwire\Runtime\Internal\ApplicationShutdown;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
+use Throwable;
 
 /**
  * Runs persistent HTTP request handling through a RoadRunner worker session.
@@ -43,13 +45,18 @@ final class RoadRunnerDriver implements HostDriverInterface
         $session = ($this->sessionFactory)();
         $this->session = $session;
 
+        $failure = null;
+
         try {
             $application->start();
             $this->runRequests($session, $application);
+        } catch (Throwable $error) {
+            $failure = $error;
         } finally {
             $this->session = null;
-            $application->shutdown();
         }
+
+        ApplicationShutdown::finish($application, $failure);
     }
 
     /**

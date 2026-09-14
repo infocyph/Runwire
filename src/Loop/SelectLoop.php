@@ -417,9 +417,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     private function runTick(): void
     {
         $tickStart = MonotonicTime::nowNanoseconds();
-        $this->recordTimerLag($tickStart);
         $this->runDeferredBatch();
         if ($this->running) {
+            $this->recordTimerLag(MonotonicTime::nowNanoseconds());
             $this->runDueTimers();
         }
         $this->recordTick($tickStart);

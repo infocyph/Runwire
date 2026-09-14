@@ -45,14 +45,14 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         callable $writeCallback,
         callable $endCallback,
         int $maxBodyBytes,
-        bool $headRequest = false,
+        private readonly bool $headRequest = false,
     ) {
         if ($maxBodyBytes < 1) {
             throw new InvalidArgumentException('Maximum host response body size must be positive.');
         }
 
         $this->endCallback = Closure::fromCallable($endCallback);
-        $this->maxBodyBytes = $headRequest ? 0 : $maxBodyBytes;
+        $this->maxBodyBytes = $maxBodyBytes;
         $this->startCallback = Closure::fromCallable($startCallback);
         $this->writeCallback = Closure::fromCallable($writeCallback);
     }
@@ -116,9 +116,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         if ($this->ended) {
             return new WriteResult(WriteState::CLOSED, 0);
         }
-        if ($status < 100 || $status > 599) {
-            throw new InvalidArgumentException('HTTP response status must be between 100 and 599.');
-        }
+        ResponseSemantics::assertFinalStatus($status);
         if ($this->started) {
             return new WriteResult(WriteState::ACCEPTED, 0);
         }
@@ -162,9 +160,6 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     private function suppressesBody(): bool
     {
-        return $this->maxBodyBytes === 0
-            || ($this->status >= 100 && $this->status < 200)
-            || $this->status === 204
-            || $this->status === 304;
+        return ResponseSemantics::suppressesBody($this->headRequest, $this->status);
     }
 }

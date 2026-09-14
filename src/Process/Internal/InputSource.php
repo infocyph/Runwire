@@ -39,6 +39,9 @@ final class InputSource
         }
 
         if (is_resource($input)) {
+            if (get_resource_type($input) !== 'stream') {
+                throw new ProcessException('stdin resource must be a stream.');
+            }
             $meta = stream_get_meta_data($input);
             if ($meta['stream_type'] === '') {
                 throw new ProcessException('stdin resource must be a stream.');

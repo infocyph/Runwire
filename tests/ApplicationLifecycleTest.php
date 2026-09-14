@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Exception\RequestLifecycleException;
+use Infocyph\Runwire\Exception\ApplicationShutdownException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
@@ -304,4 +305,42 @@ it('runs shutdown cleanup after warmup failure without accepting request work', 
     $lifecycle->shutdown();
 
     expect(iterator_to_array($events))->toBe(['boot', 'warmup', 'drain', 'shutdown']);
+});
+
+it('runs and retains every failing shutdown operation', function (): void {
+    $events = new ArrayObject();
+    $lifecycle = new ApplicationLifecycle(
+        static function (): void {},
+        RuntimeContext::standalone(),
+        hooks: new ApplicationLifecycleHooks(
+            drain: static function () use ($events): void {
+                $events[] = 'drain';
+                throw new RuntimeException('drain failed');
+            },
+            shutdown: static function () use ($events): void {
+                $events[] = 'shutdown';
+                throw new RuntimeException('shutdown hook failed');
+            },
+        ),
+        legacyShutdown: static function () use ($events): void {
+            $events[] = 'legacy';
+            throw new RuntimeException('legacy shutdown failed');
+        },
+    );
+    $lifecycle->start();
+
+    $failure = null;
+    try {
+        $lifecycle->shutdown();
+    } catch (ApplicationShutdownException $error) {
+        $failure = $error;
+    }
+
+    expect(iterator_to_array($events))->toBe(['drain', 'shutdown', 'legacy'])
+        ->and($failure)->toBeInstanceOf(ApplicationShutdownException::class)
+        ->and($failure?->shutdownFailures)->toHaveCount(3)
+        ->and(array_map(
+            static fn(Throwable $error): string => $error->getMessage(),
+            $failure?->shutdownFailures ?? [],
+        ))->toBe(['drain failed', 'shutdown hook failed', 'legacy shutdown failed']);
 });

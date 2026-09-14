@@ -149,6 +149,23 @@ it('classifies managed warmup failures before request readiness', function (): v
         ->and($runtime->snapshot()->errors[ApplicationErrorClass::WARMUP_FAILURE->value] ?? 0)->toBe(1);
 });
 
+it('classifies boot failures separately from warmup failures', function (): void {
+    $runtime = batchHRuntimeContext();
+    $application = new RuntimeApplication(
+        static function (): void {},
+        runtimeContext: $runtime,
+        lifecycle: new ApplicationLifecycleHooks(
+            boot: static function (): void {
+                throw new RuntimeException('intentional boot failure');
+            },
+        ),
+    );
+
+    expect(fn() => $application->start())->toThrow(ApplicationStartupException::class)
+        ->and($runtime->snapshot()->errors[ApplicationErrorClass::BOOT_FAILURE->value] ?? 0)->toBe(1)
+        ->and($runtime->snapshot()->errors[ApplicationErrorClass::WARMUP_FAILURE->value] ?? 0)->toBe(0);
+});
+
 it('keeps healthy old generation capacity when replacement warmup exhausts restart budget', function (): void {
     $loop = new SelectLoop();
     $supervisor = new Supervisor(

@@ -9,6 +9,8 @@ namespace Infocyph\Runwire\Metrics\Enum;
  */
 enum ApplicationErrorClass: string
 {
+    case BOOT_FAILURE = 'boot_failure';
+
     case CLIENT_CANCELLED = 'client_cancelled';
 
     case DEADLINE_EXCEEDED = 'deadline_exceeded';

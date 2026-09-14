@@ -21,6 +21,7 @@ use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Server;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use LogicException;
+use Throwable;
 
 /**
  * Runs native HTTP/3 QUIC handling inside native runtime workers.
@@ -124,6 +125,8 @@ final class NativeHttp3Worker
             handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
         );
 
+        $failure = null;
+
         try {
             $application->start();
             self::observeTransport($runtimeContext, $worker);
@@ -157,15 +160,32 @@ final class NativeHttp3Worker
             }
             self::observeTransport($runtimeContext, $worker);
             $sampler->sample(true);
-        } finally {
-            try {
-                $worker->stopAccepting();
-            } finally {
-                $application->shutdown($context->shutdownReason());
-                self::observeTransport($runtimeContext, $worker);
-                $sampler->sample(true);
-            }
+        } catch (Throwable $error) {
+            $failure = $error;
         }
+
+        $shutdownFailures = [];
+
+        try {
+            $worker->stopAccepting();
+        } catch (Throwable $error) {
+            $shutdownFailures[] = $error;
+        }
+
+        try {
+            $application->shutdown($context->shutdownReason());
+        } catch (Throwable $error) {
+            $shutdownFailures[] = $error;
+        }
+
+        try {
+            self::observeTransport($runtimeContext, $worker);
+            $sampler->sample(true);
+        } catch (Throwable $error) {
+            $shutdownFailures[] = $error;
+        }
+
+        ApplicationShutdown::resolve($failure, $shutdownFailures);
     }
 
     /** @return array{0: string, 1: int} */

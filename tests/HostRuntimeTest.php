@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\FpmOptions;
+use Infocyph\Runwire\Exception\ApplicationShutdownException;
 use Infocyph\Runwire\FrankenPhpOptions;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
@@ -16,6 +17,7 @@ use Infocyph\Runwire\Runtime\Driver\FrankenPhpDriver;
 use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
+use Infocyph\Runwire\Runtime\Host\HostProtocolVersion;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
@@ -70,6 +72,13 @@ it('normalizes host request metadata into the common HTTP request contract', fun
         ->and($request->body->read())->toBe('{"ok":true}')
         ->and($request->body->eof())->toBeTrue();
 });
+
+it('rejects explicit unsupported host protocol versions', function (string $protocol): void {
+    expect(fn() => HostProtocolVersion::from($protocol))->toThrow(
+        InvalidArgumentException::class,
+        'Unsupported host HTTP protocol version',
+    );
+})->with(['HTTP/1.0', 'HTTP/4', 'garbage']);
 
 it('enforces host response limits and common body suppression rules', function (): void {
     $headChunks = [];
@@ -134,6 +143,38 @@ it('runs FPM as one host-owned request with cleanup and shutdown', function (): 
         ->and($cleaned)->toBe(1)
         ->and($shutdown)->toBe(1)
         ->and($chunks)->toBe(['/fpm']);
+});
+
+it('preserves a primary host failure when application shutdown also fails', function (): void {
+    $application = new RuntimeApplication(
+        static function (): void {
+            throw new RuntimeException('handler failed');
+        },
+        shutdown: static function (): void {
+            throw new RuntimeException('shutdown failed');
+        },
+    );
+    $driver = new FpmDriver(
+        new FpmOptions(),
+        static fn(): HttpRequest => hostRuntimeRequest('/failure'),
+        static function (): ResponseWriterInterface {
+            $chunks = [];
+
+            return hostRuntimeWriter($chunks);
+        },
+    );
+
+    $failure = null;
+    try {
+        $driver->run($application);
+    } catch (ApplicationShutdownException $error) {
+        $failure = $error;
+    }
+
+    expect($failure)->toBeInstanceOf(ApplicationShutdownException::class)
+        ->and($failure?->primaryFailure?->getMessage())->toBe('handler failed')
+        ->and($failure?->shutdownFailures)->toHaveCount(1)
+        ->and($failure?->shutdownFailures[0]->getMessage())->toBe('shutdown failed');
 });
 
 it('runs FrankenPHP classic mode as one request', function (): void {

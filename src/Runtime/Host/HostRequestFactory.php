@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime\Host;
 
-use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
@@ -37,7 +36,7 @@ final class HostRequestFactory
         return new HttpRequest(
             method: $this->serverString($server, 'REQUEST_METHOD', 'GET'),
             target: $this->serverString($server, 'REQUEST_URI', '/'),
-            version: $this->protocolVersion($this->serverString($server, 'SERVER_PROTOCOL', 'HTTP/1.1')),
+            version: HostProtocolVersion::from($this->serverString($server, 'SERVER_PROTOCOL', 'HTTP/1.1')),
             headers: Headers::fromArray($this->headers($server)),
             body: new BufferedRequestBody($body),
             peerAddress: $this->address($server, 'REMOTE_ADDR', 'REMOTE_PORT'),
@@ -108,15 +107,6 @@ final class HostRequestFactory
         }
 
         return $headers;
-    }
-
-    private function protocolVersion(string $protocol): ProtocolVersion
-    {
-        return match (strtoupper($protocol)) {
-            'HTTP/2', 'HTTP/2.0' => ProtocolVersion::HTTP_2,
-            'HTTP/3', 'HTTP/3.0' => ProtocolVersion::HTTP_3,
-            default => ProtocolVersion::HTTP_1_1,
-        };
     }
 
     private function readInput(int $maxBodyBytes): string

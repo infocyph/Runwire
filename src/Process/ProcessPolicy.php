@@ -31,6 +31,7 @@ final readonly class ProcessPolicy
         public float $maxTimeoutSeconds = 3_600.0,
         public float $maxTerminationGraceSeconds = 10.0,
         public float $postExitDrainSeconds = 0.25,
+        public float $postKillWaitSeconds = 1.0,
     ) {
         self::validateIntegerLimits([
             'maxArgumentCount' => $maxArgumentCount,
@@ -42,7 +43,12 @@ final readonly class ProcessPolicy
             'maxStdinBytes' => $maxStdinBytes,
             'maxOutputBytes' => $maxOutputBytes,
         ]);
-        self::validateTimeLimits($maxTimeoutSeconds, $maxTerminationGraceSeconds, $postExitDrainSeconds);
+        self::validateTimeLimits(
+            $maxTimeoutSeconds,
+            $maxTerminationGraceSeconds,
+            $postExitDrainSeconds,
+            $postKillWaitSeconds,
+        );
         self::validateExecutables($allowedExecutables ?? []);
         self::validateEnvironmentKeys($allowedEnvironmentKeys);
         self::validateCwdRoots($allowedCwdRoots);
@@ -92,11 +98,13 @@ final readonly class ProcessPolicy
         float $maxTimeoutSeconds,
         float $maxTerminationGraceSeconds,
         float $postExitDrainSeconds,
+        float $postKillWaitSeconds,
     ): void {
         foreach ([
             'maxTimeoutSeconds' => $maxTimeoutSeconds,
             'maxTerminationGraceSeconds' => $maxTerminationGraceSeconds,
             'postExitDrainSeconds' => $postExitDrainSeconds,
+            'postKillWaitSeconds' => $postKillWaitSeconds,
         ] as $name => $value) {
             if (!is_finite($value) || $value < 0) {
                 throw new InvalidArgumentException(sprintf('%s must be finite and non-negative.', $name));
@@ -104,6 +112,9 @@ final readonly class ProcessPolicy
         }
         if ($maxTimeoutSeconds <= 0) {
             throw new InvalidArgumentException('maxTimeoutSeconds must be positive.');
+        }
+        if ($postKillWaitSeconds <= 0) {
+            throw new InvalidArgumentException('postKillWaitSeconds must be positive.');
         }
     }
 }

@@ -35,6 +35,8 @@ use LogicException;
  */
 final class Supervisor
 {
+    private const int FORCE_CLEANUP_NANOSECONDS = 1_000_000_000;
+
     private const int NANOS_PER_SECOND = 1_000_000_000;
 
     private readonly LifecycleEmitter $events;
@@ -405,8 +407,12 @@ final class Supervisor
         foreach ($this->children as $record) {
             posix_kill($record->pid, SIGKILL);
         }
+        $deadline = (int) hrtime(true) + self::FORCE_CLEANUP_NANOSECONDS;
+        $unreaped = [];
         foreach (array_keys($this->children) as $pid) {
-            ChildReaper::waitFor($pid);
+            if (!ChildReaper::waitForUntil($pid, $deadline)) {
+                $unreaped[] = $pid;
+            }
         }
         foreach ($this->children as $record) {
             ReadinessChannel::close($this->loop, $record);
@@ -417,6 +423,12 @@ final class Supervisor
 
         $this->children = [];
         $this->currentSlots = [];
+        if ($unreaped !== []) {
+            $this->failure ??= new SupervisorException(sprintf(
+                'Force-cleanup deadline expired with unreaped child PID(s): %s.',
+                implode(', ', $unreaped),
+            ));
+        }
     }
 
     private function handleChildExit(int $pid, int $status): void

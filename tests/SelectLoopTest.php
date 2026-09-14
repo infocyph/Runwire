@@ -40,6 +40,18 @@ it('stops immediately after a deferred callback without running due timers in th
         ->and($loop->cancel($timer))->toBeTrue();
 });
 
+it('records timer lag introduced by deferred callbacks in the same tick', function (): void {
+    $loop = new SelectLoop();
+    $loop->delay(0.0, static function (): void {});
+    $loop->defer(static function (): void {
+        usleep(20_000);
+    });
+
+    $loop->run();
+
+    expect($loop->diagnostics()->maxLagNanoseconds)->toBeGreaterThanOrEqual(10_000_000);
+});
+
 it('runs and cancels a repeating timer from its callback', function (): void {
     $loop = new SelectLoop();
     $runs = 0;

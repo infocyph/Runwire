@@ -165,6 +165,46 @@ it('rejects malformed framing, fragments in request targets and premature EOF', 
     expect($response)->toStartWith('HTTP/1.1 400 Bad Request');
 });
 
+it('rejects invalid request-target forms and conflicting authorities', function (): void {
+    foreach ([
+        "GET * HTTP/1.1\r\nHost: example.test\r\n\r\n",
+        "CONNECT /not-authority HTTP/1.1\r\nHost: example.test\r\n\r\n",
+        "POST example.test:443 HTTP/1.1\r\nHost: example.test\r\n\r\n",
+        "GET http://example.test/path HTTP/1.1\r\nHost: other.test\r\n\r\n",
+        "GET / HTTP/1.1\r\nHost: bad host\r\n\r\n",
+    ] as $wire) {
+        expect(runwireHttpExchange($wire, static function (): void {}))
+            ->toStartWith('HTTP/1.1 400 Bad Request');
+    }
+});
+
+it('accepts valid OPTIONS asterisk CONNECT and absolute request targets', function (): void {
+    foreach ([
+        "OPTIONS * HTTP/1.1\r\nHost: example.test\r\nConnection: close\r\n\r\n",
+        "CONNECT example.test:443 HTTP/1.1\r\nHost: example.test:443\r\nConnection: close\r\n\r\n",
+        "GET https://example.test:443/path HTTP/1.1\r\nHost: example.test\r\nConnection: close\r\n\r\n",
+    ] as $wire) {
+        expect(runwireHttpExchange(
+            $wire,
+            static fn(HttpRequest $request, ResponseWriterInterface $writer) => $writer->end($request->target),
+        ))->toStartWith('HTTP/1.1 200 OK');
+    }
+});
+
+it('suppresses HTTP 205 response content', function (): void {
+    $response = runwireHttpExchange(
+        "GET /reset HTTP/1.1\r\nHost: example.test\r\nConnection: close\r\n\r\n",
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->target)->toBe('/reset');
+            $writer->start(205, Headers::fromArray(['content-length' => '0']));
+            $writer->end('hidden');
+        },
+    );
+
+    expect($response)->toStartWith('HTTP/1.1 205 Reset Content')
+        ->and($response)->not->toContain('hidden');
+});
+
 it('emits 100 Continue before the final response', function (): void {
     $response = runwireHttpExchange(
         "POST /continue HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 4\r\nConnection: close\r\n\r\ntest",

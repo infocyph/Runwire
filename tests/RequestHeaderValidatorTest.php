@@ -53,6 +53,38 @@ it('rejects empty or userinfo authority values', function (): void {
         ->toThrow(HeaderValidationException::class);
 });
 
+it('rejects malformed HTTP authority syntax in HTTP/2 and HTTP/3', function (string $authority): void {
+    $fields = [
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', $authority],
+        [':path', '/resource'],
+    ];
+
+    expect(fn() => new Http2RequestHeaderValidator()->request($fields))
+        ->toThrow(Http2HeaderValidationException::class)
+        ->and(fn() => new RequestHeaderValidator('HTTP/3')->request($fields))
+        ->toThrow(HeaderValidationException::class);
+})->with([
+    'whitespace' => 'bad host',
+    'non-numeric port' => 'example.test:garbage',
+    'unterminated IPv6' => '[::1',
+    'unbracketed IPv6' => '::1',
+    'out-of-range port' => 'example.test:65536',
+]);
+
+it('canonicalizes default ports when comparing authority and Host', function (): void {
+    $head = new RequestHeaderValidator('HTTP/3')->request([
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', 'Example.Test:443'],
+        [':path', '/resource'],
+        ['host', 'example.test'],
+    ]);
+
+    expect($head->headers->first('host'))->toBe('example.test');
+});
+
 it('keeps non-HTTP schemes valid while enforcing HTTP path rules', function (): void {
     $validator = new RequestHeaderValidator('HTTP/3');
     $custom = $validator->request([

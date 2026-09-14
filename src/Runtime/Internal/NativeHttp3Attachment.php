@@ -57,11 +57,7 @@ final class NativeHttp3Attachment
             $this->stopWatcher = $this->loop->onReadable($this->context->stopStream(), $this->beginDrain(...));
             $this->context->ready();
         } catch (Throwable $error) {
-            $this->worker->stopAccepting();
-            $this->worker->forceClose();
-            $this->application->shutdown($this->context->shutdownReason());
-
-            throw $error;
+            $this->shutdown($error);
         }
 
         return new NativeWorkerHandle(
@@ -122,16 +118,7 @@ final class NativeHttp3Attachment
 
     private function close(): void
     {
-        $this->cancelStopWatcher();
-        $this->cancelPollTimer();
-        $this->cancelDrainTimer();
-        $this->worker->stopAccepting();
-        if (!$this->worker->drainComplete()) {
-            $this->worker->forceClose();
-        }
-        $this->application->shutdown($this->context->shutdownReason());
-        $this->observe();
-        $this->sampler->sample(true);
+        $this->shutdown();
     }
 
     private function drained(): bool
@@ -185,5 +172,50 @@ final class NativeHttp3Attachment
     private function requestStop(): void
     {
         $this->context->requestStop();
+    }
+
+    private function shutdown(?Throwable $primaryFailure = null): void
+    {
+        $failures = [];
+        foreach ([
+            $this->cancelStopWatcher(...),
+            $this->cancelPollTimer(...),
+            $this->cancelDrainTimer(...),
+            $this->worker->stopAccepting(...),
+        ] as $operation) {
+            try {
+                $operation();
+            } catch (Throwable $error) {
+                $failures[] = $error;
+            }
+        }
+
+        try {
+            if (!$this->worker->drainComplete()) {
+                $this->worker->forceClose();
+            }
+        } catch (Throwable $error) {
+            $failures[] = $error;
+        }
+
+        try {
+            $this->application->shutdown($this->context->shutdownReason());
+        } catch (Throwable $error) {
+            $failures[] = $error;
+        }
+
+        try {
+            $this->observe();
+        } catch (Throwable $error) {
+            $failures[] = $error;
+        }
+
+        try {
+            $this->sampler->sample(true);
+        } catch (Throwable $error) {
+            $failures[] = $error;
+        }
+
+        ApplicationShutdown::resolve($primaryFailure, $failures);
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime\Host;
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
-use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
@@ -136,21 +135,12 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
         return new HttpRequest(
             method: self::stringProperty($request, 'method'),
             target: self::target($uri),
-            version: self::protocolVersion(self::stringProperty($request, 'protocol')),
+            version: HostProtocolVersion::from(self::stringProperty($request, 'protocol')),
             headers: Headers::fromArray(self::headers($request)),
             body: new BufferedRequestBody($body),
             peerAddress: is_string($remoteAddress) && $remoteAddress !== '' ? $remoteAddress : null,
             encrypted: str_starts_with(strtolower($uri), 'https://'),
         );
-    }
-
-    private static function protocolVersion(string $protocol): ProtocolVersion
-    {
-        return match (strtoupper($protocol)) {
-            'HTTP/2', 'HTTP/2.0' => ProtocolVersion::HTTP_2,
-            'HTTP/3', 'HTTP/3.0' => ProtocolVersion::HTTP_3,
-            default => ProtocolVersion::HTTP_1_1,
-        };
     }
 
     private static function stringProperty(object $object, string $property): string

@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Http3;
 use Closure;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Internal\ResponseSemantics;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
@@ -76,6 +77,12 @@ final class Http3ResponseWriter implements ResponseWriterInterface
             }
         }
 
+        if ($this->bodySuppressed) {
+            $this->bodyBytes += strlen($finalChunk);
+
+            return $this->finish(($this->sendData)('', true));
+        }
+
         if ($this->contentLength !== null) {
             $next = $this->bodyBytes + strlen($finalChunk);
             if ($next !== $this->contentLength) {
@@ -85,12 +92,6 @@ final class Http3ResponseWriter implements ResponseWriterInterface
                         : 'HTTP response body is shorter than declared Content-Length.',
                 );
             }
-        }
-
-        if ($this->bodySuppressed) {
-            $this->bodyBytes += strlen($finalChunk);
-
-            return $this->finish(($this->sendData)('', true));
         }
 
         $result = ($this->sendData)($finalChunk, true);
@@ -143,12 +144,11 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         if ($this->started) {
             throw new LogicException('HTTP response has already started.');
         }
-        if ($status < 200 || $status > 599) {
-            throw new InvalidArgumentException('Final HTTP response status must be between 200 and 599.');
-        }
+        ResponseSemantics::assertFinalStatus($status);
 
         [$fields, $contentLength] = $this->normalizeHeaders($headers ?? new Headers());
-        $bodySuppressed = $this->requestMethod === 'HEAD' || $status === 204 || $status === 304;
+        ResponseSemantics::assertContentLength($status, $contentLength);
+        $bodySuppressed = ResponseSemantics::suppressesBody($this->requestMethod === 'HEAD', $status);
         if ($status === 204 && $contentLength !== null) {
             $fields = array_values(array_filter($fields, static fn(HeaderField $field): bool => $field->name !== 'content-length'));
             $contentLength = null;
@@ -188,13 +188,13 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         if ($chunk === '') {
             return ($this->sendData)('', false);
         }
-        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
-            throw new LogicException('HTTP response body exceeds declared Content-Length.');
-        }
         if ($this->bodySuppressed) {
             $this->bodyBytes += strlen($chunk);
 
             return ($this->sendData)('', false);
+        }
+        if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
+            throw new LogicException('HTTP response body exceeds declared Content-Length.');
         }
 
         $result = ($this->sendData)($chunk, false);

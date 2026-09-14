@@ -349,7 +349,12 @@ final class Http1Connection
     private function dispatchRequest(): void
     {
         $headers = new Headers($this->headerFields);
-        $head = $this->requestHeadValidator->validate($headers, $this->limits->maxBodyBytes);
+        $head = $this->requestHeadValidator->validate(
+            $headers,
+            $this->limits->maxBodyBytes,
+            $this->method,
+            $this->target,
+        );
 
         ++$this->requestCount;
         $this->keepAlive = !$this->draining

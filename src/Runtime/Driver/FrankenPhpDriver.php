@@ -13,9 +13,11 @@ use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;
+use Infocyph\Runwire\Runtime\Internal\ApplicationShutdown;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
+use Throwable;
 
 /**
  * Runs applications through FrankenPHP classic or persistent worker mode.
@@ -61,18 +63,20 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
      */
     public function run(RuntimeApplicationInterface $application): void
     {
+        $failure = null;
+
         try {
             $application->start();
             if ($this->mode() === FrankenPhpMode::WORKER) {
                 $this->runWorker($application);
-
-                return;
+            } else {
+                $this->handleCurrentRequest($application);
             }
-
-            $this->handleCurrentRequest($application);
-        } finally {
-            $application->shutdown();
+        } catch (Throwable $error) {
+            $failure = $error;
         }
+
+        ApplicationShutdown::finish($application, $failure);
     }
 
     /**

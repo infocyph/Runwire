@@ -8,14 +8,12 @@ use Closure;
 use Infocyph\Runwire\Exception\ProcessStartException;
 use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Process\Enum\IoMode;
-use Infocyph\Runwire\Process\Enum\OutputOverflowPolicy;
-use Infocyph\Runwire\Process\Enum\TerminationReason;
 use Infocyph\Runwire\Process\Internal\CommandValidator;
 use Infocyph\Runwire\Process\Internal\InputSource;
 use Infocyph\Runwire\Process\Internal\OutputSink;
 use Infocyph\Runwire\Process\Internal\PreparedCommand;
 use Infocyph\Runwire\Process\Internal\ProcessHandle;
-use Infocyph\Runwire\Process\Internal\ProcessTerminator;
+use Infocyph\Runwire\Process\Internal\ProcessTermination;
 use Throwable;
 
 /**
@@ -46,26 +44,29 @@ final readonly class ProcessRunner
     public function run(Command $command, ?callable $stdoutConsumer = null, ?callable $stderrConsumer = null): ProcessResult
     {
         $this->ensureProcessFunctions();
+        ProcessHandle::reapDetached();
         $prepared = $this->validator->validate($command);
         $this->validateConsumer($command->stdoutMode, $stdoutConsumer, 'stdout');
         $this->validateConsumer($command->stderrMode, $stderrConsumer, 'stderr');
 
-        [$process, $pipes] = $this->start($prepared);
-        $handle = new ProcessHandle($process);
         $input = new InputSource($command->stdin, $this->policy->maxStdinBytes);
-        $stdout = new OutputSink($command->stdoutMode, self::closure($stdoutConsumer));
-        $stderr = new OutputSink($command->stderrMode, self::closure($stderrConsumer));
+        $handle = null;
+        $pipes = [];
 
         try {
+            $stdout = new OutputSink($command->stdoutMode, self::closure($stdoutConsumer));
+            $stderr = new OutputSink($command->stderrMode, self::closure($stderrConsumer));
+            [$handle, $pipes] = $this->start($prepared);
+
             return $this->execute($prepared, $handle, $pipes, $input, $stdout, $stderr);
         } catch (Throwable $exception) {
-            $handle->abort();
+            $handle?->abort();
 
             throw $exception;
         } finally {
             $input->close();
             $this->closePipes($pipes);
-            $handle->close();
+            $handle?->close(wait: false);
         }
     }
 
@@ -91,73 +92,6 @@ final readonly class ProcessRunner
         }
     }
 
-    /**
-     * @param resource $process
-     * @return array{0: TerminationReason, 1: ?int}
-     */
-    private function enforceDeadline(mixed $process, TerminationReason $reason, ?int $terminationDeadline, int $deadline, Command $command, int $now): array
-    {
-        if ($terminationDeadline !== null || $now < $deadline) {
-            return [$reason, $terminationDeadline];
-        }
-        if (!ProcessTerminator::graceful($process)) {
-            throw new ProcessStartException('Unable to terminate timed-out child process.');
-        }
-
-        return [
-            TerminationReason::TIMEOUT,
-            MonotonicTime::addNanoseconds(
-                $now,
-                MonotonicTime::secondsToNanoseconds($command->terminationGraceSeconds),
-            ),
-        ];
-    }
-
-    /** @param resource $process */
-    private function enforceKill(mixed $process, ?int $terminationDeadline, bool $killSent, int $now): bool
-    {
-        if ($killSent || $terminationDeadline === null || $now < $terminationDeadline) {
-            return $killSent;
-        }
-        if (!ProcessTerminator::force($process)) {
-            throw new ProcessStartException('Unable to force-terminate child process.');
-        }
-
-        return true;
-    }
-
-    /**
-     * @param resource $process
-     * @return array{0: TerminationReason, 1: ?int}
-     */
-    private function enforceOutputLimit(
-        mixed $process,
-        bool $overflowed,
-        bool $running,
-        TerminationReason $reason,
-        ?int $terminationDeadline,
-        Command $command,
-    ): array {
-        if (!$overflowed
-            || $command->overflowPolicy !== OutputOverflowPolicy::TERMINATE
-            || $terminationDeadline !== null
-            || !$running) {
-            return [$reason, $terminationDeadline];
-        }
-
-        if (!ProcessTerminator::graceful($process)) {
-            throw new ProcessStartException('Unable to terminate child process after output-limit overflow.');
-        }
-
-        return [
-            TerminationReason::OUTPUT_LIMIT,
-            MonotonicTime::addNanoseconds(
-                MonotonicTime::nowNanoseconds(),
-                MonotonicTime::secondsToNanoseconds($command->terminationGraceSeconds),
-            ),
-        ];
-    }
-
     private function ensureProcessFunctions(): void
     {
         foreach (['proc_open', 'proc_get_status', 'proc_terminate', 'proc_close'] as $function) {
@@ -177,10 +111,8 @@ final readonly class ProcessRunner
             $startedAt,
             MonotonicTime::secondsToNanoseconds($command->timeoutSeconds),
         );
-        $terminationDeadline = null;
+        $termination = new ProcessTermination($this->policy, $deadline);
         $postExitDeadline = null;
-        $reason = TerminationReason::EXITED;
-        $killSent = false;
         $outputAccepted = 0;
         $stdinBuffer = '';
         /** @var array{command: string, pid: int, running: bool, signaled: bool, stopped: bool, exitcode: int, termsig: int, stopsig: int}|null $terminalStatus */
@@ -194,10 +126,8 @@ final readonly class ProcessRunner
                 $terminalStatus ??= $status;
             }
 
-            if ($running) {
-                [$reason, $terminationDeadline] = $this->enforceDeadline($child, $reason, $terminationDeadline, $deadline, $command, $now);
-                $killSent = $this->enforceKill($child, $terminationDeadline, $killSent, $now);
-            } else {
+            $termination->observe($child, $command, $running, $now);
+            if (!$running) {
                 $postExitDeadline ??= MonotonicTime::addNanoseconds(
                     $now,
                     MonotonicTime::secondsToNanoseconds($this->policy->postExitDrainSeconds),
@@ -211,17 +141,19 @@ final readonly class ProcessRunner
 
             $this->primeInput($input, $stdinBuffer, $pipes);
             [$read, $write, $inputResourceId] = $this->selectSets($pipes, $input, $stdinBuffer);
-            $this->waitForIo($read, $write, $this->pollMicros($now, $deadline, $terminationDeadline, $postExitDeadline));
+            $this->waitForIo(
+                $read,
+                $write,
+                $this->pollMicros($now, ...$termination->deadlines($postExitDeadline)),
+            );
             $this->readInputResource($read, $inputResourceId, $input, $stdinBuffer);
             $this->writeInput($write, $pipes, $stdinBuffer, $input);
             $overflowed = $this->readOutputs($read, $pipes, $stdout, $stderr, $command->maxOutputBytes, $outputAccepted);
-            [$reason, $terminationDeadline] = $this->enforceOutputLimit(
+            $termination->observeOutputLimit(
                 $child,
+                $command,
                 $overflowed,
                 $running,
-                $reason,
-                $terminationDeadline,
-                $command,
             );
         }
 
@@ -239,7 +171,7 @@ final readonly class ProcessRunner
             stderrBytes: $stderr->bytes(),
             stdoutTruncated: $stdout->truncated(),
             stderrTruncated: $stderr->truncated(),
-            terminationReason: $reason,
+            terminationReason: $termination->reason(),
             terminationSignal: $signal === 0 ? null : $signal,
             durationSeconds: (MonotonicTime::nowNanoseconds() - $startedAt) / MonotonicTime::NANOSECONDS_PER_SECOND,
         );
@@ -388,7 +320,7 @@ final readonly class ProcessRunner
         return [$read, $write, $inputResourceId];
     }
 
-    /** @return array{0: resource, 1: array<int, resource>} */
+    /** @return array{0: ProcessHandle, 1: array<int, resource>} */
     private function start(PreparedCommand $prepared): array
     {
         $command = $prepared->command;
@@ -411,11 +343,23 @@ final readonly class ProcessRunner
             throw new ProcessStartException('Unable to start child process.');
         }
 
-        foreach ($pipes as $pipe) {
-            stream_set_blocking($pipe, false);
+        $handle = new ProcessHandle($process);
+
+        try {
+            foreach ($pipes as $pipe) {
+                if (!stream_set_blocking($pipe, false)) {
+                    throw new ProcessStartException('Unable to configure a child-process pipe as non-blocking.');
+                }
+            }
+        } catch (Throwable $error) {
+            $this->closePipes($pipes);
+            $handle->abort();
+            $handle->close(wait: false);
+
+            throw $error;
         }
 
-        return [$process, $pipes];
+        return [$handle, $pipes];
     }
 
     private function validateConsumer(IoMode $mode, ?callable $consumer, string $stream): void

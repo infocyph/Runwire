@@ -87,15 +87,15 @@ final class RequestContext
      */
     public function activate(RuntimeContext $runtime, RequestExecutionPolicy $policy): void
     {
+        if ($this->completed) {
+            throw new LogicException('Completed request context cannot be activated.');
+        }
         if ($this->bound) {
             if ($this->runtime !== $runtime) {
                 throw new LogicException('Request context is already bound to a different runtime context.');
             }
 
             return;
-        }
-        if ($this->completed) {
-            throw new LogicException('Completed request context cannot be activated.');
         }
 
         $deadline = $policy->deadline($this->startMonotonicNanoseconds);

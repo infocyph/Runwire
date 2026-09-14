@@ -105,6 +105,23 @@ it('normalizes exit status and fails before spawn for invalid executable or over
         ->and(fn () => $runner->run(Command::executable(PHP_BINARY)->stdin('12345')))->toThrow(ProcessStartException::class);
 });
 
+it('rejects non-stream stdin resources before spawning the configured command', function (): void {
+    $fixture = proc_open(
+        [PHP_BINARY, '-r', 'usleep(500000);'],
+        [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+        $pipes,
+    );
+    expect($fixture)->toBeResource();
+
+    try {
+        expect(fn() => Command::executable(PHP_BINARY)->stdin($fixture))
+            ->toThrow(InvalidArgumentException::class, 'stdin resource must be a stream.');
+    } finally {
+        proc_terminate($fixture, 9);
+        proc_close($fixture);
+    }
+});
+
 it('requires a consumer for stream mode', function (): void {
     $command = Command::executable(PHP_BINARY)->output(IoMode::STREAM, IoMode::NULL);
     expect(fn () => processRunner()->run($command))->toThrow(ProcessStartException::class);

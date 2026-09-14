@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Http\Internal;
 
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
+use InvalidArgumentException;
 
 /**
  * Validates HTTP/2 and HTTP/3 request field sections into normalized request metadata.
@@ -287,9 +288,20 @@ final readonly class RequestHeaderValidator
         if ($authority !== null && trim($authority) === '') {
             throw new HeaderValidationException(sprintf('%s :authority must not be empty.', $this->protocol));
         }
+
+        try {
+            $normalizedAuthority = $authority === null ? null : AuthorityValidator::normalize($authority, $scheme);
+            $normalizedHost = $host === null ? null : AuthorityValidator::normalize($host, $scheme);
+        } catch (InvalidArgumentException $error) {
+            throw new HeaderValidationException(
+                sprintf('%s request contains an invalid authority: %s', $this->protocol, $error->getMessage()),
+                previous: $error,
+            );
+        }
+
         $this->validateHttpAuthority($authority, $scheme, $host);
 
-        if ($authority !== null && $host !== null && strcasecmp(trim($authority), trim($host)) !== 0) {
+        if ($normalizedAuthority !== null && $normalizedHost !== null && !hash_equals($normalizedAuthority, $normalizedHost)) {
             throw new HeaderValidationException(sprintf(
                 '%s :authority conflicts with Host.',
                 $this->protocol,
@@ -310,14 +322,7 @@ final readonly class RequestHeaderValidator
             ));
         }
 
-        $effectiveAuthority = $authority ?? $host;
-        if (str_contains($effectiveAuthority, '@')) {
-            throw new HeaderValidationException(sprintf(
-                '%s %s authority must not contain userinfo.',
-                $this->protocol,
-                strtolower($scheme),
-            ));
-        }
+        // Syntax and userinfo are validated for every authority in validateAuthority().
     }
 
     private function validateMethod(string $method): void

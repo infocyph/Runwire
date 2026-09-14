@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Http1;
 use Closure;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Internal\ResponseSemantics;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\WriteState;
@@ -128,14 +129,13 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         if ($this->started) {
             throw new LogicException('HTTP response has already started.');
         }
-        if ($status < 200 || $status > 599) {
-            throw new InvalidArgumentException('Final HTTP response status must be between 200 and 599.');
-        }
+        ResponseSemantics::assertFinalStatus($status);
 
         $headers ??= new Headers();
         [$fields, $contentLength, $closeRequested] = $this->normalizeHeaders($headers);
         $closeAfter = $this->closeAfter || $closeRequested;
-        $bodySuppressed = $this->requestMethod === 'HEAD' || $status === 204 || $status === 304;
+        ResponseSemantics::assertContentLength($status, $contentLength);
+        $bodySuppressed = ResponseSemantics::suppressesBody($this->requestMethod === 'HEAD', $status);
 
         if ($status === 204 && $contentLength !== null) {
             $fields = array_values(array_filter(
@@ -208,6 +208,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
             201 => 'Created',
             202 => 'Accepted',
             204 => 'No Content',
+            205 => 'Reset Content',
             206 => 'Partial Content',
             301 => 'Moved Permanently',
             302 => 'Found',

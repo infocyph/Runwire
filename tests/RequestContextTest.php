@@ -78,7 +78,42 @@ it('isolates and bounds request-scoped attributes then clears them on completion
 
     expect($first->attributes())->toBe([])
         ->and($first->completed())->toBeTrue()
-        ->and(fn() => $first->setAttribute('late', true))->toThrow(LogicException::class);
+        ->and(fn() => $first->setAttribute('late', true))->toThrow(LogicException::class)
+        ->and(fn() => $first->activate($runtime, new RequestExecutionPolicy()))->toThrow(
+            LogicException::class,
+            'Completed request context cannot be activated.',
+        );
+});
+
+it('rejects handling the same request context after completion', function (): void {
+    $application = new RuntimeApplication(
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->context->completed())->toBeFalse();
+            $writer->end();
+        },
+        runtimeContext: batchBRuntimeContext(),
+    );
+    $request = new HttpRequest(
+        'GET',
+        '/single-use',
+        ProtocolVersion::HTTP_1_1,
+        new Headers(),
+        new BufferedRequestBody(''),
+    );
+
+    $application->handle($request, new CallbackResponseWriter(
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+        1_024,
+    ));
+
+    expect(fn() => $application->handle($request, new CallbackResponseWriter(
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+        1_024,
+    )))->toThrow(LogicException::class, 'Completed request context cannot be activated.');
 });
 
 it('cancels once and isolates observer failures', function (): void {

@@ -65,15 +65,18 @@ it('suppresses HTTP/3 bodies where HTTP semantics forbid them', function (string
         static function (): void {},
     );
 
-    $headers = $status === 204 ? new Headers() : Headers::fromArray(['content-length' => '4']);
+    $headers = $status === 204 || $status === 205
+        ? new Headers()
+        : Headers::fromArray(['content-length' => '4']);
     $writer->start($status, $headers);
-    $writer->end($status === 204 ? '' : 'body');
+    $writer->end();
 
     expect($dataFrames)->toBe([['', true]])
         ->and($writer->isEnded())->toBeTrue();
 })->with([
     ['HEAD', 200],
     ['GET', 204],
+    ['GET', 205],
     ['GET', 304],
 ]);
 

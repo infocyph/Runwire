@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Runtime\Host;
 
 use Closure;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Internal\ResponseSemantics;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
@@ -34,14 +35,14 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     public function __construct(
         private readonly RoadRunnerSessionInterface $session,
         int $maxBodyBytes,
-        bool $headRequest = false,
+        private readonly bool $headRequest = false,
     ) {
         if ($maxBodyBytes < 1) {
             throw new InvalidArgumentException('Maximum RoadRunner response body size must be positive.');
         }
 
         $this->headers = new Headers();
-        $this->maxBodyBytes = $headRequest ? 0 : $maxBodyBytes;
+        $this->maxBodyBytes = $maxBodyBytes;
     }
 
     /**
@@ -113,9 +114,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         if ($this->ended) {
             return new WriteResult(WriteState::CLOSED, 0);
         }
-        if ($status < 100 || $status > 599) {
-            throw new InvalidArgumentException('HTTP response status must be between 100 and 599.');
-        }
+        ResponseSemantics::assertFinalStatus($status);
         if ($this->started) {
             return new WriteResult(WriteState::ACCEPTED, 0);
         }
@@ -176,9 +175,6 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     private function suppressesBody(): bool
     {
-        return $this->maxBodyBytes === 0
-            || ($this->status >= 100 && $this->status < 200)
-            || $this->status === 204
-            || $this->status === 304;
+        return ResponseSemantics::suppressesBody($this->headRequest, $this->status);
     }
 }

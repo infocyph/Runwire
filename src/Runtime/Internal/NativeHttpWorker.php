@@ -20,6 +20,7 @@ use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
+use Throwable;
 
 /**
  * Runs native HTTP/1.1 and HTTP/2 sessions inside native event loops.
@@ -91,11 +92,21 @@ final class NativeHttpWorker
 
             $sampler->sample(true);
             $context->ready();
-        } catch (\Throwable $error) {
-            $bound->listener->close();
-            $application->shutdown($context->shutdownReason());
+        } catch (Throwable $error) {
+            $failures = [];
 
-            throw $error;
+            try {
+                $bound->listener->close();
+            } catch (Throwable $closeError) {
+                $failures[] = $closeError;
+            }
+
+            ApplicationShutdown::finish(
+                $application,
+                $error,
+                $context->shutdownReason(),
+                $failures,
+            );
         }
 
         return new NativeWorkerHandle(
@@ -170,11 +181,23 @@ final class NativeHttpWorker
             ownsLoop: true,
         );
 
+        $failure = null;
+
         try {
             $loop->run();
-        } finally {
-            $handle->close();
+        } catch (Throwable $error) {
+            $failure = $error;
         }
+
+        $shutdownFailures = [];
+
+        try {
+            $handle->close();
+        } catch (Throwable $error) {
+            $shutdownFailures[] = $error;
+        }
+
+        ApplicationShutdown::resolve($failure, $shutdownFailures);
     }
 
     /**

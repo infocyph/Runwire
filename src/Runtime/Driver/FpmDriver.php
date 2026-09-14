@@ -11,7 +11,9 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;
+use Infocyph\Runwire\Runtime\Internal\ApplicationShutdown;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
+use Throwable;
 
 /**
  * Runs a single request through PHP-FPM's request-owned lifecycle.
@@ -48,13 +50,17 @@ final readonly class FpmDriver implements HostDriverInterface
      */
     public function run(RuntimeApplicationInterface $application): void
     {
+        $failure = null;
+
         try {
             $application->start();
             $request = ($this->requestFactory)();
             $application->handle($request, ($this->writerFactory)($request->method));
-        } finally {
-            $application->shutdown();
+        } catch (Throwable $error) {
+            $failure = $error;
         }
+
+        ApplicationShutdown::finish($application, $failure);
     }
 
     /**

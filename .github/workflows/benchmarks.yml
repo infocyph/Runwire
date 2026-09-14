@@ -57,7 +57,7 @@ jobs:
           jq -e 'type == "array" and length > 0' "$result" >/dev/null
           cat "$result"
 
-      - name: Validate comparative evidence gate
+      - name: Validate comparative-evidence tooling
         shell: bash
         run: |
           fixture_dir="$(mktemp -d)"

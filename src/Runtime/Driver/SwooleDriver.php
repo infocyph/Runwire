@@ -6,7 +6,6 @@ namespace Infocyph\Runwire\Runtime\Driver;
 
 use Closure;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
-use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
@@ -14,6 +13,8 @@ use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Host\DynamicHostObject;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
+use Infocyph\Runwire\Runtime\Host\HostProtocolVersion;
+use Infocyph\Runwire\Runtime\Internal\ApplicationShutdown;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
@@ -21,6 +22,7 @@ use Infocyph\Runwire\SwooleOptions;
 use InvalidArgumentException;
 use ReflectionClass;
 use RuntimeException;
+use Throwable;
 
 /**
  * Runs HTTP applications on a Swoole or OpenSwoole host server.
@@ -51,16 +53,21 @@ final class SwooleDriver implements HostDriverInterface
         $server = ($this->serverFactory)($this->options->host, $this->options->port);
         $this->server = $server;
 
+        $failure = null;
+
         try {
             $this->configure($server, $application);
             $started = DynamicHostObject::method($server, 'start')();
             if ($started === false) {
                 throw new RuntimeException('Swoole/OpenSwoole server failed to start.');
             }
+        } catch (Throwable $error) {
+            $failure = $error;
         } finally {
             $this->server = null;
-            $application->shutdown();
         }
+
+        ApplicationShutdown::finish($application, $failure);
     }
 
     /**
@@ -133,15 +140,6 @@ final class SwooleDriver implements HostDriverInterface
             $reflection = new ReflectionClass($class);
 
             return $reflection->newInstance($host, $port);
-        };
-    }
-
-    private static function protocolVersion(string $protocol): ProtocolVersion
-    {
-        return match (strtoupper($protocol)) {
-            'HTTP/2', 'HTTP/2.0' => ProtocolVersion::HTTP_2,
-            'HTTP/3', 'HTTP/3.0' => ProtocolVersion::HTTP_3,
-            default => ProtocolVersion::HTTP_1_1,
         };
     }
 
@@ -247,7 +245,7 @@ final class SwooleDriver implements HostDriverInterface
         return new HttpRequest(
             method: self::serverString($server, 'request_method', 'GET'),
             target: self::target($server),
-            version: self::protocolVersion(self::serverString($server, 'server_protocol', 'HTTP/1.1')),
+            version: HostProtocolVersion::from(self::serverString($server, 'server_protocol', 'HTTP/1.1')),
             headers: Headers::fromArray(self::headers(DynamicHostObject::arrayProperty($request, 'header'))),
             body: new BufferedRequestBody($body),
             peerAddress: self::address($server, 'remote_addr', 'remote_port'),

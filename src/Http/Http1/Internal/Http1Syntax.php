@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http1\Internal;
 
 use Infocyph\Runwire\Http\HeaderField;
+use Infocyph\Runwire\Http\Internal\AuthorityValidator;
 use InvalidArgumentException;
 
 /**
@@ -34,11 +35,15 @@ final class Http1Syntax
         if (preg_match("/^([!#$%&'*+.^_`|~0-9A-Za-z-]+) ([^\\x00-\\x20\\x7F]+) HTTP\\/1\\.1$/D", $line, $matches) !== 1) {
             throw new ParseFailure(400, 'Malformed HTTP/1.1 request line.');
         }
-        if (str_contains($matches[2], '#')) {
+        $method = $matches[1];
+        $target = $matches[2];
+        if (str_contains($target, '#')) {
             throw new ParseFailure(400, 'HTTP request-target must not contain a fragment.');
         }
 
-        return [$matches[1], $matches[2]];
+        $this->requestTarget($method, $target);
+
+        return [$method, $target];
     }
 
     /**
@@ -64,5 +69,36 @@ final class Http1Syntax
         } catch (InvalidArgumentException $exception) {
             throw new ParseFailure(400, $exception->getMessage());
         }
+    }
+
+    private function requestTarget(string $method, string $target): void
+    {
+        if ($target === '*') {
+            if (strcasecmp($method, 'OPTIONS') !== 0) {
+                throw new ParseFailure(400, 'Asterisk-form request-target is permitted only for OPTIONS.');
+            }
+
+            return;
+        }
+
+        if (strcasecmp($method, 'CONNECT') === 0) {
+            try {
+                AuthorityValidator::normalize($target);
+            } catch (InvalidArgumentException) {
+                throw new ParseFailure(400, 'CONNECT requires a valid authority-form request-target.');
+            }
+
+            return;
+        }
+
+        if (str_starts_with($target, '/')) {
+            return;
+        }
+
+        if (preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:\/\//D', $target) === 1) {
+            return;
+        }
+
+        throw new ParseFailure(400, 'HTTP request-target form is invalid for the request method.');
     }
 }
