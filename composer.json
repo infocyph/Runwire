@@ -25,7 +25,7 @@
     ],
     "require": {
         "php": "^8.4",
-        "php-64bit": "*",
+        "php-64bit": "^8.4",
         "ext-pcntl": "*",
         "ext-posix": "*"
     },
