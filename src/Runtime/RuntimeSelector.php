@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Runtime;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeOptions;
 
 /**
@@ -34,12 +35,34 @@ final readonly class RuntimeSelector
         }
         $capabilities = $this->capabilityResolver->resolve($driver, $environment, $options);
         $this->validatePrivilegeDrop($options, $driver, $capabilities->supportsPrivilegeDrop);
+        $warnings = [...$warnings, ...$this->nativeSecurityWarnings($options, $driver, $capabilities)];
 
         return new RuntimeSelection(
             driver: $driver,
             capabilities: $capabilities,
             warnings: $warnings,
         );
+    }
+
+    /** @return list<string> */
+    private function nativeSecurityWarnings(
+        RuntimeOptions $options,
+        RuntimeDriver $driver,
+        RuntimeCapabilities $capabilities,
+    ): array {
+        if (
+            $driver !== RuntimeDriver::NATIVE
+            || !$capabilities->ownsWorkerPool
+            || $options->privilegeDrop->enabled()
+            || !function_exists('posix_geteuid')
+            || posix_geteuid() !== 0
+        ) {
+            return [];
+        }
+
+        return [
+            'SECURITY: native prefork is running as root without a worker privilege-drop policy; application workers will execute as root.',
+        ];
     }
 
     /** @return list<string> */
