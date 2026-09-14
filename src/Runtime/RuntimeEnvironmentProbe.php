@@ -97,6 +97,8 @@ final readonly class RuntimeEnvironmentProbe
     {
         return function_exists('posix_geteuid')
             && function_exists('posix_getegid')
+            && function_exists('posix_getpwuid')
+            && function_exists('posix_initgroups')
             && function_exists('posix_setuid')
             && function_exists('posix_setgid');
     }
