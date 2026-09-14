@@ -24,18 +24,25 @@
         }
     ],
     "require": {
-        "php": "^8.4",
-        "php-64bit": "^8.4",
-        "ext-pcntl": "*",
-        "ext-posix": "*"
+        "php": "^8.4"
     },
     "require-dev": {
+        "php-64bit": "^8.4",
+        "ext-pcntl": "*",
+        "ext-posix": "*",
         "infocyph/phpforge": "dev-main@dev"
     },
     "suggest": {
-        "ext-event": "Can be used by a custom LoopInterface adapter; Runwire does not ship an ext-event backend.",
-        "ext-openssl": "Required for native TLS listeners and HTTP/2 ALPN negotiation.",
-        "ext-sockets": "Optional for lower-level socket tuning where a transport adapter uses it."
+        "php-64bit": "Enables full-range monotonic nanosecond timing and QUIC/HTTP/3 integer handling.",
+        "ext-event": "Enables custom accelerated LoopInterface adapters while Runwire falls back to SelectLoop.",
+        "ext-openssl": "Enables native TLS listeners and HTTP/2 ALPN negotiation.",
+        "ext-openswoole": "Enables the OpenSwoole host runtime and coroutine/event-loop integration.",
+        "ext-pcntl": "Enables native prefork workers, signal handling, reloads and process supervision.",
+        "ext-posix": "Enables native process signaling, identity handling and privilege dropping.",
+        "ext-quic": "Enables native QUIC transport and HTTP/3 serving.",
+        "ext-sockets": "Enables optional low-level socket capabilities and transport tuning.",
+        "ext-swoole": "Enables the Swoole host runtime and coroutine/event-loop integration.",
+        "ext-zend-opcache": "Enables persistent bytecode caching for lower startup and runtime overhead."
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
