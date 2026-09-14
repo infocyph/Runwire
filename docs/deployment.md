@@ -2,7 +2,7 @@
 
 This guide covers production topology, capability requirements, lifecycle, TLS/HTTP3 deployment, admission/resource limits, control/reload behavior, and operational tuning.
 
-For complete first-run examples, see [Getting Started](getting-started.md). For ownership rules, see [Architecture](architecture.md).
+For complete first-run examples, see [Getting Started](getting-started.md). For ownership rules, see [Architecture](architecture.md). For least privilege and production hardening, see [Runtime Security](security.md).
 
 ## 1. Production baseline
 
@@ -72,15 +72,20 @@ Do not combine `listen()` with host-owned serving.
 
 Portable mode keeps ordinary native serving available when PCNTL/POSIX are missing; it is not a substitute supervisor.
 
-### Pre-release portable caveat
+The portable contract is fail-closed:
 
-The active 1.0 plan still tracks hard-fail validation for:
+```text
+workers 0 or 1            one process
+workers > 1               startup error
+enabled recycle threshold startup error
+control endpoint           startup error
+development watcher        startup error
+lifecycle listener         startup error
+worker privilege drop      startup error
+HTTP/3 without QUIC        startup error
+```
 
-- explicit `workers > 1` without prefork;
-- enabled worker-recycle thresholds without replacement capability;
-- explicit HTTP/3 configuration when QUIC is unavailable.
-
-Do not rely on those unsupported combinations until the plan item is closed and exact-head certified.
+External supervision owns portable process restart/replacement.
 
 ## 4. Worker sizing
 
@@ -162,7 +167,9 @@ $options = new RuntimeOptions(
 );
 ```
 
-All thresholds default disabled. Jitter avoids synchronized retirement. Portable mode does not own worker replacement.
+All thresholds default disabled. Jitter avoids synchronized retirement. Portable mode rejects enabled worker-recycle thresholds because it has no replacement worker.
+
+`maxMemoryBytes` measures PHP allocator memory through `memory_get_usage(true)` / `memory_get_peak_usage(true)`. It is not process RSS, cgroup usage, native-extension allocation, or kernel/socket memory. Use OS/container memory limits as the hard process-memory boundary.
 
 ## 8. Rolling reload
 
@@ -261,7 +268,7 @@ Warmup failure prevents readiness.
 
 ## 12. Request resetters
 
-Persistent integrations should reset framework request-local state after every request.
+Persistent integrations should reset framework request-local state after every request, including handler failure, cancellation, and deadline paths.
 
 ```php
 use Infocyph\Runwire\RequestContext;
@@ -272,7 +279,7 @@ final class ContainerResetter implements RequestResetterInterface
 {
     public function reset(RequestContext $context): void
     {
-        // Clear request-scoped framework/container state.
+        // Clear request-scoped framework/container/auth/tracing/transaction state.
     }
 }
 
@@ -349,6 +356,8 @@ Keep handlers quick and bounded. Portable mode does not expose supervisor lifecy
 
 ## 16. Privilege drop
 
+Prefer starting the service under its final unprivileged account. If native prefork must start privileged, configure worker privilege dropping:
+
 ```php
 use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
 
@@ -360,9 +369,11 @@ $options = new RuntimeOptions(
 );
 ```
 
-Runwire validates this during runtime selection. It requires native prefork plus supported POSIX identity operations and sufficient master permissions.
+For UID-based drops Runwire resolves the passwd entry, derives the base GID when needed, initializes supplementary groups, sets primary GID, sets UID, and verifies the effective identity. The transition runs before application bootstrap/readiness and fails closed on any incomplete step.
 
-Test filesystem/socket/certificate permissions under the final worker identity.
+Native prefork selected as root without a privilege-drop policy emits a `SECURITY:` runtime-selection warning. Test filesystem/socket/certificate permissions under the final worker identity.
+
+Portable mode rejects worker privilege-drop configuration; run the whole portable process as the intended unprivileged identity.
 
 ## 17. TLS / HTTP/2
 
@@ -398,7 +409,7 @@ Production requirements:
 5. ALPN `h3`;
 6. suitable QUIC/stream resource ceilings.
 
-0-RTT application dispatch is disabled in 1.0. QUIC peer address changes must not be used as an authentication identity.
+0-RTT application dispatch is disabled in 1.0. Explicit HTTP/3 without QUIC is a startup error. QUIC peer address changes must not be used as an authentication identity.
 
 ## 19. SO_REUSEPORT
 
@@ -502,6 +513,7 @@ A PID existing is not sufficient evidence of readiness or health.
 
 Before traffic, verify:
 
+- service runs unprivileged or workers drop privilege before bootstrap/readiness;
 - 64-bit PHP and required extensions;
 - effective CPU/memory limits;
 - file-descriptor limits;
@@ -516,6 +528,8 @@ Before traffic, verify:
 - Unix-socket directory permissions if used;
 - logs/metrics during reload and shutdown.
 
+See [Runtime Security](security.md) for `disable_functions`, ProcessRunner allowlisting, systemd controls, container hardening, and persistent-state guidance.
+
 ## 25. Deployment acceptance
 
 A production candidate should exercise:
@@ -526,16 +540,19 @@ A production candidate should exercise:
 - request body/response streaming;
 - backpressure;
 - request cancellation/deadlines;
+- hostile input/resource-limit rejection;
 - overload rejection and recovery;
 - prefork restart/reload/recycle;
+- portable-native operation when PCNTL/POSIX are absent;
 - graceful stop with active work;
-- persistent-worker memory/FD soak;
+- persistent-worker state isolation and memory/FD soak;
 - hosted-runtime acceptance for the selected host.
 
 ## Related documentation
 
 - [Getting started](getting-started.md)
 - [Architecture and runtime contracts](architecture.md)
+- [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
 - [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
