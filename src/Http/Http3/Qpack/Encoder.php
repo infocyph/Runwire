@@ -8,6 +8,9 @@ use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Qpack\Enum\DecoderInstructionType;
 
+/**
+ * Encodes QPACK field sections while tracking peer acknowledgements and table references.
+ */
 final class Encoder
 {
     private readonly DecoderStreamDecoder $decoderStream;
@@ -25,6 +28,9 @@ final class Encoder
 
     private string $pendingEncoderInstructions = '';
 
+    /**
+     * Create a QPACK encoder constrained by peer settings and local field limits.
+     */
     public function __construct(
         int $peerMaxTableCapacity,
         private readonly int $peerMaxBlockedStreams,
@@ -90,11 +96,17 @@ final class Encoder
         return new EncodedFieldSection($prefix . $payload, $required, $sectionBlocking);
     }
 
+    /**
+     * Return the largest dynamic-table insert count known to be received by the peer.
+     */
     public function knownReceivedCount(): int
     {
         return $this->knownReceivedCount;
     }
 
+    /**
+     * Apply peer QPACK decoder-stream feedback.
+     */
     public function pushDecoderInstructions(string $bytes): void
     {
         foreach ($this->decoderStream->push($bytes) as $instruction) {
@@ -106,6 +118,9 @@ final class Encoder
         }
     }
 
+    /**
+     * Take and clear pending QPACK encoder-stream instructions.
+     */
     public function takeEncoderInstructions(): string
     {
         $instructions = $this->pendingEncoderInstructions;

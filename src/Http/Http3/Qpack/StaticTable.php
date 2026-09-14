@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Http\Http3\Qpack;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
+/**
+ * Provides lookups for the RFC-defined QPACK static table.
+ */
 final class StaticTable
 {
     /** @var array<int, array{0: string, 1: string}> */
@@ -62,6 +65,9 @@ final class StaticTable
         return $entry;
     }
 
+    /**
+     * Find a static-table index matching both name and value.
+     */
     public static function findExact(string $name, string $value): ?int
     {
         foreach (self::ENTRIES as $index => $entry) {
@@ -73,6 +79,9 @@ final class StaticTable
         return null;
     }
 
+    /**
+     * Find the first static-table index matching a field name.
+     */
     public static function findName(string $name): ?int
     {
         foreach (self::ENTRIES as $index => $entry) {

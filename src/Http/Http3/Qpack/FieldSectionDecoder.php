@@ -7,8 +7,14 @@ namespace Infocyph\Runwire\Http\Http3\Qpack;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
+/**
+ * Decodes one bounded QPACK field section against the dynamic table.
+ */
 final readonly class FieldSectionDecoder
 {
+    /**
+     * Create a field-section decoder with decoded-size and field-count limits.
+     */
     public function __construct(
         private DynamicTable $table,
         private int $maxFieldSectionBytes = 65_536,
@@ -19,6 +25,9 @@ final readonly class FieldSectionDecoder
         }
     }
 
+    /**
+     * Decode a complete QPACK field section.
+     */
     public function decode(string $block): DecodedFieldSection
     {
         if (strlen($block) > $this->maxFieldSectionBytes) {

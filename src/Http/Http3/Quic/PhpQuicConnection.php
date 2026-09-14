@@ -8,6 +8,9 @@ use Closure;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
+/**
+ * Wraps an ext-quic connection behind a validated Runwire-facing API.
+ */
 final readonly class PhpQuicConnection
 {
     private Closure $acceptStreamCallback;
@@ -22,6 +25,9 @@ final readonly class PhpQuicConnection
 
     private Closure $setBlockingCallback;
 
+    /**
+     * Wrap and validate a native ext-quic connection object.
+     */
     public function __construct(private object $connection)
     {
         $this->acceptStreamCallback = self::callback($this->connection, 'acceptStream');
@@ -32,6 +38,9 @@ final readonly class PhpQuicConnection
         $this->setBlockingCallback = self::callback($this->connection, 'setBlocking');
     }
 
+    /**
+     * Accept the next available peer stream.
+     */
     public function acceptStream(): ?PhpQuicStream
     {
         $stream = ($this->acceptStreamCallback)();
@@ -45,6 +54,9 @@ final readonly class PhpQuicConnection
         return new PhpQuicStream($stream);
     }
 
+    /**
+     * Close the QUIC connection with an application error and reason.
+     */
     public function close(int $errorCode = 0, string $reason = '', bool $rapid = true): void
     {
         if ($errorCode < 0) {
@@ -54,6 +66,9 @@ final readonly class PhpQuicConnection
         ($this->closeCallback)($errorCode, $reason, $rapid);
     }
 
+    /**
+     * Allow the native connection to process pending transport events.
+     */
     public function handleEvents(): void
     {
         if ($this->handleEventsCallback !== null) {
@@ -61,6 +76,9 @@ final readonly class PhpQuicConnection
         }
     }
 
+    /**
+     * Return the negotiated ALPN protocol when available.
+     */
     public function negotiatedAlpn(): ?string
     {
         $alpn = ($this->negotiatedAlpnCallback)();
@@ -71,11 +89,17 @@ final readonly class PhpQuicConnection
         return $alpn;
     }
 
+    /**
+     * Return the wrapped native connection object.
+     */
     public function object(): object
     {
         return $this->connection;
     }
 
+    /**
+     * Open a local QUIC stream with the requested directionality.
+     */
     public function openStream(bool $bidirectional): PhpQuicStream
     {
         $stream = ($this->openStreamCallback)($bidirectional);
@@ -86,6 +110,9 @@ final readonly class PhpQuicConnection
         return new PhpQuicStream($stream);
     }
 
+    /**
+     * Configure the wrapped connection for non-blocking operation.
+     */
     public function setNonBlocking(): void
     {
         ($this->setBlockingCallback)(false);

@@ -9,6 +9,9 @@ use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
+/**
+ * Provides validated, late-bound access to the ext-quic PHP API surface.
+ */
 final class PhpQuicApi
 {
     /** @var list<string> */
@@ -33,26 +36,41 @@ final class PhpQuicApi
         'Connection' => ['handleEvents'],
     ];
 
+    /**
+     * Return the native accept-connection event mask.
+     */
     public static function acceptConnectionEvent(): int
     {
         return self::event('POLL_ACCEPT_CONNECTION');
     }
 
+    /**
+     * Return the accept-connection mask including errors.
+     */
     public static function acceptConnectionEvents(): int
     {
         return self::acceptConnectionEvent() | self::errorEvent();
     }
 
+    /**
+     * Return the native accept-stream event mask.
+     */
     public static function acceptStreamEvent(): int
     {
         return self::event('POLL_ACCEPT_STREAM');
     }
 
+    /**
+     * Return the accept-stream mask including errors.
+     */
     public static function acceptStreamEvents(): int
     {
         return self::acceptStreamEvent() | self::errorEvent();
     }
 
+    /**
+     * Assert that the required ext-quic runtime surface is available.
+     */
     public static function assertAvailable(): void
     {
         if (!self::available()) {
@@ -62,6 +80,9 @@ final class PhpQuicApi
         }
     }
 
+    /**
+     * Determine whether the required ext-quic runtime surface is available.
+     */
     public static function available(): bool
     {
         if (!extension_loaded('quic') || !function_exists(self::pollFunction())) {
@@ -83,6 +104,9 @@ final class PhpQuicApi
         return array_all(self::REQUIRED_EVENTS, fn(string $event): bool => defined(self::symbol($event)));
     }
 
+    /**
+     * Return the native QUIC error event mask.
+     */
     public static function errorEvent(): int
     {
         return self::event('POLL_ERROR');
@@ -115,21 +139,33 @@ final class PhpQuicApi
         return $events;
     }
 
+    /**
+     * Return the native readable event mask.
+     */
     public static function readEvent(): int
     {
         return self::event('POLL_READ');
     }
 
+    /**
+     * Return the readable event mask including errors.
+     */
     public static function readEvents(): int
     {
         return self::readEvent() | self::errorEvent();
     }
 
+    /**
+     * Return the native writable event mask.
+     */
     public static function writeEvent(): int
     {
         return self::event('POLL_WRITE');
     }
 
+    /**
+     * Return the writable event mask including errors.
+     */
     public static function writeEvents(): int
     {
         return self::writeEvent() | self::errorEvent();

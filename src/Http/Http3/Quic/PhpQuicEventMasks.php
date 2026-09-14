@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Http\Http3\Quic;
 
 use InvalidArgumentException;
 
+/**
+ * Groups validated, non-overlapping native QUIC readiness event masks.
+ */
 final readonly class PhpQuicEventMasks
 {
+    /**
+     * Create and validate a set of QUIC event masks.
+     */
     public function __construct(
         public int $read,
         public int $write,
@@ -34,6 +40,9 @@ final readonly class PhpQuicEventMasks
         }
     }
 
+    /**
+     * Load event masks from the available native QUIC extension.
+     */
     public static function native(): self
     {
         return new self(

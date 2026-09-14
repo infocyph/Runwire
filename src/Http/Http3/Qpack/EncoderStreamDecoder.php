@@ -7,21 +7,33 @@ namespace Infocyph\Runwire\Http\Http3\Qpack;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
+/**
+ * Incrementally decodes peer QPACK encoder-stream instructions into a dynamic table.
+ */
 final class EncoderStreamDecoder
 {
     private string $buffer = '';
 
+    /**
+     * Create an encoder-stream decoder with literal and buffer limits.
+     */
     public function __construct(
         private readonly DynamicTable $table,
         private readonly int $maxLiteralBytes = 65_536,
         private readonly int $maxBufferedBytes = 131_072,
     ) {}
 
+    /**
+     * Return the number of buffered incomplete instruction bytes.
+     */
     public function bufferedBytes(): int
     {
         return strlen($this->buffer);
     }
 
+    /**
+     * Feed encoder-stream bytes and return the number of completed insertions.
+     */
     public function push(string $bytes): int
     {
         $this->buffer .= $bytes;

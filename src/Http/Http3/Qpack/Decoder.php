@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Http\Http3\Qpack;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
+/**
+ * Decodes QPACK field sections and manages blocked-stream acknowledgements.
+ */
 final class Decoder
 {
     private readonly DecoderStreamEncoder $decoderStream;
@@ -24,6 +27,9 @@ final class Decoder
 
     private string $pendingDecoderInstructions = '';
 
+    /**
+     * Create a bounded QPACK decoder.
+     */
     public function __construct(
         int $maxTableCapacity,
         private readonly int $maxBlockedStreams,
@@ -41,6 +47,9 @@ final class Decoder
         $this->fieldDecoder = new FieldSectionDecoder($this->table, $maxFieldSectionBytes, $maxHeaderFields);
     }
 
+    /**
+     * Cancel blocked QPACK work for a request stream and queue cancellation feedback.
+     */
     public function cancelStream(int $streamId): void
     {
         foreach ($this->blocked[$streamId] ?? [] as $block) {
@@ -51,6 +60,9 @@ final class Decoder
         $this->pendingDecoderInstructions .= $this->decoderStream->streamCancellation($streamId);
     }
 
+    /**
+     * Decode a field section or retain it when required dynamic entries are unavailable.
+     */
     public function decode(string $block, int $streamId): ?DecodedFieldSection
     {
         try {
@@ -77,6 +89,9 @@ final class Decoder
         return $this->retryBlocked();
     }
 
+    /**
+     * Take and clear pending QPACK decoder-stream instructions.
+     */
     public function takeDecoderInstructions(): string
     {
         $instructions = $this->pendingDecoderInstructions;

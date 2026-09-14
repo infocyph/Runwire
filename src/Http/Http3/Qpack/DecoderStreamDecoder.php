@@ -8,10 +8,16 @@ use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Qpack\Enum\DecoderInstructionType;
 
+/**
+ * Incrementally decodes peer QPACK decoder-stream instructions.
+ */
 final class DecoderStreamDecoder
 {
     private string $buffer = '';
 
+    /**
+     * Create a decoder with a bounded instruction buffer.
+     */
     public function __construct(private readonly int $maxBufferedBytes = 65_536) {}
 
     /** @return list<DecoderInstruction> */

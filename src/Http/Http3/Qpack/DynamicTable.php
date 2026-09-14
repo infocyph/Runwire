@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Http\Http3\Qpack;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
+/**
+ * Maintains the bounded QPACK dynamic table and reference accounting.
+ */
 final class DynamicTable
 {
     private int $capacity = 0;
@@ -18,6 +21,9 @@ final class DynamicTable
 
     private int $size = 0;
 
+    /**
+     * Create a dynamic table with the peer-advertised maximum capacity.
+     */
     public function __construct(private readonly int $maxCapacity)
     {
         if ($maxCapacity < 0) {
@@ -25,6 +31,9 @@ final class DynamicTable
         }
     }
 
+    /**
+     * Return the currently configured dynamic-table capacity.
+     */
     public function capacity(): int
     {
         return $this->capacity;
@@ -44,6 +53,9 @@ final class DynamicTable
         return $entry;
     }
 
+    /**
+     * Find the newest dynamic-table entry matching both name and value.
+     */
     public function findExact(string $name, string $value): ?int
     {
         $indexes = array_keys($this->entries);
@@ -59,6 +71,9 @@ final class DynamicTable
         return null;
     }
 
+    /**
+     * Find the newest dynamic-table entry matching a field name.
+     */
     public function findName(string $name): ?int
     {
         $indexes = array_keys($this->entries);
@@ -73,16 +88,25 @@ final class DynamicTable
         return null;
     }
 
+    /**
+     * Return the total number of inserted entries.
+     */
     public function insertCount(): int
     {
         return $this->insertCount;
     }
 
+    /**
+     * Insert a locally generated entry when eviction constraints permit it.
+     */
     public function insertLocal(string $name, string $value): ?int
     {
         return $this->insert($name, $value, false);
     }
 
+    /**
+     * Insert a peer-requested entry or fail the QPACK encoder stream.
+     */
     public function insertPeer(string $name, string $value): int
     {
         $index = $this->insert($name, $value, true);
@@ -96,16 +120,25 @@ final class DynamicTable
         return $index;
     }
 
+    /**
+     * Return the immutable maximum dynamic-table capacity.
+     */
     public function maxCapacity(): int
     {
         return $this->maxCapacity;
     }
 
+    /**
+     * Return the maximum number of QPACK entries implied by the maximum capacity.
+     */
     public function maxEntries(): int
     {
         return intdiv($this->maxCapacity, 32);
     }
 
+    /**
+     * Pin a dynamic entry while an outstanding field section references it.
+     */
     public function pin(int $absoluteIndex): void
     {
         $entry = $this->entry($absoluteIndex, ErrorCode::QPACK_DECODER_STREAM_ERROR);
@@ -113,6 +146,9 @@ final class DynamicTable
         $this->entries[$absoluteIndex] = $entry;
     }
 
+    /**
+     * Resolve a QPACK post-base index to an absolute dynamic-table index.
+     */
     public function postBaseIndex(int $base, int $postBaseIndex): int
     {
         if ($base < 0 || $postBaseIndex < 0) {
@@ -122,6 +158,9 @@ final class DynamicTable
         return $base + $postBaseIndex;
     }
 
+    /**
+     * Resolve a QPACK pre-base relative index to an absolute dynamic-table index.
+     */
     public function preBaseIndex(int $base, int $relativeIndex): int
     {
         $absolute = $base - $relativeIndex - 1;
@@ -135,6 +174,9 @@ final class DynamicTable
         return $absolute;
     }
 
+    /**
+     * Resolve an encoder-stream relative index against the current insert count.
+     */
     public function relativeToInsertCount(
         int $relativeIndex,
         ErrorCode $errorCode = ErrorCode::QPACK_ENCODER_STREAM_ERROR,
@@ -147,11 +189,17 @@ final class DynamicTable
         return $absolute;
     }
 
+    /**
+     * Set local dynamic-table capacity when pinned references allow eviction.
+     */
     public function setCapacityLocal(int $capacity): bool
     {
         return $this->setCapacity($capacity, false);
     }
 
+    /**
+     * Apply peer-requested dynamic-table capacity.
+     */
     public function setCapacityPeer(int $capacity): void
     {
         if (!$this->setCapacity($capacity, true)) {
@@ -162,11 +210,17 @@ final class DynamicTable
         }
     }
 
+    /**
+     * Return the current dynamic-table byte size.
+     */
     public function size(): int
     {
         return $this->size;
     }
 
+    /**
+     * Release one outstanding reference to a dynamic entry.
+     */
     public function unpin(int $absoluteIndex): void
     {
         $entry = $this->entries[$absoluteIndex] ?? null;

@@ -7,8 +7,14 @@ namespace Infocyph\Runwire\Http\Http3\Qpack;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
+/**
+ * Encodes and decodes QPACK prefixed integers.
+ */
 final class IntegerCodec
 {
+    /**
+     * Decode one complete QPACK prefixed integer and advance the offset.
+     */
     public static function decode(string $data, int &$offset, int $prefixBits, ErrorCode $errorCode): int
     {
         $decoded = self::tryDecode($data, $offset, $prefixBits, $errorCode);
@@ -21,6 +27,9 @@ final class IntegerCodec
         return $value;
     }
 
+    /**
+     * Encode an integer using a QPACK prefix width and mask.
+     */
     public static function encode(int $value, int $prefixBits, int $prefixMask = 0): string
     {
         self::validatePrefix($prefixBits);

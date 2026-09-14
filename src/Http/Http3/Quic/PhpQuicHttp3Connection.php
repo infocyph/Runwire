@@ -17,6 +17,9 @@ use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 
+/**
+ * Drives one native QUIC connection as an HTTP/3 server connection.
+ */
 final class PhpQuicHttp3Connection
 {
     private readonly PhpQuicStream $controlStream;
@@ -89,11 +92,17 @@ final class PhpQuicHttp3Connection
         $this->flush();
     }
 
+    /**
+     * Return the number of active request streams.
+     */
     public function activeRequestStreams(): int
     {
         return count($this->requestStreams);
     }
 
+    /**
+     * Begin graceful HTTP/3 draining by sending a GOAWAY boundary.
+     */
     public function beginDrain(): void
     {
         if ($this->closed || $this->drainBoundary !== null) {
@@ -108,16 +117,25 @@ final class PhpQuicHttp3Connection
         $this->flush();
     }
 
+    /**
+     * Determine whether the connection has been closed.
+     */
     public function closed(): bool
     {
         return $this->closed;
     }
 
+    /**
+     * Return the wrapped QUIC connection.
+     */
     public function connection(): PhpQuicConnection
     {
         return $this->connection;
     }
 
+    /**
+     * Determine whether graceful HTTP/3 draining has begun.
+     */
     public function draining(): bool
     {
         return $this->drainBoundary !== null;
@@ -151,6 +169,9 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    /**
+     * Return a tracked peer stream by QUIC stream ID.
+     */
     public function peerStream(int $streamId): ?PhpQuicStream
     {
         return $this->peerStreams[$streamId] ?? null;
@@ -187,6 +208,9 @@ final class PhpQuicHttp3Connection
         return $items;
     }
 
+    /**
+     * Pump accepted streams, inbound data, control instructions, and pending responses.
+     */
     public function pump(): void
     {
         if ($this->closed) {

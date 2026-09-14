@@ -9,8 +9,14 @@ use Infocyph\Runwire\Http\Http2\Hpack\HuffmanCodec;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 
+/**
+ * Encodes and decodes bounded QPACK string literals with optional Huffman coding.
+ */
 final class StringCodec
 {
+    /**
+     * Decode a complete QPACK string literal and advance the offset.
+     */
     public static function decode(
         string $data,
         int &$offset,
@@ -29,6 +35,9 @@ final class StringCodec
         return $value;
     }
 
+    /**
+     * Encode a QPACK string literal, using Huffman coding when it is smaller.
+     */
     public static function encode(
         string $value,
         int $prefixBits,
