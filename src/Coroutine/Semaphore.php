@@ -10,6 +10,9 @@ use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
 use Infocyph\Runwire\Coroutine\Internal\PrimitiveWaiter;
 use InvalidArgumentException;
 
+/**
+ * Limits concurrent coroutine access through a fixed permit count.
+ */
 final class Semaphore
 {
     private int $available;
@@ -32,6 +35,9 @@ final class Semaphore
         $this->available = $permits;
     }
 
+    /**
+     * Acquire one permit for the current task.
+     */
     public function acquire(): void
     {
         $cancellation = $this->scheduler->currentCancellation();
@@ -56,16 +62,25 @@ final class Semaphore
         }
     }
 
+    /**
+     * Return the number of currently available permits.
+     */
     public function availablePermits(): int
     {
         return $this->available;
     }
 
+    /**
+     * Return the configured maximum number of permits.
+     */
     public function maxPermits(): int
     {
         return $this->permits;
     }
 
+    /**
+     * Release one permit or wake the next waiting task.
+     */
     public function release(): void
     {
         $waiter = $this->takeWaiter();

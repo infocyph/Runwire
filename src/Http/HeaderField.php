@@ -6,12 +6,18 @@ namespace Infocyph\Runwire\Http;
 
 use InvalidArgumentException;
 
+/**
+ * Represents one validated HTTP header field.
+ */
 final readonly class HeaderField
 {
     public string $name;
 
     public string $value;
 
+    /**
+     * Create a normalized HTTP header field.
+     */
     public function __construct(string $name, string $value)
     {
         if (!self::validName($name)) {

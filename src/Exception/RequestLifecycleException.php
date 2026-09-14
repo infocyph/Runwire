@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Exception;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Aggregates a request failure with failures raised during request reset.
+ */
 final class RequestLifecycleException extends RuntimeException
 {
     /**

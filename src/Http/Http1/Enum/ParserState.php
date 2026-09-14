@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http1\Enum;
 
+/**
+ * Tracks the active state of the HTTP/1 request parser.
+ */
 enum ParserState: string
 {
     case CHUNK_CRLF = 'chunk_crlf';

@@ -8,8 +8,14 @@ use Infocyph\Runwire\Runtime\Enum\ApplicationStartupPhase;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Wraps a failure raised during a runtime application startup phase.
+ */
 final class ApplicationStartupException extends RuntimeException
 {
+    /**
+     * Create a startup failure for the phase that failed.
+     */
     public function __construct(
         public readonly ApplicationStartupPhase $phase,
         Throwable $previous,

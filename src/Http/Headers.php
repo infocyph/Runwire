@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http;
 
+/**
+ * Stores an ordered collection of validated HTTP header fields.
+ */
 final readonly class Headers
 {
     /** @param list<HeaderField> $fields */
@@ -44,6 +47,9 @@ final readonly class Headers
         return $this->fields;
     }
 
+    /**
+     * Return the first value for a header name.
+     */
     public function first(string $name): ?string
     {
         $name = strtolower($name);
@@ -56,6 +62,9 @@ final readonly class Headers
         return null;
     }
 
+    /**
+     * Determine whether a header name is present.
+     */
     public function has(string $name): bool
     {
         return $this->first($name) !== null;

@@ -13,6 +13,9 @@ use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 use LogicException;
 
+/**
+ * Provides coroutine-friendly waiting around a network connection.
+ */
 final class AsyncConnection
 {
     private ?Deferred $closeDeferred = null;
@@ -31,6 +34,9 @@ final class AsyncConnection
 
     private bool $receiving = false;
 
+    /**
+     * Bind coroutine waits to the supplied connection.
+     */
     public function __construct(
         private readonly CoroutineScope $scope,
         private readonly Connection $connection,
@@ -46,11 +52,17 @@ final class AsyncConnection
         );
     }
 
+    /**
+     * Abort the underlying connection immediately.
+     */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
         $this->connection->abort($reason);
     }
 
+    /**
+     * Gracefully close the connection and wait for its close reason.
+     */
     public function close(): CloseReason
     {
         $reason = $this->connection->closeReason();
@@ -81,11 +93,17 @@ final class AsyncConnection
         }
     }
 
+    /**
+     * Return the terminal close reason when available.
+     */
     public function closeReason(): ?CloseReason
     {
         return $this->connection->closeReason();
     }
 
+    /**
+     * Wait until write pressure drains or the connection closes.
+     */
     public function drain(): ?CloseReason
     {
         if (!$this->connection->isWritePressured()) {
@@ -116,6 +134,9 @@ final class AsyncConnection
         }
     }
 
+    /**
+     * Receive up to the requested number of bytes.
+     */
     public function receive(int $maxBytes = PHP_INT_MAX): string
     {
         if ($maxBytes < 0) {
@@ -158,11 +179,17 @@ final class AsyncConnection
         }
     }
 
+    /**
+     * Return the current connection state.
+     */
     public function state(): ConnectionState
     {
         return $this->connection->state();
     }
 
+    /**
+     * Write data through the underlying connection.
+     */
     public function write(string $data): WriteResult
     {
         return $this->connection->write($data);

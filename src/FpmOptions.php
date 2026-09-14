@@ -6,8 +6,14 @@ namespace Infocyph\Runwire;
 
 use InvalidArgumentException;
 
+/**
+ * Configures request and response size limits for FPM execution.
+ */
 final readonly class FpmOptions
 {
+    /**
+     * Create validated FPM runtime limits.
+     */
     public function __construct(
         public int $maxRequestBodyBytes = 16_777_216,
         public int $maxResponseBytes = 16_777_216,

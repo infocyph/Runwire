@@ -7,8 +7,14 @@ namespace Infocyph\Runwire;
 use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use InvalidArgumentException;
 
+/**
+ * Configures FrankenPHP execution mode and payload limits.
+ */
 final readonly class FrankenPhpOptions
 {
+    /**
+     * Create validated FrankenPHP runtime options.
+     */
     public function __construct(
         public FrankenPhpMode $mode = FrankenPhpMode::AUTO,
         public int $maxRequestBodyBytes = 16_777_216,

@@ -11,6 +11,9 @@ use Infocyph\Runwire\Network\DatagramOptions;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use InvalidArgumentException;
 
+/**
+ * Defines a UDP datagram server and its worker-scoped handler configuration.
+ */
 final readonly class DatagramServer
 {
     /** @var Closure(Datagram, DatagramListener): void */
@@ -95,6 +98,9 @@ final readonly class DatagramServer
         );
     }
 
+    /**
+     * Return a copy configured with a different worker count.
+     */
     public function withWorkers(int $workers): self
     {
         return new self(

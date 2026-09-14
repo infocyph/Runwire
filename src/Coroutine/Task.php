@@ -17,6 +17,9 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
 use Throwable;
 
+/**
+ * Represents a scheduler-owned coroutine task and its completion state.
+ */
 final class Task
 {
     private readonly Deferred $completion;
@@ -50,6 +53,9 @@ final class Task
         });
     }
 
+    /**
+     * Wait for task completion and return its result.
+     */
     public function await(): mixed
     {
         $this->markObserved();
@@ -65,11 +71,17 @@ final class Task
         return $this->completion->future()->awaitForCleanup();
     }
 
+    /**
+     * Request task cancellation with the supplied reason.
+     */
     public function cancel(CancellationReason $reason = CancellationReason::HOST_CANCELLED): bool
     {
         return $this->cancellationSource->cancel($reason);
     }
 
+    /**
+     * Return this task's cancellation token.
+     */
     public function cancellation(): CancellationToken
     {
         return $this->cancellationSource->token();
@@ -122,11 +134,17 @@ final class Task
         return $this->terminalError;
     }
 
+    /**
+     * Return the scheduler-assigned task ID.
+     */
     public function id(): int
     {
         return $this->id;
     }
 
+    /**
+     * Determine whether the task has reached a terminal state.
+     */
     public function isComplete(): bool
     {
         return match ($this->state) {
@@ -156,6 +174,9 @@ final class Task
         return $this->observed;
     }
 
+    /**
+     * Return the completed task result or throw its terminal failure.
+     */
     public function result(): mixed
     {
         $this->markObserved();
@@ -163,6 +184,9 @@ final class Task
         return $this->completion->future()->result();
     }
 
+    /**
+     * Return the current task state.
+     */
     public function state(): TaskState
     {
         return $this->state;
