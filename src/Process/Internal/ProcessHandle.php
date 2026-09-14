@@ -31,7 +31,7 @@ final class ProcessHandle
 
         $status = proc_get_status($this->resource);
         if ($status['running']) {
-            proc_terminate($this->resource, SIGKILL);
+            ProcessTerminator::force($this->resource);
         }
     }
 
