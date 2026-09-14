@@ -23,12 +23,12 @@ final class CancellationSource
 
     private int $nextChildId = 1;
 
-    private ?CancellationSubscription $parentSubscription = null;
-
     /** @var WeakReference<CancellationSource>|null */
     private ?WeakReference $parentSource = null;
 
     private ?int $parentSourceChildId = null;
+
+    private ?CancellationSubscription $parentSubscription = null;
 
     /** Creates a cancellation source using the supplied deadline or an unlimited deadline. */
     public function __construct(?RequestDeadline $deadline = null)

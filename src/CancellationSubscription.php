@@ -19,12 +19,6 @@ final class CancellationSubscription
         private ?int $id,
     ) {}
 
-    /** Releases an abandoned observer registration defensively. */
-    public function __destruct()
-    {
-        $this->unsubscribe();
-    }
-
     /** Reports whether the underlying cancellation observer is still registered. */
     public function active(): bool
     {

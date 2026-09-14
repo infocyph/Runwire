@@ -19,7 +19,11 @@ use WeakReference;
  */
 final class AsyncConnection
 {
-    private bool $attached = false;
+    private readonly Connection $connection;
+
+    private readonly CoroutineScope $scope;
+
+    private bool $attached;
 
     private ?Deferred $closeDeferred = null;
 
@@ -42,10 +46,10 @@ final class AsyncConnection
     /**
      * Bind coroutine waits to the supplied connection.
      */
-    public function __construct(
-        private readonly CoroutineScope $scope,
-        private readonly Connection $connection,
-    ) {
+    public function __construct(CoroutineScope $scope, Connection $connection)
+    {
+        $this->connection = $connection;
+        $this->scope = $scope;
         $weakSelf = WeakReference::create($this);
         $connection->claimCallbacks(
             $this,

@@ -96,6 +96,15 @@ final readonly class Http3Limits
         );
     }
 
+    private static function assertBodyWatermarks(int $low, int $high, int $maximum): void
+    {
+        if ($low >= $high || $high > $maximum) {
+            throw new InvalidArgumentException(
+                'HTTP/3 body watermarks must satisfy 0 <= low < high <= max pending body bytes.',
+            );
+        }
+    }
+
     /** @param array<string, int> $values */
     private static function assertNonNegative(array $values): void
     {
@@ -113,34 +122,6 @@ final readonly class Http3Limits
             if ($value <= 0) {
                 throw new InvalidArgumentException(sprintf('%s must be positive.', $name));
             }
-        }
-    }
-
-    /** @param array<string, int> $values */
-    private static function assertVarIntCompatible(array $values): void
-    {
-        foreach ($values as $name => $value) {
-            if ($value > VarIntCodec::MAX_VALUE) {
-                throw new InvalidArgumentException(sprintf('%s must fit a QUIC variable-length integer.', $name));
-            }
-        }
-    }
-
-    private static function assertBodyWatermarks(int $low, int $high, int $maximum): void
-    {
-        if ($low >= $high || $high > $maximum) {
-            throw new InvalidArgumentException(
-                'HTTP/3 body watermarks must satisfy 0 <= low < high <= max pending body bytes.',
-            );
-        }
-    }
-
-    private static function assertResponseWatermarks(int $low, int $high, int $maximum): void
-    {
-        if ($low < 0 || $low >= $high || $high > $maximum) {
-            throw new InvalidArgumentException(
-                'HTTP/3 response watermarks must satisfy 0 <= low < high <= max pending response bytes.',
-            );
         }
     }
 
@@ -164,6 +145,25 @@ final readonly class Http3Limits
             throw new InvalidArgumentException(
                 'HTTP/3 response frame payload limit cannot exceed the per-stream pending response limit.',
             );
+        }
+    }
+
+    private static function assertResponseWatermarks(int $low, int $high, int $maximum): void
+    {
+        if ($low < 0 || $low >= $high || $high > $maximum) {
+            throw new InvalidArgumentException(
+                'HTTP/3 response watermarks must satisfy 0 <= low < high <= max pending response bytes.',
+            );
+        }
+    }
+
+    /** @param array<string, int> $values */
+    private static function assertVarIntCompatible(array $values): void
+    {
+        foreach ($values as $name => $value) {
+            if ($value > VarIntCodec::MAX_VALUE) {
+                throw new InvalidArgumentException(sprintf('%s must fit a QUIC variable-length integer.', $name));
+            }
         }
     }
 }
