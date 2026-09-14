@@ -10,6 +10,9 @@ use InvalidArgumentException;
 use Throwable;
 use UnexpectedValueException;
 
+/**
+ * Wraps and validates a native ext-quic listener for HTTP/3 use.
+ */
 final readonly class PhpQuicListener
 {
     private Closure $acceptCallback;
@@ -20,6 +23,9 @@ final readonly class PhpQuicListener
 
     private Closure $setBlockingCallback;
 
+    /**
+     * Wrap a native QUIC listener object.
+     */
     public function __construct(private object $listener)
     {
         $this->acceptCallback = self::callback($this->listener, 'accept');
@@ -58,6 +64,9 @@ final readonly class PhpQuicListener
         return $wrapped;
     }
 
+    /**
+     * Accept the next available QUIC connection.
+     */
     public function accept(): ?PhpQuicConnection
     {
         $connection = ($this->acceptCallback)();
@@ -74,11 +83,17 @@ final readonly class PhpQuicListener
         return $wrapped;
     }
 
+    /**
+     * Close the native QUIC listener.
+     */
     public function close(): void
     {
         ($this->closeCallback)();
     }
 
+    /**
+     * Let the native listener process pending transport events.
+     */
     public function handleEvents(): void
     {
         if ($this->handleEventsCallback !== null) {
@@ -86,11 +101,17 @@ final readonly class PhpQuicListener
         }
     }
 
+    /**
+     * Return the wrapped native listener object.
+     */
     public function object(): object
     {
         return $this->listener;
     }
 
+    /**
+     * Configure the listener for non-blocking operation.
+     */
     public function setNonBlocking(): void
     {
         ($this->setBlockingCallback)(false);

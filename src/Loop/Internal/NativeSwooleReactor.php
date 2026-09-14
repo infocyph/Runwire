@@ -10,7 +10,10 @@ use ReflectionException;
 use ReflectionMethod;
 use RuntimeException;
 
-/** @internal */
+/**
+ * @internal
+ * Bridges Runwire loop operations to the available Swoole/OpenSwoole reactor APIs.
+ */
 final readonly class NativeSwooleReactor implements SwooleReactorInterface
 {
     private Closure $coroutineGetCid;
@@ -37,6 +40,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     private int $writeFlagValue;
 
+    /** @internal */
     public function __construct()
     {
         [$eventClass, $timerClass, $coroutineClass, $namespace] = self::resolveClassFamily();
@@ -54,6 +58,9 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         $this->writeFlagValue = self::eventFlag($namespace, 'WRITE');
     }
 
+    /**
+     * Register read and write callbacks for a stream.
+     */
     public function add(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
         $result = ($this->eventAdd)($stream, $read, $write, $flags);
@@ -61,6 +68,9 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         return $result === true || (is_int($result) && $result >= 0);
     }
 
+    /**
+     * Schedule a one-shot reactor timer.
+     */
     public function after(int $milliseconds, Closure $callback): int
     {
         $timerId = ($this->timerAfter)($milliseconds, $callback);
@@ -71,11 +81,17 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         return $timerId;
     }
 
+    /**
+     * Cancel a reactor timer.
+     */
     public function clearTimer(int $timerId): bool
     {
         return ($this->timerClear)($timerId) === true;
     }
 
+    /**
+     * Return the current host coroutine ID.
+     */
     public function coroutineId(): int
     {
         $coroutineId = ($this->coroutineGetCid)();
@@ -83,21 +99,33 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         return is_int($coroutineId) ? $coroutineId : -1;
     }
 
+    /**
+     * Defer a callback onto the reactor.
+     */
     public function defer(Closure $callback): void
     {
         ($this->eventDefer)($callback);
     }
 
+    /**
+     * Remove a stream from the reactor.
+     */
     public function delete(mixed $stream): bool
     {
         return ($this->eventDelete)($stream) === true;
     }
 
+    /**
+     * Return the native readable event flag.
+     */
     public function readFlag(): int
     {
         return $this->readFlagValue;
     }
 
+    /**
+     * Schedule a repeating reactor timer.
+     */
     public function repeat(int $milliseconds, Closure $callback): int
     {
         $timerId = ($this->timerRepeat)($milliseconds, $callback);
@@ -108,16 +136,25 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         return $timerId;
     }
 
+    /**
+     * Resume a suspended host coroutine.
+     */
     public function resumeCoroutine(int $coroutineId): bool
     {
         return ($this->coroutineResume)($coroutineId) === true;
     }
 
+    /**
+     * Update callbacks and flags for an existing stream registration.
+     */
     public function set(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
         return ($this->eventSet)($stream, $read, $write, $flags) === true;
     }
 
+    /**
+     * Suspend the current host coroutine.
+     */
     public function suspendCoroutine(): void
     {
         if (($this->coroutineYield)() !== true) {
@@ -125,6 +162,9 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         }
     }
 
+    /**
+     * Return the native writable event flag.
+     */
     public function writeFlag(): int
     {
         return $this->writeFlagValue;

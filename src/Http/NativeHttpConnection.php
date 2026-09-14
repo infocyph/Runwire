@@ -14,6 +14,9 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 
+/**
+ * Attaches a negotiated native stream connection to HTTP/1.1 or HTTP/2 handling.
+ */
 final readonly class NativeHttpConnection
 {
     private function __construct(
@@ -53,6 +56,9 @@ final readonly class NativeHttpConnection
         return null;
     }
 
+    /**
+     * Begin graceful draining for the selected HTTP protocol.
+     */
     public function drain(): void
     {
         $this->protocol->drain();

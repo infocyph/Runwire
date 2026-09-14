@@ -9,10 +9,16 @@ use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
+/**
+ * Represents a normalized HTTP request and its runtime request context.
+ */
 final readonly class HttpRequest
 {
     public RequestContext $context;
 
+    /**
+     * Create an HTTP request from normalized protocol, headers, body, and transport metadata.
+     */
     public function __construct(
         public string $method,
         public string $target,

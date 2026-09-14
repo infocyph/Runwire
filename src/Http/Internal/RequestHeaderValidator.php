@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Http\Internal;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 
+/**
+ * Validates HTTP/2 and HTTP/3 request field sections into normalized request metadata.
+ */
 final readonly class RequestHeaderValidator
 {
     /** @var array<string, true> */
@@ -18,6 +21,9 @@ final readonly class RequestHeaderValidator
         'upgrade' => true,
     ];
 
+    /**
+     * Create a validator labeled for the supplied HTTP protocol.
+     */
     public function __construct(private string $protocol) {}
 
     /** @param list<array{0: string, 1: string}> $fields */

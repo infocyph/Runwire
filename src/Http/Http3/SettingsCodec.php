@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Http\Http3;
 
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 
+/**
+ * Encodes and decodes HTTP/3 SETTINGS frame payloads.
+ */
 final class SettingsCodec
 {
     /** @var array<int, true> */
@@ -17,6 +20,9 @@ final class SettingsCodec
         0x05 => true,
     ];
 
+    /**
+     * Decode a SETTINGS payload and reject duplicate or reserved identifiers.
+     */
     public static function decode(string $payload): Settings
     {
         $offset = 0;
@@ -45,6 +51,9 @@ final class SettingsCodec
         return new Settings($values);
     }
 
+    /**
+     * Encode validated HTTP/3 SETTINGS values.
+     */
     public static function encode(Settings $settings): string
     {
         $payload = '';
@@ -56,6 +65,9 @@ final class SettingsCodec
         return $payload;
     }
 
+    /**
+     * Determine whether a SETTINGS identifier is reserved by HTTP/3.
+     */
     public static function reservedIdentifier(int $identifier): bool
     {
         return isset(self::RESERVED_IDENTIFIERS[$identifier]);

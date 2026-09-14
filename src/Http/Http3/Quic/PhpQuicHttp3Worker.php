@@ -14,6 +14,9 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use InvalidArgumentException;
 use Throwable;
 
+/**
+ * Runs bounded HTTP/3 connection acceptance, handshakes, polling, and draining.
+ */
 final class PhpQuicHttp3Worker
 {
     private const float DEFAULT_HANDSHAKE_TIMEOUT_SECONDS = 10.0;
@@ -60,26 +63,41 @@ final class PhpQuicHttp3Worker
         $this->poller = $poller ?? new PhpQuicHttp3Poller(PhpQuicEventMasks::native());
     }
 
+    /**
+     * Determine whether the worker is still accepting connections.
+     */
     public function accepting(): bool
     {
         return $this->accepting;
     }
 
+    /**
+     * Return the total pending and active connection count.
+     */
     public function connectionCount(): int
     {
         return count($this->pendingConnections) + count($this->connections);
     }
 
+    /**
+     * Return the cumulative number of accepted connections.
+     */
     public function connectionsAcceptedTotal(): int
     {
         return $this->connectionsAcceptedTotal;
     }
 
+    /**
+     * Determine whether all pending and active connections have drained.
+     */
     public function drainComplete(): bool
     {
         return $this->pendingConnections === [] && $this->connections === [];
     }
 
+    /**
+     * Force-close all pending and active HTTP/3 connections.
+     */
     public function forceClose(): void
     {
         $this->stopAccepting();
@@ -93,6 +111,9 @@ final class PhpQuicHttp3Worker
         }
     }
 
+    /**
+     * Stop accepting new connections and begin graceful draining.
+     */
     public function stopAccepting(): void
     {
         if (!$this->accepting) {
@@ -106,6 +127,9 @@ final class PhpQuicHttp3Worker
         }
     }
 
+    /**
+     * Execute one bounded HTTP/3 worker polling cycle.
+     */
     public function tick(?float $timeoutSeconds = self::DEFAULT_POLL_TIMEOUT_SECONDS): void
     {
         $listener = $this->accepting ? $this->listener : null;

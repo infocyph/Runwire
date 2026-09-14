@@ -12,6 +12,9 @@ use InvalidArgumentException;
 use OverflowException;
 use Throwable;
 
+/**
+ * Buffers an incrementally received request body with bounded backpressure and cancellation hooks.
+ */
 final class StreamingRequestBody implements RequestBodyInterface
 {
     private const int MAX_CANCEL_OBSERVERS = 8;
@@ -62,6 +65,9 @@ final class StreamingRequestBody implements RequestBodyInterface
         $this->onConsumed = $onConsumed === null ? null : Closure::fromCallable($onConsumed);
     }
 
+    /**
+     * Return the number of unread buffered bytes.
+     */
     public function bufferedBytes(): int
     {
         return $this->buffer->bytes();
@@ -84,11 +90,17 @@ final class StreamingRequestBody implements RequestBodyInterface
         $this->invoke($this->cancelCallback);
     }
 
+    /**
+     * Determine whether body delivery was cancelled.
+     */
     public function cancelled(): bool
     {
         return $this->cancelled;
     }
 
+    /**
+     * Return remaining body-buffer capacity in bytes.
+     */
     public function capacity(): int
     {
         return $this->maxBufferBytes - $this->buffer->bytes();
@@ -109,11 +121,17 @@ final class StreamingRequestBody implements RequestBodyInterface
         }
     }
 
+    /**
+     * Determine whether the producer has ended the body stream.
+     */
     public function ended(): bool
     {
         return $this->ended;
     }
 
+    /**
+     * Determine whether the body has ended and all buffered bytes are consumed.
+     */
     public function eof(): bool
     {
         return $this->ended && $this->buffer->isEmpty();
@@ -182,6 +200,9 @@ final class StreamingRequestBody implements RequestBodyInterface
         return $this;
     }
 
+    /**
+     * Determine whether body buffering is currently applying pressure.
+     */
     public function pressured(): bool
     {
         return $this->pressured;
@@ -206,6 +227,9 @@ final class StreamingRequestBody implements RequestBodyInterface
         return !$this->pressured;
     }
 
+    /**
+     * Read up to the requested number of buffered body bytes.
+     */
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
         if ($maxBytes < 0) {
@@ -223,11 +247,17 @@ final class StreamingRequestBody implements RequestBodyInterface
         return $data;
     }
 
+    /**
+     * Return cumulative received body bytes.
+     */
     public function receivedBytes(): int
     {
         return $this->received;
     }
 
+    /**
+     * Return trailers after body completion when available.
+     */
     public function trailers(): ?Headers
     {
         return $this->trailers;

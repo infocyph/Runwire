@@ -6,10 +6,16 @@ namespace Infocyph\Runwire\Http\Http3;
 
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 
+/**
+ * Encodes and decodes QUIC variable-length integers used by HTTP/3.
+ */
 final class VarIntCodec
 {
     public const int MAX_VALUE = 4_611_686_018_427_387_903;
 
+    /**
+     * Decode one complete QUIC variable-length integer and advance the offset.
+     */
     public static function decode(string $bytes, int &$offset = 0): int
     {
         $decoded = self::tryDecode($bytes, $offset);
@@ -22,6 +28,9 @@ final class VarIntCodec
         return $value;
     }
 
+    /**
+     * Encode a non-negative integer using QUIC variable-length representation.
+     */
     public static function encode(int $value): string
     {
         if ($value < 0 || $value > self::MAX_VALUE) {

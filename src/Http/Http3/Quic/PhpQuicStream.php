@@ -8,6 +8,9 @@ use Closure;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
+/**
+ * Wraps a native ext-quic stream with validated read, write, and lifecycle operations.
+ */
 final readonly class PhpQuicStream
 {
     /** @var Closure(): void */
@@ -31,6 +34,9 @@ final readonly class PhpQuicStream
     /** @var Closure(string, bool): int */
     private Closure $writeCallback;
 
+    /**
+     * Wrap and validate a native QUIC stream object.
+     */
     public function __construct(private object $stream)
     {
         /** @var Closure(): void $end */
@@ -56,16 +62,25 @@ final readonly class PhpQuicStream
         $this->writeCallback = $write;
     }
 
+    /**
+     * Determine whether the stream is bidirectional.
+     */
     public function bidirectional(): bool
     {
         return ($this->isBidirectionalCallback)();
     }
 
+    /**
+     * Finish the local sending side of the stream.
+     */
     public function end(): void
     {
         ($this->endCallback)();
     }
 
+    /**
+     * Return the non-negative QUIC stream identifier.
+     */
     public function id(): int
     {
         $id = ($this->idCallback)();
@@ -76,11 +91,17 @@ final readonly class PhpQuicStream
         return $id;
     }
 
+    /**
+     * Return the wrapped native stream object.
+     */
     public function object(): object
     {
         return $this->stream;
     }
 
+    /**
+     * Read up to the requested number of bytes from the stream.
+     */
     public function read(int $length): ?string
     {
         if ($length < 1) {
@@ -90,6 +111,9 @@ final readonly class PhpQuicStream
         return ($this->readCallback)($length);
     }
 
+    /**
+     * Reset the stream with an application error code.
+     */
     public function reset(int $errorCode): void
     {
         if ($errorCode < 0) {
@@ -99,6 +123,9 @@ final readonly class PhpQuicStream
         ($this->resetCallback)($errorCode);
     }
 
+    /**
+     * Return the peer reset code when the stream was reset.
+     */
     public function resetCode(): ?int
     {
         $code = ($this->resetCodeCallback)();
@@ -109,6 +136,9 @@ final readonly class PhpQuicStream
         return $code;
     }
 
+    /**
+     * Write bytes to the stream and return the accepted byte count.
+     */
     public function write(string $bytes, bool $fin = false): int
     {
         $written = ($this->writeCallback)($bytes, $fin);

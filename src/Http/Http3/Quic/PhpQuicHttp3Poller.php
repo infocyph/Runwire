@@ -9,6 +9,9 @@ use InvalidArgumentException;
 use LogicException;
 use UnexpectedValueException;
 
+/**
+ * Builds and interprets readiness polls for native HTTP/3 QUIC objects.
+ */
 final readonly class PhpQuicHttp3Poller
 {
     /** @var Closure(array<int, array{0: object, 1: int}>, ?float): mixed */

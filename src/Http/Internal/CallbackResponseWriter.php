@@ -11,6 +11,9 @@ use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 
+/**
+ * Adapts host callbacks to the common HTTP response writer contract.
+ */
 final class CallbackResponseWriter implements ResponseWriterInterface
 {
     /** @var Closure(): void */
@@ -54,6 +57,9 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         $this->writeCallback = Closure::fromCallable($writeCallback);
     }
 
+    /**
+     * End the response, optionally writing a final chunk first.
+     */
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -74,16 +80,25 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    /**
+     * Determine whether the response has ended.
+     */
     public function isEnded(): bool
     {
         return $this->ended;
     }
 
+    /**
+     * Determine whether response headers have been started.
+     */
     public function isStarted(): bool
     {
         return $this->started;
     }
 
+    /**
+     * Register a drain callback for this non-buffering writer.
+     */
     public function onDrain(callable $callback): ResponseWriterInterface
     {
         if (!$this->ended) {
@@ -93,6 +108,9 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         return $this;
     }
 
+    /**
+     * Start the response with status and headers.
+     */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -112,6 +130,9 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    /**
+     * Write a bounded response body chunk.
+     */
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {

@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Http\Http3;
 
 use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
 
+/**
+ * Stores validated HTTP/3 SETTINGS values and protocol defaults.
+ */
 final readonly class Settings
 {
     /** @var array<int, int> */
@@ -33,6 +36,9 @@ final readonly class Settings
         $this->values = $normalized;
     }
 
+    /**
+     * Build the server SETTINGS advertised from configured HTTP/3 limits.
+     */
     public static function serverDefaults(Http3Limits $limits): self
     {
         return new self([
@@ -48,21 +54,33 @@ final readonly class Settings
         return $this->values;
     }
 
+    /**
+     * Return the peer maximum field-section size.
+     */
     public function maxFieldSectionSize(): int
     {
         return $this->values[SettingIdentifier::MAX_FIELD_SECTION_SIZE->value] ?? VarIntCodec::MAX_VALUE;
     }
 
+    /**
+     * Return the peer QPACK blocked-stream limit.
+     */
     public function qpackBlockedStreams(): int
     {
         return $this->values[SettingIdentifier::QPACK_BLOCKED_STREAMS->value] ?? 0;
     }
 
+    /**
+     * Return the peer QPACK dynamic-table capacity limit.
+     */
     public function qpackMaxTableCapacity(): int
     {
         return $this->values[SettingIdentifier::QPACK_MAX_TABLE_CAPACITY->value] ?? 0;
     }
 
+    /**
+     * Return a setting value or the supplied default when absent.
+     */
     public function value(int $identifier, ?int $default = null): ?int
     {
         return $this->values[$identifier] ?? $default;
