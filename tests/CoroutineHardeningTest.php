@@ -7,6 +7,7 @@ use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 it('cleans child cancellation ownership when task admission is rejected', function (): void {
     $runtime = new CoroutineRuntime(policy: new CoroutinePolicy(maxTasks: 1, maxReadyBacklog: 1));
@@ -28,14 +29,17 @@ it('cleans child cancellation ownership when task admission is rejected', functi
         ->and($runtime->activeTaskCount())->toBe(0);
 });
 
-it('unsubscribes abandoned cancellation observer handles defensively', function (): void {
+it('keeps cancellation observers registered when unsubscribe handles are discarded', function (): void {
     $source = new CancellationSource();
-    $subscription = $source->token()->onCancel(static function (): void {});
+    $called = 0;
+    $source->token()->onCancel(static function () use (&$called): void {
+        ++$called;
+    });
 
-    expect($source->token()->subscriptionCount())->toBe(1);
-
-    unset($subscription);
     gc_collect_cycles();
 
-    expect($source->token()->subscriptionCount())->toBe(0);
+    expect($source->token()->subscriptionCount())->toBe(1)
+        ->and($source->cancel(CancellationReason::HOST_CANCELLED))->toBeTrue()
+        ->and($called)->toBe(1)
+        ->and($source->token()->subscriptionCount())->toBe(0);
 });
