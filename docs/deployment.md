@@ -1,6 +1,6 @@
 # Runwire 1.0 Deployment and Operations
 
-This guide covers production topology, capability requirements, lifecycle, TLS/HTTP3 deployment, admission/resource limits, control/reload behavior, and operational tuning.
+This guide covers production topology, capability requirements, lifecycle, TLS/HTTP3 deployment, admission/resource limits, control/reload behavior, host-runtime selection, and operational tuning.
 
 For complete first-run examples, see [Getting Started](getting-started.md). For ownership rules, see [Architecture](architecture.md). For least privilege and production hardening, see [Runtime Security](security.md).
 
@@ -24,13 +24,13 @@ Optional capabilities:
 ```text
 ext-openssl       TLS / HTTP/2 ALPN
 ext-quic          native QUIC / HTTP/3
-ext-swoole        Swoole host integration
-ext-openswoole    OpenSwoole host integration
+ext-swoole        Swoole host integration; select RuntimeDriver::SWOOLE explicitly
+ext-openswoole    OpenSwoole host integration; select RuntimeDriver::SWOOLE explicitly
 ext-sockets       optional socket features
 ext-zend-opcache  bytecode cache
 ```
 
-## 2. Correct ownership model
+## 2. Correct ownership model and host selection
 
 Runwire-owned native server:
 
@@ -40,7 +40,7 @@ Runtime::create($options)
     ->run();
 ```
 
-Host-owned server:
+Auto-detected active host such as FPM, FrankenPHP, or RoadRunner:
 
 ```php
 Runtime::create($options)->serve($handler);
@@ -53,6 +53,31 @@ Runtime::create($options)->serveApplication($factory);
 ```
 
 Do not combine `listen()` with host-owned serving.
+
+### Swoole/OpenSwoole
+
+The presence of `ext-swoole` or `ext-openswoole` makes the Runwire Swoole driver available; extension installation alone does not mark an ordinary CLI process as an active Swoole host. Select it explicitly:
+
+```php
+use Infocyph\Runwire\Runtime;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\SwooleOptions;
+
+$options = new RuntimeOptions(
+    driver: RuntimeDriver::SWOOLE,
+    swoole: new SwooleOptions(
+        host: '0.0.0.0',
+        port: 9501,
+        workerCount: 0,
+        http2: false,
+    ),
+);
+
+Runtime::create($options)->serve($handler);
+```
+
+Either compatible Swoole-family extension can back `RuntimeDriver::SWOOLE`. Explicit selection fails startup if neither is available. Keep Swoole/OpenSwoole listener/reactor ownership in the host adapter; do not configure competing Runwire native listeners in the same runtime.
 
 ## 3. Native prefork versus portable native
 
@@ -115,6 +140,8 @@ Guidance:
 - measure memory per worker;
 - do not configure multiple workers for portable-only deployment;
 - HTTP/3 multi-worker topology requires explicit reuse-port support.
+
+Swoole/OpenSwoole worker sizing is host-owned and is configured through `SwooleOptions::workerCount`, not native `Server::workers`.
 
 ## 5. Admission
 
@@ -203,7 +230,7 @@ Programmatic reload:
 $runtime->reload();
 ```
 
-Reload is prefork-only.
+Reload is prefork-only. Host-owned runtimes use their host lifecycle/reload mechanisms and the capabilities exposed by Runwire.
 
 ## 9. Manual recycle
 
@@ -515,6 +542,7 @@ Before traffic, verify:
 
 - service runs unprivileged or workers drop privilege before bootstrap/readiness;
 - 64-bit PHP and required extensions;
+- the intended runtime driver is selected; Swoole/OpenSwoole deployments explicitly use `RuntimeDriver::SWOOLE` unless a custom integration supplies a reliable hosted signal;
 - effective CPU/memory limits;
 - file-descriptor limits;
 - worker count versus memory footprint;
@@ -546,7 +574,7 @@ A production candidate should exercise:
 - portable-native operation when PCNTL/POSIX are absent;
 - graceful stop with active work;
 - persistent-worker state isolation and memory/FD soak;
-- hosted-runtime acceptance for the selected host.
+- hosted-runtime acceptance for the selected host, including explicit Swoole/OpenSwoole selection when applicable.
 
 ## Related documentation
 

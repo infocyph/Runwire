@@ -4,7 +4,7 @@ A high-performance, framework-agnostic process and network runtime for PHP.
 
 Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
 
-Runwire 1.0 is being finalized for the Foundation 3 launch.
+Runwire 1.0 is the release line targeted by Foundation 3.
 
 ## Requirements
 
@@ -26,7 +26,7 @@ Optional runtime capabilities:
 | `ext-pcntl` + `ext-posix` | native prefork supervision, reload, worker replacement/recycle, signals, control operations, privilege reduction |
 | `ext-openssl` | native TLS and HTTP/2 ALPN |
 | `ext-quic` | native QUIC / HTTP/3 |
-| `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host runtime integration |
+| `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host runtime integration; select `RuntimeDriver::SWOOLE` explicitly when using this host adapter |
 | `ext-sockets` | optional low-level socket features |
 | OPcache | persistent bytecode caching |
 
@@ -67,7 +67,7 @@ curl http://127.0.0.1:8080/
 
 ## Runtime modes
 
-`RuntimeDriver::AUTO` detects the current environment.
+`RuntimeDriver::AUTO` detects active hosted environments and native CLI capability. The built-in environment probe recognizes active FrankenPHP, RoadRunner, and FPM hosts; otherwise eligible CLI execution resolves to native Runwire. Merely installing Swoole/OpenSwoole does not mark the process as an active Swoole host, so use explicit `RuntimeDriver::SWOOLE` selection when Runwire should use its Swoole/OpenSwoole host adapter.
 
 | Runtime | Listener/wire owner | Application lifetime | Worker pool |
 | --- | --- | --- | --- |
@@ -84,7 +84,7 @@ Native listeners use:
 Runtime::create()->listen($server)->run();
 ```
 
-Host-owned runtimes use:
+Auto-detected host-owned runtimes use:
 
 ```php
 Runtime::create()->serve($handler);
@@ -95,6 +95,27 @@ or:
 ```php
 Runtime::create()->serveApplication($applicationFactory);
 ```
+
+Swoole/OpenSwoole uses the same host-owned serving API, but select the driver explicitly:
+
+```php
+use Infocyph\Runwire\Runtime;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\SwooleOptions;
+
+$options = new RuntimeOptions(
+    driver: RuntimeDriver::SWOOLE,
+    swoole: new SwooleOptions(
+        host: '127.0.0.1',
+        port: 9501,
+    ),
+);
+
+Runtime::create($options)->serve($handler);
+```
+
+Either supported Swoole-family extension can back `RuntimeDriver::SWOOLE`. Explicit selection fails startup when neither runtime is available.
 
 Do not combine host-owned serving with a competing Runwire listener.
 
@@ -329,13 +350,13 @@ Report throughput together with p50/p95/p99 latency, errors, CPU, and RSS.
 
 Start here for complete examples and operational guidance:
 
-- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, TCP/Unix, UDP, hosted-runtime, application-factory, capability, and coroutine examples.
+- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, TCP/Unix, UDP, hosted-runtime, explicit Swoole/OpenSwoole selection, application-factory, capability, and coroutine examples.
 - [`docs/architecture.md`](docs/architecture.md) — runtime selection, ownership boundaries, capability model, contexts, lifecycle, networking, protocol, coroutine, observability, and security contracts.
-- [`docs/deployment.md`](docs/deployment.md) — production topology, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, backpressure, resource limits, and deployment acceptance.
+- [`docs/deployment.md`](docs/deployment.md) — production topology, host selection, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, backpressure, resource limits, and deployment acceptance.
 - [`docs/security.md`](docs/security.md) — least privilege, persistent-state isolation, ProcessRunner policy, `disable_functions`, resource ceilings, and systemd/container hardening.
 - [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
 - [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.
-- [`docs/plans/runwire-1.0-foundation-3-launch-plan.md`](docs/plans/runwire-1.0-foundation-3-launch-plan.md) — final hardening status, exact-head certification matrix, and human-controlled release sequence.
+- [`docs/plans/runwire-1.0-foundation-3-launch-plan.md`](docs/plans/runwire-1.0-foundation-3-launch-plan.md) — final hardening status, documentation closure, exact-head certification matrix, and human-controlled release sequence.
 
 ## Development
 

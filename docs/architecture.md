@@ -37,7 +37,7 @@ Those boundaries are architectural constraints, not just package organization.
 
 `RuntimeOptions` defaults to `RuntimeDriver::AUTO`.
 
-Automatic host precedence is:
+The resolver's hosted-driver precedence is:
 
 ```text
 FrankenPHP
@@ -47,9 +47,11 @@ FrankenPHP
 → native CLI
 ```
 
-Hosted runtimes are selected only when the current process is actually hosted by them. Native execution requires CLI SAPI.
+The built-in environment probe automatically marks FrankenPHP, RoadRunner, and FPM as hosted only when the current process is actually running under those hosts. It deliberately treats an installed Swoole/OpenSwoole extension as **available**, not as proof that the current process is already a Swoole host. Therefore ordinary CLI execution with Swoole/OpenSwoole merely installed still resolves to native Runwire under `AUTO`.
 
-An explicit driver request must be available in the current environment or startup fails.
+Consumers that want Runwire to use the Swoole/OpenSwoole host adapter must select `RuntimeDriver::SWOOLE` explicitly. A custom environment integration may mark Swoole as hosted when it owns a reliable active-host signal, in which case the resolver precedence above applies normally.
+
+Native execution requires CLI SAPI. An explicit driver request must be available in the current environment or startup fails.
 
 ## 3. Native execution topologies
 
@@ -119,7 +121,7 @@ External supervision owns process replacement for portable deployments.
 
 Hosted runtimes own their network/runtime boundary. Runwire must not start a competing listener, event loop, or worker pool.
 
-Use:
+For an auto-detected active host use:
 
 ```php
 Runtime::create()->serve($handler);
@@ -148,6 +150,27 @@ RoadRunner owns the worker/server transport. Runwire adapts the application life
 ### Swoole/OpenSwoole
 
 Swoole/OpenSwoole owns the reactor/server. Runwire can bridge its `LoopInterface` and structured Fiber scheduler to the host reactor without replacing Runwire task semantics with a second public coroutine model.
+
+The built-in probe does not infer active Swoole hosting from extension installation alone. Select the host adapter explicitly:
+
+```php
+use Infocyph\Runwire\Runtime;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\SwooleOptions;
+
+$options = new RuntimeOptions(
+    driver: RuntimeDriver::SWOOLE,
+    swoole: new SwooleOptions(
+        host: '127.0.0.1',
+        port: 9501,
+    ),
+);
+
+Runtime::create($options)->serve($handler);
+```
+
+`RuntimeDriver::SWOOLE` supports either compatible Swoole or OpenSwoole installation. Explicit selection fails when neither supported extension is available.
 
 ## 5. Capability model
 

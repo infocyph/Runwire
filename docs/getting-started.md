@@ -16,8 +16,8 @@ Optional capabilities:
 ext-pcntl + ext-posix   native prefork supervision/reload/recycle
 ext-openssl             TLS and HTTP/2 ALPN
 ext-quic                native QUIC / HTTP/3
-ext-swoole              Swoole host integration
-ext-openswoole          OpenSwoole host integration
+ext-swoole              Swoole host integration; select RuntimeDriver::SWOOLE explicitly
+ext-openswoole          OpenSwoole host integration; select RuntimeDriver::SWOOLE explicitly
 ext-sockets             optional socket features
 ext-zend-opcache        bytecode cache
 ```
@@ -390,9 +390,9 @@ Runtime::create()->listen($server)->run();
 
 UDP provides datagram semantics only; application protocols must account for ordering, duplication, loss, maximum datagram size, and bounded callback work.
 
-## 12. Hosted runtimes
+## 12. Hosted runtimes and Swoole/OpenSwoole selection
 
-For FPM, FrankenPHP, RoadRunner, Swoole, and OpenSwoole, the host owns serving:
+For an already active FPM, FrankenPHP, or RoadRunner host, `RuntimeDriver::AUTO` can resolve the host from the current environment:
 
 ```php
 <?php
@@ -412,6 +412,41 @@ Runtime::create()->serve(
 );
 ```
 
+Installing Swoole/OpenSwoole only makes that driver available; it does not prove that the current CLI process is already hosted by Swoole. Select the Runwire Swoole host adapter explicitly:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\SwooleOptions;
+
+require __DIR__ . '/vendor/autoload.php';
+
+$options = new RuntimeOptions(
+    driver: RuntimeDriver::SWOOLE,
+    swoole: new SwooleOptions(
+        host: '127.0.0.1',
+        port: 9501,
+        workerCount: 0,
+        http2: false,
+    ),
+);
+
+Runtime::create($options)->serve(
+    static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+        $writer->end('served through Swoole/OpenSwoole');
+    },
+);
+```
+
+Either compatible `ext-swoole` or `ext-openswoole` can back `RuntimeDriver::SWOOLE`. Explicit selection fails if neither is available.
+
 Use:
 
 ```text
@@ -419,6 +454,8 @@ Runtime::run()              Runwire-owned native listeners
 Runtime::serve()            simple host-owned handler
 Runtime::serveApplication() host-owned application factory
 ```
+
+Do not combine `listen()` with host-owned `serve()`/`serveApplication()`.
 
 ## 13. Application factory and lifecycle
 
@@ -480,6 +517,8 @@ Hosted:
 ```php
 Runtime::create()->serveApplication(new AppFactory());
 ```
+
+For Swoole/OpenSwoole, construct the runtime with explicit `RuntimeDriver::SWOOLE` options first, then call `serveApplication()`.
 
 Persistent application integrations must reset framework-owned request-local state after each request, including failure/cancellation/deadline paths. See [Runtime Security](security.md).
 

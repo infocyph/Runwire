@@ -8,7 +8,7 @@ Primary launch consumer: **Foundation 3**
 Related integrations after release: **Webrick** and **Omnibus**  
 PHP baseline: **64-bit PHP ^8.4**
 
-This is the active Runwire 1.0 closing plan. It incorporates the final security-hardening review and replaces the earlier assumption that implementation was already complete.
+Implementation hardening and public-documentation closure are complete for the 1.0 release line. Release readiness remains an **exact-head property**: the commit that is actually approved/merged/tagged must pass the complete certification matrix below, and release actions remain explicitly human-controlled.
 
 ## 1. Final hardening status
 
@@ -40,19 +40,36 @@ The following 1.0 policy decisions are frozen:
 
 ## 2. Documentation closure
 
-Before certification, documentation must consistently describe implemented behavior rather than pre-release TODOs:
+Public documentation must describe implemented 1.0 behavior rather than pre-release assumptions or stale fallback claims. The documentation set is:
 
 - `README.md`;
 - `docs/getting-started.md`;
 - `docs/architecture.md`;
 - `docs/deployment.md`;
-- `docs/security.md`.
+- `docs/security.md`;
+- `docs/coroutines.md`;
+- `docs/benchmarks.md`;
+- this launch plan.
+
+The synchronized documentation contract includes:
+
+- native prefork versus genuine portable-native ownership/capability behavior;
+- fail-closed portable configuration rules;
+- supplementary-group-safe privilege dropping before bootstrap/readiness;
+- ProcessRunner's no-shell/no-PCNTL runtime contract and executable-policy default;
+- TLS and HTTP/3 fail-closed behavior;
+- allocator-memory versus RSS/cgroup semantics for worker recycling;
+- persistent-request-state cleanup requirements;
+- bounded HTTP/framed/UDP/coroutine resource behavior;
+- active-host AUTO detection versus explicit Swoole/OpenSwoole selection;
+- Swoole/OpenSwoole host ownership through `RuntimeDriver::SWOOLE` and `SwooleOptions`;
+- exact-head release certification and human-controlled merge/tag/publish sequence.
 
 Security-sensitive operational details belong in `docs/security.md`; vulnerability reporting remains in `SECURITY.md`.
 
 ## 3. Final exact-head certification
 
-Certify the **exact final branch head**. Any later source/runtime change invalidates the certification and requires a fresh exact-head run.
+Certify the **exact final branch head**. Any later source, workflow, test, or documentation commit invalidates earlier exact-head certification and requires a fresh run for the new head.
 
 Required release-candidate gates:
 
@@ -63,7 +80,7 @@ Required release-candidate gates:
 - genuine no-PCNTL portable-native lane green on PHP 8.4 and PHP 8.5;
 - native prefork acceptance green;
 - benchmark workflow green on supported PHP versions;
-- Swoole/OpenSwoole focused acceptance green;
+- Swoole/OpenSwoole focused and live acceptance green for both supported host families;
 - native HTTP/3 + QUIC protocol tests green on PHP 8.4 and PHP 8.5;
 - aioquic interoperability green;
 - ngtcp2/nghttp3 interoperability green where the lane applies;
@@ -80,8 +97,8 @@ CI success is necessary but not sufficient for release.
 
 Before release:
 
-1. review the final PR diff and documentation;
-2. confirm the exact-head checks above are green;
+1. review the final PR diff and public documentation;
+2. confirm the exact-head checks above are green for the commit that will be merged/tagged;
 3. confirm the package metadata and public API are intentional for 1.0;
 4. explicitly approve the release.
 
@@ -102,7 +119,7 @@ After explicit approval:
 Only after Runwire 1.0 is released:
 
 1. update Foundation 3 to the released Runwire constraint;
-2. integrate through capability APIs rather than driver-name branching;
+2. integrate through capability APIs rather than driver-name branching except for genuinely host-specific setup such as explicit Swoole/OpenSwoole selection;
 3. validate request/application lifecycle and structured coroutine ownership;
 4. run Foundation's complete QA and persistent-runtime acceptance suite;
 5. then update Webrick and Omnibus where their Runwire integration requires the released behavior.
