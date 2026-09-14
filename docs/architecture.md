@@ -71,6 +71,10 @@ Runwire owns:
 - development reload watcher;
 - optional worker UID/GID privilege reduction.
 
+Worker privilege reduction is completed before application bootstrap/readiness. UID-based drops resolve the target account, normalize supplementary groups, set the primary GID before UID, and verify the final effective identity. Any incomplete transition is a startup failure.
+
+Native prefork selected as effective UID `0` without a configured worker privilege-drop policy emits a `SECURITY:` runtime-selection warning. Production applications should normally run under an unprivileged service identity.
+
 ### Native portable
 
 Used when native CLI is available but prefork process capabilities are not.
@@ -96,7 +100,20 @@ It does **not** advertise:
 - development worker watching;
 - prefork privilege-drop boundary.
 
-The active 1.0 release plan tracks final hard-fail validation for explicit multi-worker/recycle requests and explicit HTTP/3 configuration without QUIC. Until that closes, treat portable mode as a one-process topology and do not rely on unsupported prefork settings.
+The portable contract is fail-closed:
+
+```text
+workers 0 or 1            one portable process
+workers > 1               startup error
+enabled recycle threshold startup error
+control endpoint           startup error
+development watcher        startup error
+lifecycle listener         startup error
+worker privilege drop      startup error
+HTTP/3 without QUIC        startup error
+```
+
+External supervision owns process replacement for portable deployments.
 
 ## 4. Hosted execution
 
@@ -355,6 +372,8 @@ resource ceilings
 
 0-RTT application dispatch is disabled for 1.0.
 
+Explicit HTTP/3 configuration without a supported QUIC capability is a startup error; it is never silently ignored. When HTTP/3 is not configured, absence of QUIC does not affect HTTP/1.1 or HTTP/2.
+
 Peer address changes caused by QUIC rebinding/migration must not be used as an authentication boundary.
 
 ## 13. Network architecture
@@ -437,6 +456,8 @@ Protection layers include:
 
 Increasing a limit increases retained state. Treat limit changes as capacity planning, not merely configuration convenience.
 
+`WorkerRecyclePolicy::maxMemoryBytes` uses PHP allocator memory (`memory_get_usage(true)` / `memory_get_peak_usage(true)`), not process RSS or cgroup/container memory. OS/container limits remain the hard process-memory boundary.
+
 ## 17. Graceful lifecycle
 
 Native graceful shutdown follows the same broad sequence across prefork and portable execution:
@@ -489,12 +510,14 @@ Runwire favors explicit failure over security-sensitive downgrade.
 Examples:
 
 - TLS never silently becomes plaintext;
-- HTTP/3 must not silently disappear once the final 1.0 validation item is closed;
+- explicit HTTP/3 without QUIC fails startup;
 - unsupported privilege drop fails;
 - control sockets require bounded requests/responses and restrictive permissions;
 - `SO_REUSEPORT` is explicit and off by default;
 - 0-RTT application dispatch is disabled;
 - diagnostics should not expose arbitrary request bodies, headers, argv, or environment data.
+
+Runwire is not an OS sandbox. See [Runtime security and production hardening](security.md) for least privilege, persistent-state cleanup, ProcessRunner policy, resource ceilings, `disable_functions`, and systemd/container hardening.
 
 ## 20. Public integration rule
 
@@ -508,6 +531,7 @@ That rule keeps Foundation, Webrick, Omnibus, and third-party consumers portable
 
 - [Getting started](getting-started.md)
 - [Deployment and operations](deployment.md)
+- [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
 - [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
