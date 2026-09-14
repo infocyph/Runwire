@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Http\Internal\AuthorityValidator;
-use InvalidArgumentException;
 
 it('rejects authority values with edge whitespace instead of normalizing wire input', function (string $authority): void {
     expect(fn() => AuthorityValidator::normalize($authority, 'https'))

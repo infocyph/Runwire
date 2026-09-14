@@ -14,7 +14,6 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeContext;
-use LogicException;
 
 function requestContextActivationRuntime(): RuntimeContext
 {
