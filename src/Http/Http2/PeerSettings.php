@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Http\Http2;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 
+/**
+ * Stores and applies settings advertised by an HTTP/2 peer.
+ */
 final class PeerSettings
 {
     public const int ENABLE_PUSH = 0x2;
@@ -45,6 +48,9 @@ final class PeerSettings
         ];
     }
 
+    /**
+     * Apply a SETTINGS payload and return the initial-window delta.
+     */
     public function apply(string $payload): int
     {
         if (strlen($payload) % 6 !== 0) {

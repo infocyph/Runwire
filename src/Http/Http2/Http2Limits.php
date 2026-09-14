@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Http\Http2;
 
 use InvalidArgumentException;
 
+/**
+ * Defines bounded resource, flow-control, buffering, and timeout limits for HTTP/2.
+ */
 final readonly class Http2Limits
 {
+    /**
+     * Create and validate HTTP/2 connection limits.
+     */
     public function __construct(
         public int $maxInboundFrameSize = 16_384,
         public int $maxHeaderBlockBytes = 65_536,
@@ -79,6 +85,9 @@ final readonly class Http2Limits
         }
     }
 
+    /**
+     * Return the initial inbound stream receive window.
+     */
     public function initialReceiveWindow(): int
     {
         return min(65_535, $this->maxPendingBodyBytesPerStream);

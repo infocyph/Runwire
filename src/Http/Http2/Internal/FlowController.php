@@ -8,6 +8,9 @@ use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 
+/**
+ * Tracks HTTP/2 connection and stream flow-control windows.
+ */
 final class FlowController
 {
     private int $connectionReceiveWindow = 65_535;
@@ -29,11 +32,17 @@ final class FlowController
         }
     }
 
+    /**
+     * Return the bytes currently available for sending on a stream.
+     */
     public function availableSend(Http2Stream $stream): int
     {
         return max(0, min($this->connectionSendWindow, $stream->sendWindow));
     }
 
+    /**
+     * Debit the connection receive window.
+     */
     public function consumeConnectionReceive(int $bytes): void
     {
         if ($bytes < 0) {
@@ -45,6 +54,9 @@ final class FlowController
         }
     }
 
+    /**
+     * Debit connection and stream receive windows.
+     */
     public function consumeReceive(Http2Stream $stream, int $bytes): void
     {
         if ($bytes < 0) {
@@ -57,6 +69,9 @@ final class FlowController
         }
     }
 
+    /**
+     * Debit connection and stream send windows.
+     */
     public function consumeSend(Http2Stream $stream, int $bytes): void
     {
         if ($bytes < 0 || $bytes > $this->availableSend($stream)) {
@@ -88,6 +103,9 @@ final class FlowController
         return $frames;
     }
 
+    /**
+     * Apply a connection WINDOW_UPDATE increment.
+     */
     public function updateConnectionSend(int $increment): void
     {
         if ($increment <= 0) {
@@ -99,6 +117,9 @@ final class FlowController
         $this->connectionSendWindow += $increment;
     }
 
+    /**
+     * Apply a stream WINDOW_UPDATE increment.
+     */
     public function updateStreamSend(Http2Stream $stream, int $increment): void
     {
         if ($increment <= 0) {

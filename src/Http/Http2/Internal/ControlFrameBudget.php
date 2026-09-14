@@ -8,12 +8,18 @@ use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Loop\LoopInterface;
 
+/**
+ * Enforces a per-second budget for inbound HTTP/2 control frames.
+ */
 final class ControlFrameBudget
 {
     private int $count = 0;
 
     private float $windowStartedAt;
 
+    /**
+     * Create a control-frame budget bound to the event-loop clock.
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly int $maxPerSecond,
@@ -21,6 +27,9 @@ final class ControlFrameBudget
         $this->windowStartedAt = $loop->now();
     }
 
+    /**
+     * Consume budget for a recognized control frame.
+     */
     public function consume(?FrameType $type): void
     {
         if ($type === null || !in_array($type, [

@@ -19,6 +19,9 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\WriteResult;
 use LogicException;
 
+/**
+ * Schedules bounded HTTP/2 response frames across active streams.
+ */
 final class ResponseScheduler
 {
     private const int OUTBOUND_FRAME_SIZE = 16_384;
@@ -82,6 +85,9 @@ final class ResponseScheduler
         $connection->onDrain(fn() => $this->handleTransportDrain());
     }
 
+    /**
+     * Clear all queued response and wire state.
+     */
     public function cleanup(): void
     {
         $this->wireQueue->clear();
@@ -91,6 +97,9 @@ final class ResponseScheduler
         $this->transportPressured = false;
     }
 
+    /**
+     * Discard all pending output owned by a stream.
+     */
     public function discardStream(Http2Stream $stream): void
     {
         $bytes = $stream->outbound->bytes();
@@ -98,6 +107,9 @@ final class ResponseScheduler
         unset($this->flushQueue[$stream->id], $this->pressuredStreams[$stream->id]);
     }
 
+    /**
+     * Flush schedulable response data to the transport.
+     */
     public function flush(): void
     {
         if ($this->blocked() || $this->flushQueue === []) {
@@ -130,21 +142,33 @@ final class ResponseScheduler
         $this->relieveStreams();
     }
 
+    /**
+     * Send one control frame through the transport scheduler.
+     */
     public function sendControl(Frame $frame): WriteResult
     {
         return $this->sendFrame($frame);
     }
 
+    /**
+     * Determine whether transport backpressure is active.
+     */
     public function transportPressured(): bool
     {
         return $this->transportPressured;
     }
 
+    /**
+     * Determine whether no encoded wire data remains queued.
+     */
     public function wireIdle(): bool
     {
         return $this->wireQueue->isEmpty();
     }
 
+    /**
+     * Create a response writer bound to an HTTP/2 stream.
+     */
     public function writer(Http2Stream $stream, string $method, callable $onEnd): Http2ResponseWriter
     {
         return new Http2ResponseWriter(

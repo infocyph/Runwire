@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Http\Http2\Internal;
 
 use Infocyph\Runwire\Http\Headers;
 
+/**
+ * Holds a validated HTTP/2 request head.
+ */
 final readonly class ValidatedRequestHead
 {
+    /**
+     * Create normalized request-head metadata.
+     */
     public function __construct(
         public string $method,
         public string $target,

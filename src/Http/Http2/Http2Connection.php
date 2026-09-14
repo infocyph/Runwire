@@ -23,6 +23,9 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Throwable;
 
+/**
+ * Manages one native HTTP/2 server connection and its stream lifecycle.
+ */
 final class Http2Connection
 {
     public const string CLIENT_PREFACE = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
@@ -113,11 +116,17 @@ final class Http2Connection
         $this->armSettingsAckTimer();
     }
 
+    /**
+     * Return the number of active request streams.
+     */
     public function activeStreams(): int
     {
         return $this->requests->count();
     }
 
+    /**
+     * Begin graceful HTTP/2 connection draining.
+     */
     public function drain(): void
     {
         if ($this->closed || $this->draining) {
@@ -141,6 +150,9 @@ final class Http2Connection
         });
     }
 
+    /**
+     * Return the greatest client-initiated stream ID observed.
+     */
     public function lastClientStreamId(): int
     {
         return $this->requests->lastClientStreamId();

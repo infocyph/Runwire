@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Hpack;
 
+/**
+ * Provides the RFC 7541 static Huffman code tables used by HPACK.
+ */
 final class HuffmanTable
 {
     /** @var list<int> */

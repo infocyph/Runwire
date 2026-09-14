@@ -20,6 +20,9 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Throwable;
 
+/**
+ * Owns inbound HTTP/2 request-stream parsing, validation, and dispatch.
+ */
 final class RequestStreamProcessor
 {
     private readonly Closure $connectionFailure;
@@ -77,6 +80,9 @@ final class RequestStreamProcessor
         $this->streamRemoved = Closure::fromCallable($streamRemoved);
     }
 
+    /**
+     * Cancel timers and release all active request streams.
+     */
     public function cleanup(): void
     {
         $this->cancelHeaderTimer();
@@ -89,6 +95,9 @@ final class RequestStreamProcessor
         $this->pendingHeaders = null;
     }
 
+    /**
+     * Remove a stream once both sides and pending output are closed.
+     */
     public function cleanupIfClosed(Http2Stream $stream): void
     {
         if ($stream->dispatching || $stream->state !== \Infocyph\Runwire\Http\Http2\Enum\StreamState::CLOSED) {
@@ -100,11 +109,17 @@ final class RequestStreamProcessor
         $this->remove($stream);
     }
 
+    /**
+     * Return the number of active request streams.
+     */
     public function count(): int
     {
         return count($this->streams);
     }
 
+    /**
+     * Consume an inbound CONTINUATION frame.
+     */
     public function handleContinuation(Frame $frame): void
     {
         if ($this->pendingHeaders === null) {
@@ -120,6 +135,9 @@ final class RequestStreamProcessor
         $this->completeHeaderBlock($pending);
     }
 
+    /**
+     * Consume an inbound DATA frame.
+     */
     public function handleData(Frame $frame): void
     {
         if ($frame->streamId === 0) {
@@ -143,6 +161,9 @@ final class RequestStreamProcessor
         }
     }
 
+    /**
+     * Consume an inbound HEADERS frame.
+     */
     public function handleHeaders(Frame $frame): void
     {
         $this->validateHeadersStream($frame);
@@ -164,16 +185,25 @@ final class RequestStreamProcessor
         $this->armHeaderBlockTimer();
     }
 
+    /**
+     * Determine whether a fragmented header block is open.
+     */
     public function hasOpenHeaderBlock(): bool
     {
         return $this->pendingHeaders !== null;
     }
 
+    /**
+     * Return the greatest client-initiated stream ID observed.
+     */
     public function lastClientStreamId(): int
     {
         return $this->lastClientStreamId;
     }
 
+    /**
+     * Reset and remove an active request stream.
+     */
     public function reset(Http2Stream $stream): void
     {
         $this->output->discardStream($stream);
@@ -181,11 +211,17 @@ final class RequestStreamProcessor
         $this->remove($stream);
     }
 
+    /**
+     * Enable or disable refusal of newly opened streams during draining.
+     */
     public function setDraining(bool $draining): void
     {
         $this->draining = $draining;
     }
 
+    /**
+     * Return an active request stream by ID.
+     */
     public function stream(int $id): ?Http2Stream
     {
         return $this->streams[$id] ?? null;
@@ -197,6 +233,9 @@ final class RequestStreamProcessor
         return $this->streams;
     }
 
+    /**
+     * Refresh the idle timeout for an active stream.
+     */
     public function touch(Http2Stream $stream): void
     {
         $this->cancelTimer($stream->idleTimer);

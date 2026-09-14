@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Hpack;
 
+/**
+ * Encodes and decodes HPACK variable-length integers.
+ */
 final class IntegerCodec
 {
+    /**
+     * Decode an HPACK integer and advance the byte offset.
+     */
     public static function decode(string $data, int &$offset, int $prefixBits): int
     {
         self::validatePrefix($prefixBits);
@@ -37,6 +43,9 @@ final class IntegerCodec
         }
     }
 
+    /**
+     * Encode an HPACK integer with the supplied prefix width and mask.
+     */
     public static function encode(int $value, int $prefixBits, int $prefixMask = 0): string
     {
         self::validatePrefix($prefixBits);

@@ -8,10 +8,16 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\HeaderValidationException as CommonHeaderValidationException;
 use Infocyph\Runwire\Http\Internal\RequestHeaderValidator as CommonRequestHeaderValidator;
 
+/**
+ * Applies HTTP/2-specific error mapping around common request-header validation.
+ */
 final readonly class RequestHeaderValidator
 {
     private CommonRequestHeaderValidator $validator;
 
+    /**
+     * Create an HTTP/2 request-header validator.
+     */
     public function __construct()
     {
         $this->validator = new CommonRequestHeaderValidator('HTTP/2');

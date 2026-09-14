@@ -10,6 +10,9 @@ use Infocyph\Runwire\Http\Http2\Http2ResponseWriter;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 
+/**
+ * Stores mutable state for one HTTP/2 stream.
+ */
 final class Http2Stream
 {
     public readonly ByteQueue $outbound;
@@ -38,6 +41,9 @@ final class Http2Stream
 
     public ?Http2ResponseWriter $writer = null;
 
+    /**
+     * Create stream state with its request body and flow-control windows.
+     */
     public function __construct(
         public readonly int $id,
         public readonly StreamingRequestBody $body,
@@ -47,6 +53,9 @@ final class Http2Stream
         $this->outbound = new ByteQueue();
     }
 
+    /**
+     * Mark the local side of the stream ended.
+     */
     public function localEnd(): void
     {
         $this->state = match ($this->state) {
@@ -56,17 +65,26 @@ final class Http2Stream
         };
     }
 
+    /**
+     * Determine whether the local side can still send data.
+     */
     public function localOpen(): bool
     {
         return $this->state === StreamState::OPEN || $this->state === StreamState::HALF_CLOSED_REMOTE;
     }
 
+    /**
+     * Open the stream and optionally mark the remote side ended.
+     */
     public function open(bool $remoteEnded): void
     {
         $this->state = $remoteEnded ? StreamState::HALF_CLOSED_REMOTE : StreamState::OPEN;
         $this->headersReceived = true;
     }
 
+    /**
+     * Mark the remote side of the stream ended.
+     */
     public function remoteEnd(): void
     {
         $this->state = match ($this->state) {
@@ -76,11 +94,17 @@ final class Http2Stream
         };
     }
 
+    /**
+     * Determine whether the remote side can still send data.
+     */
     public function remoteOpen(): bool
     {
         return $this->state === StreamState::OPEN || $this->state === StreamState::HALF_CLOSED_LOCAL;
     }
 
+    /**
+     * Reset and close the stream, discarding pending output and request data.
+     */
     public function reset(): void
     {
         $this->state = StreamState::CLOSED;

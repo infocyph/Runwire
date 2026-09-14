@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Hpack;
 
+/**
+ * Provides the RFC 7541 HPACK static header table.
+ */
 final class StaticTable
 {
     /** @var list<array{0: string, 1: string}> */

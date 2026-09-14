@@ -7,12 +7,18 @@ namespace Infocyph\Runwire\Http\Http2\Internal;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 
+/**
+ * Accumulates a bounded HTTP/2 HEADERS/CONTINUATION block.
+ */
 final class PendingHeaderBlock
 {
     private string $block;
 
     private int $continuations = 0;
 
+    /**
+     * Create a pending compressed header block.
+     */
     public function __construct(
         public readonly int $streamId,
         string $initial,
@@ -26,6 +32,9 @@ final class PendingHeaderBlock
         $this->block = $initial;
     }
 
+    /**
+     * Append one continuation fragment.
+     */
     public function append(int $streamId, string $fragment): void
     {
         if ($streamId !== $this->streamId) {
@@ -41,6 +50,9 @@ final class PendingHeaderBlock
         $this->block .= $fragment;
     }
 
+    /**
+     * Return the complete compressed header block bytes accumulated so far.
+     */
     public function bytes(): string
     {
         return $this->block;

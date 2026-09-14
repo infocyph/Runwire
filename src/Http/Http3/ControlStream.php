@@ -8,17 +8,26 @@ use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 
+/**
+ * Parses and validates the peer HTTP/3 control stream.
+ */
 final class ControlStream
 {
     private readonly FrameParser $parser;
 
     private ?Settings $peerSettings = null;
 
+    /**
+     * Create a control-stream parser with a frame payload limit.
+     */
     public function __construct(int $maxFramePayloadBytes = 1_048_576)
     {
         $this->parser = new FrameParser($maxFramePayloadBytes);
     }
 
+    /**
+     * Build the local control-stream preamble and SETTINGS frame.
+     */
     public static function preamble(Settings $settings): string
     {
         return VarIntCodec::encode(StreamType::CONTROL->value)
@@ -28,6 +37,9 @@ final class ControlStream
             ));
     }
 
+    /**
+     * Report closure of the critical control stream.
+     */
     public function close(): never
     {
         throw new Http3Exception(
@@ -36,6 +48,9 @@ final class ControlStream
         );
     }
 
+    /**
+     * Return SETTINGS received from the peer when available.
+     */
     public function peerSettings(): ?Settings
     {
         return $this->peerSettings;
