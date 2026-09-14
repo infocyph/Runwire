@@ -32,7 +32,7 @@ it('awaits connection data and preserves unread bytes across peer EOF', function
 
     try {
         $received = $runtime->run(function (CoroutineScope $scope) use ($connection, $loop, $peer): array {
-            $connection = new AsyncConnection($scope, $connection);
+            $connection = new AsyncConnection($connection, $scope);
             $loop->defer(static function (int $id) use ($peer): void {
                 unset($id);
                 fwrite($peer, 'hello');
@@ -82,7 +82,7 @@ it('awaits write-pressure drain without changing the core backpressure metric', 
 
     try {
         $drainResult = $runtime->run(function (CoroutineScope $scope) use ($connection, $loop, $peer): ?CloseReason {
-            $connection = new AsyncConnection($scope, $connection);
+            $connection = new AsyncConnection($connection, $scope);
             $pressured = false;
 
             for ($i = 0; $i < 4_096; ++$i) {
@@ -138,7 +138,7 @@ it('cancels a pending receive with request cancellation and releases connection 
         expect(static fn() => $runtime->runRequest(
             $context,
             function (CoroutineScope $scope) use ($connection, $context, $loop): void {
-                $connection = new AsyncConnection($scope, $connection);
+                $connection = new AsyncConnection($connection, $scope);
                 $loop->defer(static function (int $id) use ($context): void {
                     unset($id);
                     $context->cancel(CancellationReason::HOST_CANCELLED);
@@ -173,7 +173,7 @@ it('prevents callback-core consumers from overwriting adapter-owned callback slo
 
     try {
         $runtime->run(function (CoroutineScope $scope) use ($connection): void {
-            $async = new AsyncConnection($scope, $connection);
+            $async = new AsyncConnection($connection, $scope);
 
             try {
                 expect(static fn() => $connection->onData(static function (): void {}))
@@ -201,7 +201,7 @@ it('detaches callback ownership without closing the underlying connection', func
 
     try {
         $runtime->run(function (CoroutineScope $scope) use ($connection, $loop): void {
-            $async = new AsyncConnection($scope, $connection);
+            $async = new AsyncConnection($connection, $scope);
             $async->dispose();
 
             expect(static fn() => $async->receive())
@@ -228,7 +228,7 @@ it('completes graceful close synchronously through the coroutine adapter', funct
 
     try {
         $reason = $runtime->run(function (CoroutineScope $scope) use ($connection): CloseReason {
-            return (new AsyncConnection($scope, $connection))->close();
+            return (new AsyncConnection($connection, $scope))->close();
         });
 
         expect($reason)->toBe(CloseReason::LOCAL_GRACEFUL)

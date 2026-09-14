@@ -42,7 +42,7 @@ final class AsyncConnection
     /**
      * Bind coroutine waits to the supplied connection.
      */
-    public function __construct(private readonly CoroutineScope $scope, private readonly Connection $connection)
+    public function __construct(private readonly Connection $connection, private readonly CoroutineScope $scope)
     {
         $weakSelf = WeakReference::create($this);
         $this->connection->claimCallbacks(

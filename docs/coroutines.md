@@ -149,7 +149,7 @@ These calls use the runtime's `LoopInterface`. They do not make unrelated synchr
 ```php
 use Infocyph\Runwire\Coroutine\Network\AsyncConnection;
 
-$async = new AsyncConnection($scope, $connection);
+$async = new AsyncConnection($connection, $scope);
 
 $write = $async->write("hello\n");
 if ($connection->isWritePressured()) {
