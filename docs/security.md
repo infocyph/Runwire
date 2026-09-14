@@ -52,7 +52,7 @@ Framework/application adapters should reset request-local state after every requ
 - framework request/event objects;
 - response/body callbacks and temporary buffers.
 
-`RequestContext::complete()` and application resetters are the Runwire-level cleanup boundary. Framework integrations must register their own resetters for framework-owned request-local state.
+`RequestContext` objects are single-use lifecycle state. Once a context is claimed for active request handling, concurrent or re-entrant activation of the same object is rejected; after completion it cannot be reactivated. `RequestContext::complete()` and application resetters are the Runwire-level cleanup boundary. Framework integrations must register their own resetters for framework-owned request-local state.
 
 ## Resource ceilings
 
@@ -139,7 +139,7 @@ Portable native remains suitable for ordinary HTTP, framed TCP/Unix, and UDP ser
 
 ## ProcessRunner security
 
-`ProcessRunner` deliberately avoids a shell and executes a validated argv vector with `bypass_shell = true`. It also supports explicit bounds for arguments, environment, working directory, stdin, output, runtime and termination grace.
+`ProcessRunner` deliberately avoids a shell and executes a validated argv vector with `bypass_shell = true`. It also supports explicit bounds for arguments, environment, working directory, stdin, output, runtime, graceful termination, post-exit pipe draining, and the wait after force termination. If a child still reports itself running after `ProcessPolicy::postKillWaitSeconds`, execution fails instead of silently extending the configured shutdown bound indefinitely.
 
 The 1.0 default keeps:
 
@@ -260,6 +260,8 @@ These controls are outside Runwire itself and remain useful even when applicatio
 ## TLS and optional protocols
 
 Explicit TLS configuration must fail if the required OpenSSL capability is unavailable; it must not silently downgrade to plaintext. Explicit HTTP/3 configuration similarly requires the supported QUIC capability and fails closed when it is absent.
+
+Host adapters default protocol metadata only when the host provides no explicit version. Explicit unsupported or malformed protocol versions are rejected rather than silently treated as HTTP/1.1.
 
 Keep certificates and private keys readable only by the intended service identity. Treat QUIC/HTTP/3 as an optional capability, not a reason to weaken the baseline HTTP/1.1/HTTP/2 security posture.
 

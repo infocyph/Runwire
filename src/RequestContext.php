@@ -21,6 +21,8 @@ final class RequestContext
 
     private readonly CancellationSource $cancellationSource;
 
+    private bool $active = false;
+
     /** @var array<string, mixed> */
     private array $attributes = [];
 
@@ -83,17 +85,22 @@ final class RequestContext
     }
 
     /**
-     * Binds a standalone context to an active runtime and request policy.
+     * Claims this single-use context for one active request lifecycle.
      */
     public function activate(RuntimeContext $runtime, RequestExecutionPolicy $policy): void
     {
         if ($this->completed) {
             throw new LogicException('Completed request context cannot be activated.');
         }
+        if ($this->active) {
+            throw new LogicException('Request context is already active.');
+        }
         if ($this->bound) {
             if ($this->runtime !== $runtime) {
                 throw new LogicException('Request context is already bound to a different runtime context.');
             }
+
+            $this->active = true;
 
             return;
         }
@@ -102,6 +109,7 @@ final class RequestContext
         $this->runtime = $runtime;
         $this->deadline = $deadline;
         $this->bound = true;
+        $this->active = true;
         $this->cancellationSource->setDeadline($deadline);
     }
 
@@ -148,6 +156,7 @@ final class RequestContext
 
         $this->attributes = [];
         $this->cancellationSource->dispose();
+        $this->active = false;
         $this->completed = true;
     }
 

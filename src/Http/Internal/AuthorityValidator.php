@@ -16,7 +16,6 @@ final readonly class AuthorityValidator
      */
     public static function normalize(string $authority, ?string $scheme = null): string
     {
-        $authority = trim($authority);
         if ($authority === '' || strpbrk($authority, "\x00\x09\x0A\x0D /?#@") !== false) {
             throw new InvalidArgumentException('HTTP authority contains forbidden characters.');
         }
