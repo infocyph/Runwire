@@ -7,8 +7,14 @@ namespace Infocyph\Runwire\Supervisor;
 use Infocyph\Runwire\Exception\SupervisorException;
 use InvalidArgumentException;
 
+/**
+ * Configures and applies optional worker UID and GID privilege reduction.
+ */
 final readonly class PrivilegeDropPolicy
 {
+    /**
+     * Create a worker identity policy.
+     */
     public function __construct(
         public ?int $uid = null,
         public ?int $gid = null,
@@ -21,6 +27,9 @@ final readonly class PrivilegeDropPolicy
         }
     }
 
+    /**
+     * Apply the configured GID and UID to the current worker process.
+     */
     public function apply(): void
     {
         if (!$this->enabled()) {
@@ -36,6 +45,9 @@ final readonly class PrivilegeDropPolicy
         }
     }
 
+    /**
+     * Verify that the runtime can perform the configured identity changes.
+     */
     public function assertSupported(): void
     {
         if (!$this->enabled()) {
@@ -56,6 +68,9 @@ final readonly class PrivilegeDropPolicy
         }
     }
 
+    /**
+     * Determine whether any identity change is configured.
+     */
     public function enabled(): bool
     {
         return $this->uid !== null || $this->gid !== null;

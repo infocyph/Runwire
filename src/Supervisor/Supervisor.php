@@ -30,6 +30,9 @@ use Infocyph\Runwire\Supervisor\Internal\WorkerChildRuntime;
 use Infocyph\Runwire\Supervisor\Internal\WorkerLifecycleCoordinator;
 use LogicException;
 
+/**
+ * Manages native worker groups, lifecycle events, reloads, recycling, signals, and control-plane state.
+ */
 final class Supervisor
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
@@ -84,6 +87,9 @@ final class Supervisor
 
     private bool $stopping = false;
 
+    /**
+     * Create a supervisor with optional custom event loop and reload policy.
+     */
     public function __construct(?LoopInterface $loop = null, ?ReloadPolicy $reloadPolicy = null)
     {
         $this->loop = $loop ?? new SelectLoop();
@@ -118,6 +124,9 @@ final class Supervisor
         );
     }
 
+    /**
+     * Configure the supervisor control endpoint before startup.
+     */
     public function control(ControlOptions $options): self
     {
         if ($this->started) {
@@ -129,6 +138,9 @@ final class Supervisor
         return $this;
     }
 
+    /**
+     * Register a worker group before supervisor startup.
+     */
     public function group(WorkerGroup $group): self
     {
         if ($this->started) {
@@ -144,7 +156,11 @@ final class Supervisor
         return $this;
     }
 
-    /** @param callable(SupervisorEvent): void $listener */
+    /**
+     * Register a supervisor lifecycle event listener.
+     *
+     * @param callable(SupervisorEvent): void $listener
+     */
     public function onEvent(callable $listener): self
     {
         $this->events->listen($listener);
@@ -152,6 +168,9 @@ final class Supervisor
         return $this;
     }
 
+    /**
+     * Start replacement of one currently serving worker slot.
+     */
     public function recycle(string $group, int $slot): bool
     {
         $definition = $this->groups[$group] ?? null;
@@ -192,6 +211,9 @@ final class Supervisor
         return true;
     }
 
+    /**
+     * Request a rolling reload of all reloadable worker groups.
+     */
     public function reload(): void
     {
         $this->reloadCoordinator->request(
@@ -203,6 +225,9 @@ final class Supervisor
         );
     }
 
+    /**
+     * Start the supervisor, spawn workers, and run until shutdown completes.
+     */
     public function run(): void
     {
         if ($this->started) {
@@ -247,6 +272,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * Build a point-in-time supervisor status snapshot.
+     */
     public function status(): SupervisorStatus
     {
         return SupervisorStatusBuilder::build(
@@ -273,6 +301,9 @@ final class Supervisor
         );
     }
 
+    /**
+     * Request graceful or forced supervisor shutdown for all workers.
+     */
     public function stop(
         bool $force = false,
         ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP,
@@ -302,6 +333,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * Configure development file watching before supervisor startup.
+     */
     public function watch(DevelopmentWatchPolicy $policy): self
     {
         if ($this->started) {

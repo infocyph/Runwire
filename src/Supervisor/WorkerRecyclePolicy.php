@@ -6,12 +6,18 @@ namespace Infocyph\Runwire\Supervisor;
 
 use InvalidArgumentException;
 
+/**
+ * Defines request, lifetime, memory, jitter, and drain thresholds for worker recycling.
+ */
 final readonly class WorkerRecyclePolicy
 {
     private const int MAX_LIFETIME_SECONDS = 31_536_000;
 
     private const int MAX_REQUESTS = 10_000_000;
 
+    /**
+     * Create a worker recycling policy.
+     */
     public function __construct(
         public int $maxRequests = 0,
         public int $maxLifetimeSeconds = 0,
@@ -46,6 +52,9 @@ final readonly class WorkerRecyclePolicy
         }
     }
 
+    /**
+     * Determine whether any recycling threshold is enabled.
+     */
     public function enabled(): bool
     {
         return $this->maxRequests > 0 || $this->maxLifetimeSeconds > 0 || $this->maxMemoryBytes > 0;

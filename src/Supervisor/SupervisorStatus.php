@@ -7,9 +7,14 @@ namespace Infocyph\Runwire\Supervisor;
 use Infocyph\Runwire\Metrics\RuntimeHealthSnapshot;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 
+/**
+ * Represents a point-in-time supervisor, worker, health, and metrics snapshot.
+ */
 final readonly class SupervisorStatus
 {
     /**
+     * Create a supervisor status snapshot.
+     *
      * @param array<string, int> $exitReasonCounts
      * @param array<string, int> $lifecycleListenerFailureCounts
      * @param array<string, int> $restartReasonCounts

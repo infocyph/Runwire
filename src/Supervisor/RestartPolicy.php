@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Supervisor;
 
 use InvalidArgumentException;
 
+/**
+ * Defines worker restart budgets and exponential backoff behavior.
+ */
 final readonly class RestartPolicy
 {
+    /**
+     * Create a worker restart policy.
+     */
     public function __construct(
         public int $maxRestarts = 10,
         public float $windowSeconds = 60.0,
@@ -31,6 +37,9 @@ final readonly class RestartPolicy
         }
     }
 
+    /**
+     * Return the bounded exponential backoff delay for a restart attempt.
+     */
     public function backoffForAttempt(int $attempt): float
     {
         if ($attempt <= 0 || $this->initialBackoffSeconds === 0.0) {

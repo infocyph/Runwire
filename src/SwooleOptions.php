@@ -7,8 +7,14 @@ namespace Infocyph\Runwire;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use InvalidArgumentException;
 
+/**
+ * Configures the host-owned Swoole/OpenSwoole HTTP runtime adapter.
+ */
 final readonly class SwooleOptions
 {
+    /**
+     * Create Swoole host and protocol options.
+     */
     public function __construct(
         public string $host = '127.0.0.1',
         public int $port = 9501,
@@ -30,7 +36,11 @@ final readonly class SwooleOptions
         self::validateLimit($maxResponseBytes, 'Swoole response');
     }
 
-    /** @return array<string, bool|int> */
+    /**
+     * Build Swoole server settings aligned with worker recycling policy.
+     *
+     * @return array<string, bool|int>
+     */
     public function serverSettings(?WorkerRecyclePolicy $recyclePolicy = null): array
     {
         $recyclePolicy ??= new WorkerRecyclePolicy();

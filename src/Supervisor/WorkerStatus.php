@@ -9,8 +9,14 @@ use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 
+/**
+ * Represents a point-in-time status snapshot for one supervised worker process.
+ */
 final readonly class WorkerStatus
 {
+    /**
+     * Create a worker status snapshot.
+     */
     public function __construct(
         public string $group,
         public int $slot,

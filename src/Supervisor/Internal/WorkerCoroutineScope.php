@@ -18,6 +18,9 @@ use InvalidArgumentException;
 use LogicException;
 use Throwable;
 
+/**
+ * Owns background worker coroutines and coordinates their graceful shutdown.
+ */
 final class WorkerCoroutineScope
 {
     /** @var Closure(): void */
@@ -39,7 +42,11 @@ final class WorkerCoroutineScope
 
     private ?int $graceTimer = null;
 
-    /** @param callable(): void $onFailure */
+    /**
+     * Create a background coroutine scope for one worker loop.
+     *
+     * @param callable(): void $onFailure
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly float $shutdownGraceSeconds,
@@ -59,11 +66,17 @@ final class WorkerCoroutineScope
         $this->scope = new CoroutineScope($this->scheduler, $this->source);
     }
 
+    /**
+     * Return the number of active background tasks.
+     */
     public function activeTaskCount(): int
     {
         return $this->activeTasks;
     }
 
+    /**
+     * Cancel and close the background coroutine scope immediately.
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -77,6 +90,9 @@ final class WorkerCoroutineScope
         $this->scope->close();
     }
 
+    /**
+     * Return scheduler diagnostics for background coroutine work.
+     */
     public function diagnostics(): CoroutineDiagnosticsSnapshot
     {
         return $this->scheduler->diagnostics(
@@ -85,6 +101,9 @@ final class WorkerCoroutineScope
         );
     }
 
+    /**
+     * Begin graceful background-task draining and enforce the shutdown grace period.
+     */
     public function drain(): void
     {
         if ($this->closed || $this->draining) {
@@ -113,11 +132,17 @@ final class WorkerCoroutineScope
         );
     }
 
+    /**
+     * Determine whether the graceful background-task drain timed out.
+     */
     public function drainExpired(): bool
     {
         return $this->drainExpired;
     }
 
+    /**
+     * Determine whether this scope is attached to the supplied event loop.
+     */
     public function ownsLoop(LoopInterface $loop): bool
     {
         return $this->loop === $loop;

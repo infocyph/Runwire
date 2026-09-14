@@ -9,8 +9,14 @@ use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 
+/**
+ * Carries immutable metadata for one emitted supervisor lifecycle event.
+ */
 final readonly class SupervisorEvent
 {
+    /**
+     * Create a supervisor lifecycle event snapshot.
+     */
     public function __construct(
         public SupervisorEventType $type,
         public float $atMonotonic,

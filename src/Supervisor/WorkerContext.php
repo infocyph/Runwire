@@ -18,6 +18,9 @@ use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
 use LogicException;
 use RuntimeException;
 
+/**
+ * Exposes worker identity, lifecycle signaling, recycling, periodic work, and background coroutine controls.
+ */
 final class WorkerContext
 {
     private const int MAX_DIAGNOSTIC_MESSAGE_BYTES = 6_144;
@@ -46,7 +49,11 @@ final class WorkerContext
     /** @var resource|null */
     private mixed $stopWrite = null;
 
-    /** @param resource $readyStream */
+    /**
+     * Create a worker context bound to its parent lifecycle channel.
+     *
+     * @param resource $readyStream
+     */
     public function __construct(
         public readonly string $group,
         public readonly int $slot,
@@ -80,11 +87,17 @@ final class WorkerContext
         }
     }
 
+    /**
+     * Determine whether the worker still accepts new background work.
+     */
     public function acceptingBackgroundWork(): bool
     {
         return !$this->stopping;
     }
 
+    /**
+     * Attach the worker event loop and initialize background coroutine support when applicable.
+     */
     public function attachLoop(LoopInterface $loop, float $backgroundShutdownGraceSeconds = 10.0): void
     {
         $this->periodicTasks->attach($loop);
@@ -109,21 +122,33 @@ final class WorkerContext
         );
     }
 
+    /**
+     * Return background coroutine diagnostics when a background scope exists.
+     */
     public function backgroundCoroutineDiagnostics(): ?CoroutineDiagnosticsSnapshot
     {
         return $this->backgroundCoroutines?->diagnostics();
     }
 
+    /**
+     * Determine whether background coroutine draining exceeded its grace period.
+     */
     public function backgroundDrainExpired(): bool
     {
         return $this->backgroundCoroutines?->drainExpired() ?? false;
     }
 
+    /**
+     * Return the number of active background coroutine tasks.
+     */
     public function backgroundTaskCount(): int
     {
         return $this->backgroundCoroutines?->activeTaskCount() ?? 0;
     }
 
+    /**
+     * Close worker lifecycle, stop-wake, periodic-task, and coroutine resources.
+     */
     public function close(): void
     {
         $this->backgroundCoroutines?->close();
@@ -140,6 +165,9 @@ final class WorkerContext
         }
     }
 
+    /**
+     * Drain pending bytes from the worker stop wake channel.
+     */
     public function consumeStopWake(): void
     {
         if (!is_resource($this->stopRead)) {
@@ -151,37 +179,59 @@ final class WorkerContext
         } while (is_string($chunk) && $chunk !== '');
     }
 
+    /**
+     * Return the worker's latest observed memory usage.
+     */
     public function currentMemoryBytes(): int
     {
         return $this->recycleState->currentMemoryBytes();
     }
 
+    /**
+     * Return the jitter-adjusted worker lifetime recycle threshold.
+     */
     public function effectiveMaxLifetimeSeconds(): int
     {
         return $this->recycleState->effectiveMaxLifetimeSeconds();
     }
 
+    /**
+     * Return the jitter-adjusted request recycle threshold.
+     */
     public function effectiveMaxRequests(): int
     {
         return $this->recycleState->effectiveMaxRequests();
     }
 
-    /** @param callable(): void $callback */
+    /**
+     * Register periodic worker work on the attached event loop.
+     *
+     * @param callable(): void $callback
+     */
     public function every(string $name, float $intervalSeconds, callable $callback): PeriodicTaskHandle
     {
         return $this->periodicTasks->register($name, $intervalSeconds, $callback);
     }
 
+    /**
+     * Report the worker as unhealthy to the supervisor.
+     */
     public function markUnhealthy(): void
     {
         $this->signal('U');
     }
 
+    /**
+     * Return the highest observed worker memory usage.
+     */
     public function peakMemoryBytes(): int
     {
         return $this->recycleState->peakMemoryBytes();
     }
 
+    /**
+     * Signal that worker initialization is complete and traffic may be served.
+     */
     public function ready(): void
     {
         if ($this->ready) {
@@ -192,6 +242,9 @@ final class WorkerContext
         $this->ready = true;
     }
 
+    /**
+     * Record request completion and request recycling when a threshold is reached.
+     */
     public function recordRequestCompleted(): bool
     {
         if ($this->activeRequests > 0) {
@@ -211,6 +264,9 @@ final class WorkerContext
         return $recycle;
     }
 
+    /**
+     * Record the start of one active request and signal busy state on transition from idle.
+     */
     public function recordRequestStarted(): void
     {
         ++$this->activeRequests;
@@ -219,11 +275,17 @@ final class WorkerContext
         }
     }
 
+    /**
+     * Determine whether the worker is shutting down for recycling.
+     */
     public function recycling(): bool
     {
         return $this->recycling;
     }
 
+    /**
+     * Report a request deadline-exceeded diagnostic to the supervisor.
+     */
     public function reportDeadlineExceeded(string $requestId): void
     {
         if ($requestId === '' || strlen($requestId) > 128) {
@@ -233,6 +295,9 @@ final class WorkerContext
         $this->signalDiagnostic('D:' . $requestId);
     }
 
+    /**
+     * Report a serialized runtime metrics snapshot to the supervisor.
+     */
     public function reportMetrics(RuntimeMetricsSnapshot $snapshot): void
     {
         $json = json_encode($snapshot->toArray(), JSON_UNESCAPED_SLASHES);
@@ -243,11 +308,17 @@ final class WorkerContext
         $this->signalDiagnostic('M:' . $json);
     }
 
+    /**
+     * Report application warmup failure to the supervisor.
+     */
     public function reportWarmupFailure(): void
     {
         $this->signal('W');
     }
 
+    /**
+     * Request an orderly worker recycle for the supplied reason.
+     */
     public function requestRecycle(ShutdownReason $reason = ShutdownReason::MANUAL_RECYCLE): void
     {
         if ($this->recycling) {
@@ -259,6 +330,9 @@ final class WorkerContext
         $this->requestStop($reason);
     }
 
+    /**
+     * Begin worker shutdown and stop accepting scheduled background work.
+     */
     public function requestStop(?ShutdownReason $reason = null): void
     {
         if ($this->stopping) {
@@ -275,11 +349,17 @@ final class WorkerContext
         }
     }
 
+    /**
+     * Return the cumulative number of completed requests handled by the worker.
+     */
     public function requestsTotal(): int
     {
         return $this->recycleState->requestsTotal();
     }
 
+    /**
+     * Return the latest supervisor-provided or locally requested shutdown reason.
+     */
     public function shutdownReason(): ShutdownReason
     {
         $this->readControl();
@@ -287,7 +367,11 @@ final class WorkerContext
         return $this->shutdownReason;
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * Spawn background coroutine work for task or service worker roles.
+     *
+     * @param callable(CoroutineScope): mixed $callback
+     */
     public function spawnBackground(callable $callback): Task
     {
         if (!$this->role->background()) {
@@ -303,12 +387,19 @@ final class WorkerContext
         return $this->backgroundCoroutines->spawn($callback);
     }
 
+    /**
+     * Determine whether worker shutdown has begun.
+     */
     public function stopping(): bool
     {
         return $this->stopping;
     }
 
-    /** @return resource */
+    /**
+     * Return the readable stop-wake stream for event-loop integration.
+     *
+     * @return resource
+     */
     public function stopStream(): mixed
     {
         if (!is_resource($this->stopRead)) {

@@ -9,6 +9,9 @@ use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use InvalidArgumentException;
 
+/**
+ * Defines one supervised worker group and its restart, recycle, admission, and identity policies.
+ */
 final readonly class WorkerGroup
 {
     private const int MAX_WORKERS = 1_024;
@@ -18,7 +21,11 @@ final readonly class WorkerGroup
 
     public bool $reloadable;
 
-    /** @param callable(WorkerContext): void $bootstrap */
+    /**
+     * Create a worker group definition.
+     *
+     * @param callable(WorkerContext): void $bootstrap
+     */
     public function __construct(
         public string $name,
         public int $count,
@@ -60,7 +67,11 @@ final readonly class WorkerGroup
         $this->reloadable = $reloadable ?? $role->defaultReloadable();
     }
 
-    /** @param callable(WorkerContext): void $factory */
+    /**
+     * Create a worker group from a callback factory.
+     *
+     * @param callable(WorkerContext): void $factory
+     */
     public static function callbacks(
         string $name,
         int $count,

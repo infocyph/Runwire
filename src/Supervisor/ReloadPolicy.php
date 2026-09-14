@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Supervisor;
 
 use InvalidArgumentException;
 
+/**
+ * Defines surge, availability, readiness, and drain limits for rolling reloads.
+ */
 final readonly class ReloadPolicy
 {
+    /**
+     * Create a rolling-reload policy.
+     */
     public function __construct(
         public int $maxUnavailable = 0,
         public int $maxSurge = 1,

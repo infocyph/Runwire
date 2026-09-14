@@ -13,9 +13,14 @@ use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * Applies worker lifecycle channel messages to supervisor child state.
+ */
 final readonly class WorkerLifecycleCoordinator
 {
     /**
+     * Create a lifecycle coordinator bound to supervisor state transitions.
+     *
      * @param Closure(SupervisorEventType, ChildRecord, ?int, ?int, ?bool): void $emitWorker
      * @param Closure(ChildRecord, WorkerState, bool, ShutdownReason, ?float): void $stopChild
      */
@@ -27,6 +32,8 @@ final readonly class WorkerLifecycleCoordinator
     ) {}
 
     /**
+     * Handle one decoded worker lifecycle message.
+     *
      * @param array<int, ChildRecord> $children
      * @param array<string, array<int, int>> $currentSlots
      * @param array<string, WorkerGroup> $groups

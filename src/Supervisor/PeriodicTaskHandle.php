@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Supervisor;
 
 use Closure;
 
+/**
+ * Provides idempotent cancellation for a registered periodic worker task.
+ */
 final class PeriodicTaskHandle
 {
     private bool $cancelled = false;
@@ -13,6 +16,9 @@ final class PeriodicTaskHandle
     /** @param Closure(): bool $canceller */
     public function __construct(private readonly Closure $canceller) {}
 
+    /**
+     * Cancel the periodic task once.
+     */
     public function cancel(): bool
     {
         if ($this->cancelled) {
@@ -24,6 +30,9 @@ final class PeriodicTaskHandle
         return ($this->canceller)();
     }
 
+    /**
+     * Determine whether cancellation has already been requested.
+     */
     public function cancelled(): bool
     {
         return $this->cancelled;
