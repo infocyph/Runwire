@@ -8,65 +8,13 @@ Primary launch consumer: **Foundation 3**
 Related integrations after release: **Webrick** and **Omnibus**  
 PHP baseline: **64-bit PHP ^8.4**
 
-This is the only active Runwire 1.0 plan. Completed implementation batches, historical certification tables, and superseded PR-readiness checklists have been removed from the active plan.
+This is the only active Runwire 1.0 plan. Completed implementation work, historical certification tables, and superseded readiness checklists are intentionally excluded.
 
-The implementation is substantially complete. This file tracks only work that still has to be completed before Runwire 1.0 can be approved, merged, tagged, published, and consumed by Foundation 3.
+The Runwire 1.0 implementation, including the portable-native fallback contract, is complete. This file tracks only the release actions that remain before Runwire 1.0 can be approved, merged, tagged, published, and consumed by Foundation 3.
 
-## 1. Portable-native contract cleanup
+## 1. Final exact-head certification
 
-Before final release certification, close the remaining behavior gaps between the documented 1.0 capability contract and the current portable native execution path.
-
-### 1.1 Reject unsupported explicit multi-worker topology
-
-Portable native mode is intentionally single-process.
-
-Required final behavior:
-
-- `workers: 0` resolves to one portable worker;
-- `workers: 1` runs normally;
-- explicitly configured `workers > 1` must fail with a clear `RuntimeUnavailableException` when prefork capability is unavailable;
-- never silently clamp an explicit multi-worker request to one process.
-
-Apply the same rule consistently to HTTP, framed stream, and UDP server definitions.
-
-### 1.2 Reject unsupported worker-recycle configuration in portable mode
-
-`RuntimeCapabilities::supportsWorkerRecycle` is false in portable native mode. Explicit recycle thresholds must therefore not be silently ignored.
-
-Required final behavior:
-
-- default/disabled recycle policy remains valid;
-- an enabled request-count, lifetime, or memory recycle threshold without prefork support fails clearly before serving;
-- the portable graceful shutdown timeout may continue to use the shared graceful timeout value without advertising worker replacement capability.
-
-### 1.3 Fail explicit HTTP/3 configuration when QUIC is unavailable
-
-HTTP/3 is an explicit protocol contract and must not silently disappear.
-
-Required final behavior:
-
-- an HTTP server without `Http3Options` continues with HTTP/1.1/HTTP/2 as available;
-- a server configured with `Http3Options` requires QUIC capability;
-- when QUIC is unavailable, startup fails clearly instead of skipping the HTTP/3 attachment;
-- TLS/HTTP/3 validation remains explicit and bounded;
-- existing QUIC-present portable and prefork behavior must remain unchanged.
-
-### 1.4 Regression tests
-
-Add/retain focused coverage proving:
-
-- portable `workers: 0` and `workers: 1` work;
-- portable `workers > 1` fails;
-- enabled recycle thresholds fail when worker replacement is unavailable;
-- explicit HTTP/3 without QUIC fails;
-- HTTP/1.1/HTTP/2 continue normally when HTTP/3 is not configured;
-- privilege-drop validation remains rejected in portable mode through runtime capability selection;
-- control/watch/supervisor lifecycle configuration remains rejected in portable mode;
-- portable graceful stop still drains HTTP, framed stream, UDP, and QUIC attachments correctly.
-
-## 2. Final exact-head certification
-
-After the portable-native cleanup above and any documentation-only follow-up, certify the **exact final branch head**. Any later source/runtime change invalidates that certification and requires a fresh exact-head run.
+Certify the **exact final branch head**. Any later source/runtime change invalidates the certification and requires a fresh exact-head run.
 
 Required release-candidate gates:
 
@@ -84,7 +32,7 @@ Required release-candidate gates:
 
 Benchmark artifacts are regression evidence. They do not authorize a universal performance ranking without equivalent peer-runtime measurements.
 
-## 3. Human release approval
+## 2. Human release approval
 
 CI success is necessary but not sufficient for release.
 
@@ -97,7 +45,7 @@ Before release:
 
 Do not automatically merge, tag, or publish only because CI is green.
 
-## 4. Merge, tag, and publish
+## 3. Merge, tag, and publish
 
 After explicit approval:
 
@@ -107,7 +55,7 @@ After explicit approval:
 4. verify Composer can resolve the released package from a clean project;
 5. retain benchmark and interoperability evidence for the release head.
 
-## 5. Foundation 3 integration
+## 4. Foundation 3 integration
 
 Only after Runwire 1.0 is released:
 
@@ -121,4 +69,4 @@ Runwire must remain framework-agnostic. Foundation, Webrick, and Omnibus behavio
 
 ## Release boundary
 
-Runwire 1.0 is ready for release only when Sections 1–3 are complete on the same exact head. Sections 4–5 occur only after explicit human authorization.
+Runwire 1.0 is ready for release only when Sections 1–2 are complete on the same exact head. Sections 3–4 occur only after explicit human authorization.

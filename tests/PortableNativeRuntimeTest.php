@@ -48,7 +48,7 @@ it('serves HTTP through the single-process native fallback without prefork capab
             $writer->end('runwire-portable-ok');
             $portable?->stop();
         },
-    )->withWorkers(8);
+    )->withWorkers(1);
     $listener = TcpListener::bind(
         $server->address,
         $server->listener,

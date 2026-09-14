@@ -26,6 +26,7 @@ use Infocyph\Runwire\Runtime\Internal\NativeDatagramWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttp3Worker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttpWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeStreamWorker;
+use Infocyph\Runwire\Runtime\Internal\NativeTopologyValidator;
 use Infocyph\Runwire\Runtime\Internal\PortableNativeRuntime;
 use Infocyph\Runwire\Runtime\RuntimeApplicationFactoryInterface;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
@@ -194,7 +195,11 @@ final class Runtime
                 $selection->driver->value,
             ));
         }
-        $this->assertNativeTopology();
+
+        NativeTopologyValidator::assertSupported($this->servers, $selection, $this->options);
+        if (!$selection->capabilities->ownsWorkerPool) {
+            $this->assertPortableNativeConfiguration();
+        }
 
         $bound = $this->bindServers();
 
@@ -203,7 +208,6 @@ final class Runtime
                 $this->supervisor = $this->buildSupervisor($bound);
                 $this->supervisor->run();
             } else {
-                $this->assertPortableNativeConfiguration();
                 $this->portableRuntime = new PortableNativeRuntime($bound, $selection, $this->options);
                 $this->portableRuntime->run();
             }
@@ -348,25 +352,6 @@ final class Runtime
         );
     }
 
-    private function assertNativeTopology(): void
-    {
-        $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
-        if (!$selection->capabilities->supportsQuic || !$selection->capabilities->ownsWorkerPool) {
-            return;
-        }
-
-        foreach ($this->servers as $server) {
-            if (!$server instanceof Server || $server->http3 === null) {
-                continue;
-            }
-            if ($this->resolvedWorkerCount($server->workers) > 1 && !$server->listener->reusePort) {
-                throw new RuntimeUnavailableException(
-                    'Native HTTP/3 with multiple workers requires explicit ListenerOptions::reusePort support.',
-                );
-            }
-        }
-    }
-
     private function assertPortableNativeConfiguration(): void
     {
         if ($this->controlOptions !== null) {
@@ -493,11 +478,7 @@ final class Runtime
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
                 role: $target instanceof BoundServer ? WorkerRole::HTTP : WorkerRole::CUSTOM,
             ));
-            if (
-                $target instanceof BoundServer
-                && $target->definition->http3 !== null
-                && $this->selection?->capabilities->supportsQuic === true
-            ) {
+            if ($target instanceof BoundServer && $target->definition->http3 !== null) {
                 $this->registerHttp3Group($supervisor, $bound, $target);
             }
         }
