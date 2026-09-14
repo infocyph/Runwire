@@ -8,11 +8,49 @@ Primary launch consumer: **Foundation 3**
 Related integrations after release: **Webrick** and **Omnibus**  
 PHP baseline: **64-bit PHP ^8.4**
 
-This is the only active Runwire 1.0 plan. Completed implementation work, historical certification tables, and superseded readiness checklists are intentionally excluded.
+This is the active Runwire 1.0 closing plan. It incorporates the final security-hardening review and replaces the earlier assumption that implementation was already complete.
 
-The Runwire 1.0 implementation, including the portable-native fallback contract, is complete. This file tracks only the release actions that remain before Runwire 1.0 can be approved, merged, tagged, published, and consumed by Foundation 3.
+## 1. Final hardening status
 
-## 1. Final exact-head certification
+The following release blockers are implemented on the branch and must remain covered by exact-head certification:
+
+- supplementary-group-safe worker privilege dropping:
+  - resolve target passwd identity;
+  - derive the target base GID when only UID is configured;
+  - initialize supplementary groups before changing primary GID/UID;
+  - set GID before UID;
+  - verify final effective UID/GID;
+  - fail closed on any lookup/transition/verification error;
+- ProcessRunner no longer depends on PCNTL signal constants;
+- dedicated genuine no-PCNTL PHP 8.4/8.5 portable-native CI;
+- portable-native HTTP/1.1, framed TCP, UDP, and supported Unix-socket acceptance;
+- portable fail-closed checks for unsupported multi-worker, recycle, control, watcher, lifecycle-listener, privilege-drop, and HTTP/3-without-QUIC configurations;
+- root native-prefork security diagnostic when no worker privilege-drop policy is configured;
+- hostile-input acceptance for native HTTP/1.1 plus existing HTTP/2/HTTP/3 abuse suites;
+- framed-protocol bounds plus UDP hostile-input/callback-failure acceptance;
+- persistent request-state isolation acceptance across normal, cancellation, deadline and handler-failure paths;
+- dedicated runtime hardening guidance in `docs/security.md`.
+
+The following 1.0 policy decisions are frozen:
+
+- `ProcessPolicy::allowedExecutables = null` remains the usability default and means any validated absolute executable path; security-sensitive applications should configure an explicit executable allowlist;
+- portable native remains a single-process runtime and does not emulate prefork recycling;
+- `WorkerRecyclePolicy::maxMemoryBytes` measures PHP allocator memory, not RSS/cgroup/native-extension/kernel memory;
+- a separate single-process `ProcessRetirementPolicy` is deferred until real production need is demonstrated.
+
+## 2. Documentation closure
+
+Before certification, documentation must consistently describe implemented behavior rather than pre-release TODOs:
+
+- `README.md`;
+- `docs/getting-started.md`;
+- `docs/architecture.md`;
+- `docs/deployment.md`;
+- `docs/security.md`.
+
+Security-sensitive operational details belong in `docs/security.md`; vulnerability reporting remains in `SECURITY.md`.
+
+## 3. Final exact-head certification
 
 Certify the **exact final branch head**. Any later source/runtime change invalidates the certification and requires a fresh exact-head run.
 
@@ -22,17 +60,21 @@ Required release-candidate gates:
 - prefer-stable and prefer-lowest dependency lanes green;
 - PHPStan and Psalm green;
 - clean `--no-dev` installation green;
+- genuine no-PCNTL portable-native lane green on PHP 8.4 and PHP 8.5;
+- native prefork acceptance green;
 - benchmark workflow green on supported PHP versions;
 - Swoole/OpenSwoole focused acceptance green;
-- native HTTP/3 + QUIC protocol tests green where QUIC is present;
+- native HTTP/3 + QUIC protocol tests green on PHP 8.4 and PHP 8.5;
 - aioquic interoperability green;
 - ngtcp2/nghttp3 interoperability green where the lane applies;
 - native HTTP/3 soak/drain acceptance green;
+- hostile-input and persistent-state isolation acceptance green;
+- dependency/security audit green;
 - no unresolved release-blocking PR review findings.
 
 Benchmark artifacts are regression evidence. They do not authorize a universal performance ranking without equivalent peer-runtime measurements.
 
-## 2. Human release approval
+## 4. Human release approval
 
 CI success is necessary but not sufficient for release.
 
@@ -45,7 +87,7 @@ Before release:
 
 Do not automatically merge, tag, or publish only because CI is green.
 
-## 3. Merge, tag, and publish
+## 5. Merge, tag, and publish
 
 After explicit approval:
 
@@ -55,7 +97,7 @@ After explicit approval:
 4. verify Composer can resolve the released package from a clean project;
 5. retain benchmark and interoperability evidence for the release head.
 
-## 4. Foundation 3 integration
+## 6. Foundation 3 integration
 
 Only after Runwire 1.0 is released:
 
@@ -69,4 +111,4 @@ Runwire must remain framework-agnostic. Foundation, Webrick, and Omnibus behavio
 
 ## Release boundary
 
-Runwire 1.0 is ready for release only when Sections 1–2 are complete on the same exact head. Sections 3–4 occur only after explicit human authorization.
+Runwire 1.0 is ready for human release approval only when Sections 1–3 are complete on the same exact head. Sections 4–6 remain explicitly human-controlled release/integration actions.
