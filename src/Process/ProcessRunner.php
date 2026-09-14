@@ -15,6 +15,7 @@ use Infocyph\Runwire\Process\Internal\InputSource;
 use Infocyph\Runwire\Process\Internal\OutputSink;
 use Infocyph\Runwire\Process\Internal\PreparedCommand;
 use Infocyph\Runwire\Process\Internal\ProcessHandle;
+use Infocyph\Runwire\Process\Internal\ProcessTerminator;
 use Throwable;
 
 /**
@@ -99,7 +100,9 @@ final readonly class ProcessRunner
         if ($terminationDeadline !== null || $now < $deadline) {
             return [$reason, $terminationDeadline];
         }
-        proc_terminate($process, SIGTERM);
+        if (!ProcessTerminator::graceful($process)) {
+            throw new ProcessStartException('Unable to terminate timed-out child process.');
+        }
 
         return [
             TerminationReason::TIMEOUT,
@@ -116,7 +119,9 @@ final readonly class ProcessRunner
         if ($killSent || $terminationDeadline === null || $now < $terminationDeadline) {
             return $killSent;
         }
-        proc_terminate($process, SIGKILL);
+        if (!ProcessTerminator::force($process)) {
+            throw new ProcessStartException('Unable to force-terminate child process.');
+        }
 
         return true;
     }
@@ -140,7 +145,9 @@ final readonly class ProcessRunner
             return [$reason, $terminationDeadline];
         }
 
-        proc_terminate($process, SIGTERM);
+        if (!ProcessTerminator::graceful($process)) {
+            throw new ProcessStartException('Unable to terminate child process after output-limit overflow.');
+        }
 
         return [
             TerminationReason::OUTPUT_LIMIT,
