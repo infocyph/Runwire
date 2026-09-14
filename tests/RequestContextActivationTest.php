@@ -69,6 +69,7 @@ it('rejects re-entrant lifecycle use of the same request object', function (): v
                 throw new LogicException('Application lifecycle is unavailable.');
             }
 
+            $writer->isStarted();
             $application->handle($request, requestContextActivationWriter());
         },
         runtimeContext: $runtime,
