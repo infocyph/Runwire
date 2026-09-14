@@ -119,7 +119,11 @@ it('documents source types and public methods', function (): void {
 
             if (in_array($token[0], [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM], true)) {
                 $previous = $previousMeaningfulToken($tokens, $index);
-                if ($token[0] === T_CLASS && is_array($previous) && $previous[0] === T_NEW) {
+                if (
+                    $token[0] === T_CLASS
+                    && is_array($previous)
+                    && in_array($previous[0], [T_NEW, T_DOUBLE_COLON], true)
+                ) {
                     continue;
                 }
 
