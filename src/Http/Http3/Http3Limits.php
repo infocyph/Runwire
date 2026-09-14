@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3;
 
+use InvalidArgumentException;
+
 /**
  * Defines bounded HTTP/3, QPACK, stream, buffering, and pump resource limits.
  */
@@ -42,19 +44,15 @@ final readonly class Http3Limits
         public int $maxInboundBytesPerPump = 262_144,
         public int $streamReadChunkBytes = 16_384,
     ) {
-        foreach ([
+        self::assertNonNegative([
             'maxFramePayloadBytes' => $maxFramePayloadBytes,
             'qpackMaxTableCapacity' => $qpackMaxTableCapacity,
             'qpackMaxBlockedStreams' => $qpackMaxBlockedStreams,
             'maxBlockedFieldSectionBytes' => $maxBlockedFieldSectionBytes,
             'maxBlockedRequestStreamBytes' => $maxBlockedRequestStreamBytes,
             'bodyLowWatermarkBytes' => $bodyLowWatermarkBytes,
-        ] as $name => $value) {
-            if ($value < 0) {
-                throw new \InvalidArgumentException(sprintf('%s cannot be negative.', $name));
-            }
-        }
-        foreach ([
+        ]);
+        self::assertPositive([
             'maxFieldSectionBytes' => $maxFieldSectionBytes,
             'maxHeaderFields' => $maxHeaderFields,
             'maxBodyBytes' => $maxBodyBytes,
@@ -74,45 +72,96 @@ final readonly class Http3Limits
             'maxReadsPerPump' => $maxReadsPerPump,
             'maxInboundBytesPerPump' => $maxInboundBytesPerPump,
             'streamReadChunkBytes' => $streamReadChunkBytes,
-        ] as $name => $value) {
-            if ($value <= 0) {
-                throw new \InvalidArgumentException(sprintf('%s must be positive.', $name));
-            }
-        }
-        foreach ([
+        ]);
+        self::assertVarIntCompatible([
             'maxFieldSectionBytes' => $maxFieldSectionBytes,
             'qpackMaxTableCapacity' => $qpackMaxTableCapacity,
             'qpackMaxBlockedStreams' => $qpackMaxBlockedStreams,
-        ] as $name => $value) {
-            if ($value > VarIntCodec::MAX_VALUE) {
-                throw new \InvalidArgumentException(sprintf('%s must fit a QUIC variable-length integer.', $name));
+        ]);
+        self::assertBodyWatermarks(
+            $bodyLowWatermarkBytes,
+            $bodyHighWatermarkBytes,
+            $maxPendingBodyBytesPerStream,
+        );
+        self::assertResponseWatermarks(
+            $responseLowWatermarkBytes,
+            $responseHighWatermarkBytes,
+            $maxPendingResponseBytesPerStream,
+        );
+        self::assertResponseLimits(
+            $maxPendingResponseBytesPerStream,
+            $maxPendingResponseBytesPerConnection,
+            $maxQpackEncoderQueueBytes,
+            $maxResponseFramePayloadBytes,
+        );
+    }
+
+    /** @param array<string, int> $values */
+    private static function assertNonNegative(array $values): void
+    {
+        foreach ($values as $name => $value) {
+            if ($value < 0) {
+                throw new InvalidArgumentException(sprintf('%s cannot be negative.', $name));
             }
         }
-        if ($bodyLowWatermarkBytes >= $bodyHighWatermarkBytes
-            || $bodyHighWatermarkBytes > $maxPendingBodyBytesPerStream) {
-            throw new \InvalidArgumentException(
+    }
+
+    /** @param array<string, int> $values */
+    private static function assertPositive(array $values): void
+    {
+        foreach ($values as $name => $value) {
+            if ($value <= 0) {
+                throw new InvalidArgumentException(sprintf('%s must be positive.', $name));
+            }
+        }
+    }
+
+    /** @param array<string, int> $values */
+    private static function assertVarIntCompatible(array $values): void
+    {
+        foreach ($values as $name => $value) {
+            if ($value > VarIntCodec::MAX_VALUE) {
+                throw new InvalidArgumentException(sprintf('%s must fit a QUIC variable-length integer.', $name));
+            }
+        }
+    }
+
+    private static function assertBodyWatermarks(int $low, int $high, int $maximum): void
+    {
+        if ($low >= $high || $high > $maximum) {
+            throw new InvalidArgumentException(
                 'HTTP/3 body watermarks must satisfy 0 <= low < high <= max pending body bytes.',
             );
         }
-        if ($responseLowWatermarkBytes < 0
-            || $responseLowWatermarkBytes >= $responseHighWatermarkBytes
-            || $responseHighWatermarkBytes > $maxPendingResponseBytesPerStream) {
-            throw new \InvalidArgumentException(
+    }
+
+    private static function assertResponseWatermarks(int $low, int $high, int $maximum): void
+    {
+        if ($low < 0 || $low >= $high || $high > $maximum) {
+            throw new InvalidArgumentException(
                 'HTTP/3 response watermarks must satisfy 0 <= low < high <= max pending response bytes.',
             );
         }
-        if ($maxPendingResponseBytesPerStream > $maxPendingResponseBytesPerConnection) {
-            throw new \InvalidArgumentException(
+    }
+
+    private static function assertResponseLimits(
+        int $perStream,
+        int $perConnection,
+        int $qpackQueue,
+        int $framePayload,
+    ): void {
+        if ($perStream > $perConnection) {
+            throw new InvalidArgumentException(
                 'Per-stream HTTP/3 pending response limit cannot exceed the connection aggregate limit.',
             );
         }
-        if ($maxQpackEncoderQueueBytes > $maxPendingResponseBytesPerConnection) {
-            throw new \InvalidArgumentException(
+        if ($qpackQueue > $perConnection) {
+            throw new InvalidArgumentException(
                 'HTTP/3 QPACK encoder queue limit cannot exceed the connection aggregate response limit.',
             );
         }
-        if ($maxResponseFramePayloadBytes > $maxPendingResponseBytesPerStream) {
-            throw new \InvalidArgumentException(
+        if ($framePayload > $perStream) {
+            throw new InvalidArgumentException(
                 'HTTP/3 response frame payload limit cannot exceed the per-stream pending response limit.',
             );
         }
