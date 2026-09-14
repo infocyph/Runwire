@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
@@ -62,14 +63,12 @@ final class HostAdapterBench
         );
     }
 
-    #[Iterations(20)]
-    #[Revs(1)]
-    #[Warmup(0)]
     public function benchApplicationDispatchAndCleanup(): int
     {
-        $this->application->handle($this->request, $this->writer);
+        $request = $this->newApplicationRequest();
+        $this->application->handle($request, $this->writer);
 
-        return strlen($this->request->method);
+        return strlen($request->method);
     }
 
     public function benchHostRequestNormalization(): int
@@ -85,6 +84,20 @@ final class HostAdapterBench
         $result = $writer->end('runwire');
 
         return $result->bufferedBytes;
+    }
+
+    private function newApplicationRequest(): HttpRequest
+    {
+        return new HttpRequest(
+            method: $this->request->method,
+            target: $this->request->target,
+            version: $this->request->version,
+            headers: $this->request->headers,
+            body: new BufferedRequestBody($this->body),
+            peerAddress: $this->request->peerAddress,
+            localAddress: $this->request->localAddress,
+            encrypted: $this->request->encrypted,
+        );
     }
 
     private function newWriter(): ResponseWriterInterface
