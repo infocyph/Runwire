@@ -13,6 +13,9 @@ final class WorkerStopState
 {
     private bool $stopping = false;
 
+    /**
+     * Creates a stop state with optional ownership of event-loop termination.
+     */
     public function __construct(
         private readonly bool $stopLoopWhenDrained = true,
     ) {}

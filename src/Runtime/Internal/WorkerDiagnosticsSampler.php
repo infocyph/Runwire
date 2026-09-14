@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Runtime\Internal;
 
 use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Loop\LoopDiagnosticsProviderInterface;
+use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Supervisor\WorkerContext;
@@ -15,6 +16,8 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
  */
 final class WorkerDiagnosticsSampler
 {
+    private readonly ?LoopDiagnosticsProviderInterface $loop;
+
     private readonly int $sampleIntervalNanoseconds;
 
     private int $lastSampleNanoseconds = 0;
@@ -26,8 +29,9 @@ final class WorkerDiagnosticsSampler
         private readonly WorkerContext $context,
         private readonly RuntimeMetrics $metrics,
         DiagnosticsPolicy $policy,
-        private readonly ?LoopDiagnosticsProviderInterface $loop = null,
+        ?LoopInterface $loop = null,
     ) {
+        $this->loop = $loop instanceof LoopDiagnosticsProviderInterface ? $loop : null;
         $this->sampleIntervalNanoseconds = MonotonicTime::secondsToNanoseconds(
             $policy->workerReportIntervalSeconds,
         );

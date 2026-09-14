@@ -21,7 +21,6 @@ use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Server;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use LogicException;
-use Throwable;
 
 /**
  * Runs native HTTP/3 QUIC handling inside native runtime workers.
@@ -70,140 +69,17 @@ final class NativeHttp3Worker
             $context->admissionPolicy->connectionLimit($server->workerConnectionLimit),
             handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
         );
-        $draining = false;
-        $drained = false;
-        $shutdown = false;
-        $drainDeadline = null;
-        $pollTimer = null;
-        $stopWatcher = null;
-
-        $finishDrain = static function (): void {};
-
-        $beginDrain = static function () use (
+        $attachment = new NativeHttp3Attachment(
+            $loop,
+            $taskLoop,
             $context,
             $application,
             $worker,
             $sampler,
-            &$draining,
-            &$drainDeadline,
-            $finishDrain,
-        ): void {
-            $context->consumeStopWake();
-            if ($draining) {
-                return;
-            }
-
-            $draining = true;
-            $application->drain($context->shutdownReason());
-            $worker->stopAccepting();
-            $drainDeadline = MonotonicTime::deadlineAfterSeconds(
-                MonotonicTime::nowNanoseconds(),
-                $context->recyclePolicy->gracefulTimeoutSeconds,
-            );
-            $sampler->sample(true);
-            $finishDrain();
-        };
-
-        try {
-            $application->start();
-            self::observeTransport($runtimeContext, $worker);
-            $sampler->sample(true);
-            $pollInterval = max(0.001, min(0.01, $options->pollTimeoutSeconds));
-            $pollTimer = $loop->repeat(
-                $pollInterval,
-                static function () use (
-                    $worker,
-                    $taskLoop,
-                    $runtimeContext,
-                    $sampler,
-                    $finishDrain,
-                    &$drained,
-                ): void {
-                    if ($drained) {
-                        return;
-                    }
-
-                    $worker->tick(0.0);
-                    $taskLoop->tick();
-                    self::observeTransport($runtimeContext, $worker);
-                    $sampler->sample();
-                    $finishDrain();
-                },
-            );
-            $stopWatcher = $loop->onReadable(
-                $context->stopStream(),
-                static function () use ($beginDrain): void {
-                    $beginDrain();
-                },
-            );
-            $context->ready();
-        } catch (Throwable $error) {
-            $worker->stopAccepting();
-            $worker->forceClose();
-            $application->shutdown($context->shutdownReason());
-
-            throw $error;
-        }
-
-        return new NativeWorkerHandle(
-            stop: static function () use ($context): void {
-                $context->requestStop();
-            },
-            forceStop: static function () use (
-                $context,
-                $beginDrain,
-                $worker,
-                $sampler,
-                &$drained,
-                &$pollTimer,
-                $loop,
-            ): void {
-                $context->requestStop();
-                $beginDrain();
-                $worker->forceClose();
-                $drained = true;
-                if ($pollTimer !== null) {
-                    $loop->cancel($pollTimer);
-                    $pollTimer = null;
-                }
-                $sampler->sample(true);
-            },
-            close: static function () use (
-                $loop,
-                &$stopWatcher,
-                &$pollTimer,
-                $worker,
-                $application,
-                $context,
-                $runtimeContext,
-                $sampler,
-                &$shutdown,
-                &$drained,
-            ): void {
-                if ($stopWatcher !== null) {
-                    $loop->cancel($stopWatcher);
-                    $stopWatcher = null;
-                }
-                if ($pollTimer !== null) {
-                    $loop->cancel($pollTimer);
-                    $pollTimer = null;
-                }
-                $worker->stopAccepting();
-                if (!$worker->drainComplete()) {
-                    $worker->forceClose();
-                }
-                $drained = true;
-                if (!$shutdown) {
-                    $shutdown = true;
-                    $application->shutdown($context->shutdownReason());
-                }
-                self::observeTransport($runtimeContext, $worker);
-                $sampler->sample(true);
-            },
-            drained: static function () use (&$drained): bool {
-                return $drained;
-            },
+            static fn() => self::observeTransport($runtimeContext, $worker),
         );
+
+        return $attachment->start(max(0.001, min(0.01, $options->pollTimeoutSeconds)));
     }
 
     /**

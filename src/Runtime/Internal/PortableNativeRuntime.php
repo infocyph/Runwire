@@ -50,13 +50,14 @@ final class PortableNativeRuntime
             throw new LogicException('Portable native runtime can only be run once.');
         }
 
-        $this->loop = new SelectLoop($this->options->diagnostics->callbackOverrunSeconds);
+        $loop = new SelectLoop($this->options->diagnostics->callbackOverrunSeconds);
+        $this->loop = $loop;
 
         try {
             foreach ($this->bound as $name => $target) {
                 $this->attachTarget($name, $target);
             }
-            $this->loop->run();
+            $loop->run();
         } finally {
             $this->close();
         }
@@ -73,45 +74,12 @@ final class PortableNativeRuntime
         }
 
         if ($force) {
-            $this->stopping = true;
-            foreach ($this->handles as $handle) {
-                $handle->stop(true);
-            }
-            $loop->stop();
-
-            return;
-        }
-        if ($this->stopping) {
-            return;
-        }
-
-        $this->stopping = true;
-        foreach ($this->handles as $handle) {
-            $handle->stop();
-        }
-        if ($this->allDrained()) {
-            $loop->stop();
+            $this->forceStop($loop);
 
             return;
         }
 
-        $this->drainPollTimer = $loop->repeat(0.01, function (): void {
-            if (!$this->allDrained()) {
-                return;
-            }
-
-            $this->cancelDrainTimers();
-            $this->loop?->stop();
-        });
-        $this->drainDeadlineTimer = $loop->delay($this->drainTimeoutSeconds(), function (): void {
-            foreach ($this->handles as $handle) {
-                if (!$handle->drained()) {
-                    $handle->stop(true);
-                }
-            }
-            $this->cancelDrainTimers();
-            $this->loop?->stop();
-        });
+        $this->stopGracefully($loop);
     }
 
     private static function groupName(
@@ -127,7 +95,7 @@ final class PortableNativeRuntime
 
     private function allDrained(): bool
     {
-        return array_all($this->handles, fn($handle) => $handle->drained());
+        return array_all($this->handles, fn(NativeWorkerHandle $handle): bool => $handle->drained());
     }
 
     private function attachHttp3(string $name, BoundServer $target): void
@@ -218,6 +186,15 @@ final class PortableNativeRuntime
         return $timeout;
     }
 
+    private function forceStop(SelectLoop $loop): void
+    {
+        $this->stopping = true;
+        foreach ($this->handles as $handle) {
+            $handle->stop(true);
+        }
+        $loop->stop();
+    }
+
     private function newContext(string $group, WorkerRole $role): WorkerContext
     {
         $pid = getmypid();
@@ -254,5 +231,45 @@ final class PortableNativeRuntime
             pid: $context->pid,
             concurrent: false,
         );
+    }
+
+    private function scheduleDrainCompletion(SelectLoop $loop): void
+    {
+        $this->drainPollTimer = $loop->repeat(0.01, function () use ($loop): void {
+            if (!$this->allDrained()) {
+                return;
+            }
+
+            $this->cancelDrainTimers();
+            $loop->stop();
+        });
+        $this->drainDeadlineTimer = $loop->delay($this->drainTimeoutSeconds(), function () use ($loop): void {
+            foreach ($this->handles as $handle) {
+                if (!$handle->drained()) {
+                    $handle->stop(true);
+                }
+            }
+            $this->cancelDrainTimers();
+            $loop->stop();
+        });
+    }
+
+    private function stopGracefully(SelectLoop $loop): void
+    {
+        if ($this->stopping) {
+            return;
+        }
+
+        $this->stopping = true;
+        foreach ($this->handles as $handle) {
+            $handle->stop();
+        }
+        if ($this->allDrained()) {
+            $loop->stop();
+
+            return;
+        }
+
+        $this->scheduleDrainCompletion($loop);
     }
 }

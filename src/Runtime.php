@@ -186,11 +186,12 @@ final class Runtime
         }
 
         $this->started = true;
-        $this->selection = $this->selector->select($this->options, $this->environmentProbe->probe());
-        if ($this->selection->driver !== RuntimeDriver::NATIVE) {
+        $selection = $this->selector->select($this->options, $this->environmentProbe->probe());
+        $this->selection = $selection;
+        if ($selection->driver !== RuntimeDriver::NATIVE) {
             throw new RuntimeUnavailableException(sprintf(
                 'Runtime driver "%s" is host-owned; use Runtime::serve() without Runwire listeners.',
-                $this->selection->driver->value,
+                $selection->driver->value,
             ));
         }
         $this->assertNativeTopology();
@@ -198,12 +199,12 @@ final class Runtime
         $bound = $this->bindServers();
 
         try {
-            if ($this->selection->capabilities->ownsWorkerPool) {
+            if ($selection->capabilities->ownsWorkerPool) {
                 $this->supervisor = $this->buildSupervisor($bound);
                 $this->supervisor->run();
             } else {
                 $this->assertPortableNativeConfiguration();
-                $this->portableRuntime = new PortableNativeRuntime($bound, $this->selection, $this->options);
+                $this->portableRuntime = new PortableNativeRuntime($bound, $selection, $this->options);
                 $this->portableRuntime->run();
             }
         } finally {
@@ -566,8 +567,9 @@ final class Runtime
         }
 
         $this->started = true;
-        $this->selection = $this->selector->select($this->options, $this->environmentProbe->probe());
-        if ($this->selection->driver === RuntimeDriver::NATIVE) {
+        $selection = $this->selector->select($this->options, $this->environmentProbe->probe());
+        $this->selection = $selection;
+        if ($selection->driver === RuntimeDriver::NATIVE) {
             throw new RuntimeUnavailableException('The native runtime owns its listeners; configure listen() and call run().');
         }
 
