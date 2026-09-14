@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Supervisor;
 
 use Infocyph\Runwire\Exception\SupervisorException;
+use Infocyph\Runwire\Supervisor\Internal\PosixIdentitySystem;
+use Infocyph\Runwire\Supervisor\Internal\PrivilegeDropper;
 use InvalidArgumentException;
 
 /**
@@ -28,7 +30,7 @@ final readonly class PrivilegeDropPolicy
     }
 
     /**
-     * Apply the configured GID and UID to the current worker process.
+     * Apply the configured identity to the current worker process.
      */
     public function apply(): void
     {
@@ -37,12 +39,7 @@ final readonly class PrivilegeDropPolicy
         }
 
         $this->assertSupported();
-        if ($this->gid !== null && posix_getegid() !== $this->gid && !posix_setgid($this->gid)) {
-            throw new SupervisorException(sprintf('Unable to set worker GID to %d.', $this->gid));
-        }
-        if ($this->uid !== null && posix_geteuid() !== $this->uid && !posix_setuid($this->uid)) {
-            throw new SupervisorException(sprintf('Unable to set worker UID to %d.', $this->uid));
-        }
+        (new PrivilegeDropper(new PosixIdentitySystem()))->apply($this->uid, $this->gid);
     }
 
     /**
@@ -54,15 +51,39 @@ final readonly class PrivilegeDropPolicy
             return;
         }
 
-        foreach (['posix_geteuid', 'posix_getegid', 'posix_setuid', 'posix_setgid'] as $function) {
+        $required = ['posix_geteuid', 'posix_getegid', 'posix_setuid', 'posix_setgid'];
+        if ($this->uid !== null) {
+            $required[] = 'posix_getpwuid';
+            $required[] = 'posix_initgroups';
+        }
+
+        foreach ($required as $function) {
             if (!function_exists($function)) {
-                throw new SupervisorException('Worker identity policy requires POSIX UID/GID functions.');
+                throw new SupervisorException(sprintf(
+                    'Worker identity policy requires POSIX function "%s".',
+                    $function,
+                ));
             }
         }
 
         $effectiveUid = posix_geteuid();
+        $effectiveGid = posix_getegid();
+        $targetGid = $this->gid;
+
+        if ($this->uid !== null) {
+            $passwd = posix_getpwuid($this->uid);
+            if ($passwd === false || !isset($passwd['name'], $passwd['gid']) || !is_string($passwd['name'])) {
+                throw new SupervisorException(sprintf('Unable to resolve worker UID %d.', $this->uid));
+            }
+            $passwdGid = filter_var($passwd['gid'], FILTER_VALIDATE_INT);
+            if ($passwd['name'] === '' || $passwdGid === false || $passwdGid < 0) {
+                throw new SupervisorException(sprintf('Worker UID %d resolved to an invalid passwd entry.', $this->uid));
+            }
+            $targetGid ??= $passwdGid;
+        }
+
         $uidChange = $this->uid !== null && $this->uid !== $effectiveUid;
-        $gidChange = $this->gid !== null && $this->gid !== posix_getegid();
+        $gidChange = $targetGid !== null && $targetGid !== $effectiveGid;
         if ($effectiveUid !== 0 && ($uidChange || $gidChange)) {
             throw new SupervisorException('Changing worker identity requires the native master to have sufficient permissions.');
         }
