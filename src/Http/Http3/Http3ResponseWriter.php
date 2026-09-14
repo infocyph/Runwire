@@ -13,6 +13,9 @@ use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 use LogicException;
 
+/**
+ * Writes bounded HTTP/3 responses through stream-aware transport callbacks.
+ */
 final class Http3ResponseWriter implements ResponseWriterInterface
 {
     /** @var Closure(): void */
@@ -56,6 +59,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         $this->onEnd = Closure::fromCallable($onEnd);
     }
 
+    /**
+     * End the response, optionally writing one final body chunk.
+     */
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -95,16 +101,25 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return $this->finish($result);
     }
 
+    /**
+     * Determine whether the response has ended.
+     */
     public function isEnded(): bool
     {
         return $this->ended;
     }
 
+    /**
+     * Determine whether response headers have been started.
+     */
     public function isStarted(): bool
     {
         return $this->started;
     }
 
+    /**
+     * Register a callback invoked when response write pressure drains.
+     */
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);
@@ -117,6 +132,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return $this;
     }
 
+    /**
+     * Start the response with a final status and headers.
+     */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -153,6 +171,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return $result;
     }
 
+    /**
+     * Write a response body chunk.
+     */
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {

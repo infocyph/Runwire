@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Enum;
 
+/**
+ * Defines HTTP/3 and QPACK application error codes.
+ */
 enum ErrorCode: int
 {
     case CLOSED_CRITICAL_STREAM = 0x0104;

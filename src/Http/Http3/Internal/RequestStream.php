@@ -19,6 +19,9 @@ use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\Internal\ValidatedRequestHead;
 use Infocyph\Runwire\Http\RequestBodyInterface;
 
+/**
+ * Parses one HTTP/3 request stream and coordinates QPACK, body, and trailer state.
+ */
 final class RequestStream
 {
     private readonly StreamingRequestBody $body;
@@ -76,16 +79,25 @@ final class RequestStream
         );
     }
 
+    /**
+     * Determine whether request processing is blocked on QPACK state.
+     */
     public function blocked(): bool
     {
         return $this->blocked;
     }
 
+    /**
+     * Return the streaming request body.
+     */
     public function body(): RequestBodyInterface
     {
         return $this->body;
     }
 
+    /**
+     * Cancel request processing and release blocked QPACK state.
+     */
     public function cancel(): void
     {
         if ($this->cancelled || $this->finished) {
@@ -102,6 +114,9 @@ final class RequestStream
         $this->body->cancel();
     }
 
+    /**
+     * Mark transport FIN received and complete the request when unblocked.
+     */
     public function finish(): void
     {
         $this->assertOpen();
@@ -120,21 +135,33 @@ final class RequestStream
         $this->completeFinish();
     }
 
+    /**
+     * Determine whether request processing is complete.
+     */
     public function finished(): bool
     {
         return $this->finished;
     }
 
+    /**
+     * Return the validated request head once available.
+     */
     public function head(): ?ValidatedRequestHead
     {
         return $this->head;
     }
 
+    /**
+     * Determine whether request-body buffering is applying backpressure.
+     */
     public function pressured(): bool
     {
         return $this->body->pressured();
     }
 
+    /**
+     * Feed request-stream bytes through HTTP/3 frame processing.
+     */
     public function push(string $bytes): void
     {
         $this->assertOpen();
@@ -153,11 +180,17 @@ final class RequestStream
         }
     }
 
+    /**
+     * Return the number of accepted request-body bytes.
+     */
     public function receivedBodyBytes(): int
     {
         return $this->receivedBodyBytes;
     }
 
+    /**
+     * Resume a request whose QPACK field section has become decodable.
+     */
     public function resume(DecodedFieldSection $section): void
     {
         $this->assertOpen();
@@ -189,11 +222,17 @@ final class RequestStream
         }
     }
 
+    /**
+     * Return the QUIC request stream identifier.
+     */
     public function streamId(): int
     {
         return $this->streamId;
     }
 
+    /**
+     * Return validated request trailers when received.
+     */
     public function trailers(): ?Headers
     {
         return $this->trailers;

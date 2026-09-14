@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Enum;
 
+/**
+ * Defines standard HTTP/3 frame type identifiers.
+ */
 enum FrameType: int
 {
     case CANCEL_PUSH = 0x03;

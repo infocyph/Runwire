@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Enum;
 
+/**
+ * Defines supported HTTP/3 SETTINGS identifiers.
+ */
 enum SettingIdentifier: int
 {
     case MAX_FIELD_SECTION_SIZE = 0x06;

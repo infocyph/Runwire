@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3;
 
+/**
+ * Defines bounded HTTP/3, QPACK, stream, buffering, and pump resource limits.
+ */
 final readonly class Http3Limits
 {
+    /**
+     * Create and validate HTTP/3 resource limits.
+     */
     public function __construct(
         public int $maxFramePayloadBytes = 1_048_576,
         public int $maxFieldSectionBytes = 65_536,

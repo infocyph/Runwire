@@ -6,10 +6,16 @@ namespace Infocyph\Runwire\Http\Http3;
 
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 
+/**
+ * Incrementally parses bounded HTTP/3 frames from arbitrary byte chunks.
+ */
 final class FrameParser
 {
     private string $buffer = '';
 
+    /**
+     * Create a parser with the maximum accepted frame payload size.
+     */
     public function __construct(private readonly int $maxFramePayloadBytes = 1_048_576)
     {
         if ($maxFramePayloadBytes < 0) {
@@ -17,6 +23,9 @@ final class FrameParser
         }
     }
 
+    /**
+     * Return the number of currently buffered unparsed bytes.
+     */
     public function bufferedBytes(): int
     {
         return strlen($this->buffer);

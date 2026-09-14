@@ -8,6 +8,9 @@ use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
+/**
+ * Parses and tracks the type prefix of a peer HTTP/3 unidirectional stream.
+ */
 final class PeerUnidirectionalStream
 {
     private bool $claimed = false;
@@ -16,6 +19,9 @@ final class PeerUnidirectionalStream
 
     private ?int $type = null;
 
+    /**
+     * Create state for a client-initiated unidirectional stream.
+     */
     public function __construct(private readonly int $streamId)
     {
         if ($streamId < 0 || ($streamId & 0x03) !== 0x02) {
@@ -23,6 +29,9 @@ final class PeerUnidirectionalStream
         }
     }
 
+    /**
+     * Mark the decoded stream type as claimed by connection state.
+     */
     public function claim(): void
     {
         if ($this->type === null) {
@@ -32,11 +41,17 @@ final class PeerUnidirectionalStream
         $this->claimed = true;
     }
 
+    /**
+     * Determine whether the stream type has been claimed.
+     */
     public function claimed(): bool
     {
         return $this->claimed;
     }
 
+    /**
+     * Feed bytes and return payload bytes following the stream-type prefix.
+     */
     public function push(string $bytes): string
     {
         if ($this->type !== null) {
@@ -60,11 +75,17 @@ final class PeerUnidirectionalStream
         return $payload;
     }
 
+    /**
+     * Return the QUIC stream identifier.
+     */
     public function streamId(): int
     {
         return $this->streamId;
     }
 
+    /**
+     * Return the decoded HTTP/3 stream type identifier when available.
+     */
     public function type(): ?int
     {
         return $this->type;

@@ -14,6 +14,9 @@ use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Http\Http3\Settings;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
+/**
+ * Owns HTTP/3 connection-level stream, SETTINGS, and QPACK state.
+ */
 final class ConnectionState
 {
     private readonly Decoder $decoder;
@@ -39,6 +42,9 @@ final class ConnectionState
 
     private int $requestStreamsCreated = 0;
 
+    /**
+     * Create connection state with bounded HTTP/3 and QPACK resources.
+     */
     public function __construct(private readonly Http3Limits $limits = new Http3Limits())
     {
         $this->localSettings = Settings::serverDefaults($limits);
@@ -52,6 +58,9 @@ final class ConnectionState
         );
     }
 
+    /**
+     * Cancel and discard a tracked request stream.
+     */
     public function cancelRequestStream(int $streamId): void
     {
         $stream = $this->requestStreams[$streamId] ?? null;
@@ -63,6 +72,9 @@ final class ConnectionState
         unset($this->requestStreams[$streamId]);
     }
 
+    /**
+     * Finish a peer unidirectional stream while enforcing critical-stream lifetime rules.
+     */
     public function finishPeerUnidirectional(int $streamId): void
     {
         $stream = $this->peerUnidirectionalStreams[$streamId] ?? null;
@@ -88,6 +100,9 @@ final class ConnectionState
         unset($this->peerUnidirectionalStreams[$streamId]);
     }
 
+    /**
+     * Finish a tracked request stream.
+     */
     public function finishRequestStream(int $streamId): void
     {
         $stream = $this->requestStreams[$streamId] ?? null;
@@ -98,31 +113,49 @@ final class ConnectionState
         $stream->finish();
     }
 
+    /**
+     * Build the local control-stream preamble and SETTINGS frame.
+     */
     public function localControlPreamble(): string
     {
         return ControlStream::preamble($this->localSettings);
     }
 
+    /**
+     * Build the local QPACK decoder-stream type preamble.
+     */
     public function localQpackDecoderPreamble(): string
     {
         return VarIntCodec::encode(StreamType::QPACK_DECODER->value);
     }
 
+    /**
+     * Build the local QPACK encoder-stream type preamble.
+     */
     public function localQpackEncoderPreamble(): string
     {
         return VarIntCodec::encode(StreamType::QPACK_ENCODER->value);
     }
 
+    /**
+     * Return the locally advertised HTTP/3 settings.
+     */
     public function localSettings(): Settings
     {
         return $this->localSettings;
     }
 
+    /**
+     * Return peer settings once received on the control stream.
+     */
     public function peerSettings(): ?Settings
     {
         return $this->peerControl->peerSettings();
     }
 
+    /**
+     * Feed bytes from a peer unidirectional stream.
+     */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {
         $stream = $this->peerUnidirectionalStreams[$streamId] ?? $this->createPeerUnidirectional($streamId);
@@ -138,6 +171,9 @@ final class ConnectionState
         $this->processPeerUnidirectionalPayload($type, $payload);
     }
 
+    /**
+     * Feed bytes into a request stream and return its state object.
+     */
     public function pushRequestStream(int $streamId, string $bytes): RequestStream
     {
         $stream = $this->requestStreams[$streamId] ?? $this->createRequestStream($streamId);
@@ -146,6 +182,9 @@ final class ConnectionState
         return $stream;
     }
 
+    /**
+     * Release a request stream and cancel it first when unfinished.
+     */
     public function releaseRequestStream(int $streamId): void
     {
         $stream = $this->requestStreams[$streamId] ?? null;
@@ -159,21 +198,33 @@ final class ConnectionState
         unset($this->requestStreams[$streamId]);
     }
 
+    /**
+     * Return a tracked request stream by ID.
+     */
     public function requestStream(int $streamId): ?RequestStream
     {
         return $this->requestStreams[$streamId] ?? null;
     }
 
+    /**
+     * Return the response QPACK encoder once peer settings permit it.
+     */
     public function responseEncoder(): ?Encoder
     {
         return $this->encoder;
     }
 
+    /**
+     * Take pending instructions for the local QPACK decoder stream.
+     */
     public function takeLocalQpackDecoderInstructions(): string
     {
         return $this->decoder->takeDecoderInstructions();
     }
 
+    /**
+     * Take pending instructions for the local QPACK encoder stream.
+     */
     public function takeLocalQpackEncoderInstructions(): string
     {
         return $this->encoder?->takeEncoderInstructions() ?? '';

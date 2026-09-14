@@ -10,6 +10,9 @@ use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 
+/**
+ * Coordinates HTTP/3 stream input with request dispatch and response writer creation.
+ */
 final class Http3Session
 {
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
@@ -43,29 +46,44 @@ final class Http3Session
         $this->writerFactory = $factoryClosure;
     }
 
+    /**
+     * Cancel and release a tracked request stream.
+     */
     public function cancelRequestStream(int $streamId): void
     {
         unset($this->pendingRequestStreams[$streamId]);
         $this->state->cancelRequestStream($streamId);
     }
 
+    /**
+     * Mark a peer unidirectional stream as finished.
+     */
     public function finishPeerUnidirectional(int $streamId): void
     {
         $this->state->finishPeerUnidirectional($streamId);
     }
 
+    /**
+     * Mark a request stream as finished and dispatch newly ready requests.
+     */
     public function finishRequestStream(int $streamId): void
     {
         $this->state->finishRequestStream($streamId);
         $this->dispatchReadyRequests();
     }
 
+    /**
+     * Feed bytes from a peer unidirectional stream into connection state.
+     */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {
         $this->state->pushPeerUnidirectional($streamId, $bytes);
         $this->dispatchReadyRequests();
     }
 
+    /**
+     * Feed bytes from a request stream and dispatch requests when their heads are ready.
+     */
     public function pushRequestStream(int $streamId, string $bytes): void
     {
         $this->state->pushRequestStream($streamId, $bytes);
@@ -75,12 +93,18 @@ final class Http3Session
         $this->dispatchReadyRequests();
     }
 
+    /**
+     * Release a request stream after response processing completes.
+     */
     public function releaseRequestStream(int $streamId): void
     {
         unset($this->pendingRequestStreams[$streamId]);
         $this->state->releaseRequestStream($streamId);
     }
 
+    /**
+     * Return the underlying HTTP/3 connection state.
+     */
     public function state(): ConnectionState
     {
         return $this->state;

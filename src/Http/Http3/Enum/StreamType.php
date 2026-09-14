@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Enum;
 
+/**
+ * Defines HTTP/3 unidirectional stream type identifiers.
+ */
 enum StreamType: int
 {
     case CONTROL = 0x00;

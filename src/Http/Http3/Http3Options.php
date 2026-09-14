@@ -7,10 +7,16 @@ namespace Infocyph\Runwire\Http\Http3;
 use Infocyph\Runwire\Network\TlsOptions;
 use InvalidArgumentException;
 
+/**
+ * Defines HTTP/3 listener, polling, handshake, and resource-limit options.
+ */
 final readonly class Http3Options
 {
     public const bool ZERO_RTT_ENABLED = false;
 
+    /**
+     * Create and validate HTTP/3 runtime options.
+     */
     public function __construct(
         public Http3Limits $limits = new Http3Limits(),
         public float $pollTimeoutSeconds = 0.05,

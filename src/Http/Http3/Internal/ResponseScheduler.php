@@ -16,6 +16,9 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\WriteResult;
 use LogicException;
 
+/**
+ * Queues, bounds, and flushes HTTP/3 response and QPACK encoder bytes.
+ */
 final class ResponseScheduler
 {
     private const int TRANSPORT_CHUNK_BYTES = 16_384;
@@ -34,6 +37,9 @@ final class ResponseScheduler
     /** @var array<int, ResponseStream> */
     private array $streams = [];
 
+    /**
+     * Create a response scheduler for the supplied connection state and transport.
+     */
     public function __construct(
         private readonly ConnectionState $state,
         private readonly Http3Limits $limits,
@@ -43,6 +49,9 @@ final class ResponseScheduler
         $this->qpackEncoderQueue = new ByteQueue();
     }
 
+    /**
+     * Discard all queued response state for a stream.
+     */
     public function discardStream(int $streamId): void
     {
         $stream = $this->streams[$streamId] ?? null;
@@ -60,6 +69,9 @@ final class ResponseScheduler
         unset($this->flushQueue[$streamId], $this->streams[$streamId]);
     }
 
+    /**
+     * Flush queued QPACK and response bytes within the configured write budget.
+     */
     public function flush(): void
     {
         $writes = 0;
@@ -102,11 +114,17 @@ final class ResponseScheduler
         $this->relieveStreams();
     }
 
+    /**
+     * Determine whether QPACK encoder bytes remain queued.
+     */
     public function qpackPending(): bool
     {
         return !$this->qpackEncoderQueue->isEmpty();
     }
 
+    /**
+     * Determine whether a response stream still has bytes or FIN pending.
+     */
     public function responsePending(int $streamId): bool
     {
         $stream = $this->streams[$streamId] ?? null;
