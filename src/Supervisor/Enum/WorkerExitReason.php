@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Enum;
 
+/**
+ * Classifies worker-process exit outcomes for supervision and restart policy.
+ */
 enum WorkerExitReason: string
 {
     case APPLICATION_FATAL = 'application_fatal';

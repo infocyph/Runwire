@@ -11,8 +11,14 @@ use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\RuntimeContext;
 use InvalidArgumentException;
 
+/**
+ * Configures request deadlines, garbage collection, and request ID resolution.
+ */
 final readonly class RequestExecutionPolicy
 {
+    /**
+     * Creates request execution policy settings.
+     */
     public function __construct(
         public ?float $maxExecutionSeconds = null,
         public GcPolicy $gc = new GcPolicy(),
@@ -23,6 +29,9 @@ final readonly class RequestExecutionPolicy
         }
     }
 
+    /**
+     * Resolves the request deadline from its monotonic start time.
+     */
     public function deadline(int $startNanoseconds): RequestDeadline
     {
         return $this->maxExecutionSeconds === null
@@ -30,6 +39,9 @@ final readonly class RequestExecutionPolicy
             : RequestDeadline::afterSeconds($this->maxExecutionSeconds, $startNanoseconds);
     }
 
+    /**
+     * Resolves or generates a request identifier for the runtime.
+     */
     public function requestId(RuntimeContext $runtime, ?string $candidate = null): string
     {
         return $this->requestIds->resolve($runtime, $candidate);

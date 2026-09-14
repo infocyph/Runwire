@@ -8,6 +8,9 @@ use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
+/**
+ * Selects a concrete runtime driver from explicit or automatic runtime policy.
+ */
 final class RuntimeDriverResolver
 {
     private const array HOST_PRECEDENCE = [
@@ -17,6 +20,9 @@ final class RuntimeDriverResolver
         RuntimeDriver::FPM,
     ];
 
+    /**
+     * Resolves the runtime driver for the supplied options and environment.
+     */
     public function resolve(RuntimeOptions $options, RuntimeEnvironment $environment): RuntimeDriver
     {
         if ($options->driver !== RuntimeDriver::AUTO) {

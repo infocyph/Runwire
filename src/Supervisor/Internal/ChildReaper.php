@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Infocyph\Runwire\Exception\SupervisorException;
 
+/**
+ * Normalizes child-process wait status and performs non-blocking reap cycles.
+ */
 final class ChildReaper
 {
+    /**
+     * Extract the child exit code when the wait status represents a normal exit.
+     */
     public static function exitCode(int $status): ?int
     {
         if (!pcntl_wifexited($status)) {
@@ -20,6 +26,8 @@ final class ChildReaper
     }
 
     /**
+     * Reap all currently exited children and report when no children remain.
+     *
      * @param callable(int, int): void $onExit
      * @param callable(): void $onNoChildren
      */
@@ -57,6 +65,9 @@ final class ChildReaper
         }
     }
 
+    /**
+     * Extract the terminating signal when the wait status represents a signaled exit.
+     */
     public static function termSignal(int $status): ?int
     {
         if (!pcntl_wifsignaled($status)) {
@@ -68,6 +79,9 @@ final class ChildReaper
         return is_int($signal) ? $signal : null;
     }
 
+    /**
+     * Wait synchronously for one child process, retrying interrupted waits.
+     */
     public static function waitFor(int $pid): void
     {
         do {

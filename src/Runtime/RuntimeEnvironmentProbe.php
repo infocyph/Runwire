@@ -8,12 +8,21 @@ use Infocyph\Runwire\Network\SocketCapabilityProbe;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Internal\SystemResourceProbe;
 
+/**
+ * Detects runtime hosts, extensions, OPcache state, and system resources.
+ */
 final readonly class RuntimeEnvironmentProbe
 {
+    /**
+     * Creates an environment probe using the supplied resource probe.
+     */
     public function __construct(
         private SystemResourceProbe $resourceProbe = new SystemResourceProbe(),
     ) {}
 
+    /**
+     * Probes and returns the current runtime environment.
+     */
     public function probe(): RuntimeEnvironment
     {
         $sapi = PHP_SAPI;

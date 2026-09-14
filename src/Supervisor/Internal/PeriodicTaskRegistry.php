@@ -10,6 +10,9 @@ use Infocyph\Runwire\Supervisor\PeriodicTaskHandle;
 use InvalidArgumentException;
 use LogicException;
 
+/**
+ * Registers bounded periodic worker tasks and coordinates them with an event loop.
+ */
 final class PeriodicTaskRegistry
 {
     private const float MAX_INTERVAL_SECONDS = 86_400.0;
@@ -25,6 +28,9 @@ final class PeriodicTaskRegistry
     /** @var array<string, array{interval: float, callback: Closure, timer: ?int}> */
     private array $tasks = [];
 
+    /**
+     * Attach the event loop used to schedule registered tasks.
+     */
     public function attach(LoopInterface $loop): void
     {
         if ($this->loop !== null && $this->loop !== $loop && $this->tasks !== []) {
@@ -40,6 +46,9 @@ final class PeriodicTaskRegistry
         }
     }
 
+    /**
+     * Cancel and remove a named periodic task.
+     */
     public function cancel(string $name): bool
     {
         $task = $this->tasks[$name] ?? null;
@@ -55,6 +64,9 @@ final class PeriodicTaskRegistry
         return true;
     }
 
+    /**
+     * Drain active timers and release all registered tasks and loop state.
+     */
     public function close(): void
     {
         $this->drain();
@@ -62,6 +74,9 @@ final class PeriodicTaskRegistry
         $this->loop = null;
     }
 
+    /**
+     * Stop scheduling periodic tasks while preserving their registrations.
+     */
     public function drain(): void
     {
         if ($this->draining) {
@@ -83,7 +98,11 @@ final class PeriodicTaskRegistry
         }
     }
 
-    /** @param callable(): void $callback */
+    /**
+     * Register a named periodic callback and return its cancellation handle.
+     *
+     * @param callable(): void $callback
+     */
     public function register(string $name, float $intervalSeconds, callable $callback): PeriodicTaskHandle
     {
         self::validateName($name);

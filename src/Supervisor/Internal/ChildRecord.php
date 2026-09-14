@@ -10,9 +10,16 @@ use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * Stores mutable supervisor state for one child worker process.
+ */
 final class ChildRecord
 {
-    /** @param resource|null $readyStream */
+    /**
+     * Create a child-process supervision record.
+     *
+     * @param resource|null $readyStream
+     */
     public function __construct(
         public WorkerGroup $group,
         public int $slot,

@@ -8,6 +8,9 @@ use Closure;
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Loop\LoopInterface;
 
+/**
+ * Bridges asynchronous POSIX signals into event-loop wakeups for the supervisor.
+ */
 final class SignalBridge
 {
     /** @var Closure(list<int>): void|null */
@@ -29,8 +32,14 @@ final class SignalBridge
     /** @var resource|null */
     private mixed $write = null;
 
+    /**
+     * Create a signal bridge attached to the supervisor event loop.
+     */
     public function __construct(private readonly LoopInterface $loop) {}
 
+    /**
+     * Restore prior signal handlers and release wake-channel resources.
+     */
     public function close(): void
     {
         $this->restoreHandlers();
@@ -45,6 +54,9 @@ final class SignalBridge
         $this->consumer = null;
     }
 
+    /**
+     * Reset inherited supervisor signal state inside a forked child process.
+     */
     public function normalizeChild(): void
     {
         pcntl_alarm(0);
@@ -62,6 +74,8 @@ final class SignalBridge
     }
 
     /**
+     * Install signal handlers and start delivering pending signal batches.
+     *
      * @param callable(list<int>): void $consumer
      */
     public function open(callable $consumer): void

@@ -9,13 +9,22 @@ use Infocyph\Runwire\Runtime\Enum\OpcacheMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
+/**
+ * Resolves a runtime driver and validates capability-dependent runtime options.
+ */
 final readonly class RuntimeSelector
 {
+    /**
+     * Creates a selector from driver and capability resolvers.
+     */
     public function __construct(
         private RuntimeDriverResolver $driverResolver = new RuntimeDriverResolver(),
         private RuntimeCapabilityResolver $capabilityResolver = new RuntimeCapabilityResolver(),
     ) {}
 
+    /**
+     * Selects a concrete runtime and its capabilities for the environment.
+     */
     public function select(RuntimeOptions $options, RuntimeEnvironment $environment): RuntimeSelection
     {
         $driver = $this->driverResolver->resolve($options, $environment);

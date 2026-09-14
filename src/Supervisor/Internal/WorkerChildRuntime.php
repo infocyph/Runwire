@@ -12,6 +12,9 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 use Throwable;
 
+/**
+ * Boots and terminates one forked worker child under supervisor control.
+ */
 final class WorkerChildRuntime
 {
     public const int RECYCLE_EXIT_CODE = 75;

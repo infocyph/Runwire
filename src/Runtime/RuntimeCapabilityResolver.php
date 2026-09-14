@@ -9,8 +9,14 @@ use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeOptions;
 
+/**
+ * Builds concrete runtime capability sets from driver and environment information.
+ */
 final class RuntimeCapabilityResolver
 {
+    /**
+     * Resolves capabilities for the selected runtime driver.
+     */
     public function resolve(
         RuntimeDriver $driver,
         RuntimeEnvironment $environment,

@@ -10,6 +10,9 @@ use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 use Infocyph\Runwire\Supervisor\SupervisorStatus;
 use Infocyph\Runwire\Supervisor\WorkerStatus;
 
+/**
+ * Builds immutable supervisor status, worker health, and aggregate metrics snapshots.
+ */
 final class SupervisorStatusBuilder
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;

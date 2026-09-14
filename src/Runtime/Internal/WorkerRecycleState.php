@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Runtime\Internal;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * Tracks worker request, memory, and lifetime thresholds for recycle decisions.
+ */
 final class WorkerRecycleState
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
@@ -23,6 +26,9 @@ final class WorkerRecycleState
 
     private int $requestsTotal = 0;
 
+    /**
+     * Creates recycle state with deterministic jitter from the supplied optional seed.
+     */
     public function __construct(
         private readonly WorkerRecyclePolicy $policy,
         ?int $seed = null,
@@ -38,26 +44,41 @@ final class WorkerRecycleState
             : $policy->maxLifetimeSeconds + self::jitter($seed, 0x2468ACE, $policy->jitterSeconds);
     }
 
+    /**
+     * Returns the latest observed current memory usage.
+     */
     public function currentMemoryBytes(): int
     {
         return $this->currentMemoryBytes;
     }
 
+    /**
+     * Returns the effective lifetime ceiling after jitter.
+     */
     public function effectiveMaxLifetimeSeconds(): int
     {
         return $this->effectiveMaxLifetimeSeconds;
     }
 
+    /**
+     * Returns the effective request ceiling after jitter.
+     */
     public function effectiveMaxRequests(): int
     {
         return $this->effectiveMaxRequests;
     }
 
+    /**
+     * Returns the highest observed memory usage.
+     */
     public function peakMemoryBytes(): int
     {
         return $this->peakMemoryBytes;
     }
 
+    /**
+     * Records a completed request and reports whether recycling is now required.
+     */
     public function recordRequestCompleted(
         bool $enforceRequestLimit = true,
         ?int $nowNs = null,
@@ -72,6 +93,9 @@ final class WorkerRecycleState
         return $this->recycleReason($enforceRequestLimit, $nowNs) !== null;
     }
 
+    /**
+     * Returns the recycle reason when a configured threshold has been reached.
+     */
     public function recycleReason(
         bool $enforceRequestLimit = true,
         ?int $nowNs = null,
@@ -99,11 +123,17 @@ final class WorkerRecycleState
             : null;
     }
 
+    /**
+     * Returns the number of completed requests recorded for this worker.
+     */
     public function requestsTotal(): int
     {
         return $this->requestsTotal;
     }
 
+    /**
+     * Reports whether a recycle threshold has been reached.
+     */
     public function shouldRecycle(bool $enforceRequestLimit = true, ?int $nowNs = null): bool
     {
         return $this->recycleReason($enforceRequestLimit, $nowNs) !== null;

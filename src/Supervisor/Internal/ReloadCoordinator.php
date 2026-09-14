@@ -13,6 +13,9 @@ use Infocyph\Runwire\Supervisor\ReloadPolicy;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * Coordinates bounded rolling reloads across reloadable worker slots.
+ */
 final class ReloadCoordinator
 {
     /** @var array<string, true> */
@@ -99,6 +102,9 @@ final class ReloadCoordinator
         ));
     }
 
+    /**
+     * Determine whether a worker slot is actively participating in the reload.
+     */
     public function active(string $key): bool
     {
         return isset($this->active[$key]);
@@ -190,36 +196,57 @@ final class ReloadCoordinator
         $this->pump($groups, $currentSlots, $children);
     }
 
+    /**
+     * Return the configured graceful drain timeout for replaced workers.
+     */
     public function drainTimeoutSeconds(): float
     {
         return $this->policy->drainTimeoutSeconds;
     }
 
+    /**
+     * Determine whether the current reload attempt has failed.
+     */
     public function failed(): bool
     {
         return $this->failed;
     }
 
+    /**
+     * Return the current worker generation number.
+     */
     public function generation(): int
     {
         return $this->generation;
     }
 
+    /**
+     * Determine whether the current generation is fully serving.
+     */
     public function generationReady(): bool
     {
         return $this->generationReady;
     }
 
+    /**
+     * Determine whether another reload request is queued.
+     */
     public function queued(): bool
     {
         return $this->queued;
     }
 
+    /**
+     * Determine whether a rolling reload is currently active.
+     */
     public function reloading(): bool
     {
         return $this->reloading;
     }
 
+    /**
+     * Return the readiness timeout applied to replacement workers.
+     */
     public function replacementReadyTimeoutSeconds(): float
     {
         return $this->policy->replacementReadyTimeoutSeconds;
@@ -249,6 +276,9 @@ final class ReloadCoordinator
         $this->begin($groups, $currentSlots, $children);
     }
 
+    /**
+     * Clear pending and active reload state during supervisor shutdown.
+     */
     public function resetForStop(): void
     {
         $this->active = [];

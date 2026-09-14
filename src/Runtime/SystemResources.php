@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Runtime;
 
 use InvalidArgumentException;
 
+/**
+ * Describes effective CPU and memory resources available to the runtime.
+ */
 final readonly class SystemResources
 {
+    /**
+     * Creates an effective system resource snapshot.
+     */
     public function __construct(
         public int $effectiveCpuCount = 1,
         public ?int $effectiveMemoryBytes = null,
@@ -20,6 +26,9 @@ final readonly class SystemResources
         }
     }
 
+    /**
+     * Resolves a configured or automatic worker count under the supplied maximum.
+     */
     public function resolveWorkerCount(int $configured, int $maximum = 1_024): int
     {
         if ($configured < 0) {

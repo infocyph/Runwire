@@ -6,8 +6,14 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Infocyph\Runwire\Loop\LoopInterface;
 
+/**
+ * Manages worker readiness watchers, timers, and inherited readiness streams.
+ */
 final class ReadinessChannel
 {
+    /**
+     * Close a worker readiness channel and cancel its watcher and timeout.
+     */
     public static function close(LoopInterface $loop, ChildRecord $record): void
     {
         if ($record->readyWatcherId > 0) {
@@ -24,7 +30,11 @@ final class ReadinessChannel
         $record->readyStream = null;
     }
 
-    /** @param array<int, ChildRecord> $children */
+    /**
+     * Close readiness streams inherited from existing child records.
+     *
+     * @param array<int, ChildRecord> $children
+     */
     public static function closeInherited(array $children): void
     {
         foreach ($children as $record) {
@@ -34,6 +44,9 @@ final class ReadinessChannel
         }
     }
 
+    /**
+     * Cancel the readiness timeout for a worker that has become ready.
+     */
     public static function ready(LoopInterface $loop, ChildRecord $record): void
     {
         if ($record->readyTimerId > 0) {

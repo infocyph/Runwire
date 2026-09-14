@@ -12,8 +12,14 @@ use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use InvalidArgumentException;
 
+/**
+ * Describes the active runtime execution context, capabilities, and metrics state.
+ */
 final readonly class RuntimeContext implements MetricsProviderInterface
 {
+    /**
+     * Create a runtime context from explicit execution metadata and capabilities.
+     */
     public function __construct(
         public RuntimeDriver $driver,
         public string $mode,
@@ -45,6 +51,9 @@ final readonly class RuntimeContext implements MetricsProviderInterface
         }
     }
 
+    /**
+     * Build a runtime context directly from a resolved capability set.
+     */
     public static function fromCapabilities(
         RuntimeCapabilities $capabilities,
         string $mode,
@@ -70,6 +79,9 @@ final readonly class RuntimeContext implements MetricsProviderInterface
         );
     }
 
+    /**
+     * Create a minimal standalone context for work outside a managed runtime.
+     */
     public static function standalone(): self
     {
         $capabilities = new RuntimeCapabilities(RuntimeDriver::NATIVE);
@@ -77,6 +89,9 @@ final readonly class RuntimeContext implements MetricsProviderInterface
         return self::fromCapabilities($capabilities, 'standalone', concurrent: false);
     }
 
+    /**
+     * Require a runtime capability or fail with a runtime availability error.
+     */
     public function requireCapability(RuntimeCapability $capability): void
     {
         if (!$this->supports($capability)) {
@@ -87,11 +102,17 @@ final readonly class RuntimeContext implements MetricsProviderInterface
         }
     }
 
+    /**
+     * Capture the current runtime metrics snapshot.
+     */
     public function snapshot(): RuntimeMetricsSnapshot
     {
         return $this->metrics->snapshot();
     }
 
+    /**
+     * Determine whether this context provides a runtime capability.
+     */
     public function supports(RuntimeCapability $capability): bool
     {
         return match ($capability) {

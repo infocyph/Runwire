@@ -6,20 +6,32 @@ namespace Infocyph\Runwire\Runtime\Internal;
 
 use Infocyph\Runwire\Loop\LoopInterface;
 
+/**
+ * Tracks whether a native worker is stopping and coordinates loop termination.
+ */
 final class WorkerStopState
 {
     private bool $stopping = false;
 
+    /**
+     * Reports whether worker shutdown has started.
+     */
     public function isStopping(): bool
     {
         return $this->stopping;
     }
 
+    /**
+     * Marks the worker as stopping.
+     */
     public function stop(): void
     {
         $this->stopping = true;
     }
 
+    /**
+     * Stops the supplied loop when worker shutdown is active.
+     */
     public function stopLoopIfStopping(LoopInterface $loop): void
     {
         if ($this->stopping) {

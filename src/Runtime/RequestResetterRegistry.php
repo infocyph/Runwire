@@ -8,6 +8,9 @@ use Infocyph\Runwire\RequestContext;
 use InvalidArgumentException;
 use Throwable;
 
+/**
+ * Stores bounded request resetters and executes them while collecting failures.
+ */
 final class RequestResetterRegistry
 {
     private const int MAX_RESETTERS = 64;
@@ -23,6 +26,9 @@ final class RequestResetterRegistry
         }
     }
 
+    /**
+     * Registers a request resetter in execution order.
+     */
     public function register(RequestResetterInterface $resetter): self
     {
         if (count($this->resetters) >= self::MAX_RESETTERS) {

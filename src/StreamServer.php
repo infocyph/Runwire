@@ -16,6 +16,9 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 use InvalidArgumentException;
 use LogicException;
 
+/**
+ * Defines a managed framed stream server over TCP or Unix-domain sockets.
+ */
 final readonly class StreamServer
 {
     /** @var Closure(): FrameCodecInterface */
@@ -28,6 +31,8 @@ final readonly class StreamServer
     private ?Closure $workerHandlerFactory;
 
     /**
+     * Create a framed stream server definition.
+     *
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
      * @param callable(WorkerContext): callable|null $workerHandlerFactory
@@ -71,6 +76,8 @@ final readonly class StreamServer
     }
 
     /**
+     * Create a TCP framed stream server.
+     *
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
      */
@@ -80,6 +87,8 @@ final readonly class StreamServer
     }
 
     /**
+     * Create a Unix-domain framed stream server.
+     *
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
      */
@@ -88,12 +97,19 @@ final readonly class StreamServer
         return new self($name, StreamTransport::UNIX, $path, $codecFactory, $handler, unix: new UnixListenerOptions());
     }
 
+    /**
+     * Create a fresh frame codec for a connection.
+     */
     public function codec(): FrameCodecInterface
     {
         return ($this->codecFactory)();
     }
 
-    /** @return Closure(string, FramedConnection): void */
+    /**
+     * Resolve the frame handler used by a specific worker.
+     *
+     * @return Closure(string, FramedConnection): void
+     */
     public function handlerFor(WorkerContext $context): Closure
     {
         if ($this->workerHandlerFactory === null) {
@@ -106,6 +122,9 @@ final readonly class StreamServer
         return $closure;
     }
 
+    /**
+     * Return a copy with a different per-tick frame limit.
+     */
     public function withMaxFramesPerTick(int $maxFramesPerTick): self
     {
         return new self(
@@ -127,6 +146,9 @@ final readonly class StreamServer
         );
     }
 
+    /**
+     * Return a copy with the supplied TLS configuration.
+     */
     public function withTls(?TlsOptions $tls): self
     {
         return new self(
@@ -148,6 +170,9 @@ final readonly class StreamServer
         );
     }
 
+    /**
+     * Return a copy with Unix-domain listener options.
+     */
     public function withUnixOptions(UnixListenerOptions $options): self
     {
         return new self(
@@ -169,6 +194,9 @@ final readonly class StreamServer
         );
     }
 
+    /**
+     * Return a copy with a different per-worker connection limit.
+     */
     public function withWorkerConnectionLimit(int $limit): self
     {
         return new self(
@@ -190,7 +218,11 @@ final readonly class StreamServer
         );
     }
 
-    /** @param callable(WorkerContext): callable $factory */
+    /**
+     * Return a copy whose handler is built separately for each worker.
+     *
+     * @param callable(WorkerContext): callable $factory
+     */
     public function withWorkerHandlerFactory(callable $factory): self
     {
         return new self(
@@ -212,6 +244,9 @@ final readonly class StreamServer
         );
     }
 
+    /**
+     * Return a copy with a different worker count.
+     */
     public function withWorkers(int $workers): self
     {
         return new self(

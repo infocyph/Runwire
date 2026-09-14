@@ -12,6 +12,9 @@ use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * Schedules worker restarts with bounded backoff and reload-aware failure handling.
+ */
 final class RestartCoordinator
 {
     private readonly RestartTracker $tracker;
@@ -42,6 +45,9 @@ final class RestartCoordinator
         $this->reasonCounts = self::reasonCounters();
     }
 
+    /**
+     * Cancel a pending restart timer for one worker slot.
+     */
     public function cancel(string $key): null
     {
         $timerId = $this->timers[$key] ?? null;
@@ -55,6 +61,9 @@ final class RestartCoordinator
         return null;
     }
 
+    /**
+     * Cancel every pending worker restart timer.
+     */
     public function cancelAll(): void
     {
         foreach ($this->timers as $timerId) {
@@ -63,11 +72,17 @@ final class RestartCoordinator
         $this->timers = [];
     }
 
+    /**
+     * Return the restart count tracked for a worker slot.
+     */
     public function count(string $group, int $slot): int
     {
         return $this->tracker->count($group, $slot);
     }
 
+    /**
+     * Return the number of restart timers currently pending.
+     */
     public function pendingCount(): int
     {
         return count($this->timers);
@@ -79,6 +94,9 @@ final class RestartCoordinator
         return $this->reasonCounts;
     }
 
+    /**
+     * Register restart tracking state for a worker group.
+     */
     public function register(WorkerGroup $group): void
     {
         $this->tracker->register($group);

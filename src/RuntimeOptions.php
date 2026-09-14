@@ -14,8 +14,14 @@ use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
 use Infocyph\Runwire\Supervisor\ReloadPolicy;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * Collects runtime driver, lifecycle, admission, diagnostics, and host-specific options.
+ */
 final readonly class RuntimeOptions
 {
+    /**
+     * Create a complete runtime configuration with production-safe defaults.
+     */
     public function __construct(
         public RuntimeDriver $driver = RuntimeDriver::AUTO,
         public OpcacheMode $opcache = OpcacheMode::AUTO,

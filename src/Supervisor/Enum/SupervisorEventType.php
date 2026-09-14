@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Enum;
 
+/**
+ * Identifies lifecycle and health events emitted by the supervisor.
+ */
 enum SupervisorEventType: string
 {
     case GENERATION_READY = 'generation_ready';

@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Runtime;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use InvalidArgumentException;
 
+/**
+ * Describes detected host runtime drivers, extensions, and effective system resources.
+ */
 final readonly class RuntimeEnvironment
 {
     /** @var list<RuntimeDriver> */
@@ -60,16 +63,25 @@ final readonly class RuntimeEnvironment
         return $this->hostedDrivers;
     }
 
+    /**
+     * Reports whether a runtime driver is available in this environment.
+     */
     public function isAvailable(RuntimeDriver $driver): bool
     {
         return in_array($driver, $this->availableDrivers, true);
     }
 
+    /**
+     * Reports whether the current process is hosted by the supplied driver.
+     */
     public function isHostedBy(RuntimeDriver $driver): bool
     {
         return in_array($driver, $this->hostedDrivers, true);
     }
 
+    /**
+     * Reports whether the environment can run the native prefork runtime.
+     */
     public function nativeEligible(): bool
     {
         return $this->sapi === 'cli'

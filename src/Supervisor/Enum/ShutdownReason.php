@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Supervisor\Enum;
 
+/**
+ * Classifies intentional and failure-driven worker shutdown causes.
+ */
 enum ShutdownReason: string
 {
     case DEPLOYMENT_RELOAD = 'deployment_reload';

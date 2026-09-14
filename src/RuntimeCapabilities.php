@@ -8,8 +8,14 @@ use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\SystemResources;
 
+/**
+ * Describes capabilities and ownership semantics of a resolved runtime driver.
+ */
 final readonly class RuntimeCapabilities
 {
+    /**
+     * Creates a runtime capability snapshot.
+     */
     public function __construct(
         public RuntimeDriver $driver,
         public bool $persistentProcess = false,
@@ -43,6 +49,9 @@ final readonly class RuntimeCapabilities
         public SystemResources $resources = new SystemResources(),
     ) {}
 
+    /**
+     * Reports whether the supplied runtime capability is available.
+     */
     public function supports(RuntimeCapability $capability): bool
     {
         return match ($capability) {

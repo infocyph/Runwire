@@ -8,6 +8,9 @@ use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 
+/**
+ * Aggregates per-worker runtime metric snapshots into a supervisor-wide snapshot.
+ */
 final class RuntimeMetricsAggregator
 {
     /** @param list<RuntimeMetricsSnapshot> $snapshots */

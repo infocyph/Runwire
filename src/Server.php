@@ -21,6 +21,9 @@ use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use InvalidArgumentException;
 
+/**
+ * Defines a managed HTTP server and its worker, protocol, transport, and application policies.
+ */
 final readonly class Server
 {
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
@@ -32,6 +35,8 @@ final readonly class Server
     private ?Closure $workerHandlerFactory;
 
     /**
+     * Create an HTTP server definition.
+     *
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(WorkerContext): callable|null $workerHandlerFactory
      */
@@ -86,12 +91,19 @@ final readonly class Server
         }
     }
 
-    /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
+    /**
+     * Create a basic HTTP server definition.
+     *
+     * @param callable(HttpRequest, ResponseWriterInterface): void $handler
+     */
     public static function http(string $address, callable $handler, string $name = 'web'): self
     {
         return new self($name, $address, $handler);
     }
 
+    /**
+     * Create an HTTP server backed by a runtime application factory.
+     */
     public static function httpApplicationFactory(
         string $address,
         RuntimeApplicationFactoryInterface $factory,
@@ -105,7 +117,11 @@ final readonly class Server
         );
     }
 
-    /** @param callable(WorkerContext): callable $factory */
+    /**
+     * Create an HTTP server whose handler is built separately for each worker.
+     *
+     * @param callable(WorkerContext): callable $factory
+     */
     public static function httpFactory(string $address, callable $factory, string $name = 'web'): self
     {
         return new self(
@@ -116,6 +132,9 @@ final readonly class Server
         );
     }
 
+    /**
+     * Build the runtime application used by a specific worker.
+     */
     public function applicationFor(
         WorkerContext $workerContext,
         RuntimeContext $runtimeContext,
@@ -135,7 +154,11 @@ final readonly class Server
         );
     }
 
-    /** @return Closure(HttpRequest, ResponseWriterInterface): void */
+    /**
+     * Resolve the HTTP handler used by a specific worker.
+     *
+     * @return Closure(HttpRequest, ResponseWriterInterface): void
+     */
     public function handlerFor(WorkerContext $context): Closure
     {
         if ($this->workerHandlerFactory === null) {
@@ -149,6 +172,9 @@ final readonly class Server
         return $closure;
     }
 
+    /**
+     * Return a copy configured with a runtime application factory.
+     */
     public function withApplicationFactory(RuntimeApplicationFactoryInterface $factory): self
     {
         return new self(
@@ -169,6 +195,9 @@ final readonly class Server
         );
     }
 
+    /**
+     * Return a copy with HTTP/3 enabled, replaced, or disabled.
+     */
     public function withHttp3(?Http3Options $http3 = new Http3Options()): self
     {
         return new self(
@@ -190,6 +219,9 @@ final readonly class Server
         );
     }
 
+    /**
+     * Return a copy with the supplied TLS configuration.
+     */
     public function withTls(?TlsOptions $tls): self
     {
         return new self(
@@ -211,6 +243,9 @@ final readonly class Server
         );
     }
 
+    /**
+     * Return a copy with a different per-worker connection limit.
+     */
     public function withWorkerConnectionLimit(int $limit): self
     {
         return new self(
@@ -232,7 +267,11 @@ final readonly class Server
         );
     }
 
-    /** @param callable(WorkerContext): callable $factory */
+    /**
+     * Return a copy whose handler is built separately for each worker.
+     *
+     * @param callable(WorkerContext): callable $factory
+     */
     public function withWorkerHandlerFactory(callable $factory): self
     {
         return new self(
@@ -253,6 +292,9 @@ final readonly class Server
         );
     }
 
+    /**
+     * Return a copy with a different worker count.
+     */
     public function withWorkers(int $workers): self
     {
         return new self(

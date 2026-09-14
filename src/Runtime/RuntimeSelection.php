@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Runtime;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeCapabilities;
 
+/**
+ * Captures a resolved runtime driver, capabilities, and selection warnings.
+ */
 final readonly class RuntimeSelection
 {
     /**

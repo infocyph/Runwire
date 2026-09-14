@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * Provides derived state and slot queries across supervised child records.
+ */
 final class ChildSet
 {
     /**

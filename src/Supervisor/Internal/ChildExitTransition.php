@@ -9,6 +9,9 @@ use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
 
+/**
+ * Computes the supervisor transition to apply after a child process exits.
+ */
 final readonly class ChildExitTransition
 {
     private function __construct(
@@ -17,6 +20,9 @@ final readonly class ChildExitTransition
         public WorkerExitReason $reason,
     ) {}
 
+    /**
+     * Evaluate a child exit and return the resulting supervisor action and reason.
+     */
     public static function evaluate(
         ChildRecord $record,
         ?int $exitCode,

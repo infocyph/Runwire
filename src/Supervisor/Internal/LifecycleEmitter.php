@@ -9,6 +9,9 @@ use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Throwable;
 
+/**
+ * Delivers supervisor lifecycle events while isolating and counting listener failures.
+ */
 final class LifecycleEmitter
 {
     /** @var array<string, int> */
@@ -19,6 +22,9 @@ final class LifecycleEmitter
     /** @var list<Closure(SupervisorEvent): void> */
     private array $listeners = [];
 
+    /**
+     * Initialize per-event listener failure counters.
+     */
     public function __construct()
     {
         $this->failureCounts = array_fill_keys(
@@ -27,6 +33,9 @@ final class LifecycleEmitter
         );
     }
 
+    /**
+     * Emit one supervisor event to all registered listeners.
+     */
     public function emit(SupervisorEvent $event): void
     {
         foreach ($this->listeners as $listener) {
@@ -39,18 +48,29 @@ final class LifecycleEmitter
         }
     }
 
-    /** @return array<string, int> */
+    /**
+     * Return listener failure counts grouped by event type.
+     *
+     * @return array<string, int>
+     */
     public function failureCounts(): array
     {
         return $this->failureCounts;
     }
 
-    /** @param callable(SupervisorEvent): void $listener */
+    /**
+     * Register a supervisor lifecycle listener.
+     *
+     * @param callable(SupervisorEvent): void $listener
+     */
     public function listen(callable $listener): void
     {
         $this->listeners[] = Closure::fromCallable($listener);
     }
 
+    /**
+     * Return the cumulative number of lifecycle listener failures.
+     */
     public function listenerFailures(): int
     {
         return $this->listenerFailures;

@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * Tracks restart counts and rate-limited restart history for worker groups.
+ */
 final class RestartTracker
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
@@ -16,11 +19,17 @@ final class RestartTracker
     /** @var array<string, list<int>> */
     private array $history = [];
 
+    /**
+     * Return the restart count for a worker slot.
+     */
     public function count(string $group, int $slot): int
     {
         return $this->counts[$group][$slot] ?? 0;
     }
 
+    /**
+     * Reserve and describe the next restart attempt, or return null when the budget is exhausted.
+     */
     public function nextAttempt(WorkerGroup $group, int $slot): ?RestartAttempt
     {
         $now = (int) hrtime(true);
@@ -44,6 +53,9 @@ final class RestartTracker
         );
     }
 
+    /**
+     * Initialize restart counters for all slots in a worker group.
+     */
     public function register(WorkerGroup $group): void
     {
         $this->counts[$group->name] = array_fill(0, $group->count, 0);
