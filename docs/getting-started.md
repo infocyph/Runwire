@@ -248,9 +248,7 @@ $server = Server::http('0.0.0.0:8443', $handler)
     ->withHttp3();
 ```
 
-HTTP/3 uses UDP/QUIC while the TCP listener continues to serve HTTP/1.1/HTTP/2. 0-RTT application dispatch is disabled in Runwire 1.0.
-
-The active release plan tracks the final pre-release hard-fail check for explicit HTTP/3 configuration without QUIC; do not rely on silent protocol fallback.
+HTTP/3 uses UDP/QUIC while the TCP listener continues to serve HTTP/1.1/HTTP/2. 0-RTT application dispatch is disabled in Runwire 1.0. Explicit HTTP/3 configuration without supported QUIC capability is a startup error; it is never silently ignored.
 
 ## 7. Worker counts
 
@@ -272,7 +270,7 @@ $server = new Server(
 );
 ```
 
-Portable native mode is one process. The release plan tracks final validation that will reject explicit unsupported `workers > 1` instead of allowing that setting to be ignored.
+Portable native mode is one process. `workers: 0` and `workers: 1` are valid; explicit `workers > 1` fails startup when prefork capability is unavailable.
 
 ## 8. Runtime policies
 
@@ -314,7 +312,7 @@ Runtime::create($options)
     ->run();
 ```
 
-Worker recycle/replacement is a prefork capability. Keep enabled recycle thresholds for prefork deployments; the final portable hard-fail validation remains in the 1.0 launch plan.
+Worker recycle/replacement is a prefork capability. Portable mode fails startup when any worker-recycle threshold is enabled because there is no replacement worker. Use an external service manager for whole-process retirement in portable deployments.
 
 ## 9. Framed TCP server
 
@@ -390,7 +388,7 @@ $server = DatagramServer::udp(
 Runtime::create()->listen($server)->run();
 ```
 
-UDP provides datagram semantics only; application protocols must account for ordering, duplication, loss, and maximum datagram size.
+UDP provides datagram semantics only; application protocols must account for ordering, duplication, loss, maximum datagram size, and bounded callback work.
 
 ## 12. Hosted runtimes
 
@@ -483,6 +481,8 @@ Hosted:
 Runtime::create()->serveApplication(new AppFactory());
 ```
 
+Persistent application integrations must reset framework-owned request-local state after each request, including failure/cancellation/deadline paths. See [Runtime Security](security.md).
+
 ## 14. Capability checks
 
 ```php
@@ -528,6 +528,7 @@ See [Coroutines and structured concurrency](coroutines.md) for channels, futures
 
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
+- [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
 - [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
