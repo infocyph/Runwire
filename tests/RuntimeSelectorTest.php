@@ -21,8 +21,15 @@ it('returns a resolved driver and capability snapshot', function (): void {
     $selection = (new RuntimeSelector())->select(new RuntimeOptions(), $environment);
 
     expect($selection->driver)->toBe(RuntimeDriver::NATIVE)
-        ->and($selection->capabilities->driver)->toBe(RuntimeDriver::NATIVE)
-        ->and($selection->warnings)->toBe([]);
+        ->and($selection->capabilities->driver)->toBe(RuntimeDriver::NATIVE);
+
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        expect($selection->warnings)->toContain(
+            'SECURITY: native prefork is running as root without a worker privilege-drop policy; application workers will execute as root.',
+        );
+    } else {
+        expect($selection->warnings)->toBe([]);
+    }
 });
 
 it('fails closed when opcache is required but disabled', function (): void {
@@ -55,5 +62,5 @@ it('reports a warning when opcache is requested but cannot be enabled', function
         $environment,
     );
 
-    expect($selection->warnings)->toHaveCount(1);
+    expect($selection->warnings)->toContain('OPcache was requested but is unavailable or disabled for the active PHP SAPI.');
 });
