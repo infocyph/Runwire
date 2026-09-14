@@ -15,9 +15,9 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 
 require_once __DIR__ . '/Support/Http2TestSupport.php';
 
-function runwireH2GoAwayError(string $wire): ?int
+function runwireH2GoAwayError(string $wire, ?Http2Limits $limits = null): ?int
 {
-    [$response] = runwireH2Exchange($wire, static function (): void {});
+    [$response] = runwireH2Exchange($wire, static function (): void {}, $limits);
     foreach (array_reverse(runwireH2Frames($response)) as $frame) {
         if ($frame->knownType() === FrameType::GOAWAY && strlen($frame->payload) >= 8) {
             return unpack('N', substr($frame->payload, 4, 4))[1];
@@ -27,9 +27,9 @@ function runwireH2GoAwayError(string $wire): ?int
     return null;
 }
 
-function runwireH2ResetError(string $wire, int $streamId, callable $handler): ?int
+function runwireH2ResetError(string $wire, int $streamId, callable $handler, ?Http2Limits $limits = null): ?int
 {
-    [$response] = runwireH2Exchange($wire, $handler);
+    [$response] = runwireH2Exchange($wire, $handler, $limits);
     foreach (runwireH2Frames($response) as $frame) {
         if ($frame->knownType() === FrameType::RST_STREAM && $frame->streamId === $streamId) {
             return unpack('N', $frame->payload)[1];
@@ -60,26 +60,64 @@ it('rejects interrupted header blocks as a connection protocol error', function 
     expect(runwireH2GoAwayError($wire))->toBe(ErrorCode::PROTOCOL_ERROR->value);
 });
 
-it('bounds control-frame work per connection', function (): void {
+it('bounds PING control-frame work per connection', function (): void {
     $wire = runwireH2ClientPrelude();
     for ($i = 0; $i < 4; ++$i) {
         $wire .= FrameWriter::encode(new Frame(FrameType::PING->value, 0, 0, '12345678'));
     }
 
-    [$response] = runwireH2Exchange(
+    expect(runwireH2GoAwayError(
         $wire,
-        static function (): void {},
         new Http2Limits(maxControlFramesPerSecond: 2),
-    );
-    $error = null;
-    foreach (array_reverse(runwireH2Frames($response)) as $frame) {
-        if ($frame->knownType() === FrameType::GOAWAY) {
-            $error = unpack('N', substr($frame->payload, 4, 4))[1];
-            break;
-        }
+    ))->toBe(ErrorCode::ENHANCE_YOUR_CALM->value);
+});
+
+it('bounds SETTINGS control-frame work per connection', function (): void {
+    $wire = runwireH2ClientPrelude();
+    for ($i = 0; $i < 4; ++$i) {
+        $wire .= FrameWriter::encode(FrameWriter::settings([]));
     }
 
-    expect($error)->toBe(ErrorCode::ENHANCE_YOUR_CALM->value);
+    expect(runwireH2GoAwayError(
+        $wire,
+        new Http2Limits(maxControlFramesPerSecond: 2),
+    ))->toBe(ErrorCode::ENHANCE_YOUR_CALM->value);
+});
+
+it('rejects oversized decoded header lists before application dispatch', function (): void {
+    $encoder = new Encoder();
+    $block = $encoder->encode([
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', 'example.test'],
+        [':path', '/'],
+        ['x-large', str_repeat('a', 128)],
+    ]);
+    $called = false;
+    $wire = runwireH2ClientPrelude()
+        . FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
+
+    $reset = runwireH2ResetError(
+        $wire,
+        1,
+        static function () use (&$called): void { $called = true; },
+        new Http2Limits(maxHeaderListBytes: 64),
+    );
+
+    expect($called)->toBeFalse()
+        ->and($reset)->not->toBeNull();
+});
+
+it('bounds lifetime request-stream creation', function (): void {
+    $wire = runwireH2ClientPrelude()
+        . runwireH2Headers(1, '/one')
+        . runwireH2Headers(3, '/two')
+        . runwireH2Headers(5, '/three');
+
+    expect(runwireH2GoAwayError(
+        $wire,
+        new Http2Limits(maxStreamsPerConnection: 2),
+    ))->toBe(ErrorCode::ENHANCE_YOUR_CALM->value);
 });
 
 it('delivers synchronous END_STREAM before a response can clean up the stream', function (): void {
