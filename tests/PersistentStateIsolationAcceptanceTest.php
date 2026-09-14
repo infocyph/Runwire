@@ -12,67 +12,8 @@ use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
-use Infocyph\Runwire\Runtime\RequestResetterInterface;
-
-final class PersistentFixtureState
-{
-    public static ?string $staticRequest = null;
-
-    public ?string $singleton = null;
-    public ?string $container = null;
-    public ?string $auth = null;
-    public string $locale = 'en';
-    public ?string $trace = null;
-    public bool $transactionOpen = false;
-    public ?string $taskLocal = null;
-
-    public function clean(): bool
-    {
-        return self::$staticRequest === null
-            && $this->singleton === null
-            && $this->container === null
-            && $this->auth === null
-            && $this->locale === 'en'
-            && $this->trace === null
-            && !$this->transactionOpen
-            && $this->taskLocal === null;
-    }
-
-    public function dirty(string $request): void
-    {
-        self::$staticRequest = $request;
-        $this->singleton = $request;
-        $this->container = $request;
-        $this->auth = 'user:' . $request;
-        $this->locale = 'bn';
-        $this->trace = 'trace:' . $request;
-        $this->transactionOpen = true;
-        $this->taskLocal = 'task:' . $request;
-    }
-
-    public function reset(): void
-    {
-        self::$staticRequest = null;
-        $this->singleton = null;
-        $this->container = null;
-        $this->auth = null;
-        $this->locale = 'en';
-        $this->trace = null;
-        $this->transactionOpen = false;
-        $this->taskLocal = null;
-    }
-}
-
-final readonly class PersistentFixtureResetter implements RequestResetterInterface
-{
-    public function __construct(private PersistentFixtureState $state) {}
-
-    public function reset(RequestContext $context): void
-    {
-        expect($context->attribute('fixture'))->not->toBeNull();
-        $this->state->reset();
-    }
-}
+use Infocyph\Runwire\Tests\Support\PersistentFixtureResetter;
+use Infocyph\Runwire\Tests\Support\PersistentFixtureState;
 
 function persistentIsolationRequest(string $target, int $startNanoseconds): HttpRequest
 {

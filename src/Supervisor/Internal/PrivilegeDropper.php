@@ -13,10 +13,16 @@ use Infocyph\Runwire\Exception\SupervisorException;
  */
 final readonly class PrivilegeDropper
 {
+    /**
+     * Create a worker privilege-drop operation backed by the supplied identity system.
+     */
     public function __construct(
         private IdentitySystemInterface $system,
     ) {}
 
+    /**
+     * Apply the requested worker UID/GID transition and verify the resulting identity.
+     */
     public function apply(?int $uid, ?int $gid): void
     {
         if ($uid === null && $gid === null) {

@@ -15,9 +15,9 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 
 require_once __DIR__ . '/Support/Http2TestSupport.php';
 
-function runwireH2GoAwayError(string $wire, ?Http2Limits $limits = null): ?int
+function runwireH2GoAwayError(string $wire, ?Http2Limits $limits = null, ?callable $handler = null): ?int
 {
-    [$response] = runwireH2Exchange($wire, static function (): void {}, $limits);
+    [$response] = runwireH2Exchange($wire, $handler ?? static function (): void {}, $limits);
     foreach (array_reverse(runwireH2Frames($response)) as $frame) {
         if ($frame->knownType() === FrameType::GOAWAY && strlen($frame->payload) >= 8) {
             return unpack('N', substr($frame->payload, 4, 4))[1];
@@ -97,15 +97,14 @@ it('rejects oversized decoded header lists before application dispatch', functio
     $wire = runwireH2ClientPrelude()
         . FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
 
-    $reset = runwireH2ResetError(
+    $error = runwireH2GoAwayError(
         $wire,
-        1,
-        static function () use (&$called): void { $called = true; },
         new Http2Limits(maxHeaderListBytes: 64),
+        static function () use (&$called): void { $called = true; },
     );
 
     expect($called)->toBeFalse()
-        ->and($reset)->not->toBeNull();
+        ->and($error)->toBe(ErrorCode::COMPRESSION_ERROR->value);
 });
 
 it('bounds lifetime request-stream creation', function (): void {
