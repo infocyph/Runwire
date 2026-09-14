@@ -11,8 +11,14 @@ use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Protocol\FramedConnection;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
+/**
+ * Runs framed TCP or Unix-domain stream sessions inside a supervised worker.
+ */
 final class NativeStreamWorker
 {
+    /**
+     * Runs the bound stream listener until worker shutdown is requested.
+     */
     public static function run(
         WorkerContext $context,
         BoundStreamServer $bound,

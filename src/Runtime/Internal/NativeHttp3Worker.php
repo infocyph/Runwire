@@ -20,8 +20,14 @@ use Infocyph\Runwire\Server;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use LogicException;
 
+/**
+ * Runs native HTTP/3 QUIC handling inside a supervised worker.
+ */
 final class NativeHttp3Worker
 {
+    /**
+     * Runs the HTTP/3 worker until shutdown and drains active connections on exit.
+     */
     public static function run(
         WorkerContext $context,
         Server $server,

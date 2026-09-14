@@ -9,6 +9,9 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Runtime\DevelopmentWatchPolicy;
 use Throwable;
 
+/**
+ * Polls development files and debounces change callbacks on an event loop.
+ */
 final class DevelopmentWatcher
 {
     /** @var Closure(): void */
@@ -42,16 +45,25 @@ final class DevelopmentWatcher
         $this->snapshotter = $snapshotter === null ? $scanner->snapshot(...) : Closure::fromCallable($snapshotter);
     }
 
+    /**
+     * Returns the number of snapshot or callback failures observed.
+     */
     public function failureCount(): int
     {
         return $this->failures;
     }
 
+    /**
+     * Reports whether development watching is active.
+     */
     public function running(): bool
     {
         return $this->running;
     }
 
+    /**
+     * Starts polling watched paths when the policy is enabled.
+     */
     public function start(): void
     {
         if ($this->running || !$this->policy->enabled) {
@@ -66,6 +78,9 @@ final class DevelopmentWatcher
         );
     }
 
+    /**
+     * Stops polling and cancels any pending debounce callback.
+     */
     public function stop(): void
     {
         if (!$this->running) {

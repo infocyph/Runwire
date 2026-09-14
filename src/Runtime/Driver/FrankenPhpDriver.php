@@ -17,6 +17,9 @@ use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * Runs applications through FrankenPHP classic or persistent worker mode.
+ */
 final readonly class FrankenPhpDriver implements HostDriverInterface
 {
     /** @var Closure(): HttpRequest */
@@ -53,6 +56,9 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
             : Closure::fromCallable($writerFactory);
     }
 
+    /**
+     * Runs the application in resolved FrankenPHP classic or worker mode.
+     */
     public function run(RuntimeApplicationInterface $application): void
     {
         try {
@@ -69,6 +75,9 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
         }
     }
 
+    /**
+     * Requests driver shutdown; FrankenPHP owns its host lifecycle.
+     */
     public function stop(): void {}
 
     /** @return Closure(callable): bool|null */

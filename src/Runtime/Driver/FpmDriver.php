@@ -13,6 +13,9 @@ use Infocyph\Runwire\Runtime\Host\HostRequestFactory;
 use Infocyph\Runwire\Runtime\Host\NativePhpResponseWriterFactory;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 
+/**
+ * Runs a single request through PHP-FPM's request-owned lifecycle.
+ */
 final readonly class FpmDriver implements HostDriverInterface
 {
     /** @var Closure(): HttpRequest */
@@ -40,6 +43,9 @@ final readonly class FpmDriver implements HostDriverInterface
             : Closure::fromCallable($writerFactory);
     }
 
+    /**
+     * Handles the current FPM request and shuts down the application lifecycle.
+     */
     public function run(RuntimeApplicationInterface $application): void
     {
         try {
@@ -51,5 +57,8 @@ final readonly class FpmDriver implements HostDriverInterface
         }
     }
 
+    /**
+     * Requests driver shutdown; FPM owns the request process lifecycle.
+     */
     public function stop(): void {}
 }

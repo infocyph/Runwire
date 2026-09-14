@@ -11,8 +11,14 @@ use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use InvalidArgumentException;
 use RuntimeException;
 
+/**
+ * Normalizes host-provided request metadata and bodies into Runwire HTTP requests.
+ */
 final class HostRequestFactory
 {
+    /**
+     * Builds an HTTP request from PHP superglobals and php://input.
+     */
     public function fromGlobals(int $maxBodyBytes): HttpRequest
     {
         /** @var array<string, mixed> $server */

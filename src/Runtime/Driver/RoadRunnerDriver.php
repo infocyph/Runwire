@@ -14,6 +14,9 @@ use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * Runs persistent HTTP request handling through a RoadRunner worker session.
+ */
 final class RoadRunnerDriver implements HostDriverInterface
 {
     /** @var Closure(): RoadRunnerSessionInterface */
@@ -32,6 +35,9 @@ final class RoadRunnerDriver implements HostDriverInterface
             : Closure::fromCallable($sessionFactory);
     }
 
+    /**
+     * Processes requests from a RoadRunner session until the worker stops or recycles.
+     */
     public function run(RuntimeApplicationInterface $application): void
     {
         $session = ($this->sessionFactory)();
@@ -46,6 +52,9 @@ final class RoadRunnerDriver implements HostDriverInterface
         }
     }
 
+    /**
+     * Stops the active RoadRunner session when present.
+     */
     public function stop(): void
     {
         $this->session?->stop();

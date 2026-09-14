@@ -6,6 +6,9 @@ namespace Infocyph\Runwire\Runtime;
 
 use InvalidArgumentException;
 
+/**
+ * Configures development file watching, polling, and reload debouncing.
+ */
 final readonly class DevelopmentWatchPolicy
 {
     private const int MAX_FILES = 16_384;

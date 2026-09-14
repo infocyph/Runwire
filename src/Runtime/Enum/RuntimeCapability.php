@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime\Enum;
 
+/**
+ * Names capabilities that may be exposed by a resolved runtime environment.
+ */
 enum RuntimeCapability: string
 {
     case CONCURRENT = 'concurrent';

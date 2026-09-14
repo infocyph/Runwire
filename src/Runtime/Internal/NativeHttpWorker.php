@@ -21,8 +21,14 @@ use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
+/**
+ * Runs native HTTP/1.1 and HTTP/2 sessions inside a supervised worker loop.
+ */
 final class NativeHttpWorker
 {
+    /**
+     * Runs the bound HTTP listener until worker shutdown and drains active sessions.
+     */
     public static function run(
         WorkerContext $context,
         BoundServer $bound,

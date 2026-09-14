@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime\Enum;
 
+/**
+ * Classifies request and coroutine cancellation causes.
+ */
 enum CancellationReason: string
 {
     case DEADLINE_EXCEEDED = 'deadline_exceeded';

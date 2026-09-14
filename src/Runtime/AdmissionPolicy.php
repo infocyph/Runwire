@@ -6,10 +6,16 @@ namespace Infocyph\Runwire\Runtime;
 
 use InvalidArgumentException;
 
+/**
+ * Defines request, connection, and stream admission ceilings for a worker.
+ */
 final readonly class AdmissionPolicy
 {
     private const int MAX_LIMIT = 1_000_000;
 
+    /**
+     * Creates an admission policy, where zero disables each corresponding limit.
+     */
     public function __construct(
         public int $maxActiveRequests = 0,
         public int $maxConcurrentConnections = 0,
@@ -35,6 +41,9 @@ final readonly class AdmissionPolicy
         }
     }
 
+    /**
+     * Applies the configured connection ceiling to a fallback limit.
+     */
     public function connectionLimit(int $fallback): int
     {
         return $this->maxConcurrentConnections > 0
@@ -42,6 +51,9 @@ final readonly class AdmissionPolicy
             : $fallback;
     }
 
+    /**
+     * Reports whether any admission limit is enabled.
+     */
     public function enabled(): bool
     {
         return $this->maxActiveRequests > 0

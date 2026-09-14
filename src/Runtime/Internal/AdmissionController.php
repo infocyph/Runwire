@@ -11,17 +11,26 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 
+/**
+ * Enforces per-worker request and stream admission limits.
+ */
 final class AdmissionController
 {
     private int $activeRequests = 0;
 
     private int $activeStreams = 0;
 
+    /**
+     * Creates an admission controller backed by runtime metrics.
+     */
     public function __construct(
         private readonly AdmissionPolicy $policy,
         private readonly RuntimeMetrics $metrics,
     ) {}
 
+    /**
+     * Attempts to admit a request for the supplied protocol version.
+     */
     public function admit(ProtocolVersion $version): bool
     {
         if ($this->policy->maxActiveRequests > 0 && $this->activeRequests >= $this->policy->maxActiveRequests) {
@@ -44,6 +53,9 @@ final class AdmissionController
         return true;
     }
 
+    /**
+     * Releases admission counters after request completion.
+     */
     public function release(ProtocolVersion $version): void
     {
         $this->activeRequests = max(0, $this->activeRequests - 1);
@@ -52,6 +64,9 @@ final class AdmissionController
         }
     }
 
+    /**
+     * Writes a protocol-appropriate 503 response for rejected work.
+     */
     public function writeOverloadResponse(HttpRequest $request, ResponseWriterInterface $writer): void
     {
         if ($writer->isEnded()) {

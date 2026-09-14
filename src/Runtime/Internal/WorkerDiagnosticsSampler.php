@@ -9,6 +9,9 @@ use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
+/**
+ * Periodically reports runtime and loop diagnostics through a worker context.
+ */
 final class WorkerDiagnosticsSampler
 {
     private const int NANOS_PER_SECOND = 1_000_000_000;
@@ -17,6 +20,9 @@ final class WorkerDiagnosticsSampler
 
     private int $lastSampleNanoseconds = 0;
 
+    /**
+     * Creates a diagnostics sampler using the configured report interval.
+     */
     public function __construct(
         private readonly WorkerContext $context,
         private readonly RuntimeMetrics $metrics,
@@ -28,6 +34,9 @@ final class WorkerDiagnosticsSampler
         );
     }
 
+    /**
+     * Reports a metrics sample when due or when forced.
+     */
     public function sample(bool $force = false): void
     {
         $now = self::nowNanoseconds();

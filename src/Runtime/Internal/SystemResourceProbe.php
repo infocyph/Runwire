@@ -8,6 +8,9 @@ use Closure;
 use Infocyph\Runwire\Runtime\SystemResources;
 use InvalidArgumentException;
 
+/**
+ * Detects effective CPU and memory limits from the host and cgroup environment.
+ */
 final readonly class SystemResourceProbe
 {
     /** @var Closure(string): ?string */
@@ -31,6 +34,9 @@ final readonly class SystemResourceProbe
         $this->reader = $reader === null ? self::readFile(...) : $reader(...);
     }
 
+    /**
+     * Probes and returns effective CPU and memory resources.
+     */
     public function probe(): SystemResources
     {
         $hostCpu = $this->hostCpuCount ?? $this->detectHostCpuCount();

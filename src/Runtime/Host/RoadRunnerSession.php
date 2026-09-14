@@ -14,13 +14,22 @@ use ReflectionClass;
 use ReflectionProperty;
 use RuntimeException;
 
+/**
+ * Adapts RoadRunner worker objects to Runwire's host session contract.
+ */
 final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 {
+    /**
+     * Creates a session around RoadRunner worker and HTTP worker objects.
+     */
     public function __construct(
         private object $worker,
         private object $httpWorker,
     ) {}
 
+    /**
+     * Creates a session from the installed RoadRunner worker runtime.
+     */
     public static function create(): self
     {
         $workerClass = self::hostClass('Spiral', 'RoadRunner', 'Worker');
@@ -42,16 +51,25 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
         );
     }
 
+    /**
+     * Sends one HTTP response chunk through RoadRunner.
+     */
     public function respond(int $status, string $body, array $headers, bool $endOfStream): void
     {
         DynamicHostObject::method($this->httpWorker, 'respond')($status, $body, $headers, $endOfStream);
     }
 
+    /**
+     * Stops the underlying RoadRunner worker.
+     */
     public function stop(): void
     {
         DynamicHostObject::method($this->worker, 'stop')();
     }
 
+    /**
+     * Waits for and normalizes the next RoadRunner HTTP request.
+     */
     public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
     {
         if ($maxRequestBodyBytes < 1) {

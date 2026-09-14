@@ -6,10 +6,16 @@ namespace Infocyph\Runwire;
 
 use InvalidArgumentException;
 
+/**
+ * Represents an optional monotonic deadline for request execution.
+ */
 final readonly class RequestDeadline
 {
     private const int NANOSECONDS_PER_SECOND = 1_000_000_000;
 
+    /**
+     * Creates a request deadline from an absolute monotonic timestamp.
+     */
     public function __construct(public ?int $monotonicNanoseconds)
     {
         if ($monotonicNanoseconds !== null && $monotonicNanoseconds < 0) {
@@ -17,6 +23,9 @@ final readonly class RequestDeadline
         }
     }
 
+    /**
+     * Creates a deadline a fixed duration after a monotonic start time.
+     */
     public static function afterSeconds(float $seconds, int $startNanoseconds): self
     {
         if (!is_finite($seconds) || $seconds <= 0) {
@@ -29,11 +38,17 @@ final readonly class RequestDeadline
         return new self($startNanoseconds + (int) ceil($seconds * self::NANOSECONDS_PER_SECOND));
     }
 
+    /**
+     * Creates a deadline that never expires.
+     */
     public static function unlimited(): self
     {
         return new self(null);
     }
 
+    /**
+     * Reports whether the deadline has expired at the supplied or current monotonic time.
+     */
     public function expired(?int $nowNanoseconds = null): bool
     {
         if ($this->monotonicNanoseconds === null) {
@@ -43,6 +58,9 @@ final readonly class RequestDeadline
         return ($nowNanoseconds ?? self::nowNanoseconds()) >= $this->monotonicNanoseconds;
     }
 
+    /**
+     * Returns remaining seconds, or null when the deadline is unlimited.
+     */
     public function remainingSeconds(?int $nowNanoseconds = null): ?float
     {
         if ($this->monotonicNanoseconds === null) {

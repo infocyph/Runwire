@@ -11,10 +11,19 @@ use RecursiveIteratorIterator;
 use RuntimeException;
 use SplFileInfo;
 
+/**
+ * Computes bounded filesystem snapshots for development reload detection.
+ */
 final readonly class DevelopmentFileScanner
 {
+    /**
+     * Creates a scanner using the supplied development watch policy.
+     */
     public function __construct(private DevelopmentWatchPolicy $policy) {}
 
+    /**
+     * Returns a deterministic hash of watched file metadata.
+     */
     public function snapshot(): string
     {
         $entries = [];

@@ -22,6 +22,9 @@ use InvalidArgumentException;
 use ReflectionClass;
 use RuntimeException;
 
+/**
+ * Runs HTTP applications on a Swoole or OpenSwoole host server.
+ */
 final class SwooleDriver implements HostDriverInterface
 {
     /** @var Closure(string, int): object */
@@ -40,6 +43,9 @@ final class SwooleDriver implements HostDriverInterface
             : Closure::fromCallable($serverFactory);
     }
 
+    /**
+     * Configures and starts the host Swoole/OpenSwoole HTTP server.
+     */
     public function run(RuntimeApplicationInterface $application): void
     {
         $server = ($this->serverFactory)($this->options->host, $this->options->port);
@@ -57,6 +63,9 @@ final class SwooleDriver implements HostDriverInterface
         }
     }
 
+    /**
+     * Requests shutdown of the active Swoole/OpenSwoole server.
+     */
     public function stop(): void
     {
         if ($this->server === null) {

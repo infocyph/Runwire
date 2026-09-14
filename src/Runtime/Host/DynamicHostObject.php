@@ -8,6 +8,9 @@ use Closure;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use ReflectionProperty;
 
+/**
+ * Provides validated dynamic access to host-runtime object properties and methods.
+ */
 final class DynamicHostObject
 {
     /** @return array<string, mixed> */
@@ -32,6 +35,9 @@ final class DynamicHostObject
         return $normalized;
     }
 
+    /**
+     * Returns a callable host method or fails when the method is unavailable.
+     */
     public static function method(object $object, string $method): Closure
     {
         $callable = [$object, $method];

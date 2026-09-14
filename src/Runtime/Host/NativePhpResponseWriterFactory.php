@@ -8,8 +8,14 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use RuntimeException;
 
+/**
+ * Creates response writers backed by PHP's native response APIs and output stream.
+ */
 final class NativePhpResponseWriterFactory
 {
+    /**
+     * Creates a bounded native PHP response writer for the request method.
+     */
     public function create(string $method, int $maxBodyBytes): CallbackResponseWriter
     {
         $output = fopen('php://output', 'wb');

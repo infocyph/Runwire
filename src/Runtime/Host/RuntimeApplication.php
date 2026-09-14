@@ -16,6 +16,9 @@ use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
+/**
+ * Exposes an application lifecycle through the host runtime application contract.
+ */
 final readonly class RuntimeApplication implements RuntimeApplicationInterface
 {
     private ApplicationLifecycle $lifecycle;
@@ -48,16 +51,25 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
         );
     }
 
+    /**
+     * Cancels all active application requests.
+     */
     public function cancelActive(CancellationReason $reason = CancellationReason::HOST_CANCELLED): void
     {
         $this->lifecycle->cancelActive($reason);
     }
 
+    /**
+     * Starts application drain handling for the supplied shutdown reason.
+     */
     public function drain(ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP): void
     {
         $this->lifecycle->drain($reason);
     }
 
+    /**
+     * Handles one HTTP request through the application lifecycle.
+     */
     public function handle(
         HttpRequest $request,
         ResponseWriterInterface $writer,
@@ -66,16 +78,25 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
         $this->lifecycle->handle($request, $writer, $completeResponse);
     }
 
+    /**
+     * Shuts down the application lifecycle.
+     */
     public function shutdown(?ShutdownReason $reason = null): void
     {
         $this->lifecycle->shutdown($reason);
     }
 
+    /**
+     * Returns the current runtime metrics snapshot.
+     */
     public function snapshot(): RuntimeMetricsSnapshot
     {
         return $this->runtimeContext->snapshot();
     }
 
+    /**
+     * Starts application boot and warmup processing.
+     */
     public function start(): void
     {
         $this->lifecycle->start();

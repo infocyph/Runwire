@@ -12,8 +12,14 @@ use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
+/**
+ * Creates host-owned runtime driver implementations from resolved driver selections.
+ */
 final class HostDriverFactory
 {
+    /**
+     * Creates the host driver corresponding to the resolved runtime type.
+     */
     public function create(RuntimeDriver $driver, RuntimeOptions $options): HostDriverInterface
     {
         return match ($driver) {

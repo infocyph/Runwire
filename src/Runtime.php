@@ -39,6 +39,9 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 use LogicException;
 
+/**
+ * Configures and runs native or host-owned Runwire application runtimes.
+ */
 final class Runtime
 {
     private ?ControlOptions $controlOptions = null;
@@ -67,6 +70,9 @@ final class Runtime
         private readonly RuntimeSelector $selector,
     ) {}
 
+    /**
+     * Creates a runtime using the supplied or default options.
+     */
     public static function create(?RuntimeOptions $options = null): self
     {
         return new self(
@@ -76,6 +82,9 @@ final class Runtime
         );
     }
 
+    /**
+     * Configures the native supervisor control endpoint before startup.
+     */
     public function control(ControlOptions $options): self
     {
         if ($this->started) {
@@ -87,6 +96,9 @@ final class Runtime
         return $this;
     }
 
+    /**
+     * Registers a native HTTP, stream, or datagram server.
+     */
     public function listen(Server|StreamServer|DatagramServer $server): self
     {
         if ($this->started) {
@@ -111,6 +123,9 @@ final class Runtime
         return $this;
     }
 
+    /**
+     * Requests recycling of a server worker slot and its HTTP/3 peer when configured.
+     */
     public function recycle(string $serverName, int $slot): bool
     {
         $server = $this->servers[$serverName] ?? null;
@@ -131,11 +146,17 @@ final class Runtime
         return $recycled && $http3Recycled;
     }
 
+    /**
+     * Requests a graceful native worker reload.
+     */
     public function reload(): void
     {
         $this->supervisor?->reload();
     }
 
+    /**
+     * Runs the configured native listener topology under the supervisor.
+     */
     public function run(): void
     {
         if ($this->started) {
@@ -168,6 +189,9 @@ final class Runtime
         }
     }
 
+    /**
+     * Returns the resolved runtime selection after startup begins.
+     */
     public function selection(): ?RuntimeSelection
     {
         return $this->selection;
@@ -192,17 +216,26 @@ final class Runtime
         ));
     }
 
+    /**
+     * Runs an application factory through the selected host-owned runtime driver.
+     */
     public function serveApplication(RuntimeApplicationFactoryInterface $factory): void
     {
         $context = $this->prepareHostRuntime();
         $this->runHostApplication($factory->create($context));
     }
 
+    /**
+     * Returns the current native supervisor status when running.
+     */
     public function status(): ?SupervisorStatus
     {
         return $this->supervisor?->status();
     }
 
+    /**
+     * Requests host or native runtime shutdown.
+     */
     public function stop(bool $force = false): void
     {
         $this->hostApplication?->drain();
@@ -210,6 +243,9 @@ final class Runtime
         $this->supervisor?->stop($force);
     }
 
+    /**
+     * Configures development file watching before native runtime startup.
+     */
     public function watch(DevelopmentWatchPolicy $policy): self
     {
         if ($this->started) {

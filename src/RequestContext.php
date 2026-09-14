@@ -10,6 +10,9 @@ use InvalidArgumentException;
 use LogicException;
 use OverflowException;
 
+/**
+ * Carries per-request runtime binding, cancellation, deadlines, and bounded attributes.
+ */
 final class RequestContext
 {
     private const int DEFAULT_MAX_ATTRIBUTES = 64;
@@ -43,6 +46,9 @@ final class RequestContext
         $this->cancellation = $this->cancellationSource->token();
     }
 
+    /**
+     * Creates a runtime-bound request context using the supplied execution policy.
+     */
     public static function create(
         RuntimeContext $runtime,
         RequestExecutionPolicy $policy = new RequestExecutionPolicy(),
@@ -76,6 +82,9 @@ final class RequestContext
         );
     }
 
+    /**
+     * Binds a standalone context to an active runtime and request policy.
+     */
     public function activate(RuntimeContext $runtime, RequestExecutionPolicy $policy): void
     {
         if ($this->bound) {
@@ -96,6 +105,9 @@ final class RequestContext
         $this->cancellationSource->setDeadline($deadline);
     }
 
+    /**
+     * Returns a request attribute or the supplied default value.
+     */
     public function attribute(string $key, mixed $default = null): mixed
     {
         return $this->attributes[$key] ?? $default;
@@ -107,16 +119,25 @@ final class RequestContext
         return $this->attributes;
     }
 
+    /**
+     * Cancels request work with the supplied reason.
+     */
     public function cancel(CancellationReason $reason): bool
     {
         return $this->cancellationSource->cancel($reason);
     }
 
+    /**
+     * Reports whether the request is cancelled at the supplied or current monotonic time.
+     */
     public function cancelled(?int $nowNanoseconds = null): bool
     {
         return $this->cancellation->isCancelled($nowNanoseconds);
     }
 
+    /**
+     * Completes the context and releases request-scoped state.
+     */
     public function complete(): void
     {
         if ($this->completed) {
@@ -128,31 +149,49 @@ final class RequestContext
         $this->completed = true;
     }
 
+    /**
+     * Reports whether the request context has completed.
+     */
     public function completed(): bool
     {
         return $this->completed;
     }
 
+    /**
+     * Returns the request execution deadline.
+     */
     public function deadline(): RequestDeadline
     {
         return $this->deadline;
     }
 
+    /**
+     * Reports whether a request attribute exists.
+     */
     public function hasAttribute(string $key): bool
     {
         return array_key_exists($key, $this->attributes);
     }
 
+    /**
+     * Removes a request attribute when present.
+     */
     public function removeAttribute(string $key): void
     {
         unset($this->attributes[$key]);
     }
 
+    /**
+     * Returns the runtime context currently bound to this request.
+     */
     public function runtime(): RuntimeContext
     {
         return $this->runtime;
     }
 
+    /**
+     * Stores a bounded request attribute.
+     */
     public function setAttribute(string $key, mixed $value): void
     {
         if ($this->completed) {

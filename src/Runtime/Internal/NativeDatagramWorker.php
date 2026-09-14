@@ -8,8 +8,14 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
+/**
+ * Runs a native datagram server inside a supervised worker event loop.
+ */
 final class NativeDatagramWorker
 {
+    /**
+     * Runs the bound datagram listener until worker shutdown is requested.
+     */
     public static function run(
         WorkerContext $context,
         BoundDatagramServer $bound,

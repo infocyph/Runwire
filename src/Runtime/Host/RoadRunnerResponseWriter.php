@@ -11,6 +11,9 @@ use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 
+/**
+ * Streams bounded HTTP responses through a RoadRunner session.
+ */
 final class RoadRunnerResponseWriter implements ResponseWriterInterface
 {
     private readonly int $maxBodyBytes;
@@ -25,6 +28,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     private int $status = 200;
 
+    /**
+     * Creates a RoadRunner response writer with an optional HEAD body suppression mode.
+     */
     public function __construct(
         private readonly RoadRunnerSessionInterface $session,
         int $maxBodyBytes,
@@ -38,6 +44,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         $this->maxBodyBytes = $headRequest ? 0 : $maxBodyBytes;
     }
 
+    /**
+     * Finishes the response, optionally writing a final body chunk.
+     */
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -68,16 +77,25 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    /**
+     * Reports whether the response has ended.
+     */
     public function isEnded(): bool
     {
         return $this->ended;
     }
 
+    /**
+     * Reports whether response status and headers have been started.
+     */
     public function isStarted(): bool
     {
         return $this->started;
     }
 
+    /**
+     * Registers an immediate drain callback for this non-buffering writer.
+     */
     public function onDrain(callable $callback): ResponseWriterInterface
     {
         if (!$this->ended) {
@@ -87,6 +105,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         return $this;
     }
 
+    /**
+     * Starts the response with status and optional headers.
+     */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -106,6 +127,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    /**
+     * Writes one response body chunk through the RoadRunner session.
+     */
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {

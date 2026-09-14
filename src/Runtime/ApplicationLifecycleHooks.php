@@ -8,6 +8,9 @@ use Closure;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
+/**
+ * Bundles optional application lifecycle callbacks and request resetters.
+ */
 final readonly class ApplicationLifecycleHooks
 {
     /** @var Closure(RuntimeContext): void|null */

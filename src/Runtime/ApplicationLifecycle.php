@@ -19,6 +19,9 @@ use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use LogicException;
 use Throwable;
 
+/**
+ * Coordinates application startup, admission, request cleanup, draining, and shutdown.
+ */
 final class ApplicationLifecycle
 {
     private readonly AdmissionController $admission;
@@ -72,6 +75,9 @@ final class ApplicationLifecycle
         $this->admission = new AdmissionController($admission, $runtimeContext->metrics);
     }
 
+    /**
+     * Cancels every active request context with the supplied reason.
+     */
     public function cancelActive(CancellationReason $reason = CancellationReason::HOST_CANCELLED): void
     {
         foreach ($this->activeContexts as $context) {
@@ -79,6 +85,9 @@ final class ApplicationLifecycle
         }
     }
 
+    /**
+     * Starts application drain processing and rejects new request work.
+     */
     public function drain(ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP): void
     {
         if ($this->draining || $this->shutdown || (!$this->started && !$this->booted)) {
@@ -95,6 +104,9 @@ final class ApplicationLifecycle
         }
     }
 
+    /**
+     * Executes one admitted request through the application handler and lifecycle cleanup.
+     */
     public function handle(
         HttpRequest $request,
         ResponseWriterInterface $writer,
@@ -119,6 +131,9 @@ final class ApplicationLifecycle
         }
     }
 
+    /**
+     * Shuts down the application after draining and cancelling active requests.
+     */
     public function shutdown(?ShutdownReason $reason = null): void
     {
         if ($this->shutdown || (!$this->started && !$this->booted)) {
@@ -152,6 +167,9 @@ final class ApplicationLifecycle
         }
     }
 
+    /**
+     * Runs application boot and warmup hooks once.
+     */
     public function start(): void
     {
         if ($this->started) {
