@@ -10,8 +10,7 @@ use Infocyph\Runwire\Process\ProcessRunner;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 $fail = static function (string $message): never {
-    fwrite(STDERR, $message . PHP_EOL);
-    exit(1);
+    throw new RuntimeException($message);
 };
 
 if (function_exists('pcntl_fork') || defined('SIGTERM') || defined('SIGKILL')) {
@@ -57,4 +56,4 @@ $handle = new ProcessHandle($process);
 $handle->abort();
 $handle->close();
 
-echo "portable-process-runner-ok\n";
+fwrite(STDOUT, "portable-process-runner-ok\n");

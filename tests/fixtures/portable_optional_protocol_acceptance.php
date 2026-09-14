@@ -19,13 +19,18 @@ use Infocyph\Runwire\Server;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 $fail = static function (string $message): never {
-    fwrite(STDERR, $message . PHP_EOL);
-    exit(1);
+    throw new RuntimeException($message);
 };
 
 $assert = static function (bool $condition, string $message) use ($fail): void {
     if (!$condition) {
         $fail($message);
+    }
+};
+
+$unlink = static function (string $path): void {
+    if (file_exists($path)) {
+        unlink($path);
     }
 };
 
@@ -66,8 +71,9 @@ if (($argv[1] ?? null) === 'client') {
         $fail('Portable TLS client received an invalid response.');
     }
 
-    echo "portable-tls-client-ok\n";
-    exit(0);
+    fwrite(STDOUT, "portable-tls-client-ok\n");
+
+    return;
 }
 
 $environment = (new RuntimeEnvironmentProbe())->probe();
@@ -84,13 +90,14 @@ if ($certificatePath === false) {
 }
 $keyPath = tempnam(sys_get_temp_dir(), 'runwire-portable-key-');
 if ($keyPath === false) {
-    @unlink($certificatePath);
+    $unlink($certificatePath);
     $fail('Unable to allocate portable TLS key path.');
 }
 
 if (($argv[1] ?? null) === 'unavailable') {
     file_put_contents($certificatePath, "placeholder\n");
     file_put_contents($keyPath, "placeholder\n");
+    $unavailablePassed = false;
     try {
         $assert(!function_exists('stream_socket_enable_crypto'), 'TLS-unavailable acceptance requires stream_socket_enable_crypto() to be disabled.');
         $assert(!$environment->supportsOpenSsl, 'Environment must not advertise usable native OpenSSL when TLS crypto is unavailable.');
@@ -103,15 +110,18 @@ if (($argv[1] ?? null) === 'unavailable') {
             );
         } catch (ListenerException $error) {
             $assert(str_contains($error->getMessage(), 'TLS listeners require'), 'TLS-unavailable failure must be explicit.');
-            echo "portable-tls-unavailable-ok\n";
-            exit(0);
+            $unavailablePassed = true;
         }
 
-        $fail('Configured TLS unexpectedly bound while TLS crypto was unavailable.');
+        $assert($unavailablePassed, 'Configured TLS unexpectedly bound while TLS crypto was unavailable.');
     } finally {
-        @unlink($certificatePath);
-        @unlink($keyPath);
+        $unlink($certificatePath);
+        $unlink($keyPath);
     }
+
+    fwrite(STDOUT, "portable-tls-unavailable-ok\n");
+
+    return;
 }
 
 $assert(extension_loaded('openssl'), 'Portable TLS success acceptance requires the OpenSSL extension.');
@@ -176,8 +186,8 @@ $process = proc_open(
 );
 if (!is_resource($process)) {
     $listener->close();
-    @unlink($certificatePath);
-    @unlink($keyPath);
+    $unlink($certificatePath);
+    $unlink($keyPath);
     $fail('Unable to start portable TLS acceptance client.');
 }
 fclose($pipes[0]);
@@ -204,8 +214,8 @@ try {
         proc_close($process);
     }
     $listener->close();
-    @unlink($certificatePath);
-    @unlink($keyPath);
+    $unlink($certificatePath);
+    $unlink($keyPath);
 }
 
-echo "portable-tls-ok\n";
+fwrite(STDOUT, "portable-tls-ok\n");

@@ -39,7 +39,7 @@ final readonly class PrivilegeDropPolicy
         }
 
         $this->assertSupported();
-        (new PrivilegeDropper(new PosixIdentitySystem()))->apply($this->uid, $this->gid);
+        new PrivilegeDropper(new PosixIdentitySystem())->apply($this->uid, $this->gid);
     }
 
     /**

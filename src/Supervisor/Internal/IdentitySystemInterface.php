@@ -12,14 +12,19 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 interface IdentitySystemInterface
 {
     /**
+     * Return the process effective group ID.
+     */
+    public function effectiveGid(): int;
+
+    /**
      * Return the process effective user ID.
      */
     public function effectiveUid(): int;
 
     /**
-     * Return the process effective group ID.
+     * Initialize supplementary groups for the target identity.
      */
-    public function effectiveGid(): int;
+    public function initGroups(string $username, int $gid): bool;
 
     /**
      * Resolve one passwd entry by user ID.
@@ -27,11 +32,6 @@ interface IdentitySystemInterface
      * @return array<string, mixed>|false
      */
     public function passwd(int $uid): array|false;
-
-    /**
-     * Initialize supplementary groups for the target identity.
-     */
-    public function initGroups(string $username, int $gid): bool;
 
     /**
      * Set the process primary group ID.

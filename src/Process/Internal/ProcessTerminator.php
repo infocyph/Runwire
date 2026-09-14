@@ -14,12 +14,6 @@ final readonly class ProcessTerminator
     private const int FORCE_SIGNAL = 9;
 
     /** @param resource $process */
-    public static function graceful(mixed $process): bool
-    {
-        return proc_terminate($process);
-    }
-
-    /** @param resource $process */
     public static function force(mixed $process): bool
     {
         if (DIRECTORY_SEPARATOR === '\\') {
@@ -27,5 +21,11 @@ final readonly class ProcessTerminator
         }
 
         return proc_terminate($process, self::FORCE_SIGNAL);
+    }
+
+    /** @param resource $process */
+    public static function graceful(mixed $process): bool
+    {
+        return proc_terminate($process);
     }
 }

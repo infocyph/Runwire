@@ -49,6 +49,7 @@ final readonly class PrivilegeDropper
         if ($targetGid === null || $currentGid === $targetGid) {
             return;
         }
+
         if (!$this->system->setGid($targetGid)) {
             throw new SupervisorException(sprintf('Unable to set worker GID to %d.', $targetGid));
         }
@@ -59,6 +60,7 @@ final readonly class PrivilegeDropper
         if ($targetUid === null || $currentUid === $targetUid) {
             return;
         }
+
         if (!$this->system->setUid($targetUid)) {
             throw new SupervisorException(sprintf('Unable to set worker UID to %d.', $targetUid));
         }
@@ -76,6 +78,7 @@ final readonly class PrivilegeDropper
         if ($uid === null) {
             return;
         }
+
         if ($username === null || $targetGid === null || !$this->system->initGroups($username, $targetGid)) {
             throw new SupervisorException(sprintf('Unable to initialize supplementary groups for worker UID %d.', $uid));
         }
@@ -87,18 +90,6 @@ final readonly class PrivilegeDropper
         $gidMatches = $targetGid === null || $currentGid === $targetGid;
 
         return $uidMatches && $gidMatches;
-    }
-
-    /** @return array{0: ?string, 1: ?int} */
-    private function resolveTargetIdentity(?int $uid, ?int $gid): array
-    {
-        if ($uid === null) {
-            return [null, $gid];
-        }
-
-        $passwd = $this->resolvedPasswd($uid);
-
-        return [$passwd['name'], $gid ?? $passwd['gid']];
     }
 
     /** @return array{name: non-empty-string, gid: int} */
@@ -116,6 +107,18 @@ final readonly class PrivilegeDropper
         }
 
         return ['name' => $name, 'gid' => $gid];
+    }
+
+    /** @return array{0: ?string, 1: ?int} */
+    private function resolveTargetIdentity(?int $uid, ?int $gid): array
+    {
+        if ($uid === null) {
+            return [null, $gid];
+        }
+
+        $passwd = $this->resolvedPasswd($uid);
+
+        return [$passwd['name'], $gid ?? $passwd['gid']];
     }
 
     private function verifyIdentity(?int $uid, ?int $gid): void

@@ -35,8 +35,7 @@ use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 $fail = static function (string $message): never {
-    fwrite(STDERR, $message . PHP_EOL);
-    exit(1);
+    throw new RuntimeException($message);
 };
 $assert = static function (bool $condition, string $message) use ($fail): void {
     if (!$condition) {
@@ -128,7 +127,9 @@ try {
         );
     }
 } finally {
-    @unlink($certificate);
+    if (file_exists($certificate)) {
+        unlink($certificate);
+    }
 }
 
 $runtimeFailure = static function (callable $configure, string $needle, ?RuntimeOptions $options = null) use (
@@ -305,7 +306,9 @@ try {
     if ($unixListener !== null) {
         $unixListener->close(true);
     }
-    @unlink($unixPath);
+    if (file_exists($unixPath)) {
+        unlink($unixPath);
+    }
 }
 
-echo "portable-native-ok\n";
+fwrite(STDOUT, "portable-native-ok\n");

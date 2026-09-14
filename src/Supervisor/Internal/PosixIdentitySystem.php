@@ -12,14 +12,6 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 final readonly class PosixIdentitySystem implements IdentitySystemInterface
 {
     /**
-     * Return the process effective user ID.
-     */
-    public function effectiveUid(): int
-    {
-        return posix_geteuid();
-    }
-
-    /**
      * Return the process effective group ID.
      */
     public function effectiveGid(): int
@@ -28,11 +20,11 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     }
 
     /**
-     * Resolve one passwd entry by user ID.
+     * Return the process effective user ID.
      */
-    public function passwd(int $uid): array|false
+    public function effectiveUid(): int
     {
-        return posix_getpwuid($uid);
+        return posix_geteuid();
     }
 
     /**
@@ -41,6 +33,14 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     public function initGroups(string $username, int $gid): bool
     {
         return posix_initgroups($username, $gid);
+    }
+
+    /**
+     * Resolve one passwd entry by user ID.
+     */
+    public function passwd(int $uid): array|false
+    {
+        return posix_getpwuid($uid);
     }
 
     /**
