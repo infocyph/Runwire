@@ -9,5 +9,8 @@ use Infocyph\Runwire\Coroutine\Task;
 /** @internal */
 interface Suspension
 {
+    /**
+     * Arm the suspension for the supplied scheduler task.
+     */
     public function arm(FiberScheduler $scheduler, Task $task): void;
 }

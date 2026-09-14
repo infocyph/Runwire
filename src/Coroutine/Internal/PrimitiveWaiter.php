@@ -10,6 +10,9 @@ use Infocyph\Runwire\Coroutine\Deferred;
 /** @internal */
 final readonly class PrimitiveWaiter
 {
+    /**
+     * Create a waiter for a synchronization primitive.
+     */
     public function __construct(
         public Deferred $deferred,
         public CancellationToken $cancellation,

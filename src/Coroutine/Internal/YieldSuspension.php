@@ -9,6 +9,9 @@ use Infocyph\Runwire\Coroutine\Task;
 /** @internal */
 final class YieldSuspension implements Suspension
 {
+    /**
+     * Requeue the yielding task for a later scheduler turn.
+     */
     public function arm(FiberScheduler $scheduler, Task $task): void
     {
         $scheduler->resume($task);

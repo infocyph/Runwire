@@ -56,6 +56,9 @@ final class FiberScheduler
     /** @var array<int, Task> */
     private array $tasks = [];
 
+    /**
+     * Create a scheduler around the supplied loop and coroutine policy.
+     */
     public function __construct(LoopInterface $loop, CoroutinePolicy $policy)
     {
         $this->context = new SchedulerContext($loop, $policy);
@@ -68,6 +71,9 @@ final class FiberScheduler
         return count($this->tasks);
     }
 
+    /**
+     * Suspend the current task until the future completes.
+     */
     public function awaitFuture(
         Future $future,
         bool $cancellable = true,
@@ -98,6 +104,9 @@ final class FiberScheduler
         return $this->requireCurrentTask()->id();
     }
 
+    /**
+     * Create a deferred result bound to this scheduler.
+     */
     public function deferred(): Deferred
     {
         return new Deferred($this, $this->context->policy->maxFutureWaiters);
@@ -169,6 +178,9 @@ final class FiberScheduler
         );
     }
 
+    /**
+     * Drive the underlying event loop until all scheduled tasks settle.
+     */
     public function drive(): void
     {
         if ($this->driving) {
@@ -205,6 +217,9 @@ final class FiberScheduler
         return $this->requireCurrentTask()->taskLocalState()->has($key);
     }
 
+    /**
+     * Return the event loop owned by this scheduler.
+     */
     public function loop(): LoopInterface
     {
         return $this->context->loop;
@@ -222,11 +237,17 @@ final class FiberScheduler
         return $this->requireCurrentTask()->taskLocalState()->remove($key);
     }
 
+    /**
+     * Enqueue a task to resume with a value.
+     */
     public function resume(Task $task, mixed $value = null, bool $ignoreCancellation = false): bool
     {
         return $this->enqueueResume($task, $value, null, $ignoreCancellation);
     }
 
+    /**
+     * Enqueue a task to resume by throwing an exception into it.
+     */
     public function resumeException(Task $task, Throwable $error, bool $ignoreCancellation = false): bool
     {
         return $this->enqueueResume($task, null, $error, $ignoreCancellation);
@@ -238,6 +259,9 @@ final class FiberScheduler
         $this->requireCurrentTask()->taskLocalState()->set($key, $value);
     }
 
+    /**
+     * Suspend the current task for the requested duration.
+     */
     public function sleep(float $seconds): void
     {
         if (!is_finite($seconds) || $seconds < 0.0) {
@@ -331,6 +355,9 @@ final class FiberScheduler
         return $this->requireCurrentTask()->taskLocalState()->get($key);
     }
 
+    /**
+     * Cooperatively yield the current task back to the scheduler.
+     */
     public function yieldNow(): void
     {
         $this->requireCurrentTask();

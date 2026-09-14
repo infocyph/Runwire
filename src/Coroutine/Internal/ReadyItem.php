@@ -10,6 +10,9 @@ use Throwable;
 /** @internal */
 final readonly class ReadyItem
 {
+    /**
+     * Create a queued task-resume item.
+     */
     public function __construct(
         public Task $task,
         public mixed $value = null,

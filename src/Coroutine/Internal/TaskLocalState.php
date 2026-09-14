@@ -13,11 +13,17 @@ final class TaskLocalState
     /** @var array<int, array{key: TaskLocal, value: mixed}> */
     private array $entries = [];
 
+    /**
+     * Remove all task-local values.
+     */
     public function clear(): void
     {
         $this->entries = [];
     }
 
+    /**
+     * Fork inheritable task-local values into a child state.
+     */
     public function fork(): self
     {
         $child = new self();
@@ -33,6 +39,9 @@ final class TaskLocalState
         return $child;
     }
 
+    /**
+     * Return the value associated with a task-local key.
+     */
     public function get(TaskLocal $key): mixed
     {
         $id = spl_object_id($key);
@@ -43,11 +52,17 @@ final class TaskLocalState
         return $this->entries[$id]['value'];
     }
 
+    /**
+     * Determine whether a value is stored for the key.
+     */
     public function has(TaskLocal $key): bool
     {
         return isset($this->entries[spl_object_id($key)]);
     }
 
+    /**
+     * Remove a task-local value when present.
+     */
     public function remove(TaskLocal $key): bool
     {
         $id = spl_object_id($key);
@@ -60,6 +75,9 @@ final class TaskLocalState
         return true;
     }
 
+    /**
+     * Store a task-local value.
+     */
     public function set(TaskLocal $key, mixed $value): void
     {
         $this->entries[spl_object_id($key)] = [

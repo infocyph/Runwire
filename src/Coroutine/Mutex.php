@@ -9,6 +9,9 @@ use Infocyph\Runwire\Coroutine\Exception\SynchronizationException;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
 use Infocyph\Runwire\Coroutine\Internal\PrimitiveWaiter;
 
+/**
+ * Provides non-recursive mutual exclusion between coroutine tasks.
+ */
 final class Mutex
 {
     private int $nextWaiterId = 1;
@@ -24,11 +27,17 @@ final class Mutex
         private readonly int $maxWaiters,
     ) {}
 
+    /**
+     * Determine whether the mutex is currently owned.
+     */
     public function isLocked(): bool
     {
         return $this->ownerTaskId !== null;
     }
 
+    /**
+     * Acquire the mutex for the current coroutine task.
+     */
     public function lock(): void
     {
         $taskId = $this->scheduler->currentTaskId();
@@ -57,6 +66,9 @@ final class Mutex
         }
     }
 
+    /**
+     * Return the task ID currently owning the mutex.
+     */
     public function ownerTaskId(): ?int
     {
         return $this->ownerTaskId;
@@ -74,6 +86,9 @@ final class Mutex
         }
     }
 
+    /**
+     * Release the mutex from its owning task.
+     */
     public function unlock(): void
     {
         $taskId = $this->scheduler->currentTaskId();

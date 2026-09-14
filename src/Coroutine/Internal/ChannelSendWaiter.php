@@ -7,9 +7,16 @@ namespace Infocyph\Runwire\Coroutine\Internal;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Coroutine\Deferred;
 
-/** @internal */
+/**
+ * Carries a pending channel send operation and its cancellation context.
+ *
+ * @internal
+ */
 final readonly class ChannelSendWaiter
 {
+    /**
+     * Create a pending channel send waiter.
+     */
     public function __construct(
         public Deferred $deferred,
         public CancellationToken $cancellation,

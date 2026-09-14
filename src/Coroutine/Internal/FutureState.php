@@ -25,13 +25,22 @@ final class FutureState
     /** @var array<int, Closure(): void> */
     private array $waiters = [];
 
+    /**
+     * Create a future state with a bounded waiter capacity.
+     */
     public function __construct(private readonly int $maxWaiters) {}
 
+    /**
+     * Determine whether the future has completed.
+     */
     public function completed(): bool
     {
         return $this->completed;
     }
 
+    /**
+     * Complete the future with an error.
+     */
     public function reject(Throwable $error): void
     {
         $this->ensurePending();
@@ -40,6 +49,9 @@ final class FutureState
         $this->notifyWaiters();
     }
 
+    /**
+     * Complete the future with a value.
+     */
     public function resolve(mixed $value): void
     {
         $this->ensurePending();
@@ -48,6 +60,9 @@ final class FutureState
         $this->notifyWaiters();
     }
 
+    /**
+     * Return the completed value or throw the stored failure.
+     */
     public function result(): mixed
     {
         if (!$this->completed) {
@@ -79,6 +94,9 @@ final class FutureState
         return $id;
     }
 
+    /**
+     * Remove a previously registered waiter.
+     */
     public function unsubscribe(int $id): bool
     {
         if (!isset($this->waiters[$id])) {

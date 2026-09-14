@@ -7,6 +7,9 @@ namespace Infocyph\Runwire\Coroutine\Exception;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Reports one or more unhandled failures from a coroutine task group.
+ */
 final class TaskGroupException extends RuntimeException
 {
     /** @param non-empty-list<Throwable> $failures */
@@ -19,7 +22,11 @@ final class TaskGroupException extends RuntimeException
         );
     }
 
-    /** @return non-empty-list<Throwable> */
+    /**
+     * Return the failures captured by the task group.
+     *
+     * @return non-empty-list<Throwable>
+     */
     public function failures(): array
     {
         return $this->failures;

@@ -11,12 +11,18 @@ use Throwable;
 /** @internal */
 final readonly class FutureSuspension implements Suspension
 {
+    /**
+     * Create a suspension waiting on a future.
+     */
     public function __construct(
         private Future $future,
         private bool $cancellable = true,
         private bool $ignoreCancellationOnCompletion = false,
     ) {}
 
+    /**
+     * Arm the future suspension for the supplied task.
+     */
     public function arm(FiberScheduler $scheduler, Task $task): void
     {
         if ($this->future->isComplete()) {

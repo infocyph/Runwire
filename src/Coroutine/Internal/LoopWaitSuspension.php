@@ -23,6 +23,9 @@ final readonly class LoopWaitSuspension implements Suspension
         $this->register = $register(...);
     }
 
+    /**
+     * Arm the loop-backed suspension for the supplied task.
+     */
     public function arm(FiberScheduler $scheduler, Task $task): void
     {
         $state = new SuspensionState();

@@ -8,6 +8,9 @@ use Closure;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
 use Infocyph\Runwire\Coroutine\Internal\FutureState;
 
+/**
+ * Represents a value that will be completed asynchronously by a Deferred.
+ */
 final readonly class Future
 {
     /** @internal */
@@ -16,6 +19,9 @@ final readonly class Future
         private FutureState $state,
     ) {}
 
+    /**
+     * Wait for completion and return the resolved value or throw the rejection.
+     */
     public function await(): mixed
     {
         if ($this->state->completed()) {
@@ -45,11 +51,17 @@ final readonly class Future
         return $this->scheduler->awaitFuture($this, false, true);
     }
 
+    /**
+     * Determine whether the future has completed.
+     */
     public function isComplete(): bool
     {
         return $this->state->completed();
     }
 
+    /**
+     * Return the completed value or throw the stored failure.
+     */
     public function result(): mixed
     {
         return $this->state->result();

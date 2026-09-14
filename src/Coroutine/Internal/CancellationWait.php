@@ -11,7 +11,11 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
-/** @internal */
+/**
+ * Coordinates cancellation and deadline wake-ups for a suspended coroutine.
+ *
+ * @internal
+ */
 final class CancellationWait
 {
     /** @var Closure(CancelledException): void */
@@ -32,6 +36,9 @@ final class CancellationWait
         $this->onCancelled = Closure::fromCallable($onCancelled);
     }
 
+    /**
+     * Release the cancellation subscription and any pending deadline timer.
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -47,6 +54,9 @@ final class CancellationWait
         }
     }
 
+    /**
+     * Begin observing cancellation and deadline expiry.
+     */
     public function start(): void
     {
         if ($this->closed) {

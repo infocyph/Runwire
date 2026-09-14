@@ -19,16 +19,25 @@ final class ReadyQueue
     /** @var array<int, true> */
     private array $queued = [];
 
+    /**
+     * Create a ready queue with a bounded backlog.
+     */
     public function __construct(private readonly int $maxBacklog)
     {
         $this->queue = new SplQueue();
     }
 
+    /**
+     * Return the number of queued tasks.
+     */
     public function count(): int
     {
         return $this->queue->count();
     }
 
+    /**
+     * Remove and return the next ready item.
+     */
     public function dequeue(): ReadyItem
     {
         if ($this->queue->isEmpty()) {
@@ -41,6 +50,9 @@ final class ReadyQueue
         return $item;
     }
 
+    /**
+     * Queue a task for resumption when it is not already pending.
+     */
     public function enqueue(
         Task $task,
         mixed $value = null,
@@ -61,6 +73,9 @@ final class ReadyQueue
         return true;
     }
 
+    /**
+     * Determine whether the ready queue is empty.
+     */
     public function isEmpty(): bool
     {
         return $this->queue->isEmpty();
