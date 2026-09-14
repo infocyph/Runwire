@@ -38,7 +38,7 @@ final readonly class RuntimeEnvironmentProbe
             supportsFork: $supportsFork,
             supportsSignals: $supportsSignals,
             supportsPosix: $supportsPosix,
-            supportsOpenSsl: extension_loaded('openssl'),
+            supportsOpenSsl: self::supportsOpenSsl(),
             supportsQuic: self::supportsQuic(),
             frankenPhpWorkerMode: self::frankenPhpWorkerMode(),
             opcacheAvailable: $opcacheAvailable,
@@ -84,6 +84,11 @@ final readonly class RuntimeEnvironmentProbe
     private static function supportsFork(): bool
     {
         return function_exists('pcntl_fork') && function_exists('pcntl_waitpid');
+    }
+
+    private static function supportsOpenSsl(): bool
+    {
+        return extension_loaded('openssl') && function_exists('stream_socket_enable_crypto');
     }
 
     private static function supportsPosix(): bool
