@@ -11,6 +11,7 @@ use Infocyph\Runwire\Coroutine\Internal\PrimitiveWaiter;
 use Infocyph\Runwire\Exception\CancelledException;
 use InvalidArgumentException;
 
+/** Coordinates a fixed number of coroutine parties at reusable synchronization generations. */
 final class Barrier
 {
     private int $arrived = 0;
@@ -22,7 +23,11 @@ final class Barrier
     /** @var array<int, PrimitiveWaiter> */
     private array $waiters = [];
 
-    /** @internal */
+    /**
+     * Creates a reusable coroutine barrier for the configured number of parties.
+     *
+     * @internal
+     */
     public function __construct(
         private readonly FiberScheduler $scheduler,
         private readonly int $parties,
@@ -37,16 +42,19 @@ final class Barrier
         }
     }
 
+    /** Returns the current barrier generation number. */
     public function generation(): int
     {
         return $this->generation;
     }
 
+    /** Returns the number of parties required to complete a generation. */
     public function parties(): int
     {
         return $this->parties;
     }
 
+    /** Waits for all parties and returns the completed generation number. */
     public function wait(): int
     {
         $cancellation = $this->scheduler->currentCancellation();

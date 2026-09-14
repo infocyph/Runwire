@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Coroutine;
 
+/** Captures a point-in-time snapshot of coroutine and event-loop diagnostics. */
 final readonly class CoroutineDiagnosticsSnapshot
 {
+    /** Creates an immutable diagnostics snapshot from the sampled runtime counters. */
     public function __construct(
         public int $sampledAtMonotonicNanoseconds,
         public int $activeTasks = 0,

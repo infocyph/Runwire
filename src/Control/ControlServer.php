@@ -19,6 +19,7 @@ use Infocyph\Runwire\Supervisor\WorkerStatus;
 use JsonException;
 use LogicException;
 
+/** Exposes supervisor control operations over a bounded local Unix socket protocol. */
 final class ControlServer
 {
     public const int PROTOCOL_VERSION = 1;
@@ -29,8 +30,10 @@ final class ControlServer
 
     private ?Supervisor $supervisor = null;
 
+    /** Creates a control server configured by the supplied control options. */
     public function __construct(private readonly ControlOptions $options) {}
 
+    /** Closes the listener and active control connections. */
     public function close(bool $unlinkPath = true): void
     {
         $this->listener?->abortConnections();
@@ -40,11 +43,13 @@ final class ControlServer
         $this->supervisor = null;
     }
 
+    /** Closes an inherited listener in a child process without unlinking the socket path. */
     public function closeInheritedInChild(): void
     {
         $this->close(false);
     }
 
+    /** Opens the control socket and attaches it to the loop and supervisor. */
     public function open(LoopInterface $loop, Supervisor $supervisor): void
     {
         if ($this->listener !== null) {
@@ -97,6 +102,7 @@ final class ControlServer
         });
     }
 
+    /** Returns the configured Unix socket path. */
     public function path(): string
     {
         return $this->options->path;

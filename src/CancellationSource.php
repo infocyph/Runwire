@@ -8,6 +8,7 @@ use Infocyph\Runwire\Cancellation\Internal\CancellationState;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use WeakReference;
 
+/** Creates and owns a cancellation token and its mutable cancellation state. */
 final class CancellationSource
 {
     private readonly CancellationState $state;
@@ -16,12 +17,14 @@ final class CancellationSource
 
     private ?CancellationSubscription $parentSubscription = null;
 
+    /** Creates a cancellation source using the supplied deadline or an unlimited deadline. */
     public function __construct(?RequestDeadline $deadline = null)
     {
         $this->state = new CancellationState($deadline ?? RequestDeadline::unlimited());
         $this->token = new CancellationToken($this->state);
     }
 
+    /** Creates a source linked to a parent token and the earliest applicable deadline. */
     public static function linked(
         CancellationToken $parent,
         ?RequestDeadline $deadline = null,
@@ -45,6 +48,7 @@ final class CancellationSource
         return $source;
     }
 
+    /** Cancels the source once and detaches it from any parent source. */
     public function cancel(CancellationReason $reason): bool
     {
         $cancelled = $this->state->cancel($reason, $this->token);
@@ -55,24 +59,31 @@ final class CancellationSource
         return $cancelled;
     }
 
+    /** Creates a child source linked to this source's token. */
     public function child(?RequestDeadline $deadline = null): self
     {
         return self::linked($this->token, $deadline);
     }
 
+    /** Disposes the source and releases its parent subscription and observers. */
     public function dispose(): void
     {
         $this->unlinkParent();
         $this->state->dispose();
     }
 
-    /** @internal */
+    /**
+     * Binds the effective deadline and immediately refreshes cancellation state.
+     *
+     * @internal
+     */
     public function setDeadline(RequestDeadline $deadline): void
     {
         $this->state->bindDeadline($deadline);
         $this->token->isCancelled();
     }
 
+    /** Returns the token that observes this source's cancellation state. */
     public function token(): CancellationToken
     {
         return $this->token;

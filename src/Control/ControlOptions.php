@@ -6,8 +6,10 @@ namespace Infocyph\Runwire\Control;
 
 use InvalidArgumentException;
 
+/** Defines validated limits and socket settings for the runtime control server. */
 final readonly class ControlOptions
 {
+    /** Creates and validates control socket limits, permissions, and timeouts. */
     public function __construct(
         public string $path,
         public int $permissions = 0o600,

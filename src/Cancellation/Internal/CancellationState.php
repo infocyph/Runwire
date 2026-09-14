@@ -13,7 +13,11 @@ use LogicException;
 use OverflowException;
 use Throwable;
 
-/** @internal */
+/**
+ * Stores mutable cancellation state shared by a source and its token.
+ *
+ * @internal
+ */
 final class CancellationState
 {
     private const int MAX_SUBSCRIPTIONS = 64;
@@ -29,8 +33,10 @@ final class CancellationState
     /** @var array<int, Closure(CancellationToken): void> */
     private array $subscriptions = [];
 
+    /** Creates cancellation state with the supplied deadline. */
     public function __construct(private RequestDeadline $deadline) {}
 
+    /** Binds the state to its effective deadline. */
     public function bindDeadline(RequestDeadline $deadline): void
     {
         if ($this->disposed) {
@@ -46,6 +52,7 @@ final class CancellationState
         $this->deadline = $deadline;
     }
 
+    /** Transitions the state to cancelled and notifies active observers once. */
     public function cancel(CancellationReason $reason, CancellationToken $token): bool
     {
         if ($this->cancelled || $this->disposed) {
@@ -68,16 +75,19 @@ final class CancellationState
         return true;
     }
 
+    /** Reports whether cancellation has already been requested. */
     public function cancelled(): bool
     {
         return $this->cancelled;
     }
 
+    /** Returns the deadline currently bound to the state. */
     public function deadline(): RequestDeadline
     {
         return $this->deadline;
     }
 
+    /** Releases subscriptions and prevents further cancellation activity. */
     public function dispose(): void
     {
         if ($this->disposed) {
@@ -88,22 +98,29 @@ final class CancellationState
         $this->disposed = true;
     }
 
+    /** Reports whether the state has been disposed. */
     public function disposed(): bool
     {
         return $this->disposed;
     }
 
+    /** Reports whether a subscription handle is still registered. */
     public function hasSubscription(int $id): bool
     {
         return isset($this->subscriptions[$id]);
     }
 
+    /** Returns the cancellation reason when cancellation has occurred. */
     public function reason(): ?CancellationReason
     {
         return $this->reason;
     }
 
-    /** @param Closure(CancellationToken): void $callback */
+    /**
+     * Registers a cancellation observer and returns its subscription handle.
+     *
+     * @param Closure(CancellationToken): void $callback
+     */
     public function subscribe(Closure $callback): int
     {
         if ($this->cancelled || $this->disposed) {
@@ -122,11 +139,13 @@ final class CancellationState
         return $id;
     }
 
+    /** Returns the number of active cancellation observers. */
     public function subscriptionCount(): int
     {
         return count($this->subscriptions);
     }
 
+    /** Removes a cancellation observer by subscription handle. */
     public function unsubscribe(int $id): bool
     {
         if (!isset($this->subscriptions[$id])) {

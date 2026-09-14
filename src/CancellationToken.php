@@ -10,16 +10,23 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Throwable;
 
+/** Provides read-only access to cancellation state and deadline propagation. */
 final readonly class CancellationToken
 {
-    /** @internal Cancellation tokens are created by CancellationSource. */
+    /**
+     * Creates a token backed by the supplied cancellation state.
+     *
+     * @internal Cancellation tokens are created by CancellationSource.
+     */
     public function __construct(private CancellationState $state) {}
 
+    /** Returns the effective deadline associated with this token. */
     public function deadline(): RequestDeadline
     {
         return $this->state->deadline();
     }
 
+    /** Reports whether the token is cancelled, refreshing deadline expiry first. */
     public function isCancelled(?int $nowNanoseconds = null): bool
     {
         $this->refreshDeadline($nowNanoseconds);
@@ -27,7 +34,11 @@ final readonly class CancellationToken
         return $this->state->cancelled();
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * Registers a callback that is invoked when cancellation occurs.
+     *
+     * @param callable(self): void $callback
+     */
     public function onCancel(callable $callback): CancellationSubscription
     {
         $closure = Closure::fromCallable($callback);
@@ -48,6 +59,7 @@ final readonly class CancellationToken
         );
     }
 
+    /** Returns the cancellation reason when the token has been cancelled. */
     public function reason(?int $nowNanoseconds = null): ?CancellationReason
     {
         $this->refreshDeadline($nowNanoseconds);
@@ -55,12 +67,17 @@ final readonly class CancellationToken
         return $this->state->reason();
     }
 
-    /** @internal */
+    /**
+     * Returns the number of currently registered cancellation observers.
+     *
+     * @internal
+     */
     public function subscriptionCount(): int
     {
         return $this->state->subscriptionCount();
     }
 
+    /** Throws when cancellation has occurred, including deadline-triggered cancellation. */
     public function throwIfCancelled(?int $nowNanoseconds = null): void
     {
         $this->refreshDeadline($nowNanoseconds);
