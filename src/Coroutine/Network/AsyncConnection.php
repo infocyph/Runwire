@@ -19,26 +19,6 @@ use WeakReference;
  */
 final class AsyncConnection
 {
-    private bool $attached;
-
-    private ?Deferred $closeDeferred = null;
-
-    private bool $closing = false;
-
-    private ?Deferred $drainDeferred = null;
-
-    private bool $draining = false;
-
-    private bool $disposed = false;
-
-    private string $eofBuffer = '';
-
-    private ?Deferred $receiveDeferred = null;
-
-    private int $receiveLimit = PHP_INT_MAX;
-
-    private bool $receiving = false;
-
     /**
      * Bind coroutine waits to the supplied connection.
      */
@@ -74,6 +54,26 @@ final class AsyncConnection
             }
         });
     }
+
+    private bool $attached;
+
+    private ?Deferred $closeDeferred = null;
+
+    private bool $closing = false;
+
+    private ?Deferred $drainDeferred = null;
+
+    private bool $draining = false;
+
+    private bool $disposed = false;
+
+    private string $eofBuffer = '';
+
+    private ?Deferred $receiveDeferred = null;
+
+    private int $receiveLimit = PHP_INT_MAX;
+
+    private bool $receiving = false;
 
     /**
      * Abort the underlying connection immediately.
