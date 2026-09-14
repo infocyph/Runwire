@@ -1,4 +1,4 @@
-name: "Swoole Coroutine"
+name: "Swoole/OpenSwoole Coroutine"
 
 on:
   pull_request:
@@ -7,13 +7,14 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  openswoole:
-    name: "OpenSwoole Coroutine - PHP ${{ matrix.php-version }}"
+  swoole-family:
+    name: "${{ matrix.extension }} Coroutine - PHP ${{ matrix.php-version }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         php-version: ["8.4", "8.5"]
+        extension: ["openswoole", "swoole"]
     permissions:
       contents: read
 
@@ -21,27 +22,31 @@ jobs:
       - name: Checkout Runwire
         uses: actions/checkout@v7
 
-      - name: Setup PHP and OpenSwoole
+      - name: Setup PHP and Swoole family extension
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-version }}
-          extensions: openswoole
+          extensions: ${{ matrix.extension }}
           coverage: none
           tools: composer:v2
 
-      - name: Verify OpenSwoole reactor API
+      - name: Verify Swoole family reactor API
         shell: bash
+        env:
+          RUNWIRE_SWOOLE_EXTENSION: ${{ matrix.extension }}
         run: |
-          php --ri openswoole
+          php --ri "$RUNWIRE_SWOOLE_EXTENSION"
           php -r '
-          $valid = extension_loaded("openswoole")
-              && class_exists("OpenSwoole\\Event")
-              && class_exists("OpenSwoole\\Timer")
-              && class_exists("OpenSwoole\\Coroutine")
-              && class_exists("OpenSwoole\\Constant")
-              && class_exists("OpenSwoole\\Http\\Server");
+          $extension = getenv("RUNWIRE_SWOOLE_EXTENSION");
+          $namespace = $extension === "openswoole" ? "OpenSwoole" : "Swoole";
+          $valid = is_string($extension)
+              && extension_loaded($extension)
+              && class_exists($namespace . "\\Event")
+              && class_exists($namespace . "\\Timer")
+              && class_exists($namespace . "\\Coroutine")
+              && class_exists($namespace . "\\Http\\Server");
           if (!$valid) {
-              fwrite(STDERR, "Required OpenSwoole reactor API is unavailable.\n");
+              fwrite(STDERR, "Required Swoole/OpenSwoole reactor API is unavailable.\n");
               exit(1);
           }
           '
@@ -61,11 +66,11 @@ jobs:
             tests/SwooleDriverTest.php \
             tests/BatchORuntimeIntegrationTest.php
 
-      - name: Run live OpenSwoole coroutine acceptance
+      - name: Run live Swoole family coroutine acceptance
         shell: bash
         run: |
           tmpdir="$(mktemp -d)"
-          logfile="$GITHUB_WORKSPACE/openswoole-acceptance-${{ matrix.php-version }}.log"
+          logfile="$GITHUB_WORKSPACE/${{ matrix.extension }}-acceptance-${{ matrix.php-version }}.log"
           server_pid=""
           cleanup() {
             if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
@@ -92,7 +97,7 @@ jobs:
           for attempt in $(seq 1 100); do
             if ! kill -0 "$server_pid" 2>/dev/null; then
               cat "$logfile"
-              echo '::error::OpenSwoole coroutine acceptance server exited before becoming ready.'
+              echo '::error::Swoole/OpenSwoole coroutine acceptance server exited before becoming ready.'
               exit 1
             fi
 
@@ -107,7 +112,7 @@ jobs:
           if [ "$response" != "$expected" ]; then
             echo "Expected: $expected"
             echo "Received: $response"
-            echo '--- OpenSwoole coroutine acceptance server log ---'
+            echo '--- Swoole/OpenSwoole coroutine acceptance server log ---'
             cat "$logfile"
             exit 1
           fi
@@ -116,10 +121,10 @@ jobs:
           wait "$server_pid" 2>/dev/null || true
           server_pid=""
 
-      - name: Upload OpenSwoole acceptance diagnostics
+      - name: Upload Swoole family acceptance diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: openswoole-acceptance-${{ matrix.php-version }}
-          path: openswoole-acceptance-${{ matrix.php-version }}.log
+          name: ${{ matrix.extension }}-acceptance-${{ matrix.php-version }}
+          path: ${{ matrix.extension }}-acceptance-${{ matrix.php-version }}.log
           if-no-files-found: ignore
