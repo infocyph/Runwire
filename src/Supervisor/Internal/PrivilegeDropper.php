@@ -31,50 +31,100 @@ final readonly class PrivilegeDropper
 
         $currentUid = $this->system->effectiveUid();
         $currentGid = $this->system->effectiveGid();
-        $targetGid = $gid;
-        $username = null;
+        [$username, $targetGid] = $this->resolveTargetIdentity($uid, $gid);
 
-        if ($uid !== null) {
-            $passwd = $this->system->passwd($uid);
-            if ($passwd === false || !isset($passwd['name'], $passwd['gid']) || !is_string($passwd['name'])) {
-                throw new SupervisorException(sprintf('Unable to resolve worker UID %d.', $uid));
-            }
-
-            $username = $passwd['name'];
-            $passwdGid = filter_var($passwd['gid'], FILTER_VALIDATE_INT);
-            if ($username === '' || $passwdGid === false || $passwdGid < 0) {
-                throw new SupervisorException(sprintf('Worker UID %d resolved to an invalid passwd entry.', $uid));
-            }
-            $targetGid ??= $passwdGid;
-        }
-
-        $uidChange = $uid !== null && $currentUid !== $uid;
-        $gidChange = $targetGid !== null && $currentGid !== $targetGid;
-        if (!$uidChange && !$gidChange) {
+        if ($this->matchesTarget($currentUid, $currentGid, $uid, $targetGid)) {
             return;
         }
+
+        $this->assertTransitionAllowed($currentUid);
+        $this->initializeSupplementaryGroups($uid, $username, $targetGid);
+        $this->applyPrimaryGid($currentGid, $targetGid);
+        $this->applyUid($currentUid, $uid);
+        $this->verifyIdentity($uid, $targetGid);
+    }
+
+    private function applyPrimaryGid(int $currentGid, ?int $targetGid): void
+    {
+        if ($targetGid === null || $currentGid === $targetGid) {
+            return;
+        }
+        if (!$this->system->setGid($targetGid)) {
+            throw new SupervisorException(sprintf('Unable to set worker GID to %d.', $targetGid));
+        }
+    }
+
+    private function applyUid(int $currentUid, ?int $targetUid): void
+    {
+        if ($targetUid === null || $currentUid === $targetUid) {
+            return;
+        }
+        if (!$this->system->setUid($targetUid)) {
+            throw new SupervisorException(sprintf('Unable to set worker UID to %d.', $targetUid));
+        }
+    }
+
+    private function assertTransitionAllowed(int $currentUid): void
+    {
         if ($currentUid !== 0) {
             throw new SupervisorException('Changing worker identity requires the native master to have sufficient permissions.');
         }
+    }
 
-        if ($uid !== null) {
-            if ($username === null || $targetGid === null || !$this->system->initGroups($username, $targetGid)) {
-                throw new SupervisorException(sprintf('Unable to initialize supplementary groups for worker UID %d.', $uid));
-            }
+    private function initializeSupplementaryGroups(?int $uid, ?string $username, ?int $targetGid): void
+    {
+        if ($uid === null) {
+            return;
+        }
+        if ($username === null || $targetGid === null || !$this->system->initGroups($username, $targetGid)) {
+            throw new SupervisorException(sprintf('Unable to initialize supplementary groups for worker UID %d.', $uid));
+        }
+    }
+
+    private function matchesTarget(int $currentUid, int $currentGid, ?int $targetUid, ?int $targetGid): bool
+    {
+        $uidMatches = $targetUid === null || $currentUid === $targetUid;
+        $gidMatches = $targetGid === null || $currentGid === $targetGid;
+
+        return $uidMatches && $gidMatches;
+    }
+
+    /** @return array{0: ?string, 1: ?int} */
+    private function resolveTargetIdentity(?int $uid, ?int $gid): array
+    {
+        if ($uid === null) {
+            return [null, $gid];
         }
 
-        if ($targetGid !== null && $currentGid !== $targetGid && !$this->system->setGid($targetGid)) {
-            throw new SupervisorException(sprintf('Unable to set worker GID to %d.', $targetGid));
-        }
-        if ($uid !== null && $currentUid !== $uid && !$this->system->setUid($uid)) {
-            throw new SupervisorException(sprintf('Unable to set worker UID to %d.', $uid));
+        $passwd = $this->resolvedPasswd($uid);
+
+        return [$passwd['name'], $gid ?? $passwd['gid']];
+    }
+
+    /** @return array{name: non-empty-string, gid: int} */
+    private function resolvedPasswd(int $uid): array
+    {
+        $passwd = $this->system->passwd($uid);
+        if ($passwd === false) {
+            throw new SupervisorException(sprintf('Unable to resolve worker UID %d.', $uid));
         }
 
+        $name = $passwd['name'] ?? null;
+        $gid = $passwd['gid'] ?? null;
+        if (!is_string($name) || $name === '' || !is_int($gid) || $gid < 0) {
+            throw new SupervisorException(sprintf('Worker UID %d resolved to an invalid passwd entry.', $uid));
+        }
+
+        return ['name' => $name, 'gid' => $gid];
+    }
+
+    private function verifyIdentity(?int $uid, ?int $gid): void
+    {
         if ($uid !== null && $this->system->effectiveUid() !== $uid) {
             throw new SupervisorException(sprintf('Worker UID verification failed after transition to %d.', $uid));
         }
-        if ($targetGid !== null && $this->system->effectiveGid() !== $targetGid) {
-            throw new SupervisorException(sprintf('Worker GID verification failed after transition to %d.', $targetGid));
+        if ($gid !== null && $this->system->effectiveGid() !== $gid) {
+            throw new SupervisorException(sprintf('Worker GID verification failed after transition to %d.', $gid));
         }
     }
 }

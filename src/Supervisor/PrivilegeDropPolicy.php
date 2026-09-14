@@ -51,42 +51,8 @@ final readonly class PrivilegeDropPolicy
             return;
         }
 
-        $required = ['posix_geteuid', 'posix_getegid', 'posix_setuid', 'posix_setgid'];
-        if ($this->uid !== null) {
-            $required[] = 'posix_getpwuid';
-            $required[] = 'posix_initgroups';
-        }
-
-        foreach ($required as $function) {
-            if (!function_exists($function)) {
-                throw new SupervisorException(sprintf(
-                    'Worker identity policy requires POSIX function "%s".',
-                    $function,
-                ));
-            }
-        }
-
-        $effectiveUid = posix_geteuid();
-        $effectiveGid = posix_getegid();
-        $targetGid = $this->gid;
-
-        if ($this->uid !== null) {
-            $passwd = posix_getpwuid($this->uid);
-            if ($passwd === false || !isset($passwd['name'], $passwd['gid']) || !is_string($passwd['name'])) {
-                throw new SupervisorException(sprintf('Unable to resolve worker UID %d.', $this->uid));
-            }
-            $passwdGid = filter_var($passwd['gid'], FILTER_VALIDATE_INT);
-            if ($passwd['name'] === '' || $passwdGid === false || $passwdGid < 0) {
-                throw new SupervisorException(sprintf('Worker UID %d resolved to an invalid passwd entry.', $this->uid));
-            }
-            $targetGid ??= $passwdGid;
-        }
-
-        $uidChange = $this->uid !== null && $this->uid !== $effectiveUid;
-        $gidChange = $targetGid !== null && $targetGid !== $effectiveGid;
-        if ($effectiveUid !== 0 && ($uidChange || $gidChange)) {
-            throw new SupervisorException('Changing worker identity requires the native master to have sufficient permissions.');
-        }
+        $this->assertRequiredFunctions();
+        $this->assertTransitionPermission($this->resolveTargetGid());
     }
 
     /**
@@ -95,5 +61,57 @@ final readonly class PrivilegeDropPolicy
     public function enabled(): bool
     {
         return $this->uid !== null || $this->gid !== null;
+    }
+
+    private function assertRequiredFunctions(): void
+    {
+        foreach ($this->requiredFunctions() as $function) {
+            if (!function_exists($function)) {
+                throw new SupervisorException(sprintf(
+                    'Worker identity policy requires POSIX function "%s".',
+                    $function,
+                ));
+            }
+        }
+    }
+
+    private function assertTransitionPermission(?int $targetGid): void
+    {
+        $effectiveUid = posix_geteuid();
+        if ($effectiveUid === 0) {
+            return;
+        }
+
+        $uidChange = $this->uid !== null && $this->uid !== $effectiveUid;
+        $gidChange = $targetGid !== null && $targetGid !== posix_getegid();
+        if ($uidChange || $gidChange) {
+            throw new SupervisorException('Changing worker identity requires the native master to have sufficient permissions.');
+        }
+    }
+
+    /** @return list<string> */
+    private function requiredFunctions(): array
+    {
+        $functions = ['posix_geteuid', 'posix_getegid', 'posix_setuid', 'posix_setgid'];
+        if ($this->uid !== null) {
+            $functions[] = 'posix_getpwuid';
+            $functions[] = 'posix_initgroups';
+        }
+
+        return $functions;
+    }
+
+    private function resolveTargetGid(): ?int
+    {
+        if ($this->uid === null) {
+            return $this->gid;
+        }
+
+        $passwd = posix_getpwuid($this->uid);
+        if ($passwd === false || $passwd['name'] === '') {
+            throw new SupervisorException(sprintf('Unable to resolve worker UID %d.', $this->uid));
+        }
+
+        return $this->gid ?? $passwd['gid'];
     }
 }
