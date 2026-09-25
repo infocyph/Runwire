@@ -230,3 +230,52 @@ it('defers FIN until pressured DATA remainder is consumed', function (): void {
         ->and($stream->finished())->toBeTrue()
         ->and($stream->body()->eof())->toBeTrue();
 });
+
+
+it('preserves buffered QPACK frames across body pressure before FIN completion', function (): void {
+    $encoder = new Encoder(220, 1, dynamicTableCapacity: 220);
+    $decoder = new Decoder(220, 1);
+    $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
+    $limits = new Http3Limits(
+        qpackMaxTableCapacity: 220,
+        qpackMaxBlockedStreams: 1,
+        maxPendingBodyBytesPerStream: 8,
+        bodyLowWatermarkBytes: 2,
+        bodyHighWatermarkBytes: 6,
+        streamReadChunkBytes: 4,
+    );
+    $stream = new RequestStream(0, $decoder, $limits);
+    $headers = http3RequestHeaders($encoder, 0, [
+        ['content-length', '12'],
+        ['x-dynamic', 'pressure-resume'],
+    ]);
+    $instructions = $encoder->takeEncoderInstructions();
+
+    $stream->push(FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+    expect($stream->blocked())->toBeTrue();
+
+    $stream->push(
+        FrameWriter::encode(new Frame(FrameType::DATA->value, 'abcdefghijkl'))
+        . FrameWriter::encode(new Frame(
+            FrameType::HEADERS->value,
+            (new Encoder(0, 0))->encode([['x-end', 'yes']], 0)->block,
+        )),
+    );
+    $stream->finish();
+
+    $ready = $decoder->pushEncoderInstructions($instructions);
+    $stream->resume($ready[0]->section);
+
+    expect($stream->pressured())->toBeTrue()
+        ->and($stream->finished())->toBeFalse();
+
+    $received = '';
+    $stream->body()->onData(static function ($body) use (&$received): void {
+        $received .= $body->read();
+    });
+
+    expect($received)->toBe('abcdefghijkl')
+        ->and($stream->trailers()?->first('x-end'))->toBe('yes')
+        ->and($stream->finished())->toBeTrue()
+        ->and($stream->body()->eof())->toBeTrue();
+});

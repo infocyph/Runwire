@@ -134,19 +134,7 @@ final class RequestStream
         }
 
         $this->finReceived = true;
-        if ($this->blocked || $this->pendingData !== '' || $this->body->pressured()) {
-            return;
-        }
-
-        $this->drainFrames();
-        if ($this->pendingData !== '' || $this->body->pressured()) {
-            return;
-        }
-        if ($this->parser->bufferedBytes() > 0) {
-            throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
-        }
-
-        $this->completeFinish();
+        $this->finishIfReady();
     }
 
     /**
@@ -210,23 +198,8 @@ final class RequestStream
         $this->blockedOnTrailers = false;
         $this->acceptFieldSection($section, $trailers);
 
-        $frames = $this->blockedFrames;
-        $this->blockedFrames = [];
-        $this->blockedFrameBytes = 0;
-
-        foreach ($frames as $frame) {
-            if ($this->blocked) {
-                $this->bufferBlockedFrame($frame);
-
-                continue;
-            }
-
-            $this->processFrame($frame);
-        }
-
-        if ($this->finReceived && !$this->blocked) {
-            $this->completeFinish();
-        }
+        $this->drainBufferedFrames();
+        $this->finishIfReady();
     }
 
     /**
@@ -348,13 +321,46 @@ final class RequestStream
         }
     }
 
+    private function drainBufferedFrames(): void
+    {
+        $frames = $this->blockedFrames;
+        $this->blockedFrames = [];
+        $this->blockedFrameBytes = 0;
+
+        foreach ($frames as $index => $frame) {
+            if ($this->blocked) {
+                $this->bufferBlockedFrame($frame);
+
+                continue;
+            }
+
+            $this->processFrame($frame);
+            if (!$this->pressured()) {
+                continue;
+            }
+
+            foreach (array_slice($frames, $index + 1) as $remaining) {
+                $this->bufferBlockedFrame($remaining);
+            }
+
+            return;
+        }
+    }
+
     private function drainFrames(): void
     {
         if ($this->pendingData !== '') {
             $pending = $this->pendingData;
             $this->pendingData = '';
             $this->deliverData($pending);
-            if ($this->pendingData !== '' || $this->body->pressured()) {
+            if ($this->pressured()) {
+                return;
+            }
+        }
+
+        if (!$this->blocked && $this->blockedFrames !== []) {
+            $this->drainBufferedFrames();
+            if ($this->blocked || $this->pressured()) {
                 return;
             }
         }
@@ -367,10 +373,27 @@ final class RequestStream
             }
 
             $this->processFrame($frame);
-            if ($this->pendingData !== '' || $this->body->pressured()) {
+            if ($this->pressured()) {
                 return;
             }
         }
+    }
+
+    private function finishIfReady(): void
+    {
+        if (!$this->finReceived || $this->blocked || $this->pressured()) {
+            return;
+        }
+
+        $this->drainFrames();
+        if ($this->blocked || $this->pressured()) {
+            return;
+        }
+        if ($this->parser->bufferedBytes() > 0) {
+            throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
+        }
+
+        $this->completeFinish();
     }
 
     private function resumeAfterBodyRelief(): void
@@ -383,13 +406,7 @@ final class RequestStream
         if (!$this->pressured()) {
             ($this->onBodyRelief)();
         }
-        if ($this->finReceived && !$this->blocked && !$this->pressured()) {
-            if ($this->parser->bufferedBytes() > 0) {
-                throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
-            }
-
-            $this->completeFinish();
-        }
+        $this->finishIfReady();
     }
 
     private function processFrame(Frame $frame): void
