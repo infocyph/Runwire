@@ -120,28 +120,38 @@ final class TimerQueue
         $this->push($id, $deadline);
     }
 
-    /** @return list<int> */
-    public function takeDue(): array
+    /**
+     * Remove and return the next timer due for execution.
+     */
+    public function takeNextDue(): ?int
     {
         $now = MonotonicTime::nowNanoseconds();
-        $due = [];
 
         while (($next = $this->peek()) !== null && $next['deadline'] <= $now) {
             $entry = $this->pop();
             if ($entry === null) {
-                break;
+                return null;
             }
 
             $timer = $this->timers[$entry['id']] ?? null;
             if ($timer !== null && $timer['deadline'] === $entry['deadline']) {
-                $due[] = $entry['id'];
-
-                continue;
+                return $entry['id'];
             }
 
             if ($timer === null && $this->cancelledEntries > 0) {
                 --$this->cancelledEntries;
             }
+        }
+
+        return null;
+    }
+
+    /** @return list<int> */
+    public function takeDue(): array
+    {
+        $due = [];
+        while (($id = $this->takeNextDue()) !== null) {
+            $due[] = $id;
         }
 
         return $due;

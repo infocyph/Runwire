@@ -13,11 +13,11 @@ This tracker is part of the implementation record. Update it in every implementa
 | Batch | Scope | Status | Exit evidence |
 | --- | --- | --- | --- |
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
-| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | In progress — RW-01/02 committed; QA pending | Reproductions committed in existing suites; bounded subprocesses where required |
+| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | In progress — RW-01/02/17/21 committed; QA pending | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Open | State transitions and public migration decisions recorded |
 | B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Open | Driver table, supported matrix, budget evidence and feature decisions recorded |
 | B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | In progress — RW-01/02 implemented; RW-03 open; QA pending | Targeted adversarial regressions green |
-| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Open | Loop/descriptor/timer/UDP regressions green |
+| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | In progress — RW-17/21 implemented; RW-04 open; QA pending | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Open | Redaction, mTLS-policy and live-socket regressions green |
 | B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Open | Fragmentation/coalescing and cross-writer response corpus green |
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Open | Common lifecycle suite green across native and hosts |
@@ -50,11 +50,11 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-14 duplicated host GC ownership | P2 | B2-C | Open |
 | RW-15 duplicated validation/security owners | P2 | B3-D | Open |
 | RW-16 mutable CI/dependency provenance | P2 | B3-D | Open |
-| RW-17 stranded due timers | P1 | B0-B / B1-B | Open |
+| RW-17 stranded due timers | P1 | B0-B / B1-B | Implemented — QA pending |
 | RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Open |
 | RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Open |
 | RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Open |
-| RW-21 UDP callback close crash | P1 | B0-B / B1-B | Open |
+| RW-21 UDP callback close crash | P1 | B0-B / B1-B | Implemented — QA pending |
 | RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Open |
 
 ### Feature decision tracker

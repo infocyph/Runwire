@@ -388,7 +388,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function runDueTimers(): void
     {
-        foreach ($this->timers->takeDue() as $id) {
+        while ($this->running && ($id = $this->timers->takeNextDue()) !== null) {
             $timer = $this->timers->timer($id);
             if ($timer === null) {
                 continue;
