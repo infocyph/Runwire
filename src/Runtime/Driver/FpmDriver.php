@@ -55,7 +55,7 @@ final readonly class FpmDriver implements HostDriverInterface
         try {
             $application->start();
             $request = ($this->requestFactory)();
-            $application->handle($request, ($this->writerFactory)($request->method));
+            $application->handle($request, ($this->writerFactory)($request->method), completeResponse: true);
         } catch (Throwable $error) {
             $failure = $error;
         }

@@ -15,6 +15,7 @@ use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\ApplicationStartupPhase;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\Internal\AdmissionController;
+use Infocyph\Runwire\Runtime\Internal\RequestFinalizer;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use LogicException;
@@ -47,6 +48,8 @@ final class ApplicationLifecycle
     private array $drainFailures = [];
 
     private bool $draining = false;
+
+    private ?Throwable $healthFailure = null;
 
     private bool $shutdown = false;
 
@@ -117,6 +120,9 @@ final class ApplicationLifecycle
         if (!$this->started) {
             $this->start();
         }
+        if ($this->healthFailure !== null) {
+            throw new LogicException('Application lifecycle is unhealthy and cannot start new request work.', 0, $this->healthFailure);
+        }
         if ($this->draining || $this->shutdown) {
             throw new LogicException('Application lifecycle is draining and cannot start new request work.');
         }
@@ -126,11 +132,7 @@ final class ApplicationLifecycle
             return;
         }
 
-        try {
-            $this->handleAdmitted($request, $writer, $completeResponse);
-        } finally {
-            $this->admission->release($request->version);
-        }
+        $this->handleAdmitted($request, $writer, $completeResponse);
     }
 
     /**
@@ -170,6 +172,22 @@ final class ApplicationLifecycle
     }
 
     /**
+     * Return the first cleanup failure that made this lifecycle unsafe for reuse.
+     */
+    public function healthFailure(): ?Throwable
+    {
+        return $this->healthFailure;
+    }
+
+    /**
+     * Determine whether the application can safely admit another request.
+     */
+    public function healthy(): bool
+    {
+        return $this->healthFailure === null;
+    }
+
+    /**
      * Runs application boot and warmup hooks once.
      */
     public function start(): void
@@ -190,37 +208,51 @@ final class ApplicationLifecycle
         $this->started = true;
     }
 
-    /** @param list<Throwable> $resetFailures */
-    private static function requestErrorClass(
-        RequestContext $context,
-        ?Throwable $requestFailure,
-        array $resetFailures,
-    ): ?ApplicationErrorClass {
-        $cancellation = $context->cancellation->reason();
-
-        return match (true) {
-            $cancellation === CancellationReason::DEADLINE_EXCEEDED => ApplicationErrorClass::DEADLINE_EXCEEDED,
-            $cancellation === CancellationReason::TRANSPORT_CANCELLED => ApplicationErrorClass::CLIENT_CANCELLED,
-            $cancellation === CancellationReason::HOST_CANCELLED,
-            $cancellation === CancellationReason::WORKER_SHUTDOWN => ApplicationErrorClass::TRANSPORT_ERROR,
-            $requestFailure !== null => ApplicationErrorClass::HANDLER_EXCEPTION,
-            $resetFailures !== [] => ApplicationErrorClass::RESETTER_FAILURE,
-            default => null,
-        };
-    }
-
     private function handleAdmitted(
         HttpRequest $request,
         ResponseWriterInterface $writer,
         bool $completeResponse,
     ): void {
         $context = $request->context;
-        $context->activate($this->runtimeContext, $this->requestExecution);
+
+        try {
+            $context->activate($this->runtimeContext, $this->requestExecution);
+        } catch (Throwable $error) {
+            $this->admission->release($request->version);
+
+            throw $error;
+        }
+
         $id = spl_object_id($context);
         $this->activeContexts[$id] = $context;
-        $memoryAtStart = memory_get_usage(true);
         $this->runtimeContext->metrics->requestStarted($request->version);
-        $requestFailure = null;
+        $finalizer = new RequestFinalizer(
+            context: $context,
+            version: $request->version,
+            runtimeContext: $this->runtimeContext,
+            requestExecution: $this->requestExecution,
+            admission: $this->admission,
+            memoryAtStart: memory_get_usage(true),
+            reset: fn(RequestContext $requestContext): array => $this->reset($requestContext),
+            finalized: function () use ($id): void {
+                unset($this->activeContexts[$id]);
+            },
+            unhealthy: function (Throwable $failure): void {
+                $this->healthFailure ??= $failure;
+            },
+        );
+
+        $context->cancellation->onCancel(static function () use ($finalizer): void {
+            $finalizer->cancelled();
+        });
+        if ($request->body instanceof \Infocyph\Runwire\Http\Internal\StreamingRequestBody) {
+            $request->body->observeCancel(static function () use ($context): void {
+                $context->cancel(CancellationReason::TRANSPORT_CANCELLED);
+            });
+        }
+        $writer->onTerminal(static function () use ($finalizer): void {
+            $finalizer->terminal();
+        });
 
         try {
             ($this->handler)($request, $writer);
@@ -228,29 +260,9 @@ final class ApplicationLifecycle
                 $writer->end();
             }
         } catch (Throwable $error) {
-            $requestFailure = $error;
-        }
-
-        $resetFailures = $this->reset($context);
-        unset($this->activeContexts[$id]);
-        $this->runtimeContext->metrics->requestCompleted(
-            $context,
-            $request->version,
-            $memoryAtStart,
-            self::requestErrorClass($context, $requestFailure, $resetFailures),
-        );
-        $this->runtimeContext->metrics->maybeCollectGarbage($this->requestExecution->gc);
-        $context->complete();
-
-        if ($requestFailure !== null) {
-            if ($resetFailures !== []) {
-                throw new RequestLifecycleException($requestFailure, $resetFailures);
-            }
-
-            throw $requestFailure;
-        }
-        if ($resetFailures !== []) {
-            throw new RequestLifecycleException(null, $resetFailures);
+            $finalizer->handlerFailed($error);
+        } finally {
+            $finalizer->handlerFinished();
         }
     }
 

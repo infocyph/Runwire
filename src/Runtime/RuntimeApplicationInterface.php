@@ -35,6 +35,16 @@ interface RuntimeApplicationInterface extends MetricsProviderInterface
     ): void;
 
     /**
+     * Return the first failure that made persistent application reuse unsafe.
+     */
+    public function healthFailure(): ?\Throwable;
+
+    /**
+     * Determine whether persistent application reuse remains safe.
+     */
+    public function healthy(): bool;
+
+    /**
      * Shuts down application resources.
      */
     public function shutdown(?ShutdownReason $reason = null): void;
