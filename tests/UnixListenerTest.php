@@ -53,3 +53,20 @@ it('never removes an ordinary file when stale-socket cleanup is requested', func
         }
     }
 });
+
+
+it('refuses to replace a live Unix-domain socket when stale cleanup is enabled', function (): void {
+    $path = sys_get_temp_dir() . '/runwire-' . bin2hex(random_bytes(6)) . '.sock';
+    $owner = UnixListener::bind($path);
+
+    try {
+        expect(fn () => UnixListener::bind(
+            $path,
+            new UnixListenerOptions(removeStaleSocket: true),
+        ))->toThrow(ListenerException::class, 'Refusing to replace live Unix socket path');
+
+        expect(file_exists($path))->toBeTrue();
+    } finally {
+        $owner->close();
+    }
+});

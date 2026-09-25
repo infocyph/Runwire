@@ -128,3 +128,32 @@ it('honors fragmented transport input while retaining protocol state', function 
 
     expect($seen)->toBeTrue();
 });
+
+
+it('does not expose unexpected callback exception text in HTTP/2 GOAWAY debug data', function (): void {
+    $secret = 'tenant-secret-' . bin2hex(random_bytes(4));
+    $headers = (new Encoder())->encode([
+        [':method', 'POST'],
+        [':scheme', 'https'],
+        [':authority', 'example.test'],
+        [':path', '/callback-failure'],
+    ]);
+    $wire = runwireH2ClientPrelude()
+        . FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x4, 1, $headers))
+        . FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, 1, 'x'));
+
+    [$response] = runwireH2Exchange($wire, static function (HttpRequest $request) use ($secret): void {
+        $request->body->onData(static function () use ($secret): void {
+            throw new RuntimeException($secret);
+        });
+    });
+
+    $debug = '';
+    foreach (runwireH2Frames($response) as $frame) {
+        if ($frame->knownType() === FrameType::GOAWAY) {
+            $debug .= substr($frame->payload, 8);
+        }
+    }
+
+    expect($debug)->not->toContain($secret);
+});

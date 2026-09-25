@@ -488,8 +488,8 @@ final class Http2Connection
             }
         } catch (ConnectionError $error) {
             $this->failConnection($error->errorCode, $error->getMessage());
-        } catch (Throwable $error) {
-            $this->failConnection(ErrorCode::INTERNAL_ERROR, $error->getMessage());
+        } catch (Throwable) {
+            $this->failConnection(ErrorCode::INTERNAL_ERROR, 'Internal server error.');
         }
     }
 

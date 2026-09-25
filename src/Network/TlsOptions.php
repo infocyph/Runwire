@@ -46,17 +46,23 @@ final readonly class TlsOptions
     /** @return array<string, mixed> */
     public function context(): array
     {
-        return [
-            ...$this->extraContext,
-            'local_cert' => realpath($this->localCertificate) ?: $this->localCertificate,
-            ...($this->privateKey === null ? [] : ['local_pk' => realpath($this->privateKey) ?: $this->privateKey]),
-            ...($this->passphrase === null ? [] : ['passphrase' => $this->passphrase]),
-            'crypto_method' => $this->method(),
-            'verify_peer' => false,
-            'verify_peer_name' => false,
-            'disable_compression' => true,
-            ...($this->alpnProtocols === [] ? [] : ['alpn_protocols' => implode(',', $this->alpnProtocols)]),
-        ];
+        $context = $this->extraContext;
+        $context['local_cert'] = realpath($this->localCertificate) ?: $this->localCertificate;
+        if ($this->privateKey !== null) {
+            $context['local_pk'] = realpath($this->privateKey) ?: $this->privateKey;
+        }
+        if ($this->passphrase !== null) {
+            $context['passphrase'] = $this->passphrase;
+        }
+        $context['crypto_method'] = $this->method();
+        $context['verify_peer'] ??= false;
+        $context['verify_peer_name'] ??= false;
+        $context['disable_compression'] = true;
+        if ($this->alpnProtocols !== []) {
+            $context['alpn_protocols'] = implode(',', $this->alpnProtocols);
+        }
+
+        return $context;
     }
 
     /**
