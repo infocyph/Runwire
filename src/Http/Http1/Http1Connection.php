@@ -387,7 +387,7 @@ final class Http1Connection
         try {
             ($this->handler)($request, $writer);
         } catch (Throwable $failure) {
-            $body->cancel();
+            $body->cancel(false);
             $this->connection->abort(CloseReason::LOCAL_ABORT);
 
             throw $failure;

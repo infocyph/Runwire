@@ -74,19 +74,32 @@ final class StreamingRequestBody implements RequestBodyInterface
     }
 
     /** @internal */
-    public function cancel(): void
+    public function cancel(bool $notifyRuntimeObservers = true): void
     {
-        if ($this->ended || $this->cancelled) {
+        if ($this->cancelled) {
             return;
         }
         $this->cancelled = true;
+        if ($this->ended) {
+            if ($notifyRuntimeObservers) {
+                $this->invokeCancelObservers();
+            } else {
+                $this->cancelObservers = [];
+            }
+
+            return;
+        }
         $discarded = $this->buffer->bytes();
         $this->buffer->clear();
         $this->pressured = false;
         if ($discarded > 0 && $this->onConsumed !== null) {
             ($this->onConsumed)($discarded);
         }
-        $this->invokeCancelObservers();
+        if ($notifyRuntimeObservers) {
+            $this->invokeCancelObservers();
+        } else {
+            $this->cancelObservers = [];
+        }
         $this->invoke($this->cancelCallback);
     }
 

@@ -30,6 +30,8 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     private int $bodyBytes = 0;
 
+    private readonly ResponseTerminalState $terminal;
+
     private ?int $contentLength = null;
 
     private bool $ended = false;
@@ -58,6 +60,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         $this->maxBodyBytes = $maxBodyBytes;
         $this->startCallback = Closure::fromCallable($startCallback);
         $this->writeCallback = Closure::fromCallable($writeCallback);
+        $this->terminal = new ResponseTerminalState();
     }
 
     /**
@@ -71,15 +74,13 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
         $result = $finalChunk === '' ? $this->ensureStarted() : $this->write($finalChunk);
         if (!$result->accepted()) {
-            $this->ended = true;
-            ($this->endCallback)();
-
             return $result;
         }
 
         $this->assertCompleteLength();
         $this->ended = true;
         ($this->endCallback)();
+        $this->terminal->terminate($this);
 
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
@@ -108,6 +109,16 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         if (!$this->ended) {
             Closure::fromCallable($callback)($this);
         }
+
+        return $this;
+    }
+
+    /**
+     * Register a callback invoked when response ownership becomes terminal.
+     */
+    public function onTerminal(callable $callback): self
+    {
+        $this->terminal->observe($this, $callback);
 
         return $this;
     }

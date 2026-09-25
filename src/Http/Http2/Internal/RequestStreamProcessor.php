@@ -484,7 +484,7 @@ final class RequestStreamProcessor
         }
         if ($stream->remoteOpen()) {
             $stream->discardInbound = true;
-            $stream->body->cancel();
+            $stream->body->cancel(false);
         }
         $this->cleanupIfClosed($stream);
     }

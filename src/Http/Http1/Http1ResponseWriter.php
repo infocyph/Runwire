@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\ResponseSemantics;
+use Infocyph\Runwire\Http\Internal\ResponseTerminalState;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\WriteState;
@@ -24,6 +25,8 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     private readonly Closure $onEnd;
 
     private int $bodyBytes = 0;
+
+    private readonly ResponseTerminalState $terminal;
 
     private bool $bodySuppressed = false;
 
@@ -49,6 +52,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         /** @var Closure(bool): void $onEndClosure */
         $onEndClosure = Closure::fromCallable($onEnd);
         $this->onEnd = $onEndClosure;
+        $this->terminal = new ResponseTerminalState();
     }
 
     /**
@@ -114,6 +118,16 @@ final class Http1ResponseWriter implements ResponseWriterInterface
                 $consumer($this);
             }
         });
+
+        return $this;
+    }
+
+    /**
+     * Register a callback invoked when response ownership becomes terminal.
+     */
+    public function onTerminal(callable $callback): self
+    {
+        $this->terminal->observe($this, $callback);
 
         return $this;
     }
@@ -287,6 +301,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         }
         $this->ended = true;
         ($this->onEnd)($this->closeAfter);
+        $this->terminal->terminate($this);
 
         return $result;
     }

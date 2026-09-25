@@ -30,6 +30,13 @@ interface ResponseWriterInterface
     public function onDrain(callable $callback): self;
 
     /**
+     * Register a callback invoked exactly once when response ownership becomes terminal.
+     *
+     * @param callable(self): void $callback
+     */
+    public function onTerminal(callable $callback): self;
+
+    /**
      * Start the response with status and headers.
      */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult;

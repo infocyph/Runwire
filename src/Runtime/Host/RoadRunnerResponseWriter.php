@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Runtime\Host;
 use Closure;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\ResponseSemantics;
+use Infocyph\Runwire\Http\Internal\ResponseTerminalState;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
@@ -21,6 +22,8 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     private readonly int $maxBodyBytes;
 
     private int $bodyBytes = 0;
+
+    private readonly ResponseTerminalState $terminal;
 
     private ?int $contentLength = null;
 
@@ -46,6 +49,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
         $this->headers = new Headers();
         $this->maxBodyBytes = $maxBodyBytes;
+        $this->terminal = new ResponseTerminalState();
     }
 
     /**
@@ -68,8 +72,6 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
                 throw new LogicException('HTTP response body exceeds declared Content-Length.');
             }
             if ($length > $this->maxBodyBytes - $this->bodyBytes) {
-                $this->finish('');
-
                 return new WriteResult(WriteState::REJECTED_LIMIT, 0);
             }
 
@@ -110,6 +112,16 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         if (!$this->ended) {
             Closure::fromCallable($callback)($this);
         }
+
+        return $this;
+    }
+
+    /**
+     * Registers a callback invoked when response ownership becomes terminal.
+     */
+    public function onTerminal(callable $callback): self
+    {
+        $this->terminal->observe($this, $callback);
 
         return $this;
     }
@@ -182,6 +194,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     {
         $this->session->respond($this->status, $body, $this->headerMap(), true);
         $this->ended = true;
+        $this->terminal->terminate($this);
     }
 
     /** @return array<string, list<string>> */
