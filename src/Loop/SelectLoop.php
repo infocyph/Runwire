@@ -10,6 +10,7 @@ use Infocyph\Runwire\Loop\Internal\TimerQueue;
 use InvalidArgumentException;
 use LogicException;
 use OverflowException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -18,8 +19,6 @@ use Throwable;
 final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
     private const int MICROS_PER_SECOND = 1_000_000;
-
-    private const int SELECT_ERROR_BACKOFF_MICROS = 1_000;
 
     private readonly int $callbackOverrunNanoseconds;
 
@@ -212,11 +211,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
-    private static function ignoreInterruptedSelectWarning(int $severity, string $message): bool
+    private static function isInterruptedSelectWarning(?string $message): bool
     {
-        return $severity === E_WARNING
-            && str_starts_with($message, 'stream_select():')
-            && str_contains($message, 'Interrupted system call');
+        return $message !== null && str_contains($message, 'Interrupted system call');
     }
 
     private function allocateId(): int
@@ -308,7 +305,16 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
         [$seconds, $microseconds] = $this->selectTimeout();
         $except = null;
-        set_error_handler(self::ignoreInterruptedSelectWarning(...));
+        $selectWarning = null;
+        set_error_handler(static function (int $severity, string $message) use (&$selectWarning): bool {
+            if ($severity !== E_WARNING || !str_starts_with($message, 'stream_select():')) {
+                return false;
+            }
+
+            $selectWarning = $message;
+
+            return true;
+        });
 
         try {
             $result = stream_select($read, $write, $except, $seconds, $microseconds);
@@ -317,11 +323,11 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
 
         if ($result === false) {
-            if ($this->pruneClosedWatchers() === 0) {
-                usleep(self::SELECT_ERROR_BACKOFF_MICROS);
+            if ($this->pruneClosedWatchers() > 0 || self::isInterruptedSelectWarning($selectWarning)) {
+                return;
             }
 
-            return;
+            throw new RuntimeException($selectWarning ?? 'stream_select() failed permanently.');
         }
         if ($result > 0) {
             $this->dispatchReady($read, true);

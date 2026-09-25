@@ -259,3 +259,51 @@ it('enforces declared response Content-Length', function (): void {
         },
     ))->toThrow(LogicException::class);
 });
+
+
+it('expires a silent HTTP/1 connection from construction time', function (): void {
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    new Http1Connection(
+        $loop,
+        $connection,
+        new Http1Limits(headerTimeoutSeconds: 0.02),
+        static function (): void {
+            throw new RuntimeException('Silent connection must not dispatch.');
+        },
+    );
+
+    $loop->delay(0.08, static fn () => $loop->stop());
+    $loop->run();
+    stream_set_blocking($client, false);
+    $response = stream_get_contents($client);
+    fclose($client);
+
+    expect($response)->toStartWith('HTTP/1.1 408 Request Timeout');
+});
+
+it('re-arms the HTTP/1 header deadline while waiting for the next keep-alive request', function (): void {
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    new Http1Connection(
+        $loop,
+        $connection,
+        new Http1Limits(headerTimeoutSeconds: 0.03),
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->target)->toBe('/first');
+            $writer->end('ok');
+        },
+    );
+
+    fwrite($client, "GET /first HTTP/1.1\r\nHost: x\r\n\r\n");
+    $loop->delay(0.12, static fn () => $loop->stop());
+    $loop->run();
+    stream_set_blocking($client, false);
+    $response = stream_get_contents($client);
+    fclose($client);
+
+    expect($response)->toContain('HTTP/1.1 200 OK')
+        ->and($response)->toContain('HTTP/1.1 408 Request Timeout');
+});

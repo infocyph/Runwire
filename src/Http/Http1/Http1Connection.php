@@ -121,6 +121,7 @@ final class Http1Connection
         $connection->onClose(function (): void {
             $this->cleanup();
         });
+        $this->armHeaderTimer();
         if ($connection->receivedBytes() > 0) {
             $this->schedulePump();
         }
@@ -639,6 +640,7 @@ final class Http1Connection
         $this->body = null;
         $this->writer = null;
         $this->syncReadPause();
+        $this->armHeaderTimer();
         if ($this->input->availableBytes() > 0) {
             $this->schedulePump();
         }

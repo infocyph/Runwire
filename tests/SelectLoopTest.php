@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Process\Command;
+use Infocyph\Runwire\Process\Enum\TerminationReason;
+use Infocyph\Runwire\Process\ProcessRunner;
 
 it('runs deferred callbacks in registration order without consuming newly deferred work in the same batch', function (): void {
     $loop = new SelectLoop();
@@ -226,4 +229,34 @@ it('restores loop state after callback failure so the instance can run again', f
     $loop->run();
 
     expect($ran)->toBeTrue();
+});
+
+
+it('fails fast when stream_select cannot poll a registered stream', function (): void {
+    $script = <<<'PHP'
+require 'vendor/autoload.php';
+
+$loop = new \Infocyph\Runwire\Loop\SelectLoop();
+$stream = fopen('php://memory', 'r+');
+$loop->onReadable($stream, static function (): void {});
+
+try {
+    $loop->run();
+} catch (\RuntimeException $exception) {
+    fclose($stream);
+    exit(str_contains($exception->getMessage(), 'stream_select()') ? 0 : 12);
+}
+
+fclose($stream);
+exit(11);
+PHP;
+
+    $result = (new ProcessRunner())->run(
+        Command::executable(PHP_BINARY, ['-r', $script])
+            ->timeout(0.5)
+            ->terminationGrace(0.05),
+    );
+
+    expect($result->terminationReason)->not->toBe(TerminationReason::TIMEOUT)
+        ->and($result->exitCode)->toBe(0);
 });

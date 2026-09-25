@@ -13,11 +13,11 @@ This tracker is part of the implementation record. Update it in every implementa
 | Batch | Scope | Status | Exit evidence |
 | --- | --- | --- | --- |
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
-| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | In progress — RW-01/02/05/07/08/17/21 committed; QA pending | Reproductions committed in existing suites; bounded subprocesses where required |
+| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | In progress — RW-01/02/03/04/05/07/08/17/21 committed; QA pending | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Open | State transitions and public migration decisions recorded |
 | B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Open | Driver table, supported matrix, budget evidence and feature decisions recorded |
-| B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | In progress — RW-01/02 implemented; RW-03 open; QA pending | Targeted adversarial regressions green |
-| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | In progress — RW-17/21 implemented; RW-04 open; QA pending | Loop/descriptor/timer/UDP regressions green |
+| B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Implemented — QA pending | Targeted adversarial regressions green |
+| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Implemented — QA pending | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Implemented — QA pending | Redaction, mTLS-policy and live-socket regressions green |
 | B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Open | Fragmentation/coalescing and cross-writer response corpus green |
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Open | Common lifecycle suite green across native and hosts |
@@ -36,8 +36,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | --- | --- | --- | --- |
 | RW-01 HTTP/1 parser continuation | High | B0-B / B1-A | Implemented — QA pending |
 | RW-02 empty Transfer-Encoding framing | High | B0-B / B1-A | Implemented — QA pending |
-| RW-03 silent/idle HTTP expiry | High | B0-B / B1-A | Open |
-| RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Open |
+| RW-03 silent/idle HTTP expiry | High | B0-B / B1-A | Implemented — QA pending |
+| RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Portable failure handling implemented — scalable backend remains B3-A; QA pending |
 | RW-05 HTTP/2 exception-text disclosure | High | B0-B / B1-C | Implemented — QA pending |
 | RW-06 failed reset does not retire worker | High | B0-B / B2-A | Open |
 | RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Implemented — QA pending |
