@@ -18,6 +18,7 @@ use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\Internal\ValidatedRequestHead;
 use Infocyph\Runwire\Http\RequestBodyInterface;
+use Closure;
 
 /**
  * Parses one HTTP/3 request stream and coordinates QPACK, body, and trailer state.
@@ -47,6 +48,10 @@ final class RequestStream
 
     private ?ValidatedRequestHead $head = null;
 
+    private readonly Closure $onBodyRelief;
+
+    private string $pendingData = '';
+
     private int $receivedBodyBytes = 0;
 
     private ?Headers $trailers = null;
@@ -70,11 +75,14 @@ final class RequestStream
 
         $this->parser = new FrameParser($limits->maxFramePayloadBytes);
         $this->validator = new RequestHeaderValidator('HTTP/3');
+        $this->onBodyRelief = Closure::fromCallable($onBodyRelief ?? static function (): void {});
         $this->body = new StreamingRequestBody(
             $limits->bodyLowWatermarkBytes,
             $limits->bodyHighWatermarkBytes,
             $limits->maxPendingBodyBytesPerStream,
-            $onBodyRelief ?? static function (): void {},
+            function (): void {
+                $this->resumeAfterBodyRelief();
+            },
             $onBodyConsumed,
         );
     }
@@ -110,6 +118,7 @@ final class RequestStream
 
         $this->blockedFrames = [];
         $this->blockedFrameBytes = 0;
+        $this->pendingData = '';
         $this->cancelled = true;
         $this->body->cancel();
     }
@@ -125,11 +134,16 @@ final class RequestStream
         }
 
         $this->finReceived = true;
+        if ($this->blocked || $this->pendingData !== '' || $this->body->pressured()) {
+            return;
+        }
+
+        $this->drainFrames();
+        if ($this->pendingData !== '' || $this->body->pressured()) {
+            return;
+        }
         if ($this->parser->bufferedBytes() > 0) {
             throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
-        }
-        if ($this->blocked) {
-            return;
         }
 
         $this->completeFinish();
@@ -156,7 +170,7 @@ final class RequestStream
      */
     public function pressured(): bool
     {
-        return $this->body->pressured();
+        return $this->pendingData !== '' || $this->body->pressured();
     }
 
     /**
@@ -169,15 +183,8 @@ final class RequestStream
             throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 request bytes arrived after stream FIN.');
         }
 
-        foreach ($this->parser->push($bytes) as $frame) {
-            if ($this->blocked) {
-                $this->bufferBlockedFrame($frame);
-
-                continue;
-            }
-
-            $this->processFrame($frame);
-        }
+        $this->parser->append($bytes);
+        $this->drainFrames();
     }
 
     /**
@@ -251,9 +258,6 @@ final class RequestStream
         if ($bytes > $this->limits->maxBodyBytes - $this->receivedBodyBytes) {
             throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 request body exceeds configured limit.');
         }
-        if ($bytes > $this->body->capacity()) {
-            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 request body buffer capacity was exceeded.');
-        }
         if (
             $this->head->contentLength !== null
             && $bytes > $this->head->contentLength - $this->receivedBodyBytes
@@ -261,10 +265,7 @@ final class RequestStream
             throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 request body exceeds Content-Length.');
         }
 
-        if ($payload !== '') {
-            $this->body->push($payload);
-            $this->receivedBodyBytes += $bytes;
-        }
+        $this->deliverData($payload);
     }
 
     private function acceptFieldSection(DecodedFieldSection $section, bool $trailers): void
@@ -321,6 +322,74 @@ final class RequestStream
 
         $this->body->finish($this->trailers);
         $this->finished = true;
+    }
+
+    private function deliverData(string $payload): void
+    {
+        while ($payload !== '') {
+            $capacity = $this->body->capacity();
+            if ($capacity <= 0 || $this->body->pressured()) {
+                $this->pendingData = $payload;
+
+                return;
+            }
+
+            $length = min(strlen($payload), $capacity, $this->limits->streamReadChunkBytes);
+            $chunk = substr($payload, 0, $length);
+            $payload = substr($payload, $length);
+            $this->body->push($chunk);
+            $this->receivedBodyBytes += $length;
+
+            if ($this->body->pressured() && $payload !== '') {
+                $this->pendingData = $payload;
+
+                return;
+            }
+        }
+    }
+
+    private function drainFrames(): void
+    {
+        if ($this->pendingData !== '') {
+            $pending = $this->pendingData;
+            $this->pendingData = '';
+            $this->deliverData($pending);
+            if ($this->pendingData !== '' || $this->body->pressured()) {
+                return;
+            }
+        }
+
+        while (($frame = $this->parser->shift()) !== null) {
+            if ($this->blocked) {
+                $this->bufferBlockedFrame($frame);
+
+                continue;
+            }
+
+            $this->processFrame($frame);
+            if ($this->pendingData !== '' || $this->body->pressured()) {
+                return;
+            }
+        }
+    }
+
+    private function resumeAfterBodyRelief(): void
+    {
+        if ($this->cancelled || $this->finished) {
+            return;
+        }
+
+        $this->drainFrames();
+        if (!$this->pressured()) {
+            ($this->onBodyRelief)();
+        }
+        if ($this->finReceived && !$this->blocked && !$this->pressured()) {
+            if ($this->parser->bufferedBytes() > 0) {
+                throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
+            }
+
+            $this->completeFinish();
+        }
     }
 
     private function processFrame(Frame $frame): void

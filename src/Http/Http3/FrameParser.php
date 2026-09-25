@@ -31,28 +31,46 @@ final class FrameParser
         return strlen($this->buffer);
     }
 
-    /** @return list<Frame> */
-    public function push(string $bytes): array
+    /**
+     * Append transport bytes without forcing all complete frames to materialize.
+     */
+    public function append(string $bytes): void
     {
         if ($bytes !== '') {
             $this->buffer .= $bytes;
         }
+    }
 
+    /** @return list<Frame> */
+    public function push(string $bytes): array
+    {
+        $this->append($bytes);
         $frames = [];
-        $offset = 0;
-        while (($decoded = $this->nextFrame($offset)) !== null) {
-            [$frame, $offset] = $decoded;
+        while (($frame = $this->shift()) !== null) {
             $frames[] = $frame;
         }
 
-        if ($offset > 0) {
-            $this->buffer = substr($this->buffer, $offset);
-        }
-        if (strlen($this->buffer) > $this->maxFramePayloadBytes + 16) {
-            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 frame buffering exceeds configured limit.');
+        return $frames;
+    }
+
+    /**
+     * Remove and return one complete frame when available.
+     */
+    public function shift(): ?Frame
+    {
+        $decoded = $this->nextFrame(0);
+        if ($decoded === null) {
+            if (strlen($this->buffer) > $this->maxFramePayloadBytes + 16) {
+                throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 frame buffering exceeds configured limit.');
+            }
+
+            return null;
         }
 
-        return $frames;
+        [$frame, $offset] = $decoded;
+        $this->buffer = substr($this->buffer, $offset);
+
+        return $frame;
     }
 
     /** @return array{0: Frame, 1: int}|null */

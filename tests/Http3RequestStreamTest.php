@@ -170,3 +170,63 @@ it('rejects control frames on a request stream and incomplete request FIN', func
         expect($exception->errorCode)->toBe(ErrorCode::REQUEST_INCOMPLETE);
     }
 });
+
+
+it('delivers a DATA frame larger than body buffer capacity when the consumer drains incrementally', function (): void {
+    $encoder = new Encoder(0, 0);
+    $limits = new Http3Limits(
+        maxPendingBodyBytesPerStream: 8,
+        bodyLowWatermarkBytes: 2,
+        bodyHighWatermarkBytes: 6,
+        streamReadChunkBytes: 4,
+    );
+    $stream = new RequestStream(0, new Decoder(0, 0), $limits);
+    $stream->push(FrameWriter::encode(new Frame(
+        FrameType::HEADERS->value,
+        http3RequestHeaders($encoder, 0, [['content-length', '20']]),
+    )));
+
+    $received = '';
+    $stream->body()->onData(static function ($body) use (&$received): void {
+        $received .= $body->read();
+    });
+
+    $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, 'abcdefghijklmnopqrst')));
+    $stream->finish();
+
+    expect($received)->toBe('abcdefghijklmnopqrst')
+        ->and($stream->receivedBodyBytes())->toBe(20)
+        ->and($stream->finished())->toBeTrue();
+});
+
+it('defers FIN until pressured DATA remainder is consumed', function (): void {
+    $encoder = new Encoder(0, 0);
+    $limits = new Http3Limits(
+        maxPendingBodyBytesPerStream: 8,
+        bodyLowWatermarkBytes: 2,
+        bodyHighWatermarkBytes: 6,
+        streamReadChunkBytes: 4,
+    );
+    $stream = new RequestStream(0, new Decoder(0, 0), $limits);
+    $stream->push(
+        FrameWriter::encode(new Frame(
+            FrameType::HEADERS->value,
+            http3RequestHeaders($encoder, 0, [['content-length', '12']]),
+        ))
+        . FrameWriter::encode(new Frame(FrameType::DATA->value, 'abcdefghijkl')),
+    );
+    $stream->finish();
+
+    expect($stream->pressured())->toBeTrue()
+        ->and($stream->finished())->toBeFalse();
+
+    $received = '';
+    $stream->body()->onData(static function ($body) use (&$received): void {
+        $received .= $body->read();
+    });
+
+    expect($received)->toBe('abcdefghijkl')
+        ->and($stream->pressured())->toBeFalse()
+        ->and($stream->finished())->toBeTrue()
+        ->and($stream->body()->eof())->toBeTrue();
+});

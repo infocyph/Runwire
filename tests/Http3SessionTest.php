@@ -150,3 +150,52 @@ it('releases dispatched stream bookkeeping after response processing', function 
     expect(http3SessionDispatchedCount($session))->toBe(0)
         ->and($session->state()->requestStream(0))->toBeNull();
 });
+
+
+it('keeps HTTP/3 body delivery invariant between coalesced and segmented input', function (): void {
+    $run = static function (bool $coalesced): string {
+        $limits = new Http3Limits(
+            maxPendingBodyBytesPerStream: 8,
+            bodyLowWatermarkBytes: 2,
+            bodyHighWatermarkBytes: 6,
+            streamReadChunkBytes: 4,
+        );
+        $received = '';
+        $session = new Http3Session(
+            new ConnectionState($limits),
+            static function (HttpRequest $request) use (&$received): void {
+                $request->body->onData(static function ($body) use (&$received): void {
+                    $received .= $body->read();
+                });
+            },
+            http3SessionWriter(...),
+        );
+        $encoder = new Encoder(0, 0);
+        $headers = FrameWriter::encode(new Frame(
+            FrameType::HEADERS->value,
+            $encoder->encode([
+                [':method', 'POST'],
+                [':scheme', 'https'],
+                [':authority', 'example.com'],
+                [':path', '/body'],
+                ['content-length', '12'],
+            ], 0)->block,
+        ));
+        $data = FrameWriter::encode(new Frame(FrameType::DATA->value, 'abcdefghijkl'));
+
+        if ($coalesced) {
+            $session->pushRequestStream(0, $headers . $data);
+        } else {
+            $session->pushRequestStream(0, $headers);
+            foreach (str_split($data, 3) as $chunk) {
+                $session->pushRequestStream(0, $chunk);
+            }
+        }
+        $session->finishRequestStream(0);
+
+        return $received;
+    };
+
+    expect($run(true))->toBe('abcdefghijkl')
+        ->and($run(false))->toBe('abcdefghijkl');
+});
