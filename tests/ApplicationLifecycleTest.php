@@ -349,7 +349,7 @@ it('runs and retains every failing shutdown operation', function (): void {
 it('holds admission and cleanup until asynchronous response ownership becomes terminal', function (): void {
     $captured = null;
     $handled = [];
-    $resets = 0;
+    $state = new ArrayObject(['resets' => 0]);
     $runtime = RuntimeContext::standalone();
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured, &$handled): void {
@@ -364,12 +364,12 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
         },
         $runtime,
         hooks: new ApplicationLifecycleHooks(resetters: [
-            new class($resets) implements RequestResetterInterface {
-                public function __construct(private int &$resets) {}
+            new class($state) implements RequestResetterInterface {
+                public function __construct(private readonly ArrayObject $state) {}
 
                 public function reset(RequestContext $context): void
                 {
-                    ++$this->resets;
+                    $this->state['resets'] = $this->state['resets'] + 1;
                 }
             },
         ]),
@@ -379,7 +379,7 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
 
     $lifecycle->handle($first, lifecycleWriter());
     expect($first->context->completed())->toBeFalse()
-        ->and($resets)->toBe(0);
+        ->and($state['resets'])->toBe(0);
 
     $rejected = [];
     $lifecycle->handle(lifecycleRequest('/rejected'), new CallbackResponseWriter(
@@ -398,11 +398,11 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
     $captured?->end();
 
     expect($first->context->completed())->toBeTrue()
-        ->and($resets)->toBe(1);
+        ->and($state['resets'])->toBe(1);
 
     $lifecycle->handle(lifecycleRequest('/after'), lifecycleWriter());
     expect($handled)->toBe(['/async', '/after'])
-        ->and($resets)->toBe(2);
+        ->and($state['resets'])->toBe(2);
 });
 
 it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse', function (): void {
