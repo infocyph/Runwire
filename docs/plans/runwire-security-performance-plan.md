@@ -13,7 +13,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | Batch | Scope | Status | Exit evidence |
 | --- | --- | --- | --- |
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
-| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | In progress — RW-01/02/03/04/05/07/08/17/18/19/21 committed; QA pending | Reproductions committed in existing suites; bounded subprocesses where required |
+| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | In progress — RW-01/02/03/04/05/07/08/17/18/19/20/21 committed; RW-06/09 remain | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Complete | State transitions and public migration decisions recorded |
 | B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Open | Driver table, supported matrix, budget evidence and feature decisions recorded |
 | B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Implemented — QA pending | Targeted adversarial regressions green |
@@ -21,7 +21,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Implemented — QA pending | Redaction, mTLS-policy and live-socket regressions green |
 | B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Implemented — QA pending | Fragmentation/coalescing and cross-writer response corpus green |
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Open | Common lifecycle suite green across native and hosts |
-| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Open | Concurrent native requests, timers and cancellation progress together |
+| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | In progress — attached scheduler API implemented; native lifecycle integration pending | Concurrent native requests, timers and cancellation progress together |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Open | Real-host capability matrix or explicit unsupported disposition |
 | B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Open | Supported backend exceeds SelectLoop ceiling with bounded behavior |
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Open | Fairness and worker-wide resource limits proven |
@@ -53,7 +53,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-17 stranded due timers | P1 | B0-B / B1-B | Implemented — QA pending |
 | RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Host length parity implemented — terminal contract remains B2-A; QA pending |
 | RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Incremental bounded delivery implemented — aggregate fairness remains B3-B; QA pending |
-| RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Open |
+| RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Attached shared-loop API implemented — native lifecycle integration pending; QA pending |
 | RW-21 UDP callback close crash | P1 | B0-B / B1-B | Implemented — QA pending |
 | RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Open |
 

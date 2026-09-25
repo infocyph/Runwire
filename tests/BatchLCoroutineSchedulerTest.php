@@ -11,6 +11,7 @@ use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
 use Infocyph\Runwire\Coroutine\Exception\FutureCompletedException;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 it('schedules tasks FIFO and yields without recursive Fiber resume', function (): void {
@@ -195,4 +196,91 @@ it('exposes terminal task state without retaining it in the scheduler registry',
     expect($task)->not->toBeNull()
         ->and($task->state())->toBe(TaskState::COMPLETED)
         ->and($task->result())->toBe(42);
+});
+
+
+it('runs multiple attached request scopes on one externally owned loop', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $events = [];
+
+    $left = $runtime->attachRequest(
+        RequestContext::standalone('attached-left'),
+        function (CoroutineScope $scope) use (&$events): string {
+            $events[] = 'left-start';
+            $scope->sleep(0.002);
+            $events[] = 'left-end';
+
+            return 'left';
+        },
+    );
+    $right = $runtime->attachRequest(
+        RequestContext::standalone('attached-right'),
+        function (CoroutineScope $scope) use (&$events): string {
+            $events[] = 'right-start';
+            $scope->yieldNow();
+            $events[] = 'right-end';
+
+            return 'right';
+        },
+    );
+    $loop->defer(static function () use (&$events): void {
+        $events[] = 'loop-work';
+    });
+
+    expect($runtime->diagnostics()->requestScopesActive)->toBe(2);
+
+    $loop->run();
+
+    expect($left->result())->toBe('left')
+        ->and($right->result())->toBe('right')
+        ->and($events)->toContain('left-start', 'right-start', 'loop-work', 'right-end', 'left-end')
+        ->and($runtime->diagnostics()->requestScopesActive)->toBe(0)
+        ->and($runtime->activeTaskCount())->toBe(0);
+});
+
+it('propagates request cancellation into an attached scope without nested loop driving', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $context = RequestContext::standalone('attached-cancel');
+    $cleaned = false;
+
+    $task = $runtime->attachRequest(
+        $context,
+        function (CoroutineScope $scope) use (&$cleaned): void {
+            try {
+                $scope->sleep(30.0);
+            } finally {
+                $cleaned = true;
+            }
+        },
+    );
+    $loop->delay(0.002, static function () use ($context): void {
+        $context->cancel(CancellationReason::TRANSPORT_CANCELLED);
+    });
+
+    $loop->run();
+
+    expect($task->state())->toBe(TaskState::CANCELLED)
+        ->and($cleaned)->toBeTrue()
+        ->and($runtime->diagnostics()->requestScopesActive)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('rejects standalone loop driving while attached request scopes are active', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $task = $runtime->attachRequest(
+        RequestContext::standalone('attached-ownership'),
+        static function (CoroutineScope $scope): void {
+            $scope->sleep(0.002);
+        },
+    );
+
+    expect(fn () => $runtime->run(static fn(): null => null))
+        ->toThrow(LogicException::class, 'cannot drive a loop with attached request scopes');
+
+    $loop->run();
+
+    expect($task->state())->toBe(TaskState::COMPLETED);
 });

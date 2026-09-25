@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Coroutine;
 use Closure;
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
+use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestContext;
@@ -18,6 +19,8 @@ use LogicException;
 final class CoroutineRuntime
 {
     private readonly FiberScheduler $scheduler;
+
+    private int $attachedRequestScopes = 0;
 
     private bool $requestRunning = false;
 
@@ -49,8 +52,54 @@ final class CoroutineRuntime
     {
         return $this->scheduler->diagnostics(
             rootScopesActive: $this->running ? 1 : 0,
-            requestScopesActive: $this->requestRunning ? 1 : 0,
+            requestScopesActive: ($this->requestRunning ? 1 : 0) + $this->attachedRequestScopes,
         );
+    }
+
+    /**
+     * Attach one request scope to the existing scheduler without driving its loop.
+     *
+     * @param callable(CoroutineScope): mixed $callback
+     */
+    public function attachRequest(RequestContext $context, callable $callback): Task
+    {
+        if ($this->running) {
+            throw new LogicException('Attached request scopes cannot start while standalone coroutine execution owns the loop.');
+        }
+        if ($context->completed()) {
+            throw new LogicException('Completed request context cannot own coroutine work.');
+        }
+
+        $context->cancellation->throwIfCancelled();
+        $source = CancellationSource::linked($context->cancellation, $context->deadline());
+        $scope = new CoroutineScope($this->scheduler, $source);
+        $closure = Closure::fromCallable($callback);
+        $closed = false;
+        ++$this->attachedRequestScopes;
+
+        try {
+            return $this->scheduler->spawn(
+                static fn(): mixed => $scope->execute($closure),
+                $source,
+                function (Task $task) use ($scope, &$closed): void {
+                    if ($closed || !$task->isComplete()) {
+                        return;
+                    }
+
+                    $closed = true;
+                    $scope->close();
+                    --$this->attachedRequestScopes;
+                },
+            );
+        } catch (\Throwable $error) {
+            if (!$closed) {
+                $closed = true;
+                $scope->close();
+                --$this->attachedRequestScopes;
+            }
+
+            throw $error;
+        }
     }
 
     /** @param callable(CoroutineScope): mixed $callback */
@@ -82,10 +131,14 @@ final class CoroutineRuntime
     /** @param callable(CoroutineScope): mixed $callback */
     private function execute(CancellationSource $source, callable $callback): mixed
     {
-        if ($this->running) {
+        if ($this->running || $this->attachedRequestScopes > 0) {
             $source->dispose();
 
-            throw new LogicException('Nested CoroutineRuntime::run() cannot start a second event loop; use the active scope.');
+            throw new LogicException(
+                $this->running
+                    ? 'Nested CoroutineRuntime::run() cannot start a second event loop; use the active scope.'
+                    : 'Standalone coroutine execution cannot drive a loop with attached request scopes.',
+            );
         }
 
         $this->running = true;
