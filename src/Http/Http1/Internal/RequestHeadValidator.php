@@ -24,10 +24,14 @@ final class RequestHeadValidator
     ): RequestHead {
         $this->validateHost($headers, $method, $target);
         $contentLengths = $this->contentLengths($headers);
-        $transfer = $this->tokens($headers->all('transfer-encoding'));
+        $transferValues = $headers->all('transfer-encoding');
+        $transfer = $this->tokens($transferValues);
 
-        if ($transfer !== [] && $contentLengths !== []) {
+        if ($transferValues !== [] && $contentLengths !== []) {
             throw new ParseFailure(400, 'Transfer-Encoding with Content-Length is rejected.');
+        }
+        if ($transferValues !== [] && $transfer === []) {
+            throw new ParseFailure(400, 'Transfer-Encoding must contain a valid transfer coding.');
         }
 
         if ($transfer !== [] && $transfer !== ['chunked']) {

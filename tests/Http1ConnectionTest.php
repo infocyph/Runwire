@@ -93,6 +93,37 @@ it('rejects request-smuggling framing before application dispatch', function ():
         ->and($response)->toStartWith('HTTP/1.1 400 Bad Request');
 });
 
+it('continues parsing already-buffered input after exhausting the parser step budget', function (): void {
+    $response = runwireHttpExchange(
+        "GET /budget HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n",
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->target)->toBe('/budget');
+            $writer->end('ok');
+        },
+        new Http1Limits(maxParserStepsPerTick: 1),
+    );
+
+    expect($response)->toStartWith('HTTP/1.1 200 OK')
+        ->and($response)->toEndWith("\r\n\r\nok");
+});
+
+it('rejects empty Transfer-Encoding fields before application dispatch', function (string $transferEncoding): void {
+    $called = false;
+    $response = runwireHttpExchange(
+        "POST /bad HTTP/1.1\r\nHost: x\r\nContent-Length: 1\r\nTransfer-Encoding: {$transferEncoding}\r\nConnection: close\r\n\r\nx",
+        static function () use (&$called): void {
+            $called = true;
+        },
+    );
+
+    expect($called)->toBeFalse()
+        ->and($response)->toStartWith('HTTP/1.1 400 Bad Request');
+})->with([
+    'empty' => '',
+    'whitespace' => '   ',
+    'comma-only' => ' , ',
+]);
+
 it('preserves pipelined response order and enforces the keep-alive ceiling', function (): void {
     $count = 0;
     $response = runwireHttpExchange(
