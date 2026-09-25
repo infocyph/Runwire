@@ -245,3 +245,37 @@ it('reports RoadRunner host protocols without claiming Runwire wire ownership', 
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp3Wire)->toBeFalse();
 });
+
+
+it('enforces declared Content-Length in RoadRunner response writers', function (): void {
+    $session = new class implements RoadRunnerSessionInterface {
+        public array $responses = [];
+
+        public function respond(int $status, string $body, array $headers, bool $endOfStream): void
+        {
+            $this->responses[] = [$status, $body, $headers, $endOfStream];
+        }
+
+        public function stop(): void {}
+
+        public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
+        {
+            return null;
+        }
+    };
+
+    $writer = new RoadRunnerResponseWriter($session, 64);
+    $writer->start(200, Headers::fromArray(['content-length' => '2']));
+
+    expect(fn () => $writer->end('abc'))
+        ->toThrow(LogicException::class, 'exceeds declared Content-Length')
+        ->and($session->responses)->toBe([]);
+
+    $short = new RoadRunnerResponseWriter($session, 64);
+    $short->start(200, Headers::fromArray(['content-length' => '3']));
+    $short->write('ab');
+
+    expect(fn () => $short->end())
+        ->toThrow(LogicException::class, 'shorter than declared Content-Length')
+        ->and($session->responses)->toHaveCount(1);
+});

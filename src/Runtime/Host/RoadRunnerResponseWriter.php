@@ -11,6 +11,7 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
+use LogicException;
 
 /**
  * Streams bounded HTTP responses through a RoadRunner session.
@@ -20,6 +21,8 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     private readonly int $maxBodyBytes;
 
     private int $bodyBytes = 0;
+
+    private ?int $contentLength = null;
 
     private bool $ended = false;
 
@@ -61,6 +64,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
         if ($finalChunk !== '' && !$this->suppressesBody()) {
             $length = strlen($finalChunk);
+            if ($this->contentLength !== null && $this->bodyBytes + $length > $this->contentLength) {
+                throw new LogicException('HTTP response body exceeds declared Content-Length.');
+            }
             if ($length > $this->maxBodyBytes - $this->bodyBytes) {
                 $this->finish('');
 
@@ -68,11 +74,13 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
             }
 
             $this->bodyBytes += $length;
+            $this->assertCompleteLength();
             $this->finish($finalChunk);
 
             return new WriteResult(WriteState::ACCEPTED, 0);
         }
 
+        $this->assertCompleteLength();
         $this->finish('');
 
         return new WriteResult(WriteState::ACCEPTED, 0);
@@ -120,6 +128,8 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         }
 
         $this->headers = $headers ?? new Headers();
+        $this->contentLength = ResponseSemantics::contentLength($this->headers);
+        ResponseSemantics::assertContentLength($status, $this->contentLength);
         $this->started = true;
         $this->status = $status;
 
@@ -141,6 +151,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         }
 
         $length = strlen($chunk);
+        if ($this->contentLength !== null && $this->bodyBytes + $length > $this->contentLength) {
+            throw new LogicException('HTTP response body exceeds declared Content-Length.');
+        }
         if ($length > $this->maxBodyBytes - $this->bodyBytes) {
             return new WriteResult(WriteState::REJECTED_LIMIT, 0);
         }
@@ -149,6 +162,15 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         $this->bodyBytes += $length;
 
         return new WriteResult(WriteState::ACCEPTED, 0);
+    }
+
+    private function assertCompleteLength(): void
+    {
+        if ($this->suppressesBody() || $this->contentLength === null || $this->bodyBytes === $this->contentLength) {
+            return;
+        }
+
+        throw new LogicException('HTTP response body is shorter than declared Content-Length.');
     }
 
     private function ensureStarted(): WriteResult
