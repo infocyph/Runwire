@@ -4,6 +4,69 @@ Audit date: 2026-09-25. Source revision: `7ab48fcf224ee86838e5bf82a50b998c2aaa8a
 
 Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: broad review and release plan complete; implementation and release certification remain open. This document does not certify the absence of vulnerabilities.
 
+## Implementation tracker
+
+Updated: 2026-09-25. Working branch: `feature/next-edition`. Implementation baseline: `1bd9ae9a00f352714070177e4cfb01c811231b0e`.
+
+This tracker is part of the implementation record. Update it in every implementation batch; do not mark a batch complete until its code, targeted regression evidence and relevant quality checks are present on the branch. Keep the pull request open throughout implementation so CI and review findings feed back into the remaining batches.
+
+| Batch | Scope | Status | Exit evidence |
+| --- | --- | --- | --- |
+| B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
+| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | Open | Reproductions committed in existing suites; bounded subprocesses where required |
+| B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Open | State transitions and public migration decisions recorded |
+| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Open | Driver table, supported matrix, budget evidence and feature decisions recorded |
+| B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Open | Targeted adversarial regressions green |
+| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Open | Loop/descriptor/timer/UDP regressions green |
+| B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Open | Redaction, mTLS-policy and live-socket regressions green |
+| B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Open | Fragmentation/coalescing and cross-writer response corpus green |
+| B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Open | Common lifecycle suite green across native and hosts |
+| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Open | Concurrent native requests, timers and cancellation progress together |
+| B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Open | Real-host capability matrix or explicit unsupported disposition |
+| B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Open | Supported backend exceeds SelectLoop ceiling with bounded behavior |
+| B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Open | Fairness and worker-wide resource limits proven |
+| B3-C | Process-tree/platform hardening — RW-13 | Open | Descendant/reap/cancellation/platform regressions green |
+| B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | Open | P2 dispositions recorded; immutable CI inputs; accepted feature lanes green |
+| B4 | Sustained-performance and release certification | Open | Production-equivalent baselines, soak, interoperability and full gates green |
+| B5 | Migration docs, beta/RC evidence and exact-head final candidate | Open | All findings closed and final candidate matrix green |
+
+### Finding tracker
+
+| Finding | Priority | Batch | Status |
+| --- | --- | --- | --- |
+| RW-01 HTTP/1 parser continuation | High | B0-B / B1-A | Open |
+| RW-02 empty Transfer-Encoding framing | High | B0-B / B1-A | Open |
+| RW-03 silent/idle HTTP expiry | High | B0-B / B1-A | Open |
+| RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Open |
+| RW-05 HTTP/2 exception-text disclosure | High | B0-B / B1-C | Open |
+| RW-06 failed reset does not retire worker | High | B0-B / B2-A | Open |
+| RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Open |
+| RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Open |
+| RW-09 streaming request lifetime mismatch | High | B0-B / B2-A | Open |
+| RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Open |
+| RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Open |
+| RW-12 inconsistent failure containment | P1 | B2-A | Open |
+| RW-13 process-tree/detached cleanup | P2 | B3-C | Open |
+| RW-14 duplicated host GC ownership | P2 | B2-C | Open |
+| RW-15 duplicated validation/security owners | P2 | B3-D | Open |
+| RW-16 mutable CI/dependency provenance | P2 | B3-D | Open |
+| RW-17 stranded due timers | P1 | B0-B / B1-B | Open |
+| RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Open |
+| RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Open |
+| RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Open |
+| RW-21 UDP callback close crash | P1 | B0-B / B1-B | Open |
+| RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Open |
+
+### Feature decision tracker
+
+| Feature | Status | Decision point |
+| --- | --- | --- |
+| F-01 scalable native loop | Planned | B3-A backend selection after capacity/platform evidence |
+| F-02 shared-loop coroutine request scopes | Planned | B0-C contract, B2-B implementation |
+| F-03 worker-wide resource admission/pressure | Planned | B0-D budgets, B3-B implementation |
+| F-04 bounded stream-to-response transfer | Undecided | B0-D evidence-based include/defer decision |
+| F-05 native WebSocket serving | Undecided | B0-D evidence-based include/defer decision |
+
 ## Decision
 
 Runwire has a substantial foundation: bounded protocol parsers and buffers, backpressure, shell-free process execution, privilege-drop ordering, request reset hooks, coroutine limits, and a broad test suite. Nevertheless, additional probes reproduced defects beyond the passing existing tests.
