@@ -20,7 +20,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Implemented — QA pending | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Implemented — QA pending | Redaction, mTLS-policy and live-socket regressions green |
 | B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Implemented — QA pending | Fragmentation/coalescing and cross-writer response corpus green |
-| B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | In progress — terminal accounting and unhealthy latch implemented; cross-driver retirement/QA pending | Common lifecycle suite green across native and hosts |
+| B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | In progress — terminal accounting, unhealthy latch and worker retirement implemented; QA/failure-containment sweep pending | Common lifecycle suite green across native and hosts |
 | B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | In progress — attached scheduler API implemented; native lifecycle integration pending | Concurrent native requests, timers and cancellation progress together |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Open | Real-host capability matrix or explicit unsupported disposition |
 | B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Open | Supported backend exceeds SelectLoop ceiling with bounded behavior |
@@ -39,7 +39,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-03 silent/idle HTTP expiry | High | B0-B / B1-A | Implemented — QA pending |
 | RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Portable failure handling implemented — scalable backend remains B3-A; QA pending |
 | RW-05 HTTP/2 exception-text disclosure | High | B0-B / B1-C | Implemented — QA pending |
-| RW-06 failed reset does not retire worker | High | B0-B / B2-A | Unhealthy latch implemented — worker retirement integration/QA pending |
+| RW-06 failed reset does not retire worker | High | B0-B / B2-A | Unhealthy latch + native/Swoole/host retirement implemented — QA pending |
 | RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Implemented — QA pending |
 | RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Implemented — QA pending |
 | RW-09 streaming request lifetime mismatch | High | B0-B / B2-A | Terminal lifecycle/admission ownership implemented — cross-driver QA pending |

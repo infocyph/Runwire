@@ -316,15 +316,45 @@ final class NativeHttpWorker
     ): Closure {
         return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
             $context->recordRequestStarted();
+            $completed = false;
+            $complete = static function () use (
+                $application,
+                $context,
+                $request,
+                $sampler,
+                &$completed,
+            ): void {
+                if ($completed) {
+                    return;
+                }
 
-            try {
-                $application->handle($request, $writer);
-            } finally {
+                $completed = true;
                 $context->recordRequestCompleted();
                 if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
                     $context->reportDeadlineExceeded($request->context->requestId);
                 }
+                if (!$application->healthy()) {
+                    $context->requestStop();
+                }
                 $sampler->sample();
+            };
+
+            try {
+                $application->handle($request, $writer);
+            } catch (Throwable $error) {
+                $complete();
+
+                throw $error;
+            }
+
+            $writer->onTerminal(static function () use ($complete): void {
+                $complete();
+            });
+            $request->context->cancellation->onCancel(static function () use ($complete): void {
+                $complete();
+            });
+            if ($request->context->completed()) {
+                $complete();
             }
         };
     }
