@@ -226,6 +226,7 @@ final class ApplicationLifecycle
         $id = spl_object_id($context);
         $this->activeContexts[$id] = $context;
         $this->runtimeContext->metrics->requestStarted($request->version);
+        $cancellationSubscription = null;
         $finalizer = new RequestFinalizer(
             context: $context,
             version: $request->version,
@@ -240,9 +241,12 @@ final class ApplicationLifecycle
             unhealthy: function (Throwable $failure): void {
                 $this->healthFailure ??= $failure;
             },
+            detachCancellation: static function () use (&$cancellationSubscription): void {
+                $cancellationSubscription?->unsubscribe();
+            },
         );
 
-        $context->cancellation->onCancel(static function () use ($finalizer): void {
+        $cancellationSubscription = $context->cancellation->onCancel(static function () use ($finalizer): void {
             $finalizer->cancelled();
         });
         if ($request->body instanceof \Infocyph\Runwire\Http\Internal\StreamingRequestBody) {

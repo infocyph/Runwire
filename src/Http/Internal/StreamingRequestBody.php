@@ -36,6 +36,10 @@ final class StreamingRequestBody implements RequestBodyInterface
 
     private ?Closure $dataCallback = null;
 
+    private bool $dataNotificationPending = false;
+
+    private bool $dataNotifying = false;
+
     private ?Closure $endCallback = null;
 
     private bool $ended = false;
@@ -196,7 +200,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     {
         $this->dataCallback = Closure::fromCallable($callback);
         if (!$this->buffer->isEmpty()) {
-            $this->invoke($this->dataCallback);
+            $this->notifyData();
         }
 
         return $this;
@@ -232,7 +236,7 @@ final class StreamingRequestBody implements RequestBodyInterface
         }
         $this->buffer->append($bytes);
         $this->received += strlen($bytes);
-        $this->invoke($this->dataCallback);
+        $this->notifyData();
         if ($this->buffer->bytes() >= $this->highWatermark) {
             $this->pressured = true;
         }
@@ -291,6 +295,28 @@ final class StreamingRequestBody implements RequestBodyInterface
             return;
         }
         $callback($this);
+    }
+
+    private function notifyData(): void
+    {
+        if ($this->dataCallback === null) {
+            return;
+        }
+        if ($this->dataNotifying) {
+            $this->dataNotificationPending = true;
+
+            return;
+        }
+
+        $this->dataNotifying = true;
+        try {
+            do {
+                $this->dataNotificationPending = false;
+                $this->invoke($this->dataCallback);
+            } while ($this->dataNotificationPending && !$this->cancelled);
+        } finally {
+            $this->dataNotifying = false;
+        }
     }
 
     private function invokeCancelObservers(): void

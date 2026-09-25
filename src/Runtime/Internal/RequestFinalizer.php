@@ -22,6 +22,9 @@ use Throwable;
 final class RequestFinalizer
 {
     /** @var Closure(): void */
+    private readonly Closure $detachCancellation;
+
+    /** @var Closure(): void */
     private readonly Closure $finalized;
 
     private bool $finalizedRequest = false;
@@ -42,6 +45,7 @@ final class RequestFinalizer
      * @param callable(RequestContext): list<Throwable> $reset
      * @param callable(): void $finalized
      * @param callable(Throwable): void $unhealthy
+     * @param callable(): void $detachCancellation
      */
     public function __construct(
         private readonly RequestContext $context,
@@ -53,10 +57,12 @@ final class RequestFinalizer
         callable $reset,
         callable $finalized,
         callable $unhealthy,
+        callable $detachCancellation,
     ) {
         $this->reset = Closure::fromCallable($reset);
         $this->finalized = Closure::fromCallable($finalized);
         $this->unhealthy = Closure::fromCallable($unhealthy);
+        $this->detachCancellation = Closure::fromCallable($detachCancellation);
     }
 
     /**
@@ -115,6 +121,7 @@ final class RequestFinalizer
     private function finalize(): void
     {
         $this->finalizedRequest = true;
+        ($this->detachCancellation)();
         $resetFailures = ($this->reset)($this->context);
         if ($resetFailures !== []) {
             ($this->unhealthy)($resetFailures[0]);

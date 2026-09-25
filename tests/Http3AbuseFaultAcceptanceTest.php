@@ -80,10 +80,15 @@ it('contains request body floods at both total-body and pending-buffer boundarie
         abuseRequestHeaders($encoder, 4),
     )));
 
-    expectHttp3Fault(
-        static fn() => $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, '12345'))),
-        ErrorCode::EXCESSIVE_LOAD,
-    );
+    $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, '12345')));
+
+    expect($stream->pressured())->toBeTrue()
+        ->and($stream->body()->bufferedBytes())->toBeLessThanOrEqual(4);
+
+    $received = $stream->body()->read() . $stream->body()->read();
+
+    expect($received)->toBe('12345')
+        ->and($stream->pressured())->toBeFalse();
 });
 
 it('bounds queued request bytes while QPACK decoding is blocked', function (): void {
