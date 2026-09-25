@@ -71,8 +71,6 @@ final class Http1Connection
 
     private bool $pumping = false;
 
-    private bool $pumpPending = false;
-
     private bool $pumpScheduled = false;
 
     private int $remainingBody = 0;
@@ -593,7 +591,6 @@ final class Http1Connection
             return;
         }
         $this->pumping = true;
-        $this->pumpPending = false;
         $this->pumpScheduled = false;
 
         try {
@@ -602,7 +599,7 @@ final class Http1Connection
                     return;
                 }
             }
-            $this->pumpPending = true;
+            $this->schedulePump();
         } catch (ParseFailure $failure) {
             $this->fail($failure->status);
         } catch (Throwable $throwable) {
@@ -611,10 +608,6 @@ final class Http1Connection
             throw $throwable;
         } finally {
             $this->pumping = false;
-            if ($this->pumpPending) {
-                $this->pumpPending = false;
-                $this->schedulePump();
-            }
         }
     }
 
@@ -662,11 +655,6 @@ final class Http1Connection
     private function schedulePump(): void
     {
         if ($this->closed || $this->pumpScheduled) {
-            return;
-        }
-        if ($this->pumping) {
-            $this->pumpPending = true;
-
             return;
         }
         $this->pumpScheduled = true;

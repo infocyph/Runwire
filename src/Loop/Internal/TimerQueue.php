@@ -146,17 +146,6 @@ final class TimerQueue
         return null;
     }
 
-    /** @return list<int> */
-    public function takeDue(): array
-    {
-        $due = [];
-        while (($id = $this->takeNextDue()) !== null) {
-            $due[] = $id;
-        }
-
-        return $due;
-    }
-
     /** @return array{deadline: int, interval: int, callback: Closure}|null */
     public function timer(int $id): ?array
     {

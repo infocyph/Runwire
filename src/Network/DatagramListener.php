@@ -258,7 +258,7 @@ final class DatagramListener
                 throw $failure;
             }
 
-            if ($this->closed || $this->paused || $this->stream !== $stream || !is_resource($stream)) {
+            if ($this->closed || $this->paused || $this->stream !== $stream) {
                 break;
             }
         }

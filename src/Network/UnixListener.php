@@ -304,13 +304,18 @@ final class UnixListener
 
         $errno = 0;
         $error = '';
-        $live = @stream_socket_client(
-            'unix://' . $path,
-            $errno,
-            $error,
-            0.1,
-            STREAM_CLIENT_CONNECT,
-        );
+        set_error_handler(static fn (): bool => true);
+        try {
+            $live = stream_socket_client(
+                'unix://' . $path,
+                $errno,
+                $error,
+                0.1,
+                STREAM_CLIENT_CONNECT,
+            );
+        } finally {
+            restore_error_handler();
+        }
         if (is_resource($live)) {
             fclose($live);
 
