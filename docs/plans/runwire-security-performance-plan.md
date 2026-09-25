@@ -14,7 +14,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | --- | --- | --- | --- |
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
 | B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | In progress — RW-01/02/03/04/05/07/08/17/21 committed; QA pending | Reproductions committed in existing suites; bounded subprocesses where required |
-| B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Open | State transitions and public migration decisions recorded |
+| B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Complete | State transitions and public migration decisions recorded |
 | B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Open | Driver table, supported matrix, budget evidence and feature decisions recorded |
 | B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Implemented — QA pending | Targeted adversarial regressions green |
 | B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Implemented — QA pending | Loop/descriptor/timer/UDP regressions green |
@@ -67,6 +67,67 @@ This tracker is part of the implementation record. Update it in every implementa
 | F-04 bounded stream-to-response transfer | Undecided | B0-D evidence-based include/defer decision |
 | F-05 native WebSocket serving | Undecided | B0-D evidence-based include/defer decision |
 
+## Phase 0 contract decisions
+
+The following 2.0 contracts are settled before lifecycle implementation. They are intentionally narrow: existing handler signatures, request objects and unchanged writer methods remain; only ownership signals required to fix the reproduced defects are added.
+
+### Request completion and response ownership
+
+`ResponseWriterInterface` gains:
+
+```php
+/** @param callable(ResponseWriterInterface): void $callback */
+public function onTerminal(callable $callback): self;
+```
+
+A writer invokes terminal observers exactly once when it can no longer accept response work because the response ended successfully or the owned transport/stream became permanently closed. Registering after terminal invokes the observer immediately. `WriteState::REJECTED_LIMIT` or temporary pressure is not terminal. Existing `isEnded()` continues to mean a successful logical response end; terminal notification additionally covers cancellation/closure.
+
+`ApplicationLifecycle::handle()` continues to execute the application handler synchronously, but handler return is no longer request completion. Before dispatch it registers writer-terminal and request-cancellation observers. Finalization is idempotent and occurs exactly once when the writer is terminal or the request context is cancelled. Until then the context remains active and admission remains held. `completeResponse: true` still requests an automatic `end()` after a successful handler return, but it does not bypass terminal accounting.
+
+Finalization order is fixed:
+
+1. classify handler/cancellation state;
+2. run request resetters and legacy request cleanup;
+3. record request-completed metrics and GC policy;
+4. complete/dispose the request context;
+5. release request/stream admission.
+
+Transport queues may continue draining after logical writer completion when they own copied output; application/request state must no longer be referenced by that queued output.
+
+### Reset failure and worker retirement
+
+A reset/cleanup failure permanently marks the application lifecycle unhealthy before request ownership is released. Once unhealthy, no new request is admitted. The public runtime application contract gains:
+
+```php
+public function healthy(): bool;
+public function healthFailure(): ?Throwable;
+```
+
+The first isolation failure is retained as the health failure. Synchronous failures may still propagate through `RequestLifecycleException`; failures discovered by a later terminal callback cannot be thrown back through an already-returned `handle()`, so the unhealthy latch is the authoritative signal. Persistent host/native owners must stop admission and retire/recycle the owning worker when `healthy()` becomes false. One-shot FPM/classic execution exits through normal shutdown.
+
+Resetters are request-owned by contract. A resetter that mutates process-global/shared tenant state is not concurrency-safe and must either be migrated to request-owned state or used behind explicit application serialization; Runwire will not silently serialize all 2.0 request handling.
+
+### Coroutine loop ownership
+
+Standalone and attached execution become explicit:
+
+```php
+public function run(callable $callback): mixed;
+public function runRequest(RequestContext $context, callable $callback): mixed;
+
+/** @param callable(CoroutineScope): mixed $callback */
+public function attachRequest(RequestContext $context, callable $callback): Task;
+```
+
+`run()` and `runRequest()` are standalone-driving APIs and may own `LoopInterface::run()`. `attachRequest()` never drives the loop; it schedules one request-owned root scope on the runtime's existing scheduler and returns the existing `Task`. Multiple attached request scopes may coexist, inherit the request cancellation/deadline, and close their scope when the returned root task becomes terminal. Native servers and other already-running loop owners must use `attachRequest()`; nested loop driving remains an error.
+
+Task-local inheritance remains snapshot-by-reference for mutable objects; it does not become deep cloning.
+
+### Migration inventory
+
+First-party writer implementors to update together are `Http1ResponseWriter`, `Http2ResponseWriter`, `Http3ResponseWriter`, `CallbackResponseWriter`, and `RoadRunnerResponseWriter`. Lifecycle consumers include `RuntimeApplication`, native HTTP application integration, FPM, FrankenPHP and RoadRunner drivers. Custom 1.x writer implementations must add `onTerminal()`; asynchronous handlers may return before calling `end()` without causing reset/admission release in 2.0.
+
+The response-length rules remain shared across all writers: body-forbidden statuses and HEAD suppression follow `ResponseSemantics`; a declared Content-Length must match the accepted logical body length at `end()`. Callback/RoadRunner writers must adopt the same mismatch behavior as native HTTP writers.
 ## Decision
 
 Runwire has a substantial foundation: bounded protocol parsers and buffers, backpressure, shell-free process execution, privilege-drop ordering, request reset hooks, coroutine limits, and a broad test suite. Nevertheless, additional probes reproduced defects beyond the passing existing tests.
