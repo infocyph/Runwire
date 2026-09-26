@@ -21,9 +21,9 @@ use Throwable;
  */
 final readonly class ProcessRunner
 {
-    private const string NULL_DEVICE = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
-
     private const int IO_CHUNK_BYTES = 65_536;
+
+    private const string NULL_DEVICE = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
 
     private const int POLL_MICROS = 50_000;
 
