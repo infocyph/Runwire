@@ -7,7 +7,6 @@ namespace Infocyph\Runwire\Http\Http3\Internal;
 use Closure;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
@@ -160,7 +159,7 @@ final class ResponseScheduler
         $length = strlen($data);
         while ($offset < $length) {
             $payload = substr($data, $offset, $this->limits->maxResponseFramePayloadBytes);
-            $wire = FrameWriter::encode(new Frame(FrameType::DATA->value, $payload));
+            $wire = new Frame(FrameType::DATA->value, $payload)->encode();
             $stream->outbound->append($wire);
             $this->pendingResponseBytes += strlen($wire);
             $offset += strlen($payload);
@@ -176,7 +175,7 @@ final class ResponseScheduler
         int $instructionReserve,
     ): void {
         $section = $encoder->encode($headers, $stream->id);
-        $wire = FrameWriter::encode(new Frame(FrameType::HEADERS->value, $section->block));
+        $wire = new Frame(FrameType::HEADERS->value, $section->block)->encode();
         $instructions = $encoder->takeEncoderInstructions();
         if (strlen($wire) > $headerReserve || strlen($instructions) > $instructionReserve) {
             throw new LogicException('HTTP/3 QPACK reservation underestimated encoded response bytes.');
