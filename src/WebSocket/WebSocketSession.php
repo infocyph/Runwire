@@ -543,17 +543,27 @@ final class WebSocketSession
                 )));
             }
 
-            $frames = $this->parser->parse($this->options->maxFramesPerTurn);
-            foreach ($frames as $frame) {
+            $processed = 0;
+            while ($processed < $this->options->maxFramesPerTurn && !$this->connection->isWritePressured()) {
+                $frames = $this->parser->parse(1);
+                if ($frames === []) {
+                    break;
+                }
+
+                $this->dispatchFrame($frames[0]);
+                ++$processed;
                 if ($this->closed) {
                     return;
                 }
-                $this->dispatchFrame($frame);
             }
 
             if (
                 !$this->closed
-                && ($this->connection->receivedBytes() > 0 || count($frames) === $this->options->maxFramesPerTurn)
+                && !$this->connection->isWritePressured()
+                && (
+                    $this->connection->receivedBytes() > 0
+                    || $processed === $this->options->maxFramesPerTurn
+                )
             ) {
                 $this->schedulePump();
             }
@@ -574,6 +584,9 @@ final class WebSocketSession
         if ($this->closed || $this->drainCallbacks === []) {
             return;
         }
+
+        $this->connection->resumeReads();
+        $this->schedulePump();
 
         $callbacks = $this->drainCallbacks;
         $this->drainCallbacks = [];
@@ -643,6 +656,11 @@ final class WebSocketSession
             return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
         }
 
-        return $this->connection->write($this->frame($opcode, $payload));
+        $result = $this->connection->write($this->frame($opcode, $payload));
+        if ($result->pressured()) {
+            $this->connection->pauseReads();
+        }
+
+        return $result;
     }
 }
