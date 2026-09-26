@@ -126,3 +126,41 @@ it('requires a consumer for stream mode', function (): void {
     $command = Command::executable(PHP_BINARY)->output(IoMode::STREAM, IoMode::NULL);
     expect(fn () => processRunner()->run($command))->toThrow(ProcessStartException::class);
 });
+
+
+it('terminates descendants with an isolated POSIX process group', function (): void {
+    if (
+        DIRECTORY_SEPARATOR === '\\'
+        || !function_exists('posix_setpgid')
+        || !function_exists('posix_kill')
+    ) {
+        $this->markTestSkipped('POSIX process groups are unavailable.');
+    }
+
+    $script = <<<'PHP'
+$child = proc_open([PHP_BINARY, '-r', 'while (true) { usleep(100000); }'], [
+    0 => ['file', '/dev/null', 'r'],
+    1 => ['file', '/dev/null', 'w'],
+    2 => ['file', '/dev/null', 'w'],
+], $pipes);
+$status = proc_get_status($child);
+echo $status['pid'], "\n";
+fflush(STDOUT);
+while (true) { usleep(100000); }
+PHP;
+
+    $result = processRunner()->run(
+        Command::executable(PHP_BINARY, ['-r', $script])
+            ->timeout(0.2)
+            ->terminationGrace(0.05),
+    );
+    $pid = (int) trim($result->stdout);
+
+    for ($attempt = 0; $attempt < 20 && $pid > 1 && @posix_kill($pid, 0); ++$attempt) {
+        usleep(10_000);
+    }
+
+    expect($result->timedOut())->toBeTrue()
+        ->and($pid)->toBeGreaterThan(1)
+        ->and(@posix_kill($pid, 0))->toBeFalse();
+});
