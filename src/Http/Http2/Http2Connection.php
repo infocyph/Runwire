@@ -77,7 +77,7 @@ final class Http2Connection
         /** @var Closure(HttpRequest, Http2ResponseWriter): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
-        $this->parser = new FrameParser($limits->maxInboundFrameSize);
+        $this->parser = new FrameParser($limits->maxInboundFrameSize, $connection->bufferBudget());
         $this->peerSettings = new PeerSettings();
         $this->encoder = new Encoder($limits->maxDynamicTableBytes);
         $this->flow = new FlowController();
