@@ -101,7 +101,7 @@ it('rejects non-minimal lengths and configured frame ceilings', function (): voi
 it('charges parser bytes to the shared worker budget', function (): void {
     $budget = new ByteBudget(32);
     $parser = new WebSocketFrameParser(
-        new WebSocketOptions(maxFramePayloadBytes: 16, maxMessageBytes: 32, maxBufferedBytes: 32),
+        new WebSocketOptions(maxFramePayloadBytes: 16, maxMessageBytes: 32, maxBufferedBytes: 64),
         $budget,
     );
 
