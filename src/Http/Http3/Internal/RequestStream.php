@@ -103,6 +103,13 @@ final class RequestStream
         );
     }
 
+    public function __destruct()
+    {
+        $this->budget?->release($this->blockedBudgetBytes + $this->pendingBudgetBytes);
+        $this->blockedBudgetBytes = 0;
+        $this->pendingBudgetBytes = 0;
+    }
+
     /**
      * Determine whether request processing is blocked on QPACK state.
      */
