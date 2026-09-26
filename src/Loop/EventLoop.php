@@ -238,7 +238,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         $deadline = MonotonicTime::nowNanoseconds() + MonotonicTime::secondsToNanoseconds($seconds);
         $event = Event::timer(
             $this->base,
-            function () use ($id, $closure, $repeat, $seconds, &$event, &$deadline): void {
+            function () use ($id, $closure, $repeat, $seconds, &$deadline): void {
                 if (!isset($this->events[$id])) {
                     return;
                 }
@@ -257,7 +257,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
                     throw $error;
                 }
 
-                if ($repeat && isset($this->events[$id])) {
+                $event = $this->events[$id] ?? null;
+                if ($repeat && $event !== null) {
                     $deadline = MonotonicTime::nowNanoseconds() + MonotonicTime::secondsToNanoseconds($seconds);
                     $event->add($seconds);
                 }
