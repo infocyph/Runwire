@@ -514,6 +514,7 @@ final class WebSocketSession
         }
 
         $reason = substr($reason, 0, 123);
+
         try {
             $result = $this->close($code, $reason);
         } catch (Throwable) {
