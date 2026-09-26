@@ -140,8 +140,8 @@ it('terminates descendants with an isolated POSIX process group', function (): v
     $script = <<<'PHP'
 $child = proc_open([PHP_BINARY, '-r', 'while (true) { usleep(100000); }'], [
     0 => ['file', '/dev/null', 'r'],
-    1 => ['file', '/dev/null', 'w'],
-    2 => ['file', '/dev/null', 'w'],
+    1 => STDOUT,
+    2 => STDERR,
 ], $pipes);
 $status = proc_get_status($child);
 echo $status['pid'], "\n";
@@ -163,4 +163,23 @@ PHP;
     expect($result->timedOut())->toBeTrue()
         ->and($pid)->toBeGreaterThan(1)
         ->and(posix_kill($pid, 0))->toBeFalse();
+});
+
+
+it('remains reusable across repeated forced terminations', function (): void {
+    if (!function_exists('pcntl_signal') || !defined('SIGTERM')) {
+        $this->markTestSkipped('PCNTL signal handling is unavailable.');
+    }
+
+    $runner = processRunner(['postKillWaitSeconds' => 0.25]);
+    for ($attempt = 0; $attempt < 3; ++$attempt) {
+        $command = Command::executable(PHP_BINARY, [
+            '-r',
+            'pcntl_async_signals(true);pcntl_signal(SIGTERM,SIG_IGN);while(true){usleep(100000);}',
+        ])->timeout(0.05)->terminationGrace(0.01);
+
+        expect($runner->run($command)->timedOut())->toBeTrue();
+    }
+
+    expect($runner->run(Command::executable(PHP_BINARY, ['-r', 'echo "ok";']))->stdout)->toBe('ok');
 });
