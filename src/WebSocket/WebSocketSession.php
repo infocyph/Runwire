@@ -28,7 +28,15 @@ final class WebSocketSession
 
     private readonly ?ByteBudget $budget;
 
+    private readonly Connection $connection;
+
+    private readonly LoopInterface $loop;
+
+    private readonly WebSocketOptions $options;
+
     private readonly WebSocketFrameParser $parser;
+
+    private readonly ?string $selectedSubprotocol;
 
     /** @var Closure(self, int, string): void|null */
     private ?Closure $closeCallback = null;
@@ -54,7 +62,7 @@ final class WebSocketSession
 
     private ?int $fragmentOpcode = null;
 
-    private ?int $heartbeatTimer = null;
+    private ?int $heartbeatTimer;
 
     private float $lastActivityAt;
 
@@ -69,14 +77,18 @@ final class WebSocketSession
      * @internal WebSocket sessions are created by the HTTP/1 upgrade owner.
      */
     public function __construct(
-        private readonly LoopInterface $loop,
-        private readonly Connection $connection,
-        private readonly WebSocketOptions $options = new WebSocketOptions(),
-        private readonly ?string $selectedSubprotocol = null,
+        LoopInterface $loop,
+        Connection $connection,
+        WebSocketOptions $options = new WebSocketOptions(),
+        ?string $selectedSubprotocol = null,
         string $initialBytes = '',
     ) {
         $this->budget = $connection->bufferBudget();
+        $this->connection = $connection;
+        $this->loop = $loop;
+        $this->options = $options;
         $this->parser = new WebSocketFrameParser($options, $this->budget);
+        $this->selectedSubprotocol = $selectedSubprotocol;
         $this->lastActivityAt = $loop->now();
 
         $connection->handoffCallbacks(
@@ -256,16 +268,6 @@ final class WebSocketSession
         return $this->selectedSubprotocol;
     }
 
-    private function assertOutboundMessage(string $payload, bool $text): void
-    {
-        if (strlen($payload) > $this->options->maxFramePayloadBytes) {
-            throw new InvalidArgumentException('Outbound WebSocket message exceeds the configured frame ceiling.');
-        }
-        if ($text) {
-            WebSocketWireCodec::assertUtf8($payload, 'WebSocket text message');
-        }
-    }
-
     private function appendFragment(string $payload): void
     {
         $length = strlen($payload);
@@ -278,6 +280,23 @@ final class WebSocketSession
 
         $this->fragmentBudgetBytes += $length;
         $this->fragmentBuffer .= $payload;
+    }
+
+    private function assertOutboundMessage(string $payload, bool $text): void
+    {
+        if (strlen($payload) > $this->options->maxFramePayloadBytes) {
+            throw new InvalidArgumentException('Outbound WebSocket message exceeds the configured frame ceiling.');
+        }
+        if ($text) {
+            WebSocketWireCodec::assertUtf8($payload, 'WebSocket text message');
+        }
+    }
+
+    private function cancelTimer(?int $timer): void
+    {
+        if ($timer !== null) {
+            $this->loop->cancel($timer);
+        }
     }
 
     private function clearFragment(): void
@@ -453,6 +472,31 @@ final class WebSocketSession
         }
     }
 
+    private function notifyDrain(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+
+        $this->connection->resumeReads();
+        $this->schedulePump();
+        if ($this->drainCallbacks === []) {
+            return;
+        }
+
+        $callbacks = $this->drainCallbacks;
+        $this->drainCallbacks = [];
+        foreach ($callbacks as $callback) {
+            try {
+                $callback($this);
+            } catch (Throwable) {
+                $this->protocolFailure(1011, 'drain handler failed');
+
+                return;
+            }
+        }
+    }
+
     private function protocolFailure(int $code, string $reason): void
     {
         if ($this->closed) {
@@ -514,38 +558,6 @@ final class WebSocketSession
             }
         } catch (WebSocketProtocolException $error) {
             $this->protocolFailure($error->closeCode, $error->getMessage());
-        }
-    }
-
-    private function cancelTimer(?int $timer): void
-    {
-        if ($timer !== null) {
-            $this->loop->cancel($timer);
-        }
-    }
-
-    private function notifyDrain(): void
-    {
-        if ($this->closed) {
-            return;
-        }
-
-        $this->connection->resumeReads();
-        $this->schedulePump();
-        if ($this->drainCallbacks === []) {
-            return;
-        }
-
-        $callbacks = $this->drainCallbacks;
-        $this->drainCallbacks = [];
-        foreach ($callbacks as $callback) {
-            try {
-                $callback($this);
-            } catch (Throwable) {
-                $this->protocolFailure(1011, 'drain handler failed');
-
-                return;
-            }
         }
     }
 
