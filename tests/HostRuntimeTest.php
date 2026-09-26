@@ -273,8 +273,8 @@ it('reports FrankenPHP worker persistence without claiming Runwire wire ownershi
 
     expect($selection->capabilities->persistentApplication)->toBeTrue()
         ->and($selection->capabilities->supportsHttp1)->toBeTrue()
-        ->and($selection->capabilities->supportsHttp2)->toBeTrue()
-        ->and($selection->capabilities->supportsHttp3)->toBeTrue()
+        ->and($selection->capabilities->supportsHttp2)->toBeFalse()
+        ->and($selection->capabilities->supportsHttp3)->toBeFalse()
         ->and($selection->capabilities->ownsHttp1Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp3Wire)->toBeFalse();
