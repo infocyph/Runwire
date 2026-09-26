@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Supervisor\Internal;
 
 use Closure;
 use Infocyph\Runwire\Exception\SupervisorException;
+use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
@@ -17,7 +18,11 @@ use Infocyph\Runwire\Supervisor\WorkerGroup;
  */
 final class RestartCoordinator
 {
-    private readonly RestartTracker $tracker;
+    /** @var array<string, array<int, int>> */
+    private array $counts = [];
+
+    /** @var array<string, list<int>> */
+    private array $history = [];
 
     /** @var array<string, int> */
     private array $reasonCounts;
@@ -41,7 +46,6 @@ final class RestartCoordinator
         private readonly Closure $now,
         private readonly Closure $isStopping,
     ) {
-        $this->tracker = new RestartTracker();
         $this->reasonCounts = self::reasonCounters();
     }
 
@@ -77,7 +81,7 @@ final class RestartCoordinator
      */
     public function count(string $group, int $slot): int
     {
-        return $this->tracker->count($group, $slot);
+        return $this->counts[$group][$slot] ?? 0;
     }
 
     /**
@@ -99,7 +103,7 @@ final class RestartCoordinator
      */
     public function register(WorkerGroup $group): void
     {
-        $this->tracker->register($group);
+        $this->counts[$group->name] = array_fill(0, $group->count, 0);
     }
 
     /**
@@ -113,14 +117,19 @@ final class RestartCoordinator
             return;
         }
 
-        $attempt = $this->tracker->nextAttempt($record->group, $record->slot);
-        if ($attempt === null) {
+        $delaySeconds = $this->reserveRestart($record->group, $record->slot);
+        if ($delaySeconds === null) {
             $this->handleExhausted($record, $key, $currentSlots, $children);
 
             return;
         }
 
-        $this->queueAttempt($record, $key, $attempt);
+        $this->queueAttempt(
+            $record,
+            $key,
+            $this->count($record->group->name, $record->slot),
+            $delaySeconds,
+        );
     }
 
     /** @return array<string, int> */
@@ -167,8 +176,12 @@ final class RestartCoordinator
         )));
     }
 
-    private function queueAttempt(ChildRecord $record, string $key, RestartAttempt $attempt): void
-    {
+    private function queueAttempt(
+        ChildRecord $record,
+        string $key,
+        int $restartCount,
+        float $delaySeconds,
+    ): void {
         $reason = $record->exitReason ?? WorkerExitReason::CRASH;
         ++$this->reasonCounts[$reason->value];
         $restartGeneration = $record->group->reloadable
@@ -180,15 +193,15 @@ final class RestartCoordinator
             group: $record->group->name,
             slot: $record->slot,
             generation: $restartGeneration,
-            restartCount: $attempt->count,
-            restartDelaySeconds: $attempt->delaySeconds,
+            restartCount: $restartCount,
+            restartDelaySeconds: $delaySeconds,
             replacesPid: $record->replacesPid,
             exitReason: $reason,
         ));
 
         $this->timers[$key] = $this->loop->delay(
-            $attempt->delaySeconds,
-            function () use ($record, $attempt, $key, $restartGeneration): void {
+            $delaySeconds,
+            function () use ($record, $restartCount, $key, $restartGeneration): void {
                 unset($this->timers[$key]);
                 if (($this->isStopping)()) {
                     return;
@@ -204,7 +217,7 @@ final class RestartCoordinator
                     $record->group,
                     $record->slot,
                     $restartGeneration,
-                    $attempt->count,
+                    $restartCount,
                     $record->replacesPid,
                     $record->replacesPid === null,
                     $record->recycleReplacement,
@@ -212,6 +225,35 @@ final class RestartCoordinator
                 );
             },
         );
+    }
+
+    /** @return list<int> */
+    private function recentRestartHistory(WorkerGroup $group, int $now): array
+    {
+        $window = MonotonicTime::secondsToNanoseconds($group->restartPolicy->windowSeconds);
+        $cutoff = $now - $window;
+
+        return array_values(array_filter(
+            $this->history[$group->name] ?? [],
+            static fn(int $timestamp): bool => $timestamp >= $cutoff,
+        ));
+    }
+
+    private function reserveRestart(WorkerGroup $group, int $slot): ?float
+    {
+        $now = MonotonicTime::nowNanoseconds();
+        $history = $this->recentRestartHistory($group, $now);
+        if (count($history) >= $group->restartPolicy->maxRestarts) {
+            $this->history[$group->name] = $history;
+
+            return null;
+        }
+
+        $history[] = $now;
+        $this->history[$group->name] = $history;
+        $this->counts[$group->name][$slot] = $this->count($group->name, $slot) + 1;
+
+        return $group->restartPolicy->backoffForAttempt(count($history));
     }
 
     private function shouldAbortReload(ChildRecord $record, string $key, ?ChildRecord $current): bool
