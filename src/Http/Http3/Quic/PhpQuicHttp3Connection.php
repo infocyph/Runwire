@@ -149,6 +149,7 @@ final class PhpQuicHttp3Connection
         }
 
         try {
+            $this->expireRequestStreams();
             if ($this->connectionErrored($ready, $events)) {
                 $this->closeObservedConnection();
 
@@ -218,6 +219,7 @@ final class PhpQuicHttp3Connection
         }
 
         try {
+            $this->expireRequestStreams();
             $this->acceptAvailableStreams();
             $this->flush();
             $this->drainReadableStreams();
@@ -425,6 +427,19 @@ final class PhpQuicHttp3Connection
         }
 
         return [$reads, $bytes, $requestStream ? 0 : $bytes];
+    }
+
+    private function expireRequestStreams(): void
+    {
+        foreach (array_keys($this->requestStreams) as $streamId) {
+            $request = $this->state->requestStream($streamId);
+            if ($request === null || $request->timeoutReason() === null) {
+                continue;
+            }
+
+            $this->peerStreams[$streamId]?->reset(ErrorCode::REQUEST_CANCELLED->value);
+            $this->cancelRequestStream($streamId);
+        }
     }
 
     private function finishPeerStream(int $streamId, PhpQuicStream $stream): void
