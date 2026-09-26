@@ -30,9 +30,9 @@ final class RequestContext
 
     private bool $completed = false;
 
-    private ?Throwable $ownedWorkFailure = null;
-
     private int $ownedWorkCount = 0;
+
+    private ?Throwable $ownedWorkFailure = null;
 
     /** @var Closure(): void|null */
     private ?Closure $ownedWorkSettled = null;
@@ -239,7 +239,10 @@ final class RequestContext
     /** @internal */
     public function observeOwnedWorkSettled(callable $callback): void
     {
-        $this->ownedWorkSettled = $callback(...);
+        $observer = Closure::fromCallable($callback);
+        $this->ownedWorkSettled = static function () use ($observer): void {
+            $observer();
+        };
     }
 
     /** @internal */
