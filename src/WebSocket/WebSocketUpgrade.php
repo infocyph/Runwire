@@ -88,18 +88,6 @@ final readonly class WebSocketUpgrade
         return true;
     }
 
-    private static function hasValidKey(HttpRequest $request): bool
-    {
-        $keys = $request->headers->all('sec-websocket-key');
-        if (count($keys) !== 1) {
-            return false;
-        }
-
-        $decoded = base64_decode(trim($keys[0]), true);
-
-        return is_string($decoded) && strlen($decoded) === 16;
-    }
-
     /** @param list<string> $values */
     private static function hasToken(array $values, string $expected): bool
     {
@@ -112,6 +100,18 @@ final readonly class WebSocketUpgrade
         }
 
         return false;
+    }
+
+    private static function hasValidKey(HttpRequest $request): bool
+    {
+        $keys = $request->headers->all('sec-websocket-key');
+        if (count($keys) !== 1) {
+            return false;
+        }
+
+        $decoded = base64_decode(trim($keys[0]), true);
+
+        return is_string($decoded) && strlen($decoded) === 16;
     }
 
     /** @param callable(string, HttpRequest): bool|null $originPolicy */
