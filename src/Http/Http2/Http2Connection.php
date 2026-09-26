@@ -156,11 +156,6 @@ final class Http2Connection
         return $this->requests->lastClientStreamId();
     }
 
-    private function requestStream(int $id): ?Http2Stream
-    {
-        return $this->requests->stream($id);
-    }
-
     private function acceptSettingsAck(Frame $frame): void
     {
         if ($frame->payload !== '') {
@@ -512,6 +507,11 @@ final class Http2Connection
         } catch (Throwable) {
             $this->failConnection(ErrorCode::INTERNAL_ERROR, 'Internal server error.');
         }
+    }
+
+    private function requestStream(int $id): ?Http2Stream
+    {
+        return $this->requests->stream($id);
     }
 
     private function touch(Http2Stream $stream): void
