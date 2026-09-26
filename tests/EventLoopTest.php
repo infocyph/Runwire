@@ -9,7 +9,9 @@ use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 
 it('uses the portable loop when ext-event is unavailable', function (): void {
     if (EventLoop::supported()) {
-        $this->markTestSkipped('ext-event is available on this runner.');
+        expect(EventLoop::supported())->toBeTrue();
+
+        return;
     }
 
     $loop = LoopFactory::native(new DiagnosticsPolicy());
@@ -22,7 +24,9 @@ it('uses the portable loop when ext-event is unavailable', function (): void {
 
 it('selects and exercises the scalable backend when ext-event is available', function (): void {
     if (!EventLoop::supported()) {
-        $this->markTestSkipped('ext-event is unavailable on this runner.');
+        expect(EventLoop::supported())->toBeFalse();
+
+        return;
     }
 
     $loop = LoopFactory::native(new DiagnosticsPolicy());
@@ -55,10 +59,11 @@ it('selects and exercises the scalable backend when ext-event is available', fun
         ->and($payload)->toBe('hello');
 });
 
-
 it('handles more than 1024 descriptors on the scalable backend', function (): void {
     if (!EventLoop::supported()) {
-        $this->markTestSkipped('ext-event is unavailable on this runner.');
+        expect(EventLoop::supported())->toBeFalse();
+
+        return;
     }
 
     $loop = new EventLoop();
