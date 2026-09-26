@@ -36,7 +36,7 @@ final readonly class ResponseTransfer
     ): int {
         self::assertPolicy($source, $chunkBytes, $chunksPerTurn);
         $metadata = stream_get_meta_data($source);
-        $wasBlocking = (bool) $metadata['blocked'];
+        $wasBlocking = (bool) ($metadata['blocked'] ?? true);
         if (!stream_set_blocking($source, false)) {
             throw new RuntimeException('Unable to make response transfer source non-blocking.');
         }
