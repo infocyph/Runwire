@@ -1,4 +1,4 @@
-# Runwire 1.0 Benchmark Methodology
+# Runwire 2.0 Benchmark Methodology
 
 Runwire benchmarks are regression evidence and workload-specific measurements. They are not universal capacity claims and must not be presented as proof that Runwire is the fastest PHP runtime or framework.
 
@@ -120,9 +120,28 @@ amortized_us_per_request
 
 Keep loopback results labeled as loopback results. They are useful for regressions and protocol/runtime tuning, not public Internet capacity claims.
 
-## 4. Release CI evidence
+## 4. Sustained real-server evidence
 
-The final Runwire 1.0 release candidate should have exact-head evidence for:
+The benchmark workflow runs five repeated native HTTP/1.1 keep-alive trials against the real Runwire native server on PHP 8.4 and 8.5. Pull requests use short CI-smoke durations to validate correctness and evidence plumbing. They are not stable production baselines and do not enforce small timing deltas on shared runners.
+
+The same workflow exposes a manual release-certification mode. It uses the phase-4 starting settings of a 30-second warmup, five 180-second measured trials, then a 30-minute sustained soak. The resulting artifacts record:
+
+- total, completed and successful requests;
+- errors, timeouts and response-validation failures;
+- p50/p95/p99 latency;
+- successful RPS and median successful RPM across repeated trials;
+- trial-to-trial RPS coefficient of variation;
+- process-tree CPU and peak RSS;
+- worker count, concurrency, connection reuse and duration;
+- PHP, extension, OPcache, build, host OS and CPU metadata.
+
+A certification record fails if a response is incomplete, times out, errors, or fails response validation. Timing variance is recorded rather than hidden; no 5% regression threshold is enforced until stable-environment variance proves such a threshold meaningful.
+
+HTTP/3 real-server interoperability and soak evidence remains owned by the dedicated QUIC lane using aioquic and ngtcp2/nghttp3. Protocol-core PHPBench results remain separate from real-server throughput.
+
+## 5. Release CI evidence
+
+The final Runwire 2.0 release candidate should have exact-head evidence for:
 
 - benchmark workflow on supported PHP versions;
 - PHPForge QA/analysis lanes;
@@ -137,7 +156,7 @@ A later source/runtime change invalidates earlier exact-head certification.
 
 Documentation-only changes may still trigger CI according to repository policy; the release decision should reference the final commit that is actually merged/tagged.
 
-## 5. Regression comparison rules
+## 6. Regression comparison rules
 
 When comparing one Runwire commit against another, keep these constant as far as practical:
 
@@ -159,7 +178,7 @@ Treat a runner CPU model or virtualization change as an environment change befor
 
 Use repeated evidence for performance decisions. Do not change safety limits because of one noisy sample.
 
-## 6. Cross-runtime evidence schema
+## 7. Cross-runtime evidence schema
 
 `benchmarks/comparative_evidence.php` validates independently collected records before rendering a comparison.
 
@@ -180,12 +199,22 @@ Each record should include:
 ```text
 runtime
 runtime_version
+runtime_build
 instrumentation
+host_os / host_cpu / hardware_id
+tls / opcache / connection_reuse
+extension_versions
+requests_total
+completed_requests
+successful_requests
 throughput_rps
 latency_ms.p50
 latency_ms.p95
 latency_ms.p99
 errors_total
+timeouts_total
+validation_failures
+correctness_passed
 error_rate
 cpu_percent
 rss_peak_bytes
@@ -229,7 +258,7 @@ php benchmarks/comparative_evidence.php \
   openswoole.json
 ```
 
-## 7. Valid peer comparisons
+## 8. Valid peer comparisons
 
 Reasonable peer candidates include, where equivalent deployment/protocol is possible:
 
@@ -251,7 +280,7 @@ Rules:
 
 Do not substitute a Runwire host-adapter microbenchmark for running the real host engine.
 
-## 8. Workload classes
+## 9. Workload classes
 
 Do not collapse unrelated workload shapes into one ranking.
 
@@ -268,7 +297,7 @@ multiplexed protocol concurrency where supported
 
 Measure HTTP/1.1, HTTP/2, and HTTP/3 separately. If a peer cannot expose an equivalent protocol, mark that comparison inapplicable rather than substituting a different protocol.
 
-## 9. Metrics to report
+## 10. Metrics to report
 
 Throughput alone is insufficient.
 
@@ -297,7 +326,7 @@ For persistent runtimes, also observe:
 - worker recycle/reload impact;
 - error recovery after overload.
 
-## 10. Reload/recycle measurement
+## 11. Reload/recycle measurement
 
 Operational lifecycle measurements must run real supervised workers.
 
@@ -328,7 +357,7 @@ Record:
 
 Planned recycle exits must not be counted as crashes.
 
-## 11. Coroutine benchmarking
+## 12. Coroutine benchmarking
 
 Coroutine microbenchmarks should isolate:
 
@@ -347,7 +376,7 @@ Always include policy settings such as `maxResumesPerTick` when comparing schedu
 
 Do not benchmark a blocking API inside a coroutine and then describe the result as asynchronous I/O throughput.
 
-## 12. Instrumentation effects
+## 13. Instrumentation effects
 
 Fixed-cardinality runtime metrics are part of normal runtime behavior. Optional diagnostics/profilers/APM can materially affect results.
 
@@ -362,7 +391,7 @@ production-apm
 
 Never compare an instrumented peer with an uninstrumented Runwire run without stating the difference.
 
-## 13. Benchmark integrity rules
+## 14. Benchmark integrity rules
 
 1. Do not add benchmark-only production branches that bypass normal validation or safety behavior.
 2. Do not disable limits to inflate a benchmark without reporting the changed limit.
@@ -377,9 +406,9 @@ Never compare an instrumented peer with an uninstrumented Runwire run without st
 11. Do not publish synthetic validator fixtures as measurements.
 12. Do not invent missing peer results.
 
-## 14. Release-claim boundary
+## 15. Release-claim boundary
 
-Runwire 1.0 may be released without a public cross-runtime ranking.
+Runwire 2.0 may be released without a public cross-runtime ranking.
 
 A public statement such as “fastest”, “faster than X”, or “top-tier” requires equivalent real peer evidence. Until that evidence exists, benchmark artifacts should be described as regression, protocol, interoperability, or workload-specific measurements.
 
