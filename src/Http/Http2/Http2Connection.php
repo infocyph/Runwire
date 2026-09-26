@@ -61,6 +61,8 @@ final class Http2Connection
 
     private bool $prefaceComplete = false;
 
+    private ?int $parserDeferred = null;
+
     private bool $settingsAcked = false;
 
     private ?int $settingsAckTimer;
@@ -182,8 +184,10 @@ final class Http2Connection
     {
         $this->cancelTimer($this->settingsAckTimer);
         $this->cancelTimer($this->drainTimer);
+        $this->cancelTimer($this->parserDeferred);
         $this->settingsAckTimer = null;
         $this->drainTimer = null;
+        $this->parserDeferred = null;
     }
 
     private function cancelTimer(?int $timer): void
@@ -425,6 +429,27 @@ final class Http2Connection
         $this->output->flush();
     }
 
+    private function processBufferedFrames(string $data): void
+    {
+        foreach ($this->parser->push($data, $this->limits->maxFramesPerTurn) as $frame) {
+            if ($this->closed) {
+                return;
+            }
+            $this->processFrameSafely($frame);
+        }
+
+        if ($this->closed || !$this->parser->hasCompleteFrame() || $this->parserDeferred !== null) {
+            return;
+        }
+
+        $this->parserDeferred = $this->loop->defer(function (): void {
+            $this->parserDeferred = null;
+            if (!$this->closed) {
+                $this->processBufferedFrames('');
+            }
+        });
+    }
+
     private function processFrame(Frame $frame): void
     {
         match ($frame->knownType()) {
@@ -480,12 +505,7 @@ final class Http2Connection
                 return;
             }
 
-            foreach ($this->parser->push($data) as $frame) {
-                if ($this->closed) {
-                    break;
-                }
-                $this->processFrameSafely($frame);
-            }
+            $this->processBufferedFrames($data);
         } catch (ConnectionError $error) {
             $this->failConnection($error->errorCode, $error->getMessage());
         } catch (Throwable) {
