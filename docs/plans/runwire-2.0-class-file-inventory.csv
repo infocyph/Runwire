@@ -33,11 +33,9 @@ src/Coroutine/Internal/LoopWaitSuspension.php,class,LoopWaitSuspension,2,retain,
 src/Coroutine/Internal/PrimitiveWaiter.php,class,PrimitiveWaiter,1,retain,"Structured concurrency, synchronization, task identity or lifecycle",@internal
 src/Coroutine/Internal/ReadyItem.php,class,ReadyItem,1,retain,"Structured concurrency, synchronization, task identity or lifecycle",@internal
 src/Coroutine/Internal/ReadyQueue.php,class,ReadyQueue,5,retain,"Structured concurrency, synchronization, task identity or lifecycle",@internal
-src/Coroutine/Internal/SchedulerContext.php,class,SchedulerContext,1,candidate C3,Two immutable scheduler fields can belong directly to scheduler,@internal
 src/Coroutine/Internal/Suspension.php,interface,Suspension,1,retain,"Structured concurrency, synchronization, task identity or lifecycle",@internal
 src/Coroutine/Internal/SuspensionState.php,class,SuspensionState,7,retain,"Structured concurrency, synchronization, task identity or lifecycle",@internal
 src/Coroutine/Internal/TaskLocalState.php,class,TaskLocalState,6,retain,"Structured concurrency, synchronization, task identity or lifecycle",@internal
-src/Coroutine/Internal/YieldSuspension.php,class,YieldSuspension,1,candidate C7,Per-yield wrapper; preserve suspension type safety and fairness,@internal
 src/Coroutine/Mutex.php,class,Mutex,7,retain,"Structured concurrency, synchronization, task identity or lifecycle",Provides non-recursive mutual exclusion between coroutine tasks.
 src/Coroutine/Network/AsyncConnection.php,class,AsyncConnection,19,retain,"Structured concurrency, synchronization, task identity or lifecycle",Provides coroutine-friendly waiting around a network connection.
 src/Coroutine/Semaphore.php,class,Semaphore,7,retain,"Structured concurrency, synchronization, task identity or lifecycle",Limits concurrent coroutine access through a fixed permit count.
@@ -90,15 +88,11 @@ src/Http/Http2/Http2ResponseWriter.php,class,Http2ResponseWriter,12,retain,"Prot
 src/Http/Http2/Internal/ConnectionError.php,class,ConnectionError,1,retain,"Protocol value, validation, bounded wire state or transport responsibility",Reports a connection-scoped HTTP/2 protocol failure.
 src/Http/Http2/Internal/ControlFrameBudget.php,class,ControlFrameBudget,2,retain,"Protocol value, validation, bounded wire state or transport responsibility",Enforces a per-second budget for inbound HTTP/2 control frames.
 src/Http/Http2/Internal/FlowController.php,class,FlowController,8,retain,"Protocol value, validation, bounded wire state or transport responsibility",Tracks HTTP/2 connection and stream flow-control windows.
-src/Http/Http2/Internal/HeaderValidationException.php,class,HeaderValidationException,0,candidate C1,Existing shared header validation representation; preserve HTTP/2 error mapping,Reports invalid HTTP/2 request or trailer header fields.
 src/Http/Http2/Internal/Http2Stream.php,class,Http2Stream,7,retain,"Protocol value, validation, bounded wire state or transport responsibility",Stores mutable state for one HTTP/2 stream.
 src/Http/Http2/Internal/PendingHeaderBlock.php,class,PendingHeaderBlock,4,retain,"Protocol value, validation, bounded wire state or transport responsibility",Accumulates a bounded HTTP/2 HEADERS/CONTINUATION block.
-src/Http/Http2/Internal/RequestHeaderValidator.php,class,RequestHeaderValidator,3,candidate C1,Existing shared header validation representation; preserve HTTP/2 error mapping,Applies HTTP/2-specific error mapping around common request-header validation.
-src/Http/Http2/Internal/RequestStreamLookup.php,class,RequestStreamLookup,2,candidate C4,Attach-then-forward stream lookup; initialization and lifetime proof required,Resolves active HTTP/2 request streams through an attached processor.
 src/Http/Http2/Internal/RequestStreamProcessor.php,class,RequestStreamProcessor,36,retain,"Protocol value, validation, bounded wire state or transport responsibility","Owns inbound HTTP/2 request-stream parsing, validation, and dispatch."
 src/Http/Http2/Internal/ResponseScheduler.php,class,ResponseScheduler,24,retain,"Protocol value, validation, bounded wire state or transport responsibility",Schedules bounded HTTP/2 response frames across active streams.
 src/Http/Http2/Internal/StreamError.php,class,StreamError,1,retain,"Protocol value, validation, bounded wire state or transport responsibility",Reports a stream-scoped HTTP/2 protocol failure.
-src/Http/Http2/Internal/ValidatedRequestHead.php,class,ValidatedRequestHead,1,candidate C1,Existing shared header validation representation; preserve HTTP/2 error mapping,Holds a validated HTTP/2 request head.
 src/Http/Http2/PeerSettings.php,class,PeerSettings,6,retain,"Protocol value, validation, bounded wire state or transport responsibility",Stores and applies settings advertised by an HTTP/2 peer.
 src/Http/Http3/ControlStream.php,class,ControlStream,6,retain,"Protocol value, validation, bounded wire state or transport responsibility",Parses and validates the peer HTTP/3 control stream.
 src/Http/Http3/Enum/ErrorCode.php,enum,ErrorCode,0,retain,"Protocol value, validation, bounded wire state or transport responsibility",Defines HTTP/3 and QPACK application error codes.
@@ -107,7 +101,6 @@ src/Http/Http3/Enum/SettingIdentifier.php,enum,SettingIdentifier,0,retain,"Proto
 src/Http/Http3/Enum/StreamType.php,enum,StreamType,0,retain,"Protocol value, validation, bounded wire state or transport responsibility",Defines HTTP/3 unidirectional stream type identifiers.
 src/Http/Http3/Frame.php,class,Frame,2,retain,"Protocol value, validation, bounded wire state or transport responsibility",Represents one validated HTTP/3 frame.
 src/Http/Http3/FrameParser.php,class,FrameParser,7,retain,"Protocol value, validation, bounded wire state or transport responsibility",Incrementally parses bounded HTTP/3 frames from arbitrary byte chunks.
-src/Http/Http3/FrameWriter.php,class,FrameWriter,1,candidate W2,Single encode operation may belong to frame value; public migration,Encodes HTTP/3 frames to their wire representation.
 src/Http/Http3/Http3Exception.php,class,Http3Exception,1,retain,"Protocol value, validation, bounded wire state or transport responsibility",Reports an HTTP/3 protocol failure with its application error code.
 src/Http/Http3/Http3Limits.php,class,Http3Limits,7,retain,"Protocol value, validation, bounded wire state or transport responsibility","Defines bounded HTTP/3, QPACK, stream, buffering, and pump resource limits."
 src/Http/Http3/Http3Options.php,class,Http3Options,3,retain,"Protocol value, validation, bounded wire state or transport responsibility","Defines HTTP/3 listener, polling, handshake, and resource-limit options."
@@ -168,7 +161,6 @@ src/Http/ResponseWriterInterface.php,interface,ResponseWriterInterface,7,retain,
 src/Internal/MonotonicTime.php,class,MonotonicTime,4,retain,Shared safe monotonic-time operations,Provides checked monotonic-time conversion and deadline arithmetic.  @internal
 src/Loop/EventLoop.php,class,EventLoop,17,retain,"Backend, timer ownership, portability or diagnostics contract",Adapts ext-event to Runwire's bounded loop contract without making the extension mandatory.
 src/Loop/Internal/NativeSwooleReactor.php,class,NativeSwooleReactor,16,retain,"Backend, timer ownership, portability or diagnostics contract",@internal Bridges Runwire loop operations to the available Swoole/OpenSwoole reactor APIs.
-src/Loop/Internal/SelectFailurePolicy.php,class,SelectFailurePolicy,1,candidate C2,Single-owner recoverability check; retain permanent-error failure,Classifies recoverable and permanent stream_select failures.  @internal
 src/Loop/Internal/SwooleReactorInterface.php,interface,SwooleReactorInterface,12,retain,"Backend, timer ownership, portability or diagnostics contract",@internal Defines the reactor operations needed by the Swoole-backed loop.
 src/Loop/Internal/TimerQueue.php,class,TimerQueue,19,retain,"Backend, timer ownership, portability or diagnostics contract",Maintains one-shot and repeating loop timers in a deadline-ordered heap.
 src/Loop/LoopDiagnosticsProviderInterface.php,interface,LoopDiagnosticsProviderInterface,1,retain,"Backend, timer ownership, portability or diagnostics contract",Exposes a point-in-time diagnostics snapshot for an event loop.
@@ -202,7 +194,6 @@ src/Network/Enum/StreamTransport.php,enum,StreamTransport,0,retain,"Transport, b
 src/Network/Enum/WriteState.php,enum,WriteState,0,retain,"Transport, bounded buffering, capability or connection ownership","Describes acceptance, pressure, closure, or limit rejection for stream writes."
 src/Network/Internal/ByteBudget.php,class,ByteBudget,6,retain,"Transport, bounded buffering, capability or connection ownership",Accounts actual Runwire-owned queued bytes against a shared worker ceiling.
 src/Network/Internal/ByteQueue.php,class,ByteQueue,12,retain,"Transport, bounded buffering, capability or connection ownership","Stores byte chunks with efficient front reads, discards, and compaction."
-src/Network/Internal/ConnectionCallbackDispatcher.php,class,ConnectionCallbackDispatcher,2,candidate C5,Single-owner callback dispatch; preserve failure and cleanup ordering,Dispatches connection callbacks while preserving deterministic cleanup semantics.
 src/Network/Internal/ConnectionCallbackOwnership.php,class,ConnectionCallbackOwnership,4,retain,"Transport, bounded buffering, capability or connection ownership",Tracks exclusive ownership of a connection's callback slots.  @internal
 src/Network/Internal/ConnectionTimeouts.php,class,ConnectionTimeouts,5,retain,"Transport, bounded buffering, capability or connection ownership",Manages idle and lifetime timers for a network connection.
 src/Network/Internal/TlsHandshake.php,class,TlsHandshake,7,retain,"Transport, bounded buffering, capability or connection ownership",Drives a non-blocking server-side TLS handshake on the event loop.
@@ -267,7 +258,6 @@ src/Runtime/Internal/ApplicationShutdown.php,class,ApplicationShutdown,2,retain,
 src/Runtime/Internal/BoundDatagramServer.php,class,BoundDatagramServer,1,retain,"Driver, capability, application or worker lifecycle responsibility",Pairs a datagram server definition with its bound listener.
 src/Runtime/Internal/BoundServer.php,class,BoundServer,1,retain,"Driver, capability, application or worker lifecycle responsibility",Pairs an HTTP server definition with its bound TCP listener.
 src/Runtime/Internal/BoundStreamServer.php,class,BoundStreamServer,1,retain,"Driver, capability, application or worker lifecycle responsibility",Pairs a framed stream server definition with its bound transport listener.
-src/Runtime/Internal/DevelopmentFileScanner.php,class,DevelopmentFileScanner,3,candidate C6,Single-owner development snapshot; no assumed production saving,Computes bounded filesystem snapshots for development reload detection.
 src/Runtime/Internal/DevelopmentWatcher.php,class,DevelopmentWatcher,9,retain,"Driver, capability, application or worker lifecycle responsibility",Polls development files and debounces change callbacks on an event loop.
 src/Runtime/Internal/NativeDatagramWorker.php,class,NativeDatagramWorker,2,retain,"Driver, capability, application or worker lifecycle responsibility",Runs native datagram servers inside native event loops.
 src/Runtime/Internal/NativeHttp3Attachment.php,class,NativeHttp3Attachment,15,retain,"Driver, capability, application or worker lifecycle responsibility",Owns one portable HTTP/3 attachment lifecycle on a shared native loop.  @internal
@@ -318,9 +308,7 @@ src/Supervisor/Internal/PosixIdentitySystem.php,class,PosixIdentitySystem,6,reta
 src/Supervisor/Internal/PrivilegeDropper.php,class,PrivilegeDropper,10,retain,"Worker identity, supervision policy, lifecycle or process boundary",Applies one worker identity transition with supplementary-group normalization.  @internal
 src/Supervisor/Internal/ReadinessChannel.php,class,ReadinessChannel,3,retain,"Worker identity, supervision policy, lifecycle or process boundary","Manages worker readiness watchers, timers, and inherited readiness streams."
 src/Supervisor/Internal/ReloadCoordinator.php,class,ReloadCoordinator,18,retain,"Worker identity, supervision policy, lifecycle or process boundary",Coordinates bounded rolling reloads across reloadable worker slots.
-src/Supervisor/Internal/RestartAttempt.php,class,RestartAttempt,1,candidate W4,Related restart budget/result ownership; preserve state and complexity limits,Describes one scheduled worker restart attempt and its backoff delay.
 src/Supervisor/Internal/RestartCoordinator.php,class,RestartCoordinator,13,retain,"Worker identity, supervision policy, lifecycle or process boundary",Schedules worker restarts with bounded backoff and reload-aware failure handling.
-src/Supervisor/Internal/RestartTracker.php,class,RestartTracker,4,candidate W4,Related restart budget/result ownership; preserve state and complexity limits,Tracks restart counts and rate-limited restart history for worker groups.
 src/Supervisor/Internal/RuntimeMetricsAggregator.php,class,RuntimeMetricsAggregator,6,retain,"Worker identity, supervision policy, lifecycle or process boundary",Aggregates per-worker runtime metric snapshots into a supervisor-wide snapshot.
 src/Supervisor/Internal/SignalBridge.php,class,SignalBridge,11,retain,"Worker identity, supervision policy, lifecycle or process boundary",Bridges asynchronous POSIX signals into event-loop wakeups for the supervisor.
 src/Supervisor/Internal/SupervisorStatusBuilder.php,class,SupervisorStatusBuilder,7,retain,"Worker identity, supervision policy, lifecycle or process boundary","Builds immutable supervisor status, worker health, and aggregate metrics snapshots."
