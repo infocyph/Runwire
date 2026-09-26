@@ -28,7 +28,7 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Verify prefork is genuinely unavailable
         shell: bash
@@ -112,7 +112,7 @@ jobs:
           php -r 'exit(extension_loaded("event") ? 0 : 1);'
 
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Composer
         shell: bash
