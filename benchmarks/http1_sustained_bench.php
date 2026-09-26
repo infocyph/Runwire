@@ -572,8 +572,8 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
     }
 }
 
-/** @param list<string> $argv */
-function http1SustainedMain(array $argv): void
+/** @param list<string> $argv @return array<string, mixed> */
+function http1SustainedMain(array $argv): array
 {
     if (count($argv) !== 6) {
         throw new InvalidArgumentException('Usage: php http1_sustained_bench.php <port> <concurrency> <warmup-seconds> <duration-seconds> <server-pid>');
@@ -648,9 +648,10 @@ function http1SustainedMain(array $argv): void
             && $failures === 0,
     ];
 
-    fwrite(STDOUT, json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
+    return $result;
 }
 
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
-    http1SustainedMain($argv);
+    $result = http1SustainedMain($argv);
+    fwrite(STDOUT, json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 }
