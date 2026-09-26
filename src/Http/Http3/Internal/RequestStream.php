@@ -81,7 +81,8 @@ final class RequestStream
         ?callable $onBodyRelief = null,
         ?callable $onBodyConsumed = null,
         private readonly ?ByteBudget $budget = null,
-    ) {
+    )
+    {
         if ($streamId < 0 || ($streamId & 0x03) !== 0) {
             throw new \InvalidArgumentException('HTTP/3 request stream must be client-initiated and bidirectional.');
         }
