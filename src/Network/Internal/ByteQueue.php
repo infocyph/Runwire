@@ -23,16 +23,14 @@ final class ByteQueue
 
     private int $headOffset = 0;
 
+    /**
+     * Create a queue optionally metered by a shared byte budget.
+     */
     public function __construct(private readonly ?ByteBudget $budget = null) {}
 
     /**
-     * Return remaining shared budget capacity, or PHP_INT_MAX when unmetered.
+     * Release any queued bytes still charged to the shared budget.
      */
-    public function budgetAvailable(): int
-    {
-        return $this->budget?->available() ?? PHP_INT_MAX;
-    }
-
     public function __destruct()
     {
         $this->budget?->release($this->bytes);
@@ -53,6 +51,14 @@ final class ByteQueue
         }
         $this->chunks[] = $bytes;
         $this->bytes += $length;
+    }
+
+    /**
+     * Return remaining shared budget capacity, or PHP_INT_MAX when unmetered.
+     */
+    public function budgetAvailable(): int
+    {
+        return $this->budget?->available() ?? PHP_INT_MAX;
     }
 
     /**
