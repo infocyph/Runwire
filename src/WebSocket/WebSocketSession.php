@@ -72,6 +72,7 @@ final class WebSocketSession
         private readonly Connection $connection,
         private readonly WebSocketOptions $options = new WebSocketOptions(),
         private readonly ?string $selectedSubprotocol = null,
+        string $initialBytes = '',
     ) {
         $this->budget = $connection->bufferBudget();
         $this->parser = new WebSocketFrameParser($options, $this->budget);
@@ -100,7 +101,10 @@ final class WebSocketSession
             },
         );
 
-        if ($connection->receivedBytes() > 0) {
+        if ($initialBytes !== '') {
+            $this->parser->append($initialBytes);
+            $this->schedulePump();
+        } elseif ($connection->receivedBytes() > 0) {
             $this->schedulePump();
         }
         if ($connection->peerReadClosed()) {
