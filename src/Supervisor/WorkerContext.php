@@ -9,6 +9,7 @@ use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
@@ -24,6 +25,8 @@ use RuntimeException;
 final class WorkerContext
 {
     private const int MAX_DIAGNOSTIC_MESSAGE_BYTES = 6_144;
+
+    public readonly ByteBudget $bufferBudget;
 
     private readonly PeriodicTaskRegistry $periodicTasks;
 
@@ -71,6 +74,7 @@ final class WorkerContext
             }
         }
 
+        $this->bufferBudget = new ByteBudget($this->admissionPolicy->maxQueuedBytes);
         $this->periodicTasks = new PeriodicTaskRegistry();
         $this->recycleState = new WorkerRecycleState(
             $this->recyclePolicy,
