@@ -458,6 +458,12 @@ final class Connection
             }
         }
 
+        if (strlen($data) > $this->sendBuffer->budgetAvailable()) {
+            $this->finalize(CloseReason::WRITE_ERROR);
+
+            return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
+        }
+
         $this->sendBuffer->append($data);
         $this->syncWriteWatcher();
         $this->updateWritePressure();
@@ -538,7 +544,10 @@ final class Connection
         $sawEof = false;
 
         while ($readThisTick < $this->limits->maxReadBytesPerTick) {
-            $capacity = $this->limits->maxReceiveBufferBytes - $this->receiveBuffer->bytes();
+            $capacity = min(
+                $this->limits->maxReceiveBufferBytes - $this->receiveBuffer->bytes(),
+                $this->receiveBuffer->budgetAvailable(),
+            );
             if ($capacity <= 0) {
                 $this->pauseForPressure();
 
