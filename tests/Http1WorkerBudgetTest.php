@@ -207,7 +207,12 @@ it('releases shared HTTP1 budget after body consumption and normal close', funct
     new Http1Connection(
         $loop,
         $connection,
-        new Http1Limits(maxBodyBytes: 2_048, maxPendingBodyBytes: 1_024),
+        new Http1Limits(
+            maxBodyBytes: 2_048,
+            bodyLowWatermarkBytes: 256,
+            bodyHighWatermarkBytes: 512,
+            maxPendingBodyBytes: 1_024,
+        ),
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$received): void {
             $request->body->onData(static function ($body) use (&$received): void {
                 $received .= $body->read();
@@ -240,7 +245,12 @@ it('releases shared HTTP1 budget on early response discard and premature EOF', f
     new Http1Connection(
         $earlyLoop,
         $earlyConnection,
-        new Http1Limits(maxBodyBytes: 2_048, maxPendingBodyBytes: 1_024),
+        new Http1Limits(
+            maxBodyBytes: 2_048,
+            bodyLowWatermarkBytes: 256,
+            bodyHighWatermarkBytes: 512,
+            maxPendingBodyBytes: 1_024,
+        ),
         static function (HttpRequest $request, ResponseWriterInterface $writer): void {
             unset($request);
             $writer->end('early');
@@ -266,7 +276,12 @@ it('releases shared HTTP1 budget on early response discard and premature EOF', f
     new Http1Connection(
         $eofLoop,
         $eofConnection,
-        new Http1Limits(maxBodyBytes: 2_048, maxPendingBodyBytes: 1_024),
+        new Http1Limits(
+            maxBodyBytes: 2_048,
+            bodyLowWatermarkBytes: 256,
+            bodyHighWatermarkBytes: 512,
+            maxPendingBodyBytes: 1_024,
+        ),
         static function (): void {},
     );
     fwrite(
