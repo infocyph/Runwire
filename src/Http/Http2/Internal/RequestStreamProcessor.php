@@ -388,8 +388,9 @@ final class RequestStreamProcessor
             $this->limits->maxPendingBodyBytesPerStream,
             static function (): void {},
             fn(int $bytes) => $this->creditBodyBytes($id, $bytes),
+            $this->connection->bufferBudget(),
         );
-        $stream = new Http2Stream($id, $body, $this->peerSettings->initialWindowSize, $this->limits->initialReceiveWindow());
+        $stream = new Http2Stream($id, $body, $this->peerSettings->initialWindowSize, $this->limits->initialReceiveWindow(), $this->connection->bufferBudget());
         $stream->declaredContentLength = $contentLength;
 
         return $stream;
