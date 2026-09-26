@@ -18,8 +18,9 @@ require __DIR__ . '/../vendor/autoload.php';
 
 $mode = $argv[1] ?? 'bootstrap';
 if (!in_array($mode, ['bootstrap', 'lifecycle', 'coroutine'], true)) {
-    fwrite(STDERR, "Usage: php benchmarks/opcache_footprint.php <bootstrap|lifecycle|coroutine>\n");
-    exit(2);
+    throw new InvalidArgumentException(
+        'Usage: php benchmarks/opcache_footprint.php <bootstrap|lifecycle|coroutine>',
+    );
 }
 
 $completed = true;
@@ -139,8 +140,13 @@ $result = [
     ],
 ];
 
-echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
-exit($completed ? 0 : 1);
+fwrite(
+    STDOUT,
+    json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL,
+);
+if (!$completed) {
+    throw new RuntimeException('Runwire footprint workload did not complete successfully.');
+}
 
 function footprintRequest(): HttpRequest
 {
