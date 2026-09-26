@@ -417,12 +417,7 @@ final class PhpQuicHttp3Connection
 
             $length = strlen($chunk);
             $bytes += $length;
-            if (isset($this->requestStreams[$streamId])) {
-                $this->session->pushRequestStream($streamId, $chunk);
-            } else {
-                $this->session->pushPeerUnidirectional($streamId, $chunk);
-            }
-            $this->queueDecoderInstructions();
+            $this->processStreamChunk($streamId, $chunk, $requestStream);
             if ($this->requestPressured($streamId)) {
                 break;
             }
@@ -515,6 +510,16 @@ final class PhpQuicHttp3Connection
         }
 
         return $stream;
+    }
+
+    private function processStreamChunk(int $streamId, string $chunk, bool $requestStream): void
+    {
+        if ($requestStream) {
+            $this->session->pushRequestStream($streamId, $chunk);
+        } else {
+            $this->session->pushPeerUnidirectional($streamId, $chunk);
+        }
+        $this->queueDecoderInstructions();
     }
 
     /** @param array<int, array{0: object, 1: int}> $items */
