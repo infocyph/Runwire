@@ -60,11 +60,24 @@ $server = Server::http(
 
         $session->onMessage(
             static function (WebSocketSession $session, $message): void {
-                $result = $message->binary
-                    ? $session->sendBinary($message->data)
-                    : $session->sendText($message->data);
-                if (!$result->accepted()) {
-                    $session->close(1011, 'echo write rejected');
+                try {
+                    $result = $message->binary
+                        ? $session->sendBinary($message->data)
+                        : $session->sendText($message->data);
+                    if (!$result->accepted()) {
+                        $session->close(1011, 'echo write rejected');
+                    }
+                } catch (Throwable $error) {
+                    fwrite(
+                        STDERR,
+                        sprintf(
+                            "websocket-handler-error %s: %s\n",
+                            $error::class,
+                            $error->getMessage(),
+                        ),
+                    );
+
+                    throw $error;
                 }
             },
         );
