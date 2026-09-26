@@ -2,13 +2,9 @@
 
 declare(strict_types=1);
 
-final class Http1SustainedTimeout extends RuntimeException
-{
-}
+final class Http1SustainedTimeout extends RuntimeException {}
 
-final class Http1SustainedProtocolError extends RuntimeException
-{
-}
+final class Http1SustainedProtocolError extends RuntimeException {}
 
 /** @return array<string, int> */
 function http1SustainedCounters(): array
@@ -180,6 +176,7 @@ function http1SustainedConnect(string $host, int $port)
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
         }
+
         throw new RuntimeException($error !== '' ? $error : 'Unable to connect to benchmark server.');
     }
     stream_set_blocking($socket, false);
@@ -412,6 +409,7 @@ function http1SustainedSelectSets(array &$clients, array &$counter, int $request
         if ($now >= (float) $client['request_deadline']) {
             ++$counter['timeouts_total'];
             http1SustainedCloseClient($client);
+
             continue;
         }
         $stream = $client['stream'];
@@ -440,6 +438,7 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
         if ($written === false || $written === 0) {
             ++$counter['errors_total'];
             http1SustainedCloseClient($clients[$id]);
+
             continue;
         }
         $clients[$id]['write_offset'] += $written;
