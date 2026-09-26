@@ -13,6 +13,7 @@ use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Http\Http3\Settings;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 
 /**
  * Owns HTTP/3 connection-level stream, SETTINGS, and QPACK state.
@@ -45,7 +46,10 @@ final class ConnectionState
     /**
      * Create connection state with bounded HTTP/3 and QPACK resources.
      */
-    public function __construct(private readonly Http3Limits $limits = new Http3Limits())
+    public function __construct(
+        private readonly Http3Limits $limits = new Http3Limits(),
+        private readonly ?ByteBudget $bufferBudget = null,
+    )
     {
         $this->localSettings = Settings::serverDefaults($limits);
         $this->peerControl = new ControlStream($limits->maxFramePayloadBytes);
@@ -307,7 +311,7 @@ final class ConnectionState
             throw new Http3Exception(ErrorCode::REQUEST_REJECTED, 'HTTP/3 concurrent request stream limit exceeded.');
         }
 
-        return $this->requestStreams[$streamId] = new RequestStream($streamId, $this->decoder, $this->limits);
+        return $this->requestStreams[$streamId] = new RequestStream($streamId, $this->decoder, $this->limits, budget: $this->bufferBudget);
     }
 
     private function processControl(string $payload): void
