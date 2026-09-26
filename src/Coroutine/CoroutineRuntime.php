@@ -17,6 +17,8 @@ use LogicException;
  */
 final class CoroutineRuntime
 {
+    private readonly CoroutinePolicy $policy;
+
     private readonly FiberScheduler $scheduler;
 
     private int $attachedRequestScopes = 0;
@@ -32,9 +34,10 @@ final class CoroutineRuntime
         ?LoopInterface $loop = null,
         ?CoroutinePolicy $policy = null,
     ) {
+        $this->policy = $policy ?? new CoroutinePolicy();
         $this->scheduler = new FiberScheduler(
             $loop ?? new SelectLoop(),
-            $policy ?? new CoroutinePolicy(),
+            $this->policy,
         );
     }
 
@@ -102,6 +105,14 @@ final class CoroutineRuntime
             rootScopesActive: $this->running ? 1 : 0,
             requestScopesActive: ($this->requestRunning ? 1 : 0) + $this->attachedRequestScopes,
         );
+    }
+
+    /**
+     * Create a runtime using the same scheduler policy on an externally owned loop.
+     */
+    public function withLoop(LoopInterface $loop): self
+    {
+        return new self($loop, $this->policy);
     }
 
     /** @param callable(CoroutineScope): mixed $callback */
