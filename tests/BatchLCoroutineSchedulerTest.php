@@ -291,7 +291,6 @@ it('rejects standalone loop driving while attached request scopes are active', f
     expect($task->state())->toBe(TaskState::COMPLETED);
 });
 
-
 it('attaches coroutine request handlers to an externally owned native loop', function (): void {
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime();
@@ -352,6 +351,37 @@ it('propagates attached coroutine handler failure through request cancellation',
     $request = new HttpRequest(
         method: 'GET',
         target: '/attached-failure',
+        version: ProtocolVersion::HTTP_1_1,
+        headers: new Headers(),
+        body: new BufferedRequestBody(''),
+    );
+    $writer = new CallbackResponseWriter(
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+        1_024,
+    );
+
+    $handler($request, $writer);
+    $loop->run();
+
+    expect($request->context->cancellation->reason())->toBe(CancellationReason::HOST_CANCELLED);
+});
+
+
+it('preserves configured coroutine policy when binding a request handler to the native loop', function (): void {
+    $loop = new SelectLoop();
+    $handler = new CoroutineRequestHandler(
+        new CoroutineRuntime(policy: new CoroutinePolicy(maxTasks: 1, maxReadyBacklog: 1)),
+        static function (HttpRequest $request, $writer, CoroutineScope $scope): void {
+            unset($request, $writer);
+            $scope->spawn(static function (): void {});
+        },
+    );
+    $handler->attachLoop($loop);
+    $request = new HttpRequest(
+        method: 'GET',
+        target: '/attached-policy',
         version: ProtocolVersion::HTTP_1_1,
         headers: new Headers(),
         body: new BufferedRequestBody(''),
