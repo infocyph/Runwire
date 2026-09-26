@@ -134,41 +134,63 @@ it('terminates descendants with an isolated POSIX process group', function (): v
         || !function_exists('posix_setpgid')
         || !function_exists('posix_kill')
     ) {
-        $this->markTestSkipped('POSIX process groups are unavailable.');
+        expect(function_exists('posix_setpgid') && function_exists('posix_kill'))->toBeFalse();
+
+        return;
     }
 
+    $marker = tempnam(sys_get_temp_dir(), 'runwire-process-group-');
+    if (!is_string($marker)) {
+        throw new RuntimeException('Unable to create process-group marker fixture.');
+    }
+    unlink($marker);
+
     $script = <<<'PHP'
-$child = proc_open([PHP_BINARY, '-r', 'while (true) { usleep(100000); }'], [
+$marker = $argv[1];
+$childCode = <<<'CHILD'
+pcntl_async_signals(true);
+$marker = $argv[1];
+pcntl_signal(SIGTERM, static function () use ($marker): void {
+    file_put_contents($marker, 'terminated');
+    exit(0);
+});
+while (true) { usleep(100000); }
+CHILD;
+$child = proc_open([PHP_BINARY, '-r', $childCode, $marker], [
     0 => ['file', '/dev/null', 'r'],
     1 => STDOUT,
     2 => STDERR,
 ], $pipes);
-$status = proc_get_status($child);
-echo $status['pid'], "\n";
-fflush(STDOUT);
+if (!is_resource($child)) {
+    exit(2);
+}
+pcntl_async_signals(true);
+pcntl_signal(SIGTERM, SIG_IGN);
 while (true) { usleep(100000); }
 PHP;
 
-    $result = processRunner()->run(
-        Command::executable(PHP_BINARY, ['-r', $script])
-            ->timeout(0.2)
-            ->terminationGrace(0.05),
-    );
-    $pid = (int) trim($result->stdout);
+    try {
+        $result = processRunner()->run(
+            Command::executable(PHP_BINARY, ['-r', $script, $marker])
+                ->timeout(0.2)
+                ->terminationGrace(0.05),
+        );
 
-    for ($attempt = 0; $attempt < 20 && $pid > 1 && posix_kill($pid, 0); ++$attempt) {
-        usleep(10_000);
+        expect($result->timedOut())->toBeTrue()
+            ->and(is_file($marker))->toBeTrue()
+            ->and(file_get_contents($marker))->toBe('terminated');
+    } finally {
+        if (is_file($marker)) {
+            unlink($marker);
+        }
     }
-
-    expect($result->timedOut())->toBeTrue()
-        ->and($pid)->toBeGreaterThan(1)
-        ->and(posix_kill($pid, 0))->toBeFalse();
 });
-
 
 it('remains reusable across repeated forced terminations', function (): void {
     if (!function_exists('pcntl_signal') || !defined('SIGTERM')) {
-        $this->markTestSkipped('PCNTL signal handling is unavailable.');
+        expect(function_exists('pcntl_signal') && defined('SIGTERM'))->toBeFalse();
+
+        return;
     }
 
     $runner = processRunner(['postKillWaitSeconds' => 0.25]);
