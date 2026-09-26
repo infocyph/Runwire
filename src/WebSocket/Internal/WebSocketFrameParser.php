@@ -95,6 +95,16 @@ final class WebSocketFrameParser
         return $frames;
     }
 
+    private static function retainBudget(?ByteBudget $budget): ?ByteBudget
+    {
+        return $budget;
+    }
+
+    private static function retainOptions(WebSocketOptions $options): WebSocketOptions
+    {
+        return $options;
+    }
+
     private static function uint32(string $bytes): int
     {
         return (ord($bytes[0]) << 24)
@@ -111,16 +121,6 @@ final class WebSocketFrameParser
         }
 
         return $payload;
-    }
-
-    private static function retainBudget(?ByteBudget $budget): ?ByteBudget
-    {
-        return $budget;
-    }
-
-    private static function retainOptions(WebSocketOptions $options): WebSocketOptions
-    {
-        return $options;
     }
 
     private function consume(int $bytes): string
