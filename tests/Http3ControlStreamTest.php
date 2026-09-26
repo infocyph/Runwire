@@ -8,7 +8,6 @@ use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Settings;
@@ -54,7 +53,7 @@ it('requires SETTINGS as the first control-stream frame', function (): void {
     $stream = new ControlStream();
 
     try {
-        $stream->push(FrameWriter::encode(new Frame(FrameType::GOAWAY->value, "\x00")));
+        $stream->push((new Frame(FrameType::GOAWAY->value, "\x00"))->encode());
         test()->fail('Missing SETTINGS should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::MISSING_SETTINGS);
@@ -63,7 +62,7 @@ it('requires SETTINGS as the first control-stream frame', function (): void {
 
 it('rejects repeated SETTINGS and request frames on the control stream', function (): void {
     $stream = new ControlStream();
-    $settingsFrame = FrameWriter::encode(new Frame(FrameType::SETTINGS->value, ''));
+    $settingsFrame = (new Frame(FrameType::SETTINGS->value, ''))->encode();
     $stream->push($settingsFrame);
 
     try {
@@ -77,7 +76,7 @@ it('rejects repeated SETTINGS and request frames on the control stream', functio
     $stream->push($settingsFrame);
 
     try {
-        $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, 'x')));
+        $stream->push((new Frame(FrameType::DATA->value, 'x'))->encode());
         test()->fail('DATA on the control stream should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
