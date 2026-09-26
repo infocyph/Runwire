@@ -20,8 +20,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete — portable fallback plus B3-A scalable-capacity closure exact-head QA green | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Complete — exact-head QA green | Redaction, mTLS-policy and live-socket regressions green |
 | B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Complete — boundary/framing correctness plus B3-B aggregate fairness exact-head QA green | Fragmentation/coalescing and cross-writer response corpus green |
-| B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | **Reopened — RW-09 attached-coroutine completion barrier defect reproduced** | Finalization must wait for all request-owned coroutine work before reset/context completion/admission release |
-| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | **Reopened — F-02 root/child scope lifetime must join existing request finalization barrier** | Root-after-end, child wait/failure, cancellation and maxActiveRequests=1 regressions green |
+| B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Complete again — RW-09 request-owned coroutine completion now participates in the existing finalization barrier; exact-head 27/27 QA green at `00eb542` | Finalization waits for all request-owned coroutine work before reset/context completion/admission release |
+| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Complete again — root/child settlement, late failure capture and admission retention regressions green; exact-head 27/27 QA green at `00eb542` | Root-after-end, child wait/failure, cancellation and maxActiveRequests=1 regressions green |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Complete — enabled-only host capability matrix and single lifecycle GC ownership QA green | Real-host capability matrix or explicit unsupported disposition |
 | B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Complete — ext-event backend, bounded SelectLoop fallback and >1024-descriptor lane exact-head QA green | Supported backend exceeds SelectLoop ceiling with bounded behavior |
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | **Reopened — RW-23 HTTP/1 retained input/body bytes bypass shared worker ByteBudget** | Worker-wide accounting must remain continuous across transport → HTTP input → body ownership transfers |
@@ -42,7 +42,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-06 failed reset does not retire worker | High | B0-B / B2-A | Closed — unhealthy latch and native/Swoole/host retirement QA green |
 | RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Closed — exact-head QA green |
 | RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Closed — exact-head QA green |
-| RW-09 streaming request lifetime mismatch | **P1 reopened** | B0-B / B2-A / B2-B | Open — attached coroutine root/children can outlive reset/context completion after response terminal |
+| RW-09 streaming request lifetime mismatch | P1 | B0-B / B2-A / B2-B | Closed again — request-owned coroutine work gates finalization; state/admission remain live until root and structured children settle; exact-head 27/27 QA green at `00eb542` |
 | RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Closed — bounded frame processing per event-loop turn exact-head QA green |
 | RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Closed — shared control-byte accounting and request/QPACK progress deadlines exact-head QA green |
 | RW-12 inconsistent failure containment | P1 | B2-A | Closed — lifecycle failure containment and retirement QA green |
@@ -62,9 +62,9 @@ This tracker is part of the implementation record. Update it in every implementa
 
 | ID | Scope | Status | Exit evidence |
 | --- | --- | --- | --- |
-| R09-1 | Commit durable attached-coroutine lifetime reproductions | Open | Root-after-end, child-after-wait/failure, cancellation and maxActiveRequests=1 cases fail before fix and pass after |
-| R09-2 | Join request-owned coroutine completion to RequestFinalizer | Open | Response terminal alone cannot reset/complete/release while owned root/children remain live |
-| R09-3 | Preserve late task failures and reset-failure retirement | Open | Failures after output are classified/latched; exactly-once finalization retained |
+| R09-1 | Commit durable attached-coroutine lifetime reproductions | Complete | Root-after-end, child-after-wait/failure and maxActiveRequests=1 regressions committed and green |
+| R09-2 | Join request-owned coroutine completion to RequestFinalizer | Complete | RequestContext owned-work accounting gates the existing RequestFinalizer; response terminal alone cannot reset/complete/release |
+| R09-3 | Preserve late task failures and reset-failure retirement | Complete | Late attached task failures are retained for lifecycle finalization; exactly-once cleanup/retirement behavior remains green |
 | R23-1 | Commit HTTP/1 shared-budget reproduction | Open | Two slow consumers reproduce aggregate retained-byte pressure before fix |
 | R23-2 | Account Http1Input retained bytes | Open | Header/partial-line bytes remain charged while ownership leaves Connection receive queue |
 | R23-3 | Account body handoff without double charge | Open | Transport/input/body transfer reserves/releases exactly once; no retry loop/data loss |
@@ -78,7 +78,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | Feature | Status | Decision point |
 | --- | --- | --- |
 | F-01 scalable native loop | Complete | ext-event backend selected when available; SelectLoop remains bounded fallback |
-| F-02 shared-loop coroutine request scopes | **Reopened** | Request-owned root/child completion must participate in the existing lifecycle finalization barrier |
+| F-02 shared-loop coroutine request scopes | Complete again | Request-owned root/child completion participates in the existing lifecycle finalization barrier; late task failure is preserved for request accounting |
 | F-03 worker-wide resource admission/pressure | **Reopened** | HTTP/1 input/body retained bytes must remain continuously charged under the shared worker ByteBudget |
 | F-04 bounded stream-to-response transfer | Keep in 2.0 — bounded transfer, TLS/slow-reader coverage, stable helper-vs-manual gate and exact-head QA passed | Retained as `ResponseTransfer::stream()` on the existing writer/coroutine ownership model |
 | F-05 native WebSocket serving | Keep in 2.0 — bounded native HTTP/1 RFC 6455 implementation, independent PHP interoperability, slow-reader evidence and exact-head QA passed | Retained for native HTTP/1 only; compression and HTTP/2/3 WebSocket modes remain unclaimed |
