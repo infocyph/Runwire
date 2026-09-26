@@ -37,6 +37,9 @@ final class PendingHeaderBlock
         $this->block = $initial;
     }
 
+    /**
+     * Release compressed header bytes still charged to the worker budget.
+     */
     public function __destruct()
     {
         $this->budget?->release(strlen($this->block));
