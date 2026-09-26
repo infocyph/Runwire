@@ -29,10 +29,10 @@ final class StreamingRequestBody implements RequestBodyInterface
 
     private ?Closure $cancelCallback = null;
 
+    private bool $cancelled = false;
+
     /** @var list<Closure(): void> */
     private array $cancelObservers = [];
-
-    private bool $cancelled = false;
 
     private ?Closure $dataCallback = null;
 
@@ -328,5 +328,4 @@ final class StreamingRequestBody implements RequestBodyInterface
             $this->dataNotifying = false;
         }
     }
-
 }

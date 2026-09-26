@@ -44,9 +44,9 @@ final class RequestStream
 
     private bool $cancelled = false;
 
-    private bool $finReceived = false;
-
     private bool $finished = false;
+
+    private bool $finReceived = false;
 
     private ?ValidatedRequestHead $head = null;
 
@@ -449,5 +449,4 @@ final class RequestStream
         }
         $this->finishIfReady();
     }
-
 }
