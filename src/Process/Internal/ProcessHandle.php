@@ -18,7 +18,7 @@ final class ProcessHandle
 
     private readonly ?int $pid;
 
-    private bool $processGroup = false;
+    private readonly bool $processGroup;
 
     /** @var resource|null */
     private mixed $resource;
@@ -30,29 +30,6 @@ final class ProcessHandle
         $status = proc_get_status($resource);
         $this->pid = $status['pid'] > 1 ? $status['pid'] : null;
         $this->processGroup = $this->isolateProcessGroup();
-    }
-
-    /**
-     * Release handles for previously detached children that have since exited.
-     */
-    public static function reapDetached(): void
-    {
-        $running = [];
-        foreach (self::$detached as $resource) {
-            if (!is_resource($resource)) {
-                continue;
-            }
-            $status = proc_get_status($resource);
-            if ($status['running']) {
-                $running[] = $resource;
-
-                continue;
-            }
-
-            proc_close($resource);
-        }
-
-        self::$detached = $running;
     }
 
     /**
@@ -70,23 +47,6 @@ final class ProcessHandle
         }
 
         return ProcessTerminator::force($this->resource, $this->pid, $this->processGroup);
-    }
-
-    /**
-     * Gracefully signals the owned process tree when it is still running.
-     */
-    public function terminateGracefully(): bool
-    {
-        if (!is_resource($this->resource)) {
-            return false;
-        }
-
-        $status = proc_get_status($this->resource);
-        if (!$status['running']) {
-            return true;
-        }
-
-        return ProcessTerminator::graceful($this->resource, $this->pid, $this->processGroup);
     }
 
     /**
@@ -113,6 +73,29 @@ final class ProcessHandle
         return proc_close($resource);
     }
 
+    /**
+     * Release handles for previously detached children that have since exited.
+     */
+    public static function reapDetached(): void
+    {
+        $running = [];
+        foreach (self::$detached as $resource) {
+            if (!is_resource($resource)) {
+                continue;
+            }
+            $status = proc_get_status($resource);
+            if ($status['running']) {
+                $running[] = $resource;
+
+                continue;
+            }
+
+            proc_close($resource);
+        }
+
+        self::$detached = $running;
+    }
+
     /** @return resource */
     public function resource(): mixed
     {
@@ -121,6 +104,23 @@ final class ProcessHandle
         }
 
         return $this->resource;
+    }
+
+    /**
+     * Gracefully signals the owned process tree when it is still running.
+     */
+    public function terminateGracefully(): bool
+    {
+        if (!is_resource($this->resource)) {
+            return false;
+        }
+
+        $status = proc_get_status($this->resource);
+        if (!$status['running']) {
+            return true;
+        }
+
+        return ProcessTerminator::graceful($this->resource, $this->pid, $this->processGroup);
     }
 
     private function isolateProcessGroup(): bool
@@ -133,7 +133,12 @@ final class ProcessHandle
             return false;
         }
 
-        return @posix_setpgid($this->pid, $this->pid);
+        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+        try {
+            return posix_setpgid($this->pid, $this->pid);
+        } finally {
+            restore_error_handler();
+        }
     }
 
     /** @param resource $resource */
