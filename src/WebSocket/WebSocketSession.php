@@ -526,12 +526,15 @@ final class WebSocketSession
 
     private function notifyDrain(): void
     {
-        if ($this->closed || $this->drainCallbacks === []) {
+        if ($this->closed) {
             return;
         }
 
         $this->connection->resumeReads();
         $this->schedulePump();
+        if ($this->drainCallbacks === []) {
+            return;
+        }
 
         $callbacks = $this->drainCallbacks;
         $this->drainCallbacks = [];
