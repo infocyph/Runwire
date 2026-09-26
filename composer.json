@@ -28,6 +28,7 @@
         "php-64bit": "^8.4"
     },
     "require-dev": {
+        "ext-event": "*",
         "ext-pcntl": "*",
         "ext-posix": "*",
         "infocyph/phpforge": "dev-main@dev"

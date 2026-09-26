@@ -1,7 +1,7 @@
 # Runwire 2.0 class/file consolidation plan
 
 Date: 2026-09-26. Source baseline: `ee56528a1c78b77e97d1bd26fcd43a2d14dd5c09`.
-Status: **follow-up remediation complete and verified; no-slowdown certification remains outstanding**. Target: **2.0 before release**, including documented breaking changes where justified. Matched sustained baseline/candidate performance certification and the applicable soak remain explicit pre-release gates rather than being inferred from PR smoke evidence.
+Status: **release-certification candidate; exact-head `Release Certification` workflow is the authoritative final gate**. Target: **2.0 before release**, including documented breaking changes where justified. The workflow runs the matched baseline/candidate sustained comparison, the 30-minute soak, representative Infbyte consumer verification, and the PHPForge release guard with ext-event loaded.
 
 Governing instructions: [PHPForge engineering principles](../../vendor/infocyph/phpforge/resources/engineering-principles.md), especially “Structural Simplification, Type Budget And Call-Hop Reduction”, “Autoloadable Symbol And File Behavior”, and “OPcache Capacity, Warm-Up And Observability”. The refreshed graphify graph was used for navigation; source inspection determines ownership and compatibility.
 
@@ -157,7 +157,7 @@ Do not merge HTTP/1+2 and HTTP/3 worker owners merely because their completion c
 | C2–C3 | Merge select-error policy and scheduler holder, separately reviewable. | Select/coroutine regressions; startup, allocations and loaded-file deltas. | Implemented; 2 files removed |
 | C4–C5 | Simplify stream lookup and connection dispatch after lifetime/complexity review. | Constructor/reentrancy, pressure, close/error and stream-lifetime tests; memory/complexity evidence. | C4 implemented; C5 retained because merging raised `Connection` cognitive complexity to 87 (>80) |
 | C6–C8, W1–W4 | Decide each conditional candidate from evidence. | Explicit keep/remove decision, public migration where applicable, per-workload results. | C6/C7/W2/W4 implemented; C5/C8/W1/W3 retained |
-| C9 | Document measured consumer capacity guidance and final candidate. | Final source/type counts, workload cache deltas, no stale symbols and final-revision CI; matched sustained baseline/candidate comparison and release-duration soak remain explicit pre-release certification gates. | Follow-up fixes verified on `6e78faca`; no-slowdown certification outstanding |
+| C9 | Document measured consumer capacity guidance and final candidate. | Final source/type counts, workload cache deltas, no stale symbols and final-revision CI; matched sustained baseline/candidate comparison, 30-minute soak, representative consumer and ext-event release guard. | Exact-head `Release Certification` workflow is authoritative |
 
 For each batch: record old owner → new owner, net type/file change, removed calls/allocations, public effects, ownership invariants, regression commands and before/after evidence. Keep batches independently revertible. Do not let an experimental later batch block useful verified earlier simplification.
 
@@ -250,5 +250,16 @@ No detector, complexity budget, reference checker or optional runtime lane was b
 
 ### Release boundary
 
-The consolidation implementation and the three P2 follow-up fixes are complete and verified. Separately, no-slowdown certification remains open until the matched baseline/candidate performance procedure is completed: 30-second warm-up, five 180-second measured trials and the applicable 30-minute soak. PR smoke results are not relabeled as that certification.
+The consolidation implementation and review follow-ups are complete. Final release readiness is determined by the exact-head `Release Certification` workflow added by this plan:
+
+1. pre-consolidation baseline `dc78bdc9d8684dcff48dac197d6cc0f21ed86043` and candidate run on the same PHP 8.5 runner with ext-event and OPcache enabled;
+2. one 30-second warm-up per server followed by five alternating 180-second measured trials for each side;
+3. the existing regression comparator must have low enough variance to enforce its established budget and the candidate must pass that budget;
+4. a separate candidate job performs a 30-second warm-up followed by a 1,800-second HTTP/1 soak with zero errors, timeouts or response-validation failures;
+5. Infbyte `main` is installed with the exact Runwire candidate, its full test suite runs, and a Foundation health route plus Webrick Runwire adapter request/response probe must pass;
+6. PHPForge's exact `composer ic:release:guard` runs with ext-event, pcntl, posix and OPcache loaded.
+
+`ext-event` is therefore a development/release-analysis prerequisite in `require-dev`, not a production runtime requirement. Swoole-only acceptance intentionally ignores that one dev platform requirement; portable production acceptance continues to use `--no-dev`.
+
+No further source or documentation commit is required to interpret the gate: a green exact-head `Release Certification` workflow is the durable release certificate, and any later runtime-source change invalidates it.
 
