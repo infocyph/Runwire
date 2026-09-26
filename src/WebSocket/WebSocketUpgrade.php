@@ -167,7 +167,8 @@ final readonly class WebSocketUpgrade
     }
 
     /** @return null|array{0: int, 1: array<string, string|list<string>>} */
-    private static function technicalRejection(HttpRequest $request): ?array {
+    private static function technicalRejection(HttpRequest $request): ?array
+    {
         if ($request->version !== ProtocolVersion::HTTP_1_1) {
             return [426, ['sec-websocket-version' => '13']];
         }
