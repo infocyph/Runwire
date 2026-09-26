@@ -1,6 +1,6 @@
-# Runwire 1.0 Getting Started
+# Runwire 2.0 Getting Started
 
-This guide takes a new consumer from installation to the main Runwire 1.0 serving modes using public APIs and complete examples.
+This guide takes a new consumer from installation to the main Runwire 2.0 serving modes using public APIs and complete examples.
 
 ## Install
 
@@ -248,7 +248,7 @@ $server = Server::http('0.0.0.0:8443', $handler)
     ->withHttp3();
 ```
 
-HTTP/3 uses UDP/QUIC while the TCP listener continues to serve HTTP/1.1/HTTP/2. 0-RTT application dispatch is disabled in Runwire 1.0. Explicit HTTP/3 configuration without supported QUIC capability is a startup error; it is never silently ignored.
+HTTP/3 uses UDP/QUIC while the TCP listener continues to serve HTTP/1.1/HTTP/2. 0-RTT application dispatch is disabled in Runwire 2.0. Explicit HTTP/3 configuration without supported QUIC capability is a startup error; it is never silently ignored.
 
 ## 7. Worker counts
 
@@ -570,4 +570,4 @@ See [Coroutines and structured concurrency](coroutines.md) for channels, futures
 - [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
