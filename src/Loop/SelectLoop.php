@@ -211,15 +211,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
-    private function allocateId(): int
-    {
-        if ($this->nextId === PHP_INT_MAX) {
-            throw new OverflowException('Event loop handle space is exhausted.');
-        }
-
-        return $this->nextId++;
-    }
-
     private static function assertRecoverableSelectFailure(?string $warning, int $prunedWatchers): void
     {
         if ($prunedWatchers > 0) {
@@ -230,6 +221,15 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
 
         throw new RuntimeException($warning ?? 'stream_select() failed permanently.');
+    }
+
+    private function allocateId(): int
+    {
+        if ($this->nextId === PHP_INT_MAX) {
+            throw new OverflowException('Event loop handle space is exhausted.');
+        }
+
+        return $this->nextId++;
     }
 
     private function cancelWatcher(int $id, bool $readable): bool
