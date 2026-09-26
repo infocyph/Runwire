@@ -333,18 +333,21 @@ final class PhpQuicHttp3Connection
     {
         $reads = 0;
         $bytes = 0;
+        $controlBytes = 0;
         foreach (array_keys($this->peerStreams) as $streamId) {
             if ($reads >= $this->limits->maxReadsPerPump || $bytes >= $this->limits->maxInboundBytesPerPump) {
                 return;
             }
 
-            [$streamReads, $streamBytes] = $this->drainStream(
+            [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
                 $streamId,
                 $this->limits->maxReadsPerPump - $reads,
                 $this->limits->maxInboundBytesPerPump - $bytes,
+                $this->limits->maxControlBytesPerTick - $controlBytes,
             );
             $reads += $streamReads;
             $bytes += $streamBytes;
+            $controlBytes += $streamControlBytes;
         }
     }
 
@@ -353,6 +356,7 @@ final class PhpQuicHttp3Connection
     {
         $reads = 0;
         $bytes = 0;
+        $controlBytes = 0;
         foreach ($this->peerStreams as $streamId => $stream) {
             $mask = $ready[spl_object_id($stream->object())] ?? 0;
             if (($mask & ($events->read | $events->error)) === 0) {
@@ -367,28 +371,36 @@ final class PhpQuicHttp3Connection
                 return;
             }
 
-            [$streamReads, $streamBytes] = $this->drainStream(
+            [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
                 $streamId,
                 $this->limits->maxReadsPerPump - $reads,
                 $this->limits->maxInboundBytesPerPump - $bytes,
+                $this->limits->maxControlBytesPerTick - $controlBytes,
             );
             $reads += $streamReads;
             $bytes += $streamBytes;
+            $controlBytes += $streamControlBytes;
         }
     }
 
-    /** @return array{0: int, 1: int} */
-    private function drainStream(int $streamId, int $readBudget, int $byteBudget): array
+    /** @return array{0: int, 1: int, 2: int} */
+    private function drainStream(int $streamId, int $readBudget, int $byteBudget, int $controlBudget): array
     {
         $stream = $this->peerStreams[$streamId] ?? null;
         if ($stream === null || $this->requestPressured($streamId)) {
-            return [0, 0];
+            return [0, 0, 0];
+        }
+
+        $requestStream = isset($this->requestStreams[$streamId]);
+        if (!$requestStream && $controlBudget <= 0) {
+            return [0, 0, 0];
         }
 
         $reads = 0;
         $bytes = 0;
-        while ($reads < $readBudget && $bytes < $byteBudget) {
-            $chunk = $stream->read(min($this->limits->streamReadChunkBytes, $byteBudget - $bytes));
+        $maximumBytes = $requestStream ? $byteBudget : min($byteBudget, $controlBudget);
+        while ($reads < $readBudget && $bytes < $maximumBytes) {
+            $chunk = $stream->read(min($this->limits->streamReadChunkBytes, $maximumBytes - $bytes));
             ++$reads;
             if ($chunk === null) {
                 $this->finishPeerStream($streamId, $stream);
@@ -412,7 +424,7 @@ final class PhpQuicHttp3Connection
             }
         }
 
-        return [$reads, $bytes];
+        return [$reads, $bytes, $requestStream ? 0 : $bytes];
     }
 
     private function finishPeerStream(int $streamId, PhpQuicStream $stream): void
