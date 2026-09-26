@@ -54,7 +54,12 @@ $server = Server::http(
             static function (WebSocketSession $session, int $code, string $reason): void {
                 fwrite(
                     STDERR,
-                    sprintf("websocket-close code=%d reason=%s\n", $code, $reason),
+                    sprintf(
+                        'websocket-close closed=%s code=%d reason=%s' . PHP_EOL,
+                        $session->isClosed() ? 'yes' : 'no',
+                        $code,
+                        $reason,
+                    ),
                 );
             },
         );
@@ -72,7 +77,7 @@ $server = Server::http(
                     fwrite(
                         STDERR,
                         sprintf(
-                            "websocket-handler-error %s: %s\n",
+                            'websocket-handler-error %s: %s' . PHP_EOL,
                             $error::class,
                             $error->getMessage(),
                         ),
