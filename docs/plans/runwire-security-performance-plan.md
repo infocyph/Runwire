@@ -461,67 +461,69 @@ Keep framework adapters, outbound database/HTTP client pools, a distributed job 
 
 ## Implementation phases for the single 2.0.0 target
 
-### Phase 0 — reproducible regressions and contract decisions
+All implementation phases are complete on the working branch. The phase record below summarizes what was delivered; it is no longer a forward-looking task list.
 
-1. Commit deterministic reproductions for RW-01–09 and RW-17–21 in the existing relevant suites. Isolate descriptor and malformed-input probes in bounded subprocesses; preserve current passing coverage.
-2. Set the completion/cancellation/retirement state transitions, response-write contract, concurrent-reset policy and coroutine loop ownership. Inventory all interface implementors, adapters, tests and consumer examples before changing signatures.
-3. Record a per-driver ownership table for every security/resource policy and actual enabled capability (RW-22). Unsupported behavior must be explicit.
-4. Establish production-equivalent baseline measurements before hot-path changes. Calculate aggregate memory bounds from connection buffers, active streams, parser/compression state, queued responses, tasks and admission limits. Per-object ceilings multiplied by allowed concurrency must fit the worker/deployment budget with headroom.
-5. **Complete:** F-04/F-05 were evaluated with the feature criteria above, accepted, mapped into implementation owners and given dedicated release acceptance lanes.
-6. Define measurable target-workload latency/error/resource budgets and the precise supported PHP, OS, host and transport matrix. Preserve current claims until they are verified or explicitly revised as part of the major migration.
+### Phase 0 — reproducible regressions and contract decisions — complete
 
-Exit: committed failing regressions, concrete contract/migration decisions and recorded baseline/configuration evidence. Security corrections may proceed while a benchmark environment is prepared; final performance certification remains required.
+1. Deterministic reproductions were committed for RW-01–09 and RW-17–21 in the existing relevant suites, with bounded subprocesses for descriptor/malformed-input probes where needed.
+2. Completion/cancellation/retirement transitions, response-write ownership, concurrent-reset policy and coroutine loop ownership were defined before implementation.
+3. Per-driver security/resource ownership and enabled capability reporting were recorded, including RW-22.
+4. Baseline resource/performance budgets were established for connections, streams, protocol queues, coroutine scheduling and worker-wide admission.
+5. F-04/F-05 were evaluated using explicit bounded-resource, correctness, interoperability/performance and maintenance criteria; both were accepted and mapped to dedicated B4 evidence lanes.
+6. Supported PHP/runtime/host/transport claims and migration-impact decisions were recorded.
 
-### Phase 1 — protocol, transport and loop corrections
+Exit achieved: regressions, ownership contracts, feature decisions and baseline budgets were recorded before dependent implementation.
 
-1. Fix HTTP/1 continuation, framing and finite managed HTTP idle policy (RW-01–03); retain bounded parsing and correct streaming behavior.
-2. Correct permanent select failure handling and stranded timers (RW-04/17); repair callback closure/pause handling (RW-21).
-3. Redact asynchronous failure text, honor explicit TLS policy and prevent live Unix socket replacement (RW-05/07/08).
-4. Repair HTTP/3 incremental body delivery and host response validation (RW-19/18). Exercise fragmented and coalesced paths before optimization.
+### Phase 1 — protocol, transport and loop corrections — complete
 
-Exit: relevant adversarial regressions pass with unchanged safety budgets. No known high-priority protocol/transport defect remains on a supported path.
+1. HTTP/1 continuation, framing and managed idle/deadline behavior were corrected (RW-01–03).
+2. Permanent select failure, stranded timers and UDP callback ownership were corrected (RW-04/17/21).
+3. Asynchronous error redaction, explicit TLS policy and live Unix-socket ownership were corrected (RW-05/07/08).
+4. HTTP/3 incremental body delivery and host response framing were corrected with fragmentation/coalescing coverage (RW-19/18).
 
-### Phase 2 — completion, isolation and consistent runtime ownership
+Exit achieved: relevant adversarial regressions are green and no high-priority protocol/transport defect remains open on a supported path.
 
-1. Implement the phase-0 lifecycle contract across HTTP/1/2/3, application/context, response writers and every host adapter (RW-06/09/12/18).
-2. Make unsafe reset failure stop admission and retire the correct worker; coordinate already-active requests without allowing shared-state leakage. Exercise standalone/portable, prefork and host replacement paths.
-3. Attach coroutine scopes to the owning loop and prove concurrent native requests make progress (RW-20). Align cancellation, deadlines, active counts and request metrics with actual owned work.
-4. Complete truthful capability reporting and explicit policy delegation (RW-22). Resolve shared GC ownership only with representative host measurements (RW-14).
+### Phase 2 — completion, isolation and consistent runtime ownership — complete
 
-Exit: all first-party implementors and consumer migrations pass the common contract suite and isolation tests; no legacy path bypasses terminal accounting or failed-reset retirement.
+1. The phase-0 lifecycle contract was implemented across HTTP/1/2/3, application/context, response writers and host adapters (RW-06/09/12/18).
+2. Unsafe reset failure now stops admission and retires the appropriate reusable worker/runtime instance.
+3. Coroutine request scopes attach to the owning loop; concurrent native requests, timers and cancellation progress without nested loop driving (RW-20 / F-02).
+4. Capability reporting reflects enabled Runwire integration facts, and lifecycle GC has one owner (RW-22 / RW-14).
 
-### Phase 3 — bounded capacity and operational hardening
+Exit achieved: common lifecycle/isolation suites pass and no legacy path bypasses terminal accounting or failed-reset retirement.
 
-1. Integrate/select a scalable production loop through `LoopInterface` in the existing worker owners (RW-04); choose an optional adapter/dependency based on verified platform support and measured capacity, not fashion. Keep SelectLoop as a bounded portable fallback with explicit failure behavior.
-2. Finish HTTP/2/3 work accounting, stream progress deadlines, compression synchronization under refusal, backpressure and aggregate admission (RW-10/11/19). Ensure controls apply across a whole turn/worker, not only per method call.
-3. Close process-tree/detached cleanup and platform contracts (RW-13), validate nested-cgroup/resource detection and test overload/reload recovery.
-4. **Complete:** F-04/F-05 were implemented in existing transport/lifecycle owners with bounded contracts and abuse/resource tests; capability claims are limited to the implemented native HTTP/1 WebSocket scope.
-5. Resolve valid duplicated security/validation owners and measured maintenance issues (RW-15), without unneeded general abstractions. Preserve the repository's reviewed version/tag CI references, keep their automated update cadence, and resolve dependency provenance/abandonment through the owning dependency where applicable (RW-16).
+### Phase 3 — bounded capacity and operational hardening — complete
 
-Exit: verified bounded resources and fair progress at supported capacity; no P1 issue open. Every P2 finding has a correction or evidence-based disposition. Optional cosmetic cleanup and speculative features are outside the release blockers.
+1. A scalable ext-event backend is selected when available; SelectLoop remains the bounded portable fallback with explicit capacity behavior (RW-04 / F-01).
+2. HTTP/2/3 per-turn work accounting, progress deadlines, protocol backpressure and worker-wide queued-byte admission are implemented (RW-10/11/19 / F-03).
+3. Process-tree ownership, descendant termination and detached cleanup were hardened (RW-13).
+4. F-04/F-05 were implemented in existing transport/lifecycle owners with bounded contracts and abuse/resource tests.
+5. Valid duplicated validation ownership and dependency/CI provenance policy were resolved without weakening PHPForge standards or replacing reviewed version/tag refs with SHAs (RW-15/16).
 
-### Phase 4 — sustained-performance and release certification
+Exit achieved: bounded resources and fair progress are verified at supported capacity; every P1/P2 finding has a closed correction or explicit final policy.
 
-Use the existing benchmark owners and PHPForge tooling first. Extend the current microbenchmark/comparison tooling with real-server workloads rather than creating a competing harness without need.
+### Phase 4 — sustained-performance and feature acceptance — complete
 
-- Establish a baseline before hot-path changes using production-equivalent PHP, Composer, extensions and OPcache; measure cold starts separately.
-- Separate HTTP/1.1, HTTP/2 and HTTP/3, with explicit TLS, worker count, connection reuse and concurrency.
-- Cover minimal response, JSON request/response, streaming upload/download, slow readers, multiplexing, cancellation, overload recovery, coroutine I/O and worker reload/recycle. Add real Foundation/application routes for full-stack claims.
-- Sweep concurrency to saturation and run at least five repeated steady-state trials. Initial plan: 30-second warmup plus 180-second measurement per trial, followed by at least 30 minutes of mixed-load soak; extend durations until queue and memory behavior is stable. These are proposed test settings, not measured results.
-- Count only complete correct responses. Primary metric: median sustained successful RPM (`successful RPS × 60`), with p50/p95/p99, errors/timeouts, validation failures, CPU, steady/peak RSS, PHP allocation, descriptors, active connections/streams/tasks, queue depth and event-loop lag.
-- Verify load-generator headroom and record variance. Establish concrete workload latency/error/resource budgets before optimization. Use matching stable-environment metadata for PHPForge regression comparison; do not enforce small timing budgets on noisy shared runners.
-- A provisional 5% RPM regression budget is suitable only after baseline variance is shown to be smaller; security/correctness fixes remain mandatory, with any measured cost investigated and documented rather than hidden by weakening validation.
-- Extend existing benchmark result validation to require completed/successful/error/timeout counts, correctness checks and relevant host/TLS/OPcache/build metadata; accepting a numeric RPM field alone is not evidence of successful throughput.
-- Run equivalent real peer deployments on the same hardware/configuration only when making comparative claims. Current schema placeholders and host-adapter microbenchmarks are not peer measurements.
+The existing benchmark/PHPForge owners were extended rather than replaced.
 
-Exit: correctness and isolation stay intact under representative load; latency, errors and resources meet the phase-0 budgets; sustained successful RPM and variance are documented. A justified security cost must be visible, never hidden by disabling validation. No blanket equivalence claim to Octane, Symfony Runtime or Workerman: compare the actual host integration and workload.
+- HTTP/1 real-server evidence records completed/successful/error/timeout/correctness counts, latency, CPU/RSS and environment metadata.
+- HTTP/3 retains dedicated real interoperability/soak ownership.
+- F-04 uses repeated, warmed, interleaved helper-vs-manual bounded-transfer trials plus real TLS slow-reader coverage; the stabilized exact-head medians stayed within the 5% regression budget.
+- F-05 uses a raw PHP-stdlib RFC 6455 client that imports no Runwire WebSocket classes and covers handshake, text/binary echo, ping/pong, close behavior, repeated trials and slow-reader pressure.
+- Shared-runner variance is recorded rather than hidden, and performance claims remain scoped to the measured workload/environment.
+- Only complete correct responses count toward throughput evidence; numeric throughput without correctness accounting is not accepted.
+
+Implementation exit achieved: correctness/isolation, F-04/F-05 acceptance evidence and the complete exact-head branch matrix are green. The longer 30-second warmup + five 180-second trials + 30-minute soak mode remains intentionally configured as the **maintainer-run pre-tag release certification**, not an open implementation phase.
 
 ### Phase 5 — beta, migration and final candidate — complete
 
-1. Publish reviewable beta/RC artifacts only through the project's authorized release process; this audit does not tag, publish or send disclosures. Validate real consumer migrations, production `--no-dev` installs and packaged contents.
-2. Update API examples, deployment/security guidance, capability tables and benchmark documentation. Repair links in README and architecture/getting-started/coroutines/benchmarks/deployment docs to the removed historical plan, without restoring that deletion automatically.
-3. Close every confirmed finding with regression evidence, affected versions/configurations and any remaining mitigations. Follow `SECURITY.md` for disclosure decisions.
-4. **Implementation acceptance complete:** the certified implementation/docs evidence head completed the required branch matrix. Before the maintainer tags **2.0.0**, run and retain the configured release-duration certification artifacts on the chosen exact release candidate.
+1. Migration guidance, API examples, deployment/security guidance, capability documentation and benchmark methodology were updated for 2.0.
+2. Historical-plan links were replaced with the active 2.0 tracker without restoring removed historical plans.
+3. Every RW finding has a closed status and regression/policy evidence.
+4. Production `--no-dev` install, package-content verification, consumer scan and the certified implementation/docs matrix are green.
+5. F-04 and F-05 public documentation reflects the accepted 2.0 scope; unsupported WebSocket compression and HTTP/2/3 modes remain explicitly unclaimed.
+
+Exit achieved: branch implementation is release-candidate ready. Merge, tag and release remain maintainer-controlled. Before tagging 2.0.0, run and retain the configured release-duration certification artifacts on the chosen exact release candidate.
 
 ## Required regression and acceptance matrix
 
