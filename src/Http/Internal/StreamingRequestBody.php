@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Internal;
 use Closure;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\RequestBodyInterface;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use InvalidArgumentException;
 use OverflowException;
@@ -60,11 +61,12 @@ final class StreamingRequestBody implements RequestBodyInterface
         private readonly int $maxBufferBytes,
         callable $onRelief,
         ?callable $onConsumed = null,
+        ?ByteBudget $budget = null,
     ) {
         if ($lowWatermark < 0 || $lowWatermark >= $highWatermark || $highWatermark > $maxBufferBytes) {
             throw new InvalidArgumentException('Body buffer watermarks must satisfy 0 <= low < high <= max.');
         }
-        $this->buffer = new ByteQueue();
+        $this->buffer = new ByteQueue($budget);
         $this->onRelief = Closure::fromCallable($onRelief);
         $this->onConsumed = $onConsumed === null ? null : Closure::fromCallable($onConsumed);
     }
@@ -120,7 +122,7 @@ final class StreamingRequestBody implements RequestBodyInterface
      */
     public function capacity(): int
     {
-        return $this->maxBufferBytes - $this->buffer->bytes();
+        return min($this->maxBufferBytes - $this->buffer->bytes(), $this->buffer->budgetAvailable());
     }
 
     /** @internal */
