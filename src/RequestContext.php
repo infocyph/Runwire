@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire;
 
+use Closure;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use InvalidArgumentException;
 use LogicException;
 use OverflowException;
+use Throwable;
 
 /**
  * Carries per-request runtime binding, cancellation, deadlines, and bounded attributes.
@@ -27,6 +29,13 @@ final class RequestContext
     private array $attributes = [];
 
     private bool $completed = false;
+
+    private ?Throwable $ownedWorkFailure = null;
+
+    private int $ownedWorkCount = 0;
+
+    /** @var Closure(): void|null */
+    private ?Closure $ownedWorkSettled = null;
 
     private function __construct(
         private RuntimeContext $runtime,
@@ -129,6 +138,16 @@ final class RequestContext
         return $this->attributes;
     }
 
+    /** @internal */
+    public function beginOwnedWork(): void
+    {
+        if ($this->completed) {
+            throw new LogicException('Completed request context cannot own asynchronous work.');
+        }
+
+        ++$this->ownedWorkCount;
+    }
+
     /**
      * Cancels request work with the supplied reason.
      */
@@ -153,11 +172,30 @@ final class RequestContext
         if ($this->completed) {
             return;
         }
+        if ($this->ownedWorkCount > 0) {
+            throw new LogicException('Request context cannot complete while owned asynchronous work is active.');
+        }
 
         $this->attributes = [];
         $this->cancellationSource->dispose();
         $this->active = false;
         $this->completed = true;
+        $this->ownedWorkFailure = null;
+        $this->ownedWorkSettled = null;
+    }
+
+    /** @internal */
+    public function finishOwnedWork(?Throwable $failure = null): void
+    {
+        if ($this->ownedWorkCount < 1) {
+            throw new LogicException('Request context has no owned asynchronous work to finish.');
+        }
+
+        $this->ownedWorkFailure ??= $failure;
+        --$this->ownedWorkCount;
+        if ($this->ownedWorkCount === 0) {
+            ($this->ownedWorkSettled)?->__invoke();
+        }
     }
 
     /**
@@ -166,6 +204,12 @@ final class RequestContext
     public function completed(): bool
     {
         return $this->completed;
+    }
+
+    /** @internal */
+    public function hasOwnedWork(): bool
+    {
+        return $this->ownedWorkCount > 0;
     }
 
     /**
@@ -190,6 +234,18 @@ final class RequestContext
     public function removeAttribute(string $key): void
     {
         unset($this->attributes[$key]);
+    }
+
+    /** @internal */
+    public function observeOwnedWorkSettled(callable $callback): void
+    {
+        $this->ownedWorkSettled = $callback(...);
+    }
+
+    /** @internal */
+    public function ownedWorkFailure(): ?Throwable
+    {
+        return $this->ownedWorkFailure;
     }
 
     /**

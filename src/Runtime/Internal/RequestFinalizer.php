@@ -96,6 +96,19 @@ final class RequestFinalizer
     }
 
     /**
+     * Observe settlement of request-owned asynchronous work.
+     */
+    public function ownedWorkSettled(): void
+    {
+        $failure = $this->context->ownedWorkFailure();
+        if ($failure !== null) {
+            $this->handlerFailed($failure);
+        }
+
+        $this->finalizeIfReady();
+    }
+
+    /**
      * Observe terminal response ownership.
      */
     public function terminal(): void
@@ -158,8 +171,13 @@ final class RequestFinalizer
 
     private function finalizeIfReady(): void
     {
-        if ($this->finalizedRequest || $this->handlerRunning) {
+        if ($this->finalizedRequest || $this->handlerRunning || $this->context->hasOwnedWork()) {
             return;
+        }
+
+        $ownedFailure = $this->context->ownedWorkFailure();
+        if ($ownedFailure !== null) {
+            $this->handlerFailed($ownedFailure);
         }
         if (!$this->terminalObserved && $this->requestFailure === null && !$this->context->cancelled()) {
             return;

@@ -241,6 +241,9 @@ final class ApplicationLifecycle
             },
         );
 
+        $context->observeOwnedWorkSettled(static function () use ($finalizer): void {
+            $finalizer->ownedWorkSettled();
+        });
         $finalizer->attachCancellation($context->cancellation->onCancel(static function () use ($finalizer): void {
             $finalizer->cancelled();
         }));

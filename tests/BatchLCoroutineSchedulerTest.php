@@ -17,8 +17,13 @@ use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestContext;
+use Infocyph\Runwire\Runtime\AdmissionPolicy;
+use Infocyph\Runwire\Runtime\ApplicationLifecycle;
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\Runtime\RequestResetterInterface;
+use Infocyph\Runwire\RuntimeContext;
 
 it('schedules tasks FIFO and yields without recursive Fiber resume', function (): void {
     $runtime = new CoroutineRuntime();
@@ -397,4 +402,153 @@ it('preserves configured coroutine policy when binding a request handler to the 
     $loop->run();
 
     expect($request->context->cancellation->reason())->toBe(CancellationReason::HOST_CANCELLED);
+});
+
+
+it('keeps request state and admission until attached coroutine root and children settle', function (): void {
+    $loop = new SelectLoop();
+    $events = [];
+    $resets = 0;
+    $handler = new CoroutineRequestHandler(
+        new CoroutineRuntime(),
+        static function (HttpRequest $request, $writer, CoroutineScope $scope) use (&$events): void {
+            $request->context->setAttribute('tenant', 'A');
+            $scope->spawn(function () use ($scope, $request, &$events): void {
+                $scope->sleep(0.005);
+                $events[] = [
+                    'child-after-wait',
+                    'completed' => $request->context->completed(),
+                    'tenant' => $request->context->attribute('tenant'),
+                ];
+            });
+            $writer->end('ok');
+            $events[] = [
+                'after-end',
+                'completed' => $request->context->completed(),
+                'tenant' => $request->context->attribute('tenant'),
+            ];
+        },
+    );
+    $handler->attachLoop($loop);
+    $lifecycle = new ApplicationLifecycle(
+        $handler,
+        RuntimeContext::standalone(),
+        hooks: new ApplicationLifecycleHooks(resetters: [
+            new class($resets) implements RequestResetterInterface {
+                public function __construct(private int &$resets) {}
+
+                public function reset(RequestContext $context): void
+                {
+                    expect($context->attribute('tenant'))->toBe('A');
+                    ++$this->resets;
+                }
+            },
+        ]),
+        admission: new AdmissionPolicy(maxActiveRequests: 1),
+    );
+    $request = new HttpRequest(
+        method: 'GET',
+        target: '/attached-lifetime',
+        version: ProtocolVersion::HTTP_1_1,
+        headers: new Headers(),
+        body: new BufferedRequestBody(''),
+    );
+    $writer = new CallbackResponseWriter(
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+        1_024,
+    );
+
+    $lifecycle->handle($request, $writer);
+
+    expect($request->context->completed())->toBeFalse()
+        ->and($resets)->toBe(0);
+
+    $rejected = [];
+    $lifecycle->handle(
+        new HttpRequest(
+            method: 'GET',
+            target: '/blocked',
+            version: ProtocolVersion::HTTP_1_1,
+            headers: new Headers(),
+            body: new BufferedRequestBody(''),
+        ),
+        new CallbackResponseWriter(
+            static function (int $status) use (&$rejected): void {
+                $rejected[] = $status;
+            },
+            static function (): void {},
+            static function (): void {},
+            1_024,
+        ),
+    );
+
+    expect($rejected)->toBe([503]);
+
+    $loop->delay(0.1, static function () use ($loop): void {
+        $loop->stop();
+    });
+    $loop->run();
+
+    expect($events)->toBe([
+        ['after-end', 'completed' => false, 'tenant' => 'A'],
+        ['child-after-wait', 'completed' => false, 'tenant' => 'A'],
+    ])->and($request->context->completed())->toBeTrue()
+        ->and($request->context->attribute('tenant'))->toBeNull()
+        ->and($resets)->toBe(1);
+});
+
+it('records attached coroutine failure after response output before final cleanup', function (): void {
+    $loop = new SelectLoop();
+    $failure = new RuntimeException('late attached failure');
+    $resets = 0;
+    $handler = new CoroutineRequestHandler(
+        new CoroutineRuntime(),
+        static function (HttpRequest $request, $writer, CoroutineScope $scope) use ($failure): void {
+            $request->context->setAttribute('tenant', 'A');
+            $writer->end('committed');
+            $scope->yieldNow();
+
+            throw $failure;
+        },
+    );
+    $handler->attachLoop($loop);
+    $lifecycle = new ApplicationLifecycle(
+        $handler,
+        RuntimeContext::standalone(),
+        hooks: new ApplicationLifecycleHooks(resetters: [
+            new class($resets) implements RequestResetterInterface {
+                public function __construct(private int &$resets) {}
+
+                public function reset(RequestContext $context): void
+                {
+                    expect($context->attribute('tenant'))->toBe('A');
+                    ++$this->resets;
+                }
+            },
+        ]),
+    );
+    $request = new HttpRequest(
+        method: 'GET',
+        target: '/late-failure',
+        version: ProtocolVersion::HTTP_1_1,
+        headers: new Headers(),
+        body: new BufferedRequestBody(''),
+    );
+
+    $lifecycle->handle(
+        $request,
+        new CallbackResponseWriter(
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+            1_024,
+        ),
+    );
+
+    $loop->run();
+
+    expect($request->context->completed())->toBeTrue()
+        ->and($resets)->toBe(1);
 });

@@ -11,7 +11,7 @@ use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Throwable;
 
 /**
  * Adapts an HTTP handler to execute within a request-scoped coroutine runtime.
@@ -45,15 +45,21 @@ final class CoroutineRequestHandler implements LoopAwareRequestHandlerInterface
             return;
         }
 
-        $this->attachedRuntime->attachRequest(
-            $request->context,
-            $callback,
-            static function (Task $task) use ($request): void {
-                if ($task->failure() !== null && !$request->context->completed()) {
-                    $request->context->cancel(CancellationReason::HOST_CANCELLED);
-                }
-            },
-        );
+        $request->context->beginOwnedWork();
+
+        try {
+            $this->attachedRuntime->attachRequest(
+                $request->context,
+                $callback,
+                static function (Task $task) use ($request): void {
+                    $request->context->finishOwnedWork($task->failure());
+                },
+            );
+        } catch (Throwable $error) {
+            $request->context->finishOwnedWork($error);
+
+            throw $error;
+        }
     }
 
     /**
