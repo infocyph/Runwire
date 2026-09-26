@@ -36,8 +36,6 @@ final class WebSocketSession
 
     private readonly WebSocketFrameParser $parser;
 
-    private readonly ?string $selectedSubprotocol;
-
     /** @var Closure(self, int, string): void|null */
     private ?Closure $closeCallback = null;
 
@@ -80,7 +78,7 @@ final class WebSocketSession
         LoopInterface $loop,
         Connection $connection,
         WebSocketOptions $options = new WebSocketOptions(),
-        ?string $selectedSubprotocol = null,
+        private readonly ?string $selectedSubprotocol = null,
         string $initialBytes = '',
     ) {
         $this->budget = $connection->bufferBudget();
@@ -88,7 +86,6 @@ final class WebSocketSession
         $this->loop = self::retainLoop($loop);
         $this->options = self::retainOptions($options);
         $this->parser = new WebSocketFrameParser($this->options, $this->budget);
-        $this->selectedSubprotocol = $selectedSubprotocol;
         $this->lastActivityAt = $this->loop->now();
 
         $connection->handoffCallbacks(
