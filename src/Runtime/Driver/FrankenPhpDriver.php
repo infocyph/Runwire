@@ -129,7 +129,6 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
                 try {
                     $this->handleCurrentRequest($application);
                 } finally {
-                    gc_collect_cycles();
                     $recycleRequested = $recycle->recordRequestCompleted();
                 }
             });
