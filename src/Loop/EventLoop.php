@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Loop;
 
 use Closure;
+use Event;
+use EventBase;
 use Infocyph\Runwire\Internal\MonotonicTime;
 use InvalidArgumentException;
 use LogicException;
@@ -17,17 +19,13 @@ use Throwable;
  */
 final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
-    private const string BASE_CLASS = 'EventBase';
-
-    private const string EVENT_CLASS = 'Event';
-
-    private readonly object $base;
+    private readonly EventBase $base;
 
     private readonly int $callbackOverrunNanoseconds;
 
     private int $callbackOverrunsTotal = 0;
 
-    /** @var array<int, object> */
+    /** @var array<int, Event> */
     private array $events = [];
 
     private int $lastTickNanoseconds = 0;
@@ -58,8 +56,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
             throw new InvalidArgumentException('Callback overrun threshold must be finite and between 0 and 60 seconds.');
         }
 
-        $class = self::BASE_CLASS;
-        $this->base = new $class();
+        $this->base = new EventBase();
         $this->callbackOverrunNanoseconds = MonotonicTime::secondsToNanoseconds($callbackOverrunSeconds);
     }
 
@@ -69,8 +66,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     public static function supported(): bool
     {
         return extension_loaded('event')
-            && class_exists(self::BASE_CLASS, false)
-            && class_exists(self::EVENT_CLASS, false);
+            && class_exists(Event::class, false)
+            && class_exists(EventBase::class, false);
     }
 
     /**
@@ -83,7 +80,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
             return false;
         }
 
-        call_user_func([$event, 'del']);
+        $event->del();
         unset($this->events[$id]);
         $this->removeIndex($id);
 
@@ -139,7 +136,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      */
     public function onReadable(mixed $stream, callable $callback): int
     {
-        return $this->watch($stream, $callback, self::eventConstant('READ'), $this->readIndex, 'readable');
+        return $this->watch($stream, $callback, Event::READ, $this->readIndex, 'readable');
     }
 
     /**
@@ -149,7 +146,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      */
     public function onWritable(mixed $stream, callable $callback): int
     {
-        return $this->watch($stream, $callback, self::eventConstant('WRITE'), $this->writeIndex, 'writable');
+        return $this->watch($stream, $callback, Event::WRITE, $this->writeIndex, 'writable');
     }
 
     /**
@@ -176,7 +173,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         $this->running = true;
 
         try {
-            call_user_func([$this->base, 'loop']);
+            $this->base->loop();
         } finally {
             $this->running = false;
         }
@@ -187,18 +184,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      */
     public function stop(): void
     {
-        call_user_func([$this->base, 'stop']);
+        $this->base->stop();
         $this->running = false;
-    }
-
-    private static function eventConstant(string $name): int
-    {
-        $value = constant(self::EVENT_CLASS . '::' . $name);
-        if (!is_int($value)) {
-            throw new RuntimeException('ext-event exposed an invalid event constant.');
-        }
-
-        return $value;
     }
 
     private function allocateId(): int
@@ -249,8 +236,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         $id = $this->allocateId();
         $closure = Closure::fromCallable($callback);
         $deadline = MonotonicTime::nowNanoseconds() + MonotonicTime::secondsToNanoseconds($seconds);
-        $event = call_user_func(
-            [self::EVENT_CLASS, 'timer'],
+        $event = Event::timer(
             $this->base,
             function () use ($id, $closure, $repeat, $seconds, &$event, &$deadline): void {
                 if (!isset($this->events[$id])) {
@@ -273,11 +259,11 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
                 if ($repeat && isset($this->events[$id])) {
                     $deadline = MonotonicTime::nowNanoseconds() + MonotonicTime::secondsToNanoseconds($seconds);
-                    call_user_func([$event, 'add'], $seconds);
+                    $event->add($seconds);
                 }
             },
         );
-        if (!is_object($event) || call_user_func([$event, 'add'], $seconds) !== true) {
+        if (!$event->add($seconds)) {
             throw new RuntimeException('Unable to register event-loop timer.');
         }
         $this->events[$id] = $event;
@@ -299,11 +285,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
         $id = $this->allocateId();
         $closure = Closure::fromCallable($callback);
-        $class = self::EVENT_CLASS;
-        $event = new $class(
+        $event = new Event(
             $this->base,
             $stream,
-            $flag | self::eventConstant('PERSIST'),
+            $flag | Event::PERSIST,
             function (mixed $ready) use ($id, $stream, $closure): void {
                 if (!isset($this->events[$id]) || !is_resource($stream)) {
                     return;
@@ -311,7 +296,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
                 $this->invoke($closure, $ready, $id);
             },
         );
-        if (call_user_func([$event, 'add']) !== true) {
+        if (!$event->add()) {
             throw new RuntimeException('Unable to register event-loop stream watcher.');
         }
 
