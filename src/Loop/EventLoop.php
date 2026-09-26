@@ -245,9 +245,6 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
                 $now = MonotonicTime::nowNanoseconds();
                 $this->maxLagNanoseconds = max($this->maxLagNanoseconds, max(0, $now - $deadline));
-                if (!$repeat) {
-                    unset($this->events[$id]);
-                }
 
                 try {
                     $this->invoke($closure, $id);
@@ -258,7 +255,12 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
                 }
 
                 $event = $this->events[$id] ?? null;
-                if ($repeat && $event !== null) {
+                if (!$repeat) {
+                    unset($this->events[$id]);
+
+                    return;
+                }
+                if ($event !== null) {
                     $deadline = MonotonicTime::nowNanoseconds() + MonotonicTime::secondsToNanoseconds($seconds);
                     $event->add($seconds);
                 }
