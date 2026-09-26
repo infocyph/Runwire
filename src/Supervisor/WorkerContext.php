@@ -36,6 +36,10 @@ final class WorkerContext
 
     private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
+    private ?LoopInterface $controlLoop = null;
+
+    private ?int $controlWatcher = null;
+
     private string $lifecycleBuffer = '';
 
     private bool $ready = false;
@@ -107,6 +111,7 @@ final class WorkerContext
     public function attachLoop(LoopInterface $loop, float $backgroundShutdownGraceSeconds = 10.0): void
     {
         $this->periodicTasks->attach($loop);
+        $this->attachControlWatcher($loop);
         if (!$this->role->background()) {
             return;
         }
@@ -159,6 +164,11 @@ final class WorkerContext
     {
         $this->backgroundCoroutines?->close();
         $this->periodicTasks->close();
+        if ($this->controlWatcher !== null && $this->controlLoop !== null) {
+            $this->controlLoop->cancel($this->controlWatcher);
+        }
+        $this->controlWatcher = null;
+        $this->controlLoop = null;
         if (is_resource($this->readyStream)) {
             fclose($this->readyStream);
         }
@@ -345,14 +355,8 @@ final class WorkerContext
             return;
         }
 
-        $this->readControl();
-        $this->shutdownReason = $reason ?? $this->shutdownReason;
-        $this->stopping = true;
-        $this->periodicTasks->drain();
-        $this->backgroundCoroutines?->drain();
-        if (is_resource($this->stopWrite)) {
-            fwrite($this->stopWrite, 'S');
-        }
+        $controlReason = $this->readControl();
+        $this->beginStop($reason ?? $controlReason ?? $this->shutdownReason);
     }
 
     /**
@@ -415,12 +419,53 @@ final class WorkerContext
         return $this->stopRead;
     }
 
-    private function readControl(): void
+    private function attachControlWatcher(LoopInterface $loop): void
     {
         if (!is_resource($this->readyStream)) {
             return;
         }
+        if ($this->controlWatcher !== null) {
+            if ($this->controlLoop !== $loop) {
+                throw new LogicException('Worker lifecycle control cannot switch event loops after attachment.');
+            }
 
+            return;
+        }
+
+        $this->controlLoop = $loop;
+        $this->controlWatcher = $loop->onReadable(
+            $this->readyStream,
+            function (): void {
+                $reason = $this->readControl();
+                if ($reason !== null) {
+                    $this->beginStop($reason);
+                }
+            },
+        );
+    }
+
+    private function beginStop(ShutdownReason $reason): void
+    {
+        if ($this->stopping) {
+            return;
+        }
+
+        $this->shutdownReason = $reason;
+        $this->stopping = true;
+        $this->periodicTasks->drain();
+        $this->backgroundCoroutines?->drain();
+        if (is_resource($this->stopWrite)) {
+            fwrite($this->stopWrite, 'S');
+        }
+    }
+
+    private function readControl(): ?ShutdownReason
+    {
+        if (!is_resource($this->readyStream)) {
+            return null;
+        }
+
+        $observed = null;
         do {
             $chunk = fread($this->readyStream, 1_024);
             if (is_string($chunk) && $chunk !== '') {
@@ -437,8 +482,11 @@ final class WorkerContext
             $reason = ShutdownReason::tryFrom(substr($message, 2));
             if ($reason !== null) {
                 $this->shutdownReason = $reason;
+                $observed = $reason;
             }
         }
+
+        return $observed;
     }
 
     private function signal(string $message): void
