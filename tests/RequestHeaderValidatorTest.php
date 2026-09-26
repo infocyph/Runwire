@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\Http\Http2\Internal\HeaderValidationException as Http2HeaderValidationException;
-use Infocyph\Runwire\Http\Http2\Internal\RequestHeaderValidator as Http2RequestHeaderValidator;
 use Infocyph\Runwire\Http\Internal\HeaderValidationException;
 use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 
@@ -15,7 +13,7 @@ it('normalizes authority through the shared HTTP/2 and HTTP/3 request rules', fu
         [':path', '/resource'],
     ];
 
-    $http2 = new Http2RequestHeaderValidator()->request($fields);
+    $http2 = new RequestHeaderValidator('HTTP/2')->request($fields);
     $http3 = new RequestHeaderValidator('HTTP/3')->request($fields);
 
     expect($http2->target)->toBe('/resource')
@@ -31,8 +29,8 @@ it('requires authority or Host for HTTP schemes in both protocols', function ():
         [':path', '/resource'],
     ];
 
-    expect(fn () => new Http2RequestHeaderValidator()->request($fields))
-        ->toThrow(Http2HeaderValidationException::class)
+    expect(fn () => new RequestHeaderValidator('HTTP/2')->request($fields))
+        ->toThrow(HeaderValidationException::class)
         ->and(fn () => new RequestHeaderValidator('HTTP/3')->request($fields))
         ->toThrow(HeaderValidationException::class);
 });
@@ -61,8 +59,8 @@ it('rejects malformed HTTP authority syntax in HTTP/2 and HTTP/3', function (str
         [':path', '/resource'],
     ];
 
-    expect(fn() => new Http2RequestHeaderValidator()->request($fields))
-        ->toThrow(Http2HeaderValidationException::class)
+    expect(fn() => new RequestHeaderValidator('HTTP/2')->request($fields))
+        ->toThrow(HeaderValidationException::class)
         ->and(fn() => new RequestHeaderValidator('HTTP/3')->request($fields))
         ->toThrow(HeaderValidationException::class);
 })->with([
