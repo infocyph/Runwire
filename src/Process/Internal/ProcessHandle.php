@@ -13,7 +13,7 @@ final class ProcessHandle
 {
     private const int MAX_DETACHED_HANDLES = 64;
 
-    /** @var list<resource> */
+    /** @var list<array{resource: resource, pid: ?int, process_group: bool}> */
     private static array $detached = [];
 
     private readonly ?int $pid;
@@ -38,13 +38,14 @@ final class ProcessHandle
     public static function reapDetached(): void
     {
         $running = [];
-        foreach (self::$detached as $resource) {
+        foreach (self::$detached as $entry) {
+            $resource = $entry['resource'];
             if (!is_resource($resource)) {
                 continue;
             }
             $status = proc_get_status($resource);
             if ($status['running']) {
-                $running[] = $resource;
+                $running[] = $entry;
 
                 continue;
             }
@@ -85,7 +86,7 @@ final class ProcessHandle
         if (!$wait) {
             $status = proc_get_status($resource);
             if ($status['running']) {
-                self::retainDetached($resource);
+                self::retainDetached($resource, $this->pid, $this->processGroup);
                 $this->resource = null;
 
                 return null;
@@ -124,23 +125,31 @@ final class ProcessHandle
     }
 
     /** @param resource $resource */
-    private static function retainDetached(mixed $resource): void
+    private static function retainDetached(mixed $resource, ?int $pid, bool $processGroup): void
     {
         self::reapDetached();
         while (count(self::$detached) >= self::MAX_DETACHED_HANDLES) {
             $oldest = array_shift(self::$detached);
-            if (!is_resource($oldest)) {
+            if ($oldest === null || !is_resource($oldest['resource'])) {
                 continue;
             }
 
-            $status = proc_get_status($oldest);
+            $status = proc_get_status($oldest['resource']);
             if ($status['running']) {
-                ProcessTerminator::force($oldest, $status['pid'] > 1 ? $status['pid'] : null);
+                ProcessTerminator::force(
+                    $oldest['resource'],
+                    $oldest['pid'],
+                    $oldest['process_group'],
+                );
             }
-            proc_close($oldest);
+            proc_close($oldest['resource']);
         }
 
-        self::$detached[] = $resource;
+        self::$detached[] = [
+            'resource' => $resource,
+            'pid' => $pid,
+            'process_group' => $processGroup,
+        ];
     }
 
     private function isolateProcessGroup(): bool
