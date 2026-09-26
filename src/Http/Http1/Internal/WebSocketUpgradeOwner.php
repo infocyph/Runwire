@@ -49,21 +49,6 @@ final class WebSocketUpgradeOwner
         $this->loop = self::retainLoop($ownerLoop);
     }
 
-    private static function retainConnection(Connection $connection): Connection
-    {
-        return $connection;
-    }
-
-    private static function retainInput(Http1Input $input): Http1Input
-    {
-        return $input;
-    }
-
-    private static function retainLoop(LoopInterface $loop): LoopInterface
-    {
-        return $loop;
-    }
-
     /**
      * Determine whether transport ownership has moved to WebSocket.
      */
@@ -124,5 +109,20 @@ final class WebSocketUpgradeOwner
         );
 
         return $this->session;
+    }
+
+    private static function retainConnection(Connection $connection): Connection
+    {
+        return $connection;
+    }
+
+    private static function retainInput(Http1Input $input): Http1Input
+    {
+        return $input;
+    }
+
+    private static function retainLoop(LoopInterface $loop): LoopInterface
+    {
+        return $loop;
     }
 }
