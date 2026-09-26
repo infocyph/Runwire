@@ -41,6 +41,8 @@ final class RequestStream
 
     private int $blockedFrameBytes = 0;
 
+    private int $blockedBudgetBytes = 0;
+
     /** @var list<Frame> */
     private array $blockedFrames = [];
 
@@ -59,6 +61,8 @@ final class RequestStream
     private ?ValidatedRequestHead $head = null;
 
     private string $pendingData = '';
+
+    private int $pendingBudgetBytes = 0;
 
     private int $receivedBodyBytes = 0;
 
@@ -162,6 +166,9 @@ final class RequestStream
 
         $this->blockedFrames = [];
         $this->blockedFrameBytes = 0;
+        $this->budget?->release($this->blockedBudgetBytes + $this->pendingBudgetBytes);
+        $this->blockedBudgetBytes = 0;
+        $this->pendingBudgetBytes = 0;
         $this->pendingData = '';
         $this->cancelled = true;
         $this->body->cancel();
@@ -326,8 +333,13 @@ final class RequestStream
             );
         }
 
+        $payloadBytes = strlen($frame->payload);
+        if ($this->budget !== null && !$this->budget->reserve($payloadBytes)) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Worker queued-byte budget is exhausted.');
+        }
         $this->blockedFrames[] = $frame;
         $this->blockedFrameBytes += $bytes;
+        $this->blockedBudgetBytes += $payloadBytes;
     }
 
     private function completeFinish(): void
@@ -351,7 +363,7 @@ final class RequestStream
         while ($payload !== '') {
             $capacity = $this->body->capacity();
             if ($capacity <= 0 || $this->body->pressured()) {
-                $this->pendingData = $payload;
+                $this->reservePendingData($payload);
 
                 return;
             }
@@ -363,7 +375,7 @@ final class RequestStream
             $this->receivedBodyBytes += $length;
 
             if (!$accepting && $payload !== '') {
-                $this->pendingData = $payload;
+                $this->reservePendingData($payload);
 
                 return;
             }
@@ -375,6 +387,8 @@ final class RequestStream
         $frames = $this->blockedFrames;
         $this->blockedFrames = [];
         $this->blockedFrameBytes = 0;
+        $this->budget?->release($this->blockedBudgetBytes);
+        $this->blockedBudgetBytes = 0;
 
         foreach ($frames as $index => $frame) {
             if ($this->blocked) {
@@ -401,6 +415,8 @@ final class RequestStream
         if ($this->pendingData !== '') {
             $pending = $this->pendingData;
             $this->pendingData = '';
+            $this->budget?->release($this->pendingBudgetBytes);
+            $this->pendingBudgetBytes = 0;
             $this->deliverData($pending);
             if ($this->pressured()) {
                 return;
@@ -485,6 +501,17 @@ final class RequestStream
         }
 
         $this->acceptFieldSection($section, $trailers);
+    }
+
+    private function reservePendingData(string $payload): void
+    {
+        $bytes = strlen($payload);
+        if ($this->budget !== null && !$this->budget->reserve($bytes)) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Worker queued-byte budget is exhausted.');
+        }
+
+        $this->pendingData = $payload;
+        $this->pendingBudgetBytes = $bytes;
     }
 
     private function resumeAfterBodyRelief(): void
