@@ -224,7 +224,9 @@ jobs:
         shell: bash
         run: |
           cd consumer
-          vendor/bin/pest
+          cp vendor/infocyph/phpforge/resources/pest.xml .runwire-consumer-pest.xml
+          trap 'rm -f .runwire-consumer-pest.xml' EXIT
+          vendor/bin/pest --configuration=.runwire-consumer-pest.xml
 
       - name: Exercise Foundation + Webrick + Runwire bridge
         shell: bash
@@ -275,7 +277,7 @@ jobs:
               throw new RuntimeException("ext-event release-analysis prerequisite is unavailable.");
           }
           '
-          composer check-platform-reqs --lock=false
+          composer check-platform-reqs
 
       - name: Run exact PHPForge release guard
         run: composer ic:release:guard

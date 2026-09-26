@@ -172,7 +172,7 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          composer install --no-interaction --prefer-dist --no-progress
+          composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
 
       - name: Verify Runwire QUIC capability detection
         shell: bash
