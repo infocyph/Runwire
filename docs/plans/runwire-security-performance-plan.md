@@ -23,10 +23,10 @@ This tracker is part of the implementation record. Update it in every implementa
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Complete — terminal accounting, unhealthy latch, asynchronous terminal containment and worker retirement QA green | Common lifecycle suite green across native and hosts |
 | B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Complete — native loop attachment, concurrent progress, cancellation and scheduler-policy preservation QA green | Concurrent native requests, timers and cancellation progress together |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Complete — enabled-only host capability matrix and single lifecycle GC ownership QA green | Real-host capability matrix or explicit unsupported disposition |
-| B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Open | Supported backend exceeds SelectLoop ceiling with bounded behavior |
-| B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Open | Fairness and worker-wide resource limits proven |
-| B3-C | Process-tree/platform hardening — RW-13 | Open | Descendant/reap/cancellation/platform regressions green |
-| B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | Open | P2 dispositions recorded; immutable CI inputs; accepted feature lanes green |
+| B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Implemented — ext-event backend, fallback ceiling and >1024-descriptor lane added; exact-head QA running | Supported backend exceeds SelectLoop ceiling with bounded behavior |
+| B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Implemented — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics added; exact-head QA running | Fairness and worker-wide resource limits proven |
+| B3-C | Process-tree/platform hardening — RW-13 | Implemented — process-group ownership, detached metadata, platform-null handling and repeated termination regressions added; exact-head QA running | Descendant/reap/cancellation/platform regressions green |
+| B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | In progress — shared Content-Length validation owner added; workflow/package version refs preserved by project policy; dependency update cadence added; exact-head QA running | P2 dispositions recorded; version/tag refs preserved; update policy and accepted feature lanes green |
 | B4 | Sustained-performance and release certification | Open | Production-equivalent baselines, soak, interoperability and full gates green |
 | B5 | Migration docs, beta/RC evidence and exact-head final candidate | Open | All findings closed and final candidate matrix green |
 
@@ -43,13 +43,13 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Closed — exact-head QA green |
 | RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Closed — exact-head QA green |
 | RW-09 streaming request lifetime mismatch | High | B0-B / B2-A | Closed — terminal lifecycle/admission ownership and cross-driver QA green |
-| RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Open |
-| RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Open |
+| RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Implemented — bounded frame processing per loop turn; exact-head QA running |
+| RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Implemented — shared control-byte accounting and request/QPACK progress deadlines; exact-head QA running |
 | RW-12 inconsistent failure containment | P1 | B2-A | Closed — lifecycle failure containment and retirement QA green |
-| RW-13 process-tree/detached cleanup | P2 | B3-C | Open |
+| RW-13 process-tree/detached cleanup | P2 | B3-C | Implemented — descendant process groups and detached cleanup retain tree ownership; exact-head QA running |
 | RW-14 duplicated host GC ownership | P2 | B2-C | Closed — duplicate FrankenPHP/RoadRunner per-request GC removed; lifecycle policy is sole owner |
-| RW-15 duplicated validation/security owners | P2 | B3-D | Open |
-| RW-16 mutable CI/dependency provenance | P2 | B3-D | Open |
+| RW-15 duplicated validation/security owners | P2 | B3-D | Implemented for Content-Length security parsing without merging protocol-specific semantics; exact-head QA running |
+| RW-16 mutable CI/dependency provenance | P2 | B3-D | Disposition updated — preserve existing version/tag refs; automated dependency update cadence added; no SHA ref conversion |
 | RW-17 stranded due timers | P1 | B0-B / B1-B | Closed — exact-head QA green |
 | RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Closed — framing, terminal writer contract and lifecycle containment QA green |
 | RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Boundary-invariant bounded delivery QA green — aggregate fairness remains B3-B |
@@ -61,9 +61,9 @@ This tracker is part of the implementation record. Update it in every implementa
 
 | Feature | Status | Decision point |
 | --- | --- | --- |
-| F-01 scalable native loop | Planned | B3-A backend selection after capacity/platform evidence |
+| F-01 scalable native loop | Implemented — QA pending | ext-event backend selected when available; SelectLoop remains bounded fallback |
 | F-02 shared-loop coroutine request scopes | Implemented | B0-C contract and B2-B native shared-loop integration certified |
-| F-03 worker-wide resource admission/pressure | Planned | B0-D budgets, B3-B implementation |
+| F-03 worker-wide resource admission/pressure | Implemented — QA pending | bounded request/stream defaults, shared worker byte budget and pressure metrics added |
 | F-04 bounded stream-to-response transfer | Deferred from 2.0 core | Existing streaming primitives already permit bounded application pumps; reconsider only with B4 profile evidence |
 | F-05 native WebSocket serving | Deferred from 2.0 core | New parser/state/security surface lacks 2.0 evidence; host-native support must be reported truthfully instead |
 
@@ -397,7 +397,7 @@ RW-07/08 include local configuration/socket reproductions. The remaining items a
 | RW-13 | P2 | `ProcessTerminator` signals the direct child; `ProcessHandle` retains detached running handles in a static list reaped on subsequent runs. Define process-tree ownership and bounded detached cleanup, then test descendants retaining pipes, cancellation, repeated failed starts and repeated forced termination. ProcessRunner is synchronous and must not be advertised as nonblocking merely because it uses nonblocking pipes. Verify absolute-path handling and null-device assumptions on advertised platforms. Preserve argv execution, environment/cwd policy and finite I/O/termination ceilings. |
 | RW-14 | P2 | RoadRunner and FrankenPHP call `gc_collect_cycles()` after every request in addition to lifecycle GC policy. Profile real hosts with representative allocation pressure before consolidating GC ownership. Verify tail latency and memory plateau, not just operation timing. |
 | RW-15 | P2 | Review the 65 reported clone groups for cohesive shared owners, particularly duplicated security validation. Centralize valid duplicated logic and update all callers without proliferating wrappers or erasing distinct protocol semantics. Do not change detector thresholds or baselines to clear the report. |
-| RW-16 | P2 | CI uses mutable third-party action/reusable-workflow refs, including PHPForge `@main`; development tooling is `dev-main@dev`. Pin reviewed executable CI inputs to immutable revisions with an update policy; preserve required gates. Record extension/client/build versions and production-install provenance. Resolve the abandoned transitive package through its owning dependency where possible. |
+| RW-16 | P2 | Preserve the repository's existing version/tag refs for third-party actions, reusable workflows and development tooling. Use automated update cadence and required CI gates rather than converting those refs to commit SHAs. Record extension/client/build versions and production-install provenance where release evidence requires it. Resolve abandoned transitive packages through their owning dependency where possible. |
 | RW-22 | P1 | `RuntimeCapabilityResolver` advertises several host features independently of installed host configuration/build, while policy enforcement can belong only to the native listener. Distinguish potential host support, enabled support, Runwire-accessible operations and ownership. Test each advertised operation; unsupported enforced policies must fail clearly or identify a verified host configuration requirement. Include first-byte/body/output deadlines, connection admission, graceful reload, recycle and coroutine integration. No real-host capability matrix was executed in this review. |
 
 ## 2.0 public contracts and migration
