@@ -84,7 +84,6 @@ final class RoadRunnerDriver implements HostDriverInterface
                     return;
                 }
             } finally {
-                gc_collect_cycles();
                 if ($recycle->recordRequestCompleted()) {
                     $session->stop();
                 }
