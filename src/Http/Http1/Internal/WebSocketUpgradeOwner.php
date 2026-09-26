@@ -44,9 +44,24 @@ final class WebSocketUpgradeOwner
         /** @var Closure(): void $handoff */
         $handoff = $beforeHandoff(...);
         $this->beforeHandoff = $handoff;
-        $this->connection = $ownedConnection;
-        $this->input = $httpInput;
-        $this->loop = $ownerLoop;
+        $this->connection = self::retainConnection($ownedConnection);
+        $this->input = self::retainInput($httpInput);
+        $this->loop = self::retainLoop($ownerLoop);
+    }
+
+    private static function retainConnection(Connection $connection): Connection
+    {
+        return $connection;
+    }
+
+    private static function retainInput(Http1Input $input): Http1Input
+    {
+        return $input;
+    }
+
+    private static function retainLoop(LoopInterface $loop): LoopInterface
+    {
+        return $loop;
     }
 
     /**
