@@ -237,3 +237,12 @@ it('keeps reuse port default-off and forwards it to HTTP3 only when explicit', f
 
     expect(SocketCapabilityProbe::supportsReusePort())->toBeBool();
 });
+
+
+it('uses bounded worker request and multiplexed stream admission defaults', function (): void {
+    $policy = new AdmissionPolicy();
+
+    expect($policy->maxActiveRequests)->toBe(256)
+        ->and($policy->maxStreamsPerWorker)->toBe(256)
+        ->and($policy->enabled())->toBeTrue();
+});
