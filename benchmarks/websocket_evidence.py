@@ -63,7 +63,7 @@ async def round_trip_worker(
                 except Exception as error:
                     counters["errors"] += 1
                     if len(error_samples) < 5:
-                        error_samples.append(f"{type(error).__name__}: {error}")
+                        error_samples.append(f"roundtrip:{type(error).__name__}: {error}")
                     return
 
                 counters["messages"] += 1
@@ -85,14 +85,14 @@ async def round_trip_worker(
                     except Exception as error:
                         counters["errors"] += 1
                         if len(error_samples) < 5:
-                            error_samples.append(f"{type(error).__name__}: {error}")
+                            error_samples.append(f"roundtrip:{type(error).__name__}: {error}")
                         return
     except asyncio.TimeoutError:
         counters["timeouts"] += 1
     except Exception as error:
         counters["errors"] += 1
         if len(error_samples) < 5:
-            error_samples.append(f"{type(error).__name__}: {error}")
+            error_samples.append(f"connect:{type(error).__name__}: {error}")
 
 
 async def run_trial(uri: str, concurrency: int, duration: float) -> dict[str, object]:
