@@ -204,6 +204,7 @@ src/Network/TlsOptions.php,class,TlsOptions,3,retain,"Transport, bounded bufferi
 src/Network/UnixListener.php,class,UnixListener,26,retain,"Transport, bounded buffering, capability or connection ownership",Accepts non-blocking Unix-domain stream connections on a filesystem socket.
 src/Network/UnixListenerOptions.php,class,UnixListenerOptions,1,retain,"Transport, bounded buffering, capability or connection ownership",Configures Unix-domain listener path ownership and permissions.
 src/Network/WriteResult.php,class,WriteResult,3,retain,"Transport, bounded buffering, capability or connection ownership",Describes the outcome and buffered-byte state of a connection write.
+src/Network/Internal/ConnectionCallbackDispatcher.php,class,ConnectionCallbackDispatcher,2,candidate C5,Single-owner callback dispatch; preserve failure and cleanup ordering,Dispatches connection callbacks while preserving deterministic cleanup semantics.
 src/Process/Command.php,class,Command,12,retain,"Validated command, stream/process resource or termination ownership",Immutable child-process command definition with fluent copy helpers.
 src/Process/Enum/IoMode.php,enum,IoMode,0,retain,"Validated command, stream/process resource or termination ownership",Selects how a child-process output stream is handled.
 src/Process/Enum/OutputOverflowPolicy.php,enum,OutputOverflowPolicy,0,retain,"Validated command, stream/process resource or termination ownership",Determines how process execution reacts when captured output exceeds its limit.
