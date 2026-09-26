@@ -14,7 +14,7 @@ final readonly class AdmissionPolicy
     private const int MAX_LIMIT = 1_000_000;
 
     /**
-     * Creates an admission policy, where zero disables each corresponding limit.
+     * Creates an admission policy; zero disables count limits while queued bytes remain bounded.
      */
     public function __construct(
         public int $maxActiveRequests = 256,
