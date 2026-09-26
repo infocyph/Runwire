@@ -79,39 +79,48 @@ def percentile(values: list[float], fraction: float) -> float:
     return ordered[rank]
 
 
-async def read_response(reader: asyncio.StreamReader) -> tuple[int, bytes]:
+async def read_response(reader: asyncio.StreamReader) -> tuple[int, bytes, bool]:
     head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=2.0)
     lines = head.decode("latin1").split("\r\n")
     status = int(lines[0].split()[1])
     length = None
+    close = False
     for line in lines[1:]:
         if ":" not in line:
             continue
         name, value = line.split(":", 1)
         if name.lower() == "content-length":
-            length = int(value.strip())
-            break
+            parsed_length = int(value.strip())
+            if length is not None and parsed_length != length:
+                raise RuntimeError("Response has conflicting Content-Length fields.")
+            length = parsed_length
+        elif name.lower() == "connection":
+            close = close or "close" in {token.strip().lower() for token in value.split(",")}
     if length is None:
         raise RuntimeError("Response omitted Content-Length.")
+    if length < 0:
+        raise RuntimeError("Response has a negative Content-Length.")
     body = await asyncio.wait_for(reader.readexactly(length), timeout=2.0)
-    return status, body
+    return status, body, close
+
+
+def request_counters() -> dict[str, int]:
+    return {
+        "requests_total": 0,
+        "completed_requests": 0,
+        "successful_requests": 0,
+        "errors_total": 0,
+        "timeouts_total": 0,
+        "validation_failures": 0,
+        "reconnects_total": 0,
+    }
 
 
 async def warm_worker(host: str, port: int, deadline: float) -> None:
-    try:
-        reader, writer = await asyncio.open_connection(host, port)
-    except OSError:
-        return
-    try:
-        while time.perf_counter() < deadline:
-            writer.write(b"GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n")
-            await writer.drain()
-            await read_response(reader)
-    except (OSError, asyncio.TimeoutError, asyncio.IncompleteReadError, RuntimeError, ValueError):
-        return
-    finally:
-        writer.close()
-        await writer.wait_closed()
+    counter = request_counters()
+    await measure_worker(host, port, deadline, counter, None)
+    if counter["errors_total"] or counter["timeouts_total"] or counter["validation_failures"]:
+        raise RuntimeError("Warm-up received a failed or invalid response.")
 
 
 async def measure_worker(
@@ -119,14 +128,15 @@ async def measure_worker(
     port: int,
     deadline: float,
     counter: dict[str, int],
-    latencies: list[float],
+    latencies: list[float] | None,
 ) -> None:
     while time.perf_counter() < deadline:
-        reader = None
-        writer = None
-        reconnect = False
         try:
-            reader, writer = await asyncio.open_connection(host, port)
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=2.0)
+        except asyncio.TimeoutError:
+            counter["requests_total"] += 1
+            counter["timeouts_total"] += 1
+            return
         except OSError:
             counter["requests_total"] += 1
             counter["errors_total"] += 1
@@ -134,50 +144,39 @@ async def measure_worker(
 
         try:
             while time.perf_counter() < deadline:
+                # Account for attempts before I/O: EOF or reset cannot erase a request.
+                counter["requests_total"] += 1
                 started = time.perf_counter_ns()
                 try:
                     writer.write(b"GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n")
                     await writer.drain()
-                    status, body = await read_response(reader)
+                    status, body, close = await read_response(reader)
                 except asyncio.TimeoutError:
-                    counter["requests_total"] += 1
                     counter["timeouts_total"] += 1
                     return
-                except asyncio.IncompleteReadError as error:
-                    if error.partial == b"":
-                        counter["reconnects_total"] += 1
-                        reconnect = True
-                        break
-                    counter["requests_total"] += 1
-                    counter["errors_total"] += 1
-                    return
-                except (ConnectionResetError, BrokenPipeError):
-                    counter["reconnects_total"] += 1
-                    reconnect = True
-                    break
-                except (OSError, RuntimeError, ValueError):
-                    counter["requests_total"] += 1
+                except (OSError, asyncio.IncompleteReadError, RuntimeError, ValueError):
                     counter["errors_total"] += 1
                     return
 
                 elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
-                latencies.append(elapsed_ms)
-                counter["requests_total"] += 1
+                if latencies is not None:
+                    latencies.append(elapsed_ms)
                 counter["completed_requests"] += 1
                 if status == 200 and body == b"ok":
                     counter["successful_requests"] += 1
                 else:
                     counter["validation_failures"] += 1
+                # Only a fully consumed response can authorize orderly rotation.
+                if close:
+                    if time.perf_counter() < deadline:
+                        counter["reconnects_total"] += 1
+                    break
         finally:
-            if writer is not None:
-                writer.close()
-                try:
-                    await writer.wait_closed()
-                except OSError:
-                    pass
-
-        if not reconnect:
-            return
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
 
 
 async def sample_resources(root_pid: int, stop: asyncio.Event, peak: dict[str, int]) -> None:
@@ -214,15 +213,7 @@ async def main() -> None:
             for _ in range(concurrency)
         ])
 
-    counter = {
-        "requests_total": 0,
-        "completed_requests": 0,
-        "successful_requests": 0,
-        "errors_total": 0,
-        "timeouts_total": 0,
-        "validation_failures": 0,
-        "reconnects_total": 0,
-    }
+    counter = request_counters()
     latencies: list[float] = []
     peak = {"rss": tree_rss(server_pid)}
     start_ticks = tree_ticks(server_pid)

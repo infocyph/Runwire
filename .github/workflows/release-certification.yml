@@ -60,6 +60,12 @@ jobs:
           composer install --working-dir=candidate --no-interaction --prefer-dist --no-progress
           composer install --working-dir=baseline --no-interaction --prefer-dist --no-progress
 
+      - name: Test sustained benchmark accounting
+        working-directory: candidate
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m unittest discover -s tests/benchmarks -p 'test_*.py' -v
+
       - name: Run matched sustained comparison
         shell: bash
         env:
