@@ -45,9 +45,11 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Test sustained benchmark accounting
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
-        run: python3 -m unittest discover -s tests/benchmarks -p 'test_*.py' -v
+        shell: bash
+        run: |
+          cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest-benchmark.xml
+          trap 'rm -f .phpforge-pest-benchmark.xml' EXIT
+          vendor/bin/pest --configuration=.phpforge-pest-benchmark.xml tests/Http1SustainedBenchTest.php
 
       - name: Record environment
         shell: bash
@@ -291,7 +293,7 @@ jobs:
           files=()
           for trial in 1 2 3 4 5; do
             result="benchmark-results/http1-php-${{ matrix.php-version }}-trial-$trial.json"
-            python3 benchmarks/http1_sustained_bench.py \
+            php benchmarks/http1_sustained_bench.php \
               "$port" 16 "$warmup_seconds" "$duration_seconds" "$server_pid" \
               > "$result"
             jq -e '.correctness_passed == true and .successful_requests == .requests_total and .errors_total == 0 and .timeouts_total == 0 and .validation_failures == 0' "$result" >/dev/null
@@ -304,7 +306,7 @@ jobs:
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.certification }}" = "true" ]; then
             soak="benchmark-results/http1-php-${{ matrix.php-version }}-30m-soak.json"
-            python3 benchmarks/http1_sustained_bench.py \
+            php benchmarks/http1_sustained_bench.php \
               "$port" 32 0 1800 "$server_pid" \
               > "$soak"
             jq -e '.correctness_passed == true and .successful_requests == .requests_total and .errors_total == 0 and .timeouts_total == 0 and .validation_failures == 0' "$soak" >/dev/null

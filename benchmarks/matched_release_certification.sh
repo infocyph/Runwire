@@ -56,12 +56,18 @@ cleanup() {
 trap cleanup EXIT
 
 find_port() {
-  python3 - <<'PY'
-import socket
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PY
+  php -r '
+  $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+  if (!is_resource($server)) {
+      throw new RuntimeException($error);
+  }
+  $name = stream_socket_get_name($server, false);
+  fclose($server);
+  if (!is_string($name) || !str_contains($name, ":")) {
+      throw new RuntimeException("Unable to resolve ephemeral release-certification port.");
+  }
+  echo substr(strrchr($name, ":"), 1);
+  '
 }
 
 wait_ready() {
@@ -69,12 +75,13 @@ wait_ready() {
   local pid="$2"
   local log="$3"
   for _ in $(seq 1 300); do
-    if python3 - "$port" <<'PY' >/dev/null 2>&1
-import socket
-import sys
-with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.05):
-    pass
-PY
+    if php -r '
+    $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
+    if (!is_resource($socket)) {
+        throw new RuntimeException($error);
+    }
+    fclose($socket);
+    ' "$port" >/dev/null 2>&1
     then
       return 0
     fi
@@ -109,7 +116,14 @@ run_evidence() {
   local duration="$6"
   local result="$7"
 
-  RUNWIRE_RUNTIME_VERSION="$label"   RUNWIRE_RUNTIME_BUILD="$build"   RUNWIRE_PHP_VERSION="$php_version"   RUNWIRE_INSTRUMENTATION="release-certification-matched"   RUNWIRE_OPCACHE="$opcache"   RUNWIRE_EXTENSION_VERSIONS="$extension_versions"     python3 "$candidate_dir/benchmarks/http1_sustained_bench.py"       "$port" 16 "$warmup" "$duration" "$pid" > "$result"
+  RUNWIRE_RUNTIME_VERSION="$label" \
+  RUNWIRE_RUNTIME_BUILD="$build" \
+  RUNWIRE_PHP_VERSION="$php_version" \
+  RUNWIRE_INSTRUMENTATION="release-certification-matched" \
+  RUNWIRE_OPCACHE="$opcache" \
+  RUNWIRE_EXTENSION_VERSIONS="$extension_versions" \
+    php "$candidate_dir/benchmarks/http1_sustained_bench.php" \
+      "$port" 16 "$warmup" "$duration" "$pid" > "$result"
 
   jq -e '
     .correctness_passed == true
@@ -130,8 +144,8 @@ wait_ready "$baseline_port" "$baseline_pid" "$output_dir/baseline-server.log"
 wait_ready "$candidate_port" "$candidate_pid" "$output_dir/candidate-server.log"
 
 # One explicit 30-second warm-up per server before the five measured trials.
-run_evidence "2.0-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 30 1 "$output_dir/baseline-warmup.json"
-run_evidence "2.0-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 1 "$output_dir/candidate-warmup.json"
+run_evidence "2.0-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 30 0.1 "$output_dir/baseline-warmup.json"
+run_evidence "2.0-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 0.1 "$output_dir/candidate-warmup.json"
 
 baseline_trials=()
 candidate_trials=()
@@ -153,9 +167,11 @@ done
 
 php "$candidate_dir/benchmarks/sustained_summary.php" "${baseline_trials[@]}" > "$output_dir/baseline-summary.json"
 php "$candidate_dir/benchmarks/sustained_summary.php" "${candidate_trials[@]}" > "$output_dir/candidate-summary.json"
-php "$candidate_dir/benchmarks/regression_compare.php"   "$output_dir/baseline-summary.json"   "$output_dir/candidate-summary.json"   > "$output_dir/comparison.json"
+php "$candidate_dir/benchmarks/regression_compare.php" \
+  "$output_dir/baseline-summary.json" \
+  "$output_dir/candidate-summary.json" \
+  > "$output_dir/comparison.json"
 
-# A noisy runner cannot certify no slowdown; the established comparison budget must be enforceable and pass.
 jq -e '.budget_enforced == true and .passed == true' "$output_dir/comparison.json" >/dev/null
 
 cat "$output_dir/baseline-summary.json"

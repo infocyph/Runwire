@@ -62,9 +62,11 @@ jobs:
 
       - name: Test sustained benchmark accounting
         working-directory: candidate
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
-        run: python3 -m unittest discover -s tests/benchmarks -p 'test_*.py' -v
+        shell: bash
+        run: |
+          cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest-benchmark.xml
+          trap 'rm -f .phpforge-pest-benchmark.xml' EXIT
+          vendor/bin/pest --configuration=.phpforge-pest-benchmark.xml tests/Http1SustainedBenchTest.php
 
       - name: Run matched sustained comparison
         shell: bash
@@ -112,13 +114,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-certification/soak
-          port="$(python3 - <<'PY'
-          import socket
-          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-              sock.bind(("127.0.0.1", 0))
-              print(sock.getsockname()[1])
-          PY
-          )"
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          echo substr(strrchr((string) $name, ":"), 1);
+          ')"
           server_pid=""
           cleanup() {
             if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
@@ -132,12 +136,13 @@ jobs:
           server_pid=$!
 
           for _ in $(seq 1 300); do
-            if python3 - "$port" <<'PY' >/dev/null 2>&1
-          import socket
-          import sys
-          with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.05):
-              pass
-          PY
+            if php -r '
+          $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
+          if (!is_resource($socket)) {
+              throw new RuntimeException($error);
+          }
+          fclose($socket);
+          ' "$port" >/dev/null 2>&1
             then
               break
             fi
@@ -167,7 +172,7 @@ jobs:
           ')"
 
           test "$RUNWIRE_OPCACHE" = "enabled-cli"
-          python3 benchmarks/http1_sustained_bench.py             "$port" 32 30 1800 "$server_pid"             > release-certification/soak/http1-30m.json
+          php benchmarks/http1_sustained_bench.php             "$port" 32 30 1800 "$server_pid"             > release-certification/soak/http1-30m.json
 
           jq -e '
             .correctness_passed == true
