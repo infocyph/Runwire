@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\NativeHttpConnection;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Loop\LoopFactory;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
@@ -27,6 +28,7 @@ use Throwable;
  */
 final class NativeHttpWorker
 {
+    private const int SELECT_LOOP_CONNECTION_LIMIT = 256;
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
      */
@@ -70,6 +72,17 @@ final class NativeHttpWorker
                     $runtimeContext,
                     $sampler,
                 ): void {
+                    if (
+                        $loop instanceof SelectLoop
+                        && count($connections) >= self::SELECT_LOOP_CONNECTION_LIMIT
+                    ) {
+                        $connection->abort(CloseReason::RESOURCE_LIMIT);
+                        $runtimeContext->metrics->recordRejectedConnection();
+                        $sampler->sample();
+
+                        return;
+                    }
+
                     self::attachConnection(
                         $connection,
                         $loop,
@@ -170,7 +183,7 @@ final class NativeHttpWorker
         ApplicationLifecycleHooks $lifecycle,
         DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
     ): void {
-        $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        $loop = LoopFactory::native($diagnostics);
         $handle = self::attach(
             $loop,
             $context,
