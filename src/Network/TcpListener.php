@@ -19,11 +19,11 @@ final class TcpListener
 {
     private int $acceptedConnections = 0;
 
-    private ?ByteBudget $bufferBudget = null;
-
     private bool $acceptPaused = false;
 
     private ?int $acceptWatcher = null;
+
+    private ?ByteBudget $bufferBudget = null;
 
     private bool $closed = false;
 
