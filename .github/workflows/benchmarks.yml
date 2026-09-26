@@ -63,7 +63,21 @@ jobs:
           for mode in bootstrap lifecycle coroutine; do
             result="benchmark-results/opcache-${mode}-php-${{ matrix.php-version }}.json"
             php -d opcache.enable_cli=1 benchmarks/opcache_footprint.php "$mode" > "$result"
-            jq -e '.correctness_passed == true and .source_php_files > 0 and .opcache.cache_full == false' "$result" >/dev/null
+            jq -e '
+              .correctness_passed == true
+              and .source_php_files > 0
+              and .opcache_enabled == true
+              and .opcache.cache_full == false
+              and (
+                .mode == "bootstrap"
+                or (
+                  .included_runwire_files > 0
+                  and .cached_runwire_files > 0
+                  and .cached_runwire_files == .included_runwire_files
+                  and ((.included_runwire_scripts - .cached_runwire_scripts) | length == 0)
+                )
+              )
+            ' "$result" >/dev/null
             cat "$result"
           done
 

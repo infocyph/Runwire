@@ -228,3 +228,17 @@ it('restores loop state after callback failure so the instance can run again', f
     expect($ran)->toBeTrue();
 });
 
+it('fails fast on permanent select failures while retaining recoverable cases', function (): void {
+    $policy = new ReflectionMethod(SelectLoop::class, 'assertRecoverableSelectFailure');
+
+    expect(static fn () => $policy->invoke(null, null, 0))
+        ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
+
+    expect($policy->invoke(
+        null,
+        'stream_select(): Unable to select [4]: Interrupted system call',
+        0,
+    ))->toBeNull()
+        ->and($policy->invoke(null, null, 1))->toBeNull();
+});
+

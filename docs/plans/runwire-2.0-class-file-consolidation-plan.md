@@ -1,7 +1,7 @@
 # Runwire 2.0 class/file consolidation plan
 
 Date: 2026-09-26. Source baseline: `ee56528a1c78b77e97d1bd26fcd43a2d14dd5c09`.
-Status: **implementation complete; final runtime revision verified by the full PR matrix**. Target: **2.0 before release**, including documented breaking changes where justified. Release-duration certification/soak remains an explicit pre-release performance gate rather than being inferred from PR smoke evidence.
+Status: **follow-up remediation implemented; exact-head CI verification pending**. Target: **2.0 before release**, including documented breaking changes where justified. Matched sustained baseline/candidate performance certification and the applicable soak remain explicit pre-release gates rather than being inferred from PR smoke evidence.
 
 Governing instructions: [PHPForge engineering principles](../../vendor/infocyph/phpforge/resources/engineering-principles.md), especially “Structural Simplification, Type Budget And Call-Hop Reduction”, “Autoloadable Symbol And File Behavior”, and “OPcache Capacity, Warm-Up And Observability”. The refreshed graphify graph was used for navigation; source inspection determines ownership and compatibility.
 
@@ -157,7 +157,7 @@ Do not merge HTTP/1+2 and HTTP/3 worker owners merely because their completion c
 | C2–C3 | Merge select-error policy and scheduler holder, separately reviewable. | Select/coroutine regressions; startup, allocations and loaded-file deltas. | Implemented; 2 files removed |
 | C4–C5 | Simplify stream lookup and connection dispatch after lifetime/complexity review. | Constructor/reentrancy, pressure, close/error and stream-lifetime tests; memory/complexity evidence. | C4 implemented; C5 retained because merging raised `Connection` cognitive complexity to 87 (>80) |
 | C6–C8, W1–W4 | Decide each conditional candidate from evidence. | Explicit keep/remove decision, public migration where applicable, per-workload results. | C6/C7/W2/W4 implemented; C5/C8/W1/W3 retained |
-| C9 | Document measured consumer capacity guidance and final candidate. | Final source/type counts, workload cache deltas, no stale symbols and final-revision CI; release-duration sustained/soak remains the explicit pre-release certification gate. | Complete for implementation; release certification remains external to PR smoke |
+| C9 | Document measured consumer capacity guidance and final candidate. | Final source/type counts, workload cache deltas, no stale symbols and final-revision CI; matched sustained baseline/candidate comparison and release-duration soak remain explicit pre-release certification gates. | Follow-up fixes implemented; exact-head CI pending; no-slowdown certification outstanding |
 
 For each batch: record old owner → new owner, net type/file change, removed calls/allocations, public effects, ownership invariants, regression commands and before/after evidence. Keep batches independently revertible. Do not let an experimental later batch block useful verified earlier simplification.
 
@@ -193,6 +193,20 @@ The retained benchmark artifacts reported this candidate footprint:
 The same PR benchmark run completed five real native HTTP/1 smoke trials on each PHP version with correctness passing and low trial variance: median successful RPM was 23,413.98 on PHP 8.4 and 23,418.72 on PHP 8.5; median p95 was 41.959 ms and 41.912 ms respectively. F-04 transfer comparison and independent WebSocket evidence also passed correctness on both versions with zero WebSocket errors/timeouts/validation failures.
 
 These CI figures are retained artifacts from the final PR run and are not compared byte-for-byte with the earlier local baseline because the hosts/PHP builds differ. The matched same-host table above remains the valid structural before/after comparison. The PR run is smoke/repeated evidence, not the 30-second warm-up + five 180-second trials + 30-minute release soak; that longer certification remains a separate pre-release gate and is not falsely claimed here.
+
+### Follow-up review remediation
+
+A post-implementation review found three P2 gaps. All three are addressed in the follow-up candidate; exact-head CI is required before this tracker returns to complete:
+
+| Finding | Resolution | Status |
+| --- | --- | --- |
+| OPcache CI accepted disabled caching | Benchmark validation now requires `opcache_enabled == true`; lifecycle/coroutine workloads must load and cache Runwire scripts, with every included Runwire script represented in the cached-script set. Bootstrap may remain at zero Runwire scripts by design. | Implemented; CI pending |
+| Consolidated select-error policy lost direct regression coverage | Restored the permanent-failure, EINTR-recovery and pruned-watcher recovery assertions against the policy now owned by `SelectLoop`, without reintroducing `SelectFailurePolicy`. | Implemented; CI pending |
+| Removed public `Http3\FrameWriter::encode()` lacked migration guidance | `docs/migration-2.0.md` now documents the breaking removal and the `$frame->encode()` replacement. | Implemented; CI pending |
+
+The production footprint remains **348 → 337** files. The local release guard on a host without ext-event still reports the nine `Event`/`EventBase` references in `EventLoop.php`; this remains an explicit environment verification limitation and is not bypassed or suppressed.
+
+The footprint evidence does not certify no slowdown. Final performance acceptance still requires a matched baseline/candidate comparison on the same stable infrastructure, PHP build, extensions, OPcache/JIT settings, Composer mode and workload, using the documented warm-up, five measured trials and applicable soak.
 
 ### Measurement matrix
 
@@ -230,11 +244,11 @@ Monitor cache-full, hash/OOM restarts and hit-rate trends across warm-up and loa
 
 The consolidation implementation is complete at **337 production PHP files**, down from 348, with **11 net source-file removals** and no replacement helper files. C1–C4, C6, C7, W2 and W4 were accepted. C5, C8, W1 and W3 were retained because the evidence favored the existing boundary; notably, C5 was reverted when the merged `Connection` reached class cognitive complexity 87 against PHPForge's hard limit of 80.
 
-The final runtime revision passed the complete PR matrix described above. PHPForge Reference Integrity, duplicate detection, comment policy, Pest, Pint, PHPCS, Deptrac, Rector, PHPStan and Psalm all pass after migrating every removed-symbol reference. The durable OPcache harness is part of the benchmark workflow, and its JSON outputs are retained as workflow artifacts.
+The pre-follow-up runtime revision passed the complete PR matrix described above. PHPForge Reference Integrity, duplicate detection, comment policy, Pest, Pint, PHPCS, Deptrac, Rector, PHPStan and Psalm passed after migrating every removed-symbol reference. The follow-up candidate strengthens OPcache validation, restores select-error regression coverage and documents the HTTP/3 frame-encoding migration; its exact-head matrix is pending.
 
 No detector, complexity budget, reference checker or optional runtime lane was bypassed. The plan tracker and companion inventory reflect the final 337-file candidate. PR #3 remains open and unmerged for human release/merge control.
 
 ### Release boundary
 
-This plan's implementation work is closed. The repository's longer release-duration performance certification remains intentionally separate: 30-second warm-up, five 180-second measured trials and the applicable 30-minute soak should still be run before publishing 2.0 when that release gate is invoked. PR smoke results are not relabeled as release-duration certification.
+The consolidation implementation and the three P2 follow-up fixes are coded, but closure now depends on exact-head CI. Separately, no-slowdown certification remains open until the matched baseline/candidate performance procedure is completed: 30-second warm-up, five 180-second measured trials and the applicable 30-minute soak. PR smoke results are not relabeled as that certification.
 

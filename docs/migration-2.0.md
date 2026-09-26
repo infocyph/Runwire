@@ -103,6 +103,24 @@ Browser requests carrying an `Origin` header are rejected unless the application
 
 Runwire 2.0 does not advertise HTTP/2 or HTTP/3 WebSocket extended CONNECT and does not enable WebSocket compression. Host adapters continue to report only features that the selected Runwire integration can actually expose.
 
+## HTTP/3 frame encoding
+
+Runwire 2.0 removes the public `Infocyph\Runwire\Http\Http3\FrameWriter` encoding helper. Frame wire encoding now belongs to `Http3\Frame` itself.
+
+Code that previously encoded a frame through the removed helper:
+
+```php
+$wire = FrameWriter::encode($frame);
+```
+
+must migrate to:
+
+```php
+$wire = $frame->encode();
+```
+
+There is no replacement writer object to construct or inject. Consumers should migrate direct `FrameWriter::encode()` calls before upgrading to 2.0.
+
 ## Compatibility notes
 
 The 2.0 work preserves unchanged public named arguments wherever possible. The important migration changes are behavioral contracts: terminal request ownership, stricter capability truth, bounded native fallback capacity, aggregate resource admission, process-tree cleanup, and more consistent response framing.
