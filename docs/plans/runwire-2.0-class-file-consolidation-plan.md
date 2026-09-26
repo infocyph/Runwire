@@ -94,7 +94,7 @@ All paths below are relative to `src/`. A single source consumer is a review lea
 | C7 | `Coroutine/Internal/YieldSuspension.php` → existing scheduler/suspension flow | Evaluate a scheduler-owned yield operation with no dedicated per-yield object. | 1 | Conditional experiment only: preserve the closed suspension contract, fairness, cancellation and invalid-suspension detection. No ambiguous magic scalar or mutable singleton. Keep the class if simplification weakens those guarantees. |
 | C8 | `Runtime/Host/RuntimeApplication.php` and `Runtime/ApplicationLifecycle.php` | Review one canonical public application/lifecycle owner for 2.0; retain the `RuntimeApplicationInterface` extension boundary. | 1 | Public constructor, factories and custom integrations make this a breaking API design decision. Retain default context construction, hooks, health and shutdown behavior. Benchmark removal of repeated delegation and migrate consumers. Defer if savings do not justify churn. |
 
-C1–C5 were accepted for seven removals. C6, C7, W2 and W4 were also accepted; C8, W1 and W3 were retained after ownership review. The candidate removes **12 production files, 348 → 336**, without adding replacement helper files.
+C1–C4 were accepted for six removals. C6, C7, W2 and W4 were also accepted; C5, C8, W1 and W3 were retained after ownership/quality review. The candidate removes **11 production files, 348 → 337**, without adding replacement helper files. C5 was explicitly rejected after PHPStan/PHPForge measured `Connection` class cognitive complexity at 87, above the hard limit of 80.
 
 ### Additional candidates from the whole-library review
 
@@ -155,8 +155,8 @@ Do not merge HTTP/1+2 and HTTP/3 worker owners merely because their completion c
 | C0 | Freeze baseline commit; generate a declaration/ownership inventory and loaded-file/cache harness using existing test/benchmark infrastructure. Classify keep/remove/conditional candidates. | Reproducible JSON artifacts, graph/source verification, exported-symbol map, baseline tests and stable benchmark envelope. | Complete |
 | C1 | Consolidate shared HTTP header validation representations. | Three removals or a documented narrower result; protocol failure/response parity and autoload checks. | Implemented; 3 files removed |
 | C2–C3 | Merge select-error policy and scheduler holder, separately reviewable. | Select/coroutine regressions; startup, allocations and loaded-file deltas. | Implemented; 2 files removed |
-| C4–C5 | Simplify stream lookup and connection dispatch after lifetime/complexity review. | Constructor/reentrancy, pressure, close/error and stream-lifetime tests; memory/complexity evidence. | Implemented; 2 files removed |
-| C6–C8, W1–W4 | Decide each conditional candidate from evidence. | Explicit keep/remove decision, public migration where applicable, per-workload results. | C6/C7/W2/W4 implemented; C8/W1/W3 retained |
+| C4–C5 | Simplify stream lookup and connection dispatch after lifetime/complexity review. | Constructor/reentrancy, pressure, close/error and stream-lifetime tests; memory/complexity evidence. | C4 implemented; C5 retained because merging raised `Connection` cognitive complexity to 87 (>80) |
+| C6–C8, W1–W4 | Decide each conditional candidate from evidence. | Explicit keep/remove decision, public migration where applicable, per-workload results. | C6/C7/W2/W4 implemented; C5/C8/W1/W3 retained |
 | C9 | Document measured consumer capacity guidance and final candidate. | Final source/type counts, workload cache deltas, no stale symbols, final-revision CI and required sustained/soak evidence. | In progress; CI/certification verification pending |
 
 For each batch: record old owner → new owner, net type/file change, removed calls/allocations, public effects, ownership invariants, regression commands and before/after evidence. Keep batches independently revertible. Do not let an experimental later batch block useful verified earlier simplification.
@@ -167,13 +167,13 @@ The matched PHP 8.4.23 local footprint probe produced:
 
 | Mode | Baseline files | Candidate files | Baseline loaded/cached | Candidate loaded/cached | Baseline cache bytes | Candidate cache bytes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Bootstrap | 348 | 336 | 0 / 0 | 0 / 0 | 0 | 0 |
-| Lifecycle request | 348 | 336 | 43 / 43 | 43 / 43 | 404,168 | 403,992 |
-| Attached coroutine + yield | 348 | 336 | 65 / 65 | 62 / 62 | 692,776 | 686,504 |
+| Bootstrap | 348 | 337 | 0 / 0 | 0 / 0 | 0 | 0 |
+| Lifecycle request | 348 | 337 | 43 / 43 | 43 / 43 | 404,168 | 403,992 |
+| Attached coroutine + yield | 348 | 337 | 65 / 65 | 62 / 62 | 692,776 | 686,504 |
 
 Focused same-host micro-probes showed no regression signal for shared HTTP/2 header validation, HTTP/3 frame encoding, or scheduler yield. These are directional probes only; CI PHPBench and native sustained trials remain authoritative.
 
-Decisions: **C1 accepted** (shared HTTP validation directly); **C2 accepted** (select failure policy belongs to SelectLoop); **C3 accepted** (direct readonly scheduler dependencies); **C4 accepted** (safe owner closure after constructor trace); **C5 accepted** (private Connection callback behavior); **C6 accepted** (single-owner development scanning); **C7 accepted** (scheduler-owned yield signal removes per-yield allocation); **C8 retained** (substantial lifecycle boundary); **W1 retained** (avoid bloating Runtime); **W2 accepted** (Frame owns encoding); **W3 retained** (typed exhaustive parser state); **W4 accepted** (restart state owned by RestartCoordinator).
+Decisions: **C1 accepted** (shared HTTP validation directly); **C2 accepted** (select failure policy belongs to SelectLoop); **C3 accepted** (direct readonly scheduler dependencies); **C4 accepted** (safe owner closure after constructor trace); **C5 retained** (folding callback dispatch raised `Connection` cognitive complexity to 87, above the PHPForge class limit of 80); **C6 accepted** (single-owner development scanning); **C7 accepted** (scheduler-owned yield signal removes per-yield allocation); **C8 retained** (substantial lifecycle boundary); **W1 retained** (avoid bloating Runtime); **W2 accepted** (Frame owns encoding); **W3 retained** (typed exhaustive parser state); **W4 accepted** (restart state owned by RestartCoordinator).
 
 ### Measurement matrix
 
