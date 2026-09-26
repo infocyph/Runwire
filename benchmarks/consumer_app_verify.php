@@ -51,7 +51,7 @@ $request = new HttpRequest(
 
 $adapter = new RunwireRuntimeAdapter();
 $context = $adapter->context($request, $writer);
-$adapter->write(Response::plaintext('consumer-runwire-ok'), $context);
+$adapter->write(Response::plaintext('consumer-runwire-ok', 200), $context);
 
 if ($status !== 200 || $body !== 'consumer-runwire-ok' || !$ended || !$writer->isEnded()) {
     throw new RuntimeException('Infbyte/Webrick Runwire bridge probe failed.');
