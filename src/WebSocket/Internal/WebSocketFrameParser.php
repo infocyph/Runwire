@@ -23,8 +23,8 @@ final class WebSocketFrameParser
      * Create a bounded parser optionally charged to the worker byte budget.
      */
     public function __construct(
-        private readonly WebSocketOptions $options,
-        private readonly ?ByteBudget $budget = null,
+        private WebSocketOptions $options,
+        private ?ByteBudget $workerBudget = null,
     ) {}
 
     /**
@@ -32,7 +32,7 @@ final class WebSocketFrameParser
      */
     public function __destruct()
     {
-        $this->release($this->budgetBytes);
+        $this->release($this->workerBudgetBytes);
     }
 
     /**
@@ -48,11 +48,11 @@ final class WebSocketFrameParser
         if (strlen($this->buffer) + $length > $this->options->maxBufferedBytes) {
             throw new WebSocketProtocolException(1009, 'WebSocket parser buffer limit exceeded.');
         }
-        if ($this->budget !== null && !$this->budget->reserve($length)) {
+        if ($this->workerBudget !== null && !$this->workerBudget->reserve($length)) {
             throw new WebSocketProtocolException(1009, 'WebSocket worker byte budget is exhausted.');
         }
 
-        $this->budgetBytes += $length;
+        $this->workerBudgetBytes += $length;
         $this->buffer .= $bytes;
     }
 
@@ -110,7 +110,7 @@ final class WebSocketFrameParser
     {
         $data = substr($this->buffer, 0, $bytes);
         $this->buffer = substr($this->buffer, $bytes);
-        $this->budgetBytes -= $bytes;
+        $this->workerBudgetBytes -= $bytes;
         $this->release($bytes);
 
         return $data;
@@ -211,6 +211,6 @@ final class WebSocketFrameParser
             return;
         }
 
-        $this->budget?->release($bytes);
+        $this->workerBudget?->release($bytes);
     }
 }
