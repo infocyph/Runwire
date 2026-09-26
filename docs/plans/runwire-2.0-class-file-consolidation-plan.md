@@ -1,7 +1,7 @@
 # Runwire 2.0 class/file consolidation plan
 
 Date: 2026-09-26. Source baseline: `ee56528a1c78b77e97d1bd26fcd43a2d14dd5c09`.
-Status: **implemented candidate; final CI and release-evidence gates in progress**. Target: **2.0 before release**, including documented breaking changes where justified. If 2.0 has shipped before implementation, public breaks belong in the next major; compatible internal simplifications may ship in a minor.
+Status: **implementation complete; final runtime revision verified by the full PR matrix**. Target: **2.0 before release**, including documented breaking changes where justified. Release-duration certification/soak remains an explicit pre-release performance gate rather than being inferred from PR smoke evidence.
 
 Governing instructions: [PHPForge engineering principles](../../vendor/infocyph/phpforge/resources/engineering-principles.md), especially “Structural Simplification, Type Budget And Call-Hop Reduction”, “Autoloadable Symbol And File Behavior”, and “OPcache Capacity, Warm-Up And Observability”. The refreshed graphify graph was used for navigation; source inspection determines ownership and compatibility.
 
@@ -157,7 +157,7 @@ Do not merge HTTP/1+2 and HTTP/3 worker owners merely because their completion c
 | C2–C3 | Merge select-error policy and scheduler holder, separately reviewable. | Select/coroutine regressions; startup, allocations and loaded-file deltas. | Implemented; 2 files removed |
 | C4–C5 | Simplify stream lookup and connection dispatch after lifetime/complexity review. | Constructor/reentrancy, pressure, close/error and stream-lifetime tests; memory/complexity evidence. | C4 implemented; C5 retained because merging raised `Connection` cognitive complexity to 87 (>80) |
 | C6–C8, W1–W4 | Decide each conditional candidate from evidence. | Explicit keep/remove decision, public migration where applicable, per-workload results. | C6/C7/W2/W4 implemented; C5/C8/W1/W3 retained |
-| C9 | Document measured consumer capacity guidance and final candidate. | Final source/type counts, workload cache deltas, no stale symbols, final-revision CI and required sustained/soak evidence. | In progress; CI/certification verification pending |
+| C9 | Document measured consumer capacity guidance and final candidate. | Final source/type counts, workload cache deltas, no stale symbols and final-revision CI; release-duration sustained/soak remains the explicit pre-release certification gate. | Complete for implementation; release certification remains external to PR smoke |
 
 For each batch: record old owner → new owner, net type/file change, removed calls/allocations, public effects, ownership invariants, regression commands and before/after evidence. Keep batches independently revertible. Do not let an experimental later batch block useful verified earlier simplification.
 
@@ -174,6 +174,25 @@ The matched PHP 8.4.23 local footprint probe produced:
 Focused same-host micro-probes showed no regression signal for shared HTTP/2 header validation, HTTP/3 frame encoding, or scheduler yield. These are directional probes only; CI PHPBench and native sustained trials remain authoritative.
 
 Decisions: **C1 accepted** (shared HTTP validation directly); **C2 accepted** (select failure policy belongs to SelectLoop); **C3 accepted** (direct readonly scheduler dependencies); **C4 accepted** (safe owner closure after constructor trace); **C5 retained** (folding callback dispatch raised `Connection` cognitive complexity to 87, above the PHPForge class limit of 80); **C6 accepted** (single-owner development scanning); **C7 accepted** (scheduler-owned yield signal removes per-yield allocation); **C8 retained** (substantial lifecycle boundary); **W1 retained** (avoid bloating Runtime); **W2 accepted** (Frame owns encoding); **W3 retained** (typed exhaustive parser state); **W4 accepted** (restart state owned by RestartCoordinator).
+
+### Final PR evidence
+
+The final runtime revision `580c1b679b734acff3fef23f0c9e76a527b8c37b` passed every PR workflow: Release Candidate, Source Audit, Portable Native (PHP 8.4/8.5 plus ext-event), Benchmarks, all Swoole/OpenSwoole PHP 8.4/8.5 lanes, and Security & Standards. The security matrix passed HTTP/3+QUIC on PHP 8.4/8.5, clean install, PHPForge analysis on PHP 8.4/8.5, stable/lowest QA on both versions, and PHPForge benchmark jobs. No review thread remained unresolved.
+
+The retained benchmark artifacts reported this candidate footprint:
+
+| CI runtime | Mode | Source PHP files | Included/cached Runwire files | Runwire script cache memory | Cache full |
+| --- | --- | ---: | ---: | ---: | --- |
+| PHP 8.4.26 | Bootstrap | 337 | 0 / 0 | 0 bytes | false |
+| PHP 8.4.26 | Lifecycle | 337 | 43 / 43 | 404,736 bytes | false |
+| PHP 8.4.26 | Coroutine + yield | 337 | 62 / 62 | 687,600 bytes | false |
+| PHP 8.5.11 | Bootstrap | 337 | 0 / 0 | 0 bytes | false |
+| PHP 8.5.11 | Lifecycle | 337 | 43 / 43 | 404,248 bytes | false |
+| PHP 8.5.11 | Coroutine + yield | 337 | 62 / 62 | 687,040 bytes | false |
+
+The same PR benchmark run completed five real native HTTP/1 smoke trials on each PHP version with correctness passing and low trial variance: median successful RPM was 23,413.98 on PHP 8.4 and 23,418.72 on PHP 8.5; median p95 was 41.959 ms and 41.912 ms respectively. F-04 transfer comparison and independent WebSocket evidence also passed correctness on both versions with zero WebSocket errors/timeouts/validation failures.
+
+These CI figures are retained artifacts from the final PR run and are not compared byte-for-byte with the earlier local baseline because the hosts/PHP builds differ. The matched same-host table above remains the valid structural before/after comparison. The PR run is smoke/repeated evidence, not the 30-second warm-up + five 180-second trials + 30-minute release soak; that longer certification remains a separate pre-release gate and is not falsely claimed here.
 
 ### Measurement matrix
 
@@ -207,10 +226,15 @@ Measure the union of scripts/keys used by the actual application and dependencie
 
 Monitor cache-full, hash/OOM restarts and hit-rate trends across warm-up and load. Verify OPcache is enabled for the serving SAPI (CLI workers need their own enablement). Keep safe path/comment/optimizer settings. Warm representative code only; preloading is optional and separately benchmarked. Use controlled worker/FPM restarts or correctly scoped invalidation for immutable releases; do not expose cache-status/reset endpoints publicly.
 
-## Planning verification
+## Final implementation verification
 
-Inventory: every current `src/**/*.php` file appears once in the companion CSV; counts and candidate totals are checked against the source tree. Local links and Markdown whitespace are checked. Runtime probes are described above. Planning-time PHPForge verification: doctor/list-config/active-config and `composer ic:process` passed. `composer ic:tests:details` ran **487 passing tests / 2,920 assertions**; syntax, duplication, comments, style, dependency and PHPStan/Psalm/Rector checks passed. That command and `composer ic:release:guard` still exit unsuccessfully because the reference checker reports nine unresolved `Event`/`EventBase` references in `src/Loop/EventLoop.php` on this host without ext-event. No quality gate was weakened, no runtime source was changed, and no implementation phase is closed by running the unchanged suite. Final-candidate CI and production-scale benchmarks were not run for this planning task.
+The consolidation implementation is complete at **337 production PHP files**, down from 348, with **11 net source-file removals** and no replacement helper files. C1–C4, C6, C7, W2 and W4 were accepted. C5, C8, W1 and W3 were retained because the evidence favored the existing boundary; notably, C5 was reverted when the merged `Connection` reached class cognitive complexity 87 against PHPForge's hard limit of 80.
 
-## Planning deliverable versus implementation
+The final runtime revision passed the complete PR matrix described above. PHPForge Reference Integrity, duplicate detection, comment policy, Pest, Pint, PHPCS, Deptrac, Rector, PHPStan and Psalm all pass after migrating every removed-symbol reference. The durable OPcache harness is part of the benchmark workflow, and its JSON outputs are retained as workflow artifacts.
 
-This file is the requested plan. Production classes remain unchanged. The earlier completed security/lifecycle plans remain removed. Only implementation evidence may close the phases above; neither this plan nor the local bounded probes certify release readiness or production capacity.
+No detector, complexity budget, reference checker or optional runtime lane was bypassed. The plan tracker and companion inventory reflect the final 337-file candidate. PR #3 remains open and unmerged for human release/merge control.
+
+### Release boundary
+
+This plan's implementation work is closed. The repository's longer release-duration performance certification remains intentionally separate: 30-second warm-up, five 180-second measured trials and the applicable 30-minute soak should still be run before publishing 2.0 when that release gate is invoked. PR smoke results are not relabeled as release-duration certification.
+
