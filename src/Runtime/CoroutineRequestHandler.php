@@ -63,5 +63,4 @@ final class CoroutineRequestHandler implements LoopAwareRequestHandlerInterface
     {
         $this->attachedRuntime = $this->runtime->withLoop($loop);
     }
-
 }
