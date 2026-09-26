@@ -8,7 +8,6 @@ use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\Http3\Internal\ResponseScheduler;
@@ -137,7 +136,7 @@ it('queues response QPACK encoder instructions when peer settings allow dynamic 
     $state->pushPeerUnidirectional(
         2,
         VarIntCodec::encode(StreamType::CONTROL->value)
-            . FrameWriter::encode(new Frame(FrameType::SETTINGS->value, SettingsCodec::encode($settings))),
+            . (new Frame(FrameType::SETTINGS->value, SettingsCodec::encode($settings)))->encode(),
     );
     $transport = new Http3SchedulerTransport();
     $scheduler = new ResponseScheduler($state, $limits, $transport);
