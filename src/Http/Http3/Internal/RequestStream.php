@@ -92,8 +92,7 @@ final class RequestStream
         $this->validator = new RequestHeaderValidator('HTTP/3');
         $this->onBodyRelief = $onBodyRelief !== null
             ? $onBodyRelief(...)
-            : static function (): void {
-            };
+            : static function (): void {};
         $this->body = new StreamingRequestBody(
             $limits->bodyLowWatermarkBytes,
             $limits->bodyHighWatermarkBytes,
