@@ -2,11 +2,11 @@
 
 Audit date: 2026-09-25. Source revision: `7ab48fcf224ee86838e5bf82a50b998c2aaa8a90` (local tag `1.0`).
 
-Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: implementation batches B0-B5 are complete on the working branch; F-04 and F-05 are retained after their bounded correctness, performance/interoperability and exact-head quality gates passed. Exact-head CI is green at `7b315220d7cd412ca0058f54802ce8b32800c95c`. Merge/tag/release remain maintainer-controlled actions, and the human-triggered release-duration certification workflow remains a mandatory pre-tag gate. This document does not certify the absence of vulnerabilities.
+Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: **all implementation batches B0-B5 are complete** on `feature/next-edition`; all RW findings are closed; F-01 through F-05 are retained in 2.0 after their required correctness, bounded-resource, performance/interoperability and quality gates passed. Certified implementation/docs evidence head `3ee339350d72264e2ad87fe8642a5018659cb4a8` completed **26/26 checks with zero failures and zero unresolved review threads**. This final plan sweep changes documentation only. Merge, tag and release remain maintainer-controlled actions. The release-duration workflow is a mandatory pre-tag release gate, not unfinished implementation work. This document does not certify the absence of vulnerabilities.
 
 ## Implementation tracker
 
-Updated: 2026-09-26. Working branch: `feature/next-edition`. Implementation baseline: `1bd9ae9a00f352714070177e4cfb01c811231b0e`.
+Updated: 2026-09-26. Working branch: `feature/next-edition`. Implementation baseline: `1bd9ae9a00f352714070177e4cfb01c811231b0e`. Certified implementation/docs evidence head before this final plan-only sweep: `3ee339350d72264e2ad87fe8642a5018659cb4a8`.
 
 This tracker is part of the implementation record. Update it in every implementation batch; do not mark a batch complete until its code, targeted regression evidence and relevant quality checks are present on the branch. Keep the pull request open throughout implementation so CI and review findings feed back into the remaining batches.
 
@@ -15,7 +15,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
 | B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | Complete — all reproduced findings have durable regression coverage and final-matrix QA | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Complete | State transitions and public migration decisions recorded |
-| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; initial F-04/F-05 disposition | Complete — capability/policy decisions certified with B2 host matrix QA; F-04/F-05 were later reopened as binary B4 decisions | Driver table, supported matrix, budget evidence and initial feature dispositions recorded |
+| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; feature decision framework | Complete — capability/policy decisions certified with B2 host matrix QA; F-04/F-05 decision criteria were carried into B4 and both ultimately passed | Driver table, supported matrix, budget evidence and feature decision criteria recorded |
 | B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Complete — exact-head QA green | Targeted adversarial regressions green |
 | B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete — portable fallback plus B3-A scalable-capacity closure exact-head QA green | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Complete — exact-head QA green | Redaction, mTLS-policy and live-socket regressions green |
@@ -27,8 +27,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Complete — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics exact-head QA green | Fairness and worker-wide resource limits proven |
 | B3-C | Process-tree/platform hardening — RW-13 | Complete — raced descendant ownership, process-group termination, detached cleanup and platform regressions exact-head QA green | Descendant/reap/cancellation/platform regressions green |
 | B3-D | Duplication, CI provenance and optional-feature handoff — RW-15/16, F-04/F-05 | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; final F-04/F-05 decisions moved to B4 | P2 dispositions recorded; version/tag refs preserved; update policy green; optional-feature decision ownership handed to B4 |
-| B4 | Sustained-performance and release certification | Implementation complete — HTTP/1/HTTP/3 smoke/interoperability lanes green; F-04/F-05 acceptance evidence and exact-head matrix green; manual release-duration certification remains the required pre-tag gate | Production-equivalent release-duration trials/soak are intentionally human-triggered before tag |
-| B5 | Migration docs, beta/RC evidence and exact-head final candidate | Complete for branch implementation — all findings closed; migration/public docs synchronized; clean production install, package-content gate, consumer scan and exact-head final matrix green at `7b31522` | Merge/tag/release wait only on the maintainer-controlled pre-tag certification/release process |
+| B4 | Sustained-performance and release certification | **Complete** — HTTP/1/HTTP/3 smoke/interoperability lanes green; F-04/F-05 acceptance evidence green; exact-head implementation matrix green | Implementation acceptance is complete; the longer release-duration workflow remains a separate mandatory pre-tag release gate |
+| B5 | Migration docs, beta/RC evidence and exact-head final candidate | **Complete** — all findings closed; migration/public docs synchronized; clean production install, package-content gate, consumer scan and certified 26/26 matrix green at `3ee339350d72` | Branch implementation is release-candidate ready; merge/tag/release remain maintainer-controlled and require the pre-tag release-duration gate |
 
 ### Finding tracker
 
@@ -69,7 +69,7 @@ This tracker is part of the implementation record. Update it in every implementa
 
 ### F-04 / F-05 2.0 decision tracker
 
-These two features are binary 2.0 decisions. There is no deferred state: every checkpoint must finish, then the feature is either retained in 2.0 or removed before the final candidate.
+F-04 and F-05 were treated as binary 2.0 decisions. Both completed every implementation acceptance checkpoint and are **retained in 2.0**. The rows below are the final decision record.
 
 | ID | Feature | Checkpoint | Status | Evidence / exit condition |
 | --- | --- | --- | --- | --- |
@@ -86,11 +86,11 @@ These two features are binary 2.0 decisions. There is no deferred state: every c
 | F05-5 | Native WebSocket serving | Slow-reader/backpressure and worker-wide byte accounting | Complete — exact-head QA green | Reads stop under write pressure; parser/fragment buffers share worker byte budget |
 | F05-6 | Native WebSocket serving | Capability truth | Complete | Native runtime advertises WebSocket only after native HTTP/1 implementation exists; host adapters remain unchanged |
 | F05-7 | Native WebSocket serving | Independent interoperability evidence | Complete — PHP-native exact-head lane green on PHP 8.4/8.5 | PHP 8.4: 451,007 messages, median 43,949.085 msg/s, CV 1.050%; PHP 8.5: 182,076 messages, median 17,640.028 msg/s, CV 0.844%; raw PHP stdlib client validates handshake, text/binary echo, ping/pong and close without importing Runwire WebSocket classes |
-| F05-8 | Native WebSocket serving | Repeated trial + slow-reader + certification soak | Acceptance smoke complete; release-duration gate configured | Five-trial PHP-native smoke and slow-reader pressure are green; manual pre-tag certification extends measured trials and soak to release duration |
+| F05-8 | Native WebSocket serving | Repeated trial + slow-reader + release-gate soak | **Complete for implementation acceptance** | Five-trial PHP-native smoke and slow-reader pressure are green; the configured manual pre-tag workflow extends measured trials and soak to release duration as a release gate |
 | F05-9 | Native WebSocket serving | PHPForge/static quality | Complete — exact-head QA green | No complexity/type suppressions; PHPForge QA/analysis, PHPStan and Psalm are green |
 | F05-D | Native WebSocket serving | 2.0 decision | Keep in 2.0 | Native HTTP/1-only scope retained after security, bounded-resource, independent interoperability, slow-reader and exact-head quality gates passed |
 
-Release-duration certification is intentionally not represented by the short PR benchmark lane. Before tagging 2.0.0, invoke the benchmark workflow's certification mode on the exact release candidate so its 30-second warmup, five 180-second trials and 30-minute soak produce durable artifacts.
+**Release checklist boundary:** implementation acceptance is complete. Before tagging 2.0.0, the maintainer must invoke the benchmark workflow's certification mode on the exact release candidate so its 30-second warmup, five 180-second trials and 30-minute soak produce durable artifacts. This is a pre-tag release action, not an open B0-B5 implementation item.
 
 ## Phase 0 contract decisions
 
@@ -173,7 +173,7 @@ Policy boundary rules:
 - `supports*` must mean usable in the selected, enabled runtime configuration, not merely something a host product can theoretically provide.
 - Wire ownership and policy enforcement are separate. Host-owned HTTP/2/3 or TLS cannot be counted as Runwire protocol enforcement.
 - Runwire request deadlines begin once Runwire owns the request context. Host connection, handshake and pre-dispatch timeouts remain host policy unless the native driver owns them.
-- Request reset, lifecycle metrics and lifecycle GC have one owner: Runwire. Host adapters must not add unconditional per-request `gc_collect_cycles()`; B2-C removes duplicated ownership after verification.
+- Request reset, lifecycle metrics and lifecycle GC have one owner: Runwire. Host adapters do not add unconditional per-request `gc_collect_cycles()`; B2-C removed duplicated ownership and certified the single-owner policy.
 - `maxConcurrentConnections` is directly enforceable only where Runwire owns listener admission. Host adapters must expose the limitation instead of pretending to enforce connection counts.
 
 ### Baseline 2.0 resource and work budgets
@@ -192,7 +192,7 @@ These are the existing bounded defaults that remain the starting point for 2.0 u
 
 The following worker-wide budgets are **2.0 implementation targets**, not claims about the current code:
 
-- B3-B adds an aggregate queued/buffered-memory admission budget with a **64 MiB default per worker**. It covers Runwire-owned request bodies, pending response queues and protocol queues that can otherwise multiply per-stream limits. Accounting must use actual owned queued bytes, not reserve every per-stream maximum up front.
+- B3-B added an aggregate queued/buffered-memory admission budget with a **64 MiB default per worker**. It covers Runwire-owned request bodies, pending response queues and protocol queues that can otherwise multiply per-stream limits. Accounting uses actual owned queued bytes rather than reserving every per-stream maximum up front.
 - B3-B changes the default active request/stream policy from unbounded-by-count to **256 active requests** and **256 active multiplexed streams per worker**, while preserving explicit user configuration and protocol-local lower ceilings.
 - B3-A gives the portable `SelectLoop` fallback a conservative **256 concurrently admitted native connections per worker** unless the user explicitly configures a lower value. Higher defaults require a scalable backend proven by the B3-A capacity suite; an accelerated backend may use a larger measured limit without changing the fallback safety cap.
 - Per-turn work budgets remain explicit. B3-B must make HTTP/2 frame parsing and HTTP/3 control-stream work consume those budgets instead of materializing unbounded ready work before accounting.
@@ -200,13 +200,13 @@ The following worker-wide budgets are **2.0 implementation targets**, not claims
 
 These values are conservative release defaults, not throughput claims. B4 may lower them for memory safety or raise accelerated-backend concurrency only when production-equivalent measurements and soak evidence justify it.
 
-### Optional feature dispositions
+### Final feature dispositions
 
-**F-04 — bounded stream-to-response transfer: a binary 2.0 candidate.** Runwire already exposes the primitives required for a bounded pump, so the prototype must stay inside the existing response ownership model. Compare the helper against an equivalent application pump under plain/TLS transport, large payloads, slow readers, disconnects and declared-length semantics. Keep it in 2.0 only if it materially simplifies correct usage while preserving bounded memory and showing no meaningful sustained-throughput regression.
+**F-04 — bounded stream-to-response transfer: accepted for 2.0.** `ResponseTransfer::stream()` stays inside the existing response ownership model and reuses `ResponseWriterInterface`, coroutine cancellation, bounded chunks, cooperative yielding and writer drain/backpressure. Plain/TLS, slow-reader, cancellation/source-ownership and helper-vs-manual performance evidence passed the acceptance gate.
 
-**F-05 — native WebSocket serving: a binary 2.0 candidate.** Limit the prototype to HTTP/1 upgrade with compression disabled. It must reuse existing connection, cancellation, admission and lifecycle ownership and add explicit handshake validation, masking/UTF-8/fragment validation, message ceilings, heartbeat/close deadlines and slow-reader backpressure. Accept it for 2.0 only after independent interoperability, abuse/fuzz coverage, sustained soak and HTTP workload-isolation benchmarks are green.
+**F-05 — native WebSocket serving: accepted for 2.0.** The retained surface is native HTTP/1 RFC 6455 upgrade/session support with compression disabled. It reuses existing connection, cancellation, admission and lifecycle ownership and enforces handshake, origin/subprotocol, masking, UTF-8, fragmentation, message ceilings, heartbeat/close deadlines, slow-reader backpressure and worker-byte accounting. Independent PHP-stdlib interoperability and repeated-trial evidence passed.
 
-B0-D accepted F-01, F-02 and F-03 unconditionally. F-04/F-05 are now binary evidence-gated 2.0 candidates during B4: either fully accepted and implemented now, or dropped from 2.0 with the measured reason. No deferred state remains.
+Final 2.0 feature disposition: **F-01, F-02, F-03, F-04 and F-05 are all accepted and implemented.** F-04/F-05 passed the binary B4 decision gates; no feature remains in a deferred, conditional or half-supported state.
 
 ## Decision
 
@@ -443,19 +443,19 @@ Phase 0 must enumerate actual signature, constructor, named-argument and behavio
 
 ## Feature roadmap beyond defect correction
 
-The first three additions belong in the 2.0 core plan because they address observed architecture/capacity constraints. Additional candidates below may join 2.0 when their evidence and maintenance cost justify them. This is a recommendation and acceptance plan; none of these features was implemented during the audit.
+This roadmap is now a final implementation record. F-01 through F-05 all satisfied their scoped acceptance criteria and are included in the 2.0 branch. The table preserves the rationale, bounded-security/performance contract and final release decision.
 
 | Feature | Scope and rationale | Security/performance acceptance | Release decision |
 | --- | --- | --- | --- |
-| F-01: supported scalable native loop selection | Provide a tested accelerated backend selected/injected through the existing loop abstraction and worker construction. Expose the selected backend and capacity limitations. | More than 1,024 actual descriptors on a supported backend; bounded timers/I/O batches, cancellation and drain; controlled failure on fallback; sustained RPM and loop-lag comparison. | Include in phase 3. Choose backend after platform/dependency evaluation. |
-| F-02: multiple coroutine request scopes on one running loop | Native servers can overlap waiting requests using one owned scheduler, with per-request task groups and cancellation. Preserve standalone coroutine use. | Isolation and cancellation under concurrent tenants; enforce task/waiter/backlog budgets; improve I/O-bound successful RPM without starving ordinary callbacks. | Include in phase 2; public API changes are permitted. |
-| F-03: worker-wide resource admission and pressure reporting | Extend existing admission, metrics and supervision owners with aggregate connection/stream/task/queued-byte limits and observable rejection reasons. Retain existing overload responses/readiness/drain rather than building parallel mechanisms. | Enforce limits before expensive allocation where possible; stable queues/RSS and recovery after saturation; bounded metric labels and no per-request mandatory logging; calibrate polling cost. | Include in phase 3. Static explicit limits first; adaptive control requires separate evidence. |
-| F-04: bounded stream-to-response transfer | Assess a cancellable transfer operation for already-authorized stream resources, including large files and downloads, integrated with writer backpressure. Avoid requiring applications to build the same error-prone pump repeatedly. | No whole-file buffering, event-loop monopolization or leaked handles; partial writes, disconnect, ownership and length semantics tested. Compare against existing chunked writes under TLS and plain transport; do not claim zero-copy without platform evidence. | Conditional 2.0 candidate after phase 2; retain only if it materially simplifies correct use or improves measured throughput. |
-| F-05: native WebSocket serving | A concrete capability expansion beyond native HTTP/TCP: start with HTTP/1 upgrade and a bounded session/message API that reuses transport, cancellation, admission and lifecycle ownership. | Explicit application authorization/origin policy, masking/UTF-8/frame validation, message and fragmented-message ceilings, heartbeat/close deadlines and slow-reader backpressure; interoperability/fuzz/soak plus HTTP workload isolation. | Conditional 2.0 candidate after core lifecycle fixes. No automatic HTTP/2/3 WebSocket or compression claim. |
+| F-01: supported scalable native loop selection | Tested accelerated backend selected/injected through the existing loop abstraction and worker construction; selected backend and fallback limitations are observable. | More than 1,024 actual descriptors on the accelerated backend; bounded timers/I/O batches, cancellation/drain and controlled fallback behavior. | **Included in 2.0 — Complete.** |
+| F-02: multiple coroutine request scopes on one running loop | Native servers overlap waiting requests using one owned scheduler, with per-request task groups and cancellation while preserving standalone coroutine use. | Isolation/cancellation under concurrent tenants; bounded task/waiter/backlog budgets; no nested request loop-driving. | **Included in 2.0 — Complete.** |
+| F-03: worker-wide resource admission and pressure reporting | Existing admission, metrics and supervision owners enforce aggregate request/stream/queued-byte limits and observable pressure/rejection reasons. | Limits apply before expensive allocation where possible; saturation/recovery, bounded metrics and worker-wide byte accounting are covered. | **Included in 2.0 — Complete.** |
+| F-04: bounded stream-to-response transfer | `ResponseTransfer::stream()` provides cancellable bounded transfer for already-authorized streams while reusing writer backpressure and coroutine ownership. | No whole-file buffering; bounded cooperative work; source ownership/cancellation/TLS slow-reader coverage; stabilized helper-vs-manual gate stayed within the 5% budget. | **Included in 2.0 — Complete.** |
+| F-05: native WebSocket serving | Native HTTP/1 RFC 6455 upgrade and bounded session/message API reuse transport, cancellation, admission and lifecycle ownership. | Explicit origin policy, masking/UTF-8/frame validation, message/fragment ceilings, heartbeat/close deadlines, slow-reader backpressure, worker-byte accounting and independent PHP interop evidence. | **Included in 2.0 — Complete; HTTP/2/3 WebSocket and compression remain explicitly unclaimed.** |
 
 For F-05, follow the handshake, framing and security requirements of [RFC 6455](https://www.rfc-editor.org/rfc/rfc6455.html). Origin checks complement application authentication; they do not authenticate non-browser clients. Keep compression disabled initially. Any later compression support needs its own negotiation, resource and confidentiality review against [RFC 7692](https://www.rfc-editor.org/rfc/rfc7692.html).
 
-Each conditional feature gets a phase-0 decision record: actual consumer/use case, existing owner, public contract, supported drivers/platforms, resource ceilings, abuse corpus, before/after workload measurements, dependency cost and migration/maintenance impact. A capability expansion need not speed up an unrelated workload, but it must meet its own performance budget and avoid an unjustified cost when unused. If evidence does not justify inclusion, explicitly defer it to a later minor release; do not leave a half-supported feature advertised in 2.0.
+F-04/F-05 followed the phase-0/B4 decision record: consumer/use case, existing owner, public contract, supported scope, resource ceilings, abuse/security corpus, before/after measurements, dependency cost and migration/maintenance impact were evaluated before acceptance. Both met their scoped budgets, so both are retained. Unsupported WebSocket modes remain explicitly unclaimed rather than half-supported.
 
 Keep framework adapters, outbound database/HTTP client pools, a distributed job system and automatic global monkey-patching outside this release unless a concrete consumer requirement justifies their separate design. Runwire can integrate with such systems without reimplementing them. Optimize the highest measured sustainable successful RPM under security, correctness, latency and resource constraints; do not promise an absolute maximum across every workload.
 
@@ -467,7 +467,7 @@ Keep framework adapters, outbound database/HTTP client pools, a distributed job 
 2. Set the completion/cancellation/retirement state transitions, response-write contract, concurrent-reset policy and coroutine loop ownership. Inventory all interface implementors, adapters, tests and consumer examples before changing signatures.
 3. Record a per-driver ownership table for every security/resource policy and actual enabled capability (RW-22). Unsupported behavior must be explicit.
 4. Establish production-equivalent baseline measurements before hot-path changes. Calculate aggregate memory bounds from connection buffers, active streams, parser/compression state, queued responses, tasks and admission limits. Per-object ceilings multiplied by allowed concurrency must fit the worker/deployment budget with headroom.
-5. Decide conditional F-04/F-05 inclusion using the feature criteria above; map any accepted feature into phases 2/3 and its release acceptance lane.
+5. **Complete:** F-04/F-05 were evaluated with the feature criteria above, accepted, mapped into implementation owners and given dedicated release acceptance lanes.
 6. Define measurable target-workload latency/error/resource budgets and the precise supported PHP, OS, host and transport matrix. Preserve current claims until they are verified or explicitly revised as part of the major migration.
 
 Exit: committed failing regressions, concrete contract/migration decisions and recorded baseline/configuration evidence. Security corrections may proceed while a benchmark environment is prepared; final performance certification remains required.
@@ -495,7 +495,7 @@ Exit: all first-party implementors and consumer migrations pass the common contr
 1. Integrate/select a scalable production loop through `LoopInterface` in the existing worker owners (RW-04); choose an optional adapter/dependency based on verified platform support and measured capacity, not fashion. Keep SelectLoop as a bounded portable fallback with explicit failure behavior.
 2. Finish HTTP/2/3 work accounting, stream progress deadlines, compression synchronization under refusal, backpressure and aggregate admission (RW-10/11/19). Ensure controls apply across a whole turn/worker, not only per method call.
 3. Close process-tree/detached cleanup and platform contracts (RW-13), validate nested-cgroup/resource detection and test overload/reload recovery.
-4. Implement any accepted F-04/F-05 feature in its existing transport/lifecycle owners with the agreed contract and bounded abuse tests. Keep declined candidates out of capability claims.
+4. **Complete:** F-04/F-05 were implemented in existing transport/lifecycle owners with bounded contracts and abuse/resource tests; capability claims are limited to the implemented native HTTP/1 WebSocket scope.
 5. Resolve valid duplicated security/validation owners and measured maintenance issues (RW-15), without unneeded general abstractions. Preserve the repository's reviewed version/tag CI references, keep their automated update cadence, and resolve dependency provenance/abandonment through the owning dependency where applicable (RW-16).
 
 Exit: verified bounded resources and fair progress at supported capacity; no P1 issue open. Every P2 finding has a correction or evidence-based disposition. Optional cosmetic cleanup and speculative features are outside the release blockers.
@@ -516,12 +516,12 @@ Use the existing benchmark owners and PHPForge tooling first. Extend the current
 
 Exit: correctness and isolation stay intact under representative load; latency, errors and resources meet the phase-0 budgets; sustained successful RPM and variance are documented. A justified security cost must be visible, never hidden by disabling validation. No blanket equivalence claim to Octane, Symfony Runtime or Workerman: compare the actual host integration and workload.
 
-### Phase 5 — beta, migration and final candidate
+### Phase 5 — beta, migration and final candidate — complete
 
 1. Publish reviewable beta/RC artifacts only through the project's authorized release process; this audit does not tag, publish or send disclosures. Validate real consumer migrations, production `--no-dev` installs and packaged contents.
 2. Update API examples, deployment/security guidance, capability tables and benchmark documentation. Repair links in README and architecture/getting-started/coroutines/benchmarks/deployment docs to the removed historical plan, without restoring that deletion automatically.
 3. Close every confirmed finding with regression evidence, affected versions/configurations and any remaining mitigations. Follow `SECURITY.md` for disclosure decisions.
-4. Run all required gates on the exact final candidate; record immutable commit and artifacts. Target the final **2.0.0** release only when those gates pass. Do not represent this planning audit as release readiness.
+4. **Implementation acceptance complete:** the certified implementation/docs evidence head completed the required branch matrix. Before the maintainer tags **2.0.0**, run and retain the configured release-duration certification artifacts on the chosen exact release candidate.
 
 ## Required regression and acceptance matrix
 
@@ -552,4 +552,4 @@ Every finding closes with: affected files, regression evidence, behavior/compati
 
 Release only after all required CI jobs succeed on the final source revision, including real optional-runtime lanes, clean production install and applicable interoperability/soak checks. Record the commit, commands, environment, results and artifact locations. Keep host, container, CI and cross-project evidence separate. Historical green runs do not certify a later revision.
 
-Implementation through B0-B5 is complete on the working branch for the single 2.0.0 target. Exact-head CI at `7b315220d7cd412ca0058f54802ce8b32800c95c` is green across the required branch matrix. The human-triggered release-duration certification remains the mandatory pre-tag gate; merge, tag and release remain maintainer-controlled actions.
+**Implementation status: complete.** B0-B5, RW-01 through RW-22, and F-01 through F-05 are closed on the working branch for the single 2.0.0 target. Certified implementation/docs evidence head `3ee339350d72264e2ad87fe8642a5018659cb4a8` completed 26/26 checks with zero failures and zero unresolved review threads. This final plan sweep is documentation-only. The human-triggered release-duration certification remains the mandatory pre-tag release gate; merge, tag and release remain maintainer-controlled actions.
