@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\RequestStream;
@@ -23,7 +22,7 @@ it('maps malformed HTTP/3 pseudo-header combinations to H3_MESSAGE_ERROR', funct
     ], 0)->block;
 
     try {
-        $stream->push(FrameWriter::encode(new Frame(FrameType::HEADERS->value, $block)));
+        $stream->push((new Frame(FrameType::HEADERS->value, $block))->encode());
         test()->fail('Malformed HTTP/3 request pseudo-headers should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::MESSAGE_ERROR);
