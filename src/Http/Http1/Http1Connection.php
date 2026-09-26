@@ -355,9 +355,7 @@ final class Http1Connection
             function (bool $closeAfter): void {
                 $this->handleResponseEnd($closeAfter);
             },
-            function (string $accept, ?string $subprotocol, WebSocketOptions $options): WebSocketSession {
-                return $this->upgradeWebSocket($accept, $subprotocol, $options);
-            },
+            fn(string $accept, ?string $subprotocol, WebSocketOptions $options): WebSocketSession => $this->upgradeWebSocket($accept, $subprotocol, $options),
         );
     }
 
@@ -709,7 +707,14 @@ final class Http1Connection
         };
     }
 
-    private function upgradeWebSocket(
+    private function syncReadPause(): void
+    {
+        if ($this->bodyPressured || $this->waitingResponse) {
+            $this->connection->pauseReads();
+        } else {
+            $this->connection->resumeReads();
+        }
+    }    private function upgradeWebSocket(
         string $accept,
         ?string $subprotocol,
         WebSocketOptions $options,
@@ -724,8 +729,8 @@ final class Http1Connection
         $wire = "HTTP/1.1 101 Switching Protocols\r\n"
             . "upgrade: websocket\r\n"
             . "connection: Upgrade\r\n"
-            . "sec-websocket-accept: " . $accept . "\r\n"
-            . ($subprotocol === null ? '' : "sec-websocket-protocol: " . $subprotocol . "\r\n")
+            . 'sec-websocket-accept: ' . $accept . "\r\n"
+            . ($subprotocol === null ? '' : 'sec-websocket-protocol: ' . $subprotocol . "\r\n")
             . "\r\n";
         $result = $this->connection->write($wire);
         if (!$result->accepted()) {
@@ -755,12 +760,5 @@ final class Http1Connection
         return $session;
     }
 
-    private function syncReadPause(): void
-    {
-        if ($this->bodyPressured || $this->waitingResponse) {
-            $this->connection->pauseReads();
-        } else {
-            $this->connection->resumeReads();
-        }
-    }
+
 }
