@@ -205,9 +205,12 @@ final class ResponseScheduler
             return false;
         }
 
-        return $bytes <= $this->limits->maxPendingResponseBytesPerConnection
-            - $this->pendingStreamBytes
-            - $this->wireQueue->bytes();
+        return $bytes <= min(
+            $this->limits->maxPendingResponseBytesPerConnection
+                - $this->pendingStreamBytes
+                - $this->wireQueue->bytes(),
+            $stream->outbound->budgetAvailable(),
+        );
     }
 
     private function flushEnd(Http2Stream $stream): bool
@@ -361,7 +364,10 @@ final class ResponseScheduler
 
     private function queueWire(string $wire): WriteResult
     {
-        if (strlen($wire) > $this->limits->maxWireQueueBytes - $this->wireQueue->bytes()) {
+        if (strlen($wire) > min(
+            $this->limits->maxWireQueueBytes - $this->wireQueue->bytes(),
+            $this->wireQueue->budgetAvailable(),
+        )) {
             $this->connection->abort(CloseReason::WRITE_ERROR);
 
             return $this->closedResult();
