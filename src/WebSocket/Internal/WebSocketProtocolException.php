@@ -13,6 +13,9 @@ use RuntimeException;
  */
 final class WebSocketProtocolException extends RuntimeException
 {
+    /**
+     * Create a protocol failure carrying the RFC 6455 close code.
+     */
     public function __construct(
         public readonly int $closeCode,
         string $message,
