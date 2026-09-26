@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Network\Internal;
 
 use InvalidArgumentException;
+use OverflowException;
 
 /**
  * Stores byte chunks with efficient front reads, discards, and compaction.
@@ -22,6 +23,16 @@ final class ByteQueue
 
     private int $headOffset = 0;
 
+    public function __construct(private readonly ?ByteBudget $budget = null) {}
+
+    /**
+     * Return remaining shared budget capacity, or PHP_INT_MAX when unmetered.
+     */
+    public function budgetAvailable(): int
+    {
+        return $this->budget?->available() ?? PHP_INT_MAX;
+    }
+
     /**
      * Append non-empty bytes to the queue.
      */
@@ -30,8 +41,12 @@ final class ByteQueue
         if ($bytes === '') {
             return;
         }
+        $length = strlen($bytes);
+        if ($this->budget !== null && !$this->budget->reserve($length)) {
+            throw new OverflowException('Shared queued-byte budget is exhausted.');
+        }
         $this->chunks[] = $bytes;
-        $this->bytes += strlen($bytes);
+        $this->bytes += $length;
     }
 
     /**
@@ -47,6 +62,7 @@ final class ByteQueue
      */
     public function clear(): void
     {
+        $this->budget?->release($this->bytes);
         $this->chunks = [];
         $this->head = 0;
         $this->headOffset = 0;
@@ -67,11 +83,13 @@ final class ByteQueue
             if ($remaining < $available) {
                 $this->headOffset += $remaining;
                 $this->bytes -= $remaining;
+                $this->budget?->release($remaining);
 
                 return;
             }
             $remaining -= $available;
             $this->bytes -= $available;
+            $this->budget?->release($available);
             unset($this->chunks[$this->head]);
             ++$this->head;
             $this->headOffset = 0;
