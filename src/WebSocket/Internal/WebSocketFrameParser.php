@@ -15,24 +15,17 @@ use OverflowException;
  */
 final class WebSocketFrameParser
 {
-    private readonly ?ByteBudget $budget;
-
-    private readonly WebSocketOptions $options;
+    private int $budgetBytes = 0;
 
     private string $buffer = '';
-
-    private int $budgetBytes = 0;
 
     /**
      * Create a bounded parser optionally charged to the worker byte budget.
      */
     public function __construct(
-        WebSocketOptions $options,
-        ?ByteBudget $budget = null,
-    ) {
-        $this->budget = $budget;
-        $this->options = $options;
-    }
+        private readonly WebSocketOptions $options,
+        private readonly ?ByteBudget $budget = null,
+    ) {}
 
     /**
      * Release any still-buffered bytes from the worker budget.
