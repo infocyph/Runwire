@@ -15,7 +15,10 @@ use Infocyph\Runwire\Http\Http2\Hpack\HpackException;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
 use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\Internal\HeaderValidationException;
+use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
+use Infocyph\Runwire\Http\Internal\ValidatedRequestHead;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Throwable;
@@ -73,7 +76,7 @@ final class RequestStreamProcessor
             $limits->maxHeaderListBytes,
             $limits->maxHeaderCount,
         );
-        $this->validator = new RequestHeaderValidator();
+        $this->validator = new RequestHeaderValidator('HTTP/2');
         $this->handler = Closure::fromCallable($handler);
         $this->connectionFailure = Closure::fromCallable($connectionFailure);
         $this->streamFailure = Closure::fromCallable($streamFailure);
