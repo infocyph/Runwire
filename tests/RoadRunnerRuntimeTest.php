@@ -238,14 +238,13 @@ it('reports RoadRunner host protocols without claiming Runwire wire ownership', 
     expect($selection->capabilities->persistentApplication)->toBeTrue()
         ->and($selection->capabilities->supportsWorkerRecycle)->toBeTrue()
         ->and($selection->capabilities->supportsHttp1)->toBeTrue()
-        ->and($selection->capabilities->supportsHttp2)->toBeTrue()
-        ->and($selection->capabilities->supportsHttp3)->toBeTrue()
-        ->and($selection->capabilities->supportsQuic)->toBeTrue()
+        ->and($selection->capabilities->supportsHttp2)->toBeFalse()
+        ->and($selection->capabilities->supportsHttp3)->toBeFalse()
+        ->and($selection->capabilities->supportsQuic)->toBeFalse()
         ->and($selection->capabilities->ownsHttp1Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp3Wire)->toBeFalse();
 });
-
 
 it('enforces declared Content-Length in RoadRunner response writers', function (): void {
     $session = new class implements RoadRunnerSessionInterface {
