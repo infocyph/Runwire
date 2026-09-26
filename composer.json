@@ -30,7 +30,7 @@
     "require-dev": {
         "ext-pcntl": "*",
         "ext-posix": "*",
-        "infocyph/phpforge": "dev-main@dev"
+        "infocyph/phpforge": "dev-main#fdec64cf4460f13116eb0e2f3405acadd3e84377@dev"
     },
     "suggest": {
         "ext-event": "Enables the scalable native event-loop backend.",
