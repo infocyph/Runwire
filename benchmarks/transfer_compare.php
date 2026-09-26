@@ -125,6 +125,7 @@ function transferBenchmarkSource(int $bytes): mixed
         $write = min($remaining, strlen($chunk));
         if (fwrite($source, substr($chunk, 0, $write)) !== $write) {
             fclose($source);
+
             throw new RuntimeException('Unable to populate response-transfer benchmark source.');
         }
         $remaining -= $write;
