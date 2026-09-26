@@ -341,7 +341,7 @@ it('attaches coroutine request handlers to an externally owned native loop', fun
         ->and($events)->toContain('request-start', 'loop-work', 'request-end');
 });
 
-it('propagates attached coroutine handler failure through request cancellation', function (): void {
+it('retains attached coroutine handler failure for lifecycle finalization', function (): void {
     $loop = new SelectLoop();
     $handler = new CoroutineRequestHandler(
         new CoroutineRuntime(),
@@ -370,7 +370,9 @@ it('propagates attached coroutine handler failure through request cancellation',
     $handler($request, $writer);
     $loop->run();
 
-    expect($request->context->cancellation->reason())->toBe(CancellationReason::HOST_CANCELLED);
+    expect($request->context->cancellation->reason())->toBeNull()
+        ->and($request->context->ownedWorkFailure())->toBeInstanceOf(RuntimeException::class)
+        ->and($request->context->ownedWorkFailure()?->getMessage())->toBe('attached handler failed');
 });
 
 
@@ -401,14 +403,15 @@ it('preserves configured coroutine policy when binding a request handler to the 
     $handler($request, $writer);
     $loop->run();
 
-    expect($request->context->cancellation->reason())->toBe(CancellationReason::HOST_CANCELLED);
+    expect($request->context->cancellation->reason())->toBeNull()
+        ->and($request->context->ownedWorkFailure())->toBeInstanceOf(CoroutineOverflowException::class);
 });
 
 
 it('keeps request state and admission until attached coroutine root and children settle', function (): void {
     $loop = new SelectLoop();
     $events = [];
-    $resets = 0;
+    $state = new ArrayObject(['resets' => 0]);
     $handler = new CoroutineRequestHandler(
         new CoroutineRuntime(),
         static function (HttpRequest $request, $writer, CoroutineScope $scope) use (&$events): void {
@@ -434,13 +437,13 @@ it('keeps request state and admission until attached coroutine root and children
         $handler,
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
-            new class($resets) implements RequestResetterInterface {
-                public function __construct(private int &$resets) {}
+            new class($state) implements RequestResetterInterface {
+                public function __construct(private readonly ArrayObject $state) {}
 
                 public function reset(RequestContext $context): void
                 {
                     expect($context->attribute('tenant'))->toBe('A');
-                    ++$this->resets;
+                    $this->state['resets'] = $this->state['resets'] + 1;
                 }
             },
         ]),
@@ -463,7 +466,7 @@ it('keeps request state and admission until attached coroutine root and children
     $lifecycle->handle($request, $writer);
 
     expect($request->context->completed())->toBeFalse()
-        ->and($resets)->toBe(0);
+        ->and($state['resets'])->toBe(0);
 
     $rejected = [];
     $lifecycle->handle(
@@ -496,13 +499,13 @@ it('keeps request state and admission until attached coroutine root and children
         ['child-after-wait', 'completed' => false, 'tenant' => 'A'],
     ])->and($request->context->completed())->toBeTrue()
         ->and($request->context->attribute('tenant'))->toBeNull()
-        ->and($resets)->toBe(1);
+        ->and($state['resets'])->toBe(1);
 });
 
 it('records attached coroutine failure after response output before final cleanup', function (): void {
     $loop = new SelectLoop();
     $failure = new RuntimeException('late attached failure');
-    $resets = 0;
+    $state = new ArrayObject(['resets' => 0]);
     $handler = new CoroutineRequestHandler(
         new CoroutineRuntime(),
         static function (HttpRequest $request, $writer, CoroutineScope $scope) use ($failure): void {
@@ -518,13 +521,13 @@ it('records attached coroutine failure after response output before final cleanu
         $handler,
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
-            new class($resets) implements RequestResetterInterface {
-                public function __construct(private int &$resets) {}
+            new class($state) implements RequestResetterInterface {
+                public function __construct(private readonly ArrayObject $state) {}
 
                 public function reset(RequestContext $context): void
                 {
                     expect($context->attribute('tenant'))->toBe('A');
-                    ++$this->resets;
+                    $this->state['resets'] = $this->state['resets'] + 1;
                 }
             },
         ]),
@@ -550,5 +553,6 @@ it('records attached coroutine failure after response output before final cleanu
     $loop->run();
 
     expect($request->context->completed())->toBeTrue()
-        ->and($resets)->toBe(1);
+        ->and($state['resets'])->toBe(1)
+        ->and($request->context->ownedWorkFailure())->toBeNull();
 });
