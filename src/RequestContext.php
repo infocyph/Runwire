@@ -60,6 +60,7 @@ final class RequestContext
     /**
      * Creates a runtime-bound request context using the supplied execution policy.
      */
+
     public static function create(
         RuntimeContext $runtime,
         RequestExecutionPolicy $policy = new RequestExecutionPolicy(),
@@ -80,6 +81,7 @@ final class RequestContext
     }
 
     /** @internal Used for request objects constructed outside an active runtime. */
+
     public static function standalone(?string $requestId = null, ?int $startNanoseconds = null): self
     {
         $start = $startNanoseconds ?? self::nowNanoseconds();
@@ -96,6 +98,7 @@ final class RequestContext
     /**
      * Claims this single-use context for one active request lifecycle.
      */
+
     public function activate(RuntimeContext $runtime, RequestExecutionPolicy $policy): void
     {
         if ($this->completed) {
@@ -125,6 +128,7 @@ final class RequestContext
     /**
      * Returns a request attribute or the supplied default value when the key is absent.
      */
+
     public function attribute(string $key, mixed $default = null): mixed
     {
         return array_key_exists($key, $this->attributes)
@@ -133,12 +137,14 @@ final class RequestContext
     }
 
     /** @return array<string, mixed> */
+
     public function attributes(): array
     {
         return $this->attributes;
     }
 
     /** @internal */
+
     public function beginOwnedWork(): void
     {
         if ($this->completed) {
@@ -151,6 +157,7 @@ final class RequestContext
     /**
      * Cancels request work with the supplied reason.
      */
+
     public function cancel(CancellationReason $reason): bool
     {
         return $this->cancellationSource->cancel($reason);
@@ -159,6 +166,7 @@ final class RequestContext
     /**
      * Reports whether the request is cancelled at the supplied or current monotonic time.
      */
+
     public function cancelled(?int $nowNanoseconds = null): bool
     {
         return $this->cancellation->isCancelled($nowNanoseconds);
@@ -167,6 +175,7 @@ final class RequestContext
     /**
      * Completes the context and releases request-scoped state.
      */
+
     public function complete(): void
     {
         if ($this->completed) {
@@ -185,6 +194,23 @@ final class RequestContext
     }
 
     /** @internal */
+
+    public function completed(): bool
+    {
+        return $this->completed;
+    }
+
+    /** @internal */
+
+    public function deadline(): RequestDeadline
+    {
+        return $this->deadline;
+    }
+
+    /**
+     * Reports whether a request attribute exists.
+     */
+
     public function finishOwnedWork(?Throwable $failure = null): void
     {
         if ($this->ownedWorkCount < 1) {
@@ -201,28 +227,7 @@ final class RequestContext
     /**
      * Reports whether the request context has completed.
      */
-    public function completed(): bool
-    {
-        return $this->completed;
-    }
 
-    /** @internal */
-    public function hasOwnedWork(): bool
-    {
-        return $this->ownedWorkCount > 0;
-    }
-
-    /**
-     * Returns the request execution deadline.
-     */
-    public function deadline(): RequestDeadline
-    {
-        return $this->deadline;
-    }
-
-    /**
-     * Reports whether a request attribute exists.
-     */
     public function hasAttribute(string $key): bool
     {
         return array_key_exists($key, $this->attributes);
@@ -231,12 +236,16 @@ final class RequestContext
     /**
      * Removes a request attribute when present.
      */
-    public function removeAttribute(string $key): void
+
+    public function hasOwnedWork(): bool
     {
-        unset($this->attributes[$key]);
+        return $this->ownedWorkCount > 0;
     }
 
-    /** @internal */
+    /**
+     * Returns the request execution deadline.
+     */
+
     public function observeOwnedWorkSettled(callable $callback): void
     {
         $observer = Closure::fromCallable($callback);
@@ -246,6 +255,7 @@ final class RequestContext
     }
 
     /** @internal */
+
     public function ownedWorkFailure(): ?Throwable
     {
         return $this->ownedWorkFailure;
@@ -254,6 +264,14 @@ final class RequestContext
     /**
      * Returns the runtime context currently bound to this request.
      */
+
+    public function removeAttribute(string $key): void
+    {
+        unset($this->attributes[$key]);
+    }
+
+    /** @internal */
+
     public function runtime(): RuntimeContext
     {
         return $this->runtime;
@@ -262,6 +280,7 @@ final class RequestContext
     /**
      * Stores a bounded request attribute.
      */
+
     public function setAttribute(string $key, mixed $value): void
     {
         if ($this->completed) {
@@ -300,4 +319,5 @@ final class RequestContext
 
         return is_int($now) ? $now : (int) $now;
     }
+
 }
