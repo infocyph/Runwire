@@ -33,6 +33,7 @@ async def round_trip_worker(
     worker_id: int,
     counters: dict[str, int],
     latencies_ms: list[float],
+    error_samples: list[str],
 ) -> None:
     try:
         async with websockets.connect(
@@ -59,8 +60,10 @@ async def round_trip_worker(
                 except asyncio.TimeoutError:
                     counters["timeouts"] += 1
                     return
-                except Exception:
+                except Exception as error:
                     counters["errors"] += 1
+                    if len(error_samples) < 5:
+                        error_samples.append(f"{type(error).__name__}: {error}")
                     return
 
                 counters["messages"] += 1
@@ -79,13 +82,17 @@ async def round_trip_worker(
                     except asyncio.TimeoutError:
                         counters["timeouts"] += 1
                         return
-                    except Exception:
+                    except Exception as error:
                         counters["errors"] += 1
+                        if len(error_samples) < 5:
+                            error_samples.append(f"{type(error).__name__}: {error}")
                         return
     except asyncio.TimeoutError:
         counters["timeouts"] += 1
-    except Exception:
+    except Exception as error:
         counters["errors"] += 1
+        if len(error_samples) < 5:
+            error_samples.append(f"{type(error).__name__}: {error}")
 
 
 async def run_trial(uri: str, concurrency: int, duration: float) -> dict[str, object]:
@@ -98,11 +105,12 @@ async def run_trial(uri: str, concurrency: int, duration: float) -> dict[str, ob
         "validation_failures": 0,
     }
     latencies: list[float] = []
+    error_samples: list[str] = []
     started = time.perf_counter()
     deadline = started + duration
 
     await asyncio.gather(*[
-        round_trip_worker(uri, deadline, worker_id, counters, latencies)
+        round_trip_worker(uri, deadline, worker_id, counters, latencies, error_samples)
         for worker_id in range(concurrency)
     ])
 
@@ -121,6 +129,7 @@ async def run_trial(uri: str, concurrency: int, duration: float) -> dict[str, ob
             "p95": round(percentile(latencies, 0.95), 3),
             "p99": round(percentile(latencies, 0.99), 3),
         },
+        "error_samples": error_samples,
         "correctness_passed": (
             counters["messages"] > 0
             and counters["successful_messages"] == counters["messages"]
@@ -192,6 +201,11 @@ async def main() -> None:
     p95 = [float(trial["latency_ms"]["p95"]) for trial in trials]
     p99 = [float(trial["latency_ms"]["p99"]) for trial in trials]
     errors = sum(int(trial["errors"]) for trial in trials)
+    error_samples = [
+        sample
+        for trial in trials
+        for sample in trial["error_samples"]
+    ][:10]
     timeouts = sum(int(trial["timeouts"]) for trial in trials)
     validation_failures = sum(int(trial["validation_failures"]) for trial in trials)
     messages = sum(int(trial["messages"]) for trial in trials)
@@ -227,6 +241,7 @@ async def main() -> None:
         "successful_messages": successful,
         "pings_total": pings,
         "errors_total": errors,
+        "error_samples": error_samples,
         "timeouts_total": timeouts,
         "validation_failures": validation_failures,
         "median_messages_per_second": round(statistics.median(rates), 3),
