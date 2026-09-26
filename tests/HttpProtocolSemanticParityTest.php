@@ -10,7 +10,6 @@ use Infocyph\Runwire\Http\Http2\FrameWriter as Http2FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder as HpackEncoder;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType as Http3FrameType;
 use Infocyph\Runwire\Http\Http3\Frame as Http3Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter as Http3FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Http3Session;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState as Http3ConnectionState;
@@ -136,9 +135,9 @@ function semanticParityHttp3(array &$snapshot): void
         ['x-trailer', 'done'],
     ], 0)->block;
 
-    $session->pushRequestStream(0, Http3FrameWriter::encode(new Http3Frame(Http3FrameType::HEADERS->value, $initial)));
-    $session->pushRequestStream(0, Http3FrameWriter::encode(new Http3Frame(Http3FrameType::DATA->value, 'hello world')));
-    $session->pushRequestStream(0, Http3FrameWriter::encode(new Http3Frame(Http3FrameType::HEADERS->value, $trailers)));
+    $session->pushRequestStream(0, new Http3Frame(Http3FrameType::HEADERS->value, $initial)->encode());
+    $session->pushRequestStream(0, new Http3Frame(Http3FrameType::DATA->value, 'hello world')->encode());
+    $session->pushRequestStream(0, new Http3Frame(Http3FrameType::HEADERS->value, $trailers)->encode());
     $session->finishRequestStream(0);
 }
 
