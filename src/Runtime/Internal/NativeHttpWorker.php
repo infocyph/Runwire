@@ -76,7 +76,7 @@ final class NativeHttpWorker
                         $loop instanceof SelectLoop
                         && count($connections) >= self::SELECT_LOOP_CONNECTION_LIMIT
                     ) {
-                        $connection->abort(CloseReason::RESOURCE_LIMIT);
+                        $connection->abort(CloseReason::LOCAL_ABORT);
                         $runtimeContext->metrics->recordRejectedConnection();
                         $sampler->sample();
 
