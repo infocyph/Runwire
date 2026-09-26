@@ -15,11 +15,11 @@ This tracker is part of the implementation record. Update it in every implementa
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
 | B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | Complete — all reproduced findings have durable regression coverage; QA rolling | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Complete | State transitions and public migration decisions recorded |
-| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Open | Driver table, supported matrix, budget evidence and feature decisions recorded |
-| B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Implemented — QA pending | Targeted adversarial regressions green |
-| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Implemented — QA pending | Loop/descriptor/timer/UDP regressions green |
-| B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Implemented — QA pending | Redaction, mTLS-policy and live-socket regressions green |
-| B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Implemented — QA pending | Fragmentation/coalescing and cross-writer response corpus green |
+| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Implemented — QA pending | Driver table, supported matrix, budget evidence and feature decisions recorded |
+| B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Complete — exact-head QA green | Targeted adversarial regressions green |
+| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete for portable fallback — scalable capacity remains B3-A | Loop/descriptor/timer/UDP regressions green |
+| B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Complete — exact-head QA green | Redaction, mTLS-policy and live-socket regressions green |
+| B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Complete for boundary/framing correctness — aggregate fairness remains B3-B | Fragmentation/coalescing and cross-writer response corpus green |
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | In progress — terminal accounting, unhealthy latch and worker retirement implemented; QA/failure-containment sweep pending | Common lifecycle suite green across native and hosts |
 | B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | In progress — attached scheduler API implemented; native lifecycle integration pending | Concurrent native requests, timers and cancellation progress together |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Open | Real-host capability matrix or explicit unsupported disposition |
@@ -34,14 +34,14 @@ This tracker is part of the implementation record. Update it in every implementa
 
 | Finding | Priority | Batch | Status |
 | --- | --- | --- | --- |
-| RW-01 HTTP/1 parser continuation | High | B0-B / B1-A | Implemented — QA pending |
-| RW-02 empty Transfer-Encoding framing | High | B0-B / B1-A | Implemented — QA pending |
-| RW-03 silent/idle HTTP expiry | High | B0-B / B1-A | Implemented — QA pending |
-| RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Portable failure handling implemented — scalable backend remains B3-A; QA pending |
-| RW-05 HTTP/2 exception-text disclosure | High | B0-B / B1-C | Implemented — QA pending |
+| RW-01 HTTP/1 parser continuation | High | B0-B / B1-A | Closed — exact-head QA green |
+| RW-02 empty Transfer-Encoding framing | High | B0-B / B1-A | Closed — exact-head QA green |
+| RW-03 silent/idle HTTP expiry | High | B0-B / B1-A | Closed — exact-head QA green |
+| RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Portable fail-closed behavior QA green — scalable backend/capacity remains B3-A |
+| RW-05 HTTP/2 exception-text disclosure | High | B0-B / B1-C | Closed — exact-head QA green |
 | RW-06 failed reset does not retire worker | High | B0-B / B2-A | Unhealthy latch + native/Swoole/host retirement implemented — QA pending |
-| RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Implemented — QA pending |
-| RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Implemented — QA pending |
+| RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Closed — exact-head QA green |
+| RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Closed — exact-head QA green |
 | RW-09 streaming request lifetime mismatch | High | B0-B / B2-A | Terminal lifecycle/admission ownership implemented — cross-driver QA pending |
 | RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Open |
 | RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Open |
@@ -50,11 +50,11 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-14 duplicated host GC ownership | P2 | B2-C | Open |
 | RW-15 duplicated validation/security owners | P2 | B3-D | Open |
 | RW-16 mutable CI/dependency provenance | P2 | B3-D | Open |
-| RW-17 stranded due timers | P1 | B0-B / B1-B | Implemented — QA pending |
-| RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Host length parity implemented — terminal contract remains B2-A; QA pending |
-| RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Incremental bounded delivery implemented — aggregate fairness remains B3-B; QA pending |
+| RW-17 stranded due timers | P1 | B0-B / B1-B | Closed — exact-head QA green |
+| RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Framing and terminal writer contract QA green — lifecycle containment continues in B2-A |
+| RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Boundary-invariant bounded delivery QA green — aggregate fairness remains B3-B |
 | RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Attached shared-loop API implemented — native lifecycle integration pending; QA pending |
-| RW-21 UDP callback close crash | P1 | B0-B / B1-B | Implemented — QA pending |
+| RW-21 UDP callback close crash | P1 | B0-B / B1-B | Closed — exact-head QA green |
 | RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Open |
 
 ### Feature decision tracker
@@ -64,8 +64,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | F-01 scalable native loop | Planned | B3-A backend selection after capacity/platform evidence |
 | F-02 shared-loop coroutine request scopes | Planned | B0-C contract, B2-B implementation |
 | F-03 worker-wide resource admission/pressure | Planned | B0-D budgets, B3-B implementation |
-| F-04 bounded stream-to-response transfer | Undecided | B0-D evidence-based include/defer decision |
-| F-05 native WebSocket serving | Undecided | B0-D evidence-based include/defer decision |
+| F-04 bounded stream-to-response transfer | Deferred from 2.0 core | Existing streaming primitives already permit bounded application pumps; reconsider only with B4 profile evidence |
+| F-05 native WebSocket serving | Deferred from 2.0 core | New parser/state/security surface lacks 2.0 evidence; host-native support must be reported truthfully instead |
 
 ## Phase 0 contract decisions
 
@@ -128,6 +128,61 @@ Task-local inheritance remains snapshot-by-reference for mutable objects; it doe
 First-party writer implementors to update together are `Http1ResponseWriter`, `Http2ResponseWriter`, `Http3ResponseWriter`, `CallbackResponseWriter`, and `RoadRunnerResponseWriter`. Lifecycle consumers include `RuntimeApplication`, native HTTP application integration, FPM, FrankenPHP and RoadRunner drivers. Custom 1.x writer implementations must add `onTerminal()`; asynchronous handlers may return before calling `end()` without causing reset/admission release in 2.0.
 
 The response-length rules remain shared across all writers: body-forbidden statuses and HEAD suppression follow `ResponseSemantics`; a declared Content-Length must match the accepted logical body length at `end()`. Callback/RoadRunner writers must adopt the same mismatch behavior as native HTTP writers.
+## Phase 0 capability, policy and budget decisions
+
+This section closes B0-D. It distinguishes what Runwire owns and can enforce from what a host runtime may support. The current `RuntimeCapabilities` object still mixes enabled facts with host potential for some adapters; B2-C must make that distinction truthful in code rather than expanding these claims.
+
+### Driver and policy ownership matrix
+
+| Driver | Process/application ownership | Listener, wire and event loop | Admission/deadline ownership | Cleanup, GC and retirement | 2.0 capability rule |
+| --- | --- | --- | --- | --- | --- |
+| Native prefork | Runwire persistent worker + application | Runwire listener, HTTP/1+2 wire, HTTP/3 only with enabled QUIC; Runwire loop and worker pool | Runwire owns request/stream admission, native connection admission, request deadlines and protocol timeouts | Runwire lifecycle/reset/GC; supervisor owns replacement | Report only detected/enabled native features; scalable-loop capability depends on B3-A backend selection |
+| Native portable | Runwire persistent single process + application | Runwire listener/wire/event loop; no managed worker pool | Runwire owns request/stream/connection admission and deadlines | Runwire lifecycle/reset/GC; unsafe reuse stops the process for external replacement | Never advertise worker recycle/reload when no worker pool exists |
+| FPM | Host process lifecycle; Runwire application is request-scoped | Host owns listener, HTTP wire and transport deadlines | Runwire can bound normalized request/response size and request lifecycle; host owns connection/transport admission | Runwire request cleanup/GC policy; no Runwire worker replacement | Report request-level capabilities only; do not infer HTTP/2/3, QUIC or host reload features |
+| FrankenPHP | Host process; application persistent only in worker mode | Host owns listener/wire/event loop | Runwire owns application lifecycle/deadline after dispatch; host owns connection/protocol admission | Runwire reset/GC; worker retirement only when worker mode exposes it | Current HTTP/2/3, QUIC and WebSocket booleans are host potential, not proof of enabled support; B2-C must correct them |
+| RoadRunner | Host worker process + persistent Runwire application | Host owns listener/wire/event loop | Runwire owns application lifecycle/deadline after dispatch; host owns connection/protocol admission | Runwire reset/GC; session stop requests host replacement | Current HTTP/2/3, QUIC and reload booleans must not be treated as enabled without host evidence; B2-C owns correction |
+| Swoole/OpenSwoole | Host worker process + persistent Runwire application | Host owns listener/wire/reactor; Runwire coroutine bridge may attach to the host loop | Runwire owns application lifecycle/deadline; host owns connection admission; HTTP/2 is enabled only by Runwire option | Runwire reset/GC; current-worker stop is the retirement primitive | HTTP/1 is supported; HTTP/2 follows configuration; no native Runwire HTTP/3/WebSocket claim in 2.0 |
+
+Policy boundary rules:
+
+- `supports*` must mean usable in the selected, enabled runtime configuration, not merely something a host product can theoretically provide.
+- Wire ownership and policy enforcement are separate. Host-owned HTTP/2/3 or TLS cannot be counted as Runwire protocol enforcement.
+- Runwire request deadlines begin once Runwire owns the request context. Host connection, handshake and pre-dispatch timeouts remain host policy unless the native driver owns them.
+- Request reset, lifecycle metrics and lifecycle GC have one owner: Runwire. Host adapters must not add unconditional per-request `gc_collect_cycles()`; B2-C removes duplicated ownership after verification.
+- `maxConcurrentConnections` is directly enforceable only where Runwire owns listener admission. Host adapters must expose the limitation instead of pretending to enforce connection counts.
+
+### Baseline 2.0 resource and work budgets
+
+These are the existing bounded defaults that remain the starting point for 2.0 unless a later batch records measurement-backed changes.
+
+| Owner | Baseline |
+| --- | --- |
+| Generic native connection | 64 KiB read chunk; 256 KiB read and write work per tick; 1 MiB receive buffer; 1 MiB send buffer |
+| HTTP/1 | 64 KiB header block / 100 headers; 16 MiB logical body; 1 MiB pending body; 256 parser steps per turn; 64 KiB response chunk; 10 s header deadline; 30 s body-progress deadline; 1,000 requests per keep-alive connection |
+| HTTP/2 | 100 concurrent streams / 10,000 stream creations per connection; 65,535 B pending request body per stream; 1 MiB pending response per stream; 8 MiB aggregate pending response per connection; 1 MiB wire queue; 128 frames per flush; 1,000 control frames/s; 10 s header-block and 60 s stream-idle deadlines |
+| HTTP/3 | 100 concurrent request streams / 10,000 request streams per connection; 65,535 B pending body per stream; 1 MiB pending response per stream; 8 MiB aggregate response per connection; 1 MiB blocked-request and QPACK encoder queues; 64 KiB declared control work/tick; 256 reads and 256 KiB inbound bytes/pump; 16 KiB stream reads |
+| Coroutine scheduler | 1,024 live tasks; 1,024 ready backlog; 1,024 future/primitive waiters; 128 resumes per loop turn |
+| FPM / FrankenPHP / RoadRunner / Swoole adapters | 16 MiB request and 16 MiB response defaults unless explicitly configured lower |
+| Logical request payload | 16 MiB default across native protocols and first-party host adapters |
+
+The following worker-wide budgets are **2.0 implementation targets**, not claims about the current code:
+
+- B3-B adds an aggregate queued/buffered-memory admission budget with a **64 MiB default per worker**. It covers Runwire-owned request bodies, pending response queues and protocol queues that can otherwise multiply per-stream limits. Accounting must use actual owned queued bytes, not reserve every per-stream maximum up front.
+- B3-B changes the default active request/stream policy from unbounded-by-count to **256 active requests** and **256 active multiplexed streams per worker**, while preserving explicit user configuration and protocol-local lower ceilings.
+- B3-A gives the portable `SelectLoop` fallback a conservative **256 concurrently admitted native connections per worker** unless the user explicitly configures a lower value. Higher defaults require a scalable backend proven by the B3-A capacity suite; an accelerated backend may use a larger measured limit without changing the fallback safety cap.
+- Per-turn work budgets remain explicit. B3-B must make HTTP/2 frame parsing and HTTP/3 control-stream work consume those budgets instead of materializing unbounded ready work before accounting.
+- Generic TCP/Unix `ConnectionLimits` keep optional idle/lifetime timeouts because Runwire cannot impose HTTP policy on generic streams. Managed HTTP keeps finite protocol deadlines.
+
+These values are conservative release defaults, not throughput claims. B4 may lower them for memory safety or raise accelerated-backend concurrency only when production-equivalent measurements and soak evidence justify it.
+
+### Optional feature dispositions
+
+**F-04 — bounded stream-to-response transfer: defer from the 2.0 core API.** Runwire already exposes bounded streaming request bodies, response writers, backpressure/drain notifications and coroutine primitives. A dedicated copy/pump abstraction would duplicate composition logic before B4 demonstrates a throughput or correctness gap. Applications can implement a bounded pump today without buffering a whole payload. Reconsider after B4 profiling identifies repeated boilerplate or a measurable fast-path opportunity; do not add a second response ownership model.
+
+**F-05 — native WebSocket serving: defer from 2.0.** Native WebSocket would add handshake validation, upgrade ownership, frame parsing, fragmentation, masking, control frames, close semantics, message/backpressure ceilings, compression policy and long-lived lifecycle behavior. None of that surface has the regression, interoperability or soak evidence required by this plan. Host products may support WebSocket independently, but B2-C must distinguish host potential from enabled Runwire capability. A later release can add native WebSocket as a dedicated bounded protocol lane rather than coupling it to the 2.0 lifecycle/security closure.
+
+B0-D therefore accepts F-01, F-02 and F-03 for the 2.0 implementation plan, and explicitly defers F-04/F-05 rather than leaving them ambiguous.
+
 ## Decision
 
 Runwire has a substantial foundation: bounded protocol parsers and buffers, backpressure, shell-free process execution, privilege-drop ordering, request reset hooks, coroutine limits, and a broad test suite. Nevertheless, additional probes reproduced defects beyond the passing existing tests.
