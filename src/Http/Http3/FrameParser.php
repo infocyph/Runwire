@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3;
 
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 
 /**
  * Incrementally parses bounded HTTP/3 frames from arbitrary byte chunks.
@@ -16,11 +17,20 @@ final class FrameParser
     /**
      * Create a parser with the maximum accepted frame payload size.
      */
-    public function __construct(private readonly int $maxFramePayloadBytes = 1_048_576)
+    public function __construct(
+        private readonly int $maxFramePayloadBytes = 1_048_576,
+        private readonly ?ByteBudget $budget = null,
+    )
     {
         if ($maxFramePayloadBytes < 0) {
             throw new \InvalidArgumentException('HTTP/3 frame payload limit cannot be negative.');
         }
+    }
+
+    public function __destruct()
+    {
+        $this->budget?->release(strlen($this->buffer));
+        $this->buffer = '';
     }
 
     /**
@@ -28,9 +38,13 @@ final class FrameParser
      */
     public function append(string $bytes): void
     {
-        if ($bytes !== '') {
-            $this->buffer .= $bytes;
+        if ($bytes === '') {
+            return;
         }
+        if ($this->budget !== null && !$this->budget->reserve(strlen($bytes))) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Worker queued-byte budget is exhausted.');
+        }
+        $this->buffer .= $bytes;
     }
 
     /**
@@ -69,6 +83,7 @@ final class FrameParser
 
         [$frame, $offset] = $decoded;
         $this->buffer = substr($this->buffer, $offset);
+        $this->budget?->release($offset);
 
         return $frame;
     }
