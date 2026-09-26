@@ -2,13 +2,9 @@
 
 declare(strict_types=1);
 
-final class WebSocketEvidenceTimeout extends RuntimeException
-{
-}
+final class WebSocketEvidenceProtocolFailure extends RuntimeException {}
 
-final class WebSocketEvidenceProtocolFailure extends RuntimeException
-{
-}
+final class WebSocketEvidenceTimeout extends RuntimeException {}
 
 /** @return resource */
 function wsConnect(int $port): mixed
@@ -38,6 +34,7 @@ function wsConnect(int $port): mixed
     $head = wsReadHead($socket);
     if (!str_starts_with($head, 'HTTP/1.1 101 ')) {
         fclose($socket);
+
         throw new WebSocketEvidenceProtocolFailure('Server rejected the WebSocket handshake.');
     }
 
@@ -52,6 +49,7 @@ function wsConnect(int $port): mixed
     }
     if (($headers['sec-websocket-accept'] ?? '') !== $expected) {
         fclose($socket);
+
         throw new WebSocketEvidenceProtocolFailure('Server returned an invalid Sec-WebSocket-Accept value.');
     }
 
@@ -387,6 +385,7 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
             if (is_file($path)) {
                 unlink($path);
             }
+
             throw new RuntimeException('Unable to fork WebSocket evidence worker.');
         }
         if ($pid === 0) {
