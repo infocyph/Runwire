@@ -453,33 +453,6 @@ final class WebSocketSession
         }
     }
 
-    /** @return array{0: int, 1: string} */
-    private function parseClosePayload(string $payload): array
-    {
-        $length = strlen($payload);
-        if ($length === 0) {
-            return [1005, ''];
-        }
-        if ($length === 1) {
-            throw new WebSocketProtocolException(1002, 'WebSocket close payload cannot contain one byte.');
-        }
-
-        $decoded = unpack('ncode', substr($payload, 0, 2));
-        $code = (int) ($decoded['code'] ?? 0);
-        try {
-            WebSocketWireCodec::assertCloseCode($code);
-        } catch (InvalidArgumentException) {
-            throw new WebSocketProtocolException(1002, 'Peer sent an invalid WebSocket close code.');
-        }
-
-        $reason = substr($payload, 2);
-        if ($reason !== '' && preg_match('//u', $reason) !== 1) {
-            throw new WebSocketProtocolException(1007, 'Peer sent an invalid UTF-8 WebSocket close reason.');
-        }
-
-        return [$code, $reason];
-    }
-
     private function protocolFailure(int $code, string $reason): void
     {
         if ($this->closed) {
@@ -628,7 +601,7 @@ final class WebSocketSession
             return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
         }
 
-        $result = $this->connection->write($this->frame($opcode, $payload));
+        $result = $this->connection->write(WebSocketWireCodec::frame($opcode, $payload));
         if ($result->pressured()) {
             $this->connection->pauseReads();
         }
