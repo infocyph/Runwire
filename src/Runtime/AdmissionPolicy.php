@@ -20,8 +20,8 @@ final readonly class AdmissionPolicy
         public int $maxActiveRequests = 256,
         public int $maxConcurrentConnections = 0,
         public int $maxStreamsPerWorker = 256,
-        public int $maxQueuedBytes = 67_108_864,
         public int $retryAfterSeconds = 1,
+        public int $maxQueuedBytes = 67_108_864,
     ) {
         foreach ([
             'maxActiveRequests' => $maxActiveRequests,
