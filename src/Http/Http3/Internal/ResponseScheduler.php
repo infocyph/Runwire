@@ -12,6 +12,7 @@ use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Network\Enum\WriteState;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\WriteResult;
 use LogicException;
@@ -44,9 +45,10 @@ final class ResponseScheduler
         private readonly ConnectionState $state,
         private readonly Http3Limits $limits,
         private readonly Http3TransportInterface $transport,
+        private readonly ?ByteBudget $bufferBudget = null,
     ) {
         $this->fallbackEncoder = new Encoder(0, 0, $limits->maxFieldSectionBytes, 0);
-        $this->qpackEncoderQueue = new ByteQueue();
+        $this->qpackEncoderQueue = new ByteQueue($bufferBudget);
     }
 
     /**
@@ -139,7 +141,7 @@ final class ResponseScheduler
             throw new LogicException('HTTP/3 response writer already exists for the request stream.');
         }
 
-        $stream = $this->streams[$streamId] = new ResponseStream($streamId);
+        $stream = $this->streams[$streamId] = new ResponseStream($streamId, $this->bufferBudget);
 
         return new Http3ResponseWriter(
             $method,
@@ -198,8 +200,10 @@ final class ResponseScheduler
             return false;
         }
 
-        return $headerReserve + $instructionReserve
-            <= $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes();
+        return $headerReserve + $instructionReserve <= min(
+            $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes(),
+            $stream->outbound->budgetAvailable(),
+        );
     }
 
     private function canReserveResponse(ResponseStream $stream, int $bytes): bool
@@ -208,7 +212,10 @@ final class ResponseScheduler
             return false;
         }
 
-        return $bytes <= $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes();
+        return $bytes <= min(
+            $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes(),
+            $stream->outbound->budgetAvailable(),
+        );
     }
 
     private function closedResult(): WriteResult
