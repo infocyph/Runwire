@@ -32,14 +32,6 @@ final class CoroutineRequestHandler implements LoopAwareRequestHandlerInterface
     }
 
     /**
-     * Attach request scopes to a runtime-owned loop without taking loop ownership.
-     */
-    public function attachLoop(LoopInterface $loop): void
-    {
-        $this->attachedRuntime = $this->runtime->withLoop($loop);
-    }
-
-    /**
      * Executes one HTTP request inside a coroutine scope.
      */
     public function __invoke(HttpRequest $request, ResponseWriterInterface $writer): void
@@ -63,4 +55,13 @@ final class CoroutineRequestHandler implements LoopAwareRequestHandlerInterface
             },
         );
     }
+
+    /**
+     * Attach request scopes to a runtime-owned loop without taking loop ownership.
+     */
+    public function attachLoop(LoopInterface $loop): void
+    {
+        $this->attachedRuntime = $this->runtime->withLoop($loop);
+    }
+
 }
