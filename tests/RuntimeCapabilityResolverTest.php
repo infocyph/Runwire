@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\FrankenPhpOptions;
 use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
+use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RuntimeCapabilityResolver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
@@ -29,7 +30,9 @@ it('reports full native capabilities when prefork support is wired', function ()
         ->and($capabilities->supportsHttp1)->toBeTrue()
         ->and($capabilities->ownsHttp1Wire)->toBeTrue()
         ->and($capabilities->supportsHttp2)->toBeTrue()
-        ->and($capabilities->ownsHttp2Wire)->toBeTrue();
+        ->and($capabilities->ownsHttp2Wire)->toBeTrue()
+        ->and($capabilities->supportsWebsocket)->toBeTrue()
+        ->and($capabilities->supports(RuntimeCapability::SUPPORTS_WEBSOCKET))->toBeTrue();
 });
 
 it('keeps native listener and event-loop capabilities in single-process fallback mode', function (): void {
@@ -53,6 +56,7 @@ it('keeps native listener and event-loop capabilities in single-process fallback
         ->and($capabilities->supportsRunwireCoroutines)->toBeTrue()
         ->and($capabilities->supportsHttp1)->toBeTrue()
         ->and($capabilities->supportsHttp2)->toBeTrue()
+        ->and($capabilities->supportsWebsocket)->toBeTrue()
         ->and($capabilities->supportsTlsAlpn)->toBeTrue();
 });
 
