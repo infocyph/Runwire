@@ -15,6 +15,10 @@ use OverflowException;
  */
 final class WebSocketFrameParser
 {
+    private readonly WebSocketOptions $options;
+
+    private readonly ?ByteBudget $workerBudget;
+
     private int $budgetBytes = 0;
 
     private string $buffer = '';
@@ -23,16 +27,19 @@ final class WebSocketFrameParser
      * Create a bounded parser optionally charged to the worker byte budget.
      */
     public function __construct(
-        private WebSocketOptions $options,
-        private ?ByteBudget $workerBudget = null,
-    ) {}
+        WebSocketOptions $options,
+        ?ByteBudget $workerBudget = null,
+    ) {
+        $this->options = self::retainOptions($options);
+        $this->workerBudget = self::retainBudget($workerBudget);
+    }
 
     /**
      * Release any still-buffered bytes from the worker budget.
      */
     public function __destruct()
     {
-        $this->release($this->workerBudgetBytes);
+        $this->release($this->budgetBytes);
     }
 
     /**
@@ -52,7 +59,7 @@ final class WebSocketFrameParser
             throw new WebSocketProtocolException(1009, 'WebSocket worker byte budget is exhausted.');
         }
 
-        $this->workerBudgetBytes += $length;
+        $this->budgetBytes += $length;
         $this->buffer .= $bytes;
     }
 
@@ -106,11 +113,21 @@ final class WebSocketFrameParser
         return $payload;
     }
 
+    private static function retainBudget(?ByteBudget $budget): ?ByteBudget
+    {
+        return $budget;
+    }
+
+    private static function retainOptions(WebSocketOptions $options): WebSocketOptions
+    {
+        return $options;
+    }
+
     private function consume(int $bytes): string
     {
         $data = substr($this->buffer, 0, $bytes);
         $this->buffer = substr($this->buffer, $bytes);
-        $this->workerBudgetBytes -= $bytes;
+        $this->budgetBytes -= $bytes;
         $this->release($bytes);
 
         return $data;
