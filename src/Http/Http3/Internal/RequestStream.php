@@ -76,7 +76,7 @@ final class RequestStream
         private readonly Http3Limits $limits,
         ?callable $onBodyRelief = null,
         ?callable $onBodyConsumed = null,
-        ?ByteBudget $budget = null,
+        private readonly ?ByteBudget $budget = null,
     ) {
         if ($streamId < 0 || ($streamId & 0x03) !== 0) {
             throw new \InvalidArgumentException('HTTP/3 request stream must be client-initiated and bidirectional.');
@@ -84,7 +84,7 @@ final class RequestStream
 
         $this->startedAtNanoseconds = MonotonicTime::nowNanoseconds();
         $this->lastProgressNanoseconds = $this->startedAtNanoseconds;
-        $this->parser = new FrameParser($limits->maxFramePayloadBytes);
+        $this->parser = new FrameParser($limits->maxFramePayloadBytes, $budget);
         $this->validator = new RequestHeaderValidator('HTTP/3');
         $this->onBodyRelief = Closure::fromCallable($onBodyRelief ?? static function (): void {});
         $this->body = new StreamingRequestBody(
