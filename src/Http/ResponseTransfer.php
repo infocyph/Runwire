@@ -104,7 +104,7 @@ final readonly class ResponseTransfer
 
         while (true) {
             $scope->cancellation()->throwIfCancelled();
-            $chunk = fread($source, $chunkBytes);
+            $chunk = fread($source, max(1, $chunkBytes));
             if ($chunk === false) {
                 throw new RuntimeException('Unable to read response transfer source.');
             }

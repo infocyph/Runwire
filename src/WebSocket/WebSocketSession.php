@@ -14,6 +14,7 @@ use Infocyph\Runwire\Network\WriteResult;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketFrame;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketFrameParser;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use InvalidArgumentException;
 use OverflowException;
 use Throwable;
@@ -122,8 +123,8 @@ final class WebSocketSession
         if ($this->closed) {
             return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
         }
-        self::assertCloseCode($code);
-        self::assertUtf8($reason, 'WebSocket close reason');
+        WebSocketWireCodec::assertCloseCode($code);
+        WebSocketWireCodec::assertUtf8($reason, 'WebSocket close reason');
         if (strlen($reason) > 123) {
             throw new InvalidArgumentException('WebSocket close reason cannot exceed 123 bytes.');
         }
@@ -255,31 +256,13 @@ final class WebSocketSession
         return $this->selectedSubprotocol;
     }
 
-    private static function assertCloseCode(int $code): void
-    {
-        $standard = $code >= 1000
-            && $code <= 1014
-            && !in_array($code, [1004, 1005, 1006], true);
-        $application = $code >= 3000 && $code <= 4999;
-        if (!$standard && !$application) {
-            throw new InvalidArgumentException('WebSocket close code is not valid for transmission.');
-        }
-    }
-
     private function assertOutboundMessage(string $payload, bool $text): void
     {
         if (strlen($payload) > $this->options->maxFramePayloadBytes) {
             throw new InvalidArgumentException('Outbound WebSocket message exceeds the configured frame ceiling.');
         }
         if ($text) {
-            self::assertUtf8($payload, 'WebSocket text message');
-        }
-    }
-
-    private static function assertUtf8(string $value, string $label): void
-    {
-        if ($value !== '' && preg_match('//u', $value) !== 1) {
-            throw new InvalidArgumentException(sprintf('%s must contain valid UTF-8.', $label));
+            WebSocketWireCodec::assertUtf8($payload, 'WebSocket text message');
         }
     }
 
@@ -371,20 +354,6 @@ final class WebSocketSession
         }
     }
 
-    private function frame(int $opcode, string $payload): string
-    {
-        $length = strlen($payload);
-        $first = chr(0x80 | $opcode);
-        if ($length < 126) {
-            return $first . chr($length) . $payload;
-        }
-        if ($length <= 65_535) {
-            return $first . chr(126) . pack('n', $length) . $payload;
-        }
-
-        return $first . chr(127) . pack('NN', 0, $length) . $payload;
-    }
-
     private function handleContinuation(WebSocketFrame $frame): void
     {
         if ($this->fragmentOpcode === null) {
@@ -397,6 +366,10 @@ final class WebSocketSession
         }
 
         $opcode = $this->fragmentOpcode;
+        if ($opcode === null) {
+            throw new WebSocketProtocolException(1002, 'Unexpected WebSocket continuation frame.');
+        }
+
         $payload = $this->fragmentBuffer;
         $this->clearFragment();
         $this->deliver($opcode, $payload);
@@ -433,7 +406,7 @@ final class WebSocketSession
 
     private function handlePeerClose(string $payload): void
     {
-        [$code, $reason] = $this->parseClosePayload($payload);
+        [$code, $reason] = WebSocketWireCodec::parseClosePayload($payload);
         $this->peerCloseReceived = true;
         $this->closeCode = $code;
         $this->closeReason = $reason;
@@ -494,7 +467,7 @@ final class WebSocketSession
         $decoded = unpack('ncode', substr($payload, 0, 2));
         $code = (int) ($decoded['code'] ?? 0);
         try {
-            self::assertCloseCode($code);
+            WebSocketWireCodec::assertCloseCode($code);
         } catch (InvalidArgumentException) {
             throw new WebSocketProtocolException(1002, 'Peer sent an invalid WebSocket close code.');
         }
@@ -558,8 +531,7 @@ final class WebSocketSession
             }
 
             if (
-                !$this->closed
-                && !$this->connection->isWritePressured()
+                !$this->connection->isWritePressured()
                 && (
                     $this->connection->receivedBytes() > 0
                     || $processed === $this->options->maxFramesPerTurn

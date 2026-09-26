@@ -34,7 +34,13 @@ final readonly class WebSocketUpgrade
         ?string $subprotocol = null,
         ?WebSocketOptions $options = null,
     ): ?WebSocketSession {
-        $rejection = self::technicalRejection($request, $writer);
+        if (!$writer instanceof Http1ResponseWriter) {
+            self::reject($writer, 426, ['sec-websocket-version' => '13']);
+
+            return null;
+        }
+
+        $rejection = self::technicalRejection($request);
         if ($rejection !== null) {
             self::reject($writer, $rejection[0], $rejection[1]);
 
@@ -161,11 +167,8 @@ final readonly class WebSocketUpgrade
     }
 
     /** @return null|array{0: int, 1: array<string, string|list<string>>} */
-    private static function technicalRejection(
-        HttpRequest $request,
-        ResponseWriterInterface $writer,
-    ): ?array {
-        if (!$writer instanceof Http1ResponseWriter || $request->version !== ProtocolVersion::HTTP_1_1) {
+    private static function technicalRejection(HttpRequest $request): ?array {
+        if ($request->version !== ProtocolVersion::HTTP_1_1) {
             return [426, ['sec-websocket-version' => '13']];
         }
         if (strcasecmp($request->method, 'GET') !== 0) {
