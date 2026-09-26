@@ -71,6 +71,14 @@ jobs:
           jq -e 'type == "array" and length > 0' "$result" >/dev/null
           cat "$result"
 
+      - name: Compare F-04 helper with manual bounded pump
+        shell: bash
+        run: |
+          php benchmarks/transfer_compare.php \
+            | tee "benchmark-results/f04-transfer-php-${{ matrix.php-version }}.json"
+          jq -e '.correctness_passed == true and .passed == true' \
+            "benchmark-results/f04-transfer-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Validate comparative-evidence tooling
         shell: bash
         run: |
