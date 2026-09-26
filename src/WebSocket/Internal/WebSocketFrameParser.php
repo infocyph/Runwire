@@ -102,8 +102,7 @@ final class WebSocketFrameParser
                 return null;
             }
 
-            $decoded = unpack('nvalue', substr($this->buffer, 2, 2));
-            $length = (int) ($decoded['value'] ?? 0);
+            $length = (ord($this->buffer[2]) << 8) | ord($this->buffer[3]);
             if ($length < 126) {
                 throw new WebSocketProtocolException(1002, 'WebSocket frame uses a non-minimal 16-bit length.');
             }
@@ -116,10 +115,8 @@ final class WebSocketFrameParser
             return null;
         }
 
-        $high = unpack('Nvalue', substr($this->buffer, 2, 4));
-        $low = unpack('Nvalue', substr($this->buffer, 6, 4));
-        $highValue = (int) ($high['value'] ?? 0);
-        $lowValue = (int) ($low['value'] ?? 0);
+        $highValue = self::uint32(substr($this->buffer, 2, 4));
+        $lowValue = self::uint32(substr($this->buffer, 6, 4));
         if (($highValue & 0x80000000) !== 0) {
             throw new WebSocketProtocolException(1002, 'WebSocket frame length has the reserved high bit set.');
         }
@@ -191,6 +188,14 @@ final class WebSocketFrameParser
         }
 
         $this->budget?->release($bytes);
+    }
+
+    private static function uint32(string $bytes): int
+    {
+        return (ord($bytes[0]) << 24)
+            | (ord($bytes[1]) << 16)
+            | (ord($bytes[2]) << 8)
+            | ord($bytes[3]);
     }
 
     private static function unmask(string $payload, string $mask): string
