@@ -529,4 +529,4 @@ Every finding closes with: affected files, regression evidence, behavior/compati
 
 Release only after all required CI jobs succeed on the final source revision, including real optional-runtime lanes, clean production install and applicable interoperability/soak checks. Record the commit, commands, environment, results and artifact locations. Keep host, container, CI and cross-project evidence separate. Historical green runs do not certify a later revision.
 
-No production source, tests or dependency constraints were changed by this planning audit. Implementation starts with phase 0 and proceeds toward the single 2.0.0 target; all remediation and release gates remain open.
+Implementation through B0-B5 is complete on the working branch for the single 2.0.0 target. The final source revision still requires its exact-head CI matrix and the human-triggered release-duration certification before any tag or publication; merge, tag and release remain maintainer-controlled actions.
