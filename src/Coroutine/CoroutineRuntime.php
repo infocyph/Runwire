@@ -107,14 +107,6 @@ final class CoroutineRuntime
         );
     }
 
-    /**
-     * Create a runtime using the same scheduler policy on an externally owned loop.
-     */
-    public function withLoop(LoopInterface $loop): self
-    {
-        return new self($loop, $this->policy);
-    }
-
     /** @param callable(CoroutineScope): mixed $callback */
     public function run(callable $callback): mixed
     {
@@ -139,6 +131,14 @@ final class CoroutineRuntime
         } finally {
             $this->requestRunning = false;
         }
+    }
+
+    /**
+     * Create a runtime using the same scheduler policy on an externally owned loop.
+     */
+    public function withLoop(LoopInterface $loop): self
+    {
+        return new self($loop, $this->policy);
     }
 
     /** @param callable(CoroutineScope): mixed $callback */
