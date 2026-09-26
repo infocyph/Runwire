@@ -471,7 +471,7 @@ Exit: all first-party implementors and consumer migrations pass the common contr
 2. Finish HTTP/2/3 work accounting, stream progress deadlines, compression synchronization under refusal, backpressure and aggregate admission (RW-10/11/19). Ensure controls apply across a whole turn/worker, not only per method call.
 3. Close process-tree/detached cleanup and platform contracts (RW-13), validate nested-cgroup/resource detection and test overload/reload recovery.
 4. Implement any accepted F-04/F-05 feature in its existing transport/lifecycle owners with the agreed contract and bounded abuse tests. Keep declined candidates out of capability claims.
-5. Resolve valid duplicated security/validation owners and measured maintenance issues (RW-15), without unneeded general abstractions. Pin reviewed executable CI inputs and resolve dependency provenance/abandonment (RW-16).
+5. Resolve valid duplicated security/validation owners and measured maintenance issues (RW-15), without unneeded general abstractions. Preserve the repository's reviewed version/tag CI references, keep their automated update cadence, and resolve dependency provenance/abandonment through the owning dependency where applicable (RW-16).
 
 Exit: verified bounded resources and fair progress at supported capacity; no P1 issue open. Every P2 finding has a correction or evidence-based disposition. Optional cosmetic cleanup and speculative features are outside the release blockers.
 
