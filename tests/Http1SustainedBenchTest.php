@@ -146,8 +146,7 @@ it('produces correctness-passing CLI evidence through PHP only', function (): vo
         true,
     );
     try {
-        ob_start();
-        http1SustainedMain([
+        $result = http1SustainedMain([
             'http1_sustained_bench.php',
             (string) $fixture['port'],
             '2',
@@ -155,13 +154,11 @@ it('produces correctness-passing CLI evidence through PHP only', function (): vo
             '0.10',
             (string) getmypid(),
         ]);
-        $output = ob_get_clean();
-        $decoded = json_decode((string) $output, true, flags: JSON_THROW_ON_ERROR);
-        expect($decoded['correctness_passed'])->toBeTrue()
-            ->and($decoded['successful_requests'])->toBe($decoded['requests_total'])
-            ->and($decoded['errors_total'])->toBe(0)
-            ->and($decoded['timeouts_total'])->toBe(0)
-            ->and($decoded['latency_ms']['p95'])->toBeGreaterThan(0);
+        expect($result['correctness_passed'])->toBeTrue()
+            ->and($result['successful_requests'])->toBe($result['requests_total'])
+            ->and($result['errors_total'])->toBe(0)
+            ->and($result['timeouts_total'])->toBe(0)
+            ->and($result['latency_ms']['p95'])->toBeGreaterThan(0);
     } finally {
         stopHttp1SustainedFixture($fixture);
     }
