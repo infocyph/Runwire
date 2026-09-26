@@ -127,7 +127,6 @@ it('requires a consumer for stream mode', function (): void {
     expect(fn () => processRunner()->run($command))->toThrow(ProcessStartException::class);
 });
 
-
 it('terminates descendants with an isolated POSIX process group', function (): void {
     if (
         DIRECTORY_SEPARATOR === '\\'
@@ -156,11 +155,11 @@ PHP;
     );
     $pid = (int) trim($result->stdout);
 
-    for ($attempt = 0; $attempt < 20 && $pid > 1 && @posix_kill($pid, 0); ++$attempt) {
+    for ($attempt = 0; $attempt < 20 && $pid > 1 && posix_kill($pid, 0); ++$attempt) {
         usleep(10_000);
     }
 
     expect($result->timedOut())->toBeTrue()
         ->and($pid)->toBeGreaterThan(1)
-        ->and(@posix_kill($pid, 0))->toBeFalse();
+        ->and(posix_kill($pid, 0))->toBeFalse();
 });
