@@ -33,6 +33,29 @@ final class ProcessHandle
     }
 
     /**
+     * Release handles for previously detached children that have since exited.
+     */
+    public static function reapDetached(): void
+    {
+        $running = [];
+        foreach (self::$detached as $resource) {
+            if (!is_resource($resource)) {
+                continue;
+            }
+            $status = proc_get_status($resource);
+            if ($status['running']) {
+                $running[] = $resource;
+
+                continue;
+            }
+
+            proc_close($resource);
+        }
+
+        self::$detached = $running;
+    }
+
+    /**
      * Forcefully terminates the owned process tree if it is still running.
      */
     public function abort(): bool
@@ -73,29 +96,6 @@ final class ProcessHandle
         return proc_close($resource);
     }
 
-    /**
-     * Release handles for previously detached children that have since exited.
-     */
-    public static function reapDetached(): void
-    {
-        $running = [];
-        foreach (self::$detached as $resource) {
-            if (!is_resource($resource)) {
-                continue;
-            }
-            $status = proc_get_status($resource);
-            if ($status['running']) {
-                $running[] = $resource;
-
-                continue;
-            }
-
-            proc_close($resource);
-        }
-
-        self::$detached = $running;
-    }
-
     /** @return resource */
     public function resource(): mixed
     {
@@ -123,24 +123,6 @@ final class ProcessHandle
         return ProcessTerminator::graceful($this->resource, $this->pid, $this->processGroup);
     }
 
-    private function isolateProcessGroup(): bool
-    {
-        if (
-            DIRECTORY_SEPARATOR === '\\'
-            || $this->pid === null
-            || !function_exists('posix_setpgid')
-        ) {
-            return false;
-        }
-
-        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
-        try {
-            return posix_setpgid($this->pid, $this->pid);
-        } finally {
-            restore_error_handler();
-        }
-    }
-
     /** @param resource $resource */
     private static function retainDetached(mixed $resource): void
     {
@@ -160,4 +142,23 @@ final class ProcessHandle
 
         self::$detached[] = $resource;
     }
+
+    private function isolateProcessGroup(): bool
+    {
+        if (
+            DIRECTORY_SEPARATOR === '\\'
+            || $this->pid === null
+            || !function_exists('posix_setpgid')
+        ) {
+            return false;
+        }
+
+        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+        try {
+            return posix_setpgid($this->pid, $this->pid);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
 }
