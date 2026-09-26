@@ -75,8 +75,14 @@ jobs:
       - name: Audit optional process subsystem for PCNTL assumptions
         shell: bash
         run: |
-          if grep -R -nE '\bpcntl_|\bposix_|\bSIG[A-Z0-9_]+' src/Process; then
-            echo '::error::Process subsystem contains an implicit PCNTL/POSIX dependency.'
+          if grep -R -nE '\bpcntl_|\bSIG[A-Z0-9_]+' src/Process; then
+            echo '::error::Process subsystem contains an implicit PCNTL/signal dependency.'
+            exit 1
+          fi
+          if grep -R -nE '\bposix_' src/Process \
+            --exclude=ProcessHandle.php \
+            --exclude=ProcessTerminator.php; then
+            echo '::error::POSIX process-group calls escaped the guarded process-owner boundary.'
             exit 1
           fi
 
@@ -110,6 +116,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates git libevent-dev libssl-dev pkg-config unzip
+          docker-php-ext-install sockets
           printf "\n" | pecl install event
           docker-php-ext-enable event
           rm -rf /var/lib/apt/lists/*
