@@ -73,17 +73,17 @@ final class WebSocketSession
      * @internal WebSocket sessions are created by the HTTP/1 upgrade owner.
      */
     public function __construct(
-        private readonly LoopInterface $loop,
+        private LoopInterface $sessionLoop,
         Connection $connection,
-        private readonly WebSocketOptions $options = new WebSocketOptions(),
+        private WebSocketOptions $sessionOptions = new WebSocketOptions(),
         ?string $selectedSubprotocol = null,
         string $initialBytes = '',
     ) {
         $this->budget = $connection->bufferBudget();
         $this->connection = $connection;
-        $this->parser = new WebSocketFrameParser($this->options, $this->budget);
+        $this->parser = new WebSocketFrameParser($this->sessionOptions, $this->budget);
         $this->selectedSubprotocol = $selectedSubprotocol;
-        $this->lastActivityAt = $this->loop->now();
+        $this->lastActivityAt = $this->sessionLoop->now();
 
         $connection->handoffCallbacks(
             $this,
@@ -101,8 +101,8 @@ final class WebSocketSession
             $this->finishClosed();
         });
 
-        $this->heartbeatTimer = $this->loop->repeat(
-            $this->options->heartbeatIntervalSeconds,
+        $this->heartbeatTimer = $this->sessionLoop->repeat(
+            $this->sessionOptions->heartbeatIntervalSeconds,
             function (): void {
                 $this->heartbeat();
             },
@@ -115,7 +115,7 @@ final class WebSocketSession
             $this->schedulePump();
         }
         if ($connection->peerReadClosed()) {
-            $this->loop->defer(function (): void {
+            $this->sessionLoop->defer(function (): void {
                 $this->handleEof();
             });
         }
@@ -265,7 +265,7 @@ final class WebSocketSession
     private function appendFragment(string $payload): void
     {
         $length = strlen($payload);
-        if (strlen($this->fragmentBuffer) + $length > $this->options->maxMessageBytes) {
+        if (strlen($this->fragmentBuffer) + $length > $this->sessionOptions->maxMessageBytes) {
             throw new WebSocketProtocolException(1009, 'Fragmented WebSocket message exceeds the configured ceiling.');
         }
         if ($this->budget !== null && !$this->budget->reserve($length)) {
@@ -278,7 +278,7 @@ final class WebSocketSession
 
     private function assertOutboundMessage(string $payload, bool $text): void
     {
-        if (strlen($payload) > $this->options->maxFramePayloadBytes) {
+        if (strlen($payload) > $this->sessionOptions->maxFramePayloadBytes) {
             throw new InvalidArgumentException('Outbound WebSocket message exceeds the configured frame ceiling.');
         }
         if ($text) {
@@ -289,7 +289,7 @@ final class WebSocketSession
     private function cancelTimer(?int $timer): void
     {
         if ($timer !== null) {
-            $this->loop->cancel($timer);
+            $this->sessionLoop->cancel($timer);
         }
     }
 
@@ -308,7 +308,7 @@ final class WebSocketSession
         if ($opcode === 0x1 && $payload !== '' && preg_match('//u', $payload) !== 1) {
             throw new WebSocketProtocolException(1007, 'WebSocket text message contains invalid UTF-8.');
         }
-        if (strlen($payload) > $this->options->maxMessageBytes) {
+        if (strlen($payload) > $this->sessionOptions->maxMessageBytes) {
             throw new WebSocketProtocolException(1009, 'WebSocket message exceeds the configured ceiling.');
         }
         if ($this->messageCallback === null) {
@@ -324,7 +324,7 @@ final class WebSocketSession
 
     private function dispatchFrame(WebSocketFrame $frame): void
     {
-        $this->lastActivityAt = $this->loop->now();
+        $this->lastActivityAt = $this->sessionLoop->now();
 
         match ($frame->opcode) {
             0x0 => $this->handleContinuation($frame),
@@ -451,7 +451,7 @@ final class WebSocketSession
             return;
         }
 
-        if ($this->loop->now() - $this->lastActivityAt >= $this->options->idleTimeoutSeconds) {
+        if ($this->sessionLoop->now() - $this->lastActivityAt >= $this->sessionOptions->idleTimeoutSeconds) {
             $result = $this->close(1001, 'idle timeout');
             if (!$result->accepted()) {
                 $this->connection->abort(CloseReason::LOCAL_ABORT);
@@ -523,12 +523,12 @@ final class WebSocketSession
             if ($available > 0) {
                 $this->parser->append($this->connection->read(min(
                     $available,
-                    $this->options->maxReadBytesPerTurn,
+                    $this->sessionOptions->maxReadBytesPerTurn,
                 )));
             }
 
             $processed = 0;
-            while ($processed < $this->options->maxFramesPerTurn && !$this->connection->isWritePressured()) {
+            while ($processed < $this->sessionOptions->maxFramesPerTurn && !$this->connection->isWritePressured()) {
                 $frames = $this->parser->parse(1);
                 if ($frames === []) {
                     break;
@@ -545,7 +545,7 @@ final class WebSocketSession
                 !$this->connection->isWritePressured()
                 && (
                     $this->connection->receivedBytes() > 0
-                    || $processed === $this->options->maxFramesPerTurn
+                    || $processed === $this->sessionOptions->maxFramesPerTurn
                 )
             ) {
                 $this->schedulePump();
@@ -562,7 +562,7 @@ final class WebSocketSession
         }
 
         $this->pumpScheduled = true;
-        $this->loop->defer(function (): void {
+        $this->sessionLoop->defer(function (): void {
             $this->pump();
         });
     }
@@ -588,8 +588,8 @@ final class WebSocketSession
             return $result;
         }
 
-        $this->closeTimer ??= $this->loop->delay(
-            $this->options->closeTimeoutSeconds,
+        $this->closeTimer ??= $this->sessionLoop->delay(
+            $this->sessionOptions->closeTimeoutSeconds,
             function (): void {
                 if (!$this->closed) {
                     $this->connection->abort(CloseReason::LOCAL_ABORT);
