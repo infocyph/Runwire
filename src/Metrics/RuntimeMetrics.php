@@ -165,16 +165,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
     }
 
     /**
-     * Observe worker-wide Runwire-owned queued-byte pressure.
-     */
-    public function observeQueuedBytes(int $used, int $limit): void
-    {
-        $this->queuedBytesCurrent = max(0, $used);
-        $this->queuedBytesLimit = max(0, $limit);
-        $this->queuedBytesPeak = max($this->queuedBytesPeak, $this->queuedBytesCurrent);
-    }
-
-    /**
      * Merge aggregate network counters into runtime metrics.
      */
     public function observeNetwork(
@@ -195,6 +185,16 @@ final class RuntimeMetrics implements MetricsProviderInterface
             $this->connectionLifetimeHighWaterNanoseconds,
             max(0, $lifetimeHighWaterNanoseconds),
         );
+    }
+
+    /**
+     * Observe worker-wide Runwire-owned queued-byte pressure.
+     */
+    public function observeQueuedBytes(int $used, int $limit): void
+    {
+        $this->queuedBytesCurrent = max(0, $used);
+        $this->queuedBytesLimit = max(0, $limit);
+        $this->queuedBytesPeak = max($this->queuedBytesPeak, $this->queuedBytesCurrent);
     }
 
     /**
