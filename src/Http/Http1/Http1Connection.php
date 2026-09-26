@@ -15,6 +15,7 @@ use Infocyph\Runwire\Http\Http1\Internal\Http1Syntax;
 use Infocyph\Runwire\Http\Http1\Internal\ParseFailure;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHead;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHeadValidator;
+use Infocyph\Runwire\Http\Http1\Internal\WebSocketUpgradeOwner;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -24,7 +25,6 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -42,6 +42,8 @@ final class Http1Connection
     private readonly RequestHeadValidator $requestHeadValidator;
 
     private readonly Http1Syntax $syntax;
+
+    private readonly WebSocketUpgradeOwner $webSocketOwner;
 
     private ?StreamingRequestBody $body = null;
 
@@ -99,8 +101,6 @@ final class Http1Connection
 
     private bool $waitingResponse = false;
 
-    private ?WebSocketSession $webSocket = null;
-
     private ?Http1ResponseWriter $writer = null;
 
     /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
@@ -117,6 +117,12 @@ final class Http1Connection
         $this->chunkSizeDecoder = new ChunkSizeDecoder();
         $this->input = new Http1Input($connection);
         $this->syntax = new Http1Syntax();
+        $this->webSocketOwner = new WebSocketUpgradeOwner(
+            $loop,
+            $connection,
+            $this->input,
+            fn(): void => $this->prepareWebSocketHandoff(),
+        );
         $connection->onData(function (): void {
             $this->pump();
         });
@@ -142,9 +148,7 @@ final class Http1Connection
         }
 
         $this->draining = true;
-        if ($this->webSocket !== null) {
-            $this->webSocket->drain();
-
+        if ($this->webSocketOwner->drain()) {
             return;
         }
 
@@ -355,7 +359,12 @@ final class Http1Connection
             function (bool $closeAfter): void {
                 $this->handleResponseEnd($closeAfter);
             },
-            fn(string $accept, ?string $subprotocol, WebSocketOptions $options): WebSocketSession => $this->upgradeWebSocket($accept, $subprotocol, $options),
+            fn(string $accept, ?string $subprotocol, WebSocketOptions $options): WebSocketSession => $this->webSocketOwner->upgrade(
+                $accept,
+                $subprotocol,
+                $options,
+                $this->body,
+            ),
         );
     }
 
@@ -403,10 +412,6 @@ final class Http1Connection
             $this->connection->abort(CloseReason::LOCAL_ABORT);
 
             throw $failure;
-        }
-
-        if ($this->webSocket !== null) {
-            return;
         }
 
         if ($this->body === $body && $body->ended() && !$this->responseEnded) {
@@ -602,9 +607,23 @@ final class Http1Connection
         return true;
     }
 
+    private function prepareWebSocketHandoff(): void
+    {
+        $this->cancelTimer($this->headerTimer);
+        $this->cancelTimer($this->bodyTimer);
+        $this->headerTimer = $this->bodyTimer = null;
+        $this->waitingResponse = false;
+        $this->bodyPressured = false;
+        $this->keepAlive = false;
+        $this->state = ParserState::WAIT_RESPONSE;
+        $this->connection->resumeReads();
+        $this->body = null;
+        $this->writer = null;
+    }
+
     private function pump(): void
     {
-        if ($this->closed || $this->pumping || $this->webSocket !== null) {
+        if ($this->closed || $this->pumping || $this->webSocketOwner->active()) {
             return;
         }
         $this->pumping = true;
@@ -716,49 +735,5 @@ final class Http1Connection
         }
     }
 
-    private function upgradeWebSocket(
-        string $accept,
-        ?string $subprotocol,
-        WebSocketOptions $options,
-    ): WebSocketSession {
-        if ($this->closed || $this->webSocket !== null) {
-            throw new RuntimeException('HTTP/1 connection cannot upgrade after protocol ownership changed.');
-        }
-        if ($this->body !== null && !$this->body->eof()) {
-            throw new RuntimeException('WebSocket upgrade requires a fully consumed empty HTTP request body.');
-        }
 
-        $wire = "HTTP/1.1 101 Switching Protocols\r\n"
-            . "upgrade: websocket\r\n"
-            . "connection: Upgrade\r\n"
-            . 'sec-websocket-accept: ' . $accept . "\r\n"
-            . ($subprotocol === null ? '' : 'sec-websocket-protocol: ' . $subprotocol . "\r\n")
-            . "\r\n";
-        $result = $this->connection->write($wire);
-        if (!$result->accepted()) {
-            throw new RuntimeException('Unable to queue native WebSocket upgrade response.');
-        }
-
-        $this->cancelTimer($this->headerTimer);
-        $this->cancelTimer($this->bodyTimer);
-        $this->headerTimer = $this->bodyTimer = null;
-        $this->waitingResponse = false;
-        $this->bodyPressured = false;
-        $this->keepAlive = false;
-        $this->connection->resumeReads();
-
-        $initialBytes = $this->input->take($this->input->availableBytes());
-        $session = new WebSocketSession(
-            $this->loop,
-            $this->connection,
-            $options,
-            $subprotocol,
-            $initialBytes,
-        );
-        $this->webSocket = $session;
-        $this->body = null;
-        $this->writer = null;
-
-        return $session;
-    }
 }
