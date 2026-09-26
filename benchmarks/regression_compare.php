@@ -82,5 +82,5 @@ $result = [
 fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 
 if (!$passed) {
-    exit(1);
+    throw new RuntimeException('Stable benchmark evidence exceeds the permitted regression budget.');
 }
