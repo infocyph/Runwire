@@ -117,6 +117,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates git libevent-dev libssl-dev pkg-config unzip
           docker-php-ext-install pcntl sockets
+          mv "$PHP_INI_DIR/conf.d/docker-php-ext-sockets.ini" "$PHP_INI_DIR/conf.d/10-sockets.ini"
           printf "\n" | pecl install event
           docker-php-ext-enable event
           rm -rf /var/lib/apt/lists/*
