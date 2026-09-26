@@ -30,10 +30,6 @@ final class WebSocketSession
 
     private readonly Connection $connection;
 
-    private readonly LoopInterface $loop;
-
-    private readonly WebSocketOptions $options;
-
     private readonly WebSocketFrameParser $parser;
 
     private readonly ?string $selectedSubprotocol;
@@ -77,17 +73,15 @@ final class WebSocketSession
      * @internal WebSocket sessions are created by the HTTP/1 upgrade owner.
      */
     public function __construct(
-        LoopInterface $loop,
+        private readonly LoopInterface $loop,
         Connection $connection,
-        WebSocketOptions $options = new WebSocketOptions(),
+        private readonly WebSocketOptions $options = new WebSocketOptions(),
         ?string $selectedSubprotocol = null,
         string $initialBytes = '',
     ) {
         $this->budget = $connection->bufferBudget();
         $this->connection = $connection;
-        $this->loop = $loop;
-        $this->options = $options;
-        $this->parser = new WebSocketFrameParser($options, $this->budget);
+        $this->parser = new WebSocketFrameParser($this->options, $this->budget);
         $this->selectedSubprotocol = $selectedSubprotocol;
         $this->lastActivityAt = $loop->now();
 
