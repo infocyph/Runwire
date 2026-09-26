@@ -27,7 +27,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Complete — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics exact-head QA green | Fairness and worker-wide resource limits proven |
 | B3-C | Process-tree/platform hardening — RW-13 | Complete — raced descendant ownership, process-group termination, detached cleanup and platform regressions exact-head QA green | Descendant/reap/cancellation/platform regressions green |
 | B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; F-04/F-05 remain evidence-based deferrals | P2 dispositions recorded; version/tag refs preserved; update policy and accepted feature lanes green |
-| B4 | Sustained-performance and release certification | Open | Production-equivalent baselines, soak, interoperability and full gates green |
+| B4 | Sustained-performance and release certification | In progress — strengthened evidence schema, five-trial real native HTTP/1 lane, process-tree telemetry and release-duration certification mode added; exact-head QA running | Production-equivalent baselines, soak, interoperability and full gates green |
 | B5 | Migration docs, beta/RC evidence and exact-head final candidate | Open | All findings closed and final candidate matrix green |
 
 ### Finding tracker
