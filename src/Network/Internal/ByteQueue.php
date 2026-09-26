@@ -33,6 +33,12 @@ final class ByteQueue
         return $this->budget?->available() ?? PHP_INT_MAX;
     }
 
+    public function __destruct()
+    {
+        $this->budget?->release($this->bytes);
+        $this->bytes = 0;
+    }
+
     /**
      * Append non-empty bytes to the queue.
      */
