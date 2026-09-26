@@ -64,8 +64,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | F-01 scalable native loop | Complete | ext-event backend selected when available; SelectLoop remains bounded fallback |
 | F-02 shared-loop coroutine request scopes | Complete | B0-C contract and B2-B native shared-loop integration certified |
 | F-03 worker-wide resource admission/pressure | Complete | bounded request/stream defaults, shared worker byte budget and pressure metrics exact-head QA green |
-| F-04 bounded stream-to-response transfer | Reopened as conditional 2.0 candidate | Prototype and benchmark against the existing bounded application pump; include in 2.0 only if correctness/ergonomics materially improve without a meaningful throughput regression |
-| F-05 native WebSocket serving | Reopened as conditional 2.0 candidate | Prototype bounded HTTP/1 upgrade/session support; include in 2.0 only if interoperability, abuse/security, soak isolation and benchmark evidence are green |
+| F-04 bounded stream-to-response transfer | Decision in progress for 2.0 | Implement and retain only if bounded correctness, ergonomics and benchmark gates pass; otherwise drop from 2.0 with recorded evidence — no deferral |
+| F-05 native WebSocket serving | Decision in progress for 2.0 | Implement and retain only if bounded HTTP/1 WebSocket interoperability, abuse/security, soak isolation and benchmark gates pass; otherwise drop from 2.0 with recorded evidence — no deferral |
 
 Release-duration certification is intentionally not represented by the short PR benchmark lane. Before tagging 2.0.0, invoke the benchmark workflow's certification mode on the exact release candidate so its 30-second warmup, five 180-second trials and 30-minute soak produce durable artifacts.
 
@@ -179,11 +179,11 @@ These values are conservative release defaults, not throughput claims. B4 may lo
 
 ### Optional feature dispositions
 
-**F-04 — bounded stream-to-response transfer: reopened as a conditional 2.0 candidate.** Runwire already exposes the primitives required for a bounded pump, so the prototype must stay inside the existing response ownership model. Compare the helper against an equivalent application pump under plain/TLS transport, large payloads, slow readers, disconnects and declared-length semantics. Accept it for 2.0 only if it materially simplifies correct usage while preserving bounded memory and showing no meaningful sustained-throughput regression.
+**F-04 — bounded stream-to-response transfer: a binary 2.0 candidate.** Runwire already exposes the primitives required for a bounded pump, so the prototype must stay inside the existing response ownership model. Compare the helper against an equivalent application pump under plain/TLS transport, large payloads, slow readers, disconnects and declared-length semantics. Keep it in 2.0 only if it materially simplifies correct usage while preserving bounded memory and showing no meaningful sustained-throughput regression.
 
-**F-05 — native WebSocket serving: reopened as a conditional 2.0 candidate.** Limit the prototype to HTTP/1 upgrade with compression disabled. It must reuse existing connection, cancellation, admission and lifecycle ownership and add explicit handshake validation, masking/UTF-8/fragment validation, message ceilings, heartbeat/close deadlines and slow-reader backpressure. Accept it for 2.0 only after independent interoperability, abuse/fuzz coverage, sustained soak and HTTP workload-isolation benchmarks are green.
+**F-05 — native WebSocket serving: a binary 2.0 candidate.** Limit the prototype to HTTP/1 upgrade with compression disabled. It must reuse existing connection, cancellation, admission and lifecycle ownership and add explicit handshake validation, masking/UTF-8/fragment validation, message ceilings, heartbeat/close deadlines and slow-reader backpressure. Accept it for 2.0 only after independent interoperability, abuse/fuzz coverage, sustained soak and HTTP workload-isolation benchmarks are green.
 
-B0-D accepted F-01, F-02 and F-03 unconditionally. F-04/F-05 are now reopened as evidence-gated 2.0 candidates during B4; their final disposition must be recorded before the release-duration certification.
+B0-D accepted F-01, F-02 and F-03 unconditionally. F-04/F-05 are now binary evidence-gated 2.0 candidates during B4: either fully accepted and implemented now, or dropped from 2.0 with the measured reason. No deferred state remains.
 
 ## Decision
 
