@@ -92,6 +92,7 @@ final class RuntimeCapabilityResolver
             ownsHttp3Wire: $environment->supportsQuic,
             supportsTlsAlpn: $environment->supportsOpenSsl,
             supportsQuic: $environment->supportsQuic,
+            supportsWebsocket: true,
             supportsOpcache: $environment->opcacheAvailable,
             supportsOpcacheCli: $environment->opcacheCliEnabled,
             supportsReusePort: $environment->supportsReusePort,

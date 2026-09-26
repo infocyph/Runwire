@@ -201,6 +201,29 @@ final class Connection
     }
 
     /**
+     * @internal Transfers configured callback slots to a protocol session.
+     *
+     * @param callable(self): void $onData
+     * @param callable(self): void $onDrain
+     * @param callable(self): void $onEof
+     */
+    public function handoffCallbacks(
+        object $owner,
+        callable $onData,
+        callable $onDrain,
+        callable $onEof,
+    ): void {
+        $this->callbackOwnership->handoff(
+            $owner,
+            $this->state === ConnectionState::CLOSED,
+        );
+
+        $this->dataCallback = Closure::fromCallable($onData);
+        $this->drainCallback = Closure::fromCallable($onDrain);
+        $this->eofCallback = Closure::fromCallable($onEof);
+    }
+
+    /**
      * Return the underlying stream resource identifier.
      */
     public function id(): int
@@ -384,7 +407,7 @@ final class Connection
         return $this->rejectedWrites;
     }
 
-    /** @internal Releases callback slots previously claimed through claimCallbacks(). */
+    /** @internal Releases callback slots previously claimed or handed off to an exclusive owner. */
     public function releaseCallbacks(object $owner): void
     {
         $this->callbackOwnership->release($owner);

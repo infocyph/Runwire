@@ -13,6 +13,8 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
+use Infocyph\Runwire\WebSocket\WebSocketOptions;
+use Infocyph\Runwire\WebSocket\WebSocketSession;
 use InvalidArgumentException;
 use LogicException;
 
@@ -25,6 +27,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     private readonly Closure $onEnd;
 
     private readonly ResponseTerminalState $terminal;
+
+    /** @var Closure(string, ?string, WebSocketOptions): WebSocketSession|null */
+    private readonly ?Closure $upgradeWebSocket;
 
     private int $bodyBytes = 0;
 
@@ -47,12 +52,16 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         private readonly string $requestMethod,
         bool $keepAlive,
         callable $onEnd,
+        ?callable $upgradeWebSocket = null,
     ) {
         $this->closeAfter = !$keepAlive;
         /** @var Closure(bool): void $onEndClosure */
         $onEndClosure = Closure::fromCallable($onEnd);
         $this->onEnd = $onEndClosure;
         $this->terminal = new ResponseTerminalState();
+        $this->upgradeWebSocket = $upgradeWebSocket === null
+            ? null
+            : Closure::fromCallable($upgradeWebSocket);
     }
 
     /**
@@ -183,6 +192,29 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         $this->chunked = $chunked;
 
         return $result;
+    }
+
+    /**
+     * @internal Terminalize the HTTP handshake and transfer the connection to a WebSocket session.
+     */
+    public function upgradeWebSocket(
+        string $accept,
+        ?string $subprotocol,
+        WebSocketOptions $options,
+    ): WebSocketSession {
+        if ($this->ended || $this->started) {
+            throw new LogicException('HTTP response cannot upgrade after response output has started.');
+        }
+        if ($this->upgradeWebSocket === null) {
+            throw new LogicException('This HTTP/1 response writer does not own a native WebSocket upgrade path.');
+        }
+
+        $session = ($this->upgradeWebSocket)($accept, $subprotocol, $options);
+        $this->started = true;
+        $this->ended = true;
+        $this->terminal->terminate($this);
+
+        return $session;
     }
 
     /**

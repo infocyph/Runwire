@@ -67,6 +67,7 @@ final readonly class RuntimeCapabilities
             RuntimeCapability::SUPPORTS_HTTP1 => $this->supportsHttp1,
             RuntimeCapability::SUPPORTS_HTTP2 => $this->supportsHttp2,
             RuntimeCapability::SUPPORTS_HTTP3 => $this->supportsHttp3,
+            RuntimeCapability::SUPPORTS_WEBSOCKET => $this->supportsWebsocket,
             RuntimeCapability::SUPPORTS_WORKER_RECYCLE => $this->supportsWorkerRecycle,
         };
     }
