@@ -58,16 +58,18 @@ final class ProcessHandle
     /**
      * Forcefully terminates the owned process tree if it is still running.
      */
-    public function abort(): void
+    public function abort(): bool
     {
         if (!is_resource($this->resource)) {
-            return;
+            return false;
         }
 
         $status = proc_get_status($this->resource);
-        if ($status['running']) {
-            ProcessTerminator::force($this->resource, $this->pid, $this->processGroup);
+        if (!$status['running']) {
+            return true;
         }
+
+        return ProcessTerminator::force($this->resource, $this->pid, $this->processGroup);
     }
 
     /**
