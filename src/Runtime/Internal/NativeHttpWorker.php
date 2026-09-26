@@ -10,7 +10,6 @@ use Infocyph\Runwire\Http\NativeHttpConnection;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\LoopFactory;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Network\Connection;
@@ -28,8 +27,6 @@ use Throwable;
  */
 final class NativeHttpWorker
 {
-    private const int SELECT_LOOP_CONNECTION_LIMIT = 256;
-
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
      */
@@ -74,10 +71,8 @@ final class NativeHttpWorker
                     $runtimeContext,
                     $sampler,
                 ): void {
-                    if (
-                        $loop instanceof SelectLoop
-                        && count($connections) >= self::SELECT_LOOP_CONNECTION_LIMIT
-                    ) {
+                    $connectionLimit = LoopFactory::connectionLimit($loop);
+                    if ($connectionLimit !== null && count($connections) >= $connectionLimit) {
                         $connection->abort(CloseReason::LOCAL_ABORT);
                         $runtimeContext->metrics->recordRejectedConnection();
                         $sampler->sample();
