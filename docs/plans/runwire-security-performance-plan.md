@@ -23,10 +23,10 @@ This tracker is part of the implementation record. Update it in every implementa
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Complete — terminal accounting, unhealthy latch, asynchronous terminal containment and worker retirement QA green | Common lifecycle suite green across native and hosts |
 | B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Complete — native loop attachment, concurrent progress, cancellation and scheduler-policy preservation QA green | Concurrent native requests, timers and cancellation progress together |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Complete — enabled-only host capability matrix and single lifecycle GC ownership QA green | Real-host capability matrix or explicit unsupported disposition |
-| B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Implemented — ext-event backend, fallback ceiling and >1024-descriptor lane added; exact-head QA running | Supported backend exceeds SelectLoop ceiling with bounded behavior |
-| B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Implemented — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics added; exact-head QA running | Fairness and worker-wide resource limits proven |
-| B3-C | Process-tree/platform hardening — RW-13 | Implemented — process-group ownership, detached metadata, platform-null handling and repeated termination regressions added; exact-head QA running | Descendant/reap/cancellation/platform regressions green |
-| B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | In progress — shared Content-Length validation owner added; workflow/package version refs preserved by project policy; dependency update cadence added; exact-head QA running | P2 dispositions recorded; version/tag refs preserved; update policy and accepted feature lanes green |
+| B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Complete — ext-event backend, bounded SelectLoop fallback and >1024-descriptor lane exact-head QA green | Supported backend exceeds SelectLoop ceiling with bounded behavior |
+| B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Complete — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics exact-head QA green | Fairness and worker-wide resource limits proven |
+| B3-C | Process-tree/platform hardening — RW-13 | Complete — raced descendant ownership, process-group termination, detached cleanup and platform regressions exact-head QA green | Descendant/reap/cancellation/platform regressions green |
+| B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; F-04/F-05 remain evidence-based deferrals | P2 dispositions recorded; version/tag refs preserved; update policy and accepted feature lanes green |
 | B4 | Sustained-performance and release certification | Open | Production-equivalent baselines, soak, interoperability and full gates green |
 | B5 | Migration docs, beta/RC evidence and exact-head final candidate | Open | All findings closed and final candidate matrix green |
 
@@ -37,19 +37,19 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-01 HTTP/1 parser continuation | High | B0-B / B1-A | Closed — exact-head QA green |
 | RW-02 empty Transfer-Encoding framing | High | B0-B / B1-A | Closed — exact-head QA green |
 | RW-03 silent/idle HTTP expiry | High | B0-B / B1-A | Closed — exact-head QA green |
-| RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Portable fail-closed behavior QA green — scalable backend/capacity remains B3-A |
+| RW-04 SelectLoop descriptor-ceiling failure | High | B0-B / B1-B / B3-A | Closed — portable fallback is bounded and ext-event capacity lane exceeds 1024 descriptors |
 | RW-05 HTTP/2 exception-text disclosure | High | B0-B / B1-C | Closed — exact-head QA green |
 | RW-06 failed reset does not retire worker | High | B0-B / B2-A | Closed — unhealthy latch and native/Swoole/host retirement QA green |
 | RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Closed — exact-head QA green |
 | RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Closed — exact-head QA green |
 | RW-09 streaming request lifetime mismatch | High | B0-B / B2-A | Closed — terminal lifecycle/admission ownership and cross-driver QA green |
-| RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Implemented — bounded frame processing per loop turn; exact-head QA running |
-| RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Implemented — shared control-byte accounting and request/QPACK progress deadlines; exact-head QA running |
+| RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Closed — bounded frame processing per event-loop turn exact-head QA green |
+| RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Closed — shared control-byte accounting and request/QPACK progress deadlines exact-head QA green |
 | RW-12 inconsistent failure containment | P1 | B2-A | Closed — lifecycle failure containment and retirement QA green |
-| RW-13 process-tree/detached cleanup | P2 | B3-C | Implemented — descendant process groups and detached cleanup retain tree ownership; exact-head QA running |
+| RW-13 process-tree/detached cleanup | P2 | B3-C | Closed — raced descendants, process groups, detached cleanup and repeated termination exact-head QA green |
 | RW-14 duplicated host GC ownership | P2 | B2-C | Closed — duplicate FrankenPHP/RoadRunner per-request GC removed; lifecycle policy is sole owner |
-| RW-15 duplicated validation/security owners | P2 | B3-D | Implemented for Content-Length security parsing without merging protocol-specific semantics; exact-head QA running |
-| RW-16 mutable CI/dependency provenance | P2 | B3-D | Disposition updated — preserve existing version/tag refs; automated dependency update cadence added; no SHA ref conversion |
+| RW-15 duplicated validation/security owners | P2 | B3-D | Closed — Content-Length security parsing centralized without merging protocol-specific semantics; exact-head QA green |
+| RW-16 mutable CI/dependency provenance | P2 | B3-D | Closed by policy — preserve reviewed version/tag refs, retain automated dependency update cadence, no SHA ref conversion |
 | RW-17 stranded due timers | P1 | B0-B / B1-B | Closed — exact-head QA green |
 | RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Closed — framing, terminal writer contract and lifecycle containment QA green |
 | RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Boundary-invariant bounded delivery QA green — aggregate fairness remains B3-B |
@@ -61,9 +61,9 @@ This tracker is part of the implementation record. Update it in every implementa
 
 | Feature | Status | Decision point |
 | --- | --- | --- |
-| F-01 scalable native loop | Implemented — QA pending | ext-event backend selected when available; SelectLoop remains bounded fallback |
+| F-01 scalable native loop | Complete | ext-event backend selected when available; SelectLoop remains bounded fallback |
 | F-02 shared-loop coroutine request scopes | Implemented | B0-C contract and B2-B native shared-loop integration certified |
-| F-03 worker-wide resource admission/pressure | Implemented — QA pending | bounded request/stream defaults, shared worker byte budget and pressure metrics added |
+| F-03 worker-wide resource admission/pressure | Complete | bounded request/stream defaults, shared worker byte budget and pressure metrics exact-head QA green |
 | F-04 bounded stream-to-response transfer | Deferred from 2.0 core | Existing streaming primitives already permit bounded application pumps; reconsider only with B4 profile evidence |
 | F-05 native WebSocket serving | Deferred from 2.0 core | New parser/state/security surface lacks 2.0 evidence; host-native support must be reported truthfully instead |
 
