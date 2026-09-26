@@ -2,9 +2,6 @@
 
 declare(strict_types=1);
 
-use RuntimeException;
-use Throwable;
-
 final class WebSocketEvidenceTimeout extends RuntimeException
 {
 }
@@ -272,9 +269,18 @@ function wsClose(mixed $socket): void
 {
     wsWriteFrame($socket, 0x8, pack('n', 1000));
     try {
-        $frame = wsReadFrame($socket);
-        if ($frame['opcode'] !== 0x8) {
-            throw new WebSocketEvidenceProtocolFailure('Expected WebSocket close response.');
+        while (true) {
+            $frame = wsReadFrame($socket);
+            if ($frame['opcode'] === 0x9) {
+                wsWriteFrame($socket, 0xA, $frame['payload']);
+
+                continue;
+            }
+            if ($frame['opcode'] !== 0x8) {
+                throw new WebSocketEvidenceProtocolFailure('Expected WebSocket close response.');
+            }
+
+            break;
         }
     } catch (WebSocketEvidenceTimeout) {
         throw new WebSocketEvidenceProtocolFailure('Server did not complete the close handshake.');
@@ -283,7 +289,18 @@ function wsClose(mixed $socket): void
     }
 }
 
-/** @return array<string, int|float|bool|string> */
+/**
+ * @return array{
+ *   messages: int,
+ *   successful_messages: int,
+ *   pings: int,
+ *   errors: int,
+ *   timeouts: int,
+ *   validation_failures: int,
+ *   latencies: list<float>,
+ *   error_sample: string
+ * }
+ */
 function wsWorker(int $port, float $duration, int $workerId): array
 {
     $counters = [
@@ -357,6 +374,7 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
         throw new RuntimeException('WebSocket evidence requires pcntl_fork().');
     }
 
+    /** @var list<array{pid: int, path: string}> $children */
     $children = [];
     for ($worker = 0; $worker < $concurrency; ++$worker) {
         $path = tempnam(sys_get_temp_dir(), 'runwire-ws-evidence-');
@@ -366,7 +384,9 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
 
         $pid = pcntl_fork();
         if ($pid === -1) {
-            @unlink($path);
+            if (is_file($path)) {
+                unlink($path);
+            }
             throw new RuntimeException('Unable to fork WebSocket evidence worker.');
         }
         if ($pid === 0) {
@@ -387,22 +407,41 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
     foreach ($children as $child) {
         pcntl_waitpid($child['pid'], $status);
         $raw = file_get_contents($child['path']);
-        @unlink($child['path']);
-        if (!is_string($raw) || $raw === '') {
+        if (is_file($child['path'])) {
+            unlink($child['path']);
+        }
+        if (
+            !pcntl_wifexited($status)
+            || pcntl_wexitstatus($status) !== 0
+            || !is_string($raw)
+            || $raw === ''
+        ) {
             ++$errors;
             $samples[] = 'worker returned no evidence';
             continue;
         }
 
         $result = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+        if (!is_array($result)) {
+            ++$errors;
+            $samples[] = 'worker returned invalid JSON evidence';
+
+            continue;
+        }
+
         $messages += (int) ($result['messages'] ?? 0);
         $successful += (int) ($result['successful_messages'] ?? 0);
         $pings += (int) ($result['pings'] ?? 0);
         $errors += (int) ($result['errors'] ?? 0);
         $timeouts += (int) ($result['timeouts'] ?? 0);
         $validationFailures += (int) ($result['validation_failures'] ?? 0);
-        foreach (($result['latencies'] ?? []) as $latency) {
-            $latencies[] = (float) $latency;
+        $workerLatencies = $result['latencies'] ?? [];
+        if (is_array($workerLatencies)) {
+            foreach ($workerLatencies as $latency) {
+                if (is_int($latency) || is_float($latency)) {
+                    $latencies[] = (float) $latency;
+                }
+            }
         }
         $sample = (string) ($result['error_sample'] ?? '');
         if ($sample !== '' && count($samples) < 10) {
@@ -538,6 +577,7 @@ function wsMain(): void
     }
 
     $slowReaderPassed = wsSlowReader($port);
+    /** @var list<array<string, mixed>> $records */
     $records = [];
     for ($trial = 0; $trial < $trials; ++$trial) {
         $record = wsTrial($port, $concurrency, $duration);
