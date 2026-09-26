@@ -130,7 +130,7 @@ final class ProcessHandle
         self::reapDetached();
         while (count(self::$detached) >= self::MAX_DETACHED_HANDLES) {
             $oldest = array_shift(self::$detached);
-            if ($oldest === null || !is_resource($oldest['resource'])) {
+            if (!is_resource($oldest['resource'])) {
                 continue;
             }
 
