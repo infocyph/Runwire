@@ -11,8 +11,6 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
-use RuntimeException;
-
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 final class TransferBenchmarkWriter implements ResponseWriterInterface
@@ -215,6 +213,27 @@ function transferMedian(array $values): float
         : ($values[$middle - 1] + $values[$middle]) / 2;
 }
 
+/** @param list<float> $values */
+function transferCoefficientOfVariation(array $values): float
+{
+    $count = count($values);
+    if ($count < 2) {
+        return 0.0;
+    }
+
+    $mean = array_sum($values) / $count;
+    if ($mean <= 0.0) {
+        return 0.0;
+    }
+
+    $sum = 0.0;
+    foreach ($values as $value) {
+        $sum += ($value - $mean) ** 2;
+    }
+
+    return sqrt($sum / ($count - 1)) / $mean * 100.0;
+}
+
 function transferTrial(bool $helper, int $bytes): float
 {
     $loop = new SelectLoop();
@@ -237,11 +256,18 @@ function transferTrial(bool $helper, int $bytes): float
     return ($bytes / 1_048_576) / $elapsed;
 }
 
-$bytes = 8 * 1_048_576;
+$bytes = 256 * 1_048_576;
+$trials = 7;
+
+// Warm both paths before measured interleaved trials so JIT/opcache and page-cache effects
+// do not dominate the short helper-vs-manual comparison.
+transferTrial(true, 16 * 1_048_576);
+transferTrial(false, 16 * 1_048_576);
+
 $helperRates = [];
 $manualRates = [];
 
-for ($trial = 0; $trial < 5; ++$trial) {
+for ($trial = 0; $trial < $trials; ++$trial) {
     if ($trial % 2 === 0) {
         $helperRates[] = transferTrial(true, $bytes);
         $manualRates[] = transferTrial(false, $bytes);
@@ -258,13 +284,15 @@ $passed = $deltaPercent >= -5.0;
 
 $result = [
     'payload_bytes' => $bytes,
-    'trials' => 5,
+    'trials' => $trials,
     'chunk_bytes' => 65_536,
     'chunks_per_turn' => 8,
     'pressure_every_writes' => 16,
     'helper_median_mib_per_second' => round($helperMedian, 3),
     'manual_median_mib_per_second' => round($manualMedian, 3),
     'delta_percent' => round($deltaPercent, 3),
+    'helper_cv_percent' => round(transferCoefficientOfVariation($helperRates), 3),
+    'manual_cv_percent' => round(transferCoefficientOfVariation($manualRates), 3),
     'regression_budget_percent' => 5.0,
     'correctness_passed' => true,
     'passed' => $passed,
