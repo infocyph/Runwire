@@ -16,6 +16,7 @@ use Infocyph\Runwire\Http\Http3\Internal\ResponseScheduler;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 
 /**
  * Drives one native QUIC connection as an HTTP/3 server connection.
@@ -61,20 +62,21 @@ final class PhpQuicHttp3Connection
         private readonly Http3Limits $limits = new Http3Limits(),
         ?string $peerAddress = null,
         ?string $localAddress = null,
+        ?ByteBudget $bufferBudget = null,
     ) {
         $this->connection->setNonBlocking();
         if ($this->connection->negotiatedAlpn() !== 'h3') {
             throw new Http3Exception(ErrorCode::GENERAL_PROTOCOL_ERROR, 'QUIC connection did not negotiate the h3 ALPN protocol.');
         }
 
-        $this->state = new ConnectionState($limits);
+        $this->state = new ConnectionState($limits, $bufferBudget);
         $this->controlStream = $this->openCriticalStream('control');
         $qpackEncoderStream = $this->openCriticalStream('QPACK encoder');
         $this->qpackDecoderStream = $this->openCriticalStream('QPACK decoder');
         $this->controlPending = $this->state->localControlPreamble();
         $this->qpackDecoderPending = $this->state->localQpackDecoderPreamble();
         $this->transport = new PhpQuicTransport($qpackEncoderStream, $this->state->localQpackEncoderPreamble());
-        $this->scheduler = new ResponseScheduler($this->state, $limits, $this->transport);
+        $this->scheduler = new ResponseScheduler($this->state, $limits, $this->transport, $bufferBudget);
         $this->session = new Http3Session(
             $this->state,
             $handler,
