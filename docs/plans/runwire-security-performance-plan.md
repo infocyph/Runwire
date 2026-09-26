@@ -2,7 +2,7 @@
 
 Audit date: 2026-09-25. Source revision: `7ab48fcf224ee86838e5bf82a50b998c2aaa8a90` (local tag `1.0`).
 
-Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: broad review and release plan complete; implementation and release certification remain open. This document does not certify the absence of vulnerabilities.
+Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: implementation batches B0-B5 are complete on the working branch; release/tag remains a separate human-controlled action and the release-duration certification workflow remains a pre-tag gate. This document does not certify the absence of vulnerabilities.
 
 ## Implementation tracker
 
@@ -13,13 +13,13 @@ This tracker is part of the implementation record. Update it in every implementa
 | Batch | Scope | Status | Exit evidence |
 | --- | --- | --- | --- |
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
-| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | Complete — all reproduced findings have durable regression coverage; QA rolling | Reproductions committed in existing suites; bounded subprocesses where required |
+| B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | Complete — all reproduced findings have durable regression coverage and final-matrix QA | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Complete | State transitions and public migration decisions recorded |
 | B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Complete — capability/policy decisions certified with B2 host matrix QA | Driver table, supported matrix, budget evidence and feature decisions recorded |
 | B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Complete — exact-head QA green | Targeted adversarial regressions green |
-| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete for portable fallback — scalable capacity remains B3-A | Loop/descriptor/timer/UDP regressions green |
+| B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete — portable fallback plus B3-A scalable-capacity closure exact-head QA green | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Complete — exact-head QA green | Redaction, mTLS-policy and live-socket regressions green |
-| B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Complete for boundary/framing correctness — aggregate fairness remains B3-B | Fragmentation/coalescing and cross-writer response corpus green |
+| B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Complete — boundary/framing correctness plus B3-B aggregate fairness exact-head QA green | Fragmentation/coalescing and cross-writer response corpus green |
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Complete — terminal accounting, unhealthy latch, asynchronous terminal containment and worker retirement QA green | Common lifecycle suite green across native and hosts |
 | B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Complete — native loop attachment, concurrent progress, cancellation and scheduler-policy preservation QA green | Concurrent native requests, timers and cancellation progress together |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Complete — enabled-only host capability matrix and single lifecycle GC ownership QA green | Real-host capability matrix or explicit unsupported disposition |
@@ -27,8 +27,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Complete — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics exact-head QA green | Fairness and worker-wide resource limits proven |
 | B3-C | Process-tree/platform hardening — RW-13 | Complete — raced descendant ownership, process-group termination, detached cleanup and platform regressions exact-head QA green | Descendant/reap/cancellation/platform regressions green |
 | B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; F-04/F-05 remain evidence-based deferrals | P2 dispositions recorded; version/tag refs preserved; update policy and accepted feature lanes green |
-| B4 | Sustained-performance and release certification | In progress — strengthened evidence schema, five-trial real native HTTP/1 lane, process-tree telemetry and release-duration certification mode added; exact-head QA running | Production-equivalent baselines, soak, interoperability and full gates green |
-| B5 | Migration docs, beta/RC evidence and exact-head final candidate | In progress — 2.0 migration guide and public-doc link/version cleanup added; final exact-head candidate evidence pending | All findings closed and final candidate matrix green |
+| B4 | Sustained-performance and release certification | Complete for candidate implementation — five-trial real native HTTP/1 evidence and variance green on PHP 8.4/8.5, process-tree telemetry and HTTP/3 interoperability/soak green; release-duration mode remains the human pre-tag gate | Production-equivalent baselines, soak, interoperability and full gates green |
+| B5 | Migration docs, beta/RC evidence and exact-head final candidate | Complete for candidate preparation — 2.0 migration/public docs, clean production install, package-content gate and consumer scan green; no tag, publish or merge performed | All findings closed and final candidate matrix green |
 
 ### Finding tracker
 
@@ -52,7 +52,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-16 mutable CI/dependency provenance | P2 | B3-D | Closed by policy — preserve reviewed version/tag refs, retain automated dependency update cadence, no SHA ref conversion |
 | RW-17 stranded due timers | P1 | B0-B / B1-B | Closed — exact-head QA green |
 | RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Closed — framing, terminal writer contract and lifecycle containment QA green |
-| RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Boundary-invariant bounded delivery QA green — aggregate fairness remains B3-B |
+| RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Closed — boundary-invariant bounded delivery plus aggregate fairness and worker-wide admission exact-head QA green |
 | RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Closed — native requests attach to the runtime-owned loop without nested driving; cancellation and policy QA green |
 | RW-21 UDP callback close crash | P1 | B0-B / B1-B | Closed — exact-head QA green |
 | RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Closed — host capabilities now report enabled Runwire integration facts rather than host-product potential |
@@ -62,10 +62,12 @@ This tracker is part of the implementation record. Update it in every implementa
 | Feature | Status | Decision point |
 | --- | --- | --- |
 | F-01 scalable native loop | Complete | ext-event backend selected when available; SelectLoop remains bounded fallback |
-| F-02 shared-loop coroutine request scopes | Implemented | B0-C contract and B2-B native shared-loop integration certified |
+| F-02 shared-loop coroutine request scopes | Complete | B0-C contract and B2-B native shared-loop integration certified |
 | F-03 worker-wide resource admission/pressure | Complete | bounded request/stream defaults, shared worker byte budget and pressure metrics exact-head QA green |
 | F-04 bounded stream-to-response transfer | Deferred from 2.0 core | Existing streaming primitives already permit bounded application pumps; reconsider only with B4 profile evidence |
 | F-05 native WebSocket serving | Deferred from 2.0 core | New parser/state/security surface lacks 2.0 evidence; host-native support must be reported truthfully instead |
+
+Release-duration certification is intentionally not represented by the short PR benchmark lane. Before tagging 2.0.0, invoke the benchmark workflow's certification mode on the exact release candidate so its 30-second warmup, five 180-second trials and 30-minute soak produce durable artifacts.
 
 ## Phase 0 contract decisions
 
