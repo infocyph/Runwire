@@ -32,6 +32,7 @@ final readonly class Http2Limits
         public int $responseHighWatermarkBytes = 786_432,
         public int $maxPendingResponseBytesPerConnection = 8_388_608,
         public int $maxWireQueueBytes = 1_048_576,
+        public int $maxFramesPerTurn = 128,
         public int $maxFramesPerFlush = 128,
         public int $maxControlFramesPerSecond = 1_000,
         public float $headerBlockTimeoutSeconds = 10.0,
@@ -54,6 +55,7 @@ final readonly class Http2Limits
             'maxPendingResponseBytesPerStream' => $maxPendingResponseBytesPerStream,
             'maxPendingResponseBytesPerConnection' => $maxPendingResponseBytesPerConnection,
             'maxWireQueueBytes' => $maxWireQueueBytes,
+            'maxFramesPerTurn' => $maxFramesPerTurn,
             'maxFramesPerFlush' => $maxFramesPerFlush,
             'maxControlFramesPerSecond' => $maxControlFramesPerSecond,
         ] as $name => $value) {
