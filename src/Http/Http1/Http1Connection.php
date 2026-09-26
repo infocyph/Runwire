@@ -714,7 +714,9 @@ final class Http1Connection
         } else {
             $this->connection->resumeReads();
         }
-    }    private function upgradeWebSocket(
+    }
+
+    private function upgradeWebSocket(
         string $accept,
         ?string $subprotocol,
         WebSocketOptions $options,
@@ -759,6 +761,4 @@ final class Http1Connection
 
         return $session;
     }
-
-
 }
