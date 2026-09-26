@@ -6,7 +6,7 @@ Target: **2.0.0**, consolidating the security, correctness and runtime-contract 
 
 ## Implementation tracker
 
-Updated: 2026-09-25. Working branch: `feature/next-edition`. Implementation baseline: `1bd9ae9a00f352714070177e4cfb01c811231b0e`.
+Updated: 2026-09-26. Working branch: `feature/next-edition`. Implementation baseline: `1bd9ae9a00f352714070177e4cfb01c811231b0e`.
 
 This tracker is part of the implementation record. Update it in every implementation batch; do not mark a batch complete until its code, targeted regression evidence and relevant quality checks are present on the branch. Keep the pull request open throughout implementation so CI and review findings feed back into the remaining batches.
 
@@ -15,14 +15,14 @@ This tracker is part of the implementation record. Update it in every implementa
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
 | B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | Complete — all reproduced findings have durable regression coverage; QA rolling | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Complete | State transitions and public migration decisions recorded |
-| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Implemented — QA pending | Driver table, supported matrix, budget evidence and feature decisions recorded |
+| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Complete — capability/policy decisions certified with B2 host matrix QA | Driver table, supported matrix, budget evidence and feature decisions recorded |
 | B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Complete — exact-head QA green | Targeted adversarial regressions green |
 | B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete for portable fallback — scalable capacity remains B3-A | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Complete — exact-head QA green | Redaction, mTLS-policy and live-socket regressions green |
 | B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Complete for boundary/framing correctness — aggregate fairness remains B3-B | Fragmentation/coalescing and cross-writer response corpus green |
 | B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Complete — terminal accounting, unhealthy latch, asynchronous terminal containment and worker retirement QA green | Common lifecycle suite green across native and hosts |
-| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | In progress — attached scheduler API implemented; native lifecycle integration pending | Concurrent native requests, timers and cancellation progress together |
-| B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Open | Real-host capability matrix or explicit unsupported disposition |
+| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Complete — native loop attachment, concurrent progress, cancellation and scheduler-policy preservation QA green | Concurrent native requests, timers and cancellation progress together |
+| B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Complete — enabled-only host capability matrix and single lifecycle GC ownership QA green | Real-host capability matrix or explicit unsupported disposition |
 | B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Open | Supported backend exceeds SelectLoop ceiling with bounded behavior |
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Open | Fairness and worker-wide resource limits proven |
 | B3-C | Process-tree/platform hardening — RW-13 | Open | Descendant/reap/cancellation/platform regressions green |
@@ -45,24 +45,24 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-09 streaming request lifetime mismatch | High | B0-B / B2-A | Closed — terminal lifecycle/admission ownership and cross-driver QA green |
 | RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Open |
 | RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Open |
-| RW-12 inconsistent failure containment | P1 | B2-A | Open |
+| RW-12 inconsistent failure containment | P1 | B2-A | Closed — lifecycle failure containment and retirement QA green |
 | RW-13 process-tree/detached cleanup | P2 | B3-C | Open |
-| RW-14 duplicated host GC ownership | P2 | B2-C | Open |
+| RW-14 duplicated host GC ownership | P2 | B2-C | Closed — duplicate FrankenPHP/RoadRunner per-request GC removed; lifecycle policy is sole owner |
 | RW-15 duplicated validation/security owners | P2 | B3-D | Open |
 | RW-16 mutable CI/dependency provenance | P2 | B3-D | Open |
 | RW-17 stranded due timers | P1 | B0-B / B1-B | Closed — exact-head QA green |
 | RW-18 inconsistent host response framing | P1 | B0-B / B1-D / B2-A | Closed — framing, terminal writer contract and lifecycle containment QA green |
 | RW-19 HTTP/3 read-boundary body behavior | High | B0-B / B1-D / B3-B | Boundary-invariant bounded delivery QA green — aggregate fairness remains B3-B |
-| RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Attached shared-loop API implemented — native lifecycle integration pending; QA pending |
+| RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Closed — native requests attach to the runtime-owned loop without nested driving; cancellation and policy QA green |
 | RW-21 UDP callback close crash | P1 | B0-B / B1-B | Closed — exact-head QA green |
-| RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Open |
+| RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Closed — host capabilities now report enabled Runwire integration facts rather than host-product potential |
 
 ### Feature decision tracker
 
 | Feature | Status | Decision point |
 | --- | --- | --- |
 | F-01 scalable native loop | Planned | B3-A backend selection after capacity/platform evidence |
-| F-02 shared-loop coroutine request scopes | Planned | B0-C contract, B2-B implementation |
+| F-02 shared-loop coroutine request scopes | Implemented | B0-C contract and B2-B native shared-loop integration certified |
 | F-03 worker-wide resource admission/pressure | Planned | B0-D budgets, B3-B implementation |
 | F-04 bounded stream-to-response transfer | Deferred from 2.0 core | Existing streaming primitives already permit bounded application pumps; reconsider only with B4 profile evidence |
 | F-05 native WebSocket serving | Deferred from 2.0 core | New parser/state/security surface lacks 2.0 evidence; host-native support must be reported truthfully instead |
