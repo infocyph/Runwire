@@ -201,28 +201,31 @@ jobs:
           }
           trap cleanup EXIT
 
-          port="$(python3 - <<'PY'
-          import socket
-          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-              sock.bind(("127.0.0.1", 0))
-              print(sock.getsockname()[1])
-          PY
-          )"
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($name) || !str_contains($name, ":")) {
+              throw new RuntimeException("Unable to resolve ephemeral benchmark port.");
+          }
+          echo substr(strrchr($name, ":"), 1);
+          ')"
 
           php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port" \
             >"$tmpdir/server.log" 2>&1 &
           server_pid=$!
 
           for attempt in $(seq 1 200); do
-            if python3 - "$port" <<'PY'
-          import socket
-          import sys
-          try:
-              with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.05):
-                  pass
-          except OSError:
-              raise SystemExit(1)
-          PY
+            if php -r '
+          $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
+          if (!is_resource($socket)) {
+              throw new RuntimeException($error);
+          }
+          fclose($socket);
+          ' "$port" >/dev/null 2>&1
             then
               break
             fi
@@ -286,8 +289,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          python3 -m pip install --disable-pip-version-check "websockets==15.0.1"
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.certification }}" = "true" ]; then
             duration_seconds=180
