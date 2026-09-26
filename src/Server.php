@@ -171,7 +171,7 @@ final readonly class Server
         /** @var Closure(HttpRequest, ResponseWriterInterface): void $closure */
         $closure = $handler instanceof Closure ? $handler : Closure::fromCallable($handler);
         if ($loop !== null) {
-            $owner = (new ReflectionFunction($closure))->getClosureThis();
+            $owner = new ReflectionFunction($closure)->getClosureThis();
             if ($owner instanceof LoopAwareRequestHandlerInterface) {
                 $owner->attachLoop($loop);
             }
