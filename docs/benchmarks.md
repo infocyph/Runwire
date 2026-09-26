@@ -414,8 +414,10 @@ A public statement such as “fastest”, “faster than X”, or “top-tier”
 
 ## Related documentation
 
+- [2.0 migration guide](migration-2.0.md)
+
 - [Getting started](getting-started.md)
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
 - [Coroutines and structured concurrency](coroutines.md)
-- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
