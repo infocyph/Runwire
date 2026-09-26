@@ -34,66 +34,17 @@ final readonly class ResponseTransfer
         int $chunksPerTurn = self::DEFAULT_CHUNKS_PER_TURN,
         bool $closeSource = true,
     ): int {
-        self::assertSource($source);
-        if ($chunkBytes < 1 || $chunkBytes > 1_048_576) {
-            throw new InvalidArgumentException('Response transfer chunk size must be between 1 and 1048576 bytes.');
-        }
-        if ($chunksPerTurn < 1 || $chunksPerTurn > 1_024) {
-            throw new InvalidArgumentException('Response transfer chunks per turn must be between 1 and 1024.');
-        }
-
+        self::assertPolicy($source, $chunkBytes, $chunksPerTurn);
         $metadata = stream_get_meta_data($source);
-        $wasBlocking = (bool) ($metadata['blocked'] ?? true);
+        $wasBlocking = (bool) $metadata['blocked'];
         if (!stream_set_blocking($source, false)) {
             throw new RuntimeException('Unable to make response transfer source non-blocking.');
         }
 
-        $transferred = 0;
-        $chunksThisTurn = 0;
-
         try {
-            while (true) {
-                $scope->cancellation()->throwIfCancelled();
-
-                $chunk = fread($source, $chunkBytes);
-                if ($chunk === false) {
-                    throw new RuntimeException('Unable to read response transfer source.');
-                }
-                if ($chunk === '') {
-                    if (feof($source)) {
-                        self::assertAccepted($writer->end());
-
-                        return $transferred;
-                    }
-
-                    $scope->waitReadable($source);
-
-                    continue;
-                }
-
-                $result = $writer->write($chunk);
-                self::assertAccepted($result);
-                $transferred += strlen($chunk);
-
-                if ($result->pressured()) {
-                    self::awaitDrain($scope, $writer);
-                    $chunksThisTurn = 0;
-
-                    continue;
-                }
-
-                ++$chunksThisTurn;
-                if ($chunksThisTurn >= $chunksPerTurn) {
-                    $chunksThisTurn = 0;
-                    $scope->yieldNow();
-                }
-            }
+            return self::pump($scope, $source, $writer, $chunkBytes, $chunksPerTurn);
         } finally {
-            if ($closeSource && is_resource($source)) {
-                fclose($source);
-            } elseif (!$closeSource && is_resource($source) && $wasBlocking) {
-                stream_set_blocking($source, true);
-            }
+            self::releaseSource($source, $closeSource, $wasBlocking);
         }
     }
 
@@ -110,10 +61,16 @@ final readonly class ResponseTransfer
     }
 
     /** @param resource $source */
-    private static function assertSource(mixed $source): void
+    private static function assertPolicy(mixed $source, int $chunkBytes, int $chunksPerTurn): void
     {
         if (!is_resource($source) || get_resource_type($source) !== 'stream') {
             throw new InvalidArgumentException('Response transfer source must be a live stream resource.');
+        }
+        if ($chunkBytes < 1 || $chunkBytes > 1_048_576) {
+            throw new InvalidArgumentException('Response transfer chunk size must be between 1 and 1048576 bytes.');
+        }
+        if ($chunksPerTurn < 1 || $chunksPerTurn > 1_024) {
+            throw new InvalidArgumentException('Response transfer chunks per turn must be between 1 and 1024.');
         }
     }
 
@@ -132,5 +89,79 @@ final readonly class ResponseTransfer
         }
 
         $deferred->future()->await();
+    }
+
+    /** @param resource $source */
+    private static function pump(
+        CoroutineScope $scope,
+        mixed $source,
+        ResponseWriterInterface $writer,
+        int $chunkBytes,
+        int $chunksPerTurn,
+    ): int {
+        $transferred = 0;
+        $chunksThisTurn = 0;
+
+        while (true) {
+            $scope->cancellation()->throwIfCancelled();
+            $chunk = fread($source, $chunkBytes);
+            if ($chunk === false) {
+                throw new RuntimeException('Unable to read response transfer source.');
+            }
+            if ($chunk === '') {
+                if (feof($source)) {
+                    self::assertAccepted($writer->end());
+
+                    return $transferred;
+                }
+
+                $scope->waitReadable($source);
+
+                continue;
+            }
+
+            $transferred += strlen($chunk);
+            self::writeChunk($scope, $writer, $chunk, $chunksPerTurn, $chunksThisTurn);
+        }
+    }
+
+    /** @param resource $source */
+    private static function releaseSource(mixed $source, bool $closeSource, bool $wasBlocking): void
+    {
+        if (!is_resource($source)) {
+            return;
+        }
+        if ($closeSource) {
+            fclose($source);
+
+            return;
+        }
+        if ($wasBlocking) {
+            stream_set_blocking($source, true);
+        }
+    }
+
+    private static function writeChunk(
+        CoroutineScope $scope,
+        ResponseWriterInterface $writer,
+        string $chunk,
+        int $chunksPerTurn,
+        int &$chunksThisTurn,
+    ): void {
+        $result = $writer->write($chunk);
+        self::assertAccepted($result);
+
+        if ($result->pressured()) {
+            self::awaitDrain($scope, $writer);
+            $chunksThisTurn = 0;
+
+            return;
+        }
+
+        ++$chunksThisTurn;
+        if ($chunksThisTurn >= $chunksPerTurn) {
+            $chunksThisTurn = 0;
+            $scope->yieldNow();
+        }
     }
 }
