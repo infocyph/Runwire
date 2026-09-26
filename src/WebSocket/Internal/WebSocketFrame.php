@@ -11,6 +11,9 @@ namespace Infocyph\Runwire\WebSocket\Internal;
  */
 final readonly class WebSocketFrame
 {
+    /**
+     * Create one validated, unmasked WebSocket frame.
+     */
     public function __construct(
         public bool $fin,
         public int $opcode,
