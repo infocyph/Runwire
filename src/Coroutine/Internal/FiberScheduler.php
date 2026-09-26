@@ -27,10 +27,6 @@ use Throwable;
 /** @internal */
 final class FiberScheduler
 {
-    private readonly LoopInterface $loop;
-
-    private readonly CoroutinePolicy $policy;
-
     private readonly ReadyQueue $ready;
 
     private int $cancelledTotal = 0;
@@ -61,11 +57,11 @@ final class FiberScheduler
     /**
      * Create a scheduler around the supplied loop and coroutine policy.
      */
-    public function __construct(LoopInterface $loop, CoroutinePolicy $policy)
-    {
-        $this->loop = $loop;
-        $this->policy = $policy;
-        $this->ready = new ReadyQueue($policy->maxReadyBacklog);
+    public function __construct(
+        private readonly LoopInterface $loop,
+        private readonly CoroutinePolicy $policy,
+    ) {
+        $this->ready = new ReadyQueue($this->policy->maxReadyBacklog);
     }
 
     /** @internal */
