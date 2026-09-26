@@ -12,7 +12,6 @@ use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Http\Http2\Internal\ControlFrameBudget;
 use Infocyph\Runwire\Http\Http2\Internal\FlowController;
 use Infocyph\Runwire\Http\Http2\Internal\Http2Stream;
-use Infocyph\Runwire\Http\Http2\Internal\RequestStreamLookup;
 use Infocyph\Runwire\Http\Http2\Internal\RequestStreamProcessor;
 use Infocyph\Runwire\Http\Http2\Internal\ResponseScheduler;
 use Infocyph\Runwire\Http\Http2\Internal\StreamError;
@@ -83,14 +82,13 @@ final class Http2Connection
         $this->flow = new FlowController();
         $this->controlBudget = new ControlFrameBudget($loop, $limits->maxControlFramesPerSecond);
 
-        $streamLookup = new RequestStreamLookup();
         $this->output = new ResponseScheduler(
             connection: $connection,
             limits: $limits,
             peerSettings: $this->peerSettings,
             encoder: $this->encoder,
             flow: $this->flow,
-            streamLookup: fn(int $id): ?Http2Stream => $streamLookup->stream($id),
+            streamLookup: fn(int $id): ?Http2Stream => $this->requests->stream($id),
             cleanupClosed: fn(Http2Stream $stream) => $this->cleanupClosed($stream),
             readyCallback: fn() => $this->handleOutputReady(),
             activityCallback: fn(Http2Stream $stream) => $this->touch($stream),
@@ -108,8 +106,6 @@ final class Http2Connection
             streamFailure: fn(StreamError $error) => $this->handleStreamError($error),
             streamRemoved: fn() => $this->finishDrainIfReady(),
         );
-        $streamLookup->attach($this->requests);
-
         $connection->onData(fn() => $this->pump());
         $connection->onEof(fn() => $this->handleEof());
         $connection->onClose(fn() => $this->cleanup());
