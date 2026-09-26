@@ -109,9 +109,7 @@ final class ProcessTermination
             return true;
         }
 
-        $process->abort();
-
-        return true;
+        return $process->abort();
     }
 
     /**
