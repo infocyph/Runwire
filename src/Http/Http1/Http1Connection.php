@@ -749,11 +749,11 @@ final class Http1Connection
 
         $initialBytes = $this->input->take($this->input->availableBytes());
         $session = new WebSocketSession(
-            $this->loop,
             $this->connection,
-            $options,
             $subprotocol,
             $initialBytes,
+            $this->loop,
+            $options,
         );
         $this->webSocket = $session;
         $this->body = null;
