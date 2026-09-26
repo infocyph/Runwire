@@ -70,7 +70,7 @@ jobs:
         uses: actions/checkout@v7 # v7.0.1
         with:
           repository: mikepultz/php-quic
-          ref: 798021078ac0e7d6a13869cb3363d95b267d71a1 # reviewed main revision
+          ref: main
           path: .ci/php-quic
 
       - name: Checkout nghttp3 interoperability dependency
@@ -78,7 +78,7 @@ jobs:
         uses: actions/checkout@v7 # v7.0.1
         with:
           repository: ngtcp2/nghttp3
-          ref: dbfc24286138cb0b6490160e7ca87fe1ce6722a0 # v1.18.0
+          ref: v1.18.0
           path: .ci/nghttp3
           submodules: recursive
 
@@ -87,7 +87,7 @@ jobs:
         uses: actions/checkout@v7 # v7.0.1
         with:
           repository: ngtcp2/ngtcp2
-          ref: f9e9ff01ad2c8116bc09de4f644b0028a61486a6 # v1.25.0
+          ref: v1.25.0
           path: .ci/ngtcp2
           submodules: recursive
 
