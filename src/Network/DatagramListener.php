@@ -246,30 +246,34 @@ final class DatagramListener
             $this->bytesRead += strlen($payload);
             $local = stream_socket_get_name($stream, false);
 
-            try {
-                $callback(new Datagram(
+            if ($this->dispatchDatagram(
+                $callback,
+                new Datagram(
                     $payload,
                     $peer,
                     is_string($local) ? $local : null,
-                ), $this);
-            } catch (Throwable $failure) {
-                $this->close();
-
-                throw $failure;
-            }
-
-            if ($this->readBatchInterrupted($stream)) {
+                ),
+                $stream,
+            )) {
                 break;
             }
         }
     }
 
     /**
+     * @param Closure(Datagram, self): void $callback
      * @param resource $stream
-     * @phpstan-impure
      */
-    private function readBatchInterrupted(mixed $stream): bool
+    private function dispatchDatagram(Closure $callback, Datagram $datagram, mixed $stream): bool
     {
+        try {
+            $callback($datagram, $this);
+        } catch (Throwable $failure) {
+            $this->close();
+
+            throw $failure;
+        }
+
         return $this->closed || $this->paused || $this->stream !== $stream;
     }
 

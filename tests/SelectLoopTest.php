@@ -4,6 +4,36 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Loop\SelectLoop;
 
+final class SelectLoopUnselectableStreamWrapper
+{
+    public mixed $context = null;
+
+    public function stream_eof(): bool
+    {
+        return false;
+    }
+
+    public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool
+    {
+        unset($path, $mode, $options, $openedPath);
+
+        return true;
+    }
+
+    public function stream_read(int $count): string
+    {
+        unset($count);
+
+        return '';
+    }
+
+    /** @return array<string, int> */
+    public function stream_stat(): array
+    {
+        return [];
+    }
+}
+
 it('runs deferred callbacks in registration order without consuming newly deferred work in the same batch', function (): void {
     $loop = new SelectLoop();
     $events = [];
@@ -230,9 +260,14 @@ it('restores loop state after callback failure so the instance can run again', f
 
 
 it('fails fast on a permanent stream_select polling failure', function (): void {
-    $stream = opendir(sys_get_temp_dir());
+    $scheme = 'runwire-unselectable';
+    expect(stream_wrapper_register($scheme, SelectLoopUnselectableStreamWrapper::class))->toBeTrue();
+
+    $stream = fopen($scheme . '://fixture', 'r');
     if (!is_resource($stream)) {
-        throw new RuntimeException('Unable to create a directory stream.');
+        stream_wrapper_unregister($scheme);
+
+        throw new RuntimeException('Unable to create an unselectable user-space stream.');
     }
 
     $loop = new SelectLoop();
@@ -242,6 +277,7 @@ it('fails fast on a permanent stream_select polling failure', function (): void 
         expect(fn() => $loop->tick())
             ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
     } finally {
-        closedir($stream);
+        fclose($stream);
+        stream_wrapper_unregister($scheme);
     }
 });
