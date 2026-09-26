@@ -46,7 +46,6 @@ final class ProcessTermination
 
     /**
      * Enforce timeout and kill deadlines while the child is running.
-     *
      */
     public function observe(ProcessHandle $process, Command $command, bool $running, int $now): void
     {
@@ -80,7 +79,6 @@ final class ProcessTermination
 
     /**
      * Begin bounded termination after output exceeds its configured ceiling.
-     *
      */
     public function observeOutputLimit(ProcessHandle $process, Command $command, bool $overflowed, bool $running): void
     {
@@ -90,7 +88,7 @@ final class ProcessTermination
             || !$running) {
             return;
         }
-        if (!ProcessTerminator::graceful($process)) {
+        if (!$process->terminateGracefully()) {
             throw new ProcessStartException('Unable to terminate child process after output-limit overflow.');
         }
 
@@ -99,6 +97,14 @@ final class ProcessTermination
             MonotonicTime::nowNanoseconds(),
             MonotonicTime::secondsToNanoseconds($command->terminationGraceSeconds),
         );
+    }
+
+    /**
+     * Return the terminal reason selected by the termination sequence.
+     */
+    public function reason(): TerminationReason
+    {
+        return $this->reason;
     }
 
     private static function force(ProcessHandle $process): bool
@@ -110,13 +116,5 @@ final class ProcessTermination
         }
 
         return $process->abort();
-    }
-
-    /**
-     * Return the terminal reason selected by the termination sequence.
-     */
-    public function reason(): TerminationReason
-    {
-        return $this->reason;
     }
 }
