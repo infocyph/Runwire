@@ -121,7 +121,9 @@ final class Http1Connection
             $loop,
             $connection,
             $this->input,
-            fn(): void => $this->prepareWebSocketHandoff(),
+            function (): void {
+                $this->prepareWebSocketHandoff();
+            },
         );
         $connection->onData(function (): void {
             $this->pump();
