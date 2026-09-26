@@ -24,6 +24,27 @@ final readonly class WebSocketOptions
         public float $idleTimeoutSeconds = 60.0,
         public float $closeTimeoutSeconds = 5.0,
     ) {
+        self::validateIntegerLimits(
+            $maxFramePayloadBytes,
+            $maxMessageBytes,
+            $maxBufferedBytes,
+            $maxReadBytesPerTurn,
+            $maxFramesPerTurn,
+        );
+        self::validateTimeouts(
+            $heartbeatIntervalSeconds,
+            $idleTimeoutSeconds,
+            $closeTimeoutSeconds,
+        );
+    }
+
+    private static function validateIntegerLimits(
+        int $maxFramePayloadBytes,
+        int $maxMessageBytes,
+        int $maxBufferedBytes,
+        int $maxReadBytesPerTurn,
+        int $maxFramesPerTurn,
+    ): void {
         foreach ([
             'maxFramePayloadBytes' => $maxFramePayloadBytes,
             'maxMessageBytes' => $maxMessageBytes,
@@ -50,6 +71,13 @@ final readonly class WebSocketOptions
         if ($maxFramesPerTurn > 1_024) {
             throw new InvalidArgumentException('WebSocket frame work per turn cannot exceed 1024 frames.');
         }
+    }
+
+    private static function validateTimeouts(
+        float $heartbeatIntervalSeconds,
+        float $idleTimeoutSeconds,
+        float $closeTimeoutSeconds,
+    ): void {
         foreach ([
             'heartbeatIntervalSeconds' => $heartbeatIntervalSeconds,
             'idleTimeoutSeconds' => $idleTimeoutSeconds,
