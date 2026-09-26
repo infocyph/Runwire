@@ -21,9 +21,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 {
     private readonly int $maxBodyBytes;
 
-    private int $bodyBytes = 0;
-
     private readonly ResponseTerminalState $terminal;
+
+    private int $bodyBytes = 0;
 
     private ?int $contentLength = null;
 

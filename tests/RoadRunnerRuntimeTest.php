@@ -260,6 +260,8 @@ it('enforces declared Content-Length in RoadRunner response writers', function (
 
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
+            unset($maxRequestBodyBytes);
+
             return null;
         }
     };

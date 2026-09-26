@@ -24,9 +24,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /** @var Closure(bool): void */
     private readonly Closure $onEnd;
 
-    private int $bodyBytes = 0;
-
     private readonly ResponseTerminalState $terminal;
+
+    private int $bodyBytes = 0;
 
     private bool $bodySuppressed = false;
 

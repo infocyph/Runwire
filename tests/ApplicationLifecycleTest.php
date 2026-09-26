@@ -369,6 +369,7 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
 
                 public function reset(RequestContext $context): void
                 {
+                    unset($context);
                     $this->state['resets'] = $this->state['resets'] + 1;
                 }
             },
@@ -418,6 +419,8 @@ it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse
 
                 public function reset(RequestContext $context): void
                 {
+                    unset($context);
+
                     throw $this->failure;
                 }
             },
@@ -438,6 +441,7 @@ it('latches asynchronous reset failure when a delayed response later terminates'
     $request = lifecycleRequest('/late');
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured): void {
+            unset($request);
             $captured = $writer;
         },
         RuntimeContext::standalone(),
@@ -447,6 +451,8 @@ it('latches asynchronous reset failure when a delayed response later terminates'
 
                 public function reset(RequestContext $context): void
                 {
+                    unset($context);
+
                     throw $this->failure;
                 }
             },

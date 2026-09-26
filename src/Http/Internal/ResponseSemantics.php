@@ -23,6 +23,16 @@ final readonly class ResponseSemantics
     }
 
     /**
+     * Reject informational and invalid codes where the writer accepts one final response.
+     */
+    public static function assertFinalStatus(int $status): void
+    {
+        if ($status < 200 || $status > 599) {
+            throw new InvalidArgumentException('Final HTTP response status must be between 200 and 599.');
+        }
+    }
+
+    /**
      * Return one validated response Content-Length value when declared.
      */
     public static function contentLength(Headers $headers): ?int
@@ -50,16 +60,6 @@ final readonly class ResponseSemantics
         }
 
         return $lengths[0] ?? null;
-    }
-
-    /**
-     * Reject informational and invalid codes where the writer accepts one final response.
-     */
-    public static function assertFinalStatus(int $status): void
-    {
-        if ($status < 200 || $status > 599) {
-            throw new InvalidArgumentException('Final HTTP response status must be between 200 and 599.');
-        }
     }
 
     /**

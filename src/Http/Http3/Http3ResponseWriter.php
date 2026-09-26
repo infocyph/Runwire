@@ -32,9 +32,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
     /** @var Closure(int, list<array{0: string, 1: string}>): WriteResult */
     private readonly Closure $sendHeaders;
 
-    private int $bodyBytes = 0;
-
     private readonly ResponseTerminalState $terminal;
+
+    private int $bodyBytes = 0;
 
     private bool $bodySuppressed = false;
 

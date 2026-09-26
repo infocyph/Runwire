@@ -24,14 +24,6 @@ final class FrameParser
     }
 
     /**
-     * Return the number of currently buffered unparsed bytes.
-     */
-    public function bufferedBytes(): int
-    {
-        return strlen($this->buffer);
-    }
-
-    /**
      * Append transport bytes without forcing all complete frames to materialize.
      */
     public function append(string $bytes): void
@@ -39,6 +31,14 @@ final class FrameParser
         if ($bytes !== '') {
             $this->buffer .= $bytes;
         }
+    }
+
+    /**
+     * Return the number of currently buffered unparsed bytes.
+     */
+    public function bufferedBytes(): int
+    {
+        return strlen($this->buffer);
     }
 
     /** @return list<Frame> */

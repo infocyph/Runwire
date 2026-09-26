@@ -25,12 +25,12 @@ final class CallbackResponseWriter implements ResponseWriterInterface
     /** @var Closure(int, Headers): void */
     private readonly Closure $startCallback;
 
+    private readonly ResponseTerminalState $terminal;
+
     /** @var Closure(string): void */
     private readonly Closure $writeCallback;
 
     private int $bodyBytes = 0;
-
-    private readonly ResponseTerminalState $terminal;
 
     private ?int $contentLength = null;
 
