@@ -20,6 +20,7 @@ use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\Internal\ValidatedRequestHead;
 use Infocyph\Runwire\Http\RequestBodyInterface;
 use Infocyph\Runwire\Internal\MonotonicTime;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 
 /**
  * Parses one HTTP/3 request stream and coordinates QPACK, body, and trailer state.
@@ -75,6 +76,7 @@ final class RequestStream
         private readonly Http3Limits $limits,
         ?callable $onBodyRelief = null,
         ?callable $onBodyConsumed = null,
+        ?ByteBudget $budget = null,
     ) {
         if ($streamId < 0 || ($streamId & 0x03) !== 0) {
             throw new \InvalidArgumentException('HTTP/3 request stream must be client-initiated and bidirectional.');
@@ -93,6 +95,7 @@ final class RequestStream
                 $this->resumeAfterBodyRelief();
             },
             $onBodyConsumed,
+            $budget,
         );
     }
 
