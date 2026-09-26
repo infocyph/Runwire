@@ -10,7 +10,7 @@ on:
 
 jobs:
   phpforge:
-    uses: infocyph/phpforge/.github/workflows/security-standards.yml@main
+    uses: infocyph/phpforge/.github/workflows/security-standards.yml@fdec64cf4460f13116eb0e2f3405acadd3e84377
     permissions:
       security-events: write
       actions: read
@@ -60,30 +60,30 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Checkout php-quic
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: mikepultz/php-quic
-          ref: main
+          ref: 798021078ac0e7d6a13869cb3363d95b267d71a1 # reviewed main revision
           path: .ci/php-quic
 
       - name: Checkout nghttp3 interoperability dependency
         if: matrix.php-version == '8.5'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ngtcp2/nghttp3
-          ref: v1.18.0
+          ref: dbfc24286138cb0b6490160e7ca87fe1ce6722a0 # v1.18.0
           path: .ci/nghttp3
           submodules: recursive
 
       - name: Checkout ngtcp2 interoperability client
         if: matrix.php-version == '8.5'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ngtcp2/ngtcp2
-          ref: v1.25.0
+          ref: f9e9ff01ad2c8116bc09de4f644b0028a61486a6 # v1.25.0
           path: .ci/ngtcp2
           submodules: recursive
 
