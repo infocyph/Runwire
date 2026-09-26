@@ -49,6 +49,15 @@ $server = Server::http(
             return;
         }
 
+        $session->onClose(
+            static function (WebSocketSession $session, int $code, string $reason): void {
+                fwrite(
+                    STDERR,
+                    sprintf("websocket-close code=%d reason=%s\n", $code, $reason),
+                );
+            },
+        );
+
         $session->onMessage(
             static function (WebSocketSession $session, $message): void {
                 $result = $message->binary
