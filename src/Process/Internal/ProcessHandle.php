@@ -169,5 +169,4 @@ final class ProcessHandle
             restore_error_handler();
         }
     }
-
 }
