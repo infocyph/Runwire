@@ -60,6 +60,7 @@ final class NativeHttpWorker
 
         try {
             $application->start();
+            $bound->listener->setBufferBudget($context->bufferBudget);
             $bound->listener->start(
                 $loop,
                 static function (Connection $connection) use (
