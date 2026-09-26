@@ -12,7 +12,11 @@ it('uses the portable loop when ext-event is unavailable', function (): void {
         $this->markTestSkipped('ext-event is available on this runner.');
     }
 
-    expect(LoopFactory::native(new DiagnosticsPolicy()))->toBeInstanceOf(SelectLoop::class)
+    $loop = LoopFactory::native(new DiagnosticsPolicy());
+
+    expect($loop)->toBeInstanceOf(SelectLoop::class)
+        ->and(LoopFactory::backendName($loop))->toBe('select')
+        ->and(LoopFactory::connectionLimit($loop))->toBe(256)
         ->and(fn() => new EventLoop())->toThrow(RuntimeException::class, 'ext-event');
 });
 
@@ -46,6 +50,8 @@ it('selects and exercises the scalable backend when ext-event is available', fun
     fclose($writer);
 
     expect($loop)->toBeInstanceOf(EventLoop::class)
+        ->and(LoopFactory::backendName($loop))->toBe('event')
+        ->and(LoopFactory::connectionLimit($loop))->toBeNull()
         ->and($payload)->toBe('hello');
 });
 
