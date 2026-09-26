@@ -36,7 +36,7 @@ final readonly class ResponseTransfer
     ): int {
         self::assertPolicy($source, $chunkBytes, $chunksPerTurn);
         $metadata = stream_get_meta_data($source);
-        $wasBlocking = (bool) ($metadata['blocked'] ?? true);
+        $wasBlocking = self::wasBlocking($metadata);
         if (!stream_set_blocking($source, false)) {
             throw new RuntimeException('Unable to make response transfer source non-blocking.');
         }
@@ -139,6 +139,14 @@ final readonly class ResponseTransfer
         if ($wasBlocking) {
             stream_set_blocking($source, true);
         }
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private static function wasBlocking(array $metadata): bool
+    {
+        return array_key_exists('blocked', $metadata)
+            ? (bool) $metadata['blocked']
+            : true;
     }
 
     private static function writeChunk(
