@@ -71,6 +71,23 @@ final class ProcessHandle
     }
 
     /**
+     * Gracefully signals the owned process tree when it is still running.
+     */
+    public function terminateGracefully(): bool
+    {
+        if (!is_resource($this->resource)) {
+            return false;
+        }
+
+        $status = proc_get_status($this->resource);
+        if (!$status['running']) {
+            return true;
+        }
+
+        return ProcessTerminator::graceful($this->resource, $this->pid, $this->processGroup);
+    }
+
+    /**
      * Closes the process handle and returns its exit code when available.
      */
     public function close(bool $wait = true): ?int
