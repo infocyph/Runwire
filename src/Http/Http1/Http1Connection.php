@@ -740,11 +740,13 @@ final class Http1Connection
         $this->keepAlive = false;
         $this->connection->resumeReads();
 
+        $initialBytes = $this->input->take($this->input->availableBytes());
         $session = new WebSocketSession(
             $this->loop,
             $this->connection,
             $options,
             $subprotocol,
+            $initialBytes,
         );
         $this->webSocket = $session;
         $this->body = null;
