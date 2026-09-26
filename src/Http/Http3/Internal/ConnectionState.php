@@ -49,8 +49,7 @@ final class ConnectionState
     public function __construct(
         private readonly Http3Limits $limits = new Http3Limits(),
         private readonly ?ByteBudget $bufferBudget = null,
-    )
-    {
+    ) {
         $this->localSettings = Settings::serverDefaults($limits);
         $this->peerControl = new ControlStream($limits->maxFramePayloadBytes);
         $this->decoder = new Decoder(
