@@ -29,19 +29,11 @@ final class RequestStream
 {
     private readonly StreamingRequestBody $body;
 
-    private readonly ?ByteBudget $budget;
-
-    private readonly Decoder $decoder;
-
-    private readonly Http3Limits $limits;
-
     private readonly Closure $onBodyRelief;
 
     private readonly FrameParser $parser;
 
     private readonly int $startedAtNanoseconds;
-
-    private readonly int $streamId;
 
     private readonly RequestHeaderValidator $validator;
 
@@ -60,9 +52,9 @@ final class RequestStream
 
     private bool $cancelled = false;
 
-    private bool $finReceived = false;
-
     private bool $finished = false;
+
+    private bool $finReceived = false;
 
     private ?ValidatedRequestHead $head = null;
 
@@ -83,27 +75,25 @@ final class RequestStream
      * @param callable(int): void|null $onBodyConsumed
      */
     public function __construct(
-        int $streamId,
-        Decoder $decoder,
-        Http3Limits $limits,
+        private readonly int $streamId,
+        private readonly Decoder $decoder,
+        private readonly Http3Limits $limits,
         ?callable $onBodyRelief = null,
         ?callable $onBodyConsumed = null,
-        ?ByteBudget $budget = null,
+        private readonly ?ByteBudget $budget = null,
     ) {
         if ($streamId < 0 || ($streamId & 0x03) !== 0) {
             throw new \InvalidArgumentException('HTTP/3 request stream must be client-initiated and bidirectional.');
         }
 
-        $this->budget = $budget;
-        $this->decoder = $decoder;
-        $this->limits = $limits;
-        $this->streamId = $streamId;
         $this->startedAtNanoseconds = MonotonicTime::nowNanoseconds();
         $this->lastProgressNanoseconds = $this->startedAtNanoseconds;
         $this->parser = new FrameParser($limits->maxFramePayloadBytes, $budget);
         $this->validator = new RequestHeaderValidator('HTTP/3');
-        $this->onBodyRelief = Closure::fromCallable($onBodyRelief ?? static function (): void {
-        });
+        $this->onBodyRelief = $onBodyRelief !== null
+            ? $onBodyRelief(...)
+            : static function (): void {
+            };
         $this->body = new StreamingRequestBody(
             $limits->bodyLowWatermarkBytes,
             $limits->bodyHighWatermarkBytes,
