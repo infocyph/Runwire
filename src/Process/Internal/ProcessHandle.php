@@ -163,6 +163,7 @@ final class ProcessHandle
         }
 
         set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+
         try {
             return posix_setpgid($this->pid, $this->pid);
         } finally {
