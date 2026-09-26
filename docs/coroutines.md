@@ -550,6 +550,7 @@ Use diagnostics for operational visibility, not unbounded task history.
 8. Dispose `AsyncConnection` before transferring callbacks while keeping the transport open.
 9. Keep task-local state small and scoped.
 10. Measure scheduler diagnostics before increasing limits.
+11. Use `ResponseTransfer::stream()` inside a request `CoroutineScope` when an already-authorized stream must follow response-writer backpressure without monopolizing the loop.
 
 ## Related documentation
 
@@ -559,4 +560,4 @@ Use diagnostics for operational visibility, not unbounded task history.
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)

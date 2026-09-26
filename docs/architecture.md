@@ -559,4 +559,4 @@ That rule keeps Foundation, Webrick, Omnibus, and third-party consumers portable
 - [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)

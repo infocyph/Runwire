@@ -2,7 +2,7 @@
 
 Audit date: 2026-09-25. Source revision: `7ab48fcf224ee86838e5bf82a50b998c2aaa8a90` (local tag `1.0`).
 
-Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: B0-B3 are closed; B4-B5 are reopened until the binary F-04/F-05 decisions and their exact-head certification finish. Release/tag remains a separate human-controlled action and the release-duration certification workflow remains a pre-tag gate. This document does not certify the absence of vulnerabilities.
+Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: implementation batches B0-B5 are complete on the working branch; F-04 and F-05 are retained after their bounded correctness, performance/interoperability and exact-head quality gates passed. Exact-head CI is green at `7b315220d7cd412ca0058f54802ce8b32800c95c`. Merge/tag/release remain maintainer-controlled actions, and the human-triggered release-duration certification workflow remains a mandatory pre-tag gate. This document does not certify the absence of vulnerabilities.
 
 ## Implementation tracker
 
@@ -27,8 +27,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Complete — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics exact-head QA green | Fairness and worker-wide resource limits proven |
 | B3-C | Process-tree/platform hardening — RW-13 | Complete — raced descendant ownership, process-group termination, detached cleanup and platform regressions exact-head QA green | Descendant/reap/cancellation/platform regressions green |
 | B3-D | Duplication, CI provenance and optional-feature handoff — RW-15/16, F-04/F-05 | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; final F-04/F-05 decisions moved to B4 | P2 dispositions recorded; version/tag refs preserved; update policy green; optional-feature decision ownership handed to B4 |
-| B4 | Sustained-performance and release certification | In progress — base HTTP/1/HTTP/3 evidence green; F-04 passed helper-vs-manual benchmarks and TLS slow-reader coverage, F-05 native WebSocket interop/soak decision gate running | Production-equivalent baselines, soak, interoperability and full gates green |
-| B5 | Migration docs, beta/RC evidence and exact-head final candidate | Final-candidate pending — migration/public docs, clean production install, package-content gate and consumer scan green; exact-head certification waits for F-04/F-05 disposition | All findings closed and final candidate matrix green |
+| B4 | Sustained-performance and release certification | Implementation complete — HTTP/1/HTTP/3 smoke/interoperability lanes green; F-04/F-05 acceptance evidence and exact-head matrix green; manual release-duration certification remains the required pre-tag gate | Production-equivalent release-duration trials/soak are intentionally human-triggered before tag |
+| B5 | Migration docs, beta/RC evidence and exact-head final candidate | Complete for branch implementation — all findings closed; migration/public docs synchronized; clean production install, package-content gate, consumer scan and exact-head final matrix green at `7b31522` | Merge/tag/release wait only on the maintainer-controlled pre-tag certification/release process |
 
 ### Finding tracker
 
@@ -64,8 +64,8 @@ This tracker is part of the implementation record. Update it in every implementa
 | F-01 scalable native loop | Complete | ext-event backend selected when available; SelectLoop remains bounded fallback |
 | F-02 shared-loop coroutine request scopes | Complete | B0-C contract and B2-B native shared-loop integration certified |
 | F-03 worker-wide resource admission/pressure | Complete | bounded request/stream defaults, shared worker byte budget and pressure metrics exact-head QA green |
-| F-04 bounded stream-to-response transfer | Decision in progress for 2.0 | Implement and retain only if bounded correctness, ergonomics and benchmark gates pass; otherwise drop from 2.0 with recorded evidence — no deferral |
-| F-05 native WebSocket serving | Decision in progress for 2.0 | Implement and retain only if bounded HTTP/1 WebSocket interoperability, abuse/security, soak isolation and benchmark gates pass; otherwise drop from 2.0 with recorded evidence — no deferral |
+| F-04 bounded stream-to-response transfer | Keep in 2.0 — bounded transfer, TLS/slow-reader coverage, stable helper-vs-manual gate and exact-head QA passed | Retained as `ResponseTransfer::stream()` on the existing writer/coroutine ownership model |
+| F-05 native WebSocket serving | Keep in 2.0 — bounded native HTTP/1 RFC 6455 implementation, independent PHP interoperability, slow-reader evidence and exact-head QA passed | Retained for native HTTP/1 only; compression and HTTP/2/3 WebSocket modes remain unclaimed |
 
 ### F-04 / F-05 2.0 decision tracker
 
@@ -75,20 +75,20 @@ These two features are binary 2.0 decisions. There is no deferred state: every c
 | --- | --- | --- | --- | --- |
 | F04-1 | Bounded stream-to-response transfer | API/ownership design | Complete | `ResponseTransfer` reuses `ResponseWriterInterface`, coroutine cancellation and existing terminal ownership; no second response model |
 | F04-2 | Bounded stream-to-response transfer | Backpressure, fairness, cancellation and source ownership regressions | Complete | Dedicated transfer tests cover pressured writes, cooperative yielding, blocked-source cancellation and caller/source ownership |
-| F04-3 | Bounded stream-to-response transfer | Real HTTP/1 + TLS slow-reader path | Implemented — exact-head QA pending | Native TLS HTTP/1 test streams through intentionally small transport watermarks and a slow reader |
-| F04-4 | Bounded stream-to-response transfer | Helper-vs-manual throughput | Complete — performance gate passed | PHP 8.4: 1723.842 vs 1734.713 MiB/s (-0.627%); PHP 8.5: 5855.127 vs 5809.676 MiB/s (+0.782%); 5% regression budget |
-| F04-5 | Bounded stream-to-response transfer | Full PHPForge/runtime/package matrix | QA rerun — stream warning fixed; functional/benchmark/package lanes green, exact-head PHPForge certification running | All relevant checks green with no unresolved review findings |
-| F04-D | Bounded stream-to-response transfer | 2.0 decision | Keep candidate — pending F04-5 | Retain only after exact-head QA remains green |
+| F04-3 | Bounded stream-to-response transfer | Real HTTP/1 + TLS slow-reader path | Complete — exact-head QA green | Native TLS HTTP/1 test streams through intentionally small transport watermarks and a slow reader |
+| F04-4 | Bounded stream-to-response transfer | Helper-vs-manual throughput | Complete — stabilized performance gate passed | Exact-head PHP 8.4: 5191.538 vs 5291.444 MiB/s (-1.888%, CV 2.618/3.498%); PHP 8.5: 1660.119 vs 1673.261 MiB/s (-0.785%, CV 0.298/0.299%); 5% regression budget |
+| F04-5 | Bounded stream-to-response transfer | Full PHPForge/runtime/package matrix | Complete — exact-head matrix green | 26/26 exact-head checks completed with zero failures; Security Report intentionally skipped by workflow; zero unresolved review threads |
+| F04-D | Bounded stream-to-response transfer | 2.0 decision | Keep in 2.0 | Correctness, ownership, TLS/slow-reader, stable performance and exact-head quality gates passed |
 | F05-1 | Native WebSocket serving | Bounded frame parser and limits | Complete | Masking, incremental input, minimal-length rules, control frames and shared byte budget covered |
 | F05-2 | Native WebSocket serving | HTTP/1 upgrade and connection ownership handoff | Complete | HTTP request terminalizes at 101 while the existing connection transfers to WebSocket session ownership |
 | F05-3 | Native WebSocket serving | Handshake/origin/subprotocol security | Complete | RFC key/version/upgrade validation, explicit browser-origin policy and subprotocol validation covered |
 | F05-4 | Native WebSocket serving | Message/control lifecycle | Complete | Fragment reassembly, UTF-8, ping/pong, close codes/deadlines, message ceilings and worker drain implemented |
-| F05-5 | Native WebSocket serving | Slow-reader/backpressure and worker-wide byte accounting | Implemented — exact-head QA pending | Reads stop under write pressure; parser/fragment buffers share worker byte budget |
+| F05-5 | Native WebSocket serving | Slow-reader/backpressure and worker-wide byte accounting | Complete — exact-head QA green | Reads stop under write pressure; parser/fragment buffers share worker byte budget |
 | F05-6 | Native WebSocket serving | Capability truth | Complete | Native runtime advertises WebSocket only after native HTTP/1 implementation exists; host adapters remain unchanged |
-| F05-7 | Native WebSocket serving | Independent interoperability evidence | Complete — PHP-native benchmark lane green on PHP 8.4/8.5 | Raw PHP stdlib RFC 6455 client validates handshake, text/binary echo, ping/pong, close and protocol correctness without importing Runwire WebSocket classes |
-| F05-8 | Native WebSocket serving | Repeated trial + slow-reader + certification soak | PR evidence complete; release-duration soak gate configured | PHP-native five-trial PR lane plus slow-reader pressure is green; release mode extends to 30-minute soak |
-| F05-9 | Native WebSocket serving | PHPForge/static quality | QA rerun — canonical formatting fixes plus HTTP/1 handoff-owner extraction committed | No complexity/type suppressions; class complexity remains within PHPForge limits |
-| F05-D | Native WebSocket serving | 2.0 decision | Pending F05-7 through F05-9 | Keep only if interoperability, soak, security and exact-head quality gates all pass; otherwise remove from 2.0 |
+| F05-7 | Native WebSocket serving | Independent interoperability evidence | Complete — PHP-native exact-head lane green on PHP 8.4/8.5 | PHP 8.4: 451,007 messages, median 43,949.085 msg/s, CV 1.050%; PHP 8.5: 182,076 messages, median 17,640.028 msg/s, CV 0.844%; raw PHP stdlib client validates handshake, text/binary echo, ping/pong and close without importing Runwire WebSocket classes |
+| F05-8 | Native WebSocket serving | Repeated trial + slow-reader + certification soak | Acceptance smoke complete; release-duration gate configured | Five-trial PHP-native smoke and slow-reader pressure are green; manual pre-tag certification extends measured trials and soak to release duration |
+| F05-9 | Native WebSocket serving | PHPForge/static quality | Complete — exact-head QA green | No complexity/type suppressions; PHPForge QA/analysis, PHPStan and Psalm are green |
+| F05-D | Native WebSocket serving | 2.0 decision | Keep in 2.0 | Native HTTP/1-only scope retained after security, bounded-resource, independent interoperability, slow-reader and exact-head quality gates passed |
 
 Release-duration certification is intentionally not represented by the short PR benchmark lane. Before tagging 2.0.0, invoke the benchmark workflow's certification mode on the exact release candidate so its 30-second warmup, five 180-second trials and 30-minute soak produce durable artifacts.
 
@@ -552,4 +552,4 @@ Every finding closes with: affected files, regression evidence, behavior/compati
 
 Release only after all required CI jobs succeed on the final source revision, including real optional-runtime lanes, clean production install and applicable interoperability/soak checks. Record the commit, commands, environment, results and artifact locations. Keep host, container, CI and cross-project evidence separate. Historical green runs do not certify a later revision.
 
-Implementation through B0-B5 is complete on the working branch for the single 2.0.0 target. The final source revision still requires its exact-head CI matrix and the human-triggered release-duration certification before any tag or publication; merge, tag and release remain maintainer-controlled actions.
+Implementation through B0-B5 is complete on the working branch for the single 2.0.0 target. Exact-head CI at `7b315220d7cd412ca0058f54802ce8b32800c95c` is green across the required branch matrix. The human-triggered release-duration certification remains the mandatory pre-tag gate; merge, tag and release remain maintainer-controlled actions.

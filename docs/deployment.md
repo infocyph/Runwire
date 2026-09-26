@@ -565,8 +565,9 @@ A production candidate should exercise:
 - HTTP/1.1;
 - HTTP/2 ALPN when enabled;
 - HTTP/3 interoperability when enabled;
-- request body/response streaming;
-- backpressure;
+- request body/response streaming, including bounded `ResponseTransfer` use where adopted;
+- native HTTP/1 WebSocket upgrade/message/close behavior where enabled;
+- backpressure, including slow WebSocket readers;
 - request cancellation/deadlines;
 - hostile input/resource-limit rejection;
 - overload rejection and recovery;
@@ -585,4 +586,4 @@ A production candidate should exercise:
 - [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)
