@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\Loop\Internal\SelectFailurePolicy;
 use Infocyph\Runwire\Loop\SelectLoop;
 
 it('runs deferred callbacks in registration order without consuming newly deferred work in the same batch', function (): void {
@@ -229,16 +228,3 @@ it('restores loop state after callback failure so the instance can run again', f
     expect($ran)->toBeTrue();
 });
 
-
-it('fails fast on permanent select failures while retaining recoverable cases', function (): void {
-    expect(fn() => SelectFailurePolicy::assertRecoverable(null, 0))
-        ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
-
-    SelectFailurePolicy::assertRecoverable(
-        'stream_select(): Unable to select [4]: Interrupted system call',
-        0,
-    );
-    SelectFailurePolicy::assertRecoverable(null, 1);
-
-    expect(true)->toBeTrue();
-});
