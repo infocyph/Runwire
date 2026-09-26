@@ -82,19 +82,22 @@ final class Http2Connection
         $this->flow = new FlowController();
         $this->controlBudget = new ControlFrameBudget($loop, $limits->maxControlFramesPerSecond);
 
+        $requests = null;
         $this->output = new ResponseScheduler(
             connection: $connection,
             limits: $limits,
             peerSettings: $this->peerSettings,
             encoder: $this->encoder,
             flow: $this->flow,
-            streamLookup: fn(int $id): ?Http2Stream => $this->requests->stream($id),
+            streamLookup: static function (int $id) use (&$requests): ?Http2Stream {
+                return $requests?->stream($id);
+            },
             cleanupClosed: fn(Http2Stream $stream) => $this->cleanupClosed($stream),
             readyCallback: fn() => $this->handleOutputReady(),
             activityCallback: fn(Http2Stream $stream) => $this->touch($stream),
         );
 
-        $this->requests = new RequestStreamProcessor(
+        $this->requests = $requests = new RequestStreamProcessor(
             loop: $loop,
             connection: $connection,
             limits: $limits,
