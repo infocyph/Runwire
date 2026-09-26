@@ -211,13 +211,19 @@ final class SwooleDriver implements HostDriverInterface
                 $completed = false;
 
                 try {
-                    $application->handle($normalized, $this->writer($response, $normalized->method));
+                    $application->handle(
+                        $normalized,
+                        $this->writer($response, $normalized->method),
+                        completeResponse: true,
+                    );
                     $completed = true;
                 } finally {
-                    if ($recycleState->recordRequestCompleted(enforceRequestLimit: false)) {
+                    $retire = $recycleState->recordRequestCompleted(enforceRequestLimit: false)
+                        || !$application->healthy();
+                    if ($retire) {
                         $stopped = DynamicHostObject::method($server, 'stop')(-1, true);
                         if ($stopped === false && $completed) {
-                            throw new RuntimeException('Swoole/OpenSwoole failed to recycle the current worker.');
+                            throw new RuntimeException('Swoole/OpenSwoole failed to retire the current worker.');
                         }
                     }
                 }

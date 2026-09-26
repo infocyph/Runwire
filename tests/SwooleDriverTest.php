@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Exception\RequestLifecycleException;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
@@ -273,4 +274,103 @@ it('reports host-owned Swoole persistence with the Runwire reactor bridge availa
         ->and($selection->capabilities->supportsHttp3)->toBeFalse()
         ->and($selection->capabilities->ownsHttp1Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse();
+});
+
+
+it('auto-completes Swoole responses and retires an unhealthy worker after reset failure', function (): void {
+    $request = new FakeSwooleRequest([
+        'request_method' => 'GET',
+        'request_uri' => '/unhealthy',
+        'server_protocol' => 'HTTP/1.1',
+    ], [], '');
+    $response = new FakeSwooleResponse();
+    $server = new class($request, $response) {
+        /** @var array<string, bool|int> */
+        public array $settings = [];
+
+        /** @var Closure(object, object): void|null */
+        private ?Closure $requestHandler = null;
+
+        /** @var Closure(): void|null */
+        private ?Closure $workerStart = null;
+
+        public int $workerStops = 0;
+
+        public function __construct(
+            private readonly FakeSwooleRequest $request,
+            private readonly FakeSwooleResponse $response,
+        ) {}
+
+        public function on(string $event, callable $handler): bool
+        {
+            if (strtolower($event) === 'workerstart') {
+                $this->workerStart = Closure::fromCallable($handler);
+
+                return true;
+            }
+            if (strtolower($event) === 'request') {
+                $this->requestHandler = Closure::fromCallable($handler);
+
+                return true;
+            }
+
+            return true;
+        }
+
+        /** @param array<string, bool|int> $settings */
+        public function set(array $settings): bool
+        {
+            $this->settings = $settings;
+
+            return true;
+        }
+
+        public function shutdown(): bool
+        {
+            return true;
+        }
+
+        public function start(): bool
+        {
+            ($this->workerStart)?->__invoke();
+            if ($this->requestHandler === null) {
+                return false;
+            }
+
+            ($this->requestHandler)($this->request, $this->response);
+
+            return true;
+        }
+
+        public function stop(int $workerId = -1, bool $waitEvent = false): bool
+        {
+            if ($workerId !== -1 || !$waitEvent) {
+                return false;
+            }
+
+            ++$this->workerStops;
+
+            return true;
+        }
+    };
+    $application = new RuntimeApplication(
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            unset($request, $writer);
+        },
+        static function (): void {
+            throw new RuntimeException('reset isolation failed');
+        },
+    );
+    $driver = new SwooleDriver(
+        new SwooleOptions(),
+        static fn(string $host, int $port): object => $host !== '' && $port > 0
+            ? $server
+            : throw new RuntimeException('Invalid Swoole test endpoint.'),
+    );
+
+    expect(fn() => $driver->run($application))
+        ->toThrow(RequestLifecycleException::class)
+        ->and($response->ends)->toBe(1)
+        ->and($application->healthy())->toBeFalse()
+        ->and($server->workerStops)->toBe(1);
 });
