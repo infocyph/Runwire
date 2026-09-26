@@ -247,22 +247,16 @@ final class NativeHttp3Worker
                 $sampler->sample();
             };
 
+            $request->context->observeCompletion($complete);
+
             try {
                 $application->handle($request, $writer);
             } catch (Throwable $error) {
-                $complete();
+                if (!$request->context->hasOwnedWork()) {
+                    $complete();
+                }
 
                 throw $error;
-            }
-
-            $writer->onTerminal(static function () use ($complete): void {
-                $complete();
-            });
-            $request->context->cancellation->onCancel(static function () use ($complete): void {
-                $complete();
-            });
-            if ($request->context->completed()) {
-                $complete();
             }
         };
     }

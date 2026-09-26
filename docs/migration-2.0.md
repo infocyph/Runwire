@@ -17,7 +17,9 @@ Runwire 2.0 tightens lifecycle ownership, capability reporting, resource admissi
 
 Runwire 2.0 treats handler return and request completion as separate events.
 
-A request remains active until its response writer reaches a terminal state or the request context is cancelled. Cleanup, reset, lifecycle metrics, admission release, and lifecycle GC happen at that terminal boundary. This prevents late streaming work from running after request-local state has already been reset.
+A request remains active until its response writer reaches a terminal state or the request context is cancelled, and all request-owned coroutine work has settled. Cleanup, reset, lifecycle metrics, lifecycle GC, and admission release happen before the context reports completion. Native worker completion counters, recycling, and retirement observe this completed lifecycle, including a reset failure discovered after the response ends.
+
+Custom `RuntimeApplicationInterface` implementations must call `$request->context->complete()` after owned work, cleanup, health-state updates, and admission release. Rejected requests must also complete their context. Ending the response or initiating cancellation alone does not mark the worker request complete. The first-party `RuntimeApplication` handles this contract automatically.
 
 Custom response writers must support the terminal-observer contract and notify observers exactly once when no more response work can be accepted. Temporary write pressure is not terminal.
 

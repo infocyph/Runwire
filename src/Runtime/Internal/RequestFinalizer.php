@@ -154,8 +154,8 @@ final class RequestFinalizer
             self::errorClass($this->context, $this->requestFailure, $resetFailures),
         );
         $this->runtimeContext->metrics->maybeCollectGarbage($this->requestExecution->gc);
-        $this->context->complete();
         $this->admission->release($this->version);
+        $this->context->complete();
 
         if ($this->requestFailure !== null) {
             if ($resetFailures !== []) {

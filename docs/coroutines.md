@@ -560,4 +560,3 @@ Use diagnostics for operational visibility, not unbounded task history.
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)

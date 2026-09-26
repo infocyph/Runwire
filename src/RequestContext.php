@@ -30,6 +30,9 @@ final class RequestContext
 
     private bool $completed = false;
 
+    /** @var Closure(): void|null */
+    private ?Closure $completionObserver = null;
+
     private int $ownedWorkCount = 0;
 
     private ?Throwable $ownedWorkFailure = null;
@@ -182,6 +185,9 @@ final class RequestContext
         $this->completed = true;
         $this->ownedWorkFailure = null;
         $this->ownedWorkSettled = null;
+        $observer = $this->completionObserver;
+        $this->completionObserver = null;
+        $observer?->__invoke();
     }
 
     /**
@@ -226,6 +232,26 @@ final class RequestContext
     public function hasOwnedWork(): bool
     {
         return $this->ownedWorkCount > 0;
+    }
+
+    /**
+     * @internal Notify the runtime owner after request cleanup and admission release.
+     *
+     * @param callable(): void $callback
+     */
+    public function observeCompletion(callable $callback): void
+    {
+        if ($this->completionObserver !== null) {
+            throw new LogicException('Request context already has a completion observer.');
+        }
+        $observer = Closure::fromCallable($callback);
+        if ($this->completed) {
+            $observer();
+
+            return;
+        }
+
+        $this->completionObserver = $observer;
     }
 
     /** @internal */

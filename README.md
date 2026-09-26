@@ -397,7 +397,6 @@ Start here for complete examples and operational guidance:
 - [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
 - [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.
 - [`docs/migration-2.0.md`](docs/migration-2.0.md) — required 1.x to 2.0 consumer migration checks and behavioral contract changes.
-- [`docs/plans/runwire-security-performance-plan.md`](docs/plans/runwire-security-performance-plan.md) — 2.0 security, lifecycle, performance, and release-certification tracker.
 
 ## Development
 

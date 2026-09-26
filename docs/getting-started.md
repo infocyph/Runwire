@@ -645,4 +645,3 @@ This surface is native HTTP/1.1 only in 2.0. Compression and HTTP/2/HTTP/3 WebSo
 - [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)

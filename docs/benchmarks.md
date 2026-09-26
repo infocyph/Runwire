@@ -458,4 +458,3 @@ A public statement such as “fastest”, “faster than X”, or “top-tier”
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
 - [Coroutines and structured concurrency](coroutines.md)
-- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)

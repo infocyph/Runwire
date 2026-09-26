@@ -17,7 +17,7 @@ final readonly class Http1Input
     /**
      * Create an input reader for the supplied connection.
      */
-    public function __construct(private readonly Connection $connection)
+    public function __construct(private Connection $connection)
     {
         $this->buffer = new ByteQueue($connection->bufferBudget());
     }

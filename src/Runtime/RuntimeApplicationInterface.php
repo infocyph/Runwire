@@ -26,7 +26,7 @@ interface RuntimeApplicationInterface extends MetricsProviderInterface
     public function drain(ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP): void;
 
     /**
-     * Handles one HTTP request and response writer pair.
+     * Handles one HTTP request and completes its context after owned work and cleanup settle.
      */
     public function handle(
         HttpRequest $request,

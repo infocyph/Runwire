@@ -126,7 +126,11 @@ final class ApplicationLifecycle
             throw new LogicException('Application lifecycle is draining and cannot start new request work.');
         }
         if (!$this->admission->admit($request->version)) {
-            $this->admission->writeOverloadResponse($request, $writer);
+            try {
+                $this->admission->writeOverloadResponse($request, $writer);
+            } finally {
+                $request->context->complete();
+            }
 
             return;
         }
