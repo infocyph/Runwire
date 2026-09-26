@@ -15,15 +15,28 @@ use OverflowException;
  */
 final class WebSocketFrameParser
 {
+    private readonly ?ByteBudget $budget;
+
+    private readonly WebSocketOptions $options;
+
     private string $buffer = '';
 
     private int $budgetBytes = 0;
 
+    /**
+     * Create a bounded parser optionally charged to the worker byte budget.
+     */
     public function __construct(
-        private readonly WebSocketOptions $options,
-        private readonly ?ByteBudget $budget = null,
-    ) {}
+        WebSocketOptions $options,
+        ?ByteBudget $budget = null,
+    ) {
+        $this->budget = $budget;
+        $this->options = $options;
+    }
 
+    /**
+     * Release any still-buffered bytes from the worker budget.
+     */
     public function __destruct()
     {
         $this->release($this->budgetBytes);
@@ -80,6 +93,24 @@ final class WebSocketFrameParser
         }
 
         return $frames;
+    }
+
+    private static function uint32(string $bytes): int
+    {
+        return (ord($bytes[0]) << 24)
+            | (ord($bytes[1]) << 16)
+            | (ord($bytes[2]) << 8)
+            | ord($bytes[3]);
+    }
+
+    private static function unmask(string $payload, string $mask): string
+    {
+        $length = strlen($payload);
+        for ($index = 0; $index < $length; ++$index) {
+            $payload[$index] = $payload[$index] ^ $mask[$index & 3];
+        }
+
+        return $payload;
     }
 
     private function consume(int $bytes): string
@@ -188,23 +219,5 @@ final class WebSocketFrameParser
         }
 
         $this->budget?->release($bytes);
-    }
-
-    private static function uint32(string $bytes): int
-    {
-        return (ord($bytes[0]) << 24)
-            | (ord($bytes[1]) << 16)
-            | (ord($bytes[2]) << 8)
-            | ord($bytes[3]);
-    }
-
-    private static function unmask(string $payload, string $mask): string
-    {
-        $length = strlen($payload);
-        for ($index = 0; $index < $length; ++$index) {
-            $payload[$index] = $payload[$index] ^ $mask[$index & 3];
-        }
-
-        return $payload;
     }
 }
