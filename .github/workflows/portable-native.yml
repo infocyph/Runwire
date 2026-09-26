@@ -91,3 +91,40 @@ jobs:
       - name: Run portable-native TLS unavailable acceptance
         shell: bash
         run: php -d disable_functions=stream_socket_enable_crypto tests/fixtures/portable_optional_protocol_acceptance.php unavailable
+
+
+  accelerated-event:
+    name: "Accelerated Event Loop - PHP 8.4"
+    runs-on: ubuntu-latest
+    container: "php:8.4-cli"
+    permissions:
+      contents: read
+
+    steps:
+      - name: Bootstrap ext-event and tools
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git libevent-dev pkg-config unzip
+          printf "\n" | pecl install event
+          docker-php-ext-enable event
+          rm -rf /var/lib/apt/lists/*
+          php -r 'exit(extension_loaded("event") ? 0 : 1);'
+
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Install Composer
+        shell: bash
+        run: |
+          php -r 'copy("https://getcomposer.org/installer", "/tmp/composer-setup.php");'
+          php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+          rm -f /tmp/composer-setup.php
+
+      - name: Install test dependencies
+        shell: bash
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prove accelerated descriptor capacity
+        shell: bash
+        run: vendor/bin/pest tests/EventLoopTest.php
