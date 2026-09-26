@@ -2,7 +2,7 @@
 
 Audit date: 2026-09-25. Source revision: `7ab48fcf224ee86838e5bf82a50b998c2aaa8a90` (local tag `1.0`).
 
-Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: implementation batches B0-B5 are complete on the working branch; release/tag remains a separate human-controlled action and the release-duration certification workflow remains a pre-tag gate. This document does not certify the absence of vulnerabilities.
+Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: B0-B3 are closed; B4-B5 are reopened until the binary F-04/F-05 decisions and their exact-head certification finish. Release/tag remains a separate human-controlled action and the release-duration certification workflow remains a pre-tag gate. This document does not certify the absence of vulnerabilities.
 
 ## Implementation tracker
 
@@ -15,7 +15,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | B0-A | Plan tracker and implementation PR | Complete | Tracker committed; PR opened before production changes |
 | B0-B | Deterministic regressions for RW-01–09 and RW-17–21 | Complete — all reproduced findings have durable regression coverage and final-matrix QA | Reproductions committed in existing suites; bounded subprocesses where required |
 | B0-C | 2.0 lifecycle, response, reset-retirement and coroutine ownership contracts | Complete | State transitions and public migration decisions recorded |
-| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; F-04/F-05 decisions | Complete — capability/policy decisions certified with B2 host matrix QA | Driver table, supported matrix, budget evidence and feature decisions recorded |
+| B0-D | Per-driver capability/policy ownership matrix; baseline resource/performance budgets; initial F-04/F-05 disposition | Complete — capability/policy decisions certified with B2 host matrix QA; F-04/F-05 were later reopened as binary B4 decisions | Driver table, supported matrix, budget evidence and initial feature dispositions recorded |
 | B1-A | HTTP/1 continuation/framing/timeouts — RW-01/02/03 | Complete — exact-head QA green | Targeted adversarial regressions green |
 | B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete — portable fallback plus B3-A scalable-capacity closure exact-head QA green | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Complete — exact-head QA green | Redaction, mTLS-policy and live-socket regressions green |
@@ -26,7 +26,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Complete — ext-event backend, bounded SelectLoop fallback and >1024-descriptor lane exact-head QA green | Supported backend exceeds SelectLoop ceiling with bounded behavior |
 | B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Complete — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics exact-head QA green | Fairness and worker-wide resource limits proven |
 | B3-C | Process-tree/platform hardening — RW-13 | Complete — raced descendant ownership, process-group termination, detached cleanup and platform regressions exact-head QA green | Descendant/reap/cancellation/platform regressions green |
-| B3-D | Duplication, CI provenance and accepted optional features — RW-15/16, F-04/F-05 if accepted | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; F-04/F-05 remain evidence-based deferrals | P2 dispositions recorded; version/tag refs preserved; update policy and accepted feature lanes green |
+| B3-D | Duplication, CI provenance and optional-feature handoff — RW-15/16, F-04/F-05 | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; final F-04/F-05 decisions moved to B4 | P2 dispositions recorded; version/tag refs preserved; update policy green; optional-feature decision ownership handed to B4 |
 | B4 | Sustained-performance and release certification | In progress — base HTTP/1/HTTP/3 evidence green; F-04 passed helper-vs-manual benchmarks and TLS slow-reader coverage, F-05 native WebSocket interop/soak decision gate running | Production-equivalent baselines, soak, interoperability and full gates green |
 | B5 | Migration docs, beta/RC evidence and exact-head final candidate | Final-candidate pending — migration/public docs, clean production install, package-content gate and consumer scan green; exact-head certification waits for F-04/F-05 disposition | All findings closed and final candidate matrix green |
 
