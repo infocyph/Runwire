@@ -1,4 +1,4 @@
-# Runwire 1.0 Coroutines and Structured Concurrency
+# Runwire 2.0 Coroutines and Structured Concurrency
 
 Runwire provides structured concurrency built on PHP `Fiber`, `LoopInterface`, and explicit task ownership. It coordinates Runwire-aware timers, I/O readiness, cancellation, request lifecycles, and worker background work without pretending that arbitrary blocking PHP APIs become asynchronous.
 
@@ -553,8 +553,10 @@ Use diagnostics for operational visibility, not unbounded task history.
 
 ## Related documentation
 
+- [2.0 migration guide](migration-2.0.md)
+
 - [Getting started](getting-started.md)
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
