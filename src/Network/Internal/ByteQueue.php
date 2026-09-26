@@ -135,6 +135,37 @@ final class ByteQueue
     }
 
     /**
+     * Return up to the requested queued bytes without consuming them.
+     */
+    public function peek(int $maxBytes = PHP_INT_MAX): string
+    {
+        if ($maxBytes < 0) {
+            throw new InvalidArgumentException('Maximum peek bytes cannot be negative.');
+        }
+        if ($maxBytes === 0 || $this->bytes === 0) {
+            return '';
+        }
+
+        $remaining = min($maxBytes, $this->bytes);
+        $parts = [];
+        $index = $this->head;
+        $offset = $this->headOffset;
+        while ($remaining > 0 && isset($this->chunks[$index])) {
+            $chunk = $this->chunks[$index];
+            $available = strlen($chunk) - $offset;
+            $take = min($remaining, $available);
+            $parts[] = $offset === 0 && $take === $available
+                ? $chunk
+                : substr($chunk, $offset, $take);
+            $remaining -= $take;
+            ++$index;
+            $offset = 0;
+        }
+
+        return count($parts) === 1 ? $parts[0] : implode('', $parts);
+    }
+
+    /**
      * Consume and return up to the requested number of bytes.
      */
     public function read(int $maxBytes): string

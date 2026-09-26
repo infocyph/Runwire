@@ -282,6 +282,14 @@ final class StreamingRequestBody implements RequestBodyInterface
         return $this->trailers;
     }
 
+    /**
+     * @internal Return local buffer capacity before a same-budget ownership transfer.
+     */
+    public function transferCapacity(): int
+    {
+        return max(0, $this->maxBufferBytes - $this->buffer->bytes());
+    }
+
     private static function invokeObserver(Closure $callback): void
     {
         try {

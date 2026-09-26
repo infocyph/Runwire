@@ -231,6 +231,7 @@ final class Http1Connection
     private function cleanup(): void
     {
         $this->body?->cancel();
+        $this->input->clear();
         $this->closed = true;
         $this->cancelTimer($this->headerTimer);
         $this->cancelTimer($this->bodyTimer);
@@ -263,14 +264,14 @@ final class Http1Connection
         if ($this->input->availableBytes() === 0) {
             return false;
         }
-        if (!$this->discardBody && $this->body !== null && $this->body->capacity() <= 0) {
+        if (!$this->discardBody && $this->body !== null && $this->body->transferCapacity() <= 0) {
             $this->bodyPressured = true;
             $this->syncReadPause();
 
             return false;
         }
 
-        $capacity = $this->discardBody || $this->body === null ? 65_536 : $this->body->capacity();
+        $capacity = $this->discardBody || $this->body === null ? 65_536 : $this->body->transferCapacity();
         $length = min($remaining, 65_536, $capacity, $this->input->availableBytes());
         if ($length <= 0) {
             return false;
@@ -348,6 +349,7 @@ final class Http1Connection
                 $this->syncReadPause();
                 $this->schedulePump();
             },
+            budget: $this->connection->bufferBudget(),
         );
     }
 

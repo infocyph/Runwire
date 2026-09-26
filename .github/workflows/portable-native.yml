@@ -137,6 +137,6 @@ jobs:
         shell: bash
         run: composer install --no-interaction --prefer-dist
 
-      - name: Prove accelerated descriptor capacity
+      - name: Prove accelerated descriptor capacity and HTTP/1 worker budgeting
         shell: bash
-        run: vendor/bin/pest tests/EventLoopTest.php
+        run: vendor/bin/pest tests/EventLoopTest.php tests/Http1WorkerBudgetTest.php
