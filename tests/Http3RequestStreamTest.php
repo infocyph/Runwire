@@ -279,3 +279,39 @@ it('preserves buffered QPACK frames across body pressure before FIN completion',
         ->and($stream->finished())->toBeTrue()
         ->and($stream->body()->eof())->toBeTrue();
 });
+
+
+it('classifies HTTP3 header body and QPACK progress deadline expiry', function (): void {
+    $limits = new Http3Limits(
+        requestHeaderTimeoutSeconds: 0.001,
+        requestBodyIdleTimeoutSeconds: 0.001,
+        qpackBlockedTimeoutSeconds: 0.001,
+    );
+
+    $headersPending = new RequestStream(0, new Decoder(0, 0), $limits);
+    expect($headersPending->timeoutReason(PHP_INT_MAX))->toBe('headers');
+
+    $encoder = new Encoder(0, 0);
+    $bodyPending = new RequestStream(0, new Decoder(0, 0), $limits);
+    $bodyPending->push(FrameWriter::encode(new Frame(
+        FrameType::HEADERS->value,
+        http3RequestHeaders($encoder, 0),
+    )));
+    expect($bodyPending->timeoutReason(PHP_INT_MAX))->toBe('body');
+
+    $dynamicEncoder = new Encoder(220, 1, dynamicTableCapacity: 220);
+    $dynamicDecoder = new Decoder(220, 1);
+    $dynamicDecoder->pushEncoderInstructions($dynamicEncoder->takeEncoderInstructions());
+    $blocked = new RequestStream(0, $dynamicDecoder, new Http3Limits(
+        qpackMaxTableCapacity: 220,
+        qpackMaxBlockedStreams: 1,
+        qpackBlockedTimeoutSeconds: 0.001,
+    ));
+    $blocked->push(FrameWriter::encode(new Frame(
+        FrameType::HEADERS->value,
+        http3RequestHeaders($dynamicEncoder, 0, [['x-dynamic', 'repeatable-value']]),
+    )));
+
+    expect($blocked->blocked())->toBeTrue()
+        ->and($blocked->timeoutReason(PHP_INT_MAX))->toBe('qpack');
+});
