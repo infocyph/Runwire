@@ -7,7 +7,6 @@ namespace Infocyph\Runwire\Http\Http3\Quic;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3Session;
@@ -112,10 +111,10 @@ final class PhpQuicHttp3Connection
         }
 
         $this->drainBoundary = $this->nextRequestStreamId();
-        $this->controlPending .= FrameWriter::encode(new Frame(
+        $this->controlPending .= new Frame(
             FrameType::GOAWAY->value,
             VarIntCodec::encode($this->drainBoundary),
-        ));
+        )->encode();
         $this->flush();
     }
 
