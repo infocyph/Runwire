@@ -8,6 +8,7 @@ use Infocyph\Runwire\Runtime;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Server;
+use Infocyph\Runwire\WebSocket\WebSocketMessage;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
 use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
@@ -59,7 +60,7 @@ $server = Server::http(
         );
 
         $session->onMessage(
-            static function (WebSocketSession $session, $message): void {
+            static function (WebSocketSession $session, WebSocketMessage $message): void {
                 try {
                     $result = $message->binary
                         ? $session->sendBinary($message->data)
