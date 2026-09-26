@@ -254,7 +254,7 @@ async def main() -> None:
         "extension_versions": extension_versions,
         "workers": 1,
         "concurrency": concurrency,
-        "duration_seconds": round(elapsed, 6),
+        "duration_seconds": duration_seconds,
         "requests_total": requests,
         "completed_requests": counter["completed_requests"],
         "successful_requests": counter["successful_requests"],
