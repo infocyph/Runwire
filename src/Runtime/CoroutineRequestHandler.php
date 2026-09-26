@@ -19,7 +19,7 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 final class CoroutineRequestHandler implements LoopAwareRequestHandlerInterface
 {
     /** @var Closure(HttpRequest, ResponseWriterInterface, CoroutineScope): void */
-    private Closure $handler;
+    private readonly Closure $handler;
 
     private ?CoroutineRuntime $attachedRuntime = null;
 
