@@ -437,7 +437,7 @@ final class PhpQuicHttp3Connection
                 continue;
             }
 
-            $this->peerStreams[$streamId]?->reset(ErrorCode::REQUEST_CANCELLED->value);
+            ($this->peerStreams[$streamId] ?? null)?->reset(ErrorCode::REQUEST_CANCELLED->value);
             $this->cancelRequestStream($streamId);
         }
     }
