@@ -48,8 +48,9 @@ final class CoroutineRuntime
      * Attach one request scope to the existing scheduler without driving its loop.
      *
      * @param callable(CoroutineScope): mixed $callback
+     * @param callable(Task): void|null $completed
      */
-    public function attachRequest(RequestContext $context, callable $callback): Task
+    public function attachRequest(RequestContext $context, callable $callback, ?callable $completed = null): Task
     {
         if ($this->running) {
             throw new LogicException('Attached request scopes cannot start while standalone coroutine execution owns the loop.');
@@ -62,6 +63,7 @@ final class CoroutineRuntime
         $source = CancellationSource::linked($context->cancellation, $context->deadline());
         $scope = new CoroutineScope($this->scheduler, $source);
         $closure = Closure::fromCallable($callback);
+        $completion = $completed === null ? null : Closure::fromCallable($completed);
         $closed = false;
         ++$this->attachedRequestScopes;
 
@@ -69,7 +71,7 @@ final class CoroutineRuntime
             return $this->scheduler->spawn(
                 static fn(): mixed => $scope->execute($closure),
                 $source,
-                function (Task $task) use ($scope, &$closed): void {
+                function (Task $task) use ($scope, $completion, &$closed): void {
                     if ($closed || !$task->isComplete()) {
                         return;
                     }
@@ -77,6 +79,7 @@ final class CoroutineRuntime
                     $closed = true;
                     $scope->close();
                     --$this->attachedRequestScopes;
+                    $completion?->__invoke($task);
                 },
             );
         } catch (\Throwable $error) {

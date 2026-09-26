@@ -10,8 +10,14 @@ use Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException;
 use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
 use Infocyph\Runwire\Coroutine\Exception\FutureCompletedException;
 use Infocyph\Runwire\Exception\CancelledException;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
+use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestContext;
+use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 it('schedules tasks FIFO and yields without recursive Fiber resume', function (): void {
@@ -283,4 +289,82 @@ it('rejects standalone loop driving while attached request scopes are active', f
     $loop->run();
 
     expect($task->state())->toBe(TaskState::COMPLETED);
+});
+
+
+it('attaches coroutine request handlers to an externally owned native loop', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime();
+    $events = [];
+    $handler = new CoroutineRequestHandler(
+        $runtime,
+        static function (HttpRequest $request, $writer, CoroutineScope $scope) use (&$events): void {
+            $events[] = 'request-start';
+            $scope->sleep(0.002);
+            $events[] = 'request-end';
+            $writer->end($request->target);
+        },
+    );
+    $handler->attachLoop($loop);
+    $request = new HttpRequest(
+        method: 'GET',
+        target: '/attached-handler',
+        version: ProtocolVersion::HTTP_1_1,
+        headers: new Headers(),
+        body: new BufferedRequestBody(''),
+    );
+    $body = '';
+    $writer = new CallbackResponseWriter(
+        static function (): void {},
+        static function (string $chunk) use (&$body): void {
+            $body .= $chunk;
+        },
+        static function (): void {},
+        1_024,
+    );
+
+    $handler($request, $writer);
+    $loop->defer(static function () use (&$events): void {
+        $events[] = 'loop-work';
+    });
+
+    expect($writer->isEnded())->toBeFalse();
+
+    $loop->run();
+
+    expect($writer->isEnded())->toBeTrue()
+        ->and($body)->toBe('/attached-handler')
+        ->and($events)->toContain('request-start', 'loop-work', 'request-end');
+});
+
+it('propagates attached coroutine handler failure through request cancellation', function (): void {
+    $loop = new SelectLoop();
+    $handler = new CoroutineRequestHandler(
+        new CoroutineRuntime(),
+        static function (HttpRequest $request, $writer, CoroutineScope $scope): void {
+            unset($request, $writer);
+            $scope->yieldNow();
+
+            throw new RuntimeException('attached handler failed');
+        },
+    );
+    $handler->attachLoop($loop);
+    $request = new HttpRequest(
+        method: 'GET',
+        target: '/attached-failure',
+        version: ProtocolVersion::HTTP_1_1,
+        headers: new Headers(),
+        body: new BufferedRequestBody(''),
+    );
+    $writer = new CallbackResponseWriter(
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+        1_024,
+    );
+
+    $handler($request, $writer);
+    $loop->run();
+
+    expect($request->context->cancellation->reason())->toBe(CancellationReason::HOST_CANCELLED);
 });
