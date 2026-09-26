@@ -171,7 +171,7 @@ function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
     $error = '';
-    $socket = @stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
+    $socket = stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
     if (!is_resource($socket)) {
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
@@ -266,7 +266,7 @@ function http1SustainedReconnect(array &$clients, int $id, string $host, int $po
 /** @param array<string, mixed> $client */
 function http1SustainedReadChunk(array &$client): void
 {
-    $chunk = @fread($client['stream'], 8192);
+    $chunk = fread($client['stream'], 8192);
     if ($chunk === false) {
         throw new Http1SustainedProtocolError('Response read failed.');
     }
@@ -434,7 +434,7 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
             continue;
         }
         $remaining = substr($request, (int) $clients[$id]['write_offset']);
-        $written = @fwrite($stream, $remaining);
+        $written = fwrite($stream, $remaining);
         if ($written === false || $written === 0) {
             ++$counter['errors_total'];
             http1SustainedCloseClient($clients[$id]);
