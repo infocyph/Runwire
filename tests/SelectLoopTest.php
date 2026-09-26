@@ -3,9 +3,6 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Loop\SelectLoop;
-use Infocyph\Runwire\Process\Command;
-use Infocyph\Runwire\Process\Enum\TerminationReason;
-use Infocyph\Runwire\Process\ProcessRunner;
 
 it('runs deferred callbacks in registration order without consuming newly deferred work in the same batch', function (): void {
     $loop = new SelectLoop();
@@ -232,60 +229,19 @@ it('restores loop state after callback failure so the instance can run again', f
 });
 
 
-it('fails fast when stream_select reaches the portable descriptor ceiling', function (): void {
-    $autoload = realpath('vendor/autoload.php');
-    if (!is_string($autoload)) {
-        throw new RuntimeException('Unable to resolve the Composer autoloader.');
+it('fails fast on a permanent stream_select polling failure', function (): void {
+    $stream = opendir(sys_get_temp_dir());
+    if (!is_resource($stream)) {
+        throw new RuntimeException('Unable to create a directory stream.');
     }
 
-    $script = sprintf(<<<'PHP'
-require %s;
+    $loop = new SelectLoop();
+    $loop->onReadable($stream, static function (): void {});
 
-$loop = new \Infocyph\Runwire\Loop\SelectLoop();
-$pairs = [];
-
-for ($index = 0; $index < 600; ++$index) {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false) {
-        foreach ($pairs as $opened) {
-            fclose($opened[0]);
-            fclose($opened[1]);
-        }
-        exit(21);
+    try {
+        expect(fn() => $loop->tick())
+            ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
+    } finally {
+        closedir($stream);
     }
-
-    [$reader, $writer] = $pair;
-    stream_set_blocking($reader, false);
-    stream_set_blocking($writer, false);
-    $pairs[] = $pair;
-    $loop->onReadable($reader, static function (): void {});
-}
-
-try {
-    $loop->tick();
-} catch (\RuntimeException $exception) {
-    foreach ($pairs as $opened) {
-        fclose($opened[0]);
-        fclose($opened[1]);
-    }
-
-    exit(str_contains($exception->getMessage(), 'stream_select()') ? 0 : 22);
-}
-
-foreach ($pairs as $opened) {
-    fclose($opened[0]);
-    fclose($opened[1]);
-}
-
-exit(23);
-PHP, var_export($autoload, true));
-
-    $result = (new ProcessRunner())->run(
-        Command::executable(PHP_BINARY, ['-r', $script])
-            ->timeout(3.0)
-            ->terminationGrace(0.05),
-    );
-
-    expect($result->terminationReason)->not->toBe(TerminationReason::TIMEOUT)
-        ->and($result->exitCode)->toBe(0);
 });
