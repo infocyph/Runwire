@@ -57,11 +57,11 @@ final class Http2Connection
 
     private bool $firstFrame = true;
 
+    private ?int $parserDeferred = null;
+
     private string $preface = '';
 
     private bool $prefaceComplete = false;
-
-    private ?int $parserDeferred = null;
 
     private bool $settingsAcked = false;
 
