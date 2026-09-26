@@ -83,14 +83,23 @@ Runwire 2.0 preserves explicit TLS verification settings rather than replacing c
 
 HTTP/1 parsing, HTTP/2 compression/framing, HTTP/3 QPACK/control streams, UDP callbacks, and host response writers all use stricter bounded failure behavior covered by the 2.0 regression matrix.
 
-## Deferred features
+## New bounded 2.0 surfaces
 
-Two reviewed candidates remain intentionally outside the 2.0 core:
+Two reviewed candidates were retained after their correctness, resource, interoperability, performance, and exact-head quality gates passed.
 
-- automatic bounded stream-to-response transfer helpers;
-- native Runwire WebSocket serving.
+### Bounded stream-to-response transfer
 
-Existing application-level streaming primitives remain available. Host-native WebSocket capability must be reported truthfully by the relevant host integration; Runwire does not advertise a new native WebSocket server surface in 2.0.
+`ResponseTransfer::stream()` copies an already-authorized stream through the existing `ResponseWriterInterface` contract. It requires a `CoroutineScope`, cooperates with cancellation, yields after bounded work, waits for writer drain under backpressure, and closes the source by default. The application still owns response status and headers.
+
+For resources that must remain open, pass `closeSource: false`; Runwire restores blocking mode when it changed that mode for the transfer. Do not use the helper as an authorization or path-validation layer.
+
+### Native WebSocket serving
+
+`WebSocketUpgrade::accept()` and `WebSocketSession` provide bounded RFC 6455 serving on the native HTTP/1.1 path. The upgrade validates version/key/upgrade framing, client masking, UTF-8/control-frame rules, frame/message ceilings, fragmentation, ping/pong, close deadlines, slow-reader backpressure, and worker-wide byte accounting.
+
+Browser requests carrying an `Origin` header are rejected unless the application supplies an explicit origin policy. Origin checks complement application authentication; they do not authenticate non-browser clients.
+
+Runwire 2.0 does not advertise HTTP/2 or HTTP/3 WebSocket extended CONNECT and does not enable WebSocket compression. Host adapters continue to report only features that the selected Runwire integration can actually expose.
 
 ## Compatibility notes
 

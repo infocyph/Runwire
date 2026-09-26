@@ -563,6 +563,81 @@ $result = $coroutines->run(
 
 See [Coroutines and structured concurrency](coroutines.md) for channels, futures, synchronization, task-local state, deadlines, request integration, worker background work, and `AsyncConnection`.
 
+## 16. Bounded response transfer
+
+`ResponseTransfer` is intended for already-authorized stream resources and runs inside a coroutine request scope:
+
+```php
+use Infocyph\Runwire\Coroutine\CoroutineRuntime;
+use Infocyph\Runwire\Coroutine\CoroutineScope;
+use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseTransfer;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
+
+$handler = new CoroutineRequestHandler(
+    new CoroutineRuntime(),
+    static function (
+        HttpRequest $request,
+        ResponseWriterInterface $writer,
+        CoroutineScope $scope,
+    ): void {
+        $source = fopen(__DIR__ . '/payload.bin', 'rb');
+        if (!is_resource($source)) {
+            $writer->start(404);
+            $writer->end();
+
+            return;
+        }
+
+        $writer->start(200, Headers::fromArray([
+            'content-type' => 'application/octet-stream',
+        ]));
+
+        ResponseTransfer::stream($scope, $source, $writer);
+    },
+);
+```
+
+The helper does not authorize files or choose response headers. It owns bounded body pumping and closes the source by default.
+
+## 17. Native HTTP/1 WebSocket
+
+```php
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\WebSocket\WebSocketMessage;
+use Infocyph\Runwire\WebSocket\WebSocketSession;
+use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
+
+$handler = static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+    $session = WebSocketUpgrade::accept(
+        $request,
+        $writer,
+        originPolicy: static fn(string $origin, HttpRequest $request): bool =>
+            $origin === 'https://example.com',
+    );
+    if (!$session instanceof WebSocketSession) {
+        return;
+    }
+
+    $session->onMessage(
+        static function (WebSocketSession $session, WebSocketMessage $message): void {
+            $result = $message->binary
+                ? $session->sendBinary($message->data)
+                : $session->sendText($message->data);
+
+            if (!$result->accepted()) {
+                $session->close(1011, 'write rejected');
+            }
+        },
+    );
+};
+```
+
+This surface is native HTTP/1.1 only in 2.0. Compression and HTTP/2/HTTP/3 WebSocket modes are intentionally not claimed.
+
 ## Next reading
 
 - [Architecture and runtime contracts](architecture.md)
@@ -570,4 +645,4 @@ See [Coroutines and structured concurrency](coroutines.md) for channels, futures
 - [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)

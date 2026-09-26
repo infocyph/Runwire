@@ -139,6 +139,24 @@ A certification record fails if a response is incomplete, times out, errors, or 
 
 HTTP/3 real-server interoperability and soak evidence remains owned by the dedicated QUIC lane using aioquic and ngtcp2/nghttp3. Protocol-core PHPBench results remain separate from real-server throughput.
 
+### F-04/F-05 acceptance smoke evidence
+
+On exact-head commit `7b315220d7cd412ca0058f54802ce8b32800c95c`, the shared-runner acceptance lane remained inside the 5% F-04 helper budget:
+
+| PHP | ResponseTransfer helper | Manual bounded pump | Delta | Helper CV | Manual CV |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 8.4 | 5191.538 MiB/s | 5291.444 MiB/s | -1.888% | 2.618% | 3.498% |
+| 8.5 | 1660.119 MiB/s | 1673.261 MiB/s | -0.785% | 0.298% | 0.299% |
+
+The same exact-head run exercised the PHP-stdlib RFC 6455 client without importing Runwire WebSocket classes:
+
+| PHP | Messages | Median msg/s | Rate CV | Median p95 | Median p99 | Slow reader |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 8.4 | 451,007 | 43,949.085 | 1.050% | 0.202 ms | 0.219 ms | pass |
+| 8.5 | 182,076 | 17,640.028 | 0.844% | 0.564 ms | 0.589 ms | pass |
+
+These are CI-smoke measurements for acceptance/regression evidence, not production-capacity claims. The manual `workflow_dispatch` certification mode remains the pre-tag owner of the 180-second repeated trials and 30-minute soak.
+
 ## 5. Release CI evidence
 
 The final Runwire 2.0 release candidate should have exact-head evidence for:
@@ -440,4 +458,4 @@ A public statement such as “fastest”, “faster than X”, or “top-tier”
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
 - [Coroutines and structured concurrency](coroutines.md)
-- [Runwire 2.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)
+- [Runwire 2.0 security/performance tracker](plans/runwire-security-performance-plan.md)

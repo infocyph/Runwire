@@ -143,6 +143,7 @@ Runwire 2.0 provides:
 - HTTP/1.1 over TCP/TLS;
 - HTTP/2 over TLS ALPN with HTTP/1.1 fallback;
 - HTTP/3 over QUIC when the supported QUIC capability is available;
+- RFC 6455 WebSocket upgrade over native HTTP/1.1;
 - framed TCP and Unix-domain stream servers;
 - UDP datagram servers.
 
@@ -174,6 +175,45 @@ $server = Server::http('0.0.0.0:8443', $handler)
 
 HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 2.0.
 
+### Native HTTP/1 WebSocket
+
+```php
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\WebSocket\WebSocketMessage;
+use Infocyph\Runwire\WebSocket\WebSocketSession;
+use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
+
+$server = Server::http(
+    '0.0.0.0:8080',
+    static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+        $session = WebSocketUpgrade::accept(
+            $request,
+            $writer,
+            originPolicy: static fn(string $origin, HttpRequest $request): bool =>
+                $origin === 'https://example.com',
+        );
+        if (!$session instanceof WebSocketSession) {
+            return;
+        }
+
+        $session->onMessage(
+            static function (WebSocketSession $session, WebSocketMessage $message): void {
+                $result = $message->binary
+                    ? $session->sendBinary($message->data)
+                    : $session->sendText($message->data);
+
+                if (!$result->accepted()) {
+                    $session->close(1011, 'write rejected');
+                }
+            },
+        );
+    },
+);
+```
+
+Native WebSocket serving is intentionally HTTP/1.1-only in 2.0. Compression and HTTP/2/HTTP/3 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
+
 ## Framed TCP example
 
 ```php
@@ -194,7 +234,7 @@ Runtime::create()->listen($server)->run();
 
 ## Structured coroutines
 
-Runwire includes a lightweight structured-concurrency runtime built on PHP `Fiber` and `LoopInterface`.
+Runwire includes a lightweight structured-concurrency runtime built on PHP `Fiber` and `LoopInterface`. Coroutine request handlers can also use `ResponseTransfer::stream()` to copy an already-authorized stream into a response with bounded chunks, cancellation, cooperative yielding, and writer backpressure.
 
 ```php
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
