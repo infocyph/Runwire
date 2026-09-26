@@ -33,15 +33,17 @@ final class RequestStream
 
     private readonly FrameParser $parser;
 
+    private readonly int $startedAtNanoseconds;
+
     private readonly RequestHeaderValidator $validator;
 
     private bool $blocked = false;
 
     private ?int $blockedAtNanoseconds = null;
 
-    private int $blockedFrameBytes = 0;
-
     private int $blockedBudgetBytes = 0;
+
+    private int $blockedFrameBytes = 0;
 
     /** @var list<Frame> */
     private array $blockedFrames = [];
@@ -50,19 +52,17 @@ final class RequestStream
 
     private bool $cancelled = false;
 
-    private bool $finished = false;
-
     private bool $finReceived = false;
 
-    private int $lastProgressNanoseconds;
-
-    private readonly int $startedAtNanoseconds;
+    private bool $finished = false;
 
     private ?ValidatedRequestHead $head = null;
 
-    private string $pendingData = '';
+    private int $lastProgressNanoseconds;
 
     private int $pendingBudgetBytes = 0;
+
+    private string $pendingData = '';
 
     private int $receivedBodyBytes = 0;
 
@@ -103,6 +103,9 @@ final class RequestStream
         );
     }
 
+    /**
+     * Release blocked and pending request bytes still charged to the worker budget.
+     */
     public function __destruct()
     {
         $this->budget?->release($this->blockedBudgetBytes + $this->pendingBudgetBytes);
@@ -116,38 +119,6 @@ final class RequestStream
     public function blocked(): bool
     {
         return $this->blocked;
-    }
-
-    /**
-     * Return the timeout classification when request progress has exceeded a managed deadline.
-     */
-    public function timeoutReason(?int $nowNanoseconds = null): ?string
-    {
-        $nowNanoseconds ??= MonotonicTime::nowNanoseconds();
-        if (
-            $this->blockedAtNanoseconds !== null
-            && $nowNanoseconds - $this->blockedAtNanoseconds
-                >= MonotonicTime::secondsToNanoseconds($this->limits->qpackBlockedTimeoutSeconds)
-        ) {
-            return 'qpack';
-        }
-        if (
-            $this->head === null
-            && $nowNanoseconds - $this->startedAtNanoseconds
-                >= MonotonicTime::secondsToNanoseconds($this->limits->requestHeaderTimeoutSeconds)
-        ) {
-            return 'headers';
-        }
-        if (
-            $this->head !== null
-            && !$this->finished
-            && $nowNanoseconds - $this->lastProgressNanoseconds
-                >= MonotonicTime::secondsToNanoseconds($this->limits->requestBodyIdleTimeoutSeconds)
-        ) {
-            return 'body';
-        }
-
-        return null;
     }
 
     /**
@@ -271,6 +242,38 @@ final class RequestStream
     public function streamId(): int
     {
         return $this->streamId;
+    }
+
+    /**
+     * Return the timeout classification when request progress has exceeded a managed deadline.
+     */
+    public function timeoutReason(?int $nowNanoseconds = null): ?string
+    {
+        $nowNanoseconds ??= MonotonicTime::nowNanoseconds();
+        if (
+            $this->blockedAtNanoseconds !== null
+            && $nowNanoseconds - $this->blockedAtNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->qpackBlockedTimeoutSeconds)
+        ) {
+            return 'qpack';
+        }
+        if (
+            $this->head === null
+            && $nowNanoseconds - $this->startedAtNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->requestHeaderTimeoutSeconds)
+        ) {
+            return 'headers';
+        }
+        if (
+            $this->head !== null
+            && !$this->finished
+            && $nowNanoseconds - $this->lastProgressNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->requestBodyIdleTimeoutSeconds)
+        ) {
+            return 'body';
+        }
+
+        return null;
     }
 
     /**
