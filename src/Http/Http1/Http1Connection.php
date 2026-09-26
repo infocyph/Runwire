@@ -734,6 +734,4 @@ final class Http1Connection
             $this->connection->resumeReads();
         }
     }
-
-
 }
