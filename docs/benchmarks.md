@@ -189,9 +189,13 @@ hardware_id
 php_version
 protocol
 workload
+instrumentation
 workers
 concurrency
 duration_seconds
+tls
+opcache
+connection_reuse
 ```
 
 Each record should include:
@@ -225,15 +229,28 @@ Schema example:
 ```json
 {
   "runtime": "runwire-native",
-  "runtime_version": "1.0",
+  "runtime_version": "2.0-candidate",
+  "runtime_build": "<candidate-commit>",
   "protocol": "http/1.1",
-  "workload": "plaintext-minimal",
+  "workload": "plaintext-keepalive",
   "hardware_id": "bench-host-01",
+  "host_os": "Linux ...",
+  "host_cpu": "CPU model ...",
   "php_version": "8.4.x",
-  "instrumentation": "default",
-  "workers": 4,
+  "instrumentation": "release-certification",
+  "tls": "off",
+  "opcache": "enabled-cli",
+  "connection_reuse": "keep-alive",
+  "extension_versions": {
+    "event": "3.x",
+    "Zend OPcache": "8.4.x"
+  },
+  "workers": 1,
   "concurrency": 128,
-  "duration_seconds": 60,
+  "duration_seconds": 180,
+  "requests_total": 0,
+  "completed_requests": 0,
+  "successful_requests": 0,
   "throughput_rps": 0,
   "latency_ms": {
     "p50": 0,
@@ -241,6 +258,9 @@ Schema example:
     "p99": 0
   },
   "errors_total": 0,
+  "timeouts_total": 0,
+  "validation_failures": 0,
+  "correctness_passed": false,
   "error_rate": 0,
   "cpu_percent": 0,
   "rss_peak_bytes": 0
