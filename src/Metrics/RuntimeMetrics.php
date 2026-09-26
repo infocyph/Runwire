@@ -51,6 +51,12 @@ final class RuntimeMetrics implements MetricsProviderInterface
     /** @var array<string, int> */
     private array $protocol;
 
+    private int $queuedBytesCurrent = 0;
+
+    private int $queuedBytesLimit = 0;
+
+    private int $queuedBytesPeak = 0;
+
     private int $rejectedConnectionsTotal = 0;
 
     private int $rejectedRequestsTotal = 0;
@@ -156,6 +162,16 @@ final class RuntimeMetrics implements MetricsProviderInterface
         $this->eventLoopTickNanoseconds = $diagnostics->lastTickNanoseconds;
         $this->eventLoopLagNanoseconds = max($this->eventLoopLagNanoseconds, $diagnostics->maxLagNanoseconds);
         $this->callbackOverrunsTotal = max($this->callbackOverrunsTotal, $diagnostics->callbackOverrunsTotal);
+    }
+
+    /**
+     * Observe worker-wide Runwire-owned queued-byte pressure.
+     */
+    public function observeQueuedBytes(int $used, int $limit): void
+    {
+        $this->queuedBytesCurrent = max(0, $used);
+        $this->queuedBytesLimit = max(0, $limit);
+        $this->queuedBytesPeak = max($this->queuedBytesPeak, $this->queuedBytesCurrent);
     }
 
     /**
@@ -307,6 +323,9 @@ final class RuntimeMetrics implements MetricsProviderInterface
             eventLoopLagNanoseconds: $this->eventLoopLagNanoseconds,
             callbackOverrunsTotal: $this->callbackOverrunsTotal,
             backpressureEventsTotal: $this->backpressureEventsTotal,
+            queuedBytesCurrent: $this->queuedBytesCurrent,
+            queuedBytesPeak: $this->queuedBytesPeak,
+            queuedBytesLimit: $this->queuedBytesLimit,
             rejectedConnectionsTotal: $this->rejectedConnectionsTotal,
             rejectedRequestsTotal: $this->rejectedRequestsTotal,
             requestLifetimeHighWaterNanoseconds: $this->requestLifetimeHighWaterNanoseconds,
