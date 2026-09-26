@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
@@ -49,6 +51,33 @@ it('requests a planned stop when the logical request recycle budget is reached',
     expect(stream_select($read, $write, $except, 0, 100_000))->toBe(1);
 
     $context->consumeStopWake();
+    $context->close();
+    fclose($readyParent);
+});
+
+
+it('observes supervisor stop control through the attached worker loop', function (): void {
+    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    $context = new WorkerContext('test', 0, 1, posix_getpid(), posix_getppid(), $readyChild);
+    $loop = new SelectLoop();
+    $context->attachLoop($loop);
+    $loop->onReadable(
+        $context->stopStream(),
+        static function () use ($context, $loop): void {
+            $context->consumeStopWake();
+            $loop->stop();
+        },
+    );
+    $loop->delay(0.5, static function () use ($loop): void {
+        $loop->stop();
+    });
+
+    fwrite($readyParent, 'S:' . ShutdownReason::SUPERVISOR_STOP->value . "\n");
+    $loop->run();
+
+    expect($context->stopping())->toBeTrue()
+        ->and($context->shutdownReason())->toBe(ShutdownReason::SUPERVISOR_STOP);
+
     $context->close();
     fclose($readyParent);
 });
