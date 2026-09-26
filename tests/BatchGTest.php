@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Runtime\DevelopmentWatchPolicy;
-use Infocyph\Runwire\Runtime\Internal\DevelopmentFileScanner;
 use Infocyph\Runwire\Runtime\Internal\DevelopmentWatcher;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Supervisor;
@@ -189,8 +188,12 @@ it('bounds development watcher file scans', function (): void {
 
     try {
         $policy = new DevelopmentWatchPolicy(enabled: true, paths: [$directory], maxFiles: 1);
-        expect(fn () => (new DevelopmentFileScanner($policy))->snapshot())
-            ->toThrow(RuntimeException::class, 'file limit');
+        $watcher = new DevelopmentWatcher(new SelectLoop(), $policy, static function (): void {});
+        $watcher->start();
+
+        expect($watcher->failureCount())->toBe(1);
+
+        $watcher->stop();
     } finally {
         unlink($directory . '/a.php');
         unlink($directory . '/b.php');
