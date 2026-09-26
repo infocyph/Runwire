@@ -106,9 +106,10 @@ it('normalizes exit status and fails before spawn for invalid executable or over
 });
 
 it('rejects non-stream stdin resources before spawning the configured command', function (): void {
+    $nullDevice = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
     $fixture = proc_open(
         [PHP_BINARY, '-r', 'usleep(500000);'],
-        [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+        [0 => ['file', $nullDevice, 'r'], 1 => ['file', $nullDevice, 'w'], 2 => ['file', $nullDevice, 'w']],
         $pipes,
     );
     expect($fixture)->toBeResource();
