@@ -23,6 +23,8 @@ function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = 
 
         public ?int $peerResetCode = null;
 
+        public int $readBytes = 0;
+
         public string $written = '';
 
         /** @param list<string|null> $reads */
@@ -60,10 +62,13 @@ function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = 
                 return $next;
             }
             if (strlen($next) <= $length) {
+                $this->readBytes += strlen($next);
+
                 return $next;
             }
 
             $chunk = substr($next, 0, $length);
+            $this->readBytes += strlen($chunk);
             array_unshift($this->reads, substr($next, $length));
 
             return $chunk;
@@ -330,5 +335,31 @@ it('sends one bounded GOAWAY and rejects request streams at the drain boundary',
         ->and($offset)->toBe(strlen($goaway[0]->payload))
         ->and($rejected->peerResetCode)->toBe(ErrorCode::REQUEST_REJECTED->value)
         ->and($connection->activeRequestStreams())->toBe(1)
+        ->and($connection->closed())->toBeFalse();
+});
+
+
+it('enforces the HTTP3 aggregate control-stream byte budget per pump', function (): void {
+    $peerControl = fakeHttp3ConnectionStream(2, false, [str_repeat("\x21", 128)]);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$peerControl],
+    );
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (): void {},
+        new Http3Limits(
+            maxControlBytesPerTick: 16,
+            streamReadChunkBytes: 64,
+        ),
+    );
+
+    $connection->pump();
+
+    expect($peerControl->readBytes)->toBe(16)
         ->and($connection->closed())->toBeFalse();
 });
