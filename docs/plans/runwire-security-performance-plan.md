@@ -67,6 +67,29 @@ This tracker is part of the implementation record. Update it in every implementa
 | F-04 bounded stream-to-response transfer | Decision in progress for 2.0 | Implement and retain only if bounded correctness, ergonomics and benchmark gates pass; otherwise drop from 2.0 with recorded evidence — no deferral |
 | F-05 native WebSocket serving | Decision in progress for 2.0 | Implement and retain only if bounded HTTP/1 WebSocket interoperability, abuse/security, soak isolation and benchmark gates pass; otherwise drop from 2.0 with recorded evidence — no deferral |
 
+### F-04 / F-05 2.0 decision tracker
+
+These two features are binary 2.0 decisions. There is no deferred state: every checkpoint must finish, then the feature is either retained in 2.0 or removed before the final candidate.
+
+| ID | Feature | Checkpoint | Status | Evidence / exit condition |
+| --- | --- | --- | --- | --- |
+| F04-1 | Bounded stream-to-response transfer | API/ownership design | Complete | `ResponseTransfer` reuses `ResponseWriterInterface`, coroutine cancellation and existing terminal ownership; no second response model |
+| F04-2 | Bounded stream-to-response transfer | Backpressure, fairness, cancellation and source ownership regressions | Complete | Dedicated transfer tests cover pressured writes, cooperative yielding, blocked-source cancellation and caller/source ownership |
+| F04-3 | Bounded stream-to-response transfer | Real HTTP/1 + TLS slow-reader path | Implemented — exact-head QA pending | Native TLS HTTP/1 test streams through intentionally small transport watermarks and a slow reader |
+| F04-4 | Bounded stream-to-response transfer | Helper-vs-manual throughput | Complete — performance gate passed | PHP 8.4: 1723.842 vs 1734.713 MiB/s (-0.627%); PHP 8.5: 5855.127 vs 5809.676 MiB/s (+0.782%); 5% regression budget |
+| F04-5 | Bounded stream-to-response transfer | Full PHPForge/runtime/package matrix | Pending exact-head certification | All relevant checks green with no unresolved review findings |
+| F04-D | Bounded stream-to-response transfer | 2.0 decision | Keep candidate — pending F04-5 | Retain only after exact-head QA remains green |
+| F05-1 | Native WebSocket serving | Bounded frame parser and limits | Complete | Masking, incremental input, minimal-length rules, control frames and shared byte budget covered |
+| F05-2 | Native WebSocket serving | HTTP/1 upgrade and connection ownership handoff | Complete | HTTP request terminalizes at 101 while the existing connection transfers to WebSocket session ownership |
+| F05-3 | Native WebSocket serving | Handshake/origin/subprotocol security | Complete | RFC key/version/upgrade validation, explicit browser-origin policy and subprotocol validation covered |
+| F05-4 | Native WebSocket serving | Message/control lifecycle | Complete | Fragment reassembly, UTF-8, ping/pong, close codes/deadlines, message ceilings and worker drain implemented |
+| F05-5 | Native WebSocket serving | Slow-reader/backpressure and worker-wide byte accounting | Implemented — exact-head QA pending | Reads stop under write pressure; parser/fragment buffers share worker byte budget |
+| F05-6 | Native WebSocket serving | Capability truth | Complete | Native runtime advertises WebSocket only after native HTTP/1 implementation exists; host adapters remain unchanged |
+| F05-7 | Native WebSocket serving | Independent interoperability evidence | Reworking to PHP-native harness | Raw RFC 6455 PHP client must validate text/binary echo, ping/pong, close and protocol correctness without using Runwire WebSocket classes |
+| F05-8 | Native WebSocket serving | Repeated trial + slow-reader + certification soak | Pending PHP-native evidence lane | Five repeated trials in PR lane; slow-reader pressure; release mode extends to 30-minute soak |
+| F05-9 | Native WebSocket serving | PHPForge/static quality | Fixes implemented — exact-head QA pending | No complexity/type suppressions; class complexity remains within PHPForge limits |
+| F05-D | Native WebSocket serving | 2.0 decision | Pending F05-7 through F05-9 | Keep only if interoperability, soak, security and exact-head quality gates all pass; otherwise remove from 2.0 |
+
 Release-duration certification is intentionally not represented by the short PR benchmark lane. Before tagging 2.0.0, invoke the benchmark workflow's certification mode on the exact release candidate so its 30-second warmup, five 180-second trials and 30-minute soak produce durable artifacts.
 
 ## Phase 0 contract decisions
