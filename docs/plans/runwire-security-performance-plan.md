@@ -85,8 +85,8 @@ These two features are binary 2.0 decisions. There is no deferred state: every c
 | F05-4 | Native WebSocket serving | Message/control lifecycle | Complete | Fragment reassembly, UTF-8, ping/pong, close codes/deadlines, message ceilings and worker drain implemented |
 | F05-5 | Native WebSocket serving | Slow-reader/backpressure and worker-wide byte accounting | Implemented — exact-head QA pending | Reads stop under write pressure; parser/fragment buffers share worker byte budget |
 | F05-6 | Native WebSocket serving | Capability truth | Complete | Native runtime advertises WebSocket only after native HTTP/1 implementation exists; host adapters remain unchanged |
-| F05-7 | Native WebSocket serving | Independent interoperability evidence | Reworking to PHP-native harness | Raw RFC 6455 PHP client must validate text/binary echo, ping/pong, close and protocol correctness without using Runwire WebSocket classes |
-| F05-8 | Native WebSocket serving | Repeated trial + slow-reader + certification soak | Pending PHP-native evidence lane | Five repeated trials in PR lane; slow-reader pressure; release mode extends to 30-minute soak |
+| F05-7 | Native WebSocket serving | Independent interoperability evidence | Implemented — exact-head QA pending | Raw PHP stdlib RFC 6455 client validates handshake, text/binary echo, ping/pong, close and protocol correctness without importing Runwire WebSocket classes |
+| F05-8 | Native WebSocket serving | Repeated trial + slow-reader + certification soak | Implemented — exact-head QA pending | PHP-native five-trial PR lane plus slow-reader pressure; release mode extends to 30-minute soak |
 | F05-9 | Native WebSocket serving | PHPForge/static quality | Fixes implemented — exact-head QA pending | No complexity/type suppressions; class complexity remains within PHPForge limits |
 | F05-D | Native WebSocket serving | 2.0 decision | Pending F05-7 through F05-9 | Keep only if interoperability, soak, security and exact-head quality gates all pass; otherwise remove from 2.0 |
 
