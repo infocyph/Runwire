@@ -11,8 +11,14 @@ use Infocyph\Runwire\Exception\ProcessException;
  */
 final class ProcessHandle
 {
+    private const int MAX_DETACHED_HANDLES = 64;
+
     /** @var list<resource> */
     private static array $detached = [];
+
+    private readonly ?int $pid;
+
+    private bool $processGroup = false;
 
     /** @var resource|null */
     private mixed $resource;
@@ -21,6 +27,9 @@ final class ProcessHandle
     public function __construct(mixed $resource)
     {
         $this->resource = $resource;
+        $status = proc_get_status($resource);
+        $this->pid = $status['pid'] > 1 ? $status['pid'] : null;
+        $this->processGroup = $this->isolateProcessGroup();
     }
 
     /**
@@ -47,7 +56,7 @@ final class ProcessHandle
     }
 
     /**
-     * Forcefully terminates the process if it is still running.
+     * Forcefully terminates the owned process tree if it is still running.
      */
     public function abort(): void
     {
@@ -57,7 +66,7 @@ final class ProcessHandle
 
         $status = proc_get_status($this->resource);
         if ($status['running']) {
-            ProcessTerminator::force($this->resource);
+            ProcessTerminator::force($this->resource, $this->pid, $this->processGroup);
         }
     }
 
@@ -74,7 +83,7 @@ final class ProcessHandle
         if (!$wait) {
             $status = proc_get_status($resource);
             if ($status['running']) {
-                self::$detached[] = $resource;
+                self::retainDetached($resource);
                 $this->resource = null;
 
                 return null;
@@ -93,5 +102,38 @@ final class ProcessHandle
         }
 
         return $this->resource;
+    }
+
+    private function isolateProcessGroup(): bool
+    {
+        if (
+            DIRECTORY_SEPARATOR === '\\'
+            || $this->pid === null
+            || !function_exists('posix_setpgid')
+        ) {
+            return false;
+        }
+
+        return @posix_setpgid($this->pid, $this->pid);
+    }
+
+    /** @param resource $resource */
+    private static function retainDetached(mixed $resource): void
+    {
+        self::reapDetached();
+        while (count(self::$detached) >= self::MAX_DETACHED_HANDLES) {
+            $oldest = array_shift(self::$detached);
+            if (!is_resource($oldest)) {
+                continue;
+            }
+
+            $status = proc_get_status($oldest);
+            if ($status['running']) {
+                ProcessTerminator::force($oldest, $status['pid'] > 1 ? $status['pid'] : null);
+            }
+            proc_close($oldest);
+        }
+
+        self::$detached[] = $resource;
     }
 }
