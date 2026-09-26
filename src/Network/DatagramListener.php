@@ -217,6 +217,23 @@ final class DatagramListener
         $this->syncWatcher();
     }
 
+    /**
+     * @param Closure(Datagram, self): void $callback
+     * @param resource $stream
+     */
+    private function dispatchDatagram(Closure $callback, Datagram $datagram, mixed $stream): bool
+    {
+        try {
+            $callback($datagram, $this);
+        } catch (Throwable $failure) {
+            $this->close();
+
+            throw $failure;
+        }
+
+        return $this->closed || $this->paused || $this->stream !== $stream;
+    }
+
     private function handleReadable(): void
     {
         $callback = $this->callback;
@@ -258,23 +275,6 @@ final class DatagramListener
                 break;
             }
         }
-    }
-
-    /**
-     * @param Closure(Datagram, self): void $callback
-     * @param resource $stream
-     */
-    private function dispatchDatagram(Closure $callback, Datagram $datagram, mixed $stream): bool
-    {
-        try {
-            $callback($datagram, $this);
-        } catch (Throwable $failure) {
-            $this->close();
-
-            throw $failure;
-        }
-
-        return $this->closed || $this->paused || $this->stream !== $stream;
     }
 
     private function syncWatcher(): void

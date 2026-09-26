@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Loop;
 
 use Closure;
 use Infocyph\Runwire\Internal\MonotonicTime;
+use Infocyph\Runwire\Loop\Internal\SelectFailurePolicy;
 use Infocyph\Runwire\Loop\Internal\TimerQueue;
 use InvalidArgumentException;
 use LogicException;
@@ -211,11 +212,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
-    private static function isInterruptedSelectWarning(?string $message): bool
-    {
-        return $message !== null && str_contains($message, 'Interrupted system call');
-    }
-
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -327,11 +323,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
 
         if ($result === false) {
-            if ($this->pruneClosedWatchers() > 0 || self::isInterruptedSelectWarning($selectWarning)) {
-                return;
-            }
+            SelectFailurePolicy::assertRecoverable($selectWarning, $this->pruneClosedWatchers());
 
-            throw new RuntimeException($selectWarning ?? 'stream_select() failed permanently.');
+            return;
         }
         if ($result > 0) {
             $this->dispatchReady($read, true);

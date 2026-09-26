@@ -2,37 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Loop\Internal\SelectFailurePolicy;
 use Infocyph\Runwire\Loop\SelectLoop;
-
-final class SelectLoopUnselectableStreamWrapper
-{
-    public mixed $context = null;
-
-    public function stream_eof(): bool
-    {
-        return false;
-    }
-
-    public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool
-    {
-        unset($path, $mode, $options, $openedPath);
-
-        return true;
-    }
-
-    public function stream_read(int $count): string
-    {
-        unset($count);
-
-        return '';
-    }
-
-    /** @return array<string, int> */
-    public function stream_stat(): array
-    {
-        return [];
-    }
-}
 
 it('runs deferred callbacks in registration order without consuming newly deferred work in the same batch', function (): void {
     $loop = new SelectLoop();
@@ -259,25 +230,15 @@ it('restores loop state after callback failure so the instance can run again', f
 });
 
 
-it('fails fast on a permanent stream_select polling failure', function (): void {
-    $scheme = 'runwire-unselectable';
-    expect(stream_wrapper_register($scheme, SelectLoopUnselectableStreamWrapper::class))->toBeTrue();
+it('fails fast on permanent select failures while retaining recoverable cases', function (): void {
+    expect(fn() => SelectFailurePolicy::assertRecoverable(null, 0))
+        ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
 
-    $stream = fopen($scheme . '://fixture', 'r');
-    if (!is_resource($stream)) {
-        stream_wrapper_unregister($scheme);
+    SelectFailurePolicy::assertRecoverable(
+        'stream_select(): Unable to select [4]: Interrupted system call',
+        0,
+    );
+    SelectFailurePolicy::assertRecoverable(null, 1);
 
-        throw new RuntimeException('Unable to create an unselectable user-space stream.');
-    }
-
-    $loop = new SelectLoop();
-    $loop->onReadable($stream, static function (): void {});
-
-    try {
-        expect(fn() => $loop->tick())
-            ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
-    } finally {
-        fclose($stream);
-        stream_wrapper_unregister($scheme);
-    }
+    expect(true)->toBeTrue();
 });
