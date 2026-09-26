@@ -2,13 +2,9 @@
 
 declare(strict_types=1);
 
-final class WebSocketEvidenceProtocolFailure extends RuntimeException
-{
-}
+final class WebSocketEvidenceProtocolFailure extends RuntimeException {}
 
-final class WebSocketEvidenceTimeout extends RuntimeException
-{
-}
+final class WebSocketEvidenceTimeout extends RuntimeException {}
 
 /** @return resource */
 function wsConnect(int $port): mixed
@@ -219,6 +215,7 @@ function wsWriteAll(mixed $socket, string $wire): void
             }
 
             usleep(1_000);
+
             continue;
         }
 
@@ -270,6 +267,7 @@ function wsPing(mixed $socket, string $payload): void
 function wsClose(mixed $socket): void
 {
     wsWriteFrame($socket, 0x8, pack('n', 1000));
+
     try {
         while (true) {
             $frame = wsReadFrame($socket);
@@ -335,6 +333,7 @@ function wsWorker(int $port, float $duration, int $workerId): array
             $reply = wsAwaitDataFrame($socket, $opcode);
             if ($reply !== $payload) {
                 ++$counters['validation_failures'];
+
                 break;
             }
 
@@ -421,6 +420,7 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
         ) {
             ++$errors;
             $samples[] = 'worker returned no evidence';
+
             continue;
         }
 
@@ -530,6 +530,7 @@ function wsCoefficientOfVariation(array $values): float
 function wsSlowReader(int $port): bool
 {
     $socket = null;
+
     try {
         $socket = wsConnect($port);
         $payloads = [];
