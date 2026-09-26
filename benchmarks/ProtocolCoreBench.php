@@ -9,7 +9,6 @@ use Infocyph\Runwire\Http\Http2\Hpack\Encoder as HpackEncoder;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder as QpackDecoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder as QpackEncoder;
 use PhpBench\Attributes\BeforeMethods;
@@ -83,7 +82,7 @@ final class ProtocolCoreBench
             ['x-runwire-bench', 'protocol-core'],
         ];
         $this->http3Frame = new Frame(FrameType::DATA->value, str_repeat('x', 1_024));
-        $this->http3Wire = FrameWriter::encode($this->http3Frame);
+        $this->http3Wire = $this->http3Frame->encode();
         $this->qpackEncoder = new QpackEncoder(0, 0);
         $this->qpackDecoder = new QpackDecoder(0, 0);
         $this->qpackWire = (new QpackEncoder(0, 0))->encode($this->http3Headers, 0)->block;
@@ -118,7 +117,7 @@ final class ProtocolCoreBench
 
     public function benchHttp3FrameEncode(): int
     {
-        return strlen(FrameWriter::encode($this->http3Frame));
+        return strlen($this->http3Frame->encode());
     }
 
     public function benchHttp3QpackDynamicRoundTrip(): int
