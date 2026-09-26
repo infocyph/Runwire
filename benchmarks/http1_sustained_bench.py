@@ -121,40 +121,63 @@ async def measure_worker(
     counter: dict[str, int],
     latencies: list[float],
 ) -> None:
-    reader = None
-    writer = None
-    try:
-        reader, writer = await asyncio.open_connection(host, port)
-        while time.perf_counter() < deadline:
+    while time.perf_counter() < deadline:
+        reader = None
+        writer = None
+        reconnect = False
+        try:
+            reader, writer = await asyncio.open_connection(host, port)
+        except OSError:
             counter["requests_total"] += 1
-            started = time.perf_counter_ns()
-            try:
-                writer.write(b"GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n")
-                await writer.drain()
-                status, body = await read_response(reader)
+            counter["errors_total"] += 1
+            return
+
+        try:
+            while time.perf_counter() < deadline:
+                started = time.perf_counter_ns()
+                try:
+                    writer.write(b"GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n")
+                    await writer.drain()
+                    status, body = await read_response(reader)
+                except asyncio.TimeoutError:
+                    counter["requests_total"] += 1
+                    counter["timeouts_total"] += 1
+                    return
+                except asyncio.IncompleteReadError as error:
+                    if error.partial == b"":
+                        counter["reconnects_total"] += 1
+                        reconnect = True
+                        break
+                    counter["requests_total"] += 1
+                    counter["errors_total"] += 1
+                    return
+                except (ConnectionResetError, BrokenPipeError):
+                    counter["reconnects_total"] += 1
+                    reconnect = True
+                    break
+                except (OSError, RuntimeError, ValueError):
+                    counter["requests_total"] += 1
+                    counter["errors_total"] += 1
+                    return
+
                 elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
                 latencies.append(elapsed_ms)
+                counter["requests_total"] += 1
                 counter["completed_requests"] += 1
                 if status == 200 and body == b"ok":
                     counter["successful_requests"] += 1
                 else:
                     counter["validation_failures"] += 1
-            except asyncio.TimeoutError:
-                counter["timeouts_total"] += 1
-                break
-            except (OSError, asyncio.IncompleteReadError, RuntimeError, ValueError):
-                counter["errors_total"] += 1
-                break
-    except OSError:
-        counter["requests_total"] += 1
-        counter["errors_total"] += 1
-    finally:
-        if writer is not None:
-            writer.close()
-            try:
-                await writer.wait_closed()
-            except OSError:
-                pass
+        finally:
+            if writer is not None:
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except OSError:
+                    pass
+
+        if not reconnect:
+            return
 
 
 async def sample_resources(root_pid: int, stop: asyncio.Event, peak: dict[str, int]) -> None:
@@ -198,6 +221,7 @@ async def main() -> None:
         "errors_total": 0,
         "timeouts_total": 0,
         "validation_failures": 0,
+        "reconnects_total": 0,
     }
     latencies: list[float] = []
     peak = {"rss": tree_rss(server_pid)}
@@ -267,6 +291,7 @@ async def main() -> None:
         "errors_total": counter["errors_total"],
         "timeouts_total": counter["timeouts_total"],
         "validation_failures": counter["validation_failures"],
+        "reconnects_total": counter["reconnects_total"],
         "error_rate": round(failures / requests, 8) if requests > 0 else 1.0,
         "cpu_percent": round(cpu_percent, 3),
         "rss_peak_bytes": peak["rss"],
