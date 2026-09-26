@@ -10,9 +10,9 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 /**
  * Buffers and slices HTTP/1.1 bytes from a network connection.
  */
-final class Http1Input
+final readonly class Http1Input
 {
-    private readonly ByteQueue $buffer;
+    private ByteQueue $buffer;
 
     /**
      * Create an input reader for the supplied connection.
