@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Closure;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 
 /**
@@ -27,8 +28,8 @@ final class ResponseStream
     /**
      * Create response-stream state for the supplied request stream ID.
      */
-    public function __construct(public readonly int $id)
+    public function __construct(public readonly int $id, ?ByteBudget $budget = null)
     {
-        $this->outbound = new ByteQueue();
+        $this->outbound = new ByteQueue($budget);
     }
 }
