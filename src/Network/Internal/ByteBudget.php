@@ -13,6 +13,9 @@ final class ByteBudget
 {
     private int $used = 0;
 
+    /**
+     * Create a byte budget with the supplied positive ceiling.
+     */
     public function __construct(private readonly int $limit = 67_108_864)
     {
         if ($limit <= 0) {
@@ -20,16 +23,25 @@ final class ByteBudget
         }
     }
 
+    /**
+     * Return remaining byte capacity.
+     */
     public function available(): int
     {
         return max(0, $this->limit - $this->used);
     }
 
+    /**
+     * Return the configured byte ceiling.
+     */
     public function limit(): int
     {
         return $this->limit;
     }
 
+    /**
+     * Release previously reserved bytes.
+     */
     public function release(int $bytes): void
     {
         if ($bytes <= 0) {
@@ -39,6 +51,9 @@ final class ByteBudget
         $this->used = max(0, $this->used - $bytes);
     }
 
+    /**
+     * Reserve bytes when sufficient capacity remains.
+     */
     public function reserve(int $bytes): bool
     {
         if ($bytes < 0) {
@@ -53,6 +68,9 @@ final class ByteBudget
         return true;
     }
 
+    /**
+     * Return the currently reserved byte count.
+     */
     public function used(): int
     {
         return $this->used;
