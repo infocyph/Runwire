@@ -74,9 +74,11 @@ final readonly class WebSocketWireCodec
         }
 
         $code = (ord($payload[0]) << 8) | ord($payload[1]);
+
         try {
             self::assertCloseCode($code);
         } catch (InvalidArgumentException) {
+
             throw new WebSocketProtocolException(1002, 'Peer sent an invalid WebSocket close code.');
         }
 
