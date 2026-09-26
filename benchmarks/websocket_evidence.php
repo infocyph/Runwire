@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Closure;
 use RuntimeException;
 use Throwable;
 
@@ -71,7 +70,7 @@ function wsReadHead(mixed $socket): string
             throw new WebSocketEvidenceProtocolFailure('Handshake response exceeded 64 KiB.');
         }
 
-        $chunk = fread($socket, 4_096);
+        $chunk = fread($socket, 1);
         if ($chunk === false) {
             throw new RuntimeException('Unable to read WebSocket handshake.');
         }
@@ -519,7 +518,7 @@ function wsSlowReader(int $port): bool
     }
 }
 
-function wsMain(array $arguments): void
+function wsMain(): void
 {
     $options = getopt('', ['port:', 'concurrency::', 'duration::', 'trials::', 'soak-seconds::']);
     $port = (int) ($options['port'] ?? 0);
@@ -617,4 +616,4 @@ function wsMain(array $arguments): void
     }
 }
 
-wsMain($argv);
+wsMain();
