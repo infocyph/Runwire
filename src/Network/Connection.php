@@ -9,6 +9,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
@@ -80,6 +81,7 @@ final class Connection
         private readonly ?string $localAddress = null,
         private readonly ?string $negotiatedProtocol = null,
         private readonly bool $encrypted = false,
+        private readonly ?ByteBudget $bufferBudget = null,
     ) {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('Connection requires a live stream resource.');
@@ -88,8 +90,8 @@ final class Connection
         $this->stream = $stream;
         $this->id = get_resource_id($stream);
         $this->startedAtNanoseconds = self::nowNanoseconds();
-        $this->receiveBuffer = new ByteQueue();
-        $this->sendBuffer = new ByteQueue();
+        $this->receiveBuffer = new ByteQueue($bufferBudget);
+        $this->sendBuffer = new ByteQueue($bufferBudget);
         $this->callbackOwnership = new ConnectionCallbackOwnership();
         $this->timeouts = new ConnectionTimeouts(
             $loop,
@@ -122,6 +124,14 @@ final class Connection
     public function backpressureEvents(): int
     {
         return $this->backpressureEvents;
+    }
+
+    /**
+     * Return the shared worker byte budget when this connection is metered.
+     */
+    public function bufferBudget(): ?ByteBudget
+    {
+        return $this->bufferBudget;
     }
 
     /**
