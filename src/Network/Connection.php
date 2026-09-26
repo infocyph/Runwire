@@ -11,11 +11,11 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
-use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 /**
  * Manages a non-blocking stream connection with bounded buffering, callbacks, backpressure, and timeouts.
@@ -521,6 +521,23 @@ final class Connection
         }
     }
 
+    /** @param list<Closure> $callbacks */
+    private function dispatchCloseCallbacks(array $callbacks, CloseReason $reason): void
+    {
+        $firstFailure = null;
+        foreach ($callbacks as $callback) {
+            try {
+                $callback($this, $reason);
+            } catch (Throwable $throwable) {
+                $firstFailure ??= $throwable;
+            }
+        }
+
+        if ($firstFailure !== null) {
+            throw $firstFailure;
+        }
+    }
+
     private function finalize(CloseReason $reason): void
     {
         if ($this->state === ConnectionState::CLOSED) {
@@ -546,7 +563,7 @@ final class Connection
 
         $callbacks = $this->closeCallbacks;
         $this->closeCallbacks = [];
-        ConnectionCallbackDispatcher::dispatch($callbacks, $this, $reason);
+        $this->dispatchCloseCallbacks($callbacks, $reason);
     }
 
     private function handleReadable(): void
@@ -661,11 +678,21 @@ final class Connection
 
     private function invoke(?Closure $callback): void
     {
-        ConnectionCallbackDispatcher::invoke(
-            $callback,
-            $this,
-            fn() => $this->abort(),
-        );
+        if ($callback === null) {
+            return;
+        }
+
+        try {
+            $callback($this);
+        } catch (Throwable $throwable) {
+            try {
+                $this->abort();
+            } catch (Throwable) {
+                // Preserve the originating callback failure after deterministic cleanup.
+            }
+
+            throw $throwable;
+        }
     }
 
     private function markPeerEof(): void
