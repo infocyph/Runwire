@@ -11,6 +11,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
+
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 final class TransferBenchmarkWriter implements ResponseWriterInterface
