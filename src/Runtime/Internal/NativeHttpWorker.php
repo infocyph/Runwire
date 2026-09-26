@@ -29,6 +29,7 @@ use Throwable;
 final class NativeHttpWorker
 {
     private const int SELECT_LOOP_CONNECTION_LIMIT = 256;
+
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
      */
