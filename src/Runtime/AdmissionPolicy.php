@@ -17,9 +17,9 @@ final readonly class AdmissionPolicy
      * Creates an admission policy, where zero disables each corresponding limit.
      */
     public function __construct(
-        public int $maxActiveRequests = 0,
+        public int $maxActiveRequests = 256,
         public int $maxConcurrentConnections = 0,
-        public int $maxStreamsPerWorker = 0,
+        public int $maxStreamsPerWorker = 256,
         public int $retryAfterSeconds = 1,
     ) {
         foreach ([
