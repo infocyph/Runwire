@@ -57,6 +57,16 @@ jobs:
             lscpu
           } > "benchmark-results/environment-php-${{ matrix.php-version }}.txt"
 
+      - name: Capture Runwire OPcache footprint
+        shell: bash
+        run: |
+          for mode in bootstrap lifecycle coroutine; do
+            result="benchmark-results/opcache-${mode}-php-${{ matrix.php-version }}.json"
+            php -d opcache.enable_cli=1 benchmarks/opcache_footprint.php "$mode" > "$result"
+            jq -e '.correctness_passed == true and .source_php_files > 0 and .opcache.cache_full == false' "$result" >/dev/null
+            cat "$result"
+          done
+
       - name: Run PHPBench suite
         shell: bash
         run: |

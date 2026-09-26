@@ -65,6 +65,18 @@ Separate PHP 8.5.4 CLI processes, with `-d opcache.enable_cli=1`, produced these
 
 The host reported configured capacity 10,000, effective `max_cached_keys=16229`, and `cache_full=false`. Filter both `get_included_files()` and `opcache_get_status(true)['scripts']` by the absolute `src/` prefix. Sum per-script `memory_consumption`; this excludes shared table/interned-string overhead and Composer/dependency scripts. Each request probe asserts completed context before reading status.
 
+### Matched consolidation baseline
+
+The durable footprint harness is now `benchmarks/opcache_footprint.php` and the benchmark workflow captures all three modes on PHP 8.4/8.5. Before production consolidation, the same harness logic was run against the packaged `dc78bdc9d8684dcff48dac197d6cc0f21ed86043` source on PHP 8.4.23 CLI with OPcache enabled:
+
+| Mode | Source PHP files | Included Runwire files | Cached Runwire files | Runwire script cache memory |
+| --- | ---: | ---: | ---: | ---: |
+| Bootstrap | 348 | 0 | 0 | 0 bytes |
+| Lifecycle request | 348 | 43 | 43 | 404,168 bytes |
+| Attached coroutine request with one yield | 348 | 65 | 65 | 692,776 bytes |
+
+This matched probe is only for structural before/after comparison on the same host. Release performance acceptance continues to use the existing PHPBench/native repeated-trial workflow and sustained certification procedure.
+
 These probes used the development installation and synthetic in-process requests. They are **not** native-server, FPM, complete consumer-application, peak deployment, or steady-state performance measurements. Temporary evidence is `/tmp/runwire-footprint.php` and `/tmp/runwire-footprint-{bootstrap,lifecycle,coroutine}.json`; these paths are local conveniences, not durable release artifacts. Phase C0 must commit a reproducible harness and retain its results before implementation.
 
 ## Candidate register
@@ -140,7 +152,7 @@ Do not merge HTTP/1+2 and HTTP/3 worker owners merely because their completion c
 
 | Phase | Work | Exit evidence | Status |
 | --- | --- | --- | --- |
-| C0 | Freeze baseline commit; generate a declaration/ownership inventory and loaded-file/cache harness using existing test/benchmark infrastructure. Classify keep/remove/conditional candidates. | Reproducible JSON artifacts, graph/source verification, exported-symbol map, baseline tests and stable benchmark envelope. | Open; bounded planning probes only |
+| C0 | Freeze baseline commit; generate a declaration/ownership inventory and loaded-file/cache harness using existing test/benchmark infrastructure. Classify keep/remove/conditional candidates. | Reproducible JSON artifacts, graph/source verification, exported-symbol map, baseline tests and stable benchmark envelope. | Implemented; durable harness + CI artifact capture added; final CI verification pending |
 | C1 | Consolidate shared HTTP header validation representations. | Three removals or a documented narrower result; protocol failure/response parity and autoload checks. | Open |
 | C2–C3 | Merge select-error policy and scheduler holder, separately reviewable. | Select/coroutine regressions; startup, allocations and loaded-file deltas. | Open |
 | C4–C5 | Simplify stream lookup and connection dispatch after lifetime/complexity review. | Constructor/reentrancy, pressure, close/error and stream-lifetime tests; memory/complexity evidence. | Open |
