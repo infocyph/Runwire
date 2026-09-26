@@ -17,6 +17,12 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 
 final class TransferBenchmarkWriter implements ResponseWriterInterface
 {
+    private readonly LoopInterface $loop;
+
+    private readonly int $pressureEvery;
+
+    public int $bytes = 0;
+
     private $drainCallback = null;
 
     private bool $ended = false;
@@ -25,12 +31,13 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
 
     private int $writes = 0;
 
-    public int $bytes = 0;
-
     public function __construct(
-        private readonly LoopInterface $loop,
-        private readonly int $pressureEvery,
-    ) {}
+        LoopInterface $loop,
+        int $pressureEvery,
+    ) {
+        $this->loop = $loop;
+        $this->pressureEvery = $pressureEvery;
+    }
 
     public function end(string $finalChunk = ''): WriteResult
     {
