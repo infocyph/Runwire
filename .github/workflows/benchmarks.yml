@@ -350,13 +350,18 @@ jobs:
           done
 
           result="benchmark-results/f05-websocket-php-${{ matrix.php-version }}.json"
-          python3 benchmarks/websocket_evidence.py \
+          if ! python3 benchmarks/websocket_evidence.py \
             "$port" \
             --concurrency 8 \
             --trials 5 \
             --duration "$duration_seconds" \
             --soak-seconds "$soak_seconds" \
-            | tee "$result"
+            | tee "$result"; then
+            echo "::group::WebSocket server log"
+            cat "$tmpdir/websocket-server.log"
+            echo "::endgroup::"
+            exit 1
+          fi
 
           jq -e '
             .correctness_passed == true
