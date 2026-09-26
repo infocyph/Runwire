@@ -35,15 +35,27 @@ final class FrameParser
         return $this->buffer->bytes();
     }
 
+    /**
+     * Report whether a complete buffered frame can be consumed without more I/O.
+     */
+    public function hasCompleteFrame(): bool
+    {
+        if ($this->pending === null && !$this->readHeader()) {
+            return false;
+        }
+
+        return $this->pending !== null && $this->buffer->bytes() >= $this->pending['length'];
+    }
+
     /** @return list<Frame> */
-    public function push(string $bytes): array
+    public function push(string $bytes, int $maxFrames = PHP_INT_MAX): array
     {
         if ($bytes !== '') {
             $this->buffer->append($bytes);
         }
 
         $frames = [];
-        while (true) {
+        while (count($frames) < $maxFrames) {
             if ($this->pending === null && !$this->readHeader()) {
                 break;
             }
