@@ -51,6 +51,10 @@ final class WorkerDiagnosticsSampler
             $this->metrics->observeLoop($this->loop->diagnostics());
         }
 
+        $this->metrics->observeQueuedBytes(
+            $this->context->bufferBudget->used(),
+            $this->context->bufferBudget->limit(),
+        );
         $this->context->reportMetrics($this->metrics->snapshot());
         $this->lastSampleNanoseconds = $now;
     }
