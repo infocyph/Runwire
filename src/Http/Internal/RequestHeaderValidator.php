@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Internal;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use InvalidArgumentException;
+use OverflowException;
 
 /**
  * Validates HTTP/2 and HTTP/3 request field sections into normalized request metadata.
@@ -153,23 +154,16 @@ final readonly class RequestHeaderValidator
 
     private function parseLength(string $value): int
     {
-        $value = trim($value);
-        if ($value === '' || preg_match('/^[0-9]+$/D', $value) !== 1) {
-            throw new HeaderValidationException(sprintf('Invalid %s Content-Length.', $this->protocol));
-        }
-
-        $normalized = ltrim($value, '0');
-        $normalized = $normalized === '' ? '0' : $normalized;
-        $max = (string) PHP_INT_MAX;
-        if (strlen($normalized) > strlen($max)
-            || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
+        try {
+            return ContentLengthParser::parse($value);
+        } catch (OverflowException) {
             throw new HeaderValidationException(sprintf(
                 '%s Content-Length exceeds platform integer range.',
                 $this->protocol,
             ));
+        } catch (InvalidArgumentException) {
+            throw new HeaderValidationException(sprintf('Invalid %s Content-Length.', $this->protocol));
         }
-
-        return (int) $normalized;
     }
 
     private function regularField(string $name, string $value): HeaderField
