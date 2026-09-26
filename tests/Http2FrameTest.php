@@ -74,3 +74,24 @@ it('builds protocol control frames without shelling out or hidden state', functi
         ->and(FrameWriter::windowUpdate(1, 1024)->payload)->toBe(pack('N', 1024))
         ->and(FrameWriter::goAway(7, ErrorCode::NO_ERROR)->payload)->toStartWith(pack('NN', 7, 0));
 });
+
+
+it('limits HTTP2 frame materialization per parser turn without losing buffered work', function (): void {
+    $parser = new FrameParser();
+    $wire = '';
+    for ($i = 0; $i < 300; ++$i) {
+        $wire .= FrameWriter::encode(new Frame(FrameType::PING->value, 0, 0, str_repeat('x', 8)));
+    }
+
+    $first = $parser->push($wire, 128);
+    expect($first)->toHaveCount(128)
+        ->and($parser->hasCompleteFrame())->toBeTrue();
+
+    $second = $parser->push('', 128);
+    $third = $parser->push('', 128);
+
+    expect($second)->toHaveCount(128)
+        ->and($third)->toHaveCount(44)
+        ->and($parser->hasCompleteFrame())->toBeFalse()
+        ->and($parser->bufferedBytes())->toBe(0);
+});
