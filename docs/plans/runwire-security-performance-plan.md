@@ -2,7 +2,7 @@
 
 Audit date: 2026-09-25. Source revision: `7ab48fcf224ee86838e5bf82a50b998c2aaa8a90` (local tag `1.0`).
 
-Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: **all implementation batches B0-B5 are complete** on `feature/next-edition`; all RW findings are closed; F-01 through F-05 are retained in 2.0 after their required correctness, bounded-resource, performance/interoperability and quality gates passed. Certified implementation/docs evidence head `3ee339350d72264e2ad87fe8642a5018659cb4a8` completed **26/26 checks with zero failures and zero unresolved review threads**. This final plan sweep changes documentation only. Merge, tag and release remain maintainer-controlled actions. The release-duration workflow is a mandatory pre-tag release gate, not unfinished implementation work. This document does not certify the absence of vulnerabilities.
+Target: **2.0.0**, consolidating the security, correctness and runtime-contract work into one major release. Status: **release closure reopened on 2026-09-26 follow-up evidence**. The implemented 2.0 feature scope remains, but RW-09/F-02 lifecycle completion and new RW-23/F-03 HTTP/1 worker-byte accounting are open P1 blockers on reviewed head `19f6761d2b178098458e15059fa87e3961b593a5`. Earlier green CI remains evidence for its own revisions only. B4/B5 are reopened until the two regressions, no-ext-event release-guard compatibility, exact-head CI and release-duration evidence are green. Merge, tag and release remain maintainer-controlled actions. This document does not certify the absence of vulnerabilities.
 
 ## Implementation tracker
 
@@ -20,15 +20,15 @@ This tracker is part of the implementation record. Update it in every implementa
 | B1-B | Select loop/timers/callback ownership — RW-04/17/21 | Complete — portable fallback plus B3-A scalable-capacity closure exact-head QA green | Loop/descriptor/timer/UDP regressions green |
 | B1-C | Error/TLS/Unix ownership hardening — RW-05/07/08 | Complete — exact-head QA green | Redaction, mTLS-policy and live-socket regressions green |
 | B1-D | HTTP/3 body delivery and response framing — RW-19/18 | Complete — boundary/framing correctness plus B3-B aggregate fairness exact-head QA green | Fragmentation/coalescing and cross-writer response corpus green |
-| B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | Complete — terminal accounting, unhealthy latch, asynchronous terminal containment and worker retirement QA green | Common lifecycle suite green across native and hosts |
-| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | Complete — native loop attachment, concurrent progress, cancellation and scheduler-policy preservation QA green | Concurrent native requests, timers and cancellation progress together |
+| B2-A | Terminal lifecycle, reset isolation and failure containment — RW-06/09/12/18 | **Reopened — RW-09 attached-coroutine completion barrier defect reproduced** | Finalization must wait for all request-owned coroutine work before reset/context completion/admission release |
+| B2-B | Shared-loop coroutine request scopes — RW-20 / F-02 | **Reopened — F-02 root/child scope lifetime must join existing request finalization barrier** | Root-after-end, child wait/failure, cancellation and maxActiveRequests=1 regressions green |
 | B2-C | Truthful host capabilities and policy delegation — RW-22; GC disposition RW-14 | Complete — enabled-only host capability matrix and single lifecycle GC ownership QA green | Real-host capability matrix or explicit unsupported disposition |
 | B3-A | Scalable native loop — F-01 / RW-04 capacity closure | Complete — ext-event backend, bounded SelectLoop fallback and >1024-descriptor lane exact-head QA green | Supported backend exceeds SelectLoop ceiling with bounded behavior |
-| B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | Complete — per-turn H2 work, H3 control/progress limits, worker-wide byte budget and pressure metrics exact-head QA green | Fairness and worker-wide resource limits proven |
+| B3-B | HTTP/2/3 work accounting, deadlines and aggregate admission — RW-10/11/19 / F-03 | **Reopened — RW-23 HTTP/1 retained input/body bytes bypass shared worker ByteBudget** | Worker-wide accounting must remain continuous across transport → HTTP input → body ownership transfers |
 | B3-C | Process-tree/platform hardening — RW-13 | Complete — raced descendant ownership, process-group termination, detached cleanup and platform regressions exact-head QA green | Descendant/reap/cancellation/platform regressions green |
 | B3-D | Duplication, CI provenance and optional-feature handoff — RW-15/16, F-04/F-05 | Complete — shared Content-Length owner, version/tag preservation policy and automated dependency cadence exact-head QA green; final F-04/F-05 decisions moved to B4 | P2 dispositions recorded; version/tag refs preserved; update policy green; optional-feature decision ownership handed to B4 |
-| B4 | Sustained-performance and release certification | **Complete** — HTTP/1/HTTP/3 smoke/interoperability lanes green; F-04/F-05 acceptance evidence green; exact-head implementation matrix green | Implementation acceptance is complete; the longer release-duration workflow remains a separate mandatory pre-tag release gate |
-| B5 | Migration docs, beta/RC evidence and exact-head final candidate | **Complete** — all findings closed; migration/public docs synchronized; clean production install, package-content gate, consumer scan and certified 26/26 matrix green at `3ee339350d72` | Branch implementation is release-candidate ready; merge/tag/release remain maintainer-controlled and require the pre-tag release-duration gate |
+| B4 | Sustained-performance and release certification | **Reopened** — previous evidence predates RW-09/RW-23 remediation | Fixed candidate must rerun applicable sustained/interoperability evidence and release-duration gate |
+| B5 | Migration docs, beta/RC evidence and exact-head final candidate | **Reopened** — release-candidate claim withdrawn pending P1 remediation and final certification | All findings closed, normal-host/no-ext-event release guard green, exact-head matrix green, release-duration evidence retained |
 
 ### Finding tracker
 
@@ -42,7 +42,7 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-06 failed reset does not retire worker | High | B0-B / B2-A | Closed — unhealthy latch and native/Swoole/host retirement QA green |
 | RW-07 explicit TLS verification overwritten | P1 | B0-B / B1-C | Closed — exact-head QA green |
 | RW-08 live Unix socket replacement | P1 | B0-B / B1-C | Closed — exact-head QA green |
-| RW-09 streaming request lifetime mismatch | High | B0-B / B2-A | Closed — terminal lifecycle/admission ownership and cross-driver QA green |
+| RW-09 streaming request lifetime mismatch | **P1 reopened** | B0-B / B2-A / B2-B | Open — attached coroutine root/children can outlive reset/context completion after response terminal |
 | RW-10 HTTP/2 per-turn work accounting | P1 | B3-B | Closed — bounded frame processing per event-loop turn exact-head QA green |
 | RW-11 HTTP/3 control/deadline accounting | P1 | B3-B | Closed — shared control-byte accounting and request/QPACK progress deadlines exact-head QA green |
 | RW-12 inconsistent failure containment | P1 | B2-A | Closed — lifecycle failure containment and retirement QA green |
@@ -56,14 +56,30 @@ This tracker is part of the implementation record. Update it in every implementa
 | RW-20 coroutine waits block native loop | P1 | B0-B / B2-B | Closed — native requests attach to the runtime-owned loop without nested driving; cancellation and policy QA green |
 | RW-21 UDP callback close crash | P1 | B0-B / B1-B | Closed — exact-head QA green |
 | RW-22 capability reporting exceeds enabled support | P1 | B0-D / B2-C | Closed — host capabilities now report enabled Runwire integration facts rather than host-product potential |
+| RW-23 HTTP/1 retained-byte worker-budget bypass | **P1** | B3-B | Open — Http1Input and StreamingRequestBody ownership transfer can leave retained request bytes uncharged to shared ByteBudget |
+
+### 2026-09-26 follow-up remediation tracker
+
+| ID | Scope | Status | Exit evidence |
+| --- | --- | --- | --- |
+| R09-1 | Commit durable attached-coroutine lifetime reproductions | Open | Root-after-end, child-after-wait/failure, cancellation and maxActiveRequests=1 cases fail before fix and pass after |
+| R09-2 | Join request-owned coroutine completion to RequestFinalizer | Open | Response terminal alone cannot reset/complete/release while owned root/children remain live |
+| R09-3 | Preserve late task failures and reset-failure retirement | Open | Failures after output are classified/latched; exactly-once finalization retained |
+| R23-1 | Commit HTTP/1 shared-budget reproduction | Open | Two slow consumers reproduce aggregate retained-byte pressure before fix |
+| R23-2 | Account Http1Input retained bytes | Open | Header/partial-line bytes remain charged while ownership leaves Connection receive queue |
+| R23-3 | Account body handoff without double charge | Open | Transport/input/body transfer reserves/releases exactly once; no retry loop/data loss |
+| R23-4 | Cover discard/cancel/early-response/EOF/abort | Open | All retained Runwire-owned bytes return to zero after ownership ends |
+| QA-1 | Normal host without ext-event | Open | Release guard/static analysis does not require Event/EventBase when ext-event is absent |
+| QA-2 | Accelerated ext-event behavior | Open | Existing accelerated descriptor/capacity lane remains green |
+| QA-3 | Final exact-head matrix + release-duration certification | Open | Fixed candidate CI and mandatory pre-tag benchmark/soak artifacts green |
 
 ### Feature decision tracker
 
 | Feature | Status | Decision point |
 | --- | --- | --- |
 | F-01 scalable native loop | Complete | ext-event backend selected when available; SelectLoop remains bounded fallback |
-| F-02 shared-loop coroutine request scopes | Complete | B0-C contract and B2-B native shared-loop integration certified |
-| F-03 worker-wide resource admission/pressure | Complete | bounded request/stream defaults, shared worker byte budget and pressure metrics exact-head QA green |
+| F-02 shared-loop coroutine request scopes | **Reopened** | Request-owned root/child completion must participate in the existing lifecycle finalization barrier |
+| F-03 worker-wide resource admission/pressure | **Reopened** | HTTP/1 input/body retained bytes must remain continuously charged under the shared worker ByteBudget |
 | F-04 bounded stream-to-response transfer | Keep in 2.0 — bounded transfer, TLS/slow-reader coverage, stable helper-vs-manual gate and exact-head QA passed | Retained as `ResponseTransfer::stream()` on the existing writer/coroutine ownership model |
 | F-05 native WebSocket serving | Keep in 2.0 — bounded native HTTP/1 RFC 6455 implementation, independent PHP interoperability, slow-reader evidence and exact-head QA passed | Retained for native HTTP/1 only; compression and HTTP/2/3 WebSocket modes remain unclaimed |
 
