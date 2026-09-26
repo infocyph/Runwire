@@ -19,6 +19,7 @@ use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\Internal\ValidatedRequestHead;
 use Infocyph\Runwire\Http\RequestBodyInterface;
+use Infocyph\Runwire\Internal\MonotonicTime;
 
 /**
  * Parses one HTTP/3 request stream and coordinates QPACK, body, and trailer state.
@@ -35,6 +36,8 @@ final class RequestStream
 
     private bool $blocked = false;
 
+    private ?int $blockedAtNanoseconds = null;
+
     private int $blockedFrameBytes = 0;
 
     /** @var list<Frame> */
@@ -47,6 +50,10 @@ final class RequestStream
     private bool $finished = false;
 
     private bool $finReceived = false;
+
+    private int $lastProgressNanoseconds;
+
+    private readonly int $startedAtNanoseconds;
 
     private ?ValidatedRequestHead $head = null;
 
@@ -73,6 +80,8 @@ final class RequestStream
             throw new \InvalidArgumentException('HTTP/3 request stream must be client-initiated and bidirectional.');
         }
 
+        $this->startedAtNanoseconds = MonotonicTime::nowNanoseconds();
+        $this->lastProgressNanoseconds = $this->startedAtNanoseconds;
         $this->parser = new FrameParser($limits->maxFramePayloadBytes);
         $this->validator = new RequestHeaderValidator('HTTP/3');
         $this->onBodyRelief = Closure::fromCallable($onBodyRelief ?? static function (): void {});
@@ -93,6 +102,38 @@ final class RequestStream
     public function blocked(): bool
     {
         return $this->blocked;
+    }
+
+    /**
+     * Return the timeout classification when request progress has exceeded a managed deadline.
+     */
+    public function timeoutReason(?int $nowNanoseconds = null): ?string
+    {
+        $nowNanoseconds ??= MonotonicTime::nowNanoseconds();
+        if (
+            $this->blockedAtNanoseconds !== null
+            && $nowNanoseconds - $this->blockedAtNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->qpackBlockedTimeoutSeconds)
+        ) {
+            return 'qpack';
+        }
+        if (
+            $this->head === null
+            && $nowNanoseconds - $this->startedAtNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->requestHeaderTimeoutSeconds)
+        ) {
+            return 'headers';
+        }
+        if (
+            $this->head !== null
+            && !$this->finished
+            && $nowNanoseconds - $this->lastProgressNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->requestBodyIdleTimeoutSeconds)
+        ) {
+            return 'body';
+        }
+
+        return null;
     }
 
     /**
@@ -171,6 +212,9 @@ final class RequestStream
             throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 request bytes arrived after stream FIN.');
         }
 
+        if ($bytes !== '') {
+            $this->lastProgressNanoseconds = MonotonicTime::nowNanoseconds();
+        }
         $this->parser->append($bytes);
         $this->drainFrames();
     }
@@ -195,7 +239,9 @@ final class RequestStream
 
         $trailers = $this->blockedOnTrailers;
         $this->blocked = false;
+        $this->blockedAtNanoseconds = null;
         $this->blockedOnTrailers = false;
+        $this->lastProgressNanoseconds = MonotonicTime::nowNanoseconds();
         $this->acceptFieldSection($section, $trailers);
 
         $this->drainBufferedFrames();
@@ -429,6 +475,7 @@ final class RequestStream
         $section = $this->decoder->decode($payload, $this->streamId);
         if ($section === null) {
             $this->blocked = true;
+            $this->blockedAtNanoseconds ??= MonotonicTime::nowNanoseconds();
             $this->blockedOnTrailers = $trailers;
 
             return;
