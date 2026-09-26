@@ -30,8 +30,6 @@ final class HostAdapterBench
     /** @var array<string, mixed> */
     private array $server;
 
-    private ResponseWriterInterface $writer;
-
     public function setUp(): void
     {
         $this->factory = new HostRequestFactory();
@@ -53,7 +51,6 @@ final class HostAdapterBench
             'HTTPS' => 'on',
         ];
         $this->request = $this->factory->fromServer($this->server, $this->body, 1_024);
-        $this->writer = $this->newWriter();
         $this->application = new RuntimeApplication(
             static function (HttpRequest $request, ResponseWriterInterface $writer): void {
                 $request->headers->first('x-trace-id');
@@ -66,7 +63,7 @@ final class HostAdapterBench
     public function benchApplicationDispatchAndCleanup(): int
     {
         $request = $this->newApplicationRequest();
-        $this->application->handle($request, $this->writer);
+        $this->application->handle($request, $this->newWriter(), completeResponse: true);
 
         return strlen($request->method);
     }

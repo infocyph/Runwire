@@ -28,7 +28,9 @@ final class ResponseTerminalState
      */
     public function observe(ResponseWriterInterface $writer, callable $callback): void
     {
-        $observer = Closure::fromCallable($callback);
+        $observer = static function (ResponseWriterInterface $terminalWriter) use ($callback): void {
+            $callback($terminalWriter);
+        };
         if ($this->terminal) {
             $observer($writer);
 

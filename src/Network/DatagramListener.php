@@ -258,10 +258,19 @@ final class DatagramListener
                 throw $failure;
             }
 
-            if ($this->closed || $this->paused || $this->stream !== $stream) {
+            if ($this->readBatchInterrupted($stream)) {
                 break;
             }
         }
+    }
+
+    /**
+     * @param resource $stream
+     * @phpstan-impure
+     */
+    private function readBatchInterrupted(mixed $stream): bool
+    {
+        return $this->closed || $this->paused || $this->stream !== $stream;
     }
 
     private function syncWatcher(): void

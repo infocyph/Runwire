@@ -29,10 +29,10 @@ final class StreamingRequestBody implements RequestBodyInterface
 
     private ?Closure $cancelCallback = null;
 
-    private bool $cancelled = false;
-
     /** @var list<Closure(): void> */
     private array $cancelObservers = [];
+
+    private bool $cancelled = false;
 
     private ?Closure $dataCallback = null;
 
@@ -297,6 +297,15 @@ final class StreamingRequestBody implements RequestBodyInterface
         $callback($this);
     }
 
+    private function invokeCancelObservers(): void
+    {
+        $observers = $this->cancelObservers;
+        $this->cancelObservers = [];
+        foreach ($observers as $observer) {
+            self::invokeObserver($observer);
+        }
+    }
+
     private function notifyData(): void
     {
         if ($this->dataCallback === null) {
@@ -309,6 +318,7 @@ final class StreamingRequestBody implements RequestBodyInterface
         }
 
         $this->dataNotifying = true;
+
         try {
             do {
                 $this->dataNotificationPending = false;
@@ -319,12 +329,4 @@ final class StreamingRequestBody implements RequestBodyInterface
         }
     }
 
-    private function invokeCancelObservers(): void
-    {
-        $observers = $this->cancelObservers;
-        $this->cancelObservers = [];
-        foreach ($observers as $observer) {
-            self::invokeObserver($observer);
-        }
-    }
 }

@@ -317,7 +317,11 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         });
 
         try {
-            $result = stream_select($read, $write, $except, $seconds, $microseconds);
+            try {
+                $result = stream_select($read, $write, $except, $seconds, $microseconds);
+            } catch (\ValueError $error) {
+                throw new RuntimeException('stream_select() failed permanently.', 0, $error);
+            }
         } finally {
             restore_error_handler();
         }

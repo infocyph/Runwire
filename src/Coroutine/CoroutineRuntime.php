@@ -7,7 +7,6 @@ namespace Infocyph\Runwire\Coroutine;
 use Closure;
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Coroutine\Internal\FiberScheduler;
-use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestContext;
@@ -43,17 +42,6 @@ final class CoroutineRuntime
     public function activeTaskCount(): int
     {
         return $this->scheduler->activeTaskCount();
-    }
-
-    /**
-     * Returns a snapshot of the current coroutine runtime diagnostics.
-     */
-    public function diagnostics(): CoroutineDiagnosticsSnapshot
-    {
-        return $this->scheduler->diagnostics(
-            rootScopesActive: $this->running ? 1 : 0,
-            requestScopesActive: ($this->requestRunning ? 1 : 0) + $this->attachedRequestScopes,
-        );
     }
 
     /**
@@ -100,6 +88,17 @@ final class CoroutineRuntime
 
             throw $error;
         }
+    }
+
+    /**
+     * Returns a snapshot of the current coroutine runtime diagnostics.
+     */
+    public function diagnostics(): CoroutineDiagnosticsSnapshot
+    {
+        return $this->scheduler->diagnostics(
+            rootScopesActive: $this->running ? 1 : 0,
+            requestScopesActive: ($this->requestRunning ? 1 : 0) + $this->attachedRequestScopes,
+        );
     }
 
     /** @param callable(CoroutineScope): mixed $callback */

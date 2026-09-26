@@ -304,7 +304,8 @@ final class UnixListener
 
         $errno = 0;
         $error = '';
-        set_error_handler(static fn (): bool => true);
+        set_error_handler(static fn(): bool => true);
+
         try {
             $live = stream_socket_client(
                 'unix://' . $path,

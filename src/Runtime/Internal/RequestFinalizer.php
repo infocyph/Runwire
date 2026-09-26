@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime\Internal;
 
 use Closure;
+use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\RequestLifecycleException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
@@ -22,30 +23,28 @@ use Throwable;
 final class RequestFinalizer
 {
     /** @var Closure(): void */
-    private readonly Closure $detachCancellation;
-
-    /** @var Closure(): void */
     private readonly Closure $finalized;
+
+    /** @var Closure(RequestContext): list<Throwable> */
+    private readonly Closure $reset;
+
+    /** @var Closure(Throwable): void */
+    private readonly Closure $unhealthy;
+
+    private ?CancellationSubscription $cancellationSubscription = null;
 
     private bool $finalizedRequest = false;
 
     private bool $handlerRunning = true;
 
-    /** @var Closure(RequestContext): list<Throwable> */
-    private readonly Closure $reset;
-
     private ?Throwable $requestFailure = null;
 
     private bool $terminalObserved = false;
-
-    /** @var Closure(Throwable): void */
-    private readonly Closure $unhealthy;
 
     /**
      * @param callable(RequestContext): list<Throwable> $reset
      * @param callable(): void $finalized
      * @param callable(Throwable): void $unhealthy
-     * @param callable(): void $detachCancellation
      */
     public function __construct(
         private readonly RequestContext $context,
@@ -57,12 +56,18 @@ final class RequestFinalizer
         callable $reset,
         callable $finalized,
         callable $unhealthy,
-        callable $detachCancellation,
     ) {
         $this->reset = Closure::fromCallable($reset);
         $this->finalized = Closure::fromCallable($finalized);
         $this->unhealthy = Closure::fromCallable($unhealthy);
-        $this->detachCancellation = Closure::fromCallable($detachCancellation);
+    }
+
+    /**
+     * Attach the lifecycle-owned request cancellation subscription.
+     */
+    public function attachCancellation(CancellationSubscription $subscription): void
+    {
+        $this->cancellationSubscription = $subscription;
     }
 
     /**
@@ -121,7 +126,8 @@ final class RequestFinalizer
     private function finalize(): void
     {
         $this->finalizedRequest = true;
-        ($this->detachCancellation)();
+        $this->cancellationSubscription?->unsubscribe();
+        $this->cancellationSubscription = null;
         $resetFailures = ($this->reset)($this->context);
         if ($resetFailures !== []) {
             ($this->unhealthy)($resetFailures[0]);

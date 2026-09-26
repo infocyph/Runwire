@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
+use Closure;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
@@ -18,7 +19,6 @@ use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\Internal\ValidatedRequestHead;
 use Infocyph\Runwire\Http\RequestBodyInterface;
-use Closure;
 
 /**
  * Parses one HTTP/3 request stream and coordinates QPACK, body, and trailer state.
@@ -26,6 +26,8 @@ use Closure;
 final class RequestStream
 {
     private readonly StreamingRequestBody $body;
+
+    private readonly Closure $onBodyRelief;
 
     private readonly FrameParser $parser;
 
@@ -42,13 +44,11 @@ final class RequestStream
 
     private bool $cancelled = false;
 
-    private bool $finished = false;
-
     private bool $finReceived = false;
 
-    private ?ValidatedRequestHead $head = null;
+    private bool $finished = false;
 
-    private readonly Closure $onBodyRelief;
+    private ?ValidatedRequestHead $head = null;
 
     private string $pendingData = '';
 
@@ -310,10 +310,10 @@ final class RequestStream
             $length = min(strlen($payload), $capacity, $this->limits->streamReadChunkBytes);
             $chunk = substr($payload, 0, $length);
             $payload = substr($payload, $length);
-            $this->body->push($chunk);
+            $accepting = $this->body->push($chunk);
             $this->receivedBodyBytes += $length;
 
-            if ($this->body->pressured() && $payload !== '') {
+            if (!$accepting && $payload !== '') {
                 $this->pendingData = $payload;
 
                 return;
@@ -396,19 +396,6 @@ final class RequestStream
         $this->completeFinish();
     }
 
-    private function resumeAfterBodyRelief(): void
-    {
-        if ($this->cancelled || $this->finished) {
-            return;
-        }
-
-        $this->drainFrames();
-        if (!$this->pressured()) {
-            ($this->onBodyRelief)();
-        }
-        $this->finishIfReady();
-    }
-
     private function processFrame(Frame $frame): void
     {
         $type = $frame->knownType();
@@ -449,4 +436,18 @@ final class RequestStream
 
         $this->acceptFieldSection($section, $trailers);
     }
+
+    private function resumeAfterBodyRelief(): void
+    {
+        if ($this->cancelled || $this->finished) {
+            return;
+        }
+
+        $this->drainFrames();
+        if (!$this->pressured()) {
+            ($this->onBodyRelief)();
+        }
+        $this->finishIfReady();
+    }
+
 }

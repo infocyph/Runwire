@@ -7,7 +7,6 @@ namespace Infocyph\Runwire\Runtime;
 use Closure;
 use Infocyph\Runwire\Exception\ApplicationShutdownException;
 use Infocyph\Runwire\Exception\ApplicationStartupException;
-use Infocyph\Runwire\Exception\RequestLifecycleException;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
@@ -136,6 +135,22 @@ final class ApplicationLifecycle
     }
 
     /**
+     * Return the first cleanup failure that made this lifecycle unsafe for reuse.
+     */
+    public function healthFailure(): ?Throwable
+    {
+        return $this->healthFailure;
+    }
+
+    /**
+     * Determine whether the application can safely admit another request.
+     */
+    public function healthy(): bool
+    {
+        return $this->healthFailure === null;
+    }
+
+    /**
      * Shuts down the application after draining and cancelling active requests.
      */
     public function shutdown(?ShutdownReason $reason = null): void
@@ -169,22 +184,6 @@ final class ApplicationLifecycle
         if ($failures !== []) {
             throw new ApplicationShutdownException(null, $failures);
         }
-    }
-
-    /**
-     * Return the first cleanup failure that made this lifecycle unsafe for reuse.
-     */
-    public function healthFailure(): ?Throwable
-    {
-        return $this->healthFailure;
-    }
-
-    /**
-     * Determine whether the application can safely admit another request.
-     */
-    public function healthy(): bool
-    {
-        return $this->healthFailure === null;
     }
 
     /**
@@ -226,7 +225,6 @@ final class ApplicationLifecycle
         $id = spl_object_id($context);
         $this->activeContexts[$id] = $context;
         $this->runtimeContext->metrics->requestStarted($request->version);
-        $cancellationSubscription = null;
         $finalizer = new RequestFinalizer(
             context: $context,
             version: $request->version,
@@ -241,14 +239,11 @@ final class ApplicationLifecycle
             unhealthy: function (Throwable $failure): void {
                 $this->healthFailure ??= $failure;
             },
-            detachCancellation: static function () use (&$cancellationSubscription): void {
-                $cancellationSubscription?->unsubscribe();
-            },
         );
 
-        $cancellationSubscription = $context->cancellation->onCancel(static function () use ($finalizer): void {
+        $finalizer->attachCancellation($context->cancellation->onCancel(static function () use ($finalizer): void {
             $finalizer->cancelled();
-        });
+        }));
         if ($request->body instanceof \Infocyph\Runwire\Http\Internal\StreamingRequestBody) {
             $request->body->observeCancel(static function () use ($context): void {
                 $context->cancel(CancellationReason::TRANSPORT_CANCELLED);
