@@ -128,7 +128,7 @@ final readonly class ProcessRunner
                 $terminalStatus ??= $status;
             }
 
-            $termination->observe($child, $command, $running, $now);
+            $termination->observe($process, $command, $running, $now);
             if (!$running) {
                 $postExitDeadline ??= MonotonicTime::addNanoseconds(
                     $now,
@@ -152,7 +152,7 @@ final readonly class ProcessRunner
             $this->writeInput($write, $pipes, $stdinBuffer, $input);
             $overflowed = $this->readOutputs($read, $pipes, $stdout, $stderr, $command->maxOutputBytes, $outputAccepted);
             $termination->observeOutputLimit(
-                $child,
+                $process,
                 $command,
                 $overflowed,
                 $running,
