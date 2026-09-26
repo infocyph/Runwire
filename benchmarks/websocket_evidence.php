@@ -2,9 +2,13 @@
 
 declare(strict_types=1);
 
-final class WebSocketEvidenceProtocolFailure extends RuntimeException {}
+final class WebSocketEvidenceProtocolFailure extends RuntimeException
+{
+}
 
-final class WebSocketEvidenceTimeout extends RuntimeException {}
+final class WebSocketEvidenceTimeout extends RuntimeException
+{
+}
 
 /** @return resource */
 function wsConnect(int $port): mixed
@@ -23,11 +27,11 @@ function wsConnect(int $port): mixed
     stream_set_timeout($socket, 2);
     $key = base64_encode(random_bytes(16));
     $request = "GET /ws HTTP/1.1\r\n"
-        . "Host: 127.0.0.1:" . $port . "\r\n"
+        . 'Host: 127.0.0.1:' . $port . "\r\n"
         . "Upgrade: websocket\r\n"
         . "Connection: Upgrade\r\n"
         . "Sec-WebSocket-Version: 13\r\n"
-        . "Sec-WebSocket-Key: " . $key . "\r\n"
+        . 'Sec-WebSocket-Key: ' . $key . "\r\n"
         . "\r\n";
 
     wsWriteAll($socket, $request);
