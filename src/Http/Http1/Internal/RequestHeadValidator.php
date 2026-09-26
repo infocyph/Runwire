@@ -6,7 +6,9 @@ namespace Infocyph\Runwire\Http\Http1\Internal;
 
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\AuthorityValidator;
+use Infocyph\Runwire\Http\Internal\ContentLengthParser;
 use InvalidArgumentException;
+use OverflowException;
 
 /**
  * Validates HTTP/1.1 request framing and routing headers.
@@ -94,19 +96,13 @@ final class RequestHeadValidator
 
     private function parseContentLength(string $value): int
     {
-        if ($value === '' || preg_match('/^[0-9]+$/D', $value) !== 1) {
+        try {
+            return ContentLengthParser::parse($value);
+        } catch (OverflowException) {
+            throw new ParseFailure(413, 'Content-Length exceeds platform range.');
+        } catch (InvalidArgumentException) {
             throw new ParseFailure(400, 'Invalid Content-Length.');
         }
-
-        $normalized = ltrim($value, '0');
-        $normalized = $normalized === '' ? '0' : $normalized;
-        $max = (string) PHP_INT_MAX;
-        if (strlen($normalized) > strlen($max)
-            || (strlen($normalized) === strlen($max) && strcmp($normalized, $max) > 0)) {
-            throw new ParseFailure(413, 'Content-Length exceeds platform range.');
-        }
-
-        return (int) $normalized;
     }
 
     /**
