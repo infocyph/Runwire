@@ -32,7 +32,7 @@ final class WebSocketFrameParser
      */
     public function __destruct()
     {
-        $this->release($this->workerBudgetBytes);
+        $this->release($this->budgetBytes);
     }
 
     /**
@@ -48,11 +48,11 @@ final class WebSocketFrameParser
         if (strlen($this->buffer) + $length > $this->options->maxBufferedBytes) {
             throw new WebSocketProtocolException(1009, 'WebSocket parser buffer limit exceeded.');
         }
-        if ($this->workerBudget !== null && !$this->workerBudget->reserve($length)) {
+        if ($this->budget !== null && !$this->budget->reserve($length)) {
             throw new WebSocketProtocolException(1009, 'WebSocket worker byte budget is exhausted.');
         }
 
-        $this->workerBudgetBytes += $length;
+        $this->budgetBytes += $length;
         $this->buffer .= $bytes;
     }
 
@@ -110,7 +110,7 @@ final class WebSocketFrameParser
     {
         $data = substr($this->buffer, 0, $bytes);
         $this->buffer = substr($this->buffer, $bytes);
-        $this->workerBudgetBytes -= $bytes;
+        $this->budgetBytes -= $bytes;
         $this->release($bytes);
 
         return $data;
@@ -211,7 +211,6 @@ final class WebSocketFrameParser
             return;
         }
 
-        $this->workerBudget?->release($bytes);
+        $this->budget?->release($bytes);
     }
-
 }
