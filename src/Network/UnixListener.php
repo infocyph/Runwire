@@ -301,6 +301,28 @@ final class UnixListener
         if (filetype($path) !== 'socket') {
             throw new ListenerException(sprintf('Refusing to remove non-socket Unix path: %s', $path));
         }
+
+        $errno = 0;
+        $error = '';
+        set_error_handler(static fn(): bool => true);
+
+        try {
+            $live = stream_socket_client(
+                'unix://' . $path,
+                $errno,
+                $error,
+                0.1,
+                STREAM_CLIENT_CONNECT,
+            );
+        } finally {
+            restore_error_handler();
+        }
+        if (is_resource($live)) {
+            fclose($live);
+
+            throw new ListenerException(sprintf('Refusing to replace live Unix socket path: %s', $path));
+        }
+
         if (!unlink($path)) {
             throw new ListenerException(sprintf('Unable to remove existing Unix socket path: %s', $path));
         }

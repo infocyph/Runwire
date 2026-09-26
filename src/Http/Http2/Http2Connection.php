@@ -12,7 +12,6 @@ use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Http\Http2\Internal\ControlFrameBudget;
 use Infocyph\Runwire\Http\Http2\Internal\FlowController;
 use Infocyph\Runwire\Http\Http2\Internal\Http2Stream;
-use Infocyph\Runwire\Http\Http2\Internal\RequestStreamLookup;
 use Infocyph\Runwire\Http\Http2\Internal\RequestStreamProcessor;
 use Infocyph\Runwire\Http\Http2\Internal\ResponseScheduler;
 use Infocyph\Runwire\Http\Http2\Internal\StreamError;
@@ -57,6 +56,8 @@ final class Http2Connection
 
     private bool $firstFrame = true;
 
+    private ?int $parserDeferred = null;
+
     private string $preface = '';
 
     private bool $prefaceComplete = false;
@@ -75,20 +76,19 @@ final class Http2Connection
         /** @var Closure(HttpRequest, Http2ResponseWriter): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
-        $this->parser = new FrameParser($limits->maxInboundFrameSize);
+        $this->parser = new FrameParser($limits->maxInboundFrameSize, $connection->bufferBudget());
         $this->peerSettings = new PeerSettings();
         $this->encoder = new Encoder($limits->maxDynamicTableBytes);
         $this->flow = new FlowController();
         $this->controlBudget = new ControlFrameBudget($loop, $limits->maxControlFramesPerSecond);
 
-        $streamLookup = new RequestStreamLookup();
         $this->output = new ResponseScheduler(
             connection: $connection,
             limits: $limits,
             peerSettings: $this->peerSettings,
             encoder: $this->encoder,
             flow: $this->flow,
-            streamLookup: fn(int $id): ?Http2Stream => $streamLookup->stream($id),
+            streamLookup: fn(int $id): ?Http2Stream => $this->requestStream($id),
             cleanupClosed: fn(Http2Stream $stream) => $this->cleanupClosed($stream),
             readyCallback: fn() => $this->handleOutputReady(),
             activityCallback: fn(Http2Stream $stream) => $this->touch($stream),
@@ -106,8 +106,6 @@ final class Http2Connection
             streamFailure: fn(StreamError $error) => $this->handleStreamError($error),
             streamRemoved: fn() => $this->finishDrainIfReady(),
         );
-        $streamLookup->attach($this->requests);
-
         $connection->onData(fn() => $this->pump());
         $connection->onEof(fn() => $this->handleEof());
         $connection->onClose(fn() => $this->cleanup());
@@ -182,8 +180,10 @@ final class Http2Connection
     {
         $this->cancelTimer($this->settingsAckTimer);
         $this->cancelTimer($this->drainTimer);
+        $this->cancelTimer($this->parserDeferred);
         $this->settingsAckTimer = null;
         $this->drainTimer = null;
+        $this->parserDeferred = null;
     }
 
     private function cancelTimer(?int $timer): void
@@ -425,6 +425,27 @@ final class Http2Connection
         $this->output->flush();
     }
 
+    private function processBufferedFrames(string $data): void
+    {
+        foreach ($this->parser->push($data, $this->limits->maxFramesPerTurn) as $frame) {
+            if ($this->closed) {
+                return;
+            }
+            $this->processFrameSafely($frame);
+        }
+
+        if ($this->closed || !$this->parser->hasCompleteFrame() || $this->parserDeferred !== null) {
+            return;
+        }
+
+        $this->parserDeferred = $this->loop->defer(function (): void {
+            $this->parserDeferred = null;
+            if (!$this->closed) {
+                $this->processBufferedFrames('');
+            }
+        });
+    }
+
     private function processFrame(Frame $frame): void
     {
         match ($frame->knownType()) {
@@ -480,17 +501,17 @@ final class Http2Connection
                 return;
             }
 
-            foreach ($this->parser->push($data) as $frame) {
-                if ($this->closed) {
-                    break;
-                }
-                $this->processFrameSafely($frame);
-            }
+            $this->processBufferedFrames($data);
         } catch (ConnectionError $error) {
             $this->failConnection($error->errorCode, $error->getMessage());
-        } catch (Throwable $error) {
-            $this->failConnection(ErrorCode::INTERNAL_ERROR, $error->getMessage());
+        } catch (Throwable) {
+            $this->failConnection(ErrorCode::INTERNAL_ERROR, 'Internal server error.');
         }
+    }
+
+    private function requestStream(int $id): ?Http2Stream
+    {
+        return $this->requests->stream($id);
     }
 
     private function touch(Http2Stream $stream): void

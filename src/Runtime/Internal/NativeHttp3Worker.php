@@ -69,6 +69,7 @@ final class NativeHttp3Worker
             $options->limits,
             $context->admissionPolicy->connectionLimit($server->workerConnectionLimit),
             handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
+            bufferBudget: $context->bufferBudget,
         );
         $attachment = new NativeHttp3Attachment(
             $loop,
@@ -223,15 +224,39 @@ final class NativeHttp3Worker
     ): \Closure {
         return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
             $context->recordRequestStarted();
+            $completed = false;
+            $complete = static function () use (
+                $application,
+                $context,
+                $request,
+                $sampler,
+                &$completed,
+            ): void {
+                if ($completed) {
+                    return;
+                }
 
-            try {
-                $application->handle($request, $writer);
-            } finally {
+                $completed = true;
                 $context->recordRequestCompleted();
                 if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
                     $context->reportDeadlineExceeded($request->context->requestId);
                 }
+                if (!$application->healthy()) {
+                    $context->requestStop();
+                }
                 $sampler->sample();
+            };
+
+            $request->context->observeCompletion($complete);
+
+            try {
+                $application->handle($request, $writer);
+            } catch (Throwable $error) {
+                if (!$request->context->hasOwnedWork()) {
+                    $complete();
+                }
+
+                throw $error;
             }
         };
     }

@@ -122,3 +122,27 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
         cleanupRunwireTlsFiles($directory, $certificateFile, $keyFile);
     }
 });
+
+
+it('preserves explicitly requested peer verification in the TLS context', function (): void {
+    [$directory, $certificateFile, $keyFile] = runwireTlsFiles();
+
+    try {
+        $context = (new TlsOptions(
+            $certificateFile,
+            $keyFile,
+            extraContext: [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+                'cafile' => $certificateFile,
+            ],
+        ))->context();
+
+        expect($context['verify_peer'])->toBeTrue()
+            ->and($context['verify_peer_name'])->toBeTrue()
+            ->and($context['cafile'])->toBe($certificateFile)
+            ->and($context['disable_compression'])->toBeTrue();
+    } finally {
+        cleanupRunwireTlsFiles($directory, $certificateFile, $keyFile);
+    }
+});

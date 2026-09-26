@@ -10,16 +10,19 @@ use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\ConnectionLimits;
 use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
+use Infocyph\Runwire\Runtime\LoopAwareRequestHandlerInterface;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Runtime\RuntimeApplicationFactoryInterface;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use InvalidArgumentException;
+use ReflectionFunction;
 
 /**
  * Defines a managed HTTP server and its worker, protocol, transport, and application policies.
@@ -140,13 +143,14 @@ final readonly class Server
         RuntimeContext $runtimeContext,
         RequestExecutionPolicy $requestExecution,
         ApplicationLifecycleHooks $lifecycle,
+        ?LoopInterface $loop = null,
     ): RuntimeApplicationInterface {
         if ($this->applicationFactory !== null) {
             return $this->applicationFactory->create($runtimeContext);
         }
 
         return new RuntimeApplication(
-            $this->handlerFor($workerContext),
+            $this->handlerFor($workerContext, $loop),
             runtimeContext: $runtimeContext,
             requestExecution: $requestExecution,
             lifecycle: $lifecycle,
@@ -159,15 +163,19 @@ final readonly class Server
      *
      * @return Closure(HttpRequest, ResponseWriterInterface): void
      */
-    public function handlerFor(WorkerContext $context): Closure
+    public function handlerFor(WorkerContext $context, ?LoopInterface $loop = null): Closure
     {
-        if ($this->workerHandlerFactory === null) {
-            return $this->handler;
-        }
-
-        $handler = ($this->workerHandlerFactory)($context);
+        $handler = $this->workerHandlerFactory === null
+            ? $this->handler
+            : ($this->workerHandlerFactory)($context);
         /** @var Closure(HttpRequest, ResponseWriterInterface): void $closure */
-        $closure = Closure::fromCallable($handler);
+        $closure = $handler instanceof Closure ? $handler : Closure::fromCallable($handler);
+        if ($loop !== null) {
+            $owner = new ReflectionFunction($closure)->getClosureThis();
+            if ($owner instanceof LoopAwareRequestHandlerInterface) {
+                $owner->attachLoop($loop);
+            }
+        }
 
         return $closure;
     }

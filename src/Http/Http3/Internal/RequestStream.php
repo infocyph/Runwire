@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
+use Closure;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
@@ -18,6 +19,8 @@ use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\Internal\ValidatedRequestHead;
 use Infocyph\Runwire\Http\RequestBodyInterface;
+use Infocyph\Runwire\Internal\MonotonicTime;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 
 /**
  * Parses one HTTP/3 request stream and coordinates QPACK, body, and trailer state.
@@ -26,11 +29,19 @@ final class RequestStream
 {
     private readonly StreamingRequestBody $body;
 
+    private readonly Closure $onBodyRelief;
+
     private readonly FrameParser $parser;
+
+    private readonly int $startedAtNanoseconds;
 
     private readonly RequestHeaderValidator $validator;
 
     private bool $blocked = false;
+
+    private ?int $blockedAtNanoseconds = null;
+
+    private int $blockedBudgetBytes = 0;
 
     private int $blockedFrameBytes = 0;
 
@@ -46,6 +57,12 @@ final class RequestStream
     private bool $finReceived = false;
 
     private ?ValidatedRequestHead $head = null;
+
+    private int $lastProgressNanoseconds;
+
+    private int $pendingBudgetBytes = 0;
+
+    private string $pendingData = '';
 
     private int $receivedBodyBytes = 0;
 
@@ -63,20 +80,39 @@ final class RequestStream
         private readonly Http3Limits $limits,
         ?callable $onBodyRelief = null,
         ?callable $onBodyConsumed = null,
+        private readonly ?ByteBudget $budget = null,
     ) {
         if ($streamId < 0 || ($streamId & 0x03) !== 0) {
             throw new \InvalidArgumentException('HTTP/3 request stream must be client-initiated and bidirectional.');
         }
 
-        $this->parser = new FrameParser($limits->maxFramePayloadBytes);
+        $this->startedAtNanoseconds = MonotonicTime::nowNanoseconds();
+        $this->lastProgressNanoseconds = $this->startedAtNanoseconds;
+        $this->parser = new FrameParser($limits->maxFramePayloadBytes, $budget);
         $this->validator = new RequestHeaderValidator('HTTP/3');
+        $this->onBodyRelief = $onBodyRelief !== null
+            ? $onBodyRelief(...)
+            : static function (): void {};
         $this->body = new StreamingRequestBody(
             $limits->bodyLowWatermarkBytes,
             $limits->bodyHighWatermarkBytes,
             $limits->maxPendingBodyBytesPerStream,
-            $onBodyRelief ?? static function (): void {},
+            function (): void {
+                $this->resumeAfterBodyRelief();
+            },
             $onBodyConsumed,
+            $budget,
         );
+    }
+
+    /**
+     * Release blocked and pending request bytes still charged to the worker budget.
+     */
+    public function __destruct()
+    {
+        $this->budget?->release($this->blockedBudgetBytes + $this->pendingBudgetBytes);
+        $this->blockedBudgetBytes = 0;
+        $this->pendingBudgetBytes = 0;
     }
 
     /**
@@ -110,6 +146,10 @@ final class RequestStream
 
         $this->blockedFrames = [];
         $this->blockedFrameBytes = 0;
+        $this->budget?->release($this->blockedBudgetBytes + $this->pendingBudgetBytes);
+        $this->blockedBudgetBytes = 0;
+        $this->pendingBudgetBytes = 0;
+        $this->pendingData = '';
         $this->cancelled = true;
         $this->body->cancel();
     }
@@ -125,14 +165,7 @@ final class RequestStream
         }
 
         $this->finReceived = true;
-        if ($this->parser->bufferedBytes() > 0) {
-            throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
-        }
-        if ($this->blocked) {
-            return;
-        }
-
-        $this->completeFinish();
+        $this->finishIfReady();
     }
 
     /**
@@ -156,7 +189,7 @@ final class RequestStream
      */
     public function pressured(): bool
     {
-        return $this->body->pressured();
+        return $this->pendingData !== '' || $this->body->pressured();
     }
 
     /**
@@ -169,15 +202,11 @@ final class RequestStream
             throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 request bytes arrived after stream FIN.');
         }
 
-        foreach ($this->parser->push($bytes) as $frame) {
-            if ($this->blocked) {
-                $this->bufferBlockedFrame($frame);
-
-                continue;
-            }
-
-            $this->processFrame($frame);
+        if ($bytes !== '') {
+            $this->lastProgressNanoseconds = MonotonicTime::nowNanoseconds();
         }
+        $this->parser->append($bytes);
+        $this->drainFrames();
     }
 
     /**
@@ -200,26 +229,13 @@ final class RequestStream
 
         $trailers = $this->blockedOnTrailers;
         $this->blocked = false;
+        $this->blockedAtNanoseconds = null;
         $this->blockedOnTrailers = false;
+        $this->lastProgressNanoseconds = MonotonicTime::nowNanoseconds();
         $this->acceptFieldSection($section, $trailers);
 
-        $frames = $this->blockedFrames;
-        $this->blockedFrames = [];
-        $this->blockedFrameBytes = 0;
-
-        foreach ($frames as $frame) {
-            if ($this->blocked) {
-                $this->bufferBlockedFrame($frame);
-
-                continue;
-            }
-
-            $this->processFrame($frame);
-        }
-
-        if ($this->finReceived && !$this->blocked) {
-            $this->completeFinish();
-        }
+        $this->drainBufferedFrames();
+        $this->finishIfReady();
     }
 
     /**
@@ -228,6 +244,38 @@ final class RequestStream
     public function streamId(): int
     {
         return $this->streamId;
+    }
+
+    /**
+     * Return the timeout classification when request progress has exceeded a managed deadline.
+     */
+    public function timeoutReason(?int $nowNanoseconds = null): ?string
+    {
+        $nowNanoseconds ??= MonotonicTime::nowNanoseconds();
+        if (
+            $this->blockedAtNanoseconds !== null
+            && $nowNanoseconds - $this->blockedAtNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->qpackBlockedTimeoutSeconds)
+        ) {
+            return 'qpack';
+        }
+        if (
+            $this->head === null
+            && $nowNanoseconds - $this->startedAtNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->requestHeaderTimeoutSeconds)
+        ) {
+            return 'headers';
+        }
+        if (
+            $this->head !== null
+            && !$this->finished
+            && $nowNanoseconds - $this->lastProgressNanoseconds
+                >= MonotonicTime::secondsToNanoseconds($this->limits->requestBodyIdleTimeoutSeconds)
+        ) {
+            return 'body';
+        }
+
+        return null;
     }
 
     /**
@@ -251,9 +299,6 @@ final class RequestStream
         if ($bytes > $this->limits->maxBodyBytes - $this->receivedBodyBytes) {
             throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 request body exceeds configured limit.');
         }
-        if ($bytes > $this->body->capacity()) {
-            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 request body buffer capacity was exceeded.');
-        }
         if (
             $this->head->contentLength !== null
             && $bytes > $this->head->contentLength - $this->receivedBodyBytes
@@ -261,10 +306,7 @@ final class RequestStream
             throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 request body exceeds Content-Length.');
         }
 
-        if ($payload !== '') {
-            $this->body->push($payload);
-            $this->receivedBodyBytes += $bytes;
-        }
+        $this->deliverData($payload);
     }
 
     private function acceptFieldSection(DecodedFieldSection $section, bool $trailers): void
@@ -303,8 +345,13 @@ final class RequestStream
             );
         }
 
+        $payloadBytes = strlen($frame->payload);
+        if ($this->budget !== null && !$this->budget->reserve($payloadBytes)) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Worker queued-byte budget is exhausted.');
+        }
         $this->blockedFrames[] = $frame;
         $this->blockedFrameBytes += $bytes;
+        $this->blockedBudgetBytes += $payloadBytes;
     }
 
     private function completeFinish(): void
@@ -321,6 +368,109 @@ final class RequestStream
 
         $this->body->finish($this->trailers);
         $this->finished = true;
+    }
+
+    private function deliverData(string $payload): void
+    {
+        while ($payload !== '') {
+            $capacity = $this->body->capacity();
+            if ($capacity <= 0 || $this->body->pressured()) {
+                $this->reservePendingData($payload);
+
+                return;
+            }
+
+            $length = min(strlen($payload), $capacity, $this->limits->streamReadChunkBytes);
+            $chunk = substr($payload, 0, $length);
+            $payload = substr($payload, $length);
+            $accepting = $this->body->push($chunk);
+            $this->receivedBodyBytes += $length;
+
+            if (!$accepting && $payload !== '') {
+                $this->reservePendingData($payload);
+
+                return;
+            }
+        }
+    }
+
+    private function drainBufferedFrames(): void
+    {
+        $frames = $this->blockedFrames;
+        $this->blockedFrames = [];
+        $this->blockedFrameBytes = 0;
+        $this->budget?->release($this->blockedBudgetBytes);
+        $this->blockedBudgetBytes = 0;
+
+        foreach ($frames as $index => $frame) {
+            if ($this->blocked) {
+                $this->bufferBlockedFrame($frame);
+
+                continue;
+            }
+
+            $this->processFrame($frame);
+            if (!$this->pressured()) {
+                continue;
+            }
+
+            foreach (array_slice($frames, $index + 1) as $remaining) {
+                $this->bufferBlockedFrame($remaining);
+            }
+
+            return;
+        }
+    }
+
+    private function drainFrames(): void
+    {
+        if ($this->pendingData !== '') {
+            $pending = $this->pendingData;
+            $this->pendingData = '';
+            $this->budget?->release($this->pendingBudgetBytes);
+            $this->pendingBudgetBytes = 0;
+            $this->deliverData($pending);
+            if ($this->pressured()) {
+                return;
+            }
+        }
+
+        if (!$this->blocked && $this->blockedFrames !== []) {
+            $this->drainBufferedFrames();
+            if ($this->blocked || $this->pressured()) {
+                return;
+            }
+        }
+
+        while (($frame = $this->parser->shift()) !== null) {
+            if ($this->blocked) {
+                $this->bufferBlockedFrame($frame);
+
+                continue;
+            }
+
+            $this->processFrame($frame);
+            if ($this->pressured()) {
+                return;
+            }
+        }
+    }
+
+    private function finishIfReady(): void
+    {
+        if (!$this->finReceived || $this->blocked || $this->pressured()) {
+            return;
+        }
+
+        $this->drainFrames();
+        if ($this->blocked || $this->pressured()) {
+            return;
+        }
+        if ($this->parser->bufferedBytes() > 0) {
+            throw new Http3Exception(ErrorCode::FRAME_ERROR, 'HTTP/3 request stream ended during an incomplete frame.');
+        }
+
+        $this->completeFinish();
     }
 
     private function processFrame(Frame $frame): void
@@ -356,11 +506,36 @@ final class RequestStream
         $section = $this->decoder->decode($payload, $this->streamId);
         if ($section === null) {
             $this->blocked = true;
+            $this->blockedAtNanoseconds ??= MonotonicTime::nowNanoseconds();
             $this->blockedOnTrailers = $trailers;
 
             return;
         }
 
         $this->acceptFieldSection($section, $trailers);
+    }
+
+    private function reservePendingData(string $payload): void
+    {
+        $bytes = strlen($payload);
+        if ($this->budget !== null && !$this->budget->reserve($bytes)) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Worker queued-byte budget is exhausted.');
+        }
+
+        $this->pendingData = $payload;
+        $this->pendingBudgetBytes = $bytes;
+    }
+
+    private function resumeAfterBodyRelief(): void
+    {
+        if ($this->cancelled || $this->finished) {
+            return;
+        }
+
+        $this->drainFrames();
+        if (!$this->pressured()) {
+            ($this->onBodyRelief)();
+        }
+        $this->finishIfReady();
     }
 }

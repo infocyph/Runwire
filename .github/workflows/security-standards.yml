@@ -8,6 +8,10 @@ on:
   pull_request:
     branches: [ "main", "master", "develop", "development" ]
 
+concurrency:
+  group: ss-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   phpforge:
     uses: infocyph/phpforge/.github/workflows/security-standards.yml@main
@@ -60,10 +64,10 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
 
       - name: Checkout php-quic
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
         with:
           repository: mikepultz/php-quic
           ref: main
@@ -71,7 +75,7 @@ jobs:
 
       - name: Checkout nghttp3 interoperability dependency
         if: matrix.php-version == '8.5'
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
         with:
           repository: ngtcp2/nghttp3
           ref: v1.18.0
@@ -80,7 +84,7 @@ jobs:
 
       - name: Checkout ngtcp2 interoperability client
         if: matrix.php-version == '8.5'
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
         with:
           repository: ngtcp2/ngtcp2
           ref: v1.25.0
@@ -168,7 +172,7 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          composer install --no-interaction --prefer-dist --no-progress
+          composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
 
       - name: Verify Runwire QUIC capability detection
         shell: bash

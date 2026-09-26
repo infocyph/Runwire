@@ -7,10 +7,12 @@ namespace Infocyph\Runwire\Runtime\Host;
 use Closure;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\ResponseSemantics;
+use Infocyph\Runwire\Http\Internal\ResponseTerminalState;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
+use LogicException;
 
 /**
  * Streams bounded HTTP responses through a RoadRunner session.
@@ -19,7 +21,11 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 {
     private readonly int $maxBodyBytes;
 
+    private readonly ResponseTerminalState $terminal;
+
     private int $bodyBytes = 0;
+
+    private ?int $contentLength = null;
 
     private bool $ended = false;
 
@@ -43,6 +49,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
         $this->headers = new Headers();
         $this->maxBodyBytes = $maxBodyBytes;
+        $this->terminal = new ResponseTerminalState();
     }
 
     /**
@@ -61,18 +68,21 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
         if ($finalChunk !== '' && !$this->suppressesBody()) {
             $length = strlen($finalChunk);
+            if ($this->contentLength !== null && $this->bodyBytes + $length > $this->contentLength) {
+                throw new LogicException('HTTP response body exceeds declared Content-Length.');
+            }
             if ($length > $this->maxBodyBytes - $this->bodyBytes) {
-                $this->finish('');
-
                 return new WriteResult(WriteState::REJECTED_LIMIT, 0);
             }
 
             $this->bodyBytes += $length;
+            $this->assertCompleteLength();
             $this->finish($finalChunk);
 
             return new WriteResult(WriteState::ACCEPTED, 0);
         }
 
+        $this->assertCompleteLength();
         $this->finish('');
 
         return new WriteResult(WriteState::ACCEPTED, 0);
@@ -107,6 +117,16 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     }
 
     /**
+     * Registers a callback invoked when response ownership becomes terminal.
+     */
+    public function onTerminal(callable $callback): self
+    {
+        $this->terminal->observe($this, $callback);
+
+        return $this;
+    }
+
+    /**
      * Starts the response with status and optional headers.
      */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
@@ -120,6 +140,8 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         }
 
         $this->headers = $headers ?? new Headers();
+        $this->contentLength = ResponseSemantics::contentLength($this->headers);
+        ResponseSemantics::assertContentLength($status, $this->contentLength);
         $this->started = true;
         $this->status = $status;
 
@@ -141,6 +163,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         }
 
         $length = strlen($chunk);
+        if ($this->contentLength !== null && $this->bodyBytes + $length > $this->contentLength) {
+            throw new LogicException('HTTP response body exceeds declared Content-Length.');
+        }
         if ($length > $this->maxBodyBytes - $this->bodyBytes) {
             return new WriteResult(WriteState::REJECTED_LIMIT, 0);
         }
@@ -149,6 +174,15 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         $this->bodyBytes += $length;
 
         return new WriteResult(WriteState::ACCEPTED, 0);
+    }
+
+    private function assertCompleteLength(): void
+    {
+        if ($this->suppressesBody() || $this->contentLength === null || $this->bodyBytes === $this->contentLength) {
+            return;
+        }
+
+        throw new LogicException('HTTP response body is shorter than declared Content-Length.');
     }
 
     private function ensureStarted(): WriteResult
@@ -160,6 +194,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     {
         $this->session->respond($this->status, $body, $this->headerMap(), true);
         $this->ended = true;
+        $this->terminal->terminate($this);
     }
 
     /** @return array<string, list<string>> */

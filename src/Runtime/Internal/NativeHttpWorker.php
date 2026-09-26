@@ -8,8 +8,8 @@ use Closure;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\NativeHttpConnection;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Loop\LoopFactory;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Network\Connection;
@@ -49,6 +49,7 @@ final class NativeHttpWorker
             $runtimeContext,
             $requestExecution,
             $lifecycle,
+            $loop,
         );
         $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics, $loop);
         $handler = self::requestHandler($application, $context, $sampler);
@@ -57,6 +58,7 @@ final class NativeHttpWorker
 
         try {
             $application->start();
+            $bound->listener->setBufferBudget($context->bufferBudget);
             $bound->listener->start(
                 $loop,
                 static function (Connection $connection) use (
@@ -69,6 +71,15 @@ final class NativeHttpWorker
                     $runtimeContext,
                     $sampler,
                 ): void {
+                    $connectionLimit = LoopFactory::connectionLimit($loop);
+                    if ($connectionLimit !== null && count($connections) >= $connectionLimit) {
+                        $connection->abort(CloseReason::LOCAL_ABORT);
+                        $runtimeContext->metrics->recordRejectedConnection();
+                        $sampler->sample();
+
+                        return;
+                    }
+
                     self::attachConnection(
                         $connection,
                         $loop,
@@ -169,7 +180,7 @@ final class NativeHttpWorker
         ApplicationLifecycleHooks $lifecycle,
         DiagnosticsPolicy $diagnostics = new DiagnosticsPolicy(),
     ): void {
-        $loop = new SelectLoop($diagnostics->callbackOverrunSeconds);
+        $loop = LoopFactory::native($diagnostics);
         $handle = self::attach(
             $loop,
             $context,
@@ -316,15 +327,39 @@ final class NativeHttpWorker
     ): Closure {
         return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
             $context->recordRequestStarted();
+            $completed = false;
+            $complete = static function () use (
+                $application,
+                $context,
+                $request,
+                $sampler,
+                &$completed,
+            ): void {
+                if ($completed) {
+                    return;
+                }
 
-            try {
-                $application->handle($request, $writer);
-            } finally {
+                $completed = true;
                 $context->recordRequestCompleted();
                 if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
                     $context->reportDeadlineExceeded($request->context->requestId);
                 }
+                if (!$application->healthy()) {
+                    $context->requestStop();
+                }
                 $sampler->sample();
+            };
+
+            $request->context->observeCompletion($complete);
+
+            try {
+                $application->handle($request, $writer);
+            } catch (Throwable $error) {
+                if (!$request->context->hasOwnedWork()) {
+                    $complete();
+                }
+
+                throw $error;
             }
         };
     }

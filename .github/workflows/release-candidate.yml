@@ -1,0 +1,73 @@
+name: "Release Candidate"
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+
+concurrency:
+  group: rc-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: "Package contents - PHP 8.5"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2 # v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate package metadata
+        run: composer validate --strict --no-check-publish
+
+      - name: Build Composer archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/package
+          composer archive \
+            --format=zip \
+            --dir=build/package \
+            --file=runwire-candidate
+          archive="build/package/runwire-candidate.zip"
+          test -s "$archive"
+          unzip -Z1 "$archive" > build/package-contents.txt
+          cat build/package-contents.txt
+
+      - name: Verify production package surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          listing="build/package-contents.txt"
+
+          grep -Eq '(^|/)composer\.json$' "$listing"
+          grep -Eq '(^|/)src/Runtime\.php$' "$listing"
+
+          for forbidden in             '.github/'             'benchmarks/'             'docs/'             'tests/'             'vendor/'             '.codex/'             '.agents/'; do
+            if grep -Fq "$forbidden" "$listing"; then
+              echo "::error::Packaged archive unexpectedly contains $forbidden"
+              exit 1
+            fi
+          done
+
+      - name: Upload candidate package evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-candidate-package
+          path: |
+            build/package/runwire-candidate.zip
+            build/package-contents.txt
+          retention-days: 61

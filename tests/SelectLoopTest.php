@@ -40,6 +40,28 @@ it('stops immediately after a deferred callback without running due timers in th
         ->and($loop->cancel($timer))->toBeTrue();
 });
 
+it('preserves due timers that remain after an earlier callback stops the loop', function (): void {
+    $loop = new SelectLoop();
+    $events = [];
+
+    $loop->delay(0.0, function () use ($loop, &$events): void {
+        $events[] = 'first';
+        $loop->stop();
+    });
+    $loop->delay(0.0, function () use (&$events): void {
+        $events[] = 'second';
+    });
+
+    $loop->run();
+
+    $loop->delay(0.01, function () use ($loop): void {
+        $loop->stop();
+    });
+    $loop->run();
+
+    expect($events)->toBe(['first', 'second']);
+});
+
 it('records timer lag introduced by deferred callbacks in the same tick', function (): void {
     $loop = new SelectLoop();
     $loop->delay(0.0, static function (): void {});
@@ -205,3 +227,18 @@ it('restores loop state after callback failure so the instance can run again', f
 
     expect($ran)->toBeTrue();
 });
+
+it('fails fast on permanent select failures while retaining recoverable cases', function (): void {
+    $policy = new ReflectionMethod(SelectLoop::class, 'assertRecoverableSelectFailure');
+
+    expect(static fn () => $policy->invoke(null, null, 0))
+        ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
+
+    expect($policy->invoke(
+        null,
+        'stream_select(): Unable to select [4]: Interrupted system call',
+        0,
+    ))->toBeNull()
+        ->and($policy->invoke(null, null, 1))->toBeNull();
+});
+

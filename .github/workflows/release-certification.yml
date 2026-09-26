@@ -1,0 +1,362 @@
+name: "Release Certification"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+
+concurrency:
+  group: release-certification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BASELINE_SHA: dc78bdc9d8684dcff48dac197d6cc0f21ed86043
+
+jobs:
+  matched-performance:
+    name: "Matched baseline/candidate - PHP 8.5"
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout candidate exact head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+
+      - name: Checkout pre-consolidation baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          path: baseline
+
+      - name: Setup matched PHP runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Verify release extensions
+        shell: bash
+        run: |
+          php -r '
+          foreach (["pcntl", "posix", "event", "Zend OPcache"] as $extension) {
+              if (!extension_loaded($extension)) {
+                  throw new RuntimeException("Missing release extension: " . $extension);
+              }
+          }
+          '
+
+      - name: Install candidate and baseline dependencies
+        shell: bash
+        run: |
+          composer install --working-dir=candidate --no-interaction --prefer-dist --no-progress
+          composer install --working-dir=baseline --no-interaction --prefer-dist --no-progress
+
+      - name: Test sustained benchmark accounting
+        working-directory: candidate
+        shell: bash
+        run: |
+          cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest-benchmark.xml
+          trap 'rm -f .phpforge-pest-benchmark.xml' EXIT
+          vendor/bin/pest --configuration=.phpforge-pest-benchmark.xml tests/Http1SustainedBenchTest.php
+
+      - name: Run matched sustained comparison
+        shell: bash
+        env:
+          RUNWIRE_BASELINE_BUILD: ${{ env.BASELINE_SHA }}
+          RUNWIRE_CANDIDATE_BUILD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          bash candidate/benchmarks/matched_release_certification.sh             baseline candidate release-certification/matched
+
+      - name: Upload matched performance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-release-matched-performance
+          path: release-certification/matched/
+          retention-days: 90
+
+  candidate-soak:
+    name: "Candidate 30-minute HTTP soak - PHP 8.5"
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout candidate exact head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup release PHP runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install candidate dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run 30-minute sustained soak
+        shell: bash
+        env:
+          RUNWIRE_CANDIDATE_BUILD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-certification/soak
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          echo substr(strrchr((string) $name, ":"), 1);
+          ')"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port"             > release-certification/soak/server.log 2>&1 &
+          server_pid=$!
+
+          for _ in $(seq 1 300); do
+            if php -r '
+          $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
+          if (!is_resource($socket)) {
+              throw new RuntimeException($error);
+          }
+          fclose($socket);
+          ' "$port" >/dev/null 2>&1
+            then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat release-certification/soak/server.log
+              exit 1
+            fi
+            sleep 0.02
+          done
+
+          export RUNWIRE_RUNTIME_VERSION="2.0-candidate"
+          export RUNWIRE_RUNTIME_BUILD="$RUNWIRE_CANDIDATE_BUILD"
+          export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
+          export RUNWIRE_INSTRUMENTATION="release-certification-soak"
+          export RUNWIRE_OPCACHE="$(php -d opcache.enable_cli=1 -r 'echo function_exists("opcache_get_status") && opcache_get_status(false) !== false ? "enabled-cli" : "disabled";')"
+          export RUNWIRE_EXTENSION_VERSIONS="$(php -r '
+          $extensions = ["pcntl", "posix", "event", "Zend OPcache"];
+          $values = [];
+          foreach ($extensions as $extension) {
+              if (!extension_loaded($extension)) {
+                  continue;
+              }
+              $version = phpversion($extension);
+              $values[] = $extension . "=" . (is_string($version) && $version !== "" ? $version : "builtin");
+          }
+          echo implode(",", $values);
+          ')"
+
+          test "$RUNWIRE_OPCACHE" = "enabled-cli"
+          php benchmarks/http1_sustained_bench.php             "$port" 32 30 1800 "$server_pid"             > release-certification/soak/http1-30m.json
+
+          jq -e '
+            .correctness_passed == true
+            and .successful_requests == .requests_total
+            and .errors_total == 0
+            and .timeouts_total == 0
+            and .validation_failures == 0
+          ' release-certification/soak/http1-30m.json >/dev/null
+          cat release-certification/soak/http1-30m.json
+
+          kill -TERM "$server_pid"
+          wait "$server_pid"
+          server_pid=""
+
+      - name: Upload soak evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-release-30m-soak
+          path: release-certification/soak/
+          retention-days: 90
+
+  consumer-app:
+    name: "Representative Infbyte consumer"
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Runwire candidate exact head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: runwire
+
+      - name: Checkout Infbyte consumer
+        uses: actions/checkout@v7
+        with:
+          repository: infocyph/Infbyte
+          ref: main
+          path: consumer
+
+      - name: Setup consumer PHP runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install Infbyte with exact Runwire candidate
+        shell: bash
+        run: |
+          cd consumer
+          composer config repositories.runwire             '{"type":"path","url":"../runwire","options":{"symlink":false,"versions":{"infocyph/runwire":"2.0.x-dev"}}}'
+          composer require infocyph/runwire:2.0.x-dev             --no-interaction --prefer-dist --no-progress --with-all-dependencies
+          composer show infocyph/runwire
+
+      - name: Run Infbyte full test suite
+        shell: bash
+        run: |
+          cd consumer
+          cp vendor/infocyph/phpforge/resources/pest.xml .runwire-consumer-pest.xml
+          trap 'rm -f .runwire-consumer-pest.xml' EXIT
+          vendor/bin/pest --configuration=.runwire-consumer-pest.xml
+
+      - name: Exercise Foundation + Webrick + Runwire bridge
+        shell: bash
+        env:
+          RUNWIRE_CONSUMER_REF: main
+          RUNWIRE_CANDIDATE_BUILD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p release-certification
+          cd consumer
+          php <<'PHP' | tee ../release-certification/consumer-app.json
+          <?php
+
+          declare(strict_types=1);
+
+          use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+          use Infocyph\Runwire\Http\Headers;
+          use Infocyph\Runwire\Http\HttpRequest;
+          use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
+          use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
+          use Infocyph\Webrick\Request\Request;
+          use Infocyph\Webrick\Response\Response;
+          use Infocyph\Webrick\Runtime\Http\RunwireRuntimeAdapter;
+
+          require 'vendor/autoload.php';
+
+          $app = require 'bootstrap/app.php';
+          $health = $app->handle(Request::fake(method: 'GET', uri: 'http://localhost/api/health'));
+          $payload = json_decode((string) $health->getBody(), true, flags: JSON_THROW_ON_ERROR);
+          if ($health->getStatusCode() !== 200 || $payload !== ['status' => 'ok']) {
+              throw new RuntimeException('Infbyte health route failed under the candidate dependency graph.');
+          }
+
+          $status = null;
+          $body = '';
+          $ended = false;
+          $writer = new CallbackResponseWriter(
+              static function (int $responseStatus, Headers $headers) use (&$status): void {
+                  unset($headers);
+                  $status = $responseStatus;
+              },
+              static function (string $chunk) use (&$body): void {
+                  $body .= $chunk;
+              },
+              static function () use (&$ended): void {
+                  $ended = true;
+              },
+              4096,
+          );
+          $request = new HttpRequest(
+              method: 'GET',
+              target: '/consumer-probe',
+              version: ProtocolVersion::HTTP_1_1,
+              headers: Headers::fromArray(['Host' => 'consumer.test']),
+              body: new BufferedRequestBody(''),
+          );
+
+          $adapter = new RunwireRuntimeAdapter();
+          $context = $adapter->context($request, $writer);
+          $adapter->write(Response::plaintext('consumer-runwire-ok', 200), $context);
+
+          if ($status !== 200 || $body !== 'consumer-runwire-ok' || !$ended || !$writer->isEnded()) {
+              throw new RuntimeException('Infbyte/Webrick Runwire bridge probe failed.');
+          }
+
+          fwrite(STDOUT, json_encode([
+              'consumer' => 'infocyph/infbyte',
+              'consumer_ref' => getenv('RUNWIRE_CONSUMER_REF') ?: 'main',
+              'runwire_build' => getenv('RUNWIRE_CANDIDATE_BUILD') ?: 'unknown',
+              'foundation_boot' => true,
+              'health_route' => true,
+              'webrick_runwire_adapter' => true,
+              'response_status' => $status,
+              'response_body' => $body,
+              'correctness_passed' => true,
+          ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
+          PHP
+          cd ..
+          jq -e '.correctness_passed == true and .foundation_boot == true and .health_route == true and .webrick_runwire_adapter == true' release-certification/consumer-app.json >/dev/null
+
+      - name: Upload consumer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-release-consumer-infbyte
+          path: release-certification/consumer-app.json
+          retention-days: 90
+
+  release-guard:
+    name: "PHPForge release guard with ext-event"
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout candidate exact head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup release-analysis runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install development dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prove ext-event analysis prerequisite
+        shell: bash
+        run: |
+          php -r '
+          if (!extension_loaded("event") || !class_exists(Event::class, false) || !class_exists(EventBase::class, false)) {
+              throw new RuntimeException("ext-event release-analysis prerequisite is unavailable.");
+          }
+          '
+          composer check-platform-reqs
+
+      - name: Run exact PHPForge release guard
+        run: composer ic:release:guard

@@ -35,5 +35,7 @@ enum RuntimeCapability: string
 
     case SUPPORTS_HTTP3 = 'supports_http3';
 
+    case SUPPORTS_WEBSOCKET = 'supports_websocket';
+
     case SUPPORTS_WORKER_RECYCLE = 'supports_worker_recycle';
 }

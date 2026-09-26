@@ -15,6 +15,7 @@ use Infocyph\Runwire\Http\Http1\Internal\Http1Syntax;
 use Infocyph\Runwire\Http\Http1\Internal\ParseFailure;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHead;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHeadValidator;
+use Infocyph\Runwire\Http\Http1\Internal\WebSocketUpgradeOwner;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -22,6 +23,8 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\WriteState;
+use Infocyph\Runwire\WebSocket\WebSocketOptions;
+use Infocyph\Runwire\WebSocket\WebSocketSession;
 use Throwable;
 
 /**
@@ -39,6 +42,8 @@ final class Http1Connection
     private readonly RequestHeadValidator $requestHeadValidator;
 
     private readonly Http1Syntax $syntax;
+
+    private readonly WebSocketUpgradeOwner $webSocketOwner;
 
     private ?StreamingRequestBody $body = null;
 
@@ -112,6 +117,14 @@ final class Http1Connection
         $this->chunkSizeDecoder = new ChunkSizeDecoder();
         $this->input = new Http1Input($connection);
         $this->syntax = new Http1Syntax();
+        $this->webSocketOwner = new WebSocketUpgradeOwner(
+            $loop,
+            $connection,
+            $this->input,
+            function (): void {
+                $this->prepareWebSocketHandoff();
+            },
+        );
         $connection->onData(function (): void {
             $this->pump();
         });
@@ -121,6 +134,7 @@ final class Http1Connection
         $connection->onClose(function (): void {
             $this->cleanup();
         });
+        $this->armHeaderTimer();
         if ($connection->receivedBytes() > 0) {
             $this->schedulePump();
         }
@@ -136,6 +150,10 @@ final class Http1Connection
         }
 
         $this->draining = true;
+        if ($this->webSocketOwner->drain()) {
+            return;
+        }
+
         $this->keepAlive = false;
         $this->responseCloseAfter = true;
         $this->writer?->forceCloseAfterResponse();
@@ -213,6 +231,7 @@ final class Http1Connection
     private function cleanup(): void
     {
         $this->body?->cancel();
+        $this->input->clear();
         $this->closed = true;
         $this->cancelTimer($this->headerTimer);
         $this->cancelTimer($this->bodyTimer);
@@ -245,14 +264,14 @@ final class Http1Connection
         if ($this->input->availableBytes() === 0) {
             return false;
         }
-        if (!$this->discardBody && $this->body !== null && $this->body->capacity() <= 0) {
+        if (!$this->discardBody && $this->body !== null && $this->body->transferCapacity() <= 0) {
             $this->bodyPressured = true;
             $this->syncReadPause();
 
             return false;
         }
 
-        $capacity = $this->discardBody || $this->body === null ? 65_536 : $this->body->capacity();
+        $capacity = $this->discardBody || $this->body === null ? 65_536 : $this->body->transferCapacity();
         $length = min($remaining, 65_536, $capacity, $this->input->availableBytes());
         if ($length <= 0) {
             return false;
@@ -330,6 +349,7 @@ final class Http1Connection
                 $this->syncReadPause();
                 $this->schedulePump();
             },
+            budget: $this->connection->bufferBudget(),
         );
     }
 
@@ -343,6 +363,12 @@ final class Http1Connection
             function (bool $closeAfter): void {
                 $this->handleResponseEnd($closeAfter);
             },
+            fn(string $accept, ?string $subprotocol, WebSocketOptions $options): WebSocketSession => $this->webSocketOwner->upgrade(
+                $accept,
+                $subprotocol,
+                $options,
+                $this->body,
+            ),
         );
     }
 
@@ -386,7 +412,7 @@ final class Http1Connection
         try {
             ($this->handler)($request, $writer);
         } catch (Throwable $failure) {
-            $body->cancel();
+            $body->cancel(false);
             $this->connection->abort(CloseReason::LOCAL_ABORT);
 
             throw $failure;
@@ -585,9 +611,23 @@ final class Http1Connection
         return true;
     }
 
+    private function prepareWebSocketHandoff(): void
+    {
+        $this->cancelTimer($this->headerTimer);
+        $this->cancelTimer($this->bodyTimer);
+        $this->headerTimer = $this->bodyTimer = null;
+        $this->waitingResponse = false;
+        $this->bodyPressured = false;
+        $this->keepAlive = false;
+        $this->state = ParserState::WAIT_RESPONSE;
+        $this->connection->resumeReads();
+        $this->body = null;
+        $this->writer = null;
+    }
+
     private function pump(): void
     {
-        if ($this->closed || $this->pumping) {
+        if ($this->closed || $this->pumping || $this->webSocketOwner->active()) {
             return;
         }
         $this->pumping = true;
@@ -639,6 +679,7 @@ final class Http1Connection
         $this->body = null;
         $this->writer = null;
         $this->syncReadPause();
+        $this->armHeaderTimer();
         if ($this->input->availableBytes() > 0) {
             $this->schedulePump();
         }
@@ -654,7 +695,7 @@ final class Http1Connection
 
     private function schedulePump(): void
     {
-        if ($this->closed || $this->pumpScheduled || $this->pumping) {
+        if ($this->closed || $this->pumpScheduled) {
             return;
         }
         $this->pumpScheduled = true;

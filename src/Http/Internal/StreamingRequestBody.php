@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Internal;
 use Closure;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\RequestBodyInterface;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use InvalidArgumentException;
 use OverflowException;
@@ -36,6 +37,10 @@ final class StreamingRequestBody implements RequestBodyInterface
 
     private ?Closure $dataCallback = null;
 
+    private bool $dataNotificationPending = false;
+
+    private bool $dataNotifying = false;
+
     private ?Closure $endCallback = null;
 
     private bool $ended = false;
@@ -56,11 +61,12 @@ final class StreamingRequestBody implements RequestBodyInterface
         private readonly int $maxBufferBytes,
         callable $onRelief,
         ?callable $onConsumed = null,
+        ?ByteBudget $budget = null,
     ) {
         if ($lowWatermark < 0 || $lowWatermark >= $highWatermark || $highWatermark > $maxBufferBytes) {
             throw new InvalidArgumentException('Body buffer watermarks must satisfy 0 <= low < high <= max.');
         }
-        $this->buffer = new ByteQueue();
+        $this->buffer = new ByteQueue($budget);
         $this->onRelief = Closure::fromCallable($onRelief);
         $this->onConsumed = $onConsumed === null ? null : Closure::fromCallable($onConsumed);
     }
@@ -74,19 +80,32 @@ final class StreamingRequestBody implements RequestBodyInterface
     }
 
     /** @internal */
-    public function cancel(): void
+    public function cancel(bool $notifyRuntimeObservers = true): void
     {
-        if ($this->ended || $this->cancelled) {
+        if ($this->cancelled) {
             return;
         }
         $this->cancelled = true;
+        if ($this->ended) {
+            if ($notifyRuntimeObservers) {
+                $this->invokeCancelObservers();
+            } else {
+                $this->cancelObservers = [];
+            }
+
+            return;
+        }
         $discarded = $this->buffer->bytes();
         $this->buffer->clear();
         $this->pressured = false;
         if ($discarded > 0 && $this->onConsumed !== null) {
             ($this->onConsumed)($discarded);
         }
-        $this->invokeCancelObservers();
+        if ($notifyRuntimeObservers) {
+            $this->invokeCancelObservers();
+        } else {
+            $this->cancelObservers = [];
+        }
         $this->invoke($this->cancelCallback);
     }
 
@@ -103,7 +122,7 @@ final class StreamingRequestBody implements RequestBodyInterface
      */
     public function capacity(): int
     {
-        return $this->maxBufferBytes - $this->buffer->bytes();
+        return min($this->maxBufferBytes - $this->buffer->bytes(), $this->buffer->budgetAvailable());
     }
 
     /** @internal */
@@ -183,7 +202,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     {
         $this->dataCallback = Closure::fromCallable($callback);
         if (!$this->buffer->isEmpty()) {
-            $this->invoke($this->dataCallback);
+            $this->notifyData();
         }
 
         return $this;
@@ -219,7 +238,7 @@ final class StreamingRequestBody implements RequestBodyInterface
         }
         $this->buffer->append($bytes);
         $this->received += strlen($bytes);
-        $this->invoke($this->dataCallback);
+        $this->notifyData();
         if ($this->buffer->bytes() >= $this->highWatermark) {
             $this->pressured = true;
         }
@@ -263,6 +282,14 @@ final class StreamingRequestBody implements RequestBodyInterface
         return $this->trailers;
     }
 
+    /**
+     * @internal Return local buffer capacity before a same-budget ownership transfer.
+     */
+    public function transferCapacity(): int
+    {
+        return max(0, $this->maxBufferBytes - $this->buffer->bytes());
+    }
+
     private static function invokeObserver(Closure $callback): void
     {
         try {
@@ -286,6 +313,29 @@ final class StreamingRequestBody implements RequestBodyInterface
         $this->cancelObservers = [];
         foreach ($observers as $observer) {
             self::invokeObserver($observer);
+        }
+    }
+
+    private function notifyData(): void
+    {
+        if ($this->dataCallback === null) {
+            return;
+        }
+        if ($this->dataNotifying) {
+            $this->dataNotificationPending = true;
+
+            return;
+        }
+
+        $this->dataNotifying = true;
+
+        try {
+            do {
+                $this->dataNotificationPending = false;
+                $this->invoke($this->dataCallback);
+            } while ($this->dataNotificationPending && !$this->cancelled);
+        } finally {
+            $this->dataNotifying = false;
         }
     }
 }

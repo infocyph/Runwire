@@ -8,8 +8,8 @@ use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
-use Infocyph\Runwire\Http\Http2\Internal\HeaderValidationException;
-use Infocyph\Runwire\Http\Http2\Internal\RequestHeaderValidator;
+use Infocyph\Runwire\Http\Internal\HeaderValidationException;
+use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 
@@ -159,7 +159,7 @@ it('cancels request bodies on reset and discards post-response inbound data', fu
 });
 
 it('rejects invalid HTTP/2 pseudo-header and connection-field combinations', function (): void {
-    $validator = new RequestHeaderValidator();
+    $validator = new RequestHeaderValidator('HTTP/2');
     $invalid = [
         [[':method', 'GET'], [':scheme', 'https'], [':path', '/'], ['X-Test', 'x']],
         [[':method', 'GET'], ['x', '1'], [':scheme', 'https'], [':path', '/']],

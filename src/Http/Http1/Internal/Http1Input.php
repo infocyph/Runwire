@@ -5,25 +5,29 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http1\Internal;
 
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Internal\ByteQueue;
 
 /**
  * Buffers and slices HTTP/1.1 bytes from a network connection.
  */
-final class Http1Input
+final readonly class Http1Input
 {
-    private string $buffer = '';
+    private ByteQueue $buffer;
 
     /**
      * Create an input reader for the supplied connection.
      */
-    public function __construct(private readonly Connection $connection) {}
+    public function __construct(private Connection $connection)
+    {
+        $this->buffer = new ByteQueue($connection->bufferBudget());
+    }
 
     /**
      * Return all currently available buffered and connection bytes.
      */
     public function availableBytes(): int
     {
-        return strlen($this->buffer) + $this->connection->receivedBytes();
+        return $this->buffer->bytes() + $this->connection->receivedBytes();
     }
 
     /**
@@ -31,7 +35,15 @@ final class Http1Input
      */
     public function bufferedBytes(): int
     {
-        return strlen($this->buffer);
+        return $this->buffer->bytes();
+    }
+
+    /**
+     * Release bytes retained by the HTTP input owner.
+     */
+    public function clear(): void
+    {
+        $this->buffer->clear();
     }
 
     /**
@@ -39,28 +51,39 @@ final class Http1Input
      */
     public function readLine(int $maxBytes, int $tooLongStatus): ?string
     {
-        while (($position = strpos($this->buffer, "\r\n")) === false) {
-            if (strlen($this->buffer) > $maxBytes) {
+        while (true) {
+            $buffer = $this->buffer->peek();
+            $position = strpos($buffer, "\r\n");
+            if ($position !== false) {
+                if ($position > $maxBytes) {
+                    throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
+                }
+
+                $line = substr($buffer, 0, $position);
+                $this->buffer->discard($position + 2);
+
+                return $line;
+            }
+
+            $buffered = $this->buffer->bytes();
+            if ($buffered > $maxBytes) {
                 throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
             }
-            $remaining = $maxBytes + 2 - strlen($this->buffer);
+
+            $remaining = $maxBytes + 2 - $buffered;
             if ($remaining <= 0 || $this->connection->receivedBytes() === 0) {
                 return null;
             }
+
             $chunk = $this->connection->read(min(4_096, $remaining));
             if ($chunk === '') {
                 return null;
             }
-            $this->buffer .= $chunk;
-        }
 
-        if ($position > $maxBytes) {
-            throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
+            // Connection::read() released this exact reservation from the shared
+            // worker budget; the input queue immediately assumes ownership.
+            $this->buffer->append($chunk);
         }
-        $line = substr($this->buffer, 0, $position);
-        $this->buffer = substr($this->buffer, $position + 2);
-
-        return $line;
     }
 
     /**
@@ -71,11 +94,9 @@ final class Http1Input
         if ($bytes <= 0) {
             return '';
         }
-        $fromBuffer = min($bytes, strlen($this->buffer));
-        $data = $fromBuffer > 0 ? substr($this->buffer, 0, $fromBuffer) : '';
-        if ($fromBuffer > 0) {
-            $this->buffer = substr($this->buffer, $fromBuffer);
-        }
+
+        $fromBuffer = min($bytes, $this->buffer->bytes());
+        $data = $fromBuffer > 0 ? $this->buffer->read($fromBuffer) : '';
         $remaining = $bytes - $fromBuffer;
         if ($remaining > 0) {
             $data .= $this->connection->read($remaining);

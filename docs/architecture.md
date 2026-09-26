@@ -1,4 +1,4 @@
-# Runwire 1.0 Architecture and Runtime Contracts
+# Runwire 2.0 Architecture and Runtime Contracts
 
 Runwire is a framework-agnostic process, event-loop, network, HTTP, and structured-concurrency runtime. Its public contract is capability-first: integrations should ask what the selected runtime can do instead of assuming behavior from a concrete driver name.
 
@@ -552,9 +552,10 @@ That rule keeps Foundation, Webrick, Omnibus, and third-party consumers portable
 
 ## Related documentation
 
+- [2.0 migration guide](migration-2.0.md)
+
 - [Getting started](getting-started.md)
 - [Deployment and operations](deployment.md)
 - [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)

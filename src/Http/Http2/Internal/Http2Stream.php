@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\Http\Http2\Enum\StreamState;
 use Infocyph\Runwire\Http\Http2\Http2ResponseWriter;
 use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 
 /**
@@ -49,8 +50,9 @@ final class Http2Stream
         public readonly StreamingRequestBody $body,
         public int $sendWindow,
         public int $receiveWindow,
+        ?ByteBudget $budget = null,
     ) {
-        $this->outbound = new ByteQueue();
+        $this->outbound = new ByteQueue($budget);
     }
 
     /**

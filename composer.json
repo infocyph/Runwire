@@ -28,12 +28,13 @@
         "php-64bit": "^8.4"
     },
     "require-dev": {
+        "ext-event": "*",
         "ext-pcntl": "*",
         "ext-posix": "*",
         "infocyph/phpforge": "dev-main@dev"
     },
     "suggest": {
-        "ext-event": "Enables custom accelerated LoopInterface adapters while Runwire falls back to SelectLoop.",
+        "ext-event": "Enables the scalable native event-loop backend.",
         "ext-openssl": "Enables native TLS listeners and HTTP/2 ALPN negotiation.",
         "ext-openswoole": "Enables the OpenSwoole host runtime and coroutine/event-loop integration.",
         "ext-pcntl": "Enables native prefork workers, signal handling, reloads and process supervision.",

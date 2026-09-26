@@ -7,7 +7,6 @@ use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
@@ -58,13 +57,13 @@ it('contains request body floods at both total-body and pending-buffer boundarie
         bodyHighWatermarkBytes: 6,
     );
     $stream = new RequestStream(0, new Decoder(0, 0), $totalLimit);
-    $stream->push(FrameWriter::encode(new Frame(
+    $stream->push((new Frame(
         FrameType::HEADERS->value,
         abuseRequestHeaders($encoder, 0),
-    )));
+    ))->encode());
 
     expectHttp3Fault(
-        static fn() => $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, '12345'))),
+        static fn() => $stream->push((new Frame(FrameType::DATA->value, '12345'))->encode()),
         ErrorCode::EXCESSIVE_LOAD,
     );
 
@@ -75,15 +74,20 @@ it('contains request body floods at both total-body and pending-buffer boundarie
         bodyHighWatermarkBytes: 3,
     );
     $stream = new RequestStream(4, new Decoder(0, 0), $bufferLimit);
-    $stream->push(FrameWriter::encode(new Frame(
+    $stream->push((new Frame(
         FrameType::HEADERS->value,
         abuseRequestHeaders($encoder, 4),
-    )));
+    ))->encode());
 
-    expectHttp3Fault(
-        static fn() => $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, '12345'))),
-        ErrorCode::EXCESSIVE_LOAD,
-    );
+    $stream->push((new Frame(FrameType::DATA->value, '12345'))->encode());
+
+    expect($stream->pressured())->toBeTrue()
+        ->and($stream->body()->bufferedBytes())->toBeLessThanOrEqual(4);
+
+    $received = $stream->body()->read() . $stream->body()->read();
+
+    expect($received)->toBe('12345')
+        ->and($stream->pressured())->toBeFalse();
 });
 
 it('bounds queued request bytes while QPACK decoding is blocked', function (): void {
@@ -98,11 +102,11 @@ it('bounds queued request bytes while QPACK decoding is blocked', function (): v
     $stream = new RequestStream(0, $decoder, $limits);
     $headers = abuseRequestHeaders($encoder, 0, [['x-dynamic', 'blocked-value']]);
 
-    $stream->push(FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+    $stream->push((new Frame(FrameType::HEADERS->value, $headers))->encode());
     expect($stream->blocked())->toBeTrue();
 
     expectHttp3Fault(
-        static fn() => $stream->push(FrameWriter::encode(new Frame(FrameType::DATA->value, '123456789'))),
+        static fn() => $stream->push((new Frame(FrameType::DATA->value, '123456789'))->encode()),
         ErrorCode::EXCESSIVE_LOAD,
     );
 });
@@ -110,10 +114,10 @@ it('bounds queued request bytes while QPACK decoding is blocked', function (): v
 it('classifies truncated frames and lost critical streams without ambiguous errors', function (): void {
     $encoder = new Encoder(0, 0);
     $stream = new RequestStream(0, new Decoder(0, 0), new Http3Limits());
-    $frame = FrameWriter::encode(new Frame(
+    $frame = (new Frame(
         FrameType::HEADERS->value,
         abuseRequestHeaders($encoder, 0),
-    ));
+    ))->encode();
     $stream->push(substr($frame, 0, -1));
 
     expectHttp3Fault(
@@ -140,19 +144,19 @@ it('bounds request-stream churn after completed state is released', function ():
     $encoder = new Encoder(0, 0);
 
     foreach ([0, 4] as $streamId) {
-        $state->pushRequestStream($streamId, FrameWriter::encode(new Frame(
+        $state->pushRequestStream($streamId, (new Frame(
             FrameType::HEADERS->value,
             abuseRequestHeaders($encoder, $streamId),
-        )));
+        ))->encode());
         $state->finishRequestStream($streamId);
         $state->releaseRequestStream($streamId);
     }
 
     expectHttp3Fault(
-        static fn() => $state->pushRequestStream(8, FrameWriter::encode(new Frame(
+        static fn() => $state->pushRequestStream(8, (new Frame(
             FrameType::HEADERS->value,
             abuseRequestHeaders($encoder, 8),
-        ))),
+        ))->encode()),
         ErrorCode::EXCESSIVE_LOAD,
     );
 });

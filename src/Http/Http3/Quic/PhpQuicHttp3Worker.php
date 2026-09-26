@@ -11,6 +11,7 @@ use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use InvalidArgumentException;
 use Throwable;
 
@@ -48,6 +49,7 @@ final class PhpQuicHttp3Worker
         int $connectionLimit,
         ?PhpQuicHttp3Poller $poller = null,
         private readonly float $handshakeTimeoutSeconds = self::DEFAULT_HANDSHAKE_TIMEOUT_SECONDS,
+        private readonly ?ByteBudget $bufferBudget = null,
     ) {
         if ($connectionLimit < 1 || $connectionLimit > 1_000_000) {
             throw new InvalidArgumentException('HTTP/3 worker connection limit must be between 1 and 1000000.');
@@ -250,7 +252,7 @@ final class PhpQuicHttp3Worker
             }
 
             try {
-                $http3 = new PhpQuicHttp3Connection($connection, $this->handler, $this->limits);
+                $http3 = new PhpQuicHttp3Connection($connection, $this->handler, $this->limits, bufferBudget: $this->bufferBudget);
                 if (!$this->accepting) {
                     $http3->beginDrain();
                 }

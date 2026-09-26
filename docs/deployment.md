@@ -1,4 +1,4 @@
-# Runwire 1.0 Deployment and Operations
+# Runwire 2.0 Deployment and Operations
 
 This guide covers production topology, capability requirements, lifecycle, TLS/HTTP3 deployment, admission/resource limits, control/reload behavior, host-runtime selection, and operational tuning.
 
@@ -565,8 +565,9 @@ A production candidate should exercise:
 - HTTP/1.1;
 - HTTP/2 ALPN when enabled;
 - HTTP/3 interoperability when enabled;
-- request body/response streaming;
-- backpressure;
+- request body/response streaming, including bounded `ResponseTransfer` use where adopted;
+- native HTTP/1 WebSocket upgrade/message/close behavior where enabled;
+- backpressure, including slow WebSocket readers;
 - request cancellation/deadlines;
 - hostile input/resource-limit rejection;
 - overload rejection and recovery;
@@ -578,9 +579,10 @@ A production candidate should exercise:
 
 ## Related documentation
 
+- [2.0 migration guide](migration-2.0.md)
+
 - [Getting started](getting-started.md)
 - [Architecture and runtime contracts](architecture.md)
 - [Runtime security and production hardening](security.md)
 - [Coroutines and structured concurrency](coroutines.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)

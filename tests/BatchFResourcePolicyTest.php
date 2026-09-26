@@ -13,6 +13,8 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Datagram;
 use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\ListenerOptions;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
+use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\SocketCapabilityProbe;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
@@ -236,4 +238,38 @@ it('keeps reuse port default-off and forwards it to HTTP3 only when explicit', f
     }
 
     expect(SocketCapabilityProbe::supportsReusePort())->toBeBool();
+});
+
+
+it('uses bounded worker request and multiplexed stream admission defaults', function (): void {
+    $policy = new AdmissionPolicy();
+
+    expect($policy->maxActiveRequests)->toBe(256)
+        ->and($policy->maxStreamsPerWorker)->toBe(256)
+        ->and($policy->maxQueuedBytes)->toBe(67_108_864)
+        ->and($policy->enabled())->toBeTrue();
+});
+
+
+it('accounts actual queued bytes against one shared worker budget', function (): void {
+    $budget = new ByteBudget(10);
+    $first = new ByteQueue($budget);
+    $second = new ByteQueue($budget);
+
+    $first->append('123456');
+    $second->append('7890');
+
+    expect($budget->used())->toBe(10)
+        ->and($first->budgetAvailable())->toBe(0)
+        ->and(fn() => $second->append('x'))->toThrow(OverflowException::class);
+
+    $first->discard(3);
+    $second->append('abc');
+
+    expect($budget->used())->toBe(10);
+
+    $first->clear();
+    $second->clear();
+
+    expect($budget->used())->toBe(0);
 });

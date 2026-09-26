@@ -106,9 +106,10 @@ it('normalizes exit status and fails before spawn for invalid executable or over
 });
 
 it('rejects non-stream stdin resources before spawning the configured command', function (): void {
+    $nullDevice = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
     $fixture = proc_open(
         [PHP_BINARY, '-r', 'usleep(500000);'],
-        [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+        [0 => ['file', $nullDevice, 'r'], 1 => ['file', $nullDevice, 'w'], 2 => ['file', $nullDevice, 'w']],
         $pipes,
     );
     expect($fixture)->toBeResource();
@@ -125,4 +126,82 @@ it('rejects non-stream stdin resources before spawning the configured command', 
 it('requires a consumer for stream mode', function (): void {
     $command = Command::executable(PHP_BINARY)->output(IoMode::STREAM, IoMode::NULL);
     expect(fn () => processRunner()->run($command))->toThrow(ProcessStartException::class);
+});
+
+it('terminates descendants with an isolated POSIX process group', function (): void {
+    if (
+        DIRECTORY_SEPARATOR === '\\'
+        || !function_exists('posix_setpgid')
+        || !function_exists('posix_kill')
+    ) {
+        expect(function_exists('posix_setpgid') && function_exists('posix_kill'))->toBeFalse();
+
+        return;
+    }
+
+    $marker = tempnam(sys_get_temp_dir(), 'runwire-process-group-');
+    if (!is_string($marker)) {
+        throw new RuntimeException('Unable to create process-group marker fixture.');
+    }
+    unlink($marker);
+
+    $script = <<<'PHP'
+$marker = $argv[1];
+$childCode = <<<'CHILD'
+pcntl_async_signals(true);
+$marker = $argv[1];
+pcntl_signal(SIGTERM, static function () use ($marker): void {
+    file_put_contents($marker, 'terminated');
+    exit(0);
+});
+while (true) { usleep(100000); }
+CHILD;
+$child = proc_open([PHP_BINARY, '-r', $childCode, $marker], [
+    0 => ['file', '/dev/null', 'r'],
+    1 => STDOUT,
+    2 => STDERR,
+], $pipes);
+if (!is_resource($child)) {
+    exit(2);
+}
+pcntl_async_signals(true);
+pcntl_signal(SIGTERM, SIG_IGN);
+while (true) { usleep(100000); }
+PHP;
+
+    try {
+        $result = processRunner()->run(
+            Command::executable(PHP_BINARY, ['-r', $script, $marker])
+                ->timeout(0.2)
+                ->terminationGrace(0.05),
+        );
+
+        expect($result->timedOut())->toBeTrue()
+            ->and(is_file($marker))->toBeTrue()
+            ->and(file_get_contents($marker))->toBe('terminated');
+    } finally {
+        if (is_file($marker)) {
+            unlink($marker);
+        }
+    }
+});
+
+it('remains reusable across repeated forced terminations', function (): void {
+    if (!function_exists('pcntl_signal') || !defined('SIGTERM')) {
+        expect(function_exists('pcntl_signal') && defined('SIGTERM'))->toBeFalse();
+
+        return;
+    }
+
+    $runner = processRunner(['postKillWaitSeconds' => 0.25]);
+    for ($attempt = 0; $attempt < 3; ++$attempt) {
+        $command = Command::executable(PHP_BINARY, [
+            '-r',
+            'pcntl_async_signals(true);pcntl_signal(SIGTERM,SIG_IGN);while(true){usleep(100000);}',
+        ])->timeout(0.05)->terminationGrace(0.01);
+
+        expect($runner->run($command)->timedOut())->toBeTrue();
+    }
+
+    expect($runner->run(Command::executable(PHP_BINARY, ['-r', 'echo "ok";']))->stdout)->toBe('ok');
 });

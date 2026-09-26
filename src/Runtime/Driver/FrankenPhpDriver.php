@@ -100,7 +100,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
     private function handleCurrentRequest(RuntimeApplicationInterface $application): void
     {
         $request = ($this->requestFactory)();
-        $application->handle($request, ($this->writerFactory)($request->method));
+        $application->handle($request, ($this->writerFactory)($request->method), completeResponse: true);
     }
 
     private function mode(): FrankenPhpMode
@@ -129,11 +129,10 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
                 try {
                     $this->handleCurrentRequest($application);
                 } finally {
-                    gc_collect_cycles();
                     $recycleRequested = $recycle->recordRequestCompleted();
                 }
             });
-            if ($recycleRequested || !$keepRunning) {
+            if ($recycleRequested || !$keepRunning || !$application->healthy()) {
                 return;
             }
         }

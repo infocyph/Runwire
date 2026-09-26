@@ -6,6 +6,10 @@ on:
   push:
     branches: [ "main", "master" ]
 
+concurrency:
+  group: sc-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   swoole-family:
     name: "${{ matrix.extension }} Coroutine - PHP ${{ matrix.php-version }}"
@@ -20,10 +24,10 @@ jobs:
 
     steps:
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
 
       - name: Setup PHP and Swoole family extension
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@v2 # v2
         with:
           php-version: ${{ matrix.php-version }}
           extensions: ${{ matrix.extension }}
@@ -53,7 +57,7 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
 
       - name: Run focused Swoole coroutine tests
         shell: bash
@@ -123,7 +127,7 @@ jobs:
 
       - name: Upload Swoole family acceptance diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4 # v4
         with:
           name: ${{ matrix.extension }}-acceptance-${{ matrix.php-version }}
           path: ${{ matrix.extension }}-acceptance-${{ matrix.php-version }}.log

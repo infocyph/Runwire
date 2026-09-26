@@ -31,10 +31,10 @@ final class ControlStream
     public static function preamble(Settings $settings): string
     {
         return VarIntCodec::encode(StreamType::CONTROL->value)
-            . FrameWriter::encode(new Frame(
+            . new Frame(
                 FrameType::SETTINGS->value,
                 SettingsCodec::encode($settings),
-            ));
+            )->encode();
     }
 
     /**

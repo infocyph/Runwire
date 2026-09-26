@@ -10,6 +10,7 @@ use Infocyph\Runwire\Loop\Internal\TimerQueue;
 use InvalidArgumentException;
 use LogicException;
 use OverflowException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -18,8 +19,6 @@ use Throwable;
 final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
     private const int MICROS_PER_SECOND = 1_000_000;
-
-    private const int SELECT_ERROR_BACKOFF_MICROS = 1_000;
 
     private readonly int $callbackOverrunNanoseconds;
 
@@ -212,11 +211,16 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
-    private static function ignoreInterruptedSelectWarning(int $severity, string $message): bool
+    private static function assertRecoverableSelectFailure(?string $warning, int $prunedWatchers): void
     {
-        return $severity === E_WARNING
-            && str_starts_with($message, 'stream_select():')
-            && str_contains($message, 'Interrupted system call');
+        if ($prunedWatchers > 0) {
+            return;
+        }
+        if ($warning !== null && str_contains($warning, 'Interrupted system call')) {
+            return;
+        }
+
+        throw new RuntimeException($warning ?? 'stream_select() failed permanently.');
     }
 
     private function allocateId(): int
@@ -308,18 +312,29 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
         [$seconds, $microseconds] = $this->selectTimeout();
         $except = null;
-        set_error_handler(self::ignoreInterruptedSelectWarning(...));
+        $selectWarning = null;
+        set_error_handler(static function (int $severity, string $message) use (&$selectWarning): bool {
+            if ($severity !== E_WARNING || !str_starts_with($message, 'stream_select():')) {
+                return false;
+            }
+
+            $selectWarning = $message;
+
+            return true;
+        });
 
         try {
-            $result = stream_select($read, $write, $except, $seconds, $microseconds);
+            try {
+                $result = stream_select($read, $write, $except, $seconds, $microseconds);
+            } catch (\ValueError $error) {
+                throw new RuntimeException('stream_select() failed permanently.', 0, $error);
+            }
         } finally {
             restore_error_handler();
         }
 
         if ($result === false) {
-            if ($this->pruneClosedWatchers() === 0) {
-                usleep(self::SELECT_ERROR_BACKOFF_MICROS);
-            }
+            self::assertRecoverableSelectFailure($selectWarning, $this->pruneClosedWatchers());
 
             return;
         }
@@ -388,7 +403,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function runDueTimers(): void
     {
-        foreach ($this->timers->takeDue() as $id) {
+        while ($this->running && ($id = $this->timers->takeNextDue()) !== null) {
             $timer = $this->timers->timer($id);
             if ($timer === null) {
                 continue;

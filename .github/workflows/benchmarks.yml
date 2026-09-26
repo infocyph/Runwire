@@ -1,15 +1,27 @@
 name: "Benchmarks"
 
 on:
+  workflow_dispatch:
+    inputs:
+      certification:
+        description: "Run release-duration sustained trials and soak"
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master", "develop", "development" ]
 
+concurrency:
+  group: bm-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   protocol-core:
     name: "Protocol + host core - PHP ${{ matrix.php-version }}"
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -19,18 +31,25 @@ jobs:
 
     steps:
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@v2 # v2
         with:
           php-version: ${{ matrix.php-version }}
           tools: composer:v2
-          extensions: pcntl, posix
+          extensions: pcntl, posix, event, opcache
           coverage: none
 
       - name: Install Runwire dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Test sustained benchmark accounting
+        shell: bash
+        run: |
+          cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest-benchmark.xml
+          trap 'rm -f .phpforge-pest-benchmark.xml' EXIT
+          vendor/bin/pest --configuration=.phpforge-pest-benchmark.xml tests/Http1SustainedBenchTest.php
 
       - name: Record environment
         shell: bash
@@ -39,9 +58,35 @@ jobs:
           {
             php -v
             composer --version
+            php --ri event || true
+            php --ri 'Zend OPcache' || true
             uname -a
             lscpu
           } > "benchmark-results/environment-php-${{ matrix.php-version }}.txt"
+
+      - name: Capture Runwire OPcache footprint
+        shell: bash
+        run: |
+          for mode in bootstrap lifecycle coroutine; do
+            result="benchmark-results/opcache-${mode}-php-${{ matrix.php-version }}.json"
+            php -d opcache.enable_cli=1 benchmarks/opcache_footprint.php "$mode" > "$result"
+            jq -e '
+              .correctness_passed == true
+              and .source_php_files > 0
+              and .opcache_enabled == true
+              and .opcache.cache_full == false
+              and (
+                .mode == "bootstrap"
+                or (
+                  .included_runwire_files > 0
+                  and .cached_runwire_files > 0
+                  and .cached_runwire_files == .included_runwire_files
+                  and ((.included_runwire_scripts - .cached_runwire_scripts) | length == 0)
+                )
+              )
+            ' "$result" >/dev/null
+            cat "$result"
+          done
 
       - name: Run PHPBench suite
         shell: bash
@@ -57,6 +102,14 @@ jobs:
           jq -e 'type == "array" and length > 0' "$result" >/dev/null
           cat "$result"
 
+      - name: Compare F-04 helper with manual bounded pump
+        shell: bash
+        run: |
+          php benchmarks/transfer_compare.php \
+            | tee "benchmark-results/f04-transfer-php-${{ matrix.php-version }}.json"
+          jq -e '.correctness_passed == true and .passed == true' \
+            "benchmark-results/f04-transfer-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Validate comparative-evidence tooling
         shell: bash
         run: |
@@ -67,40 +120,66 @@ jobs:
           {
             "runtime": "validator-fixture-a",
             "runtime_version": "test-only",
+            "runtime_build": "fixture-build",
             "protocol": "http/1.1",
             "workload": "validator-only",
             "hardware_id": "validator-fixture",
+            "host_os": "fixture-os",
+            "host_cpu": "fixture-cpu",
             "php_version": "${{ matrix.php-version }}",
             "instrumentation": "test-only",
+            "tls": "off",
+            "opcache": "off",
+            "connection_reuse": "keep-alive",
+            "extension_versions": {"fixture": "1"},
             "workers": 1,
             "concurrency": 1,
             "duration_seconds": 1,
+            "requests_total": 1,
+            "completed_requests": 1,
+            "successful_requests": 1,
             "throughput_rps": 1.0,
             "latency_ms": {"p50": 1.0, "p95": 2.0, "p99": 3.0},
             "errors_total": 0,
+            "timeouts_total": 0,
+            "validation_failures": 0,
             "error_rate": 0.0,
             "cpu_percent": 1.0,
-            "rss_peak_bytes": 1
+            "rss_peak_bytes": 1,
+            "correctness_passed": true
           }
           JSON
           cat > "$fixture_dir/fixture-b.json" <<'JSON'
           {
             "runtime": "validator-fixture-b",
             "runtime_version": "test-only",
+            "runtime_build": "fixture-build",
             "protocol": "http/1.1",
             "workload": "validator-only",
             "hardware_id": "validator-fixture",
+            "host_os": "fixture-os",
+            "host_cpu": "fixture-cpu",
             "php_version": "${{ matrix.php-version }}",
             "instrumentation": "test-only",
+            "tls": "off",
+            "opcache": "off",
+            "connection_reuse": "keep-alive",
+            "extension_versions": {"fixture": "1"},
             "workers": 1,
             "concurrency": 1,
             "duration_seconds": 1,
+            "requests_total": 1,
+            "completed_requests": 1,
+            "successful_requests": 1,
             "throughput_rps": 2.0,
             "latency_ms": {"p50": 1.0, "p95": 2.0, "p99": 3.0},
             "errors_total": 0,
+            "timeouts_total": 0,
+            "validation_failures": 0,
             "error_rate": 0.0,
             "cpu_percent": 2.0,
-            "rss_peak_bytes": 2
+            "rss_peak_bytes": 2,
+            "correctness_passed": true
           }
           JSON
           jq '.concurrency = 2' "$fixture_dir/fixture-b.json" > "$fixture_dir/mismatch.json"
@@ -117,6 +196,219 @@ jobs:
             echo "comparative evidence mismatch unexpectedly passed" >&2
             exit 1
           fi
+
+      - name: Run repeated real native HTTP/1 evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.certification }}" = "true" ]; then
+            warmup_seconds=30
+            duration_seconds=180
+            instrumentation="release-certification"
+          else
+            warmup_seconds=1
+            duration_seconds=3
+            instrumentation="ci-smoke"
+          fi
+
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              for attempt in $(seq 1 100); do
+                if ! kill -0 "$server_pid" 2>/dev/null; then
+                  break
+                fi
+                sleep 0.02
+              done
+              if kill -0 "$server_pid" 2>/dev/null; then
+                kill -KILL "$server_pid" 2>/dev/null || true
+              fi
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($name) || !str_contains($name, ":")) {
+              throw new RuntimeException("Unable to resolve ephemeral benchmark port.");
+          }
+          echo substr(strrchr($name, ":"), 1);
+          ')"
+
+          php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 200); do
+            if php -r '
+          $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
+          if (!is_resource($socket)) {
+              throw new RuntimeException($error);
+          }
+          fclose($socket);
+          ' "$port" >/dev/null 2>&1
+            then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.02
+          done
+
+          if ! kill -0 "$server_pid" 2>/dev/null; then
+            cat "$tmpdir/server.log"
+            exit 1
+          fi
+
+          export RUNWIRE_RUNTIME_VERSION="2.0-candidate"
+          export RUNWIRE_RUNTIME_BUILD="$GITHUB_SHA"
+          export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
+          export RUNWIRE_INSTRUMENTATION="$instrumentation"
+          export RUNWIRE_OPCACHE="$(php -d opcache.enable_cli=1 -r 'echo function_exists("opcache_get_status") && opcache_get_status(false) !== false ? "enabled-cli" : "disabled";')"
+          export RUNWIRE_EXTENSION_VERSIONS="$(php -r '
+          $extensions = ["pcntl", "posix", "event", "Zend OPcache"];
+          $values = [];
+          foreach ($extensions as $extension) {
+              if (!extension_loaded($extension)) {
+                  continue;
+              }
+              $version = phpversion($extension);
+              $values[] = $extension . "=" . (is_string($version) && $version !== "" ? $version : "builtin");
+          }
+          echo implode(",", $values);
+          ')"
+
+          files=()
+          for trial in 1 2 3 4 5; do
+            result="benchmark-results/http1-php-${{ matrix.php-version }}-trial-$trial.json"
+            php benchmarks/http1_sustained_bench.php \
+              "$port" 16 "$warmup_seconds" "$duration_seconds" "$server_pid" \
+              > "$result"
+            jq -e '.correctness_passed == true and .successful_requests == .requests_total and .errors_total == 0 and .timeouts_total == 0 and .validation_failures == 0' "$result" >/dev/null
+            files+=("$result")
+          done
+
+          php benchmarks/sustained_summary.php "${files[@]}" \
+            > "benchmark-results/http1-php-${{ matrix.php-version }}-summary.json"
+          cat "benchmark-results/http1-php-${{ matrix.php-version }}-summary.json"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.certification }}" = "true" ]; then
+            soak="benchmark-results/http1-php-${{ matrix.php-version }}-30m-soak.json"
+            php benchmarks/http1_sustained_bench.php \
+              "$port" 32 0 1800 "$server_pid" \
+              > "$soak"
+            jq -e '.correctness_passed == true and .successful_requests == .requests_total and .errors_total == 0 and .timeouts_total == 0 and .validation_failures == 0' "$soak" >/dev/null
+          fi
+
+          kill -TERM "$server_pid"
+          wait "$server_pid"
+          server_pid=""
+
+      - name: Run independent native WebSocket evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.certification }}" = "true" ]; then
+            duration_seconds=180
+            soak_seconds=1800
+          else
+            duration_seconds=2
+            soak_seconds=0
+          fi
+
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              for attempt in $(seq 1 100); do
+                if ! kill -0 "$server_pid" 2>/dev/null; then
+                  break
+                fi
+                sleep 0.02
+              done
+              if kill -0 "$server_pid" 2>/dev/null; then
+                kill -KILL "$server_pid" 2>/dev/null || true
+              fi
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($name) || !str_contains($name, ":")) {
+              throw new RuntimeException("Unable to resolve ephemeral WebSocket benchmark port.");
+          }
+          echo substr(strrchr($name, ":"), 1);
+          ')"
+
+          php -d opcache.enable_cli=1 benchmarks/websocket_server.php "$port" \
+            >"$tmpdir/websocket-server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 200); do
+            if php -r '
+          $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
+          if (!is_resource($socket)) {
+              throw new RuntimeException($error);
+          }
+          fclose($socket);
+          ' "$port" >/dev/null 2>&1
+            then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/websocket-server.log"
+              exit 1
+            fi
+            sleep 0.02
+          done
+
+          result="benchmark-results/f05-websocket-php-${{ matrix.php-version }}.json"
+          if ! php benchmarks/websocket_evidence.php \
+            --port="$port" \
+            --concurrency=8 \
+            --trials=5 \
+            --duration="$duration_seconds" \
+            --soak-seconds="$soak_seconds" \
+            | tee "$result"; then
+            echo "::group::WebSocket server log"
+            cat "$tmpdir/websocket-server.log"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          jq -e '
+            .correctness_passed == true
+            and .slow_reader_passed == true
+            and .errors_total == 0
+            and .timeouts_total == 0
+            and .validation_failures == 0
+          ' "$result" >/dev/null
+
+          kill -TERM "$server_pid"
+          wait "$server_pid"
+          server_pid=""
 
       - name: Upload benchmark evidence
         if: always()

@@ -26,13 +26,23 @@ interface RuntimeApplicationInterface extends MetricsProviderInterface
     public function drain(ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP): void;
 
     /**
-     * Handles one HTTP request and response writer pair.
+     * Handles one HTTP request and completes its context after owned work and cleanup settle.
      */
     public function handle(
         HttpRequest $request,
         ResponseWriterInterface $writer,
         bool $completeResponse = false,
     ): void;
+
+    /**
+     * Return the first failure that made persistent application reuse unsafe.
+     */
+    public function healthFailure(): ?\Throwable;
+
+    /**
+     * Determine whether persistent application reuse remains safe.
+     */
+    public function healthy(): bool;
 
     /**
      * Shuts down application resources.

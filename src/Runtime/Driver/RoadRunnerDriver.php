@@ -78,8 +78,12 @@ final class RoadRunnerDriver implements HostDriverInterface
                     strtoupper($request->method) === 'HEAD',
                 );
                 $application->handle($request, $writer, completeResponse: true);
+                if (!$application->healthy()) {
+                    $session->stop();
+
+                    return;
+                }
             } finally {
-                gc_collect_cycles();
                 if ($recycle->recordRequestCompleted()) {
                     $session->stop();
                 }

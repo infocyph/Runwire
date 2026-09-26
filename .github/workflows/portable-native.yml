@@ -7,6 +7,10 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+concurrency:
+  group: pn-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   portable-native:
     name: "Portable Native - PHP ${{ matrix.php-version }}"
@@ -28,7 +32,7 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
 
       - name: Verify prefork is genuinely unavailable
         shell: bash
@@ -71,8 +75,14 @@ jobs:
       - name: Audit optional process subsystem for PCNTL assumptions
         shell: bash
         run: |
-          if grep -R -nE '\bpcntl_|\bposix_|\bSIG[A-Z0-9_]+' src/Process; then
-            echo '::error::Process subsystem contains an implicit PCNTL/POSIX dependency.'
+          if grep -R -nE '\bpcntl_|\bSIG[A-Z0-9_]+' src/Process; then
+            echo '::error::Process subsystem contains an implicit PCNTL/signal dependency.'
+            exit 1
+          fi
+          if grep -R -nE '\bposix_' src/Process \
+            --exclude=ProcessHandle.php \
+            --exclude=ProcessTerminator.php; then
+            echo '::error::POSIX process-group calls escaped the guarded process-owner boundary.'
             exit 1
           fi
 
@@ -91,3 +101,42 @@ jobs:
       - name: Run portable-native TLS unavailable acceptance
         shell: bash
         run: php -d disable_functions=stream_socket_enable_crypto tests/fixtures/portable_optional_protocol_acceptance.php unavailable
+
+
+  accelerated-event:
+    name: "Accelerated Event Loop - PHP 8.4"
+    runs-on: ubuntu-latest
+    container: "php:8.4-cli"
+    permissions:
+      contents: read
+
+    steps:
+      - name: Bootstrap ext-event and tools
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git libevent-dev libssl-dev pkg-config unzip
+          docker-php-ext-install pcntl sockets
+          mv "$PHP_INI_DIR/conf.d/docker-php-ext-sockets.ini" "$PHP_INI_DIR/conf.d/10-sockets.ini"
+          printf "\n" | pecl install event
+          docker-php-ext-enable event
+          rm -rf /var/lib/apt/lists/*
+          php -r 'exit(extension_loaded("event") ? 0 : 1);'
+
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Install Composer
+        shell: bash
+        run: |
+          php -r 'copy("https://getcomposer.org/installer", "/tmp/composer-setup.php");'
+          php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+          rm -f /tmp/composer-setup.php
+
+      - name: Install test dependencies
+        shell: bash
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Prove accelerated descriptor capacity and HTTP/1 worker budgeting
+        shell: bash
+        run: vendor/bin/pest tests/EventLoopTest.php tests/Http1WorkerBudgetTest.php

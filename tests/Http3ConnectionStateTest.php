@@ -7,7 +7,6 @@ use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
@@ -34,7 +33,7 @@ it('configures the response QPACK encoder from bounded peer settings', function 
         SettingIdentifier::MAX_FIELD_SECTION_SIZE->value => 131_072,
     ]);
     $wire = VarIntCodec::encode(StreamType::CONTROL->value)
-        . FrameWriter::encode(new Frame(FrameType::SETTINGS->value, SettingsCodec::encode($settings)));
+        . (new Frame(FrameType::SETTINGS->value, SettingsCodec::encode($settings)))->encode();
 
     expect($state->responseEncoder())->toBeNull();
     $state->pushPeerUnidirectional(2, $wire);
@@ -118,7 +117,7 @@ it('routes peer QPACK encoder instructions to blocked request streams', function
         ['x-dynamic', 'connection-state'],
     ], 0);
     $instructions = $peerEncoder->takeEncoderInstructions();
-    $state->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers->block)));
+    $state->pushRequestStream(0, (new Frame(FrameType::HEADERS->value, $headers->block))->encode());
 
     expect($state->requestStream(0)?->blocked())->toBeTrue();
 
@@ -138,10 +137,10 @@ it('bounds concurrent request streams', function (): void {
         [':path', '/'],
     ], 0)->block;
 
-    $state->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+    $state->pushRequestStream(0, (new Frame(FrameType::HEADERS->value, $headers))->encode());
 
     try {
-        $state->pushRequestStream(4, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+        $state->pushRequestStream(4, (new Frame(FrameType::HEADERS->value, $headers))->encode());
         test()->fail('Concurrent HTTP/3 request stream limit should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::REQUEST_REJECTED);
@@ -160,11 +159,11 @@ it('bounds request and peer-unidirectional stream churn', function (): void {
         maxConcurrentRequestStreams: 1,
         maxRequestStreamsPerConnection: 1,
     ));
-    $state->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+    $state->pushRequestStream(0, (new Frame(FrameType::HEADERS->value, $headers))->encode());
     $state->releaseRequestStream(0);
 
     try {
-        $state->pushRequestStream(4, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+        $state->pushRequestStream(4, (new Frame(FrameType::HEADERS->value, $headers))->encode());
         test()->fail('HTTP/3 request stream churn limit should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::EXCESSIVE_LOAD);

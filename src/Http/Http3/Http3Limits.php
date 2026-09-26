@@ -43,6 +43,9 @@ final readonly class Http3Limits
         public int $maxReadsPerPump = 256,
         public int $maxInboundBytesPerPump = 262_144,
         public int $streamReadChunkBytes = 16_384,
+        public float $requestHeaderTimeoutSeconds = 10.0,
+        public float $requestBodyIdleTimeoutSeconds = 30.0,
+        public float $qpackBlockedTimeoutSeconds = 10.0,
     ) {
         self::assertNonNegative([
             'maxFramePayloadBytes' => $maxFramePayloadBytes,
@@ -94,6 +97,15 @@ final readonly class Http3Limits
             $maxQpackEncoderQueueBytes,
             $maxResponseFramePayloadBytes,
         );
+        foreach ([
+            'requestHeaderTimeoutSeconds' => $requestHeaderTimeoutSeconds,
+            'requestBodyIdleTimeoutSeconds' => $requestBodyIdleTimeoutSeconds,
+            'qpackBlockedTimeoutSeconds' => $qpackBlockedTimeoutSeconds,
+        ] as $name => $value) {
+            if (!is_finite($value) || $value <= 0) {
+                throw new InvalidArgumentException(sprintf('%s must be finite and positive.', $name));
+            }
+        }
     }
 
     private static function assertBodyWatermarks(int $low, int $high, int $maximum): void

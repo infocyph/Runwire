@@ -50,6 +50,7 @@ function batchERuntimeContext(?RuntimeMetrics $metrics = null): RuntimeContext
 it('round-trips the versioned bounded metrics snapshot contract', function (): void {
     $metrics = new RuntimeMetrics();
     $metrics->connectionOpened(ProtocolVersion::HTTP_2);
+    $metrics->observeQueuedBytes(1_024, 67_108_864);
     $metrics->setProtocol(ProtocolMetric::HPACK_TABLE_BYTES, 512);
     $metrics->recordError(ApplicationErrorClass::PROTOCOL_ERROR);
     $snapshot = $metrics->snapshot();
@@ -61,6 +62,9 @@ it('round-trips the versioned bounded metrics snapshot contract', function (): v
 
     expect($decoded)->not->toBeNull()
         ->and($decoded?->protocol[ProtocolMetric::HPACK_TABLE_BYTES->value])->toBe(512)
+        ->and($decoded?->queuedBytesCurrent)->toBe(1_024)
+        ->and($decoded?->queuedBytesPeak)->toBe(1_024)
+        ->and($decoded?->queuedBytesLimit)->toBe(67_108_864)
         ->and($decoded?->errors[ApplicationErrorClass::PROTOCOL_ERROR->value])->toBe(1)
         ->and(array_keys($decoded?->protocol ?? []))->toHaveCount(count(ProtocolMetric::cases()))
         ->and(array_keys($decoded?->errors ?? []))->toHaveCount(count(ApplicationErrorClass::cases()))

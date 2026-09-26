@@ -46,10 +46,8 @@ final class ProcessTermination
 
     /**
      * Enforce timeout and kill deadlines while the child is running.
-     *
-     * @param resource $process
      */
-    public function observe(mixed $process, Command $command, bool $running, int $now): void
+    public function observe(ProcessHandle $process, Command $command, bool $running, int $now): void
     {
         if (!$running) {
             return;
@@ -58,7 +56,7 @@ final class ProcessTermination
             throw new ProcessException('Child process remained running after the force-termination deadline.');
         }
         if ($this->terminationDeadline === null && $now >= $this->executionDeadline) {
-            if (!ProcessTerminator::graceful($process)) {
+            if (!$process->terminateGracefully()) {
                 throw new ProcessStartException('Unable to terminate timed-out child process.');
             }
             $this->reason = TerminationReason::TIMEOUT;
@@ -68,7 +66,7 @@ final class ProcessTermination
             );
         }
         if (!$this->killSent && $this->terminationDeadline !== null && $now >= $this->terminationDeadline) {
-            if (!ProcessTerminator::force($process)) {
+            if (!self::force($process)) {
                 throw new ProcessStartException('Unable to force-terminate child process.');
             }
             $this->killSent = true;
@@ -81,10 +79,8 @@ final class ProcessTermination
 
     /**
      * Begin bounded termination after output exceeds its configured ceiling.
-     *
-     * @param resource $process
      */
-    public function observeOutputLimit(mixed $process, Command $command, bool $overflowed, bool $running): void
+    public function observeOutputLimit(ProcessHandle $process, Command $command, bool $overflowed, bool $running): void
     {
         if (!$overflowed
             || $command->overflowPolicy !== OutputOverflowPolicy::TERMINATE
@@ -92,7 +88,7 @@ final class ProcessTermination
             || !$running) {
             return;
         }
-        if (!ProcessTerminator::graceful($process)) {
+        if (!$process->terminateGracefully()) {
             throw new ProcessStartException('Unable to terminate child process after output-limit overflow.');
         }
 
@@ -109,5 +105,16 @@ final class ProcessTermination
     public function reason(): TerminationReason
     {
         return $this->reason;
+    }
+
+    private static function force(ProcessHandle $process): bool
+    {
+        $resource = $process->resource();
+        $status = proc_get_status($resource);
+        if (!$status['running']) {
+            return true;
+        }
+
+        return $process->abort();
     }
 }

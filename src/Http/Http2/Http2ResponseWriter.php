@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\ResponseSemantics;
+use Infocyph\Runwire\Http\Internal\ResponseTerminalState;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
@@ -30,6 +31,8 @@ final class Http2ResponseWriter implements ResponseWriterInterface
 
     /** @var Closure(int, list<array{0: string, 1: string}>): WriteResult */
     private readonly Closure $sendHeaders;
+
+    private readonly ResponseTerminalState $terminal;
 
     private int $bodyBytes = 0;
 
@@ -58,6 +61,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         $this->sendData = Closure::fromCallable($sendData);
         $this->registerDrain = Closure::fromCallable($registerDrain);
         $this->onEnd = Closure::fromCallable($onEnd);
+        $this->terminal = new ResponseTerminalState();
     }
 
     /**
@@ -129,6 +133,16 @@ final class Http2ResponseWriter implements ResponseWriterInterface
                 $consumer($this);
             }
         });
+
+        return $this;
+    }
+
+    /**
+     * Register a callback invoked when response ownership becomes terminal.
+     */
+    public function onTerminal(callable $callback): self
+    {
+        $this->terminal->observe($this, $callback);
 
         return $this;
     }
@@ -217,6 +231,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         }
         $this->ended = true;
         ($this->onEnd)();
+        $this->terminal->terminate($this);
 
         return $result;
     }

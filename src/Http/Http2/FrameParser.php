@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Http\Http2;
 
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 
 /**
@@ -21,10 +22,10 @@ final class FrameParser
     /**
      * Create a frame parser with an inbound frame-size limit.
      */
-    public function __construct(private int $maxFrameSize = 16_384)
+    public function __construct(private int $maxFrameSize = 16_384, ?ByteBudget $budget = null)
     {
         $this->validateMaxFrameSize($maxFrameSize);
-        $this->buffer = new ByteQueue();
+        $this->buffer = new ByteQueue($budget);
     }
 
     /**
@@ -35,15 +36,27 @@ final class FrameParser
         return $this->buffer->bytes();
     }
 
+    /**
+     * Report whether a complete buffered frame can be consumed without more I/O.
+     */
+    public function hasCompleteFrame(): bool
+    {
+        if ($this->pending === null && !$this->readHeader()) {
+            return false;
+        }
+
+        return $this->pending !== null && $this->buffer->bytes() >= $this->pending['length'];
+    }
+
     /** @return list<Frame> */
-    public function push(string $bytes): array
+    public function push(string $bytes, int $maxFrames = PHP_INT_MAX): array
     {
         if ($bytes !== '') {
             $this->buffer->append($bytes);
         }
 
         $frames = [];
-        while (true) {
+        while (count($frames) < $maxFrames) {
             if ($this->pending === null && !$this->readHeader()) {
                 break;
             }

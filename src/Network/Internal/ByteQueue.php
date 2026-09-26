@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Network\Internal;
 
 use InvalidArgumentException;
+use OverflowException;
 
 /**
  * Stores byte chunks with efficient front reads, discards, and compaction.
@@ -23,6 +24,20 @@ final class ByteQueue
     private int $headOffset = 0;
 
     /**
+     * Create a queue optionally metered by a shared byte budget.
+     */
+    public function __construct(private readonly ?ByteBudget $budget = null) {}
+
+    /**
+     * Release any queued bytes still charged to the shared budget.
+     */
+    public function __destruct()
+    {
+        $this->budget?->release($this->bytes);
+        $this->bytes = 0;
+    }
+
+    /**
      * Append non-empty bytes to the queue.
      */
     public function append(string $bytes): void
@@ -30,8 +45,20 @@ final class ByteQueue
         if ($bytes === '') {
             return;
         }
+        $length = strlen($bytes);
+        if ($this->budget !== null && !$this->budget->reserve($length)) {
+            throw new OverflowException('Shared queued-byte budget is exhausted.');
+        }
         $this->chunks[] = $bytes;
-        $this->bytes += strlen($bytes);
+        $this->bytes += $length;
+    }
+
+    /**
+     * Return remaining shared budget capacity, or PHP_INT_MAX when unmetered.
+     */
+    public function budgetAvailable(): int
+    {
+        return $this->budget?->available() ?? PHP_INT_MAX;
     }
 
     /**
@@ -47,6 +74,7 @@ final class ByteQueue
      */
     public function clear(): void
     {
+        $this->budget?->release($this->bytes);
         $this->chunks = [];
         $this->head = 0;
         $this->headOffset = 0;
@@ -67,11 +95,13 @@ final class ByteQueue
             if ($remaining < $available) {
                 $this->headOffset += $remaining;
                 $this->bytes -= $remaining;
+                $this->budget?->release($remaining);
 
                 return;
             }
             $remaining -= $available;
             $this->bytes -= $available;
+            $this->budget?->release($available);
             unset($this->chunks[$this->head]);
             ++$this->head;
             $this->headOffset = 0;
@@ -102,6 +132,37 @@ final class ByteQueue
     public function isEmpty(): bool
     {
         return $this->bytes === 0;
+    }
+
+    /**
+     * Return up to the requested queued bytes without consuming them.
+     */
+    public function peek(int $maxBytes = PHP_INT_MAX): string
+    {
+        if ($maxBytes < 0) {
+            throw new InvalidArgumentException('Maximum peek bytes cannot be negative.');
+        }
+        if ($maxBytes === 0 || $this->bytes === 0) {
+            return '';
+        }
+
+        $remaining = min($maxBytes, $this->bytes);
+        $parts = [];
+        $index = $this->head;
+        $offset = $this->headOffset;
+        while ($remaining > 0 && isset($this->chunks[$index])) {
+            $chunk = $this->chunks[$index];
+            $available = strlen($chunk) - $offset;
+            $take = min($remaining, $available);
+            $parts[] = $offset === 0 && $take === $available
+                ? $chunk
+                : substr($chunk, $offset, $take);
+            $remaining -= $take;
+            ++$index;
+            $offset = 0;
+        }
+
+        return count($parts) === 1 ? $parts[0] : implode('', $parts);
     }
 
     /**

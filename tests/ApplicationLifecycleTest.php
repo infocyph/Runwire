@@ -344,3 +344,128 @@ it('runs and retains every failing shutdown operation', function (): void {
             $failure?->shutdownFailures ?? [],
         ))->toBe(['drain failed', 'shutdown hook failed', 'legacy shutdown failed']);
 });
+
+
+it('holds admission and cleanup until asynchronous response ownership becomes terminal', function (): void {
+    $captured = null;
+    $handled = [];
+    $state = new ArrayObject(['resets' => 0]);
+    $runtime = RuntimeContext::standalone();
+    $lifecycle = new ApplicationLifecycle(
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured, &$handled): void {
+            $handled[] = $request->target;
+            if ($request->target === '/async') {
+                $captured = $writer;
+
+                return;
+            }
+
+            $writer->end();
+        },
+        $runtime,
+        hooks: new ApplicationLifecycleHooks(resetters: [
+            new class($state) implements RequestResetterInterface {
+                public function __construct(private readonly ArrayObject $state) {}
+
+                public function reset(RequestContext $context): void
+                {
+                    unset($context);
+                    $this->state['resets'] = $this->state['resets'] + 1;
+                }
+            },
+        ]),
+        admission: new \Infocyph\Runwire\Runtime\AdmissionPolicy(maxActiveRequests: 1),
+    );
+    $first = lifecycleRequest('/async');
+
+    $lifecycle->handle($first, lifecycleWriter());
+    expect($first->context->completed())->toBeFalse()
+        ->and($state['resets'])->toBe(0);
+
+    $rejected = [];
+    $lifecycle->handle(lifecycleRequest('/rejected'), new CallbackResponseWriter(
+        static function (int $status) use (&$rejected): void {
+            $rejected[] = $status;
+        },
+        static function (): void {},
+        static function (): void {},
+        1_024,
+    ));
+
+    expect($handled)->toBe(['/async'])
+        ->and($rejected)->toBe([503])
+        ->and($captured)->toBeInstanceOf(ResponseWriterInterface::class);
+
+    $captured?->end();
+
+    expect($first->context->completed())->toBeTrue()
+        ->and($state['resets'])->toBe(1);
+
+    $lifecycle->handle(lifecycleRequest('/after'), lifecycleWriter());
+    expect($handled)->toBe(['/async', '/after'])
+        ->and($state['resets'])->toBe(2);
+});
+
+it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse', function (): void {
+    $failure = new RuntimeException('isolation reset failed');
+    $lifecycle = new ApplicationLifecycle(
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            $writer->end($request->target);
+        },
+        RuntimeContext::standalone(),
+        hooks: new ApplicationLifecycleHooks(resetters: [
+            new class($failure) implements RequestResetterInterface {
+                public function __construct(private readonly RuntimeException $failure) {}
+
+                public function reset(RequestContext $context): void
+                {
+                    unset($context);
+
+                    throw $this->failure;
+                }
+            },
+        ]),
+    );
+
+    expect(fn () => $lifecycle->handle(lifecycleRequest('/dirty'), lifecycleWriter()))
+        ->toThrow(RequestLifecycleException::class)
+        ->and($lifecycle->healthy())->toBeFalse()
+        ->and($lifecycle->healthFailure())->toBe($failure)
+        ->and(fn () => $lifecycle->handle(lifecycleRequest('/next'), lifecycleWriter()))
+        ->toThrow(LogicException::class, 'unhealthy');
+});
+
+it('latches asynchronous reset failure when a delayed response later terminates', function (): void {
+    $captured = null;
+    $failure = new RuntimeException('late reset failed');
+    $request = lifecycleRequest('/late');
+    $lifecycle = new ApplicationLifecycle(
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured): void {
+            unset($request);
+            $captured = $writer;
+        },
+        RuntimeContext::standalone(),
+        hooks: new ApplicationLifecycleHooks(resetters: [
+            new class($failure) implements RequestResetterInterface {
+                public function __construct(private readonly RuntimeException $failure) {}
+
+                public function reset(RequestContext $context): void
+                {
+                    unset($context);
+
+                    throw $this->failure;
+                }
+            },
+        ]),
+    );
+
+    $lifecycle->handle($request, lifecycleWriter());
+
+    expect($request->context->completed())->toBeFalse()
+        ->and($lifecycle->healthy())->toBeTrue()
+        ->and($captured)->toBeInstanceOf(ResponseWriterInterface::class)
+        ->and(fn () => $captured?->end())->toThrow(RequestLifecycleException::class)
+        ->and($request->context->completed())->toBeTrue()
+        ->and($lifecycle->healthy())->toBeFalse()
+        ->and($lifecycle->healthFailure())->toBe($failure);
+});

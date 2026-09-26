@@ -8,10 +8,13 @@ use Closure;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\ResponseSemantics;
+use Infocyph\Runwire\Http\Internal\ResponseTerminalState;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
+use Infocyph\Runwire\WebSocket\WebSocketOptions;
+use Infocyph\Runwire\WebSocket\WebSocketSession;
 use InvalidArgumentException;
 use LogicException;
 
@@ -22,6 +25,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 {
     /** @var Closure(bool): void */
     private readonly Closure $onEnd;
+
+    private readonly ResponseTerminalState $terminal;
+
+    /** @var Closure(string, ?string, WebSocketOptions): WebSocketSession|null */
+    private readonly ?Closure $upgradeWebSocket;
 
     private int $bodyBytes = 0;
 
@@ -44,11 +52,20 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         private readonly string $requestMethod,
         bool $keepAlive,
         callable $onEnd,
+        ?callable $upgradeWebSocket = null,
     ) {
         $this->closeAfter = !$keepAlive;
         /** @var Closure(bool): void $onEndClosure */
         $onEndClosure = Closure::fromCallable($onEnd);
         $this->onEnd = $onEndClosure;
+        $this->terminal = new ResponseTerminalState();
+        if ($upgradeWebSocket === null) {
+            $this->upgradeWebSocket = null;
+        } else {
+            /** @var Closure(string, ?string, WebSocketOptions): WebSocketSession $upgrade */
+            $upgrade = Closure::fromCallable($upgradeWebSocket);
+            $this->upgradeWebSocket = $upgrade;
+        }
     }
 
     /**
@@ -119,6 +136,16 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     }
 
     /**
+     * Register a callback invoked when response ownership becomes terminal.
+     */
+    public function onTerminal(callable $callback): self
+    {
+        $this->terminal->observe($this, $callback);
+
+        return $this;
+    }
+
+    /**
      * Start the response with status and headers.
      */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
@@ -169,6 +196,29 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         $this->chunked = $chunked;
 
         return $result;
+    }
+
+    /**
+     * @internal Terminalize the HTTP handshake and transfer the connection to a WebSocket session.
+     */
+    public function upgradeWebSocket(
+        string $accept,
+        ?string $subprotocol,
+        WebSocketOptions $options,
+    ): WebSocketSession {
+        if ($this->ended || $this->started) {
+            throw new LogicException('HTTP response cannot upgrade after response output has started.');
+        }
+        if ($this->upgradeWebSocket === null) {
+            throw new LogicException('This HTTP/1 response writer does not own a native WebSocket upgrade path.');
+        }
+
+        $session = ($this->upgradeWebSocket)($accept, $subprotocol, $options);
+        $this->started = true;
+        $this->ended = true;
+        $this->terminal->terminate($this);
+
+        return $session;
     }
 
     /**
@@ -287,6 +337,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         }
         $this->ended = true;
         ($this->onEnd)($this->closeAfter);
+        $this->terminal->terminate($this);
 
         return $result;
     }

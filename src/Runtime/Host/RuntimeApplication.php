@@ -79,6 +79,22 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     }
 
     /**
+     * Return the first lifecycle failure that prevents safe reuse.
+     */
+    public function healthFailure(): ?\Throwable
+    {
+        return $this->lifecycle->healthFailure();
+    }
+
+    /**
+     * Determine whether the lifecycle remains safe for reuse.
+     */
+    public function healthy(): bool
+    {
+        return $this->lifecycle->healthy();
+    }
+
+    /**
      * Shuts down the application lifecycle.
      */
     public function shutdown(?ShutdownReason $reason = null): void

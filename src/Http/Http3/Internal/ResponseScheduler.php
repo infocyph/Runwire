@@ -7,11 +7,11 @@ namespace Infocyph\Runwire\Http\Http3\Internal;
 use Closure;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Network\Enum\WriteState;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\WriteResult;
 use LogicException;
@@ -44,9 +44,10 @@ final class ResponseScheduler
         private readonly ConnectionState $state,
         private readonly Http3Limits $limits,
         private readonly Http3TransportInterface $transport,
+        private readonly ?ByteBudget $bufferBudget = null,
     ) {
         $this->fallbackEncoder = new Encoder(0, 0, $limits->maxFieldSectionBytes, 0);
-        $this->qpackEncoderQueue = new ByteQueue();
+        $this->qpackEncoderQueue = new ByteQueue($bufferBudget);
     }
 
     /**
@@ -139,7 +140,7 @@ final class ResponseScheduler
             throw new LogicException('HTTP/3 response writer already exists for the request stream.');
         }
 
-        $stream = $this->streams[$streamId] = new ResponseStream($streamId);
+        $stream = $this->streams[$streamId] = new ResponseStream($streamId, $this->bufferBudget);
 
         return new Http3ResponseWriter(
             $method,
@@ -158,7 +159,7 @@ final class ResponseScheduler
         $length = strlen($data);
         while ($offset < $length) {
             $payload = substr($data, $offset, $this->limits->maxResponseFramePayloadBytes);
-            $wire = FrameWriter::encode(new Frame(FrameType::DATA->value, $payload));
+            $wire = new Frame(FrameType::DATA->value, $payload)->encode();
             $stream->outbound->append($wire);
             $this->pendingResponseBytes += strlen($wire);
             $offset += strlen($payload);
@@ -174,7 +175,7 @@ final class ResponseScheduler
         int $instructionReserve,
     ): void {
         $section = $encoder->encode($headers, $stream->id);
-        $wire = FrameWriter::encode(new Frame(FrameType::HEADERS->value, $section->block));
+        $wire = new Frame(FrameType::HEADERS->value, $section->block)->encode();
         $instructions = $encoder->takeEncoderInstructions();
         if (strlen($wire) > $headerReserve || strlen($instructions) > $instructionReserve) {
             throw new LogicException('HTTP/3 QPACK reservation underestimated encoded response bytes.');
@@ -198,8 +199,10 @@ final class ResponseScheduler
             return false;
         }
 
-        return $headerReserve + $instructionReserve
-            <= $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes();
+        return $headerReserve + $instructionReserve <= min(
+            $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes(),
+            $stream->outbound->budgetAvailable(),
+        );
     }
 
     private function canReserveResponse(ResponseStream $stream, int $bytes): bool
@@ -208,7 +211,10 @@ final class ResponseScheduler
             return false;
         }
 
-        return $bytes <= $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes();
+        return $bytes <= min(
+            $this->limits->maxPendingResponseBytesPerConnection - $this->connectionBufferedBytes(),
+            $stream->outbound->budgetAvailable(),
+        );
     }
 
     private function closedResult(): WriteResult

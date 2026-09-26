@@ -20,15 +20,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   source-audit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Runwire
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 # v7.0.1
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@v2 # v2
         with:
           php-version: '8.5'
           coverage: none

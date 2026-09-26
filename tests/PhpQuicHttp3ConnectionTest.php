@@ -6,7 +6,6 @@ use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
@@ -22,6 +21,8 @@ function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = 
         public bool $ended = false;
 
         public ?int $peerResetCode = null;
+
+        public int $readBytes = 0;
 
         public string $written = '';
 
@@ -60,10 +61,13 @@ function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = 
                 return $next;
             }
             if (strlen($next) <= $length) {
+                $this->readBytes += strlen($next);
+
                 return $next;
             }
 
             $chunk = substr($next, 0, $length);
+            $this->readBytes += strlen($chunk);
             array_unshift($this->reads, substr($next, $length));
 
             return $chunk;
@@ -143,7 +147,7 @@ it('pumps a client request through the shared HTTP contract and flushes the HTTP
         [':path', '/hello'],
     ], 0)->block;
     $requestRaw = fakeHttp3ConnectionStream(0, true, [
-        FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headerBlock)),
+        (new Frame(FrameType::HEADERS->value, $headerBlock))->encode(),
         null,
     ]);
     $controlRaw = fakeHttp3ConnectionStream(3, false);
@@ -180,12 +184,12 @@ it('builds an injectable QUIC poll set and handles only ready request streams', 
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $encoder = new Encoder(0, 0);
     $requestRaw = fakeHttp3ConnectionStream(0, true, [
-        FrameWriter::encode(new Frame(FrameType::HEADERS->value, $encoder->encode([
+        (new Frame(FrameType::HEADERS->value, $encoder->encode([
             [':method', 'GET'],
             [':scheme', 'https'],
             [':authority', 'example.com'],
             [':path', '/ready'],
-        ], 0)->block)),
+        ], 0)->block))->encode(),
         null,
     ]);
     $connectionRaw = fakeHttp3ConnectionRaw(
@@ -283,12 +287,12 @@ it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', 
 it('sends one bounded GOAWAY and rejects request streams at the drain boundary', function (): void {
     $encoder = new Encoder(0, 0);
     $active = fakeHttp3ConnectionStream(0, true, [
-        FrameWriter::encode(new Frame(FrameType::HEADERS->value, $encoder->encode([
+        (new Frame(FrameType::HEADERS->value, $encoder->encode([
             [':method', 'GET'],
             [':scheme', 'https'],
             [':authority', 'example.com'],
             [':path', '/draining'],
-        ], 0)->block)),
+        ], 0)->block))->encode(),
         '',
     ]);
     $control = fakeHttp3ConnectionStream(3, false);
@@ -330,5 +334,31 @@ it('sends one bounded GOAWAY and rejects request streams at the drain boundary',
         ->and($offset)->toBe(strlen($goaway[0]->payload))
         ->and($rejected->peerResetCode)->toBe(ErrorCode::REQUEST_REJECTED->value)
         ->and($connection->activeRequestStreams())->toBe(1)
+        ->and($connection->closed())->toBeFalse();
+});
+
+
+it('enforces the HTTP3 aggregate control-stream byte budget per pump', function (): void {
+    $peerControl = fakeHttp3ConnectionStream(2, false, [str_repeat("\x21", 128)]);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$peerControl],
+    );
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (): void {},
+        new Http3Limits(
+            maxControlBytesPerTick: 16,
+            streamReadChunkBytes: 64,
+        ),
+    );
+
+    $connection->pump();
+
+    expect($peerControl->readBytes)->toBe(16)
         ->and($connection->closed())->toBeFalse();
 });

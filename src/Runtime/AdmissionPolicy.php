@@ -14,13 +14,14 @@ final readonly class AdmissionPolicy
     private const int MAX_LIMIT = 1_000_000;
 
     /**
-     * Creates an admission policy, where zero disables each corresponding limit.
+     * Creates an admission policy; zero disables count limits while queued bytes remain bounded.
      */
     public function __construct(
-        public int $maxActiveRequests = 0,
+        public int $maxActiveRequests = 256,
         public int $maxConcurrentConnections = 0,
-        public int $maxStreamsPerWorker = 0,
+        public int $maxStreamsPerWorker = 256,
         public int $retryAfterSeconds = 1,
+        public int $maxQueuedBytes = 67_108_864,
     ) {
         foreach ([
             'maxActiveRequests' => $maxActiveRequests,
@@ -34,6 +35,10 @@ final readonly class AdmissionPolicy
                     self::MAX_LIMIT,
                 ));
             }
+        }
+
+        if ($maxQueuedBytes <= 0 || $maxQueuedBytes > 1_073_741_824) {
+            throw new InvalidArgumentException('maxQueuedBytes must be between 1 and 1073741824.');
         }
 
         if ($retryAfterSeconds < 0 || $retryAfterSeconds > 3_600) {
@@ -58,6 +63,7 @@ final readonly class AdmissionPolicy
     {
         return $this->maxActiveRequests > 0
             || $this->maxConcurrentConnections > 0
-            || $this->maxStreamsPerWorker > 0;
+            || $this->maxStreamsPerWorker > 0
+            || $this->maxQueuedBytes > 0;
     }
 }

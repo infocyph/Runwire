@@ -204,3 +204,22 @@ it('binds host requests to the resolved runtime and clears request state after h
         ->and($seen->attributes())->toBe([])
         ->and($seen->completed())->toBeTrue();
 });
+
+it('notifies the runtime once after context state is cleared and supports late observation', function (): void {
+    $context = RequestContext::standalone();
+    $context->setAttribute('tenant', 'A');
+    $observations = [];
+    $context->observeCompletion(static function () use ($context, &$observations): void {
+        $observations[] = [$context->completed(), $context->attributes()];
+        $context->complete();
+    });
+    expect(fn() => $context->observeCompletion(static function (): void {}))->toThrow(LogicException::class);
+
+    $context->complete();
+    $context->complete();
+    $context->observeCompletion(static function () use ($context, &$observations): void {
+        $observations[] = [$context->completed(), $context->attributes()];
+    });
+
+    expect($observations)->toBe([[true, []], [true, []]]);
+});

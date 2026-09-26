@@ -4,7 +4,7 @@ A high-performance, framework-agnostic process and network runtime for PHP.
 
 Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
 
-Runwire 1.0 is the release line targeted by Foundation 3.
+Runwire 2.0 is the next major runtime line. Consumers upgrading from 1.x should review the 2.0 migration guide before rollout.
 
 ## Requirements
 
@@ -138,11 +138,12 @@ HTTP/1.1, framed TCP/Unix, and UDP remain available when their platform capabili
 
 ## Native protocols
 
-Runwire 1.0 provides:
+Runwire 2.0 provides:
 
 - HTTP/1.1 over TCP/TLS;
 - HTTP/2 over TLS ALPN with HTTP/1.1 fallback;
 - HTTP/3 over QUIC when the supported QUIC capability is available;
+- RFC 6455 WebSocket upgrade over native HTTP/1.1;
 - framed TCP and Unix-domain stream servers;
 - UDP datagram servers.
 
@@ -172,7 +173,46 @@ $server = Server::http('0.0.0.0:8443', $handler)
     ->withHttp3();
 ```
 
-HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 1.0.
+HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 2.0.
+
+### Native HTTP/1 WebSocket
+
+```php
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\WebSocket\WebSocketMessage;
+use Infocyph\Runwire\WebSocket\WebSocketSession;
+use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
+
+$server = Server::http(
+    '0.0.0.0:8080',
+    static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+        $session = WebSocketUpgrade::accept(
+            $request,
+            $writer,
+            originPolicy: static fn(string $origin, HttpRequest $request): bool =>
+                $origin === 'https://example.com',
+        );
+        if (!$session instanceof WebSocketSession) {
+            return;
+        }
+
+        $session->onMessage(
+            static function (WebSocketSession $session, WebSocketMessage $message): void {
+                $result = $message->binary
+                    ? $session->sendBinary($message->data)
+                    : $session->sendText($message->data);
+
+                if (!$result->accepted()) {
+                    $session->close(1011, 'write rejected');
+                }
+            },
+        );
+    },
+);
+```
+
+Native WebSocket serving is intentionally HTTP/1.1-only in 2.0. Compression and HTTP/2/HTTP/3 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
 
 ## Framed TCP example
 
@@ -194,7 +234,7 @@ Runtime::create()->listen($server)->run();
 
 ## Structured coroutines
 
-Runwire includes a lightweight structured-concurrency runtime built on PHP `Fiber` and `LoopInterface`.
+Runwire includes a lightweight structured-concurrency runtime built on PHP `Fiber` and `LoopInterface`. Coroutine request handlers can also use `ResponseTransfer::stream()` to copy an already-authorized stream into a response with bounded chunks, cancellation, cooperative yielding, and writer backpressure.
 
 ```php
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
@@ -356,7 +396,7 @@ Start here for complete examples and operational guidance:
 - [`docs/security.md`](docs/security.md) — least privilege, persistent-state isolation, ProcessRunner policy, `disable_functions`, resource ceilings, and systemd/container hardening.
 - [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
 - [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.
-- [`docs/plans/runwire-1.0-foundation-3-launch-plan.md`](docs/plans/runwire-1.0-foundation-3-launch-plan.md) — final hardening status, documentation closure, exact-head certification matrix, and human-controlled release sequence.
+- [`docs/migration-2.0.md`](docs/migration-2.0.md) — required 1.x to 2.0 consumer migration checks and behavioral contract changes.
 
 ## Development
 

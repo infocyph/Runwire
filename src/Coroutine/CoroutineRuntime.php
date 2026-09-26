@@ -17,7 +17,11 @@ use LogicException;
  */
 final class CoroutineRuntime
 {
+    private readonly CoroutinePolicy $policy;
+
     private readonly FiberScheduler $scheduler;
+
+    private int $attachedRequestScopes = 0;
 
     private bool $requestRunning = false;
 
@@ -30,9 +34,10 @@ final class CoroutineRuntime
         ?LoopInterface $loop = null,
         ?CoroutinePolicy $policy = null,
     ) {
+        $this->policy = $policy ?? new CoroutinePolicy();
         $this->scheduler = new FiberScheduler(
             $loop ?? new SelectLoop(),
-            $policy ?? new CoroutinePolicy(),
+            $this->policy,
         );
     }
 
@@ -43,13 +48,62 @@ final class CoroutineRuntime
     }
 
     /**
+     * Attach one request scope to the existing scheduler without driving its loop.
+     *
+     * @param callable(CoroutineScope): mixed $callback
+     * @param callable(Task): void|null $completed
+     */
+    public function attachRequest(RequestContext $context, callable $callback, ?callable $completed = null): Task
+    {
+        if ($this->running) {
+            throw new LogicException('Attached request scopes cannot start while standalone coroutine execution owns the loop.');
+        }
+        if ($context->completed()) {
+            throw new LogicException('Completed request context cannot own coroutine work.');
+        }
+
+        $context->cancellation->throwIfCancelled();
+        $source = CancellationSource::linked($context->cancellation, $context->deadline());
+        $scope = new CoroutineScope($this->scheduler, $source);
+        $closure = Closure::fromCallable($callback);
+        $completion = $completed === null ? null : Closure::fromCallable($completed);
+        $closed = false;
+        ++$this->attachedRequestScopes;
+
+        try {
+            return $this->scheduler->spawn(
+                static fn(): mixed => $scope->execute($closure),
+                $source,
+                function (Task $task) use ($scope, $completion, &$closed): void {
+                    if ($closed || !$task->isComplete()) {
+                        return;
+                    }
+
+                    $closed = true;
+                    $scope->close();
+                    --$this->attachedRequestScopes;
+                    $completion?->__invoke($task);
+                },
+            );
+        } catch (\Throwable $error) {
+            if (!$closed) {
+                $closed = true;
+                $scope->close();
+                --$this->attachedRequestScopes;
+            }
+
+            throw $error;
+        }
+    }
+
+    /**
      * Returns a snapshot of the current coroutine runtime diagnostics.
      */
     public function diagnostics(): CoroutineDiagnosticsSnapshot
     {
         return $this->scheduler->diagnostics(
             rootScopesActive: $this->running ? 1 : 0,
-            requestScopesActive: $this->requestRunning ? 1 : 0,
+            requestScopesActive: ($this->requestRunning ? 1 : 0) + $this->attachedRequestScopes,
         );
     }
 
@@ -79,13 +133,25 @@ final class CoroutineRuntime
         }
     }
 
+    /**
+     * Create a runtime using the same scheduler policy on an externally owned loop.
+     */
+    public function withLoop(LoopInterface $loop): self
+    {
+        return new self($loop, $this->policy);
+    }
+
     /** @param callable(CoroutineScope): mixed $callback */
     private function execute(CancellationSource $source, callable $callback): mixed
     {
-        if ($this->running) {
+        if ($this->running || $this->attachedRequestScopes > 0) {
             $source->dispose();
 
-            throw new LogicException('Nested CoroutineRuntime::run() cannot start a second event loop; use the active scope.');
+            throw new LogicException(
+                $this->running
+                    ? 'Nested CoroutineRuntime::run() cannot start a second event loop; use the active scope.'
+                    : 'Standalone coroutine execution cannot drive a loop with attached request scopes.',
+            );
         }
 
         $this->running = true;

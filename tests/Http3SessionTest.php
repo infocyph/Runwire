@@ -6,7 +6,6 @@ use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Http3Session;
@@ -63,8 +62,8 @@ it('dispatches a decoded HTTP/3 request through the version-neutral application 
         ['content-length', '4'],
     ], 0)->block;
 
-    $session->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
-    $session->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::DATA->value, 'body')));
+    $session->pushRequestStream(0, (new Frame(FrameType::HEADERS->value, $headers))->encode());
+    $session->pushRequestStream(0, (new Frame(FrameType::DATA->value, 'body'))->encode());
     $session->finishRequestStream(0);
 
     expect($requests)->toHaveCount(1)
@@ -102,7 +101,7 @@ it('dispatches QPACK-blocked requests only after encoder instructions unblock th
     ], 0);
     $instructions = $peerEncoder->takeEncoderInstructions();
 
-    $session->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers->block)));
+    $session->pushRequestStream(0, (new Frame(FrameType::HEADERS->value, $headers->block))->encode());
     expect($dispatched)->toBe(0);
 
     $session->pushPeerUnidirectional(2, $instructions);
@@ -142,11 +141,60 @@ it('releases dispatched stream bookkeeping after response processing', function 
         [':path', '/'],
     ], 0)->block;
 
-    $session->pushRequestStream(0, FrameWriter::encode(new Frame(FrameType::HEADERS->value, $headers)));
+    $session->pushRequestStream(0, (new Frame(FrameType::HEADERS->value, $headers))->encode());
     expect(http3SessionDispatchedCount($session))->toBe(1);
 
     $session->releaseRequestStream(0);
 
     expect(http3SessionDispatchedCount($session))->toBe(0)
         ->and($session->state()->requestStream(0))->toBeNull();
+});
+
+
+it('keeps HTTP/3 body delivery invariant between coalesced and segmented input', function (): void {
+    $run = static function (bool $coalesced): string {
+        $limits = new Http3Limits(
+            maxPendingBodyBytesPerStream: 8,
+            bodyLowWatermarkBytes: 2,
+            bodyHighWatermarkBytes: 6,
+            streamReadChunkBytes: 4,
+        );
+        $received = '';
+        $session = new Http3Session(
+            new ConnectionState($limits),
+            static function (HttpRequest $request) use (&$received): void {
+                $request->body->onData(static function ($body) use (&$received): void {
+                    $received .= $body->read();
+                });
+            },
+            http3SessionWriter(...),
+        );
+        $encoder = new Encoder(0, 0);
+        $headers = (new Frame(
+            FrameType::HEADERS->value,
+            $encoder->encode([
+                [':method', 'POST'],
+                [':scheme', 'https'],
+                [':authority', 'example.com'],
+                [':path', '/body'],
+                ['content-length', '12'],
+            ], 0)->block,
+        ))->encode();
+        $data = (new Frame(FrameType::DATA->value, 'abcdefghijkl'))->encode();
+
+        if ($coalesced) {
+            $session->pushRequestStream(0, $headers . $data);
+        } else {
+            $session->pushRequestStream(0, $headers);
+            foreach (str_split($data, 3) as $chunk) {
+                $session->pushRequestStream(0, $chunk);
+            }
+        }
+        $session->finishRequestStream(0);
+
+        return $received;
+    };
+
+    expect($run(true))->toBe('abcdefghijkl')
+        ->and($run(false))->toBe('abcdefghijkl');
 });

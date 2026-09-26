@@ -44,6 +44,21 @@ final class ConnectionCallbackOwnership
     }
 
     /**
+     * Transfers configured callback slots to one exclusive protocol owner.
+     */
+    public function handoff(object $owner, bool $closed): void
+    {
+        if ($this->owner !== null) {
+            throw new LogicException('Connection callback slots are already exclusively owned.');
+        }
+        if ($closed) {
+            throw new LogicException('Closed connections cannot hand off callback ownership.');
+        }
+
+        $this->owner = $owner;
+    }
+
+    /**
      * Releases callback-slot ownership held by the supplied adapter.
      */
     public function release(object $owner): void

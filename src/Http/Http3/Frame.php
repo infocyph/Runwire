@@ -24,6 +24,16 @@ final readonly class Frame
     }
 
     /**
+     * Encode this frame including its type and payload length.
+     */
+    public function encode(): string
+    {
+        return VarIntCodec::encode($this->type)
+            . VarIntCodec::encode(strlen($this->payload))
+            . $this->payload;
+    }
+
+    /**
      * Return the standardized frame type when the identifier is known.
      */
     public function knownType(): ?FrameType

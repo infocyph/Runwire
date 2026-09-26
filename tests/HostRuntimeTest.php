@@ -273,9 +273,42 @@ it('reports FrankenPHP worker persistence without claiming Runwire wire ownershi
 
     expect($selection->capabilities->persistentApplication)->toBeTrue()
         ->and($selection->capabilities->supportsHttp1)->toBeTrue()
-        ->and($selection->capabilities->supportsHttp2)->toBeTrue()
-        ->and($selection->capabilities->supportsHttp3)->toBeTrue()
+        ->and($selection->capabilities->supportsHttp2)->toBeFalse()
+        ->and($selection->capabilities->supportsHttp3)->toBeFalse()
         ->and($selection->capabilities->ownsHttp1Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp3Wire)->toBeFalse();
+});
+
+
+it('enforces declared Content-Length in callback response writers', function (): void {
+    $ended = 0;
+    $writer = new CallbackResponseWriter(
+        static function (): void {},
+        static function (): void {},
+        static function () use (&$ended): void {
+            ++$ended;
+        },
+        64,
+    );
+    $writer->start(200, Headers::fromArray(['content-length' => '2']));
+
+    expect(fn () => $writer->end('abc'))
+        ->toThrow(LogicException::class, 'exceeds declared Content-Length')
+        ->and($ended)->toBe(0);
+
+    $short = new CallbackResponseWriter(
+        static function (): void {},
+        static function (): void {},
+        static function () use (&$ended): void {
+            ++$ended;
+        },
+        64,
+    );
+    $short->start(200, Headers::fromArray(['content-length' => '3']));
+    $short->write('ab');
+
+    expect(fn () => $short->end())
+        ->toThrow(LogicException::class, 'shorter than declared Content-Length')
+        ->and($ended)->toBe(0);
 });

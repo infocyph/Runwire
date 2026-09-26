@@ -1,4 +1,4 @@
-# Runwire 1.0 Coroutines and Structured Concurrency
+# Runwire 2.0 Coroutines and Structured Concurrency
 
 Runwire provides structured concurrency built on PHP `Fiber`, `LoopInterface`, and explicit task ownership. It coordinates Runwire-aware timers, I/O readiness, cancellation, request lifecycles, and worker background work without pretending that arbitrary blocking PHP APIs become asynchronous.
 
@@ -550,11 +550,13 @@ Use diagnostics for operational visibility, not unbounded task history.
 8. Dispose `AsyncConnection` before transferring callbacks while keeping the transport open.
 9. Keep task-local state small and scoped.
 10. Measure scheduler diagnostics before increasing limits.
+11. Use `ResponseTransfer::stream()` inside a request `CoroutineScope` when an already-authorized stream must follow response-writer backpressure without monopolizing the loop.
 
 ## Related documentation
+
+- [2.0 migration guide](migration-2.0.md)
 
 - [Getting started](getting-started.md)
 - [Architecture and runtime contracts](architecture.md)
 - [Deployment and operations](deployment.md)
 - [Benchmark methodology](benchmarks.md)
-- [Runwire 1.0 launch plan](plans/runwire-1.0-foundation-3-launch-plan.md)

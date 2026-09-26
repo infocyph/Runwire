@@ -93,6 +93,37 @@ it('rejects request-smuggling framing before application dispatch', function ():
         ->and($response)->toStartWith('HTTP/1.1 400 Bad Request');
 });
 
+it('continues parsing already-buffered input after exhausting the parser step budget', function (): void {
+    $response = runwireHttpExchange(
+        "GET /budget HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n",
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->target)->toBe('/budget');
+            $writer->end('ok');
+        },
+        new Http1Limits(maxParserStepsPerTick: 1),
+    );
+
+    expect($response)->toStartWith('HTTP/1.1 200 OK')
+        ->and($response)->toEndWith("\r\n\r\nok");
+});
+
+it('rejects empty Transfer-Encoding fields before application dispatch', function (string $transferEncoding): void {
+    $called = false;
+    $response = runwireHttpExchange(
+        "POST /bad HTTP/1.1\r\nHost: x\r\nContent-Length: 1\r\nTransfer-Encoding: {$transferEncoding}\r\nConnection: close\r\n\r\nx",
+        static function () use (&$called): void {
+            $called = true;
+        },
+    );
+
+    expect($called)->toBeFalse()
+        ->and($response)->toStartWith('HTTP/1.1 400 Bad Request');
+})->with([
+    'empty' => '',
+    'whitespace' => '   ',
+    'comma-only' => ' , ',
+]);
+
 it('preserves pipelined response order and enforces the keep-alive ceiling', function (): void {
     $count = 0;
     $response = runwireHttpExchange(
@@ -227,4 +258,52 @@ it('enforces declared response Content-Length', function (): void {
             $writer->end('abc');
         },
     ))->toThrow(LogicException::class);
+});
+
+
+it('expires a silent HTTP/1 connection from construction time', function (): void {
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    new Http1Connection(
+        $loop,
+        $connection,
+        new Http1Limits(headerTimeoutSeconds: 0.02),
+        static function (): void {
+            throw new RuntimeException('Silent connection must not dispatch.');
+        },
+    );
+
+    $loop->delay(0.08, static fn () => $loop->stop());
+    $loop->run();
+    stream_set_blocking($client, false);
+    $response = stream_get_contents($client);
+    fclose($client);
+
+    expect($response)->toStartWith('HTTP/1.1 408 Request Timeout');
+});
+
+it('re-arms the HTTP/1 header deadline while waiting for the next keep-alive request', function (): void {
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    new Http1Connection(
+        $loop,
+        $connection,
+        new Http1Limits(headerTimeoutSeconds: 0.03),
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->target)->toBe('/first');
+            $writer->end('ok');
+        },
+    );
+
+    fwrite($client, "GET /first HTTP/1.1\r\nHost: x\r\n\r\n");
+    $loop->delay(0.12, static fn () => $loop->stop());
+    $loop->run();
+    stream_set_blocking($client, false);
+    $response = stream_get_contents($client);
+    fclose($client);
+
+    expect($response)->toContain('HTTP/1.1 200 OK')
+        ->and($response)->toContain('HTTP/1.1 408 Request Timeout');
 });

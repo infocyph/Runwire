@@ -10,6 +10,7 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
+use LogicException;
 
 /**
  * Adapts host callbacks to the common HTTP response writer contract.
@@ -24,10 +25,14 @@ final class CallbackResponseWriter implements ResponseWriterInterface
     /** @var Closure(int, Headers): void */
     private readonly Closure $startCallback;
 
+    private readonly ResponseTerminalState $terminal;
+
     /** @var Closure(string): void */
     private readonly Closure $writeCallback;
 
     private int $bodyBytes = 0;
+
+    private ?int $contentLength = null;
 
     private bool $ended = false;
 
@@ -55,6 +60,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         $this->maxBodyBytes = $maxBodyBytes;
         $this->startCallback = Closure::fromCallable($startCallback);
         $this->writeCallback = Closure::fromCallable($writeCallback);
+        $this->terminal = new ResponseTerminalState();
     }
 
     /**
@@ -68,14 +74,13 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
         $result = $finalChunk === '' ? $this->ensureStarted() : $this->write($finalChunk);
         if (!$result->accepted()) {
-            $this->ended = true;
-            ($this->endCallback)();
-
             return $result;
         }
 
+        $this->assertCompleteLength();
         $this->ended = true;
         ($this->endCallback)();
+        $this->terminal->terminate($this);
 
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
@@ -109,6 +114,16 @@ final class CallbackResponseWriter implements ResponseWriterInterface
     }
 
     /**
+     * Register a callback invoked when response ownership becomes terminal.
+     */
+    public function onTerminal(callable $callback): self
+    {
+        $this->terminal->observe($this, $callback);
+
+        return $this;
+    }
+
+    /**
      * Start the response with status and headers.
      */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
@@ -121,9 +136,14 @@ final class CallbackResponseWriter implements ResponseWriterInterface
             return new WriteResult(WriteState::ACCEPTED, 0);
         }
 
+        $headers ??= new Headers();
+        $contentLength = ResponseSemantics::contentLength($headers);
+        ResponseSemantics::assertContentLength($status, $contentLength);
+
         $this->status = $status;
+        $this->contentLength = $contentLength;
         $this->started = true;
-        ($this->startCallback)($status, $headers ?? new Headers());
+        ($this->startCallback)($status, $headers);
 
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
@@ -143,6 +163,9 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         }
 
         $length = strlen($chunk);
+        if ($this->contentLength !== null && $this->bodyBytes + $length > $this->contentLength) {
+            throw new LogicException('HTTP response body exceeds declared Content-Length.');
+        }
         if ($length > $this->maxBodyBytes - $this->bodyBytes) {
             return new WriteResult(WriteState::REJECTED_LIMIT, 0);
         }
@@ -151,6 +174,15 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         $this->bodyBytes += $length;
 
         return new WriteResult(WriteState::ACCEPTED, 0);
+    }
+
+    private function assertCompleteLength(): void
+    {
+        if ($this->suppressesBody() || $this->contentLength === null || $this->bodyBytes === $this->contentLength) {
+            return;
+        }
+
+        throw new LogicException('HTTP response body is shorter than declared Content-Length.');
     }
 
     private function ensureStarted(): WriteResult

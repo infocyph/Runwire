@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Network;
 use Closure;
 use Infocyph\Runwire\Exception\ListenerException;
 use Infocyph\Runwire\Loop\LoopInterface;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\TlsHandshake;
 use LogicException;
 use Throwable;
@@ -21,6 +22,8 @@ final class TcpListener
     private bool $acceptPaused = false;
 
     private ?int $acceptWatcher = null;
+
+    private ?ByteBudget $bufferBudget = null;
 
     private bool $closed = false;
 
@@ -271,6 +274,18 @@ final class TcpListener
         $this->syncAcceptWatcher();
     }
 
+    /**
+     * Attach a shared worker buffer budget before the listener starts.
+     */
+    public function setBufferBudget(ByteBudget $budget): void
+    {
+        if ($this->loop !== null) {
+            throw new LogicException('Listener buffer budget must be configured before start.');
+        }
+
+        $this->bufferBudget = $budget;
+    }
+
     /** @param callable(Connection): void $onConnection */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
@@ -330,6 +345,7 @@ final class TcpListener
             $local,
             $protocol,
             $this->tls !== null,
+            $this->bufferBudget,
         );
         $id = spl_object_id($connection);
         $this->connections[$id] = $connection;

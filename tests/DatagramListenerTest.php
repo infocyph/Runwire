@@ -43,3 +43,30 @@ it('rejects outbound UDP payloads above the configured ceiling before send', fun
 
     expect($result->state)->toBe(DatagramWriteState::REJECTED_LIMIT);
 });
+
+
+it('allows a receive callback to close the listener without reusing the closed resource', function (): void {
+    $listener = DatagramListener::bind('127.0.0.1:0', new DatagramOptions(receiveBatchSize: 2));
+    $loop = new SelectLoop();
+    $received = 0;
+
+    $listener->start($loop, static function (Datagram $datagram, DatagramListener $listener) use (&$received, $loop): void {
+        expect($datagram->payload)->toBe('close');
+        ++$received;
+        $listener->close();
+        $loop->stop();
+    });
+
+    $client = stream_socket_client('udp://' . $listener->address(), $errno, $error, 1.0);
+    if (!is_resource($client)) {
+        throw new RuntimeException(sprintf('Unable to create UDP client: %s (%d).', $error, $errno));
+    }
+
+    fwrite($client, 'close');
+    $loop->delay(0.5, static fn () => $loop->stop());
+    $loop->run();
+    fclose($client);
+
+    expect($received)->toBe(1)
+        ->and($listener->isClosed())->toBeTrue();
+});

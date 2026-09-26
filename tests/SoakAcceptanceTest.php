@@ -9,7 +9,6 @@ use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType as Http3FrameType;
 use Infocyph\Runwire\Http\Http3\Frame as Http3Frame;
-use Infocyph\Runwire\Http\Http3\FrameWriter as Http3FrameWriter;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState as Http3ConnectionState;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder as QpackDecoder;
@@ -158,7 +157,7 @@ function runwireSoakHttp3State(int $requests): array
         ], $streamId)->block;
         $state->pushRequestStream(
             $streamId,
-            Http3FrameWriter::encode(new Http3Frame(Http3FrameType::HEADERS->value, $headers)),
+            new Http3Frame(Http3FrameType::HEADERS->value, $headers)->encode(),
         );
         $state->finishRequestStream($streamId);
         $state->releaseRequestStream($streamId);
