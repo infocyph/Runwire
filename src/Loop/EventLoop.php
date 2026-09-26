@@ -46,6 +46,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /** @var array<int, int> */
     private array $writeIndex = [];
 
+    /**
+     * Create an ext-event loop with the callback-overrun threshold.
+     */
     public function __construct(float $callbackOverrunSeconds = 0.05)
     {
         if (!self::supported()) {
@@ -60,6 +63,19 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         $this->callbackOverrunNanoseconds = MonotonicTime::secondsToNanoseconds($callbackOverrunSeconds);
     }
 
+    /**
+     * Determine whether the ext-event backend is available.
+     */
+    public static function supported(): bool
+    {
+        return extension_loaded('event')
+            && class_exists(self::BASE_CLASS, false)
+            && class_exists(self::EVENT_CLASS, false);
+    }
+
+    /**
+     * Cancel a watcher, timer, or deferred callback handle.
+     */
     public function cancel(int $id): bool
     {
         $event = $this->events[$id] ?? null;
@@ -74,16 +90,25 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         return true;
     }
 
+    /**
+     * Queue a callback for the next event-loop turn.
+     */
     public function defer(callable $callback): int
     {
         return $this->timer(0.0, $callback, false);
     }
 
+    /**
+     * Schedule a one-shot timer.
+     */
     public function delay(float $seconds, callable $callback): int
     {
         return $this->timer($seconds, $callback, false);
     }
 
+    /**
+     * Capture current event-loop diagnostics.
+     */
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         return new LoopDiagnosticsSnapshot(
@@ -99,21 +124,37 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         );
     }
 
+    /**
+     * Return monotonic time in seconds.
+     */
     public function now(): float
     {
         return MonotonicTime::nowNanoseconds() / MonotonicTime::NANOSECONDS_PER_SECOND;
     }
 
+    /**
+     * Register a readable stream watcher.
+     *
+     * @param resource $stream
+     */
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, self::eventConstant('READ'), $this->readIndex, 'readable');
     }
 
+    /**
+     * Register a writable stream watcher.
+     *
+     * @param resource $stream
+     */
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, self::eventConstant('WRITE'), $this->writeIndex, 'writable');
     }
 
+    /**
+     * Schedule a repeating timer.
+     */
     public function repeat(float $interval, callable $callback): int
     {
         if (!is_finite($interval) || $interval <= 0) {
@@ -123,6 +164,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         return $this->timer($interval, $callback, true);
     }
 
+    /**
+     * Run until stopped or no referenced event remains.
+     */
     public function run(): void
     {
         if ($this->running) {
@@ -138,26 +182,13 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         }
     }
 
+    /**
+     * Request that the running loop stop.
+     */
     public function stop(): void
     {
         call_user_func([$this->base, 'stop']);
         $this->running = false;
-    }
-
-    public static function supported(): bool
-    {
-        return extension_loaded('event')
-            && class_exists(self::BASE_CLASS, false)
-            && class_exists(self::EVENT_CLASS, false);
-    }
-
-    private function allocateId(): int
-    {
-        if ($this->nextId === PHP_INT_MAX) {
-            throw new OverflowException('Event loop handle space is exhausted.');
-        }
-
-        return $this->nextId++;
     }
 
     private static function eventConstant(string $name): int
@@ -168,6 +199,15 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         }
 
         return $value;
+    }
+
+    private function allocateId(): int
+    {
+        if ($this->nextId === PHP_INT_MAX) {
+            throw new OverflowException('Event loop handle space is exhausted.');
+        }
+
+        return $this->nextId++;
     }
 
     private function invoke(Closure $callback, mixed ...$arguments): void
