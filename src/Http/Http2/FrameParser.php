@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Http\Http2;
 
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 
 /**
@@ -21,10 +22,10 @@ final class FrameParser
     /**
      * Create a frame parser with an inbound frame-size limit.
      */
-    public function __construct(private int $maxFrameSize = 16_384)
+    public function __construct(private int $maxFrameSize = 16_384, ?ByteBudget $budget = null)
     {
         $this->validateMaxFrameSize($maxFrameSize);
-        $this->buffer = new ByteQueue();
+        $this->buffer = new ByteQueue($budget);
     }
 
     /**
