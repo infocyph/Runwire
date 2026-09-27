@@ -27,6 +27,8 @@ Use synthetic and real protocol workloads to locate transport, event-loop, frami
 | P10 | HTTP/3 | stream-accept and concurrent-request limits | Complete diagnostic — no clear active-traffic bottleneck from 16–100 concurrent streams; repeated validation needed |
 | P11 | HTTP/3 | payload-size sweep | Complete diagnostic — 2 B and 1 KiB are similar; 16 KiB shifts toward payload/crypto cost |
 | P12 | Synthesis | classify confirmed bottlenecks and draft production implementation plan | In progress — targeted validation required before implementation |
+| P13 | Peer crossmatch | Workerman / Coroutine / ReactPHP / Amp / Swoole / Swow source dissection | Complete — patterns recorded below |
+| P14 | Peer crossmatch | same-runner H1 tiny-response reproduction for Workerman / ReactPHP / Amp | Scheduled |
 
 ## Evidence rules
 
@@ -211,3 +213,42 @@ Production implementation remains blocked on V1–V4. V5–V7 can then be folded
 - H2 steady-state throughput uses a playground-only `maxStreamsPerConnection = 1_000_000` so the churn policy does not cap throughput measurements; the production 10,000-stream boundary remains a separate probe.
 - h2load duration accounting was corrected so a final started/in-flight response at the duration boundary does not become a false correctness failure.
 - The H2 steady-state env override initially missed a compacted shell line; the exact launch command is now asserted before commit.
+
+
+## PHP ecosystem crossmatch
+
+Source revisions inspected:
+
+| Project | Revision | Relevant finding |
+| --- | --- | --- |
+| walkor/workerman | `a64a81b53231d5133e3869898a46c2953f9db593` | disables Nagle on TCP sockets and emits buffered HTTP/1 headers+body as one encoded string |
+| workerman-php/coroutine | `918c10be5270a74f91ff77cc66b6a821cc456a25` | transport-neutral coroutine facade selecting Fiber/Swoole/Swow drivers; no TCP/HTTP write policy |
+| amphp/socket | `b347be5aff6b2cc025208bb4d896607eb470c018` | first-class `withTcpNoDelay()`; default is false |
+| amphp/byte-stream | `fd8db31affb68d1f389dde28b3c844499b7912dc` | scoped error handler around `fwrite()`; warnings become stream errors without `@` |
+| amphp/http-server | `8a971bf92cf8cf2bc511f37a75b39126d5305315` | documents Nagle hurting tiny-response benchmarks; H1 writes head then body; H2 has GOAWAY graceful shutdown and waits pending responses/writes |
+| reactphp/socket | `d5a375f8754da6aaf478a3bee5c7f5866ea893e1` | socket context is passed through; no forced TCP_NODELAY default |
+| reactphp/stream | `430a9dfbea8fc63f1ab06d20f5a600177c621b7d` | write buffering plus scoped `fwrite()` warning handling |
+| reactphp/http | `bb151a7cdf9e7b49caac9030add52c6427ebc6d2` | non-streaming HTTP/1 response path explicitly writes `headers + body` in one call |
+| swoole/swoole-src | `8fbc62cf6fac327d6a1b25c962625285d8917e55` | server-port configuration defaults `open_tcp_nodelay` to true when unspecified; native HTTP/2 support exists |
+| swow/swow | `70ec0abde96c79a0ada4857217e0e07eb128d033` | libcat explicitly enables TCP_NODELAY by default for TCP sockets |
+
+### Crossmatch conclusions
+
+1. **H1 coalescing is established practice.** Workerman and ReactPHP both serialize buffered/non-streaming headers and body into one write path. This independently supports Runwire V1.
+2. **High-performance runtimes commonly choose NODELAY.** Workerman explicitly disables Nagle; Swoole server ports default NODELAY on; Swow/libcat states TCP is nodelay by default. This supports exposing a first-class Runwire transport option, but Runwire H2 evidence still argues against blindly forcing the same policy for every protocol/write shape.
+3. **Amp explicitly recognizes the exact benchmark pathology.** Its HTTP Server README notes that Nagle can negatively affect benchmarks with very small responses and recommends `BindContext::withTcpNoDelay()` for that case, while noting it is generally unnecessary for production servers. This closely matches Runwire's observed default-vs-NODELAY behavior.
+4. **V7 has strong precedent.** Amp and React both wrap the actual `fwrite()` call in a scoped temporary error handler and convert warnings into stream-level failure semantics. Workerman uses `@fwrite`, which is not suitable for Runwire's PHPForge rules.
+5. **Graceful H2 GOAWAY is established behavior.** Amp's H2 shutdown writes GOAWAY, waits pending responses, then waits pending writes before closing. This is useful precedent for Runwire V6's proposed pre-limit graceful rotation.
+6. **Workerman Coroutine does not change transport conclusions.** Its role is driver selection/coroutine primitives, not packetization or protocol framing.
+7. **No mature native H3 precedent surfaced** in the inspected Workerman, Coroutine, ReactPHP HTTP, Amp HTTP Server, Swoole, or Swow repositories. Runwire H3 decisions should remain evidence-driven from its own QUIC implementation rather than copied from an unrelated stack.
+
+### Peer reproduction benchmark
+
+A same-runner diagnostic is scheduled for:
+
+- Runwire default and server-NODELAY
+- Workerman default
+- ReactPHP default and socket-context NODELAY
+- Amp default and `BindContext::withTcpNoDelay()`
+
+All cases use PHP 8.5, portable PHP loop paths, concurrency 16, a two-byte keep-alive response, and the same Runwire load client. The purpose is **root-cause crossmatch, not framework ranking**. Absolute RPS differences are secondary; the key signal is whether the ~41 ms p95 floor appears or disappears.

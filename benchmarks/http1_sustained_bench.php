@@ -656,7 +656,7 @@ function http1SustainedMain(array $argv): array
         : 0.0;
 
     $result = [
-        'runtime' => 'runwire-native',
+        'runtime' => getenv('RUNWIRE_BENCH_RUNTIME') ?: 'runwire-native',
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
         'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'protocol' => 'http/1.1',

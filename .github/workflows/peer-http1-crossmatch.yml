@@ -1,0 +1,114 @@
+name: "PHP Peer HTTP/1 Crossmatch"
+
+on:
+  push:
+    branches: [ "benchmarks/1.0-vs-2.0" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runwire-peer-http1-crossmatch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  peer-http1:
+    name: "Same-runner tiny-response crossmatch"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Runwire playground
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+          path: control
+
+      - name: Checkout Workerman
+        uses: actions/checkout@v7
+        with:
+          repository: walkor/workerman
+          ref: a64a81b53231d5133e3869898a46c2953f9db593
+          path: peers/workerman
+
+      - name: Checkout ReactPHP HTTP
+        uses: actions/checkout@v7
+        with:
+          repository: reactphp/http
+          ref: bb151a7cdf9e7b49caac9030add52c6427ebc6d2
+          path: peers/react-http
+
+      - name: Checkout Amp HTTP Server
+        uses: actions/checkout@v7
+        with:
+          repository: amphp/http-server
+          ref: 8a971bf92cf8cf2bc511f37a75b39126d5305315
+          path: peers/amp-http
+
+      - name: Setup matched portable PHP runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, sockets, opcache
+          coverage: none
+
+      - name: Install peer production dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --working-dir=peers/workerman --no-dev --no-interaction --prefer-dist --no-progress
+          composer install --working-dir=peers/react-http --no-dev --no-interaction --prefer-dist --no-progress
+          composer install --working-dir=peers/amp-http --no-dev --no-interaction --prefer-dist --no-progress
+
+      - name: Record resolved peer dependencies
+        shell: bash
+        run: |
+          mkdir -p peer-evidence
+          composer show --working-dir=peers/workerman --format=json > peer-evidence/workerman-composer.json
+          composer show --working-dir=peers/react-http --format=json > peer-evidence/react-composer.json
+          composer show --working-dir=peers/amp-http --format=json > peer-evidence/amp-composer.json
+          {
+            echo "runwire=$(git -C control rev-parse HEAD)"
+            echo "workerman=$(git -C peers/workerman rev-parse HEAD)"
+            echo "react-http=$(git -C peers/react-http rev-parse HEAD)"
+            echo "amp-http=$(git -C peers/amp-http rev-parse HEAD)"
+            php -v | head -n 1
+            php -m | sort
+          } > peer-evidence/environment.txt
+
+      - name: Run same-runner tiny-response crossmatch
+        shell: bash
+        run: |
+          bash control/benchmarks/peer_http1_crossmatch.sh             control peers/workerman peers/react-http peers/amp-http peer-evidence/results
+
+      - name: Publish crossmatch summary
+        if: always()
+        shell: bash
+        run: |
+          file=peer-evidence/results/crossmatch-summary.json
+          if [ ! -f "$file" ]; then
+            exit 0
+          fi
+          {
+            echo "## PHP peer HTTP/1 tiny-response crossmatch"
+            echo
+            echo "| Path | Median RPS | p95 | p99 | CV |"
+            echo "| --- | ---: | ---: | ---: | ---: |"
+            for spec in               "Runwire-default runwire_default"               "Runwire-NODELAY runwire_nodelay"               "Workerman-default workerman_default"               "React-default react_default"               "React-NODELAY react_nodelay"               "Amp-default amp_default"               "Amp-NODELAY amp_nodelay"
+            do
+              set -- $spec
+              label="$1"
+              key="$2"
+              printf '| %s | %s | %s ms | %s ms | %s%% |\n'                 "$label"                 "$(jq -r ".$key.median_successful_rps" "$file")"                 "$(jq -r ".$key.median_p95_ms" "$file")"                 "$(jq -r ".$key.median_p99_ms" "$file")"                 "$(jq -r ".$key.rps_cv_percent" "$file")"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload peer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-peer-http1-crossmatch
+          path: peer-evidence/
+          retention-days: 30
