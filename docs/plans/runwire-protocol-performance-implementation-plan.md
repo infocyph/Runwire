@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation active on `feat/http-improvement`; H1 I1 is implemented and under QA, H2 I2 follows after H1 QA, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
+Status: **production implementation active on `feat/http-improvement`; H1 I1 is complete and fully QA-certified, H2 I2 is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -52,10 +52,10 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 
 | ID | Finding | Current evidence | Runwire decision | Library area | Gate | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| D01 | H1 split small writes create ~41 ms floor | High; playground evidence confirms large tiny-response gain | Implement semantic-safe coalescing only for implicit bounded `end($body)`; explicit `start/write/end` remains streaming | `Http1ResponseWriter` | I1 | **QA** |
-| D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win plus peer-runtime precedent | Default NODELAY ON for H1 after protocol selection when live socket tuning is available; explicit listener override wins; H2 remains neutral | `NativeHttpConnection`, `Connection`, `TcpListener` | I1 | **QA** |
-| D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Keep the same H1 response path for plaintext/TLS and use H1 NODELAY policy rather than a TLS-specific response API | H1 transport path | I1 | **QA** |
-| D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixes tiny cases but regresses 1 KiB / 100 streams | Reject unconditional coalescing; validate a bounded tiny-response fast path, otherwise Drop | `ResponseScheduler` | V2 | Validate |
+| D01 | H1 split small writes create ~41 ms floor | High; playground evidence confirms large tiny-response gain | Implicit bounded `end($body)` coalesces head + body; explicit `start/write/end` remains streaming | `Http1ResponseWriter` | complete | **Implement** |
+| D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win plus peer-runtime precedent | H1 defaults NODELAY ON after protocol selection when live socket tuning is available; explicit listener override wins; H2 remains neutral | `NativeHttpConnection`, `Connection`, `TcpListener`, `TcpSocketTuner` | complete | **Implement** |
+| D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Same H1 response path for plaintext/TLS; H1 NODELAY policy handles the transport case without a TLS-specific response API | H1 transport path | complete | **Implement** |
+| D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixes tiny cases but regresses 1 KiB / 100 streams | Implement a narrow implicit one-shot fast path bounded by combined pre-encode response size; larger/streaming responses keep the existing scheduler | `Http2ResponseWriter`, `ResponseScheduler` | I2 | **Active** |
 | D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
 | D06 | H2 one connection saturates one worker | Medium-high | Focus scaling on workers before extra client connection tuning | runtime/worker docs and benchmarks | V5 | Validate |
 | D07 | H2 10k stream churn limit ends abruptly | High | Preserve hard bound, investigate graceful pre-limit GOAWAY/drain | H2 connection lifecycle / limits | V6 | Validate |
@@ -495,7 +495,7 @@ These batches become active only when their gates pass.
 
 ### I1 — H1 bounded-response fast path
 
-**Status: implementation complete; QA running.**
+**Status: complete.** Full repository QA passed, including PHPForge analysis/QA on PHP 8.4 and 8.5, protocol-core benchmarks, portable native, Swoole/OpenSwoole, source audit, and HTTP/3/QUIC compatibility at workflow run `36310162888`.
 
 - implicit bounded `end($body)` coalesces head + body without delaying explicit `start()`;
 - H1 defaults NODELAY on after protocol selection where ext-sockets permits live accepted-socket tuning;
@@ -506,12 +506,13 @@ These batches become active only when their gates pass.
 
 ### I2 — H2 initial-response batching
 
-- implement narrow scheduler fast path;
-- protocol/frame/flow-control tests;
-- fairness/backpressure tests;
-- H2 benchmark regression;
-- PHPForge QA;
-- commit.
+**Status: active.**
+
+- add an implicit one-shot response callback; explicit `start()/write()` remains on the existing scheduler path;
+- coalesce only when a conservative pre-encode bound keeps HEADERS + final DATA below 1 KiB of combined wire intent;
+- the measured 1 KiB body case therefore falls back to the existing scheduler instead of entering the fast path;
+- preserve HPACK state, CONTINUATION fallback, flow control, frame-size limits, pressure accounting, control-frame priority, and stream fairness;
+- add focused fast-path/fallback tests and run full PHPForge QA.
 
 ### I3 — transport warning normalization
 
