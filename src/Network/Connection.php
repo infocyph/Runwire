@@ -14,6 +14,7 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
+use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -125,26 +126,12 @@ final class Connection
      */
     public function applyTcpNoDelayDefault(bool $enabled): void
     {
-        if (!$this->tcpTransport
-            || $this->tcpNoDelayOverride !== null
-            || !is_resource($this->stream)
-            || !function_exists('socket_import_stream')
-            || !function_exists('socket_set_option')
-            || !defined('SOL_TCP')
-            || !defined('TCP_NODELAY')) {
-            return;
-        }
-
-        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
-
-        try {
-            $socket = socket_import_stream($this->stream);
-            if ($socket !== false) {
-                socket_set_option($socket, SOL_TCP, TCP_NODELAY, $enabled ? 1 : 0);
-            }
-        } finally {
-            restore_error_handler();
-        }
+        TcpSocketTuner::applyNoDelayDefault(
+            $this->stream,
+            $this->tcpTransport,
+            $this->tcpNoDelayOverride,
+            $enabled,
+        );
     }
 
     /**
