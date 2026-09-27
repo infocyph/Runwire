@@ -124,7 +124,7 @@ Keep loopback results labeled as loopback results. They are useful for regressio
 
 The benchmark workflow runs five repeated native HTTP/1.1 keep-alive trials against the real Runwire native server on PHP 8.4 and 8.5. Pull requests use short CI-smoke durations to validate correctness and evidence plumbing. They are not stable production baselines and do not enforce small timing deltas on shared runners.
 
-The same workflow exposes a manual release-certification mode. It uses the phase-4 starting settings of a 30-second warmup, five 180-second measured trials, then a 30-minute sustained soak. The resulting artifacts record:
+The same workflow exposes release-certification mode through `workflow_dispatch`, the historical `feature/next-edition` lane, or an explicit `release-certification` pull-request label. It uses the phase-4 starting settings of a 30-second warmup, five 180-second measured trials, then a 30-minute sustained soak. The label is an opt-in gate for release-critical PRs; ordinary PRs keep the lighter regression lanes. The resulting artifacts record:
 
 - total, completed and successful requests;
 - errors, timeouts and response-validation failures;
