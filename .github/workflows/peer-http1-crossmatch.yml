@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          composer install --working-dir=control --no-dev --no-interaction --prefer-dist --no-progress
+          composer install --working-dir=control --no-dev --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
           composer install --working-dir=peers/workerman --no-dev --no-interaction --prefer-dist --no-progress
           composer install --working-dir=peers/react-http --no-dev --no-interaction --prefer-dist --no-progress
           composer install --working-dir=peers/amp-http --no-dev --no-interaction --prefer-dist --no-progress
