@@ -417,3 +417,45 @@ jobs:
           name: runwire-benchmarks-php-${{ matrix.php-version }}
           path: benchmark-results/
           retention-days: 61
+
+  adaptive-http12:
+    name: "Adaptive H1/H2 sustained - PHP 8.5"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2 # v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install Runwire dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Install H2 benchmark client
+        shell: bash
+        run: |
+          python3 -m venv /tmp/runwire-h2
+          /tmp/runwire-h2/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0'
+
+      - name: Run sustained AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
+        shell: bash
+        run: |
+          bash benchmarks/adaptive_http12_certify.sh 3 benchmark-results/adaptive-http12
+
+      - name: Upload adaptive H1/H2 evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-adaptive-http12
+          path: benchmark-results/adaptive-http12/
+          retention-days: 61
+
