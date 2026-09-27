@@ -24,6 +24,8 @@ use LogicException;
  */
 final class ResponseScheduler
 {
+    private const int INITIAL_RESPONSE_WIRE_BYTES = 1_024;
+
     private const int OUTBOUND_FRAME_SIZE = 16_384;
 
     private const int WIRE_CHUNK_BYTES = self::OUTBOUND_FRAME_SIZE + 9;
@@ -179,6 +181,7 @@ final class ResponseScheduler
                 $stream->drainCallback = $callback;
             },
             $onEnd,
+            fn(array $headers, string $data): ?WriteResult => $this->sendInitialResponse($stream, $headers, $data),
         );
     }
 
@@ -301,10 +304,7 @@ final class ResponseScheduler
      */
     private function headerFrames(Http2Stream $stream, array $headers): ?array
     {
-        $bytes = 0;
-        foreach ($headers as [$name, $value]) {
-            $bytes += 32 + strlen($name) + strlen($value);
-        }
+        $bytes = $this->headerListBytes($headers);
         $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
         if ($bytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
             return null;
@@ -325,6 +325,17 @@ final class ResponseScheduler
         }
 
         return $frames;
+    }
+
+    /** @param list<array{0: string, 1: string}> $headers */
+    private function headerListBytes(array $headers): int
+    {
+        $bytes = 0;
+        foreach ($headers as [$name, $value]) {
+            $bytes += 32 + strlen($name) + strlen($value);
+        }
+
+        return $bytes;
     }
 
     private function nextStream(): ?Http2Stream
@@ -445,6 +456,81 @@ final class ResponseScheduler
         return new WriteResult(
             $pressured ? WriteState::PRESSURED : WriteState::ACCEPTED,
             $stream->outbound->bytes(),
+        );
+    }
+
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     */
+    private function sendInitialResponse(Http2Stream $stream, array $headers, string $data): ?WriteResult
+    {
+        if (!$stream->localOpen()) {
+            return $this->closedResult();
+        }
+        if ($this->blocked()) {
+            return null;
+        }
+
+        $headerBytes = $this->headerListBytes($headers);
+        $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
+        if ($headerBytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
+            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
+        }
+
+        $dataBytes = strlen($data);
+        $wireIntentBytes = $headerBytes + $dataBytes + ($dataBytes === 0 ? 9 : 18);
+        if ($headerBytes > $this->limits->maxHeaderBlockBytes
+            || $wireIntentBytes > self::INITIAL_RESPONSE_WIRE_BYTES
+            || ($dataBytes > 0 && !$this->fitsResponseLimits($stream, $dataBytes))) {
+            return null;
+        }
+
+        if ($dataBytes > 0) {
+            $available = min(
+                $this->flow->availableSend($stream),
+                $this->peerSettings->maxFrameSize,
+                self::OUTBOUND_FRAME_SIZE,
+            );
+            if ($dataBytes > $available) {
+                return null;
+            }
+        }
+
+        $block = $this->encoder->encode($headers);
+        $header = new Frame(
+            FrameType::HEADERS->value,
+            $dataBytes === 0 ? 0x5 : 0x4,
+            $stream->id,
+            $block,
+        );
+        $wire = FrameWriter::encode($header);
+        if ($dataBytes > 0) {
+            $wire .= FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, $stream->id, $data));
+        }
+
+        if (strlen($wire) > $this->connection->availableWriteBytes()) {
+            return $this->queueWire($wire);
+        }
+
+        $result = $this->connection->write($wire);
+        if (!$result->accepted()) {
+            return $result;
+        }
+
+        if ($dataBytes > 0) {
+            $this->flow->consumeSend($stream, $dataBytes);
+        }
+        if ($result->pressured()) {
+            $this->transportPressured = true;
+        }
+
+        $stream->localEnd();
+        ($this->cleanupClosed)($stream);
+        ($this->activityCallback)($stream);
+
+        return new WriteResult(
+            $result->pressured() ? WriteState::PRESSURED : WriteState::ACCEPTED,
+            0,
         );
     }
 
