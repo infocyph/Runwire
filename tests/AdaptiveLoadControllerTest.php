@@ -87,3 +87,22 @@ it('resets adaptive state and smoothed score deterministically', function (): vo
     expect($controller->state())->toBe(AdaptiveLoadState::BALANCED)
         ->and($controller->smoothedScore())->toBe(0);
 });
+
+
+it('keeps the largest safe EWMA ratio in integer range', function (): void {
+    $maximum = intdiv(PHP_INT_MAX, AdaptiveLoadSample::MAX_BASIS_POINTS);
+    $controller = new AdaptiveLoadController(
+        transitionSamples: 1,
+        ewmaNumerator: $maximum,
+        ewmaDenominator: $maximum,
+    );
+
+    $controller->observe(new AdaptiveLoadSample(false, 0, 0));
+    $controller->observe(new AdaptiveLoadSample(false, 10_000, 10_000));
+
+    expect($controller->smoothedScore())->toBe(10_000)
+        ->and(fn() => new AdaptiveLoadController(
+            ewmaNumerator: PHP_INT_MAX,
+            ewmaDenominator: PHP_INT_MAX,
+        ))->toThrow(InvalidArgumentException::class);
+});
