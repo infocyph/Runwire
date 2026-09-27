@@ -32,6 +32,9 @@ final class Http2ResponseWriter implements ResponseWriterInterface
     /** @var Closure(int, list<array{0: string, 1: string}>): WriteResult */
     private readonly Closure $sendHeaders;
 
+    /** @var Closure(list<array{0: string, 1: string}>, string): ?WriteResult|null */
+    private readonly ?Closure $sendOneShot;
+
     private readonly ResponseTerminalState $terminal;
 
     private int $bodyBytes = 0;
@@ -49,6 +52,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
      * @param callable(string, bool): WriteResult $sendData
      * @param callable(Closure(): void): void $registerDrain
      * @param callable(): void $onEnd
+     * @param (callable(list<array{0: string, 1: string}>, string): ?WriteResult)|null $sendOneShot
      */
     public function __construct(
         private readonly string $requestMethod,
@@ -56,11 +60,13 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         callable $sendData,
         callable $registerDrain,
         callable $onEnd,
+        ?callable $sendOneShot = null,
     ) {
         $this->sendHeaders = Closure::fromCallable($sendHeaders);
         $this->sendData = Closure::fromCallable($sendData);
         $this->registerDrain = Closure::fromCallable($registerDrain);
         $this->onEnd = Closure::fromCallable($onEnd);
+        $this->sendOneShot = $sendOneShot === null ? null : Closure::fromCallable($sendOneShot);
         $this->terminal = new ResponseTerminalState();
     }
 
@@ -73,6 +79,11 @@ final class Http2ResponseWriter implements ResponseWriterInterface
             return $this->closedResult();
         }
         if (!$this->started) {
+            $oneShot = $this->endOneShot($finalChunk);
+            if ($oneShot !== null) {
+                return $oneShot;
+            }
+
             $start = $this->start(200, new Headers([
                 new HeaderField('content-length', (string) strlen($finalChunk)),
             ]));
@@ -222,6 +233,31 @@ final class Http2ResponseWriter implements ResponseWriterInterface
     private function closedResult(): WriteResult
     {
         return new WriteResult(WriteState::CLOSED, 0);
+    }
+
+    private function endOneShot(string $finalChunk): ?WriteResult
+    {
+        if ($this->sendOneShot === null) {
+            return null;
+        }
+
+        $contentLength = strlen($finalChunk);
+        $bodySuppressed = ResponseSemantics::suppressesBody($this->requestMethod === 'HEAD', 200);
+        $headers = [
+            [':status', '200'],
+            ['content-length', (string) $contentLength],
+        ];
+        $result = ($this->sendOneShot)($headers, $bodySuppressed ? '' : $finalChunk);
+        if ($result === null || !$result->accepted()) {
+            return $result;
+        }
+
+        $this->started = true;
+        $this->bodySuppressed = $bodySuppressed;
+        $this->contentLength = $contentLength;
+        $this->bodyBytes = $contentLength;
+
+        return $this->finish($result);
     }
 
     private function finish(WriteResult $result): WriteResult
