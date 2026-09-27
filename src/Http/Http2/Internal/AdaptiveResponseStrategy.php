@@ -72,9 +72,14 @@ final readonly class AdaptiveResponseStrategy
             return $this->latencyWireBytes;
         }
 
-        $state = $this->policy->mode === AdaptivePolicyMode::AUTO
-            ? $this->controller->observe($sample)
-            : $this->state();
+        if ($this->policy->mode === AdaptivePolicyMode::AUTO) {
+            $state = $this->controller->observe($sample);
+            if (!$sample->pressured && $sample->score() <= $this->policy->lowWatermarkBasisPoints) {
+                return $this->latencyWireBytes;
+            }
+        } else {
+            $state = $this->state();
+        }
 
         return match ($state) {
             AdaptiveLoadState::BALANCED => $this->balancedWireBytes,
