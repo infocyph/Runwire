@@ -157,3 +157,57 @@ it('does not expose unexpected callback exception text in HTTP/2 GOAWAY debug da
 
     expect($debug)->not->toContain($secret);
 });
+
+
+it('ends an empty implicit response on HEADERS without an empty DATA frame', function (): void {
+    [$wire] = runwireH2Exchange(
+        runwireH2ClientPrelude() . runwireH2Headers(1, '/empty'),
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->target)->toBe('/empty');
+            $writer->end();
+        },
+    );
+
+    $responseHeaders = [];
+    $dataFrames = [];
+    foreach (runwireH2Frames($wire) as $frame) {
+        if ($frame->streamId !== 1) {
+            continue;
+        }
+        if ($frame->knownType() === FrameType::HEADERS) {
+            $responseHeaders[] = $frame;
+        }
+        if ($frame->knownType() === FrameType::DATA) {
+            $dataFrames[] = $frame;
+        }
+    }
+
+    expect($responseHeaders)->toHaveCount(1)
+        ->and($responseHeaders[0]->hasFlag(0x4))->toBeTrue()
+        ->and($responseHeaders[0]->hasFlag(0x1))->toBeTrue()
+        ->and($dataFrames)->toBe([]);
+});
+
+it('keeps the 1 KiB response path correct outside the tiny one-shot budget', function (): void {
+    $body = str_repeat('x', 1_024);
+    [$wire] = runwireH2Exchange(
+        runwireH2ClientPrelude() . runwireH2Headers(1, '/one-kib'),
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($body): void {
+            expect($request->target)->toBe('/one-kib');
+            $writer->end($body);
+        },
+    );
+
+    $decoded = '';
+    $ended = false;
+    foreach (runwireH2Frames($wire) as $frame) {
+        if ($frame->streamId !== 1 || $frame->knownType() !== FrameType::DATA) {
+            continue;
+        }
+        $decoded .= $frame->payload;
+        $ended = $ended || $frame->hasFlag(0x1);
+    }
+
+    expect($decoded)->toBe($body)
+        ->and($ended)->toBeTrue();
+});
