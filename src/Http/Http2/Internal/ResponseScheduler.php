@@ -95,7 +95,7 @@ final class ResponseScheduler
         /** @var Closure(Http2Stream): void $activityClosure */
         $activityClosure = Closure::fromCallable($activityCallback);
         $this->activityCallback = $activityClosure;
-        $this->adaptiveResponse = new AdaptiveResponseStrategy();
+        $this->adaptiveResponse = new AdaptiveResponseStrategy(policy: $limits->adaptive);
         $this->wireQueue = new ByteQueue($connection->bufferBudget());
         $connection->onDrain(fn() => $this->handleTransportDrain());
     }
