@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Quic;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
@@ -67,13 +68,18 @@ final class PhpQuicHttp3Connection
         ?string $peerAddress = null,
         ?string $localAddress = null,
         ?ByteBudget $bufferBudget = null,
+        AdaptiveProtocolPolicy $inboundAdaptive = new AdaptiveProtocolPolicy(),
+        AdaptiveProtocolPolicy $outboundAdaptive = new AdaptiveProtocolPolicy(
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_000,
+        ),
     ) {
         $this->connection->setNonBlocking();
         if ($this->connection->negotiatedAlpn() !== 'h3') {
             throw new Http3Exception(ErrorCode::GENERAL_PROTOCOL_ERROR, 'QUIC connection did not negotiate the h3 ALPN protocol.');
         }
 
-        $this->adaptivePump = new AdaptivePumpStrategy();
+        $this->adaptivePump = new AdaptivePumpStrategy(policy: $inboundAdaptive);
         $this->state = new ConnectionState($limits, $bufferBudget);
         $this->controlStream = $this->openCriticalStream('control');
         $qpackEncoderStream = $this->openCriticalStream('QPACK encoder');
@@ -81,7 +87,13 @@ final class PhpQuicHttp3Connection
         $this->controlPending = $this->state->localControlPreamble();
         $this->qpackDecoderPending = $this->state->localQpackDecoderPreamble();
         $this->transport = new PhpQuicTransport($qpackEncoderStream, $this->state->localQpackEncoderPreamble());
-        $this->scheduler = new ResponseScheduler($this->state, $limits, $this->transport, $bufferBudget);
+        $this->scheduler = new ResponseScheduler(
+            $this->state,
+            $limits,
+            $this->transport,
+            $bufferBudget,
+            $outboundAdaptive,
+        );
         $this->session = new Http3Session(
             $this->state,
             $handler,
