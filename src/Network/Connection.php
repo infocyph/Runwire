@@ -136,6 +136,7 @@ final class Connection
         }
 
         set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+
         try {
             $socket = socket_import_stream($this->stream);
             if ($socket !== false) {
