@@ -54,3 +54,5 @@ For the two-byte HTTP/1.1 response at concurrency 16, default server TCP behavio
 
 - Corrected run `36291727823`: Raw TCP, HTTP/1 SelectLoop, HTTP/1 EventLoop/TLS/scaling, and HTTP/3 passed. HTTP/2 reached exactly 10,000 successful responses on one connection at 100-way multiplexing, then hit the production default `Http2Limits::maxStreamsPerConnection = 10_000` and closed with the configured churn protection. This is a real lifecycle-policy boundary, not an unexplained protocol failure.
 - H2 steady-state throughput now uses a playground-only `maxStreamsPerConnection = 1_000_000` so stream-churn policy does not cap the throughput measurement. A separate fixed 10,100-request probe preserves evidence that the production 10,000-stream boundary fires as configured.
+
+- H2 parser correction: h2load duration mode can report a 2xx status for a final in-flight stream that is started but not yet counted as done/succeeded when the duration ends. Correctness therefore requires completed == succeeded, zero failed/errored/timeout/non-2xx, and 2xx count between succeeded and started rather than strict equality with succeeded.

@@ -78,7 +78,8 @@ $result = [
         && (int) $requests[6] === 0
         && (int) $requests[7] === 0
         && (int) $requests[3] === (int) $requests[4]
-        && (int) $statuses[1] === (int) $requests[4]
+        && (int) $statuses[1] >= (int) $requests[4]
+        && (int) $statuses[1] <= (int) $requests[2]
         && (int) $statuses[2] === 0
         && (int) $statuses[3] === 0
         && (int) $statuses[4] === 0,
