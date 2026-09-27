@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
+use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
@@ -21,7 +23,13 @@ use LogicException;
  */
 final class ResponseScheduler
 {
+    private const int ADAPTIVE_ACTIVE_STREAM_BASELINE = 32;
+
+    private const int ADAPTIVE_QUEUE_BASELINE_BYTES = 262_144;
+
     private const int TRANSPORT_CHUNK_BYTES = 16_384;
+
+    private readonly AdaptiveResponseStrategy $adaptiveResponse;
 
     private readonly Encoder $fallbackEncoder;
 
@@ -46,8 +54,17 @@ final class ResponseScheduler
         private readonly Http3TransportInterface $transport,
         private readonly ?ByteBudget $bufferBudget = null,
     ) {
+        $this->adaptiveResponse = new AdaptiveResponseStrategy();
         $this->fallbackEncoder = new Encoder(0, 0, $limits->maxFieldSectionBytes, 0);
         $this->qpackEncoderQueue = new ByteQueue($bufferBudget);
+    }
+
+    /**
+     * Return the current HTTP/3 outbound adaptive state.
+     */
+    public function adaptiveState(): AdaptiveLoadState
+    {
+        return $this->adaptiveResponse->state();
     }
 
     /**
@@ -75,14 +92,15 @@ final class ResponseScheduler
      */
     public function flush(): void
     {
+        $writeLimit = $this->adaptiveWriteLimit();
         $writes = 0;
         $stalled = 0;
-        while ($writes < $this->limits->maxWritesPerFlush) {
+        while ($writes < $writeLimit) {
             $qpackProgress = $this->flushQpack();
             if ($qpackProgress) {
                 ++$writes;
             }
-            if ($writes >= $this->limits->maxWritesPerFlush) {
+            if ($writes >= $writeLimit) {
                 break;
             }
 
@@ -113,6 +131,14 @@ final class ResponseScheduler
         }
 
         $this->relieveStreams();
+    }
+
+    /**
+     * Return the aggregate encoded response and QPACK bytes still pending.
+     */
+    public function pendingBytes(): int
+    {
+        return $this->connectionBufferedBytes();
     }
 
     /**
@@ -151,6 +177,27 @@ final class ResponseScheduler
             },
             $onEnd,
         );
+    }
+
+    private function adaptiveWriteLimit(): int
+    {
+        $queueCapacity = max(1, min(
+            self::ADAPTIVE_QUEUE_BASELINE_BYTES,
+            $this->limits->maxPendingResponseBytesPerConnection,
+        ));
+        $activeCapacity = max(1, min(
+            self::ADAPTIVE_ACTIVE_STREAM_BASELINE,
+            $this->limits->maxConcurrentRequestStreams,
+        ));
+        $sample = AdaptiveLoadSample::fromCounters(
+            pressured: $this->qpackTransportPressured,
+            queuedBytes: $this->connectionBufferedBytes(),
+            queueCapacityBytes: $queueCapacity,
+            activeWork: count($this->flushQueue),
+            activeCapacity: $activeCapacity,
+        );
+
+        return $this->adaptiveResponse->writeLimit($sample, $this->limits->maxWritesPerFlush);
     }
 
     private function appendDataFrames(ResponseStream $stream, string $data): void

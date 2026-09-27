@@ -9,6 +9,7 @@ use Infocyph\Runwire\Exception\ListenerException;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
+use Infocyph\Runwire\Http\Http3\Internal\AdaptivePollStrategy;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
@@ -140,7 +141,12 @@ final class PhpQuicHttp3Worker
             $listener,
             array_values($this->connections),
             $canAccept,
-            $timeoutSeconds,
+            AdaptivePollStrategy::timeout(
+                $timeoutSeconds,
+                $this->accepting,
+                count($this->connections),
+                count($this->pendingConnections),
+            ),
             array_map(
                 static fn(array $pending): PhpQuicConnection => $pending['connection'],
                 array_values($this->pendingConnections),

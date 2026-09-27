@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01/J02 are QA-certified and J04 HTTP/2 adaptation is active**
+Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01/J02/J04 are QA-certified and J05/J06 HTTP/3 adaptation is active**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -537,9 +537,9 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | J01 | Common load model | Which runtime signals predict the crossover between latency-biased and throughput-biased behavior? | Normalized pressure/backlog/activity sample with backlog weighted above active counts | **Complete** |
 | J02 | Adaptive state machine | Can LOW / NORMAL / HIGH load states switch safely without oscillation? | Shared EWMA + low/high hysteresis + sustained-sample dwell controller | **Complete** |
 | J03 | HTTP/1.1 | Can H1 improve saturated throughput without giving back normal-load latency? | Keep current one-shot response path; investigate worker/new-connection policy only, not per-request NODELAY toggling | **Planned** |
-| J04 | HTTP/2 | Can the tiny-response fast path incorporate multiplex/pressure state and outperform the current <1 KiB static gate? | Adaptive 1024/512/256-byte one-shot budget from active streams, queued bytes and transport pressure; 1 KiB remains the hard ceiling | **Active** |
-| J05 | HTTP/3 pump budgets | Can writes/reads/accept budgets adapt to backlog direction and active-stream pressure? | Highest-value candidate; tune scheduling effort, not resource ceilings | **Planned** |
-| J06 | HTTP/3 polling | Should poll timeout vary with idle/busy state? | Investigate separately; poll timeout is not the active-traffic latency floor | **Planned** |
+| J04 | HTTP/2 | Can the tiny-response fast path incorporate multiplex/pressure state and outperform the current <1 KiB static gate? | Adaptive 1024/512/256-byte one-shot budget from active streams, queued bytes and transport pressure; 1 KiB remains the hard ceiling | **Complete** |
+| J05 | HTTP/3 pump budgets | Can writes/reads/accept budgets adapt to backlog direction and active-stream pressure? | Independent outbound write adaptation plus inbound ready/active stream read/accept adaptation, always capped by `Http3Limits` | **Active** |
+| J06 | HTTP/3 polling | Should poll timeout vary with idle/busy state? | Preserve readiness-driven active timeout; lengthen idle-listener wait and shorten pending-handshake wait | **Active** |
 | J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Design only after crossover evidence proves stable semantics | **Planned** |
 | J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Mandatory transition/soak tests; no threshold flapping | **Planned** |
 | J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Required; adaptive policy may choose work budgets/paths only | **Planned** |
@@ -634,6 +634,8 @@ Potential H1 load inputs:
 A configurable H1 crossover must not override an explicit user `tcp_nodelay` socket-context setting.
 
 ### J04 — HTTP/2 adaptive response scheduling
+
+**Status: complete.** QA-certified after the adaptive selector was integrated without changing the 1 KiB hard ceiling. The live scheduler uses active streams, queued response bytes and transport pressure to select 1024 / 512 / 256-byte one-shot budgets; larger responses retain the normal scheduler.
 
 HTTP/2 is the strongest immediate adaptive-response candidate because the current evidence already shows a crossover:
 

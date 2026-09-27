@@ -519,3 +519,34 @@ it('serves an interoperable HTTP/3 request through the full native runtime', fun
         ->and(pcntl_wifexited($status))->toBeTrue()
         ->and(pcntl_wexitstatus($status))->toBe(0);
 });
+
+
+it('uses adaptive HTTP3 poll timeouts for idle and handshaking workers', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $connectionRaw = workerQuicConnection([null, null]);
+    $listenerRaw = workerQuicListener([$connectionRaw]);
+    $timeouts = [];
+    $poller = new PhpQuicHttp3Poller(
+        $events,
+        static function (array $items, ?float $timeout) use (&$timeouts, $listenerRaw, $events): array {
+            $timeouts[] = $timeout;
+
+            return count($timeouts) === 1
+                ? [spl_object_id($listenerRaw) => $events->acceptConnection]
+                : [];
+        },
+    );
+    $worker = new PhpQuicHttp3Worker(
+        new PhpQuicListener($listenerRaw),
+        static function (): void {},
+        new Http3Limits(),
+        4,
+        $poller,
+    );
+
+    $worker->tick(0.05);
+    $worker->tick(0.05);
+
+    expect($timeouts)->toBe([0.2, 0.01])
+        ->and($worker->connectionCount())->toBe(1);
+});

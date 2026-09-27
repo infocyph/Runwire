@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
@@ -147,4 +148,29 @@ it('queues response QPACK encoder instructions when peer settings allow dynamic 
     expect($result->accepted())->toBeTrue()
         ->and($transport->qpackBytes)->not->toBe('')
         ->and($transport->requestBytes[0] ?? '')->not->toBe('');
+});
+
+
+it('promotes sustained HTTP3 response backlog to throughput scheduling', function (): void {
+    $limits = new Http3Limits(
+        maxPendingResponseBytesPerStream: 524_288,
+        responseLowWatermarkBytes: 131_072,
+        responseHighWatermarkBytes: 393_216,
+        maxPendingResponseBytesPerConnection: 1_048_576,
+        maxQpackEncoderQueueBytes: 131_072,
+        maxResponseFramePayloadBytes: 16_384,
+        maxWritesPerFlush: 128,
+    );
+    $transport = new Http3SchedulerTransport();
+    $transport->blocked = true;
+    $scheduler = new ResponseScheduler(new ConnectionState($limits), $limits, $transport);
+
+    foreach (range(0, 2) as $streamId) {
+        $writer = $scheduler->writer($streamId * 4, 'GET', static function (): void {});
+        $writer->start(200);
+        $writer->write(str_repeat('x', 100_000));
+    }
+
+    expect($scheduler->pendingBytes())->toBeGreaterThan(262_144)
+        ->and($scheduler->adaptiveState())->toBe(AdaptiveLoadState::THROUGHPUT);
 });
