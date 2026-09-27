@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http1;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use InvalidArgumentException;
 
 /**
@@ -31,6 +32,7 @@ final readonly class Http1Limits
         public int $maxResponseChunkBytes = 65_536,
         public float $headerTimeoutSeconds = 10.0,
         public float $bodyIdleTimeoutSeconds = 30.0,
+        public AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(),
     ) {
         foreach ([
             'maxRequestLineBytes' => $maxRequestLineBytes,
