@@ -63,11 +63,21 @@ final readonly class AdaptiveConnectionStrategy
     public function tcpNoDelay(?AdaptiveLoadSample $sample = null): bool
     {
         return match ($this->policy->mode) {
-            AdaptivePolicyMode::AUTO => $this->controller->observe(
+            AdaptivePolicyMode::AUTO => $this->autoTcpNoDelay(
                 $sample ?? throw new LogicException('HTTP/1.1 AUTO policy requires a load sample.'),
-            ) !== AdaptiveLoadState::THROUGHPUT,
+            ),
             AdaptivePolicyMode::FIXED, AdaptivePolicyMode::LATENCY => true,
             AdaptivePolicyMode::THROUGHPUT => false,
         };
+    }
+
+    private function autoTcpNoDelay(AdaptiveLoadSample $sample): bool
+    {
+        $state = $this->controller->observe($sample);
+        if (!$sample->pressured && $sample->score() <= $this->policy->lowWatermarkBasisPoints) {
+            return true;
+        }
+
+        return $state !== AdaptiveLoadState::THROUGHPUT;
     }
 }
