@@ -34,7 +34,7 @@ final readonly class Http1Limits
         public float $bodyIdleTimeoutSeconds = 30.0,
         public AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(
             lowWatermarkBasisPoints: 1_000,
-            highWatermarkBasisPoints: 3_000,
+            highWatermarkBasisPoints: 4_500,
             transitionSamples: 1,
             ewmaNumerator: 1,
             ewmaDenominator: 1,
