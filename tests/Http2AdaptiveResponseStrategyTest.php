@@ -15,6 +15,7 @@ it('adapts HTTP2 initial-response wire intent from sustained protocol load', fun
     expect($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->state())->toBe(AdaptiveLoadState::LATENCY);
 
+    $throughputStrategy = new AdaptiveResponseStrategy();
     $high = AdaptiveLoadSample::fromCounters(
         pressured: false,
         queuedBytes: 0,
@@ -23,10 +24,10 @@ it('adapts HTTP2 initial-response wire intent from sustained protocol load', fun
         activeCapacity: 32,
     );
     foreach (range(1, 3) as $_) {
-        $limit = $strategy->wireLimit($high);
+        $limit = $throughputStrategy->wireLimit($high);
     }
 
-    expect($strategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
+    expect($throughputStrategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
         ->and($limit)->toBe(256);
 });
 

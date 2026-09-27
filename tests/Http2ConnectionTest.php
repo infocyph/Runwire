@@ -263,6 +263,7 @@ it('feeds sustained H2 multiplex load into the adaptive response strategy', func
     [$response, $http2] = runwireH2Exchange(
         $wire,
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$writers): void {
+            expect($request->version->value)->toBe('2');
             $writers[] = $writer;
             if (count($writers) !== 32) {
                 return;

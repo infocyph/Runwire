@@ -36,9 +36,6 @@ final class ResponseScheduler
 
     private const int WIRE_CHUNK_BYTES = self::OUTBOUND_FRAME_SIZE + 9;
 
-    /** @var Closure(): int */
-    private readonly Closure $activeStreamCount;
-
     /** @var Closure(Http2Stream): void */
     private readonly Closure $activityCallback;
 
@@ -55,6 +52,9 @@ final class ResponseScheduler
 
     private readonly ByteQueue $wireQueue;
 
+    /** @var Closure(): int */
+    private Closure $activeStreamCount;
+
     /** @var array<int, true> */
     private array $flushQueue = [];
 
@@ -66,7 +66,6 @@ final class ResponseScheduler
     private bool $transportPressured = false;
 
     /**
-     * @param callable(): int $activeStreamCount
      * @param callable(int): ?Http2Stream $streamLookup
      * @param callable(Http2Stream): void $cleanupClosed
      * @param callable(): void $readyCallback
@@ -78,15 +77,12 @@ final class ResponseScheduler
         private readonly PeerSettings $peerSettings,
         private readonly Encoder $encoder,
         private readonly FlowController $flow,
-        callable $activeStreamCount,
         callable $streamLookup,
         callable $cleanupClosed,
         callable $readyCallback,
         callable $activityCallback,
     ) {
-        /** @var Closure(): int $activeCountClosure */
-        $activeCountClosure = Closure::fromCallable($activeStreamCount);
-        $this->activeStreamCount = $activeCountClosure;
+        $this->activeStreamCount = static fn(): int => 0;
         /** @var Closure(int): ?Http2Stream $lookupClosure */
         $lookupClosure = Closure::fromCallable($streamLookup);
         $this->streamLookup = $lookupClosure;
@@ -167,6 +163,18 @@ final class ResponseScheduler
         }
 
         $this->relieveStreams();
+    }
+
+    /**
+     * Replace the active-stream count source after request-stream ownership is initialized.
+     *
+     * @internal
+     */
+    public function setActiveStreamCount(callable $activeStreamCount): void
+    {
+        /** @var Closure(): int $activeCountClosure */
+        $activeCountClosure = Closure::fromCallable($activeStreamCount);
+        $this->activeStreamCount = $activeCountClosure;
     }
 
     /**

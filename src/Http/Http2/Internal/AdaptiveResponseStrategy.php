@@ -14,9 +14,9 @@ use InvalidArgumentException;
  *
  * @internal
  */
-final class AdaptiveResponseStrategy
+final readonly class AdaptiveResponseStrategy
 {
-    private readonly AdaptiveLoadController $controller;
+    private AdaptiveLoadController $controller;
 
     /**
      * Create the HTTP/2 response strategy and validate its state-specific budgets.
