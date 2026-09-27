@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
+use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 
@@ -42,4 +44,14 @@ it('treats sustained H1 write backlog as a throughput signal before connection c
 
     expect($strategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
         ->and($result)->toBeFalse();
+});
+
+
+it('keeps HTTP1 production default fixed with NODELAY enabled', function (): void {
+    $limits = new Http1Limits();
+    $strategy = new AdaptiveConnectionStrategy(policy: $limits->adaptive);
+
+    expect($limits->adaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
+        ->and($strategy->requiresLoadSample())->toBeFalse()
+        ->and($strategy->tcpNoDelay())->toBeTrue();
 });
