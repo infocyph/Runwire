@@ -42,10 +42,7 @@ final class AdaptiveConnectionSampler
             return;
         }
 
-        $oldest = array_key_first($this->connections);
-        if ($oldest !== null) {
-            unset($this->connections[$oldest]);
-        }
+        unset($this->connections[array_key_first($this->connections)]);
     }
 
     /**
