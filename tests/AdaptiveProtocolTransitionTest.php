@@ -136,7 +136,7 @@ it('keeps hard resource limits independent from adaptive policy', function (): v
     $http3 = new Http3Options(
         limits: new Http3Limits(
             maxConcurrentRequestStreams: 9,
-            maxStreamsPerConnection: 99,
+            maxRequestStreamsPerConnection: 99,
         ),
         inboundAdaptive: $throughput,
         outboundAdaptive: $throughput,
@@ -147,5 +147,5 @@ it('keeps hard resource limits independent from adaptive policy', function (): v
         ->and($http2->maxConcurrentStreams)->toBe(7)
         ->and($http2->maxStreamsPerConnection)->toBe(77)
         ->and($http3->limits->maxConcurrentRequestStreams)->toBe(9)
-        ->and($http3->limits->maxStreamsPerConnection)->toBe(99);
+        ->and($http3->limits->maxRequestStreamsPerConnection)->toBe(99);
 });
