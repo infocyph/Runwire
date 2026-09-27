@@ -4,7 +4,7 @@ Updated: 2026-09-27
 
 Branch: `benchmarks/1.0-vs-2.0`
 
-Status: **decision plan finalized; V3/V4 are closed, V1/V2 require narrow final certification, and V5-V7 remain evidence gates before their production changes**
+Status: **decision plan finalized in structure; V3/V4 are closed, V1 must still decide H1 coalescing and the H1-specific NODELAY default, V2 must close bounded H2 coalescing, and V5-V7 remain evidence gates**
 
 Companion evidence tracker: `docs/plans/runwire-protocol-performance-playground.md`
 
@@ -39,7 +39,7 @@ The workflow completed all four validation jobs successfully. The green workflow
 
 Key results:
 
-- **V1 / HTTP/1:** application coalescing clearly removes the delayed-ACK floor for small plaintext and TLS responses. At 2 B / concurrency 16, plaintext moved from **392.207 RPS / 41.40 ms p95** to **6,926.433 RPS / 3.28 ms p95**; TLS moved from **385.522 RPS / 41.16 ms p95** to **5,874.581 RPS / 3.98 ms p95**. However, coalescing alone does **not** remove the floor for 16 KiB TLS at concurrency 1/16/64, where p95 remains about 42 ms; explicit NODELAY removes that low-concurrency floor. High-concurrency TLS results are mixed, so V1 still needs repeated candidate certification plus the missing 1 KiB / 64 KiB coverage.
+- **V1 / HTTP/1:** application coalescing clearly removes the delayed-ACK floor for small plaintext and TLS responses. At 2 B / concurrency 16, plaintext moved from **392.207 RPS / 41.40 ms p95** to **6,926.433 RPS / 3.28 ms p95**; TLS moved from **385.522 RPS / 41.16 ms p95** to **5,874.581 RPS / 3.98 ms p95**. However, coalescing alone does **not** remove the floor for 16 KiB TLS at concurrency 1/16/64, where p95 remains about 42 ms; explicit NODELAY removes that low-concurrency floor. The current diagnostic also shows that NODELAY can reduce peak saturated TLS throughput at concurrency 256. V1 therefore has **two** remaining decisions: whether D01 coalescing is safe to promote, and whether H1 should default NODELAY **on** despite the saturation trade-off. Workerman, Swoole and Swow provide supporting precedent for default-on TCP NODELAY, but Runwire will make the H1 policy from its own repeated evidence.
 - **V2 / HTTP/2:** broad HEADERS + first-DATA coalescing is a strong tiny-response fix but is not universally safe as currently prototyped. At 2 B / 1 stream, throughput moved from **24.2 RPS / 41.00 ms mean** to **4,192.6 RPS / 0.23 ms mean**; at 2 B / 32 streams, **774.4 → 4,789.0 RPS**. But 1 KiB / 100 streams regressed **5,390.2 → 4,547.6 RPS (-15.6%)**, and 16 KiB / 1 stream still sits at about 41 ms without NODELAY. This rejects an unconditional H2 coalescing patch and narrows D04 to a bounded tiny-response fast path or Drop.
 - **V3 / loop backend:** same-runner five-trial results are workload-dependent. SelectLoop leads the 2 B / concurrency 16 case, EventLoop leads the 16 KiB / concurrency 64 case, and several cells have material CV. There is no evidence for a universal backend ranking. Keep the current native preference/fallback design.
 - **V4 / HTTP/3:** sustained five-trial results do not show a stable tuning winner. Baseline is **4,030.5 RPS, 2.642% CV**; 1 ms poll is **4,065.833 RPS**, 10 ms poll **4,152.651 RPS**, writes/flush 64 **4,206.267 RPS**, writes/flush 512 **4,146.957 RPS**, streams/pump 128 **4,121.603 RPS**, and concurrency 32 **4,022.529 RPS**. The small non-monotonic deltas overlap run variance and do not justify changing defaults. The 16 KiB payload case falls to **2,649.589 RPS** with only **0.807% CV**, confirming the larger-payload cost is real but not identifying an avoidable scheduler defect.
@@ -51,7 +51,7 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | ID | Finding | Current evidence | Runwire decision | Library area | Gate | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | D01 | H1 split small writes create ~41 ms floor | High; V1 diagnostic confirms large tiny-response gain | Implement bounded non-streaming coalescing only after repeated V1 certification proves no material large/TLS/high-concurrency regression | `Http1ResponseWriter` | V1 | Validate |
-| D02 | TCP_NODELAY removes H1 tiny-write floor | High across H1/H2 diagnostics | Keep neutral default; retain explicit socket-context opt-in and document latency-sensitive use | listener/socket configuration | complete | Keep |
+| D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win at low/moderate H1 concurrency, mixed saturated-throughput trade-off | Decide H1 default ON vs neutral from repeated V1 evidence; never apply the H1 choice blindly to H2 | accepted-connection / protocol transport policy | V1 | Validate |
 | D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Do not invent TLS-specific response API; certify D01 independently and document NODELAY where TLS record-boundary behavior still matters | `Http1ResponseWriter`, transport docs | V1 | Validate |
 | D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixes tiny cases but regresses 1 KiB / 100 streams | Reject unconditional coalescing; validate a bounded tiny-response fast path, otherwise Drop | `ResponseScheduler` | V2 | Validate |
 | D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
@@ -114,27 +114,48 @@ Promote D01 if five repeated trials show that bounded coalescing materially impr
 
 ---
 
-### D02 — TCP_NODELAY as transport policy
+### D02 — TCP_NODELAY as H1 transport policy
 
 **Evidence**
 
-NODELAY eliminates the tiny split-write H1 floor. Workerman, Swoole and Swow commonly enable it; Amp exposes it explicitly but defaults it off. Runwire's own H2 evidence shows global NODELAY can be worse under natural multiplexed batching.
+NODELAY eliminates the H1/TLS delayed-ACK floor in the cases where application coalescing is insufficient. The current diagnostic shows a large latency/throughput win at low and moderate concurrency, while some saturated TLS concurrency-256 cells lose aggregate throughput.
 
-**Final decision: keep the default neutral.**
+Peer precedent is meaningful but not decisive:
 
-Keep TCP_NODELAY as a deliberate socket option, not a universal protocol default.
+- Workerman enables `TCP_NODELAY` on accepted TCP sockets;
+- Swoole server ports default `open_tcp_nodelay` to true;
+- Swow/libcat states that TCP is nodelay by default;
+- Amp exposes explicit NODELAY but leaves it opt-in;
+- ReactPHP does not force it globally.
 
-Do not add a second first-class listener option merely to mirror a socket-context capability. `ListenerOptions::socketContext` is the native configuration path; document the option for latency-sensitive H1/TLS workloads. Revisit the public API only if a real consumer requirement shows the existing path is inadequate.
+That ecosystem split makes this a Runwire policy decision rather than a convention to copy.
 
-**Rules**
+**Candidate production policy**
 
-- H1 may recommend NODELAY for streaming/tiny-write workloads after coalescing is implemented.
-- H2 must not inherit an unconditional NODELAY default from H1.
-- H3 is UDP/QUIC; NODELAY is irrelevant.
+V1 must choose between:
 
-**Decision record**
+1. **H1 default ON** — enable NODELAY for accepted connections that are actually serving HTTP/1, while still allowing explicit override; or
+2. **H1 neutral default** — preserve current socket behavior and document NODELAY as the recommended latency-sensitive option.
 
-V1/V2 already provide enough evidence to reject a global default change. D02 is closed as **Keep**: neutral default, explicit opt-in, protocol-specific documentation.
+Do **not** make NODELAY a universal listener/TCP default merely because H1 benefits. H2 remains a separate policy and D05 already rejects unconditional NODELAY there.
+
+For shared TLS listeners, prefer applying the H1 choice after protocol/ALPN selection where the accepted connection can be treated according to the negotiated protocol. Do not create a design in which enabling the H1 default silently forces the same policy onto H2.
+
+**V1 decision criteria**
+
+Promote **H1 default ON** only if five repeated trials show all of the following:
+
+- the low/moderate-concurrency latency benefit remains large and stable for plaintext and TLS;
+- median throughput improvement is material for the target H1 workloads;
+- any saturated concurrency-256 throughput loss is understood and remains within the accepted regression budget;
+- CPU/RSS cost is acceptable;
+- coalescing + NODELAY interaction does not introduce correctness, backpressure, streaming, or WebSocket regressions.
+
+If the saturated-throughput penalty is material enough to outweigh the latency benefit, keep the default neutral and retain explicit opt-in.
+
+**API/configuration rule**
+
+Do not add a new public option solely for this decision if the existing socket-context mechanism and an internal protocol-specific accepted-connection policy are sufficient. Add configuration only if users need a stable way to override the H1 default independently from H2.
 
 ---
 
@@ -145,8 +166,8 @@ The original assumption that application-level coalescing would remove the floor
 Production rule:
 
 - D01 must remain protocol-level and identical for plaintext/TLS;
-- keep NODELAY explicit through the listener socket context;
-- document NODELAY for latency-sensitive TLS workloads where record-boundary behavior matters;
+- D02 decides whether H1 itself defaults NODELAY on; do not hard-code the answer here;
+- document the measured TLS record-boundary behavior regardless of the D02 outcome;
 - do not toggle NODELAY per response;
 - do not add TLS-specific response buffering unless a lower-layer profile proves a generally useful transport fix.
 
@@ -385,15 +406,18 @@ No sufficiently comparable mature native-PHP H3 server implementation was found 
 
 ## Validation batches
 
-### V1 — H1 real writer strategy
+### V1 — H1 writer and NODELAY policy
 
 **Status: diagnostic complete; final certification remains.**
 
-The broad single-sample matrix already established the behavior of default, NODELAY, coalesced, and combined modes. D02 is closed; V1 now exists only to certify D01/D03.
+The broad single-sample matrix established the behavior of default, NODELAY, coalesced, and combined modes. V1 now has two explicit production decisions: D01 bounded response coalescing and D02 H1 default NODELAY policy. D03 closes from the same TLS evidence.
 
 Final certification:
 
-- current production path vs bounded coalescing candidate;
+- current production path;
+- current path + NODELAY;
+- bounded coalescing candidate;
+- bounded coalescing + NODELAY;
 - plaintext + TLS;
 - 2 B, 1 KiB, 16 KiB, 64 KiB;
 - concurrency 16/64/256, plus concurrency 1 for TLS record-boundary confirmation;
@@ -401,7 +425,13 @@ Final certification:
 - median RPS, CV, p95/p99, CPU and RSS;
 - correctness, streaming, backpressure, WebSocket, and body-semantics gates.
 
-**Output:** Implement or Drop D01; close D03 with measured TLS guidance.
+Decision analysis must report latency and throughput separately. Do not hide a large latency improvement behind peak-throughput averages, and do not hide a material saturation regression behind low-concurrency wins.
+
+**Output:**
+
+- D01 → Implement or Drop bounded H1 coalescing;
+- D02 → H1 NODELAY default ON or neutral;
+- D03 → close with measured TLS behavior and no TLS-specific response API.
 
 ### V2 — H2 real scheduler strategy
 
@@ -541,6 +571,6 @@ For each D-item, update this plan with:
 - **Public API/config impact:** none or explicit change
 - **Release target:** next patch/minor/major as appropriate
 
-V3 and V4 are closed. Create the clean production implementation branch from current `main` only after V1 and V2 close D01/D03/D04 as Implement or Drop. Keep this playground branch as the benchmark/evidence archive.
+V3 and V4 are closed. Create the clean production implementation branch from current `main` only after V1 and V2 close D01-D04 as final Implement / Keep / Drop decisions, including the H1-specific NODELAY default. Keep this playground branch as the benchmark/evidence archive.
 
 V5-V7 remain independent post-selection gates: they may prototype on the playground branch, but I3/I4/I6 production changes must not land without their own evidence records. No unresolved item is silently deferred: each remaining D-item must end as Implement, Keep, or Drop before release certification.
