@@ -84,8 +84,12 @@ PHP,
 
 $source = replaceOnce(
     $source,
-    "            return \$this->finish(\$this->connection->write(''));",
-    "            return \$this->finish(\$this->benchmarkWrite(''));",
+    <<<'PHP'
+            return $this->finish($this->connection->write(''));
+PHP,
+    <<<'PHP'
+            return $this->finish($this->benchmarkWrite(''));
+PHP,
     'suppressed body flush',
 );
 
@@ -112,8 +116,12 @@ PHP,
 
 $source = replaceOnce(
     $source,
-    "        return \$this->started ? \$this->connection->write('') : \$this->start();",
-    "        return \$this->started ? \$this->benchmarkWrite('') : \$this->start();",
+    <<<'PHP'
+        return $this->started ? $this->connection->write('') : $this->start();
+PHP,
+    <<<'PHP'
+        return $this->started ? $this->benchmarkWrite('') : $this->start();
+PHP,
     'empty write',
 );
 
