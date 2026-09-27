@@ -72,5 +72,9 @@ it('rejects invalid adaptive protocol crossover configuration', function (): voi
         ->and(fn() => new AdaptiveProtocolPolicy(transitionSamples: 0))
         ->toThrow(InvalidArgumentException::class)
         ->and(fn() => new AdaptiveProtocolPolicy(ewmaNumerator: 3, ewmaDenominator: 2))
-        ->toThrow(InvalidArgumentException::class);
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new AdaptiveProtocolPolicy(
+            ewmaNumerator: PHP_INT_MAX,
+            ewmaDenominator: PHP_INT_MAX,
+        ))->toThrow(InvalidArgumentException::class);
 });
