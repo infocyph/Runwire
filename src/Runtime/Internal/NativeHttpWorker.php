@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\NativeHttpConnection;
+use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\LoopFactory;
 use Infocyph\Runwire\Loop\LoopInterface;
@@ -27,6 +29,10 @@ use Throwable;
  */
 final class NativeHttpWorker
 {
+    private const int HTTP1_ADAPTIVE_ACTIVE_CONNECTIONS = 256;
+
+    private const int HTTP1_ADAPTIVE_QUEUE_BYTES_PER_CONNECTION = 262_144;
+
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
      */
@@ -43,6 +49,7 @@ final class NativeHttpWorker
         $context->attachLoop($loop);
         $sessions = [];
         $connections = [];
+        $http1Adaptive = new AdaptiveConnectionStrategy();
         $state = new WorkerStopState($ownsLoop);
         $application = $bound->definition->applicationFor(
             $context,
@@ -67,6 +74,7 @@ final class NativeHttpWorker
                     $handler,
                     &$sessions,
                     &$connections,
+                    $http1Adaptive,
                     $state,
                     $runtimeContext,
                     $sampler,
@@ -87,6 +95,7 @@ final class NativeHttpWorker
                         $handler,
                         $sessions,
                         $connections,
+                        $http1Adaptive,
                         $state,
                         $runtimeContext->metrics,
                         $sampler,
@@ -223,6 +232,7 @@ final class NativeHttpWorker
         Closure $handler,
         array &$sessions,
         array &$connections,
+        AdaptiveConnectionStrategy $http1Adaptive,
         WorkerStopState $state,
         RuntimeMetrics $metrics,
         WorkerDiagnosticsSampler $sampler,
@@ -233,12 +243,21 @@ final class NativeHttpWorker
             return;
         }
 
+        $protocol = $connection->negotiatedProtocol();
+        $http1TcpNoDelayDefault = true;
+        if ($protocol === null || $protocol === '' || $protocol === 'http/1.1') {
+            $http1TcpNoDelayDefault = $http1Adaptive->tcpNoDelay(
+                self::http1LoadSample($connections, $bound),
+            );
+        }
+
         $session = NativeHttpConnection::attach(
             $loop,
             $connection,
             $handler,
             $bound->definition->http1,
             $bound->definition->http2,
+            $http1TcpNoDelayDefault,
         );
         if ($session === null) {
             return;
@@ -317,6 +336,36 @@ final class NativeHttpWorker
             $connection->abort(CloseReason::LOCAL_ABORT);
         }
         $state->stopLoopIfStopping($loop);
+    }
+
+    /** @param array<int, Connection> $connections */
+    private static function http1LoadSample(array $connections, BoundServer $bound): AdaptiveLoadSample
+    {
+        $active = count($connections);
+        $queuedBytes = 0;
+        $pressured = false;
+        foreach ($connections as $connection) {
+            $queuedBytes += min(
+                $connection->pendingWriteBytes(),
+                self::HTTP1_ADAPTIVE_QUEUE_BYTES_PER_CONNECTION,
+            );
+            $pressured = $pressured || $connection->isWritePressured();
+        }
+
+        $activeCapacity = max(1, min(
+            self::HTTP1_ADAPTIVE_ACTIVE_CONNECTIONS,
+            $bound->definition->workerConnectionLimit,
+            $bound->listener->maxConnections(),
+        ));
+        $queueSlots = max(1, min($activeCapacity, max(1, $active)));
+
+        return AdaptiveLoadSample::fromCounters(
+            pressured: $pressured,
+            queuedBytes: $queuedBytes,
+            queueCapacityBytes: $queueSlots * self::HTTP1_ADAPTIVE_QUEUE_BYTES_PER_CONNECTION,
+            activeWork: $active,
+            activeCapacity: $activeCapacity,
+        );
     }
 
     /** @return Closure(HttpRequest, ResponseWriterInterface): void */

@@ -249,3 +249,33 @@ it('preserves an explicit H1 TCP_NODELAY override', function (): void {
     $connection->abort();
     fclose($client);
 });
+
+
+it('applies a throughput-biased NODELAY default only when H1 is newly attached', function (): void {
+    if (!runwireCanInspectTcpNoDelay()) {
+        expect(runwireCanInspectTcpNoDelay())->toBeFalse();
+
+        return;
+    }
+
+    [$server, $client] = runwireNativeTcpPair();
+    $socket = socket_import_stream($server);
+    expect($socket)->not->toBeFalse();
+    socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
+
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server, tcpTransport: true);
+    $session = NativeHttpConnection::attach(
+        $loop,
+        $connection,
+        static function (): void {},
+        http1TcpNoDelayDefault: false,
+    );
+
+    expect($session)->not->toBeNull()
+        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+        ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
+
+    $connection->abort();
+    fclose($client);
+});
