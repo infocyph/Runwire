@@ -13,6 +13,7 @@ final class StreamWriter
 {
     /**
      * @param resource $stream
+     * @param int<0, max>|null $length
      */
     public static function write(mixed $stream, string $data, ?int $length = null): int|false
     {
