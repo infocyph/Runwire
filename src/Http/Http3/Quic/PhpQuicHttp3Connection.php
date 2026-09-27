@@ -592,6 +592,23 @@ final class PhpQuicHttp3Connection
         $this->qpackDecoderPending .= $instructions;
     }
 
+    /** @param array<int, int> $ready */
+    private function readyRequestStreams(array $ready, PhpQuicEventMasks $events): int
+    {
+        $count = 0;
+        foreach (array_keys($this->requestStreams) as $streamId) {
+            $stream = $this->peerStreams[$streamId] ?? null;
+            if ($stream === null) {
+                continue;
+            }
+            $mask = $ready[spl_object_id($stream->object())] ?? 0;
+            if (($mask & ($events->read | $events->error)) !== 0) {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
     private function registerPeerStream(PhpQuicStream $stream): void
     {
         $streamId = $stream->id();
@@ -617,23 +634,6 @@ final class PhpQuicHttp3Connection
         }
     }
 
-    /** @param array<int, int> $ready */
-    private function readyRequestStreams(array $ready, PhpQuicEventMasks $events): int
-    {
-        $count = 0;
-        foreach (array_keys($this->requestStreams) as $streamId) {
-            $stream = $this->peerStreams[$streamId] ?? null;
-            if ($stream === null) {
-                continue;
-            }
-            $mask = $ready[spl_object_id($stream->object())] ?? 0;
-            if (($mask & ($events->read | $events->error)) !== 0) {
-                ++$count;
-            }
-        }
-
-        return $count;
-    }
 
     private function requestPressured(int $streamId): bool
     {
