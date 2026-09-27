@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01/J02 shared adaptive-state core is active**
+Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01/J02 are QA-certified and J04 HTTP/2 adaptation is active**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -534,10 +534,10 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 
 | ID | Scope | Question | Initial direction | Status |
 | --- | --- | --- | --- | --- |
-| J01 | Common load model | Which runtime signals predict the crossover between latency-biased and throughput-biased behavior? | Normalized pressure/backlog/activity sample with backlog weighted above active counts | **Active** |
-| J02 | Adaptive state machine | Can LOW / NORMAL / HIGH load states switch safely without oscillation? | Shared EWMA + low/high hysteresis + sustained-sample dwell controller | **Active** |
+| J01 | Common load model | Which runtime signals predict the crossover between latency-biased and throughput-biased behavior? | Normalized pressure/backlog/activity sample with backlog weighted above active counts | **Complete** |
+| J02 | Adaptive state machine | Can LOW / NORMAL / HIGH load states switch safely without oscillation? | Shared EWMA + low/high hysteresis + sustained-sample dwell controller | **Complete** |
 | J03 | HTTP/1.1 | Can H1 improve saturated throughput without giving back normal-load latency? | Keep current one-shot response path; investigate worker/new-connection policy only, not per-request NODELAY toggling | **Planned** |
-| J04 | HTTP/2 | Can the tiny-response fast path incorporate multiplex/pressure state and outperform the current <1 KiB static gate? | Strong candidate; active streams + wire/stream queue pressure may select fast vs normal scheduler | **Planned** |
+| J04 | HTTP/2 | Can the tiny-response fast path incorporate multiplex/pressure state and outperform the current <1 KiB static gate? | Adaptive 1024/512/256-byte one-shot budget from active streams, queued bytes and transport pressure; 1 KiB remains the hard ceiling | **Active** |
 | J05 | HTTP/3 pump budgets | Can writes/reads/accept budgets adapt to backlog direction and active-stream pressure? | Highest-value candidate; tune scheduling effort, not resource ceilings | **Planned** |
 | J06 | HTTP/3 polling | Should poll timeout vary with idle/busy state? | Investigate separately; poll timeout is not the active-traffic latency floor | **Planned** |
 | J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Design only after crossover evidence proves stable semantics | **Planned** |
@@ -546,6 +546,8 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Implement only proven protocol-specific winners; otherwise Keep/Drop independently | **Planned** |
 
 ### J01 — common adaptive load model
+
+**Status: complete.** QA-certified at Security & Standards run `36326402615`. `AdaptiveLoadSample` normalizes existing pressure/backlog/activity counters without new high-frequency telemetry, and backlog receives higher score weight than active counts.
 
 Do **not** equate benchmark client concurrency with a server-side runtime signal. A client may report concurrency 128 while many requests are idle; a connection with only a few active streams may still be heavily pressured by queued bytes.
 
@@ -572,7 +574,9 @@ No adaptive decision may depend on wall-clock client concurrency that Runwire ca
 
 ### J02 — adaptive state machine and hysteresis
 
-The first model should be deliberately small:
+**Status: complete.** `AdaptiveLoadController` uses integer EWMA smoothing, low/high watermarks, and sustained-sample dwell; isolated spikes cannot change state.
+
+The implemented model is deliberately small:
 
 ```text
 LATENCY / LOW LOAD

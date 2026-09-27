@@ -88,6 +88,7 @@ final class Http2Connection
             peerSettings: $this->peerSettings,
             encoder: $this->encoder,
             flow: $this->flow,
+            activeStreamCount: fn(): int => isset($this->requests) ? $this->requests->count() : 0,
             streamLookup: fn(int $id): ?Http2Stream => $this->requestStream($id),
             cleanupClosed: fn(Http2Stream $stream) => $this->cleanupClosed($stream),
             readyCallback: fn() => $this->handleOutputReady(),

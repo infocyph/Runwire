@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
@@ -249,4 +250,41 @@ it('rotates gracefully when the HTTP2 stream churn ceiling is reached', function
             'last' => 3,
             'error' => ErrorCode::NO_ERROR->value,
         ]);
+});
+
+
+it('feeds sustained H2 multiplex load into the adaptive response strategy', function (): void {
+    $wire = runwireH2ClientPrelude();
+    for ($index = 0; $index < 32; ++$index) {
+        $wire .= runwireH2Headers(($index * 2) + 1, '/adaptive-' . $index, false);
+    }
+
+    $writers = [];
+    [$response, $http2] = runwireH2Exchange(
+        $wire,
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$writers): void {
+            $writers[] = $writer;
+            if (count($writers) !== 32) {
+                return;
+            }
+
+            foreach (array_slice($writers, 0, 3) as $candidate) {
+                $candidate->end('ok');
+            }
+        },
+    );
+
+    $property = new ReflectionProperty(Http2Connection::class, 'output');
+    $scheduler = $property->getValue($http2);
+
+    $ended = 0;
+    foreach (runwireH2Frames($response) as $frame) {
+        if ($frame->knownType() === FrameType::DATA && $frame->hasFlag(0x1)) {
+            ++$ended;
+        }
+    }
+
+    expect($scheduler->adaptiveState())->toBe(AdaptiveLoadState::THROUGHPUT)
+        ->and($http2->activeStreams())->toBe(32)
+        ->and($ended)->toBe(3);
 });
