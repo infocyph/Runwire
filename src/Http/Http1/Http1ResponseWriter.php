@@ -302,37 +302,6 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
     }
 
-    private function endOneShot(string $finalChunk): ?WriteResult
-    {
-        $contentLength = strlen($finalChunk);
-        $bodySuppressed = ResponseSemantics::suppressesBody($this->requestMethod === 'HEAD', 200);
-        $fields = [new HeaderField('content-length', (string) $contentLength)];
-        if ($this->closeAfter) {
-            $fields[] = new HeaderField('connection', 'close');
-        }
-
-        $wire = $this->serializeHead(200, $fields);
-        if (!$bodySuppressed) {
-            $wire .= $finalChunk;
-        }
-
-        $result = $this->connection->write($wire);
-        if ($result->state === WriteState::REJECTED_LIMIT) {
-            return null;
-        }
-        if (!$result->accepted()) {
-            return $result;
-        }
-
-        $this->started = true;
-        $this->bodySuppressed = $bodySuppressed;
-        $this->chunked = false;
-        $this->contentLength = $contentLength;
-        $this->bodyBytes = $contentLength;
-
-        return $this->finish($result);
-    }
-
     private function endChunked(string $finalChunk): WriteResult
     {
         $wire = $finalChunk === ''
@@ -363,6 +332,37 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         if ($result->accepted()) {
             $this->bodyBytes += strlen($finalChunk);
         }
+
+        return $this->finish($result);
+    }
+
+    private function endOneShot(string $finalChunk): ?WriteResult
+    {
+        $contentLength = strlen($finalChunk);
+        $bodySuppressed = ResponseSemantics::suppressesBody($this->requestMethod === 'HEAD', 200);
+        $fields = [new HeaderField('content-length', (string) $contentLength)];
+        if ($this->closeAfter) {
+            $fields[] = new HeaderField('connection', 'close');
+        }
+
+        $wire = $this->serializeHead(200, $fields);
+        if (!$bodySuppressed) {
+            $wire .= $finalChunk;
+        }
+
+        $result = $this->connection->write($wire);
+        if ($result->state === WriteState::REJECTED_LIMIT) {
+            return null;
+        }
+        if (!$result->accepted()) {
+            return $result;
+        }
+
+        $this->started = true;
+        $this->bodySuppressed = $bodySuppressed;
+        $this->chunked = false;
+        $this->contentLength = $contentLength;
+        $this->bodyBytes = $contentLength;
 
         return $this->finish($result);
     }
