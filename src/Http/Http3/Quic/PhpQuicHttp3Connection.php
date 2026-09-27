@@ -100,19 +100,19 @@ final class PhpQuicHttp3Connection
     }
 
     /**
-     * Return the current HTTP/3 inbound adaptive state.
-     */
-    public function adaptivePumpState(): AdaptiveLoadState
-    {
-        return $this->adaptivePump->state();
-    }
-
-    /**
      * Return the number of active request streams.
      */
     public function activeRequestStreams(): int
     {
         return count($this->requestStreams);
+    }
+
+    /**
+     * Return the current HTTP/3 inbound adaptive state.
+     */
+    public function adaptivePumpState(): AdaptiveLoadState
+    {
+        return $this->adaptivePump->state();
     }
 
     /**
