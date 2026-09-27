@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadController;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use InvalidArgumentException;
@@ -21,9 +23,17 @@ final readonly class AdaptivePumpStrategy
     /**
      * Create the HTTP/3 inbound adaptive strategy.
      */
-    public function __construct(?AdaptiveLoadController $controller = null)
-    {
-        $this->controller = $controller ?? new AdaptiveLoadController();
+    public function __construct(
+        ?AdaptiveLoadController $controller = null,
+        private AdaptiveProtocolPolicy $policy = new AdaptiveProtocolPolicy(),
+    ) {
+        $this->controller = $controller ?? new AdaptiveLoadController(
+            lowWatermarkBasisPoints: $policy->lowWatermarkBasisPoints,
+            highWatermarkBasisPoints: $policy->highWatermarkBasisPoints,
+            transitionSamples: $policy->transitionSamples,
+            ewmaNumerator: $policy->ewmaNumerator,
+            ewmaDenominator: $policy->ewmaDenominator,
+        );
     }
 
     /**
@@ -33,9 +43,13 @@ final readonly class AdaptivePumpStrategy
     {
         self::assertMaximum($maximum);
 
-        return match ($this->controller->state()) {
-            AdaptiveLoadState::LATENCY => $maximum,
+        if ($this->policy->mode === AdaptivePolicyMode::FIXED) {
+            return $maximum;
+        }
+
+        return match ($this->state()) {
             AdaptiveLoadState::BALANCED => self::scaled($maximum, 1, 2),
+            AdaptiveLoadState::LATENCY => $maximum,
             AdaptiveLoadState::THROUGHPUT => self::scaled($maximum, 1, 4),
         };
     }
@@ -57,6 +71,10 @@ final readonly class AdaptivePumpStrategy
             throw new InvalidArgumentException('HTTP/3 adaptive pump counters must be non-negative with positive capacity.');
         }
 
+        if ($this->policy->mode !== AdaptivePolicyMode::AUTO) {
+            return $this->state();
+        }
+
         return $this->controller->observe(AdaptiveLoadSample::fromCounters(
             pressured: false,
             queuedBytes: $readyWork,
@@ -73,9 +91,13 @@ final readonly class AdaptivePumpStrategy
     {
         self::assertMaximum($maximum);
 
-        return match ($this->controller->state()) {
-            AdaptiveLoadState::LATENCY => self::scaled($maximum, 1, 4),
+        if ($this->policy->mode === AdaptivePolicyMode::FIXED) {
+            return $maximum;
+        }
+
+        return match ($this->state()) {
             AdaptiveLoadState::BALANCED => self::scaled($maximum, 1, 2),
+            AdaptiveLoadState::LATENCY => self::scaled($maximum, 1, 4),
             AdaptiveLoadState::THROUGHPUT => $maximum,
         };
     }
@@ -85,7 +107,12 @@ final readonly class AdaptivePumpStrategy
      */
     public function state(): AdaptiveLoadState
     {
-        return $this->controller->state();
+        return match ($this->policy->mode) {
+            AdaptivePolicyMode::AUTO => $this->controller->state(),
+            AdaptivePolicyMode::FIXED => AdaptiveLoadState::BALANCED,
+            AdaptivePolicyMode::LATENCY => AdaptiveLoadState::LATENCY,
+            AdaptivePolicyMode::THROUGHPUT => AdaptiveLoadState::THROUGHPUT,
+        };
     }
 
     private static function assertMaximum(int $maximum): void
