@@ -350,10 +350,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
             $wire .= $finalChunk;
         }
 
-        $result = $this->connection->write($wire);
-        if ($result->state === WriteState::REJECTED_LIMIT) {
+        if (!$this->connection->canAcceptWrite(strlen($wire))) {
             return null;
         }
+
+        $result = $this->connection->write($wire);
         if (!$result->accepted()) {
             return $result;
         }
