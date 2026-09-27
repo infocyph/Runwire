@@ -171,30 +171,7 @@ function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
     $error = '';
-    $tls = getenv('RUNWIRE_BENCH_TLS') === '1';
-    $options = [];
-    if (getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1') {
-        $options['socket'] = ['tcp_nodelay' => true];
-    }
-    if ($tls) {
-        $options['ssl'] = [
-            'verify_peer' => false,
-            'verify_peer_name' => false,
-            'allow_self_signed' => true,
-            'peer_name' => 'localhost',
-            'alpn_protocols' => 'http/1.1',
-        ];
-    }
-
-    $context = stream_context_create($options);
-    $socket = stream_socket_client(
-        sprintf('%s://%s:%d', $tls ? 'tls' : 'tcp', $host, $port),
-        $errno,
-        $error,
-        2.0,
-        STREAM_CLIENT_CONNECT,
-        $context,
-    );
+    $socket = stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
     if (!is_resource($socket)) {
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
@@ -357,25 +334,10 @@ function http1SustainedCompleteResponse(
 ): void {
     $client = &$clients[$id];
     ++$counter['completed_requests'];
-    $expectedBody = getenv('RUNWIRE_BENCH_EXPECTED_BODY');
-    $validBody = $expectedBody === false || $expectedBody === ''
-        ? $response['body'] === 'ok'
-        : hash_equals($expectedBody, $response['body']);
-    if ($response['status'] === 200 && $validBody) {
+    if ($response['status'] === 200 && $response['body'] === 'ok') {
         ++$counter['successful_requests'];
     } else {
         ++$counter['validation_failures'];
-        if (getenv('RUNWIRE_BENCH_DIAGNOSTIC') === '1') {
-            fwrite(STDERR, json_encode([
-                'validation_failure' => true,
-                'status' => $response['status'],
-                'actual_body_bytes' => strlen($response['body']),
-                'actual_body_sha256' => hash('sha256', $response['body']),
-                'expected_body_bytes' => strlen($expectedBody === false || $expectedBody === '' ? 'ok' : $expectedBody),
-                'expected_body_sha256' => hash('sha256', $expectedBody === false || $expectedBody === '' ? 'ok' : $expectedBody),
-                'response_close' => $response['close'],
-            ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
-        }
     }
     if ($collectLatency) {
         http1SustainedRecordLatency($histogram, (int) $client['request_started']);
@@ -605,17 +567,7 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
         || $counter['timeouts_total'] !== 0
         || $counter['validation_failures'] !== 0
     ) {
-        throw new RuntimeException(sprintf(
-            '%s failed: requests=%d completed=%d successful=%d errors=%d timeouts=%d validation_failures=%d reconnects=%d.',
-            $phase,
-            $counter['requests_total'],
-            $counter['completed_requests'],
-            $counter['successful_requests'],
-            $counter['errors_total'],
-            $counter['timeouts_total'],
-            $counter['validation_failures'],
-            $counter['reconnects_total'],
-        ));
+        throw new RuntimeException($phase . ' received a failed, incomplete, timed-out, or invalid response.');
     }
 }
 
@@ -656,21 +608,19 @@ function http1SustainedMain(array $argv): array
         : 0.0;
 
     $result = [
-        'runtime' => getenv('RUNWIRE_BENCH_RUNTIME') ?: 'runwire-native',
+        'runtime' => 'runwire-native',
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
         'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'protocol' => 'http/1.1',
-        'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'tls-keepalive' : 'plaintext-keepalive',
+        'workload' => 'plaintext-keepalive',
         'hardware_id' => php_uname('m') . '::' . http1SustainedCpuModel(),
         'host_os' => php_uname('a'),
         'host_cpu' => http1SustainedCpuModel(),
         'php_version' => getenv('RUNWIRE_PHP_VERSION') ?: PHP_VERSION,
         'instrumentation' => getenv('RUNWIRE_INSTRUMENTATION') ?: 'ci-smoke',
-        'tls' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'on' : 'off',
+        'tls' => 'off',
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
         'connection_reuse' => 'keep-alive',
-        'client_tcp_nodelay' => getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1',
-        'expected_body_bytes' => strlen((string) (getenv('RUNWIRE_BENCH_EXPECTED_BODY') ?: 'ok')),
         'extension_versions' => http1SustainedExtensionVersions(),
         'workers' => 1,
         'concurrency' => $concurrency,
