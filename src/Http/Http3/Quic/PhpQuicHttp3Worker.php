@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Http\Http3\Quic;
 
 use Closure;
 use Infocyph\Runwire\Exception\ListenerException;
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
@@ -51,6 +52,11 @@ final class PhpQuicHttp3Worker
         ?PhpQuicHttp3Poller $poller = null,
         private readonly float $handshakeTimeoutSeconds = self::DEFAULT_HANDSHAKE_TIMEOUT_SECONDS,
         private readonly ?ByteBudget $bufferBudget = null,
+        private readonly AdaptiveProtocolPolicy $inboundAdaptive = new AdaptiveProtocolPolicy(),
+        private readonly AdaptiveProtocolPolicy $outboundAdaptive = new AdaptiveProtocolPolicy(
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_000,
+        ),
     ) {
         if ($connectionLimit < 1 || $connectionLimit > 1_000_000) {
             throw new InvalidArgumentException('HTTP/3 worker connection limit must be between 1 and 1000000.');
@@ -146,6 +152,7 @@ final class PhpQuicHttp3Worker
                 $this->accepting,
                 count($this->connections),
                 count($this->pendingConnections),
+                $this->inboundAdaptive,
             ),
             array_map(
                 static fn(array $pending): PhpQuicConnection => $pending['connection'],
@@ -258,7 +265,14 @@ final class PhpQuicHttp3Worker
             }
 
             try {
-                $http3 = new PhpQuicHttp3Connection($connection, $this->handler, $this->limits, bufferBudget: $this->bufferBudget);
+                $http3 = new PhpQuicHttp3Connection(
+                    $connection,
+                    $this->handler,
+                    $this->limits,
+                    bufferBudget: $this->bufferBudget,
+                    inboundAdaptive: $this->inboundAdaptive,
+                    outboundAdaptive: $this->outboundAdaptive,
+                );
                 if (!$this->accepting) {
                     $http3->beginDrain();
                 }
