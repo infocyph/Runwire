@@ -529,6 +529,9 @@ it('uses adaptive HTTP3 poll timeouts for idle and handshaking workers', functio
     $poller = new PhpQuicHttp3Poller(
         $events,
         static function (array $items, ?float $timeout) use (&$timeouts, $listenerRaw, $events): array {
+            if ($items === []) {
+                throw new RuntimeException('Adaptive HTTP/3 poll test requires at least one poll item.');
+            }
             $timeouts[] = $timeout;
 
             return count($timeouts) === 1
