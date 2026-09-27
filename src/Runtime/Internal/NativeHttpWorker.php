@@ -49,7 +49,7 @@ final class NativeHttpWorker
         $context->attachLoop($loop);
         $sessions = [];
         $connections = [];
-        $http1Adaptive = new AdaptiveConnectionStrategy();
+        $http1Adaptive = new AdaptiveConnectionStrategy(policy: $bound->definition->http1->adaptive);
         $state = new WorkerStopState($ownsLoop);
         $application = $bound->definition->applicationFor(
             $context,
