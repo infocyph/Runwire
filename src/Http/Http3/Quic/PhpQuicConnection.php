@@ -71,6 +71,8 @@ final readonly class PhpQuicConnection
 
     /**
      * Determine whether the native QUIC layer has observed connection closure.
+     *
+     * @phpstan-impure
      */
     public function closed(): bool
     {
