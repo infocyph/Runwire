@@ -148,3 +148,98 @@ it('drains an active HTTP/1.1 exchange without accepting another request', funct
         ->and(substr_count($response, 'HTTP/1.1 200'))->toBe(1)
         ->and($connection->state())->toBe(ConnectionState::CLOSED);
 });
+
+
+function runwireNativeTcpPair(): array
+{
+    $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+    expect($listener)->toBeResource();
+    $address = stream_socket_get_name($listener, false);
+    expect($address)->toBeString();
+
+    $client = stream_socket_client('tcp://' . $address, $clientErrno, $clientError, 1.0);
+    expect($client)->toBeResource();
+
+    $server = stream_socket_accept($listener, 1.0);
+    fclose($listener);
+    expect($server)->toBeResource();
+
+    return [$server, $client];
+}
+
+it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
+    [$server, $client] = runwireNativeTcpPair();
+    $socket = socket_import_stream($server);
+    expect($socket)->not->toBeFalse();
+    socket_set_option($socket, SOL_TCP, TCP_NODELAY, 0);
+
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server, tcpTransport: true);
+    $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
+
+    expect($session)->not->toBeNull()
+        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+        ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(1);
+
+    $connection->abort();
+    fclose($client);
+
+    [$server, $client] = runwireNativeTcpPair();
+    $socket = socket_import_stream($server);
+    expect($socket)->not->toBeFalse();
+    socket_set_option($socket, SOL_TCP, TCP_NODELAY, 0);
+
+    $loop = new SelectLoop();
+    $connection = new Connection(
+        $loop,
+        $server,
+        negotiatedProtocol: 'h2',
+        encrypted: true,
+        tcpTransport: true,
+    );
+    $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
+
+    expect($session)->not->toBeNull()
+        ->and($session->version)->toBe(ProtocolVersion::HTTP_2)
+        ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
+
+    $connection->abort();
+    fclose($client);
+})->skip(
+    static fn(): bool => !function_exists('socket_import_stream')
+        || !function_exists('socket_set_option')
+        || !function_exists('socket_get_option')
+        || !defined('SOL_TCP')
+        || !defined('TCP_NODELAY'),
+    'ext-sockets is required for TCP_NODELAY inspection.',
+);
+
+it('preserves an explicit H1 TCP_NODELAY override', function (): void {
+    [$server, $client] = runwireNativeTcpPair();
+    $socket = socket_import_stream($server);
+    expect($socket)->not->toBeFalse();
+    socket_set_option($socket, SOL_TCP, TCP_NODELAY, 0);
+
+    $loop = new SelectLoop();
+    $connection = new Connection(
+        $loop,
+        $server,
+        tcpTransport: true,
+        tcpNoDelayOverride: false,
+    );
+    $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
+
+    expect($session)->not->toBeNull()
+        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+        ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
+
+    $connection->abort();
+    fclose($client);
+})->skip(
+    static fn(): bool => !function_exists('socket_import_stream')
+        || !function_exists('socket_set_option')
+        || !function_exists('socket_get_option')
+        || !defined('SOL_TCP')
+        || !defined('TCP_NODELAY'),
+    'ext-sockets is required for TCP_NODELAY inspection.',
+);
