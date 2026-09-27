@@ -635,7 +635,6 @@ final class PhpQuicHttp3Connection
         }
     }
 
-
     private function requestPressured(int $streamId): bool
     {
         if (!isset($this->requestStreams[$streamId])) {
