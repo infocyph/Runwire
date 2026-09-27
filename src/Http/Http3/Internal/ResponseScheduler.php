@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
@@ -53,8 +54,12 @@ final class ResponseScheduler
         private readonly Http3Limits $limits,
         private readonly Http3TransportInterface $transport,
         private readonly ?ByteBudget $bufferBudget = null,
+        AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_000,
+        ),
     ) {
-        $this->adaptiveResponse = new AdaptiveResponseStrategy();
+        $this->adaptiveResponse = new AdaptiveResponseStrategy(policy: $adaptive);
         $this->fallbackEncoder = new Encoder(0, 0, $limits->maxFieldSectionBytes, 0);
         $this->qpackEncoderQueue = new ByteQueue($bufferBudget);
     }
