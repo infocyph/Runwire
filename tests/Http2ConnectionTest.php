@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
@@ -210,4 +211,42 @@ it('keeps the 1 KiB response path correct outside the tiny one-shot budget', fun
 
     expect($decoded)->toBe($body)
         ->and($ended)->toBeTrue();
+});
+
+
+it('rotates gracefully when the HTTP2 stream churn ceiling is reached', function (): void {
+    $handled = [];
+    [$wire] = runwireH2Exchange(
+        runwireH2ClientPrelude()
+            . runwireH2Headers(1, '/one')
+            . runwireH2Headers(3, '/two')
+            . runwireH2Headers(5, '/beyond'),
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$handled): void {
+            $handled[] = $request->target;
+            $writer->end('ok');
+        },
+        new Http2Limits(maxStreamsPerConnection: 2),
+    );
+
+    $goAway = [];
+    foreach (runwireH2Frames($wire) as $frame) {
+        if ($frame->knownType() !== FrameType::GOAWAY) {
+            continue;
+        }
+
+        /** @var array{last: int, error: int}|false $decoded */
+        $decoded = unpack('Nlast/Nerror', substr($frame->payload, 0, 8));
+        expect($decoded)->toBeArray();
+        $goAway[] = [
+            'last' => $decoded['last'] & 0x7FFF_FFFF,
+            'error' => $decoded['error'],
+        ];
+    }
+
+    expect($handled)->toBe(['/one', '/two'])
+        ->and($goAway)->not->toBe([])
+        ->and($goAway[0])->toBe([
+            'last' => 3,
+            'error' => ErrorCode::NO_ERROR->value,
+        ]);
 });
