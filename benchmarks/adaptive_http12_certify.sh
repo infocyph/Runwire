@@ -98,7 +98,12 @@ run_trial() {
     /tmp/runwire-h2/bin/python benchmarks/h2_adaptive_matrix.py       "$port" "$server_pid" "$mode" "$phase_seconds" "$payload"       > "$result"
   fi
 
-  jq -e '.correctness_passed == true' "$result" >/dev/null
+  php -r '
+  $data = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+  if (($data["correctness_passed"] ?? false) !== true) {
+      throw new RuntimeException("Adaptive protocol trial failed correctness.");
+  }
+  ' "$result"
   cleanup_server
 }
 
