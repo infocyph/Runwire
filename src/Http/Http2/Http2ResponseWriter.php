@@ -253,20 +253,6 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         return $this->finish($result);
     }
 
-    private function prepareImplicitEnd(string $finalChunk): ?WriteResult
-    {
-        $oneShot = $this->endOneShot($finalChunk);
-        if ($oneShot !== null) {
-            return $oneShot;
-        }
-
-        $start = $this->start(200, new Headers([
-            new HeaderField('content-length', (string) strlen($finalChunk)),
-        ]));
-
-        return $start->accepted() ? null : $start;
-    }
-
     private function finish(WriteResult $result): WriteResult
     {
         if (!$result->accepted()) {
@@ -314,5 +300,19 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         }
 
         return (int) $normalized;
+    }
+
+    private function prepareImplicitEnd(string $finalChunk): ?WriteResult
+    {
+        $oneShot = $this->endOneShot($finalChunk);
+        if ($oneShot !== null) {
+            return $oneShot;
+        }
+
+        $start = $this->start(200, new Headers([
+            new HeaderField('content-length', (string) strlen($finalChunk)),
+        ]));
+
+        return $start->accepted() ? null : $start;
     }
 }
