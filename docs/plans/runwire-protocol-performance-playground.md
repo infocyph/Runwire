@@ -47,3 +47,5 @@ For the two-byte HTTP/1.1 response at concurrency 16, default server TCP behavio
 - First protocol-playground run `36290813137`: raw TCP and HTTP/3 completed; HTTP/1 EventLoop, HTTP/1 SelectLoop and HTTP/2 failed.
 - HTTP/1 failures were benchmark validation defects: the sustained client still required the historical literal body `ok` while payload sweeps intentionally returned arbitrary-sized bodies. The client now accepts an explicit expected body from the playground runner while retaining `ok` as its normal default.
 - HTTP/2 did not expose its underlying failure because the shell aborted directly on a non-zero h2load command. The runner now preserves and prints warm-up/measured h2load output plus the matching Runwire server log before failing.
+
+- Second protocol-playground run `36291496503`: HTTP/1 workers still failed. Generic assertion output was insufficient to distinguish response validation from request accounting or timeouts. The client/runner now emits exact counters plus first-response status/body length/hash diagnostics and the matching server log on failure.

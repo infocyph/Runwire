@@ -365,6 +365,17 @@ function http1SustainedCompleteResponse(
         ++$counter['successful_requests'];
     } else {
         ++$counter['validation_failures'];
+        if (getenv('RUNWIRE_BENCH_DIAGNOSTIC') === '1') {
+            fwrite(STDERR, json_encode([
+                'validation_failure' => true,
+                'status' => $response['status'],
+                'actual_body_bytes' => strlen($response['body']),
+                'actual_body_sha256' => hash('sha256', $response['body']),
+                'expected_body_bytes' => strlen($expectedBody === false || $expectedBody === '' ? 'ok' : $expectedBody),
+                'expected_body_sha256' => hash('sha256', $expectedBody === false || $expectedBody === '' ? 'ok' : $expectedBody),
+                'response_close' => $response['close'],
+            ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
+        }
     }
     if ($collectLatency) {
         http1SustainedRecordLatency($histogram, (int) $client['request_started']);
@@ -594,7 +605,17 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
         || $counter['timeouts_total'] !== 0
         || $counter['validation_failures'] !== 0
     ) {
-        throw new RuntimeException($phase . ' received a failed, incomplete, timed-out, or invalid response.');
+        throw new RuntimeException(sprintf(
+            '%s failed: requests=%d completed=%d successful=%d errors=%d timeouts=%d validation_failures=%d reconnects=%d.',
+            $phase,
+            $counter['requests_total'],
+            $counter['completed_requests'],
+            $counter['successful_requests'],
+            $counter['errors_total'],
+            $counter['timeouts_total'],
+            $counter['validation_failures'],
+            $counter['reconnects_total'],
+        ));
     }
 }
 

@@ -85,6 +85,7 @@ start_server() {
   wait_ready "$port" "$output_dir/$label-server.log"
   ACTIVE_PORT="$port"
   CURRENT_PAYLOAD="$payload"
+  CURRENT_SERVER_LOG="$label-server.log"
 }
 
 stop_server() {
