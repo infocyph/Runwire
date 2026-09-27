@@ -180,6 +180,16 @@ final class Connection
     }
 
     /**
+     * @internal Determine whether a write fits the current bounded send capacity.
+     */
+    public function canAcceptWrite(int $bytes): bool
+    {
+        return $bytes >= 0
+            && $this->state === ConnectionState::OPEN
+            && $bytes <= $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes();
+    }
+
+    /**
      * @internal Reserved for isolated adapters that require the single data/drain/EOF callback slots.
      * @param callable(self): void $onData
      * @param callable(self): void $onDrain
