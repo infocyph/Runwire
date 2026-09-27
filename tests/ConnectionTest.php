@@ -193,6 +193,7 @@ it('contains buffered peer-close write warnings', function (): void {
     expect($result->accepted())->toBeTrue()
         ->and($connection->pendingWriteBytes())->toBeGreaterThan(0);
 
+    $connection->pauseReads();
     fclose($peer);
     $warnings = [];
     set_error_handler(static function (int $severity, string $message) use (&$warnings): bool {
