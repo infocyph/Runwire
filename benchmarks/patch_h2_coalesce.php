@@ -125,4 +125,4 @@ if (file_put_contents($path, $source, LOCK_EX) === false) {
     throw new RuntimeException('Unable to write patched HTTP/2 ResponseScheduler.php.');
 }
 
-fwrite(STDOUT, "Patched HTTP/2 benchmark coalescing variant.\n");
+fwrite(STDOUT, 'Patched HTTP/2 benchmark coalescing variant.' . PHP_EOL);

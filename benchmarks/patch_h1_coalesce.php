@@ -13,10 +13,6 @@ if (!is_string($source)) {
     throw new RuntimeException('Unable to read Http1ResponseWriter.php.');
 }
 
-/**
- * @param string $search
- * @param string $replacement
- */
 function replaceOnce(string $source, string $search, string $replacement, string $label): string
 {
     $count = substr_count($source, $search);
@@ -83,4 +79,4 @@ if (file_put_contents($path, $source, LOCK_EX) === false) {
     throw new RuntimeException('Unable to write patched Http1ResponseWriter.php.');
 }
 
-fwrite(STDOUT, "Patched HTTP/1 benchmark coalescing variant.\n");
+fwrite(STDOUT, 'Patched HTTP/1 benchmark coalescing variant.' . PHP_EOL);

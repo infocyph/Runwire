@@ -96,19 +96,19 @@ start_server() {
     workerman)
       (
         cd "$control_root"
-        exec env PEER_ROOT="$workerman_root" PEER_PORT="$port"           php -d opcache.enable_cli=1 benchmarks/peers/workerman_http1_server.php start
+        exec env PEER_ROOT="$workerman_root" PEER_PORT="$port"           php -d opcache.enable_cli=1 benchmarks/peers/workerman_http1_server.fixture.txt start
       ) >"$server_log" 2>&1 &
       ;;
     react)
       (
         cd "$control_root"
-        exec env PEER_ROOT="$react_root" PEER_PORT="$port" PEER_NODELAY="$nodelay"           php -d opcache.enable_cli=1 benchmarks/peers/react_http1_server.php
+        exec env PEER_ROOT="$react_root" PEER_PORT="$port" PEER_NODELAY="$nodelay"           php -d opcache.enable_cli=1 benchmarks/peers/react_http1_server.fixture.txt
       ) >"$server_log" 2>&1 &
       ;;
     amp)
       (
         cd "$control_root"
-        exec env PEER_ROOT="$amp_root" PEER_PORT="$port" PEER_NODELAY="$nodelay"           php -d opcache.enable_cli=1 benchmarks/peers/amp_http1_server.php
+        exec env PEER_ROOT="$amp_root" PEER_PORT="$port" PEER_NODELAY="$nodelay"           php -d opcache.enable_cli=1 benchmarks/peers/amp_http1_server.fixture.txt
       ) >"$server_log" 2>&1 &
       ;;
     *)
