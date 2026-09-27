@@ -98,6 +98,19 @@ Runwire 2.0 also tightens several native HTTP transport defaults without changin
 
 These are native transport/runtime behaviors. Applications should not add duplicate socket toggles, response buffering, or protocol-specific shutdown workarounds unless their deployment has a measured reason to override Runwire policy.
 
+### Adaptive protocol policy
+
+Runwire 2.0 exposes protocol-local adaptive scheduling through `AdaptiveProtocolPolicy` and `AdaptivePolicyMode`.
+
+- `AUTO` uses Runwire's protocol-specific pressure/backlog/activity controller.
+- `LATENCY` pins the latency-biased profile.
+- `THROUGHPUT` pins the throughput-biased profile.
+- `FIXED` reproduces the static pre-adaptive scheduling behavior for deterministic deployments.
+
+HTTP/1.1 owns its policy through `Http1Limits::$adaptive`; HTTP/2 owns its policy through `Http2Limits::$adaptive`; HTTP/3 owns independent `Http3Options::$inboundAdaptive` and `Http3Options::$outboundAdaptive` policies. Advanced callers may override low/high basis-point watermarks, transition sample count, and EWMA ratio per protocol.
+
+Adaptive policy never raises hard body/header/frame, stream, queue, connection, QPACK/HPACK, WebSocket, or lifecycle limits. Those existing configuration objects remain the authoritative resource ceilings.
+
 ## New bounded 2.0 surfaces
 
 Two reviewed candidates were retained after their correctness, resource, interoperability, performance, and exact-head quality gates passed.
