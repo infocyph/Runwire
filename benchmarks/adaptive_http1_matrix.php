@@ -5,7 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/http1_sustained_bench.php';
 
 /**
- * @param array{counter:array<string,int>,histogram:array<int,int>,elapsed:float,peak_rss:int,start_ticks:int,end_ticks:int} $run
+ * @param array{counter:array<string,int>,histogram:array<int,int>,slot_completed:array<int,int>,elapsed:float,peak_rss:int,start_ticks:int,end_ticks:int} $run
  * @return array<string, int|float|bool>
  */
 function adaptiveHttp1Phase(array $run): array
@@ -23,6 +23,13 @@ function adaptiveHttp1Phase(array $run): array
     $p50 = http1SustainedPercentile($run['histogram'], 0.50);
     $p95 = http1SustainedPercentile($run['histogram'], 0.95);
     $p99 = http1SustainedPercentile($run['histogram'], 0.99);
+    $nonzeroSlots = array_values(array_filter(
+        $run['slot_completed'],
+        static fn(int $count): bool => $count > 0,
+    ));
+    $fairness = $nonzeroSlots === []
+        ? INF
+        : max($nonzeroSlots) / max(1, min($nonzeroSlots));
 
     return [
         'requests' => $requests,
@@ -32,8 +39,8 @@ function adaptiveHttp1Phase(array $run): array
         'p99_ms' => $p99,
         'cpu_percent' => round($cpu, 3),
         'rss_peak_bytes' => $run['peak_rss'],
-        'fairness_ratio' => round($p99 / max(0.001, $p50), 4),
-        'correctness_passed' => true,
+        'fairness_ratio' => round($fairness, 4),
+        'correctness_passed' => count($nonzeroSlots) === count($run['slot_completed']),
     ];
 }
 
