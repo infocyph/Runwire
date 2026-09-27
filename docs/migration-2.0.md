@@ -85,6 +85,19 @@ Runwire 2.0 preserves explicit TLS verification settings rather than replacing c
 
 HTTP/1 parsing, HTTP/2 compression/framing, HTTP/3 QPACK/control streams, UDP callbacks, and host response writers all use stricter bounded failure behavior covered by the 2.0 regression matrix.
 
+## Native HTTP transport behavior
+
+Runwire 2.0 also tightens several native HTTP transport defaults without changing the public response-writing contract.
+
+- Native HTTP/1 connections enable `TCP_NODELAY` after HTTP/1 protocol selection when live accepted-socket tuning is available. An explicit listener `tcp_nodelay` socket-context setting still wins. HTTP/2 does not inherit the HTTP/1 default.
+- Bounded implicit HTTP/1 `end($body)` responses may serialize the response head and body into one transport write. Explicit `start() / write() / end()`, chunked streaming, WebSocket upgrade, and backpressure semantics remain on their existing paths.
+- Tiny implicit HTTP/2 responses may use a bounded initial HEADERS+DATA fast path only while the combined wire intent remains below the scheduler's conservative threshold. Larger and streaming responses retain normal multiplexed scheduling.
+- HTTP/2 lifetime stream churn now rotates gracefully with GOAWAY when the configured ceiling is reached while preserving the same hard resource bound.
+- Expected TCP/TLS peer-close write warnings are scoped inside Runwire's transport writer and map to existing write-failure/close semantics instead of leaking raw `fwrite()` warnings.
+- HTTP/3 graceful drain recognizes an already-observed QUIC peer close and does not turn that normal shutdown ordering into a worker-fatal exception.
+
+These are native transport/runtime behaviors. Applications should not add duplicate socket toggles, response buffering, or protocol-specific shutdown workarounds unless their deployment has a measured reason to override Runwire policy.
+
 ## New bounded 2.0 surfaces
 
 Two reviewed candidates were retained after their correctness, resource, interoperability, performance, and exact-head quality gates passed.
