@@ -281,7 +281,7 @@ jobs:
         if: matrix.php-version == '8.5'
         shell: bash
         run: |
-          bash benchmarks/adaptive_http3_certify.sh 3 benchmark-results/adaptive-http3
+          bash benchmarks/adaptive_http3_certify.sh 5 benchmark-results/adaptive-http3
 
       - name: Upload adaptive HTTP/3 evidence
         if: always() && matrix.php-version == '8.5'
