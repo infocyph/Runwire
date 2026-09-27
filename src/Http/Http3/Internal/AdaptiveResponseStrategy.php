@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadController;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use InvalidArgumentException;
@@ -21,11 +23,19 @@ final readonly class AdaptiveResponseStrategy
     /**
      * Create the HTTP/3 outbound adaptive strategy.
      */
-    public function __construct(?AdaptiveLoadController $controller = null)
-    {
-        $this->controller = $controller ?? new AdaptiveLoadController(
+    public function __construct(
+        ?AdaptiveLoadController $controller = null,
+        private AdaptiveProtocolPolicy $policy = new AdaptiveProtocolPolicy(
             lowWatermarkBasisPoints: 1_000,
             highWatermarkBasisPoints: 4_000,
+        ),
+    ) {
+        $this->controller = $controller ?? new AdaptiveLoadController(
+            lowWatermarkBasisPoints: $policy->lowWatermarkBasisPoints,
+            highWatermarkBasisPoints: $policy->highWatermarkBasisPoints,
+            transitionSamples: $policy->transitionSamples,
+            ewmaNumerator: $policy->ewmaNumerator,
+            ewmaDenominator: $policy->ewmaDenominator,
         );
     }
 
@@ -34,7 +44,12 @@ final readonly class AdaptiveResponseStrategy
      */
     public function state(): AdaptiveLoadState
     {
-        return $this->controller->state();
+        return match ($this->policy->mode) {
+            AdaptivePolicyMode::AUTO => $this->controller->state(),
+            AdaptivePolicyMode::FIXED => AdaptiveLoadState::BALANCED,
+            AdaptivePolicyMode::LATENCY => AdaptiveLoadState::LATENCY,
+            AdaptivePolicyMode::THROUGHPUT => AdaptiveLoadState::THROUGHPUT,
+        };
     }
 
     /**
@@ -46,9 +61,17 @@ final readonly class AdaptiveResponseStrategy
             throw new InvalidArgumentException('HTTP/3 adaptive maximum write budget must be positive.');
         }
 
-        return match ($this->controller->observe($sample)) {
-            AdaptiveLoadState::LATENCY => self::scaled($maximum, 1, 4),
+        if ($this->policy->mode === AdaptivePolicyMode::FIXED) {
+            return $maximum;
+        }
+
+        $state = $this->policy->mode === AdaptivePolicyMode::AUTO
+            ? $this->controller->observe($sample)
+            : $this->state();
+
+        return match ($state) {
             AdaptiveLoadState::BALANCED => self::scaled($maximum, 1, 2),
+            AdaptiveLoadState::LATENCY => self::scaled($maximum, 1, 4),
             AdaptiveLoadState::THROUGHPUT => $maximum,
         };
     }
