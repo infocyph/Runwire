@@ -459,68 +459,11 @@ final class ResponseScheduler
         );
     }
 
-    /**
-     * @param list<array{0: string, 1: string}> $headers
-     */
-    private function sendInitialResponse(Http2Stream $stream, array $headers, string $data): ?WriteResult
-    {
-        if (!$stream->localOpen()) {
-            return $this->closedResult();
-        }
-        if ($this->blocked()
-            || $this->flushQueue !== []
-            || !$stream->outbound->isEmpty()
-            || $stream->endPending) {
-            return null;
-        }
-
-        $headerBytes = $this->headerListBytes($headers);
-        $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
-        if ($headerBytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
-            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
-        }
-
-        $dataBytes = strlen($data);
-        $wireIntentBytes = $headerBytes + $dataBytes + ($dataBytes === 0 ? 9 : 18);
-        if ($headerBytes > $this->limits->maxHeaderBlockBytes
-            || $wireIntentBytes > self::INITIAL_RESPONSE_WIRE_BYTES
-            || $wireIntentBytes > $this->connection->availableWriteBytes()
-            || ($dataBytes > 0 && !$this->fitsResponseLimits($stream, $dataBytes))) {
-            return null;
-        }
-
-        if ($dataBytes > 0) {
-            $available = min(
-                $this->flow->availableSend($stream),
-                $this->peerSettings->maxFrameSize,
-                self::OUTBOUND_FRAME_SIZE,
-            );
-            if ($dataBytes > $available) {
-                return null;
-            }
-        }
-
-        $block = $this->encoder->encode($headers);
-        $header = new Frame(
-            FrameType::HEADERS->value,
-            $dataBytes === 0 ? 0x5 : 0x4,
-            $stream->id,
-            $block,
-        );
-        $wire = FrameWriter::encode($header);
-        if ($dataBytes > 0) {
-            $wire .= FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, $stream->id, $data));
-        }
-
-        if (strlen($wire) > $wireIntentBytes) {
-            throw new LogicException('HTTP/2 one-shot wire encoding exceeded its conservative bound.');
-        }
-
-        $result = $this->connection->write($wire);
-        if (!$result->accepted()) {
-            return $result;
-        }
-
+    private function completeInitialResponse(
+        Http2Stream $stream,
+        int $dataBytes,
+        WriteResult $result,
+    ): WriteResult {
         if ($dataBytes > 0) {
             $this->flow->consumeSend($stream, $dataBytes);
         }
@@ -539,6 +482,99 @@ final class ResponseScheduler
             $result->pressured() ? WriteState::PRESSURED : WriteState::ACCEPTED,
             0,
         );
+    }
+
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     */
+    private function encodeInitialResponse(Http2Stream $stream, array $headers, string $data): string
+    {
+        $dataBytes = strlen($data);
+        $block = $this->encoder->encode($headers);
+        $wire = FrameWriter::encode(new Frame(
+            FrameType::HEADERS->value,
+            $dataBytes === 0 ? 0x5 : 0x4,
+            $stream->id,
+            $block,
+        ));
+        if ($dataBytes > 0) {
+            $wire .= FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, $stream->id, $data));
+        }
+
+        return $wire;
+    }
+
+    private function initialResponseAvailable(Http2Stream $stream): bool
+    {
+        return !$this->blocked()
+            && $this->flushQueue === []
+            && $stream->outbound->isEmpty()
+            && !$stream->endPending;
+    }
+
+    private function initialResponseIntent(
+        Http2Stream $stream,
+        int $headerBytes,
+        int $dataBytes,
+    ): ?int {
+        if (!$this->initialResponseAvailable($stream)) {
+            return null;
+        }
+
+        $wireIntentBytes = $headerBytes + $dataBytes + ($dataBytes === 0 ? 9 : 18);
+        if ($headerBytes > $this->limits->maxHeaderBlockBytes
+            || $wireIntentBytes > self::INITIAL_RESPONSE_WIRE_BYTES
+            || $wireIntentBytes > $this->connection->availableWriteBytes()) {
+            return null;
+        }
+        if ($dataBytes === 0) {
+            return $wireIntentBytes;
+        }
+        if (!$this->fitsResponseLimits($stream, $dataBytes)) {
+            return null;
+        }
+
+        $available = min(
+            $this->flow->availableSend($stream),
+            $this->peerSettings->maxFrameSize,
+            self::OUTBOUND_FRAME_SIZE,
+        );
+
+        return $dataBytes <= $available ? $wireIntentBytes : null;
+    }
+
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     */
+    private function sendInitialResponse(Http2Stream $stream, array $headers, string $data): ?WriteResult
+    {
+        if (!$stream->localOpen()) {
+            return $this->closedResult();
+        }
+
+        $headerBytes = $this->headerListBytes($headers);
+        $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
+        if ($headerBytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
+            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
+        }
+
+        $dataBytes = strlen($data);
+        $wireIntentBytes = $this->initialResponseIntent($stream, $headerBytes, $dataBytes);
+        if ($wireIntentBytes === null) {
+            return null;
+        }
+
+        $wire = $this->encodeInitialResponse($stream, $headers, $data);
+        if (strlen($wire) > $wireIntentBytes) {
+            throw new LogicException('HTTP/2 one-shot wire encoding exceeded its conservative bound.');
+        }
+
+        $result = $this->connection->write($wire);
+        if (!$result->accepted()) {
+            return $result;
+        }
+
+        return $this->completeInitialResponse($stream, $dataBytes, $result);
     }
 
     private function streamWriteResult(Http2Stream $stream): WriteResult
