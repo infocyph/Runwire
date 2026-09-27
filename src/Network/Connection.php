@@ -14,6 +14,7 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
+use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use InvalidArgumentException;
 use RuntimeException;
@@ -488,7 +489,7 @@ final class Connection
                 return new WriteResult(WriteState::CLOSED, 0);
             }
             $attempt = max(0, min($length, $this->limits->maxWriteBytesPerTick));
-            $written = fwrite($stream, $data, $attempt);
+            $written = StreamWriter::write($stream, $data, $attempt);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
 
@@ -660,7 +661,7 @@ final class Connection
                 break;
             }
 
-            $written = fwrite($stream, $chunk);
+            $written = StreamWriter::write($stream, $chunk);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
 
