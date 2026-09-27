@@ -350,7 +350,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
             $wire .= $finalChunk;
         }
 
-        if (!$this->connection->canAcceptWrite(strlen($wire))) {
+        if (strlen($wire) > $this->connection->availableWriteBytes()) {
             return null;
         }
 
