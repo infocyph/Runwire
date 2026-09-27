@@ -319,6 +319,7 @@ function http1SustainedTryCompleteResponse(array &$client): ?array
  * @param array<int, array<string, mixed>> $clients
  * @param array<string, int> $counter
  * @param array<int, int> $histogram
+ * @param array<int, int> $slotCompleted
  * @param array{status:int, body:string, close:bool} $response
  */
 function http1SustainedCompleteResponse(
@@ -329,11 +330,13 @@ function http1SustainedCompleteResponse(
     float $deadline,
     array &$counter,
     array &$histogram,
+    array &$slotCompleted,
     bool $collectLatency,
     array $response,
 ): void {
     $client = &$clients[$id];
     ++$counter['completed_requests'];
+    ++$slotCompleted[$id];
     if ($response['status'] === 200 && $response['body'] === 'ok') {
         ++$counter['successful_requests'];
     } else {
@@ -355,6 +358,7 @@ function http1SustainedCompleteResponse(
  * @param array<int, array<string, mixed>> $clients
  * @param array<string, int> $counter
  * @param array<int, int> $histogram
+ * @param array<int, int> $slotCompleted
  */
 function http1SustainedHandleReadable(
     array &$clients,
@@ -364,6 +368,7 @@ function http1SustainedHandleReadable(
     float $deadline,
     array &$counter,
     array &$histogram,
+    array &$slotCompleted,
     bool $collectLatency,
 ): void {
     try {
@@ -386,6 +391,7 @@ function http1SustainedHandleReadable(
         $deadline,
         $counter,
         $histogram,
+        $slotCompleted,
         $collectLatency,
         $response,
     );
@@ -446,7 +452,7 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
 }
 
 /**
- * @return array{counter:array<string,int>, histogram:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int}
+ * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int}
  */
 function http1SustainedRun(
     string $host,
@@ -458,6 +464,7 @@ function http1SustainedRun(
 ): array {
     $counter = http1SustainedCounters();
     $histogram = [];
+    $slotCompleted = array_fill(0, $concurrency, 0);
     $clients = [];
     $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n";
     $started = hrtime(true);
@@ -497,6 +504,7 @@ function http1SustainedRun(
                     $deadline,
                     $counter,
                     $histogram,
+                    $slotCompleted,
                     $collectLatency,
                 );
             }
@@ -513,6 +521,7 @@ function http1SustainedRun(
     return [
         'counter' => $counter,
         'histogram' => $histogram,
+        'slot_completed' => $slotCompleted,
         'elapsed' => (hrtime(true) - $started) / 1_000_000_000,
         'peak_rss' => max($peakRss, http1SustainedTreeRss($serverPid)),
         'start_ticks' => $startTicks,
