@@ -202,6 +202,51 @@ final class ResponseScheduler
         return new WriteResult(WriteState::CLOSED, 0);
     }
 
+    private function completeInitialResponse(
+        Http2Stream $stream,
+        int $dataBytes,
+        WriteResult $result,
+    ): WriteResult {
+        if ($dataBytes > 0) {
+            $this->flow->consumeSend($stream, $dataBytes);
+        }
+        if ($result->pressured()) {
+            $this->transportPressured = true;
+        }
+
+        $stream->localEnd();
+        if ($stream->remoteOpen()) {
+            ($this->activityCallback)($stream);
+        } else {
+            ($this->cleanupClosed)($stream);
+        }
+
+        return new WriteResult(
+            $result->pressured() ? WriteState::PRESSURED : WriteState::ACCEPTED,
+            0,
+        );
+    }
+
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     */
+    private function encodeInitialResponse(Http2Stream $stream, array $headers, string $data): string
+    {
+        $dataBytes = strlen($data);
+        $block = $this->encoder->encode($headers);
+        $wire = FrameWriter::encode(new Frame(
+            FrameType::HEADERS->value,
+            $dataBytes === 0 ? 0x5 : 0x4,
+            $stream->id,
+            $block,
+        ));
+        if ($dataBytes > 0) {
+            $wire .= FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, $stream->id, $data));
+        }
+
+        return $wire;
+    }
+
     private function fitsResponseLimits(Http2Stream $stream, int $bytes): bool
     {
         if ($bytes > $this->limits->maxPendingResponseBytesPerStream - $stream->outbound->bytes()) {
@@ -338,6 +383,45 @@ final class ResponseScheduler
         return $bytes;
     }
 
+    private function initialResponseAvailable(Http2Stream $stream): bool
+    {
+        return !$this->blocked()
+            && $this->flushQueue === []
+            && $stream->outbound->isEmpty()
+            && !$stream->endPending;
+    }
+
+    private function initialResponseIntent(
+        Http2Stream $stream,
+        int $headerBytes,
+        int $dataBytes,
+    ): ?int {
+        if (!$this->initialResponseAvailable($stream)) {
+            return null;
+        }
+
+        $wireIntentBytes = $headerBytes + $dataBytes + ($dataBytes === 0 ? 9 : 18);
+        if ($headerBytes > $this->limits->maxHeaderBlockBytes
+            || $wireIntentBytes > self::INITIAL_RESPONSE_WIRE_BYTES
+            || $wireIntentBytes > $this->connection->availableWriteBytes()) {
+            return null;
+        }
+        if ($dataBytes === 0) {
+            return $wireIntentBytes;
+        }
+        if (!$this->fitsResponseLimits($stream, $dataBytes)) {
+            return null;
+        }
+
+        $available = min(
+            $this->flow->availableSend($stream),
+            $this->peerSettings->maxFrameSize,
+            self::OUTBOUND_FRAME_SIZE,
+        );
+
+        return $dataBytes <= $available ? $wireIntentBytes : null;
+    }
+
     private function nextStream(): ?Http2Stream
     {
         $streamId = array_key_first($this->flushQueue);
@@ -457,90 +541,6 @@ final class ResponseScheduler
             $pressured ? WriteState::PRESSURED : WriteState::ACCEPTED,
             $stream->outbound->bytes(),
         );
-    }
-
-    private function completeInitialResponse(
-        Http2Stream $stream,
-        int $dataBytes,
-        WriteResult $result,
-    ): WriteResult {
-        if ($dataBytes > 0) {
-            $this->flow->consumeSend($stream, $dataBytes);
-        }
-        if ($result->pressured()) {
-            $this->transportPressured = true;
-        }
-
-        $stream->localEnd();
-        if ($stream->remoteOpen()) {
-            ($this->activityCallback)($stream);
-        } else {
-            ($this->cleanupClosed)($stream);
-        }
-
-        return new WriteResult(
-            $result->pressured() ? WriteState::PRESSURED : WriteState::ACCEPTED,
-            0,
-        );
-    }
-
-    /**
-     * @param list<array{0: string, 1: string}> $headers
-     */
-    private function encodeInitialResponse(Http2Stream $stream, array $headers, string $data): string
-    {
-        $dataBytes = strlen($data);
-        $block = $this->encoder->encode($headers);
-        $wire = FrameWriter::encode(new Frame(
-            FrameType::HEADERS->value,
-            $dataBytes === 0 ? 0x5 : 0x4,
-            $stream->id,
-            $block,
-        ));
-        if ($dataBytes > 0) {
-            $wire .= FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, $stream->id, $data));
-        }
-
-        return $wire;
-    }
-
-    private function initialResponseAvailable(Http2Stream $stream): bool
-    {
-        return !$this->blocked()
-            && $this->flushQueue === []
-            && $stream->outbound->isEmpty()
-            && !$stream->endPending;
-    }
-
-    private function initialResponseIntent(
-        Http2Stream $stream,
-        int $headerBytes,
-        int $dataBytes,
-    ): ?int {
-        if (!$this->initialResponseAvailable($stream)) {
-            return null;
-        }
-
-        $wireIntentBytes = $headerBytes + $dataBytes + ($dataBytes === 0 ? 9 : 18);
-        if ($headerBytes > $this->limits->maxHeaderBlockBytes
-            || $wireIntentBytes > self::INITIAL_RESPONSE_WIRE_BYTES
-            || $wireIntentBytes > $this->connection->availableWriteBytes()) {
-            return null;
-        }
-        if ($dataBytes === 0) {
-            return $wireIntentBytes;
-        }
-        if (!$this->fitsResponseLimits($stream, $dataBytes)) {
-            return null;
-        }
-
-        $available = min(
-            $this->flow->availableSend($stream),
-            $this->peerSettings->maxFrameSize,
-            self::OUTBOUND_FRAME_SIZE,
-        );
-
-        return $dataBytes <= $available ? $wireIntentBytes : null;
     }
 
     /**
