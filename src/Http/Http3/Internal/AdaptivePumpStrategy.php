@@ -43,15 +43,7 @@ final readonly class AdaptivePumpStrategy
     {
         self::assertMaximum($maximum);
 
-        if ($this->policy->mode === AdaptivePolicyMode::FIXED) {
-            return $maximum;
-        }
-
-        return match ($this->state()) {
-            AdaptiveLoadState::BALANCED => self::scaled($maximum, 1, 2),
-            AdaptiveLoadState::LATENCY => $maximum,
-            AdaptiveLoadState::THROUGHPUT => self::scaled($maximum, 1, 4),
-        };
+        return $maximum;
     }
 
     /**
