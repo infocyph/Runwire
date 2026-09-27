@@ -25,22 +25,60 @@ function replaceOnce(string $source, string $search, string $replacement, string
 
 $source = replaceOnce(
     $source,
-    "    private int \$bodyBytes = 0;\n\n    private bool \$bodySuppressed = false;",
-    "    private int \$bodyBytes = 0;\n\n    private string \$benchmarkPendingHead = '';\n\n    private bool \$bodySuppressed = false;",
+    <<<'PHP'
+    private int $bodyBytes = 0;
+
+    private bool $bodySuppressed = false;
+PHP,
+    <<<'PHP'
+    private int $bodyBytes = 0;
+
+    private string $benchmarkPendingHead = '';
+
+    private bool $bodySuppressed = false;
+PHP,
     'property',
 );
 
 $source = replaceOnce(
     $source,
-    "        \$result = \$this->connection->write(\$this->serializeHead(\$status, \$fields));\n        if (!\$result->accepted()) {",
-    "        \$head = \$this->serializeHead(\$status, \$fields);\n        if (getenv('RUNWIRE_BENCH_H1_COALESCE') === '1') {\n            \$this->benchmarkPendingHead = \$head;\n            \$result = new WriteResult(WriteState::ACCEPTED, \$this->connection->pendingWriteBytes());\n        } else {\n            \$result = \$this->connection->write(\$head);\n        }\n        if (!\$result->accepted()) {",
+    <<<'PHP'
+        $result = $this->connection->write($this->serializeHead($status, $fields));
+        if (!$result->accepted()) {
+PHP,
+    <<<'PHP'
+        $head = $this->serializeHead($status, $fields);
+        if (getenv('RUNWIRE_BENCH_H1_COALESCE') === '1') {
+            $this->benchmarkPendingHead = $head;
+            $result = new WriteResult(WriteState::ACCEPTED, $this->connection->pendingWriteBytes());
+        } else {
+            $result = $this->connection->write($head);
+        }
+        if (!$result->accepted()) {
+PHP,
     'start write',
 );
 
 $source = replaceOnce(
     $source,
-    "    private function closedResult(): WriteResult\n    {",
-    "    private function benchmarkWrite(string \$wire): WriteResult\n    {\n        if (\$this->benchmarkPendingHead !== '') {\n            \$wire = \$this->benchmarkPendingHead . \$wire;\n            \$this->benchmarkPendingHead = '';\n        }\n\n        return \$this->connection->write(\$wire);\n    }\n\n    private function closedResult(): WriteResult\n    {",
+    <<<'PHP'
+    private function closedResult(): WriteResult
+    {
+PHP,
+    <<<'PHP'
+    private function benchmarkWrite(string $wire): WriteResult
+    {
+        if ($this->benchmarkPendingHead !== '') {
+            $wire = $this->benchmarkPendingHead . $wire;
+            $this->benchmarkPendingHead = '';
+        }
+
+        return $this->connection->write($wire);
+    }
+
+    private function closedResult(): WriteResult
+    {
+PHP,
     'benchmark write helper',
 );
 
@@ -63,8 +101,12 @@ $source = str_replace(
 
 $source = replaceOnce(
     $source,
-    "        \$result = \$finalChunk === ''\n            ? \$this->connection->write('')\n            : \$this->connection->write(\$finalChunk);",
-    "        \$result = \$this->benchmarkWrite(\$finalChunk);",
+    <<<'PHP'
+        $result = $finalChunk === ''
+            ? $this->connection->write('')
+            : $this->connection->write($finalChunk);
+PHP,
+    '        $result = $this->benchmarkWrite($finalChunk);',
     'fixed-length end',
 );
 
