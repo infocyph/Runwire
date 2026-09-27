@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation and adaptive protocol tuning are complete through J10; D01-D18 and J01-J10 are closed, and I8 long release certification remains paused for the later final soak/certification pass**
+Status: **release follow-up hardening is active; D01-D18 and J01-J09 remain closed, J10 is reopened pending sustained AUTO-vs-FIXED evidence, K01-K04 are release blockers, and I8 certification remains paused**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -543,7 +543,7 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Protocol-local `AdaptiveProtocolPolicy` exposes mode, low/high basis-point watermarks, dwell samples and EWMA ratio without changing hard limits | **Complete** |
 | J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Protocol transition/oscillation tests across H1.1/H2/H3 using explicit dwell and crossover policies | **Complete** |
 | J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Cross-mode invariant tests prove adaptive choices remain at/below configured hard limits and FIXED preserves static behavior | **Complete** |
-| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | AUTO promoted for H1.1/H2/H3; permanent adaptive PHPBench coverage + exact-head full protocol/quality regression; deterministic fixed profiles retained | **Complete** |
+| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Promotion record reopened: CI + policy microbenchmarks are insufficient; require sustained AUTO-vs-FIXED protocol matrices with transition latency, CPU/RSS and fairness | **Reopened** |
 
 ### J01 — common adaptive load model
 
@@ -856,7 +856,7 @@ State transitions must not:
 
 ### J10 — benchmark matrix and promotion gate
 
-**Status: complete.** Exact production head `e7afa2656446bdc6088c76c1b11e6f1318550cd1` passed Benchmarks `36333200593`, Security & Standards `36333200857`, Release Candidate `36333200500`, Portable Native `36333200507`, Swoole/OpenSwoole Coroutine `36333200513`, and Source Audit `36333200472`. `AdaptiveProtocolBench` is part of the permanent PHPBench suite. Release-certification soak remains intentionally paused for the later I8 pass.
+**Status: reopened.** Exact head `e7afa2656446bdc6088c76c1b11e6f1318550cd1` passed CI and permanent adaptive-policy microbenchmarks, but that evidence does not establish sustained AUTO-vs-FIXED protocol performance, transition latency, CPU/RSS, or fairness. J10 remains open until the required sustained matrices pass; I8 stays paused.
 
 Each protocol is promoted independently. J is not an all-or-nothing feature.
 
@@ -925,6 +925,37 @@ Production code stayed on `feat/http-improvement`; playground-only patch/harness
 
 ---
 
+## K — release follow-up hardening
+
+**Status: active. All four findings are release blockers before J10 can close or I8 can run.**
+
+| ID | Finding | Required resolution | Status |
+| --- | --- | --- | --- |
+| K01 | HTTP/3 AUTO can starve later ready/request streams because each bounded read cycle restarts at the first peer stream | Add persistent bounded-fair stream rotation for both scan-based and readiness-based drain paths; regression-test reserved-stream contention | **Active** |
+| K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | Bypass load sampling entirely outside AUTO and replace full AUTO scans with bounded/incremental worker load accounting | **Planned** |
+| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Run representative sustained H1.1/H2/H3 AUTO-vs-FIXED matrices including transitions, CPU/RSS, latency and fairness before promotion | **Planned** |
+| K04 | Accepted EWMA numerator/denominator values can overflow integer multiplication during observation | Make EWMA arithmetic overflow-safe and reject/normalize unsafe configuration; add max-int regression coverage | **Planned** |
+
+### K01 — HTTP/3 bounded-fair read progress
+
+The adaptive read budget may be smaller than the number of ready peer streams. Both `drainReadableStreams()` and `drainReadyStreams()` therefore require a persistent rotation cursor so the next pump resumes after the last stream that consumed/attempted budget rather than restarting at the first peer stream. Reserved unidirectional streams remain valid peers and must not starve request streams.
+
+Acceptance requires regression tests for both pump paths with a reserved stream ahead of a request stream and a one-read budget.
+
+### K02 — HTTP/1.1 admission sampling complexity
+
+FIXED/LATENCY/THROUGHPUT modes must not sample the existing connection population at all. AUTO must not perform an unbounded full scan on every admission. Worker-scoped adaptive accounting should update incrementally or sample a strict bounded subset while keeping pressure/backlog/activity semantics useful.
+
+### K03 — reopen J10 evidence gate
+
+Green correctness CI and policy-selection microbenchmarks are necessary but not sufficient for promotion. J10 must remain reopened until sustained protocol comparisons cover at minimum AUTO vs FIXED for H1.1, H2 and H3, low/high/transition load, p95/p99, throughput, CPU, RSS, and fairness/starvation indicators.
+
+### K04 — EWMA arithmetic safety
+
+User-configurable EWMA parameters must never convert integer arithmetic to float and trigger a typed-property/argument failure during normal observation. The implementation must use overflow-safe integer math and/or validated safe bounds, with `PHP_INT_MAX`-scale regression tests.
+
+---
+
 ## Final decision record template
 
 For each D-item, update this plan with:
@@ -939,4 +970,4 @@ For each D-item, update this plan with:
 
 `feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
-V1-V7, D01-D18, and J01-J10 are closed. I8 is the only remaining gate and stays paused until the user chooses to run the long exact-head release certification/soak.
+V1-V7, D01-D18, and J01-J09 are closed. J10 is reopened, K01-K04 are active release blockers, and I8 remains paused until J10/K close.
