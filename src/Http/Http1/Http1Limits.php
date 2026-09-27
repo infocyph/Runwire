@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http1;
 
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use InvalidArgumentException;
 
 /**
@@ -33,7 +34,7 @@ final readonly class Http1Limits
         public float $headerTimeoutSeconds = 10.0,
         public float $bodyIdleTimeoutSeconds = 30.0,
         public AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(
-            mode: \Infocyph\Runwire\Http\Enum\AdaptivePolicyMode::FIXED,
+            mode: AdaptivePolicyMode::FIXED,
             lowWatermarkBasisPoints: 1_000,
             highWatermarkBasisPoints: 4_500,
             transitionSamples: 128,
