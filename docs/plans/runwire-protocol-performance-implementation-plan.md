@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation active on `feat/http-improvement`; H1 I1 and H2 I2 are complete and QA-certified, I3 transport write-error normalization is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
+Status: **production implementation active on `feat/http-improvement`; I1-I3 are complete and QA-certified, I4 graceful HTTP/2/HTTP/3 lifecycle hardening is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -58,8 +58,8 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixed tiny cases but regressed 1 KiB / 100 streams | Narrow implicit one-shot fast path is limited to <1 KiB combined wire intent; 1 KiB/larger and streaming responses retain the existing scheduler | `Http2ResponseWriter`, `ResponseScheduler` | complete | **Implement** |
 | D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
 | D06 | H2 one connection saturates one worker | Medium-high | Focus scaling on workers before extra client connection tuning | runtime/worker docs and benchmarks | V5 | Validate |
-| D07 | H2 10k stream churn limit ends abruptly | High | Preserve hard bound, investigate graceful pre-limit GOAWAY/drain | H2 connection lifecycle / limits | V6 | Validate |
-| D08 | TLS peer close leaks broken-pipe warnings | High | Convert only `fwrite()` warnings into scoped transport failure semantics while restoring unrelated PHP warning handling | `Connection`, transport write helper | I3 | **Active** |
+| D07 | H2 10k stream churn limit ends abruptly | High | Preserve the exact hard bound and begin graceful GOAWAY rotation when the final allowed stream is admitted | H2 connection lifecycle / limits | I4 | **Active** |
+| D08 | TLS/TCP peer-close writes can leak `fwrite()` warnings | High; scoped helper passes tests and benchmark gates | Route immediate and buffered writes through a scoped `fwrite()` helper; warnings map to existing `WRITE_ERROR` semantics and caller warning handling is restored | `Connection`, `StreamWriter` | complete | **Implement** |
 | D09 | H3 50 ms poll timeout is not active-traffic latency floor | High after sustained V4 | Keep current default | H3 session/runtime | complete | Keep |
 | D10 | H3 scheduler knobs do not show a stable sustained winner | High after sustained V4 | Keep current defaults; no tuning code | H3 limits/session | complete | Keep |
 | D11 | H3 16 KiB payload cost becomes visible | High after sustained V4 | Keep current behavior; treat as payload/crypto cost unless future profiling proves avoidable copies | H3 frame/body path | complete | Keep |
@@ -69,7 +69,7 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | D15 | Expected write batching is common in peer PHP runtimes | Supporting | Use as design precedent, not as performance proof | H1/H2 design | V1/V2 | Supporting |
 | D16 | Graceful H2 GOAWAY exists in mature peers | Supporting | Prefer graceful rotation if Runwire tests prove it preserves hard limits | H2 lifecycle | V6 | Supporting |
 | D17 | Scoped write-warning conversion exists in Amp/React | Supporting | Adopt equivalent Runwire-owned mechanism, not their implementation | `Connection` | V7 | Supporting |
-| D18 | H3 beginDrain can write GOAWAY after peer QUIC shutdown and throw | High | Make H3 drain-after-peer-close idempotent/non-fatal while preserving real protocol errors | `PhpQuicHttp3Worker`, `PhpQuicHttp3Connection` | V6 | Validate |
+| D18 | H3 beginDrain can write GOAWAY after peer QUIC shutdown and throw | High | Detect native QUIC close state before/after drain flush; observed peer-close becomes idempotent local closure while unrelated write failures remain visible | `PhpQuicConnection`, `PhpQuicHttp3Connection` | I4 | **Active** |
 
 ## Finding-to-library action map
 
@@ -517,21 +517,24 @@ These batches become active only when their gates pass.
 
 ### I3 — transport warning normalization
 
-**Status: active.**
+**Status: complete.** Full QA passed at SHA `28a7e59942c0ada64c026ee71f7d99ff5112d1d8`; Security & Standards run `36311729244`.
 
-- scoped stream-write warning capture;
-- immediate + buffered paths;
-- TLS/TCP disconnect tests;
-- diagnostics review;
-- PHPForge QA;
-- commit.
+- one internal `StreamWriter` scopes only `fwrite()` warnings without `@`;
+- immediate and buffered `Connection` writes use the same primitive;
+- peer-close failures map into existing `CloseReason::WRITE_ERROR` semantics;
+- focused tests prove warning containment, buffered-write failure handling, and restoration of the caller error handler;
+- protocol-core and PHPForge benchmark gates pass on PHP 8.4 and 8.5;
+- PHPForge analysis/QA, prefer-lowest/stable, QUIC, portable native, Swoole/OpenSwoole and source audit all pass.
 
 ### I4 — graceful connection rotation
 
-- H2 GOAWAY/drain before hard churn ceiling;
-- H3 equivalent only if V6 supports it;
-- long-lived client tests;
-- abuse-bound tests;
+**Status: active.**
+
+- H2 begins GOAWAY/drain when the final configured stream-churn slot is admitted, preserving the hard ceiling exactly;
+- streams beyond the boundary are refused by draining semantics instead of discovering the limit through an abrupt connection failure;
+- H3 drain recognizes an already-observed native QUIC close before writing GOAWAY and re-checks close state if the drain flush fails;
+- unrelated H3 transport exceptions remain visible;
+- lifecycle/idempotency tests;
 - PHPForge QA;
 - commit.
 
