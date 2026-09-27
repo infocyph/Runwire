@@ -107,7 +107,7 @@ it('rejects oversized decoded header lists before application dispatch', functio
         ->and($error)->toBe(ErrorCode::COMPRESSION_ERROR->value);
 });
 
-it('bounds lifetime request-stream creation', function (): void {
+it('bounds lifetime request-stream creation through graceful rotation', function (): void {
     $wire = runwireH2ClientPrelude()
         . runwireH2Headers(1, '/one')
         . runwireH2Headers(3, '/two')
@@ -116,7 +116,7 @@ it('bounds lifetime request-stream creation', function (): void {
     expect(runwireH2GoAwayError(
         $wire,
         new Http2Limits(maxStreamsPerConnection: 2),
-    ))->toBe(ErrorCode::ENHANCE_YOUR_CALM->value);
+    ))->toBe(ErrorCode::NO_ERROR->value);
 });
 
 it('delivers synchronous END_STREAM before a response can clean up the stream', function (): void {
