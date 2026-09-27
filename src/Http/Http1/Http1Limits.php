@@ -32,7 +32,13 @@ final readonly class Http1Limits
         public int $maxResponseChunkBytes = 65_536,
         public float $headerTimeoutSeconds = 10.0,
         public float $bodyIdleTimeoutSeconds = 30.0,
-        public AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(),
+        public AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 3_000,
+            transitionSamples: 1,
+            ewmaNumerator: 1,
+            ewmaDenominator: 1,
+        ),
     ) {
         foreach ([
             'maxRequestLineBytes' => $maxRequestLineBytes,
