@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation active on `feat/http-improvement`; I1-I3 are complete and QA-certified, I4 graceful HTTP/2/HTTP/3 lifecycle hardening is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
+Status: **production implementation active on `feat/http-improvement`; I1-I6 are complete, I7 full protocol regression is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -57,19 +57,19 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Same H1 response path for plaintext/TLS; H1 NODELAY policy handles the transport case without a TLS-specific response API | H1 transport path | complete | **Implement** |
 | D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixed tiny cases but regressed 1 KiB / 100 streams | Narrow implicit one-shot fast path is limited to <1 KiB combined wire intent; 1 KiB/larger and streaming responses retain the existing scheduler | `Http2ResponseWriter`, `ResponseScheduler` | complete | **Implement** |
 | D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
-| D06 | H2 one connection saturates one worker | Medium-high | Focus scaling on workers before extra client connection tuning | runtime/worker docs and benchmarks | V5 | Validate |
-| D07 | H2 10k stream churn limit ends abruptly | High | Preserve the exact hard bound and begin graceful GOAWAY rotation when the final allowed stream is admitted | H2 connection lifecycle / limits | I4 | **Active** |
+| D06 | H2 one connection saturates one worker | Medium-high; adding 4/16 client connections did not materially improve one-worker throughput | Keep runtime policy; scale measured worker capacity rather than multiplying client connections | deployment guidance | complete | **Keep** |
+| D07 | H2 10k stream churn limit ends abruptly | High; lifecycle implementation and abuse-bound tests complete | Preserve the exact hard bound and begin graceful GOAWAY rotation when the final allowed stream is admitted | `Http2Connection`, `RequestStreamProcessor` | complete | **Implement** |
 | D08 | TLS/TCP peer-close writes can leak `fwrite()` warnings | High; scoped helper passes tests and benchmark gates | Route immediate and buffered writes through a scoped `fwrite()` helper; warnings map to existing `WRITE_ERROR` semantics and caller warning handling is restored | `Connection`, `StreamWriter` | complete | **Implement** |
 | D09 | H3 50 ms poll timeout is not active-traffic latency floor | High after sustained V4 | Keep current default | H3 session/runtime | complete | Keep |
 | D10 | H3 scheduler knobs do not show a stable sustained winner | High after sustained V4 | Keep current defaults; no tuning code | H3 limits/session | complete | Keep |
 | D11 | H3 16 KiB payload cost becomes visible | High after sustained V4 | Keep current behavior; treat as payload/crypto cost unless future profiling proves avoidable copies | H3 frame/body path | complete | Keep |
-| D12 | Worker scaling is useful but sublinear | Medium | Document measured scaling; change runtime policy only if V5 finds a code bottleneck | worker/runtime | V5 | Validate |
+| D12 | Worker scaling is useful but sublinear | Medium; 1→2 ≈1.43× and 1→4 ≈2.58× in the short diagnostic, with no isolated runtime defect | Keep automatic/explicit worker policy and document benchmark-first sizing; no runtime tuning code | deployment guidance | complete | **Keep** |
 | D13 | EventLoop vs SelectLoop is workload-dependent on the same runner | High after V3 | Keep current `LoopFactory::native()` preference/fallback; publish no universal backend ranking | `LoopFactory`, docs | complete | Keep |
 | D14 | 2.0 did not regress against matched pre-release baseline / 1.0 comparison evidence | High for tested path | No compatibility rollback; optimize forward | release docs | complete | Keep |
 | D15 | Expected write batching is common in peer PHP runtimes | Supporting | Use as design precedent, not as performance proof | H1/H2 design | V1/V2 | Supporting |
 | D16 | Graceful H2 GOAWAY exists in mature peers | Supporting | Prefer graceful rotation if Runwire tests prove it preserves hard limits | H2 lifecycle | V6 | Supporting |
 | D17 | Scoped write-warning conversion exists in Amp/React | Supporting | Adopt equivalent Runwire-owned mechanism, not their implementation | `Connection` | V7 | Supporting |
-| D18 | H3 beginDrain can write GOAWAY after peer QUIC shutdown and throw | High | Detect native QUIC close state before/after drain flush; observed peer-close becomes idempotent local closure while unrelated write failures remain visible | `PhpQuicConnection`, `PhpQuicHttp3Connection` | I4 | **Active** |
+| D18 | H3 beginDrain can write GOAWAY after peer QUIC shutdown and throw | High; live/closed drain behavior and QUIC lanes pass | Detect native QUIC close state before/after drain flush; observed peer-close becomes idempotent local closure while unrelated write failures remain visible | `PhpQuicConnection`, `PhpQuicHttp3Connection` | complete | **Implement** |
 
 ## Finding-to-library action map
 
@@ -234,16 +234,13 @@ V2 reconfirms that NODELAY helps low-stream tiny responses but can materially re
 
 ### D06 / D12 — worker scaling
 
-After H1/H2 write strategy is finalized:
+**Final decision: keep current runtime policy; publish benchmark-first guidance.**
 
-- benchmark 1/2/4 workers, optionally 8 only when runner CPU capacity supports it;
-- measure scaling efficiency, CPU saturation, RSS, accept distribution and socket contention;
-- inspect `SO_REUSEPORT`/listener behavior only if scaling flattens before CPU saturation;
-- do not automatically set workers = CPU count without evidence.
+The playground shows real but sublinear native worker scaling: about 1.43× at two workers and 2.58× at four workers in the short H1 diagnostic. Separately, H2 connection-scaling evidence shows that one multiplexed connection already reaches the one-worker throughput class and that adding 4/16 client connections does not create useful headroom.
 
-**Likely library outcome**
+No concrete Runwire scheduler, accept, or reuse-port defect was isolated strongly enough to justify runtime tuning. Automatic sizing therefore remains a starting point rather than a performance guarantee, explicit worker counts remain supported, and deployment guidance now tells operators to benchmark 1/2/4 workers with CPU, RSS, latency, accept distribution and contention evidence.
 
-Documentation/runtime guidance unless V5 reveals a concrete Runwire bottleneck.
+Close D06/D12 as **Keep**. Any future scaling code requires a new reproducible bottleneck rather than extrapolating from sublinear scaling alone.
 
 ---
 
@@ -471,15 +468,19 @@ Five 25,000-request trials per candidate show no stable tuning winner beyond var
 
 ### V5 — worker scaling
 
-Run after V1/V2 winners exist.
+**Status: closed by evidence synthesis with no runtime code change.**
 
-**Output:** D06/D12.
+P5/F04 proves useful but sublinear 1/2/4-worker scaling; P7/F06 proves extra H2 client connections do not materially raise one-worker throughput. Post-I1/I2 repository benchmark gates remain green and no concrete worker/runtime defect has been isolated.
+
+**Output:** D06/D12 closed as **Keep** with deployment guidance.
 
 ### V6 — graceful churn
 
-Implement benchmark-only H2 and H3 drain variants, verify active-stream completion and hard ceiling.
+**Status: complete in production implementation.**
 
-**Output:** D07.
+H2 rotates with GOAWAY at the final configured lifetime-stream slot while preserving the hard ceiling; beyond-boundary streams are refused. H3 distinguishes live drain from an already-observed QUIC peer close and keeps unrelated transport failures visible.
+
+**Output:** D07 and D18 closed as **Implement**.
 
 ### V7 — write error semantics
 
@@ -528,25 +529,28 @@ These batches become active only when their gates pass.
 
 ### I4 — graceful connection rotation
 
-**Status: active.**
+**Status: complete.**
 
 - H2 begins GOAWAY/drain when the final configured stream-churn slot is admitted, preserving the hard ceiling exactly;
 - streams beyond the boundary are refused by draining semantics instead of discovering the limit through an abrupt connection failure;
 - H3 drain recognizes an already-observed native QUIC close before writing GOAWAY and re-checks close state if the drain flush fails;
 - unrelated H3 transport exceptions remain visible;
-- lifecycle/idempotency tests;
-- PHPForge QA;
-- commit.
+- lifecycle/idempotency and abuse-bound tests cover the new semantics;
+- PHPForge QA/analyzers, protocol benchmarks, portable native, Swoole/OpenSwoole, and HTTP/3 QUIC lanes pass.
 
 ### I5 — H3 tuning
 
 **Complete with no code change.** V4 produced no winner strong enough to justify changing H3 defaults.
 
-### I6 — worker/runtime scaling fixes only if proven
+### I6 — worker/runtime scaling
 
-Apply only concrete V5 bottlenecks. Otherwise publish guidance and keep runtime code unchanged.
+**Status: complete with documentation only.**
+
+No concrete V5-era runtime bottleneck is proven. Keep current worker/runtime behavior and publish benchmark-first sizing guidance in `docs/deployment.md`; no speculative worker-count, accept-loop, or reuse-port tuning is added.
 
 ### I7 — full protocol regression
+
+**Status: active after I6 documentation closure.**
 
 - H1 plain/TLS;
 - H2 TLS/ALPN;
