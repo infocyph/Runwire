@@ -16,6 +16,9 @@ private_key="${7:--}"
 mkdir -p "$output_dir"
 
 server_pid=""
+ACTIVE_PORT=""
+CURRENT_PAYLOAD=""
+CURRENT_SERVER_LOG=""
 
 cleanup() {
   if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
@@ -43,7 +46,7 @@ wait_ready() {
 
   for _ in $(seq 1 200); do
     if [ "$transport" = "tls" ]; then
-      if printf '' | timeout 1 openssl s_client -connect "127.0.0.1:$port" -servername localhost -alpn http/1.1 >/dev/null 2>&1; then
+      if printf '' | timeout 1 openssl s_client         -connect "127.0.0.1:$port"         -servername localhost         -alpn http/1.1         >/dev/null 2>&1; then
         return 0
       fi
     elif php -r '
@@ -51,7 +54,7 @@ wait_ready() {
       $socket = stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
       restore_error_handler();
       if (!is_resource($socket)) {
-          throw new RuntimeException("not ready");
+          exit(1);
       }
       fclose($socket);
     ' "$port" >/dev/null 2>&1; then
@@ -59,12 +62,14 @@ wait_ready() {
     fi
 
     if ! kill -0 "$server_pid" 2>/dev/null; then
+      echo "--- HTTP/1 server exited before readiness ---" >&2
       cat "$log" >&2
       return 1
     fi
     sleep 0.02
   done
 
+  echo "--- HTTP/1 server readiness timed out ---" >&2
   cat "$log" >&2
   return 1
 }
@@ -79,13 +84,14 @@ start_server() {
 
   (
     cd "$runwire_root"
-    exec php -d opcache.enable_cli=1 "$control_root/benchmarks/http12_lab_server.php"       "$port" "$payload" "$workers" "$nodelay" "$certificate" "$private_key"
+    exec php -d opcache.enable_cli=1       "$control_root/benchmarks/http12_lab_server.php"       "$port" "$payload" "$workers" "$nodelay" "$certificate" "$private_key"
   ) >"$output_dir/$label-server.log" 2>&1 &
   server_pid=$!
-  wait_ready "$port" "$output_dir/$label-server.log"
-  ACTIVE_PORT="$port"
-  CURRENT_PAYLOAD="$payload"
+
   CURRENT_SERVER_LOG="$label-server.log"
+  CURRENT_PAYLOAD="$payload"
+  wait_ready "$port" "$output_dir/$CURRENT_SERVER_LOG"
+  ACTIVE_PORT="$port"
 }
 
 stop_server() {
@@ -98,15 +104,30 @@ run_case() {
   local concurrency="$2"
   local warmup="$3"
   local duration="$4"
+  local expected_body
+  expected_body="$(php -r 'echo str_repeat("x", (int) $argv[1]);' "$CURRENT_PAYLOAD")"
 
-  RUNWIRE_RUNTIME_VERSION="2.0-$backend"   RUNWIRE_RUNTIME_BUILD="$(git -C "$runwire_root" rev-parse HEAD)"   RUNWIRE_INSTRUMENTATION="protocol-playground-$backend-$transport"   RUNWIRE_BENCH_TCP_NODELAY=0   RUNWIRE_BENCH_TLS="$([ "$transport" = "tls" ] && echo 1 || echo 0)"     php -d opcache.enable_cli=1 "$control_root/benchmarks/http1_sustained_bench.php"       "$ACTIVE_PORT" "$concurrency" "$warmup" "$duration" "$server_pid"       > "$output_dir/$label.json"
+  if ! RUNWIRE_RUNTIME_VERSION="2.0-$backend"     RUNWIRE_RUNTIME_BUILD="$(git -C "$runwire_root" rev-parse HEAD)"     RUNWIRE_INSTRUMENTATION="protocol-playground-$backend-$transport"     RUNWIRE_BENCH_TCP_NODELAY=0     RUNWIRE_BENCH_TLS="$([ "$transport" = "tls" ] && echo 1 || echo 0)"     RUNWIRE_BENCH_EXPECTED_BODY="$expected_body"     RUNWIRE_BENCH_DIAGNOSTIC=1     php -d opcache.enable_cli=1       "$control_root/benchmarks/http1_sustained_bench.php"       "$ACTIVE_PORT" "$concurrency" "$warmup" "$duration" "$server_pid"       >"$output_dir/$label.json"       2>"$output_dir/$label-client.log"; then
+    echo "--- HTTP/1 client failure: $label ---" >&2
+    cat "$output_dir/$label-client.log" >&2
+    echo "--- HTTP/1 server: $label ---" >&2
+    cat "$output_dir/$CURRENT_SERVER_LOG" >&2
+    return 1
+  fi
 
-  jq -e '
+  if ! jq -e '
     .correctness_passed == true
     and .errors_total == 0
     and .timeouts_total == 0
     and .validation_failures == 0
-  ' "$output_dir/$label.json" >/dev/null
+  ' "$output_dir/$label.json" >/dev/null; then
+    echo "--- HTTP/1 correctness failure: $label ---" >&2
+    cat "$output_dir/$label.json" >&2
+    cat "$output_dir/$label-client.log" >&2
+    echo "--- HTTP/1 server: $label ---" >&2
+    cat "$output_dir/$CURRENT_SERVER_LOG" >&2
+    return 1
+  fi
 }
 
 for nodelay in 0 1; do

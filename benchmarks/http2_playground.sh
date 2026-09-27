@@ -14,6 +14,8 @@ output_dir="$5"
 mkdir -p "$output_dir"
 
 server_pid=""
+ACTIVE_PORT=""
+CURRENT_SERVER_LOG=""
 
 cleanup() {
   if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
@@ -40,16 +42,21 @@ wait_ready() {
   local log="$2"
 
   for _ in $(seq 1 200); do
-    if printf '' | timeout 1 openssl s_client       -connect "127.0.0.1:$port" -servername localhost -alpn h2 2>/dev/null       | grep -q 'ALPN protocol: h2'; then
+    if printf '' | timeout 1 openssl s_client       -connect "127.0.0.1:$port"       -servername localhost       -alpn h2       2>&1 | grep -q 'ALPN protocol: h2'; then
       return 0
     fi
+
     if ! kill -0 "$server_pid" 2>/dev/null; then
+      echo "--- HTTP/2 server exited before ALPN readiness ---" >&2
       cat "$log" >&2
       return 1
     fi
     sleep 0.02
   done
 
+  echo "--- HTTP/2 ALPN readiness timed out ---" >&2
+  printf '' | timeout 2 openssl s_client     -connect "127.0.0.1:$port"     -servername localhost     -alpn h2     2>&1 || true
+  echo "--- HTTP/2 server log ---" >&2
   cat "$log" >&2
   return 1
 }
@@ -63,9 +70,10 @@ start_server() {
 
   (
     cd "$runwire_root"
-    exec php -d opcache.enable_cli=1 "$control_root/benchmarks/http12_lab_server.php"       "$port" "$payload" 1 "$nodelay" "$certificate" "$private_key"
+    exec php -d opcache.enable_cli=1       "$control_root/benchmarks/http12_lab_server.php"       "$port" "$payload" 1 "$nodelay" "$certificate" "$private_key"
   ) >"$output_dir/$label-server.log" 2>&1 &
   server_pid=$!
+
   CURRENT_SERVER_LOG="$label-server.log"
   wait_ready "$port" "$output_dir/$CURRENT_SERVER_LOG"
   ACTIVE_PORT="$port"
@@ -84,12 +92,38 @@ measure() {
   local connections="$5"
   local url="https://127.0.0.1:$ACTIVE_PORT/benchmark"
 
-  h2load -n 256 -c "$connections" -m "$streams" -t 1 "$url" >/dev/null 2>&1
-  h2load -n 1000000 -c "$connections" -m "$streams" -t 1 -D 5 "$url"     > "$output_dir/$label.raw" 2>&1
+  if ! h2load -n 256 -c "$connections" -m "$streams" -t 1 "$url"     >"$output_dir/$label-warmup.raw" 2>&1; then
+    echo "--- h2load warm-up failure: $label ---" >&2
+    cat "$output_dir/$label-warmup.raw" >&2
+    echo "--- HTTP/2 server: $label ---" >&2
+    cat "$output_dir/$CURRENT_SERVER_LOG" >&2
+    return 1
+  fi
 
-  php "$control_root/benchmarks/h2load_parse.php"     "$output_dir/$label.raw" "$nodelay" "$payload" "$streams" "$connections" "$label"     > "$output_dir/$label.json"
+  if ! h2load -n 1000000 -c "$connections" -m "$streams" -t 1 -D 5 "$url"     >"$output_dir/$label.raw" 2>&1; then
+    echo "--- h2load measured failure: $label ---" >&2
+    cat "$output_dir/$label.raw" >&2
+    echo "--- HTTP/2 server: $label ---" >&2
+    cat "$output_dir/$CURRENT_SERVER_LOG" >&2
+    return 1
+  fi
 
-  jq -e '.correctness_passed == true and .requests_failed == 0' "$output_dir/$label.json" >/dev/null
+  if ! php "$control_root/benchmarks/h2load_parse.php"     "$output_dir/$label.raw"     "$nodelay" "$payload" "$streams" "$connections" "$label"     >"$output_dir/$label.json"; then
+    echo "--- h2load parse failure: $label ---" >&2
+    cat "$output_dir/$label.raw" >&2
+    echo "--- HTTP/2 server: $label ---" >&2
+    cat "$output_dir/$CURRENT_SERVER_LOG" >&2
+    return 1
+  fi
+
+  if ! jq -e '.correctness_passed == true and .requests_failed == 0'     "$output_dir/$label.json" >/dev/null; then
+    echo "--- HTTP/2 correctness failure: $label ---" >&2
+    cat "$output_dir/$label.json" >&2
+    cat "$output_dir/$label.raw" >&2
+    echo "--- HTTP/2 server: $label ---" >&2
+    cat "$output_dir/$CURRENT_SERVER_LOG" >&2
+    return 1
+  fi
 }
 
 for nodelay in 0 1; do

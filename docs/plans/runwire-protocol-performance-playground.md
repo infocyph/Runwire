@@ -49,3 +49,5 @@ For the two-byte HTTP/1.1 response at concurrency 16, default server TCP behavio
 - HTTP/2 did not expose its underlying failure because the shell aborted directly on a non-zero h2load command. The runner now preserves and prints warm-up/measured h2load output plus the matching Runwire server log before failing.
 
 - Second protocol-playground run `36291496503`: HTTP/1 workers still failed. Generic assertion output was insufficient to distinguish response validation from request accounting or timeouts. The client/runner now emits exact counters plus first-response status/body length/hash diagnostics and the matching server log on failure.
+
+- The previous remediation did not rewrite the compacted H1/H2 shell runners because its text anchors did not match their normalized form. Both runners are now replaced wholesale. HTTP/1 now passes payload expectations and always prints client/server diagnostics; HTTP/2 now checks ALPN on combined OpenSSL output and always prints h2load/server diagnostics.
