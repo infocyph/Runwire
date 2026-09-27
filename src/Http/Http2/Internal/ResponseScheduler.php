@@ -467,7 +467,10 @@ final class ResponseScheduler
         if (!$stream->localOpen()) {
             return $this->closedResult();
         }
-        if ($this->blocked()) {
+        if ($this->blocked()
+            || $this->flushQueue !== []
+            || !$stream->outbound->isEmpty()
+            || $stream->endPending) {
             return null;
         }
 
@@ -481,6 +484,7 @@ final class ResponseScheduler
         $wireIntentBytes = $headerBytes + $dataBytes + ($dataBytes === 0 ? 9 : 18);
         if ($headerBytes > $this->limits->maxHeaderBlockBytes
             || $wireIntentBytes > self::INITIAL_RESPONSE_WIRE_BYTES
+            || $wireIntentBytes > $this->connection->availableWriteBytes()
             || ($dataBytes > 0 && !$this->fitsResponseLimits($stream, $dataBytes))) {
             return null;
         }
@@ -508,8 +512,8 @@ final class ResponseScheduler
             $wire .= FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, $stream->id, $data));
         }
 
-        if (strlen($wire) > $this->connection->availableWriteBytes()) {
-            return $this->queueWire($wire);
+        if (strlen($wire) > $wireIntentBytes) {
+            throw new LogicException('HTTP/2 one-shot wire encoding exceeded its conservative bound.');
         }
 
         $result = $this->connection->write($wire);
@@ -525,8 +529,11 @@ final class ResponseScheduler
         }
 
         $stream->localEnd();
-        ($this->cleanupClosed)($stream);
-        ($this->activityCallback)($stream);
+        if ($stream->remoteOpen()) {
+            ($this->activityCallback)($stream);
+        } else {
+            ($this->cleanupClosed)($stream);
+        }
 
         return new WriteResult(
             $result->pressured() ? WriteState::PRESSURED : WriteState::ACCEPTED,
