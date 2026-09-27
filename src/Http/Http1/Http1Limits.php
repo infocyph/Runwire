@@ -35,7 +35,7 @@ final readonly class Http1Limits
         public AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(
             lowWatermarkBasisPoints: 1_000,
             highWatermarkBasisPoints: 4_500,
-            transitionSamples: 1,
+            transitionSamples: 128,
             ewmaNumerator: 1,
             ewmaDenominator: 1,
         ),
