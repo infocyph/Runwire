@@ -167,13 +167,11 @@ final class Connection
     }
 
     /**
-     * @internal Determine whether a write fits the current bounded send capacity.
+     * @internal Return bytes currently available in the bounded send queue.
      */
-    public function canAcceptWrite(int $bytes): bool
+    public function availableWriteBytes(): int
     {
-        return $bytes >= 0
-            && $this->state === ConnectionState::OPEN
-            && $bytes <= $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes();
+        return max(0, $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes());
     }
 
     /**
