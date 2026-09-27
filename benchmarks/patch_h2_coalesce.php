@@ -25,43 +25,92 @@ function replaceOnce(string $source, string $search, string $replacement, string
 
 $source = replaceOnce(
     $source,
-    "    /** @var array<int, true> */\n    private array \$flushQueue = [];",
-    "    /** @var array<int, string> */\n    private array \$benchmarkPendingHeaderWire = [];\n\n    /** @var array<int, true> */\n    private array \$flushQueue = [];",
+    <<<'PHP'
+    /** @var array<int, true> */
+    private array $flushQueue = [];
+PHP,
+    <<<'PHP'
+    /** @var array<int, string> */
+    private array $benchmarkPendingHeaderWire = [];
+
+    /** @var array<int, true> */
+    private array $flushQueue = [];
+PHP,
     'pending header property',
 );
 
 $source = replaceOnce(
     $source,
-    "        \$this->wireQueue->clear();\n        \$this->flushQueue = [];",
-    "        \$this->wireQueue->clear();\n        \$this->benchmarkPendingHeaderWire = [];\n        \$this->flushQueue = [];",
+    <<<'PHP'
+        $this->wireQueue->clear();
+        $this->flushQueue = [];
+PHP,
+    <<<'PHP'
+        $this->wireQueue->clear();
+        $this->benchmarkPendingHeaderWire = [];
+        $this->flushQueue = [];
+PHP,
     'cleanup',
 );
 
 $source = replaceOnce(
     $source,
-    "        unset(\$this->flushQueue[\$stream->id], \$this->pressuredStreams[\$stream->id]);",
-    "        unset(\n            \$this->benchmarkPendingHeaderWire[\$stream->id],\n            \$this->flushQueue[\$stream->id],\n            \$this->pressuredStreams[\$stream->id],\n        );",
+    '        unset($this->flushQueue[$stream->id], $this->pressuredStreams[$stream->id]);',
+    <<<'PHP'
+        unset(
+            $this->benchmarkPendingHeaderWire[$stream->id],
+            $this->flushQueue[$stream->id],
+            $this->pressuredStreams[$stream->id],
+        );
+PHP,
     'discard stream',
 );
 
 $source = replaceOnce(
     $source,
-    "        \$result = \$this->sendFrame(new Frame(FrameType::DATA->value, 0x1, \$stream->id));",
-    "        \$result = \$this->sendResponseFrame(\n            \$stream,\n            new Frame(FrameType::DATA->value, 0x1, \$stream->id),\n        );",
+    '        $result = $this->sendFrame(new Frame(FrameType::DATA->value, 0x1, $stream->id));',
+    <<<'PHP'
+        $result = $this->sendResponseFrame(
+            $stream,
+            new Frame(FrameType::DATA->value, 0x1, $stream->id),
+        );
+PHP,
     'flush end',
 );
 
 $source = replaceOnce(
     $source,
-    "        \$result = \$this->sendFrame(new Frame(FrameType::DATA->value, \$end ? 0x1 : 0, \$stream->id, \$chunk));",
-    "        \$result = \$this->sendResponseFrame(\n            \$stream,\n            new Frame(FrameType::DATA->value, \$end ? 0x1 : 0, \$stream->id, \$chunk),\n        );",
+    '        $result = $this->sendFrame(new Frame(FrameType::DATA->value, $end ? 0x1 : 0, $stream->id, $chunk));',
+    <<<'PHP'
+        $result = $this->sendResponseFrame(
+            $stream,
+            new Frame(FrameType::DATA->value, $end ? 0x1 : 0, $stream->id, $chunk),
+        );
+PHP,
     'flush data',
 );
 
 $source = replaceOnce(
     $source,
-    "        \$pressured = false;\n        foreach (\$frames as \$frame) {",
-    "        if (getenv('RUNWIRE_BENCH_H2_COALESCE') === '1') {\n            \$wire = '';\n            foreach (\$frames as \$frame) {\n                \$wire .= FrameWriter::encode(\$frame);\n            }\n            \$this->benchmarkPendingHeaderWire[\$stream->id] = \$wire;\n            (\$this->activityCallback)(\$stream);\n\n            return new WriteResult(WriteState::ACCEPTED, \$stream->outbound->bytes());\n        }\n\n        \$pressured = false;\n        foreach (\$frames as \$frame) {",
+    <<<'PHP'
+        $pressured = false;
+        foreach ($frames as $frame) {
+PHP,
+    <<<'PHP'
+        if (getenv('RUNWIRE_BENCH_H2_COALESCE') === '1') {
+            $wire = '';
+            foreach ($frames as $frame) {
+                $wire .= FrameWriter::encode($frame);
+            }
+            $this->benchmarkPendingHeaderWire[$stream->id] = $wire;
+            ($this->activityCallback)($stream);
+
+            return new WriteResult(WriteState::ACCEPTED, $stream->outbound->bytes());
+        }
+
+        $pressured = false;
+        foreach ($frames as $frame) {
+PHP,
     'send headers',
 );
 
