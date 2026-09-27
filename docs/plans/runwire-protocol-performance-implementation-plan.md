@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation active on `feat/http-improvement`; H1 I1 is complete and fully QA-certified, H2 I2 is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
+Status: **production implementation active on `feat/http-improvement`; H1 I1 and H2 I2 are complete and QA-certified, I3 transport write-error normalization is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -55,11 +55,11 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | D01 | H1 split small writes create ~41 ms floor | High; playground evidence confirms large tiny-response gain | Implicit bounded `end($body)` coalesces head + body; explicit `start/write/end` remains streaming | `Http1ResponseWriter` | complete | **Implement** |
 | D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win plus peer-runtime precedent | H1 defaults NODELAY ON after protocol selection when live socket tuning is available; explicit listener override wins; H2 remains neutral | `NativeHttpConnection`, `Connection`, `TcpListener`, `TcpSocketTuner` | complete | **Implement** |
 | D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Same H1 response path for plaintext/TLS; H1 NODELAY policy handles the transport case without a TLS-specific response API | H1 transport path | complete | **Implement** |
-| D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixes tiny cases but regresses 1 KiB / 100 streams | Implement a narrow implicit one-shot fast path bounded by combined pre-encode response size; larger/streaming responses keep the existing scheduler | `Http2ResponseWriter`, `ResponseScheduler` | I2 | **Active** |
+| D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixed tiny cases but regressed 1 KiB / 100 streams | Narrow implicit one-shot fast path is limited to <1 KiB combined wire intent; 1 KiB/larger and streaming responses retain the existing scheduler | `Http2ResponseWriter`, `ResponseScheduler` | complete | **Implement** |
 | D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
 | D06 | H2 one connection saturates one worker | Medium-high | Focus scaling on workers before extra client connection tuning | runtime/worker docs and benchmarks | V5 | Validate |
 | D07 | H2 10k stream churn limit ends abruptly | High | Preserve hard bound, investigate graceful pre-limit GOAWAY/drain | H2 connection lifecycle / limits | V6 | Validate |
-| D08 | TLS peer close leaks broken-pipe warnings | High | Convert socket-write warnings to scoped transport failure semantics | `Connection` | V7 | Validate |
+| D08 | TLS peer close leaks broken-pipe warnings | High | Convert only `fwrite()` warnings into scoped transport failure semantics while restoring unrelated PHP warning handling | `Connection`, transport write helper | I3 | **Active** |
 | D09 | H3 50 ms poll timeout is not active-traffic latency floor | High after sustained V4 | Keep current default | H3 session/runtime | complete | Keep |
 | D10 | H3 scheduler knobs do not show a stable sustained winner | High after sustained V4 | Keep current defaults; no tuning code | H3 limits/session | complete | Keep |
 | D11 | H3 16 KiB payload cost becomes visible | High after sustained V4 | Keep current behavior; treat as payload/crypto cost unless future profiling proves avoidable copies | H3 frame/body path | complete | Keep |
@@ -506,15 +506,18 @@ These batches become active only when their gates pass.
 
 ### I2 — H2 initial-response batching
 
-**Status: active.**
+**Status: complete.** Full repository QA passed at SHA `1663666a6186f8046725f92134022ab5387373f7`, including PHPForge analysis/QA on PHP 8.4 and 8.5, prefer-lowest/stable dependency matrices, protocol-core benchmarks, portable native, Swoole/OpenSwoole, source audit, and HTTP/3/QUIC compatibility. Security & Standards run: `36311109543`.
 
-- add an implicit one-shot response callback; explicit `start()/write()` remains on the existing scheduler path;
-- coalesce only when a conservative pre-encode bound keeps HEADERS + final DATA below 1 KiB of combined wire intent;
-- the measured 1 KiB body case therefore falls back to the existing scheduler instead of entering the fast path;
-- preserve HPACK state, CONTINUATION fallback, flow control, frame-size limits, pressure accounting, control-frame priority, and stream fairness;
-- add focused fast-path/fallback tests and run full PHPForge QA.
+- implicit one-shot response callback leaves explicit `start()/write()` on the existing scheduler path;
+- conservative pre-encode bound admits only responses below 1 KiB combined wire intent;
+- the measured 1 KiB body path falls back to the existing scheduler, avoiding the broad-prototype high-multiplex regression;
+- HPACK state, CONTINUATION fallback, flow control, frame-size limits, pressure accounting, control-frame priority, and stream fairness are preserved;
+- focused tests cover empty END_STREAM-on-HEADERS behavior and the 1 KiB fallback path;
+- PHPForge cognitive-complexity and ordered-class-element gates remain intact.
 
 ### I3 — transport warning normalization
+
+**Status: active.**
 
 - scoped stream-write warning capture;
 - immediate + buffered paths;
