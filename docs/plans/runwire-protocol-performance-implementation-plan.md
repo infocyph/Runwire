@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01-J09 are QA-certified and J10 final promotion/regression is active**
+Status: **production implementation and adaptive protocol tuning are complete through J10; D01-D18 and J01-J10 are closed, and I8 long release certification remains paused for the later final soak/certification pass**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -522,7 +522,7 @@ Required final gate:
 
 ## J — Adaptive HTTP/1.1, HTTP/2, and HTTP/3 tuning
 
-**Status: implementation active; all J01-J10 items are required. J01/J02 are the current batch.**
+**Status: complete. J01-J10 are implemented and QA-certified; AUTO is the default adaptive policy for HTTP/1.1, HTTP/2, and HTTP/3, with deterministic LATENCY / THROUGHPUT / FIXED overrides retained.**
 
 The completed protocol work shows that several performance choices are workload-dependent rather than globally optimal. HTTP/1.1 NODELAY/coalescing, HTTP/2 initial-response batching, loop/backend behavior, and HTTP/3 pump/write/accept budgets all change their relative value as active work and transport pressure increase.
 
@@ -543,7 +543,7 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Protocol-local `AdaptiveProtocolPolicy` exposes mode, low/high basis-point watermarks, dwell samples and EWMA ratio without changing hard limits | **Complete** |
 | J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Protocol transition/oscillation tests across H1.1/H2/H3 using explicit dwell and crossover policies | **Complete** |
 | J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Cross-mode invariant tests prove adaptive choices remain at/below configured hard limits and FIXED preserves static behavior | **Complete** |
-| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Final normal-suite benchmark coverage + exact-head full protocol regression; promote AUTO while retaining deterministic fixed profiles | **Active** |
+| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | AUTO promoted for H1.1/H2/H3; permanent adaptive PHPBench coverage + exact-head full protocol/quality regression; deterministic fixed profiles retained | **Complete** |
 
 ### J01 — common adaptive load model
 
@@ -856,7 +856,7 @@ State transitions must not:
 
 ### J10 — benchmark matrix and promotion gate
 
-**Status: active.** The final gate adds adaptive strategy/profile overhead to the repository's normal PHPBench suite and then requires the exact-head full protocol/quality matrix to remain green. Release-certification soak stays paused until the adaptive candidate is final.
+**Status: complete.** Exact production head `e7afa2656446bdc6088c76c1b11e6f1318550cd1` passed Benchmarks `36333200593`, Security & Standards `36333200857`, Release Candidate `36333200500`, Portable Native `36333200507`, Swoole/OpenSwoole Coroutine `36333200513`, and Source Audit `36333200472`. `AdaptiveProtocolBench` is part of the permanent PHPBench suite. Release-certification soak remains intentionally paused for the later I8 pass.
 
 Each protocol is promoted independently. J is not an all-or-nothing feature.
 
@@ -904,24 +904,24 @@ Promotion requirements:
 
 Decision outcomes per protocol:
 
-- **Implement AUTO** — adaptive strategy wins broadly and transition behavior is stable;
-- **Implement fixed profile only** — a useful user-selectable latency/throughput profile exists but automatic switching is not reliable;
-- **Keep current behavior** — static production logic is already sufficiently state-aware;
-- **Drop** — adaptation adds complexity without repeatable benefit.
+- **HTTP/1.1 — Implement AUTO.** Worker-scoped pressure/backlog/activity state selects the NODELAY default only for newly attached H1.1 connections; established connections never flap and explicit socket overrides remain authoritative.
+- **HTTP/2 — Implement AUTO.** Active streams, queued response bytes, and transport pressure select the bounded 1024 / 512 / 256-byte one-shot budget while the normal scheduler remains the fallback.
+- **HTTP/3 — Implement AUTO.** Outbound response backlog and inbound ready/active stream pressure adapt write/read/accept effort independently; polling adapts only idle/handshake behavior.
+- **Fixed profiles retained.** LATENCY and THROUGHPUT pin their protocol profile; FIXED reproduces the pre-adaptive static scheduling behavior.
 
 ### J sequencing
 
-Recommended order:
+**Completed in gated batches:**
 
-1. **J01/J02** — define one cheap common load-state/hysteresis mechanism;
-2. **J04** — HTTP/2 first adaptive-path experiment because a crossover is already measured;
-3. **J05/J06** — HTTP/3 pump/backlog adaptation and independent poll analysis;
-4. **J03** — HTTP/1.1 last, because live NODELAY switching is intentionally out of scope and the current production behavior is already strong;
-5. **J08/J09** — transition and invariant validation throughout, not only at the end;
-6. **J07** — public configuration only after internal thresholds prove stable;
-7. **J10** — final per-protocol Implement / Keep / Drop decision.
+1. J01/J02 — shared normalized load model, EWMA, hysteresis and dwell;
+2. J04 — adaptive HTTP/2 initial-response scheduling;
+3. J05/J06 — adaptive HTTP/3 pump/backlog effort and poll timing;
+4. J03 — worker-scoped HTTP/1.1 new-connection policy;
+5. J07 — protocol-local public AUTO / LATENCY / THROUGHPUT / FIXED policy;
+6. J08/J09 — transition/flapping validation and hard-limit invariants;
+7. J10 — permanent adaptive benchmark coverage and exact-head final regression.
 
-J work may use the playground/evidence branch for synthetic matrices, but any production implementation must remain on a clean implementation branch and must not copy benchmark-only patch machinery into library code.
+Production code stayed on `feat/http-improvement`; playground-only patch/harness machinery was not migrated into the library branch.
 
 ---
 
@@ -939,4 +939,4 @@ For each D-item, update this plan with:
 
 `feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
-V1-V7 and D01-D18 are closed. I8 is paused until J10 because the candidate head is changing. J01-J10 are now a required implementation workstream executed batch-by-batch with tracker and QA closure.
+V1-V7, D01-D18, and J01-J10 are closed. I8 is the only remaining gate and stays paused until the user chooses to run the long exact-head release certification/soak.
