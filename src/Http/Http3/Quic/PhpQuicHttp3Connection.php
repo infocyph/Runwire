@@ -568,6 +568,19 @@ final class PhpQuicHttp3Connection
         );
     }
 
+    private function openCriticalStream(string $name): PhpQuicStream
+    {
+        $stream = $this->connection->openStream(false);
+        if ($stream->bidirectional() || ($stream->id() & 0x03) !== 0x03) {
+            throw new Http3Exception(
+                ErrorCode::STREAM_CREATION_ERROR,
+                sprintf('Local HTTP/3 %s stream is not server-initiated and unidirectional.', $name),
+            );
+        }
+
+        return $stream;
+    }
+
     /** @return list<array{0: int, 1: int}> */
     private function peerStreamOrder(): array
     {
@@ -587,19 +600,6 @@ final class PhpQuicHttp3Connection
         }
 
         return $ordered;
-    }
-
-    private function openCriticalStream(string $name): PhpQuicStream
-    {
-        $stream = $this->connection->openStream(false);
-        if ($stream->bidirectional() || ($stream->id() & 0x03) !== 0x03) {
-            throw new Http3Exception(
-                ErrorCode::STREAM_CREATION_ERROR,
-                sprintf('Local HTTP/3 %s stream is not server-initiated and unidirectional.', $name),
-            );
-        }
-
-        return $stream;
     }
 
     private function processStreamChunk(int $streamId, string $chunk, bool $requestStream): void
