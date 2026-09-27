@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Internal;
 
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use InvalidArgumentException;
 
 /**
@@ -13,14 +14,17 @@ use InvalidArgumentException;
  */
 final class AdaptiveLoadController
 {
-    private AdaptiveLoadState $candidateState = AdaptiveLoadState::BALANCED;
-
     private int $candidateSamples = 0;
+
+    private AdaptiveLoadState $candidateState = AdaptiveLoadState::BALANCED;
 
     private ?int $smoothedScore = null;
 
     private AdaptiveLoadState $state = AdaptiveLoadState::BALANCED;
 
+    /**
+     * Create an adaptive load controller with bounded hysteresis and EWMA smoothing.
+     */
     public function __construct(
         private readonly int $lowWatermarkBasisPoints = 2_500,
         private readonly int $highWatermarkBasisPoints = 6_500,
@@ -41,6 +45,9 @@ final class AdaptiveLoadController
         }
     }
 
+    /**
+     * Observe one normalized load sample and return the current scheduling state.
+     */
     public function observe(AdaptiveLoadSample $sample): AdaptiveLoadState
     {
         $this->updateSmoothedScore($sample->score());
@@ -69,6 +76,9 @@ final class AdaptiveLoadController
         return $this->state;
     }
 
+    /**
+     * Reset the controller to the balanced state with no retained score.
+     */
     public function reset(): void
     {
         $this->candidateState = AdaptiveLoadState::BALANCED;
@@ -77,11 +87,17 @@ final class AdaptiveLoadController
         $this->state = AdaptiveLoadState::BALANCED;
     }
 
+    /**
+     * Return the current EWMA load score in basis points.
+     */
     public function smoothedScore(): int
     {
         return $this->smoothedScore ?? 0;
     }
 
+    /**
+     * Return the current adaptive scheduling state.
+     */
     public function state(): AdaptiveLoadState
     {
         return $this->state;

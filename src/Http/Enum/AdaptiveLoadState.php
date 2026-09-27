@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Http\Internal;
+namespace Infocyph\Runwire\Http\Enum;
 
 /**
  * Describes the current adaptive protocol scheduling state.
@@ -11,7 +11,9 @@ namespace Infocyph\Runwire\Http\Internal;
  */
 enum AdaptiveLoadState: string
 {
-    case LATENCY = 'latency';
     case BALANCED = 'balanced';
+
+    case LATENCY = 'latency';
+
     case THROUGHPUT = 'throughput';
 }

@@ -15,6 +15,9 @@ final readonly class AdaptiveLoadSample
 {
     public const int MAX_BASIS_POINTS = 10_000;
 
+    /**
+     * Create a normalized adaptive load sample.
+     */
     public function __construct(
         public bool $pressured,
         public int $backlogBasisPoints,
@@ -24,6 +27,9 @@ final readonly class AdaptiveLoadSample
         self::assertBasisPoints($activeBasisPoints, 'activeBasisPoints');
     }
 
+    /**
+     * Normalize bounded queue and active-work counters into basis points.
+     */
     public static function fromCounters(
         bool $pressured,
         int $queuedBytes,
