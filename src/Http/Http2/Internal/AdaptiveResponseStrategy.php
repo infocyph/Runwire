@@ -23,9 +23,9 @@ final readonly class AdaptiveResponseStrategy
      */
     public function __construct(
         ?AdaptiveLoadController $controller = null,
-        private readonly int $latencyWireBytes = 1_024,
-        private readonly int $balancedWireBytes = 512,
-        private readonly int $throughputWireBytes = 256,
+        private int $latencyWireBytes = 1_024,
+        private int $balancedWireBytes = 512,
+        private int $throughputWireBytes = 256,
     ) {
         if ($throughputWireBytes < 1
             || $throughputWireBytes > $balancedWireBytes

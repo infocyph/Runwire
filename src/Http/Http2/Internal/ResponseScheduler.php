@@ -166,6 +166,14 @@ final class ResponseScheduler
     }
 
     /**
+     * Send one control frame through the transport scheduler.
+     */
+    public function sendControl(Frame $frame): WriteResult
+    {
+        return $this->sendFrame($frame);
+    }
+
+    /**
      * Replace the active-stream count source after request-stream ownership is initialized.
      *
      * @internal
@@ -175,14 +183,6 @@ final class ResponseScheduler
         /** @var Closure(): int $activeCountClosure */
         $activeCountClosure = Closure::fromCallable($activeStreamCount);
         $this->activeStreamCount = $activeCountClosure;
-    }
-
-    /**
-     * Send one control frame through the transport scheduler.
-     */
-    public function sendControl(Frame $frame): WriteResult
-    {
-        return $this->sendFrame($frame);
     }
 
     /**
