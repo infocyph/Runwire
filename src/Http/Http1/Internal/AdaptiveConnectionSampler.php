@@ -23,7 +23,7 @@ final class AdaptiveConnectionSampler
      */
     public function __construct(
         private readonly int $activeCapacity,
-        private readonly int $maxSamples = 64,
+        private readonly int $maxSamples = 8,
         private readonly int $queueBytesPerConnection = 262_144,
     ) {
         if ($activeCapacity < 1 || $maxSamples < 1 || $queueBytesPerConnection < 1) {
