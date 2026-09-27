@@ -40,7 +40,10 @@ $handler = new class implements RequestHandler {
     {
         return new Response(
             status: HttpStatus::OK,
-            headers: ['Content-Type' => 'text/plain'],
+            headers: [
+                'Content-Type' => 'text/plain',
+                'Content-Length' => '2',
+            ],
             body: 'xx',
         );
     }
