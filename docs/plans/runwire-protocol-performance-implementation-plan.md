@@ -932,8 +932,8 @@ Production code stayed on `feat/http-improvement`; playground-only patch/harness
 | ID | Finding | Required resolution | Status |
 | --- | --- | --- | --- |
 | K01 | HTTP/3 AUTO can starve later ready/request streams because each bounded read cycle restarts at the first peer stream | Persistent round-robin read cursor implemented for both scan/readiness paths with reserved-stream regressions | **QA** |
-| K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | FIXED/LATENCY/THROUGHPUT bypass sampling; AUTO tracks at most 64 recent live connections in a worker-local bounded sampler | **QA** |
-| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Five-trial real protocol matrices wired into Benchmarks/QUIC CI with low→high→low phases, p95/p99, CPU/RSS and fairness budgets | **Active** |
+| K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | FIXED/LATENCY/THROUGHPUT bypass sampling; AUTO tracks at most 8 recent live connections in a worker-local bounded sampler | **QA** |
+| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Five-trial real protocol matrices wired into Benchmarks/QUIC CI with low→high→low phases, p95/p99, CPU/RSS and fairness budgets; first run kept H2 green but exposed H1 admission overhead and H3 transition-tail accept throttling, both now retuned for rerun | **Active** |
 | K04 | Accepted EWMA numerator/denominator values can overflow integer multiplication during observation | Public policy + controller reject denominators above the mathematically safe integer bound; boundary/max-int tests added | **QA** |
 
 ### K01 — HTTP/3 bounded-fair read progress
@@ -944,7 +944,7 @@ Acceptance requires regression tests for both pump paths with a reserved stream 
 
 ### K02 — HTTP/1.1 admission sampling complexity
 
-FIXED/LATENCY/THROUGHPUT modes must not sample the existing connection population at all. AUTO must not perform an unbounded full scan on every admission. Worker-scoped adaptive accounting should update incrementally or sample a strict bounded subset while keeping pressure/backlog/activity semantics useful.
+FIXED/LATENCY/THROUGHPUT modes must not sample the existing connection population at all. AUTO must not perform an unbounded full scan on every admission. Worker-scoped adaptive accounting samples a strict eight-connection recent subset while keeping exact active-connection count separate; this bounds admission work independently of total live population.
 
 ### K03 — reopen J10 evidence gate
 
