@@ -13,7 +13,9 @@ use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Server;
 
-require dirname(__DIR__) . '/vendor/autoload.php';
+$runtimeRoot = getenv('RUNWIRE_BENCH_RUNTIME_ROOT');
+$runtimeRoot = is_string($runtimeRoot) && $runtimeRoot !== '' ? $runtimeRoot : dirname(__DIR__);
+require rtrim($runtimeRoot, '/\\') . '/vendor/autoload.php';
 
 if ($argc !== 7) {
     throw new InvalidArgumentException(

@@ -30,9 +30,11 @@ $maxStreamsPerPump = (int) $argv[8];
 $maxConcurrent = (int) $argv[9];
 $payloadBytes = (int) $argv[10];
 $maxReads = (int) $argv[11];
+$maxRequestStreamsPerConnection = (int) (getenv('RUNWIRE_H3_MAX_STREAMS_PER_CONNECTION') ?: '10000');
 
 $limits = new Http3Limits(
     maxConcurrentRequestStreams: $maxConcurrent,
+    maxRequestStreamsPerConnection: $maxRequestStreamsPerConnection,
     maxResponseFramePayloadBytes: 16_384,
     maxWritesPerFlush: $maxWrites,
     maxStreamsAcceptedPerPump: $maxStreamsPerPump,

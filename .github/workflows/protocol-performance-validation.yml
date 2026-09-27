@@ -1,57 +1,22 @@
-name: "Protocol Performance Playground"
+name: "Protocol Performance Validation"
 
 on:
+  push:
+    branches: [ "benchmarks/1.0-vs-2.0" ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: runwire-protocol-performance-playground-${{ github.ref }}
+  group: runwire-protocol-performance-validation-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  raw-transport:
-    name: "Raw TCP split/coalesced writes"
+  http1-write-shape:
+    name: "HTTP/1 real write-shape validation"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout playground
-        uses: actions/checkout@v7
-        with:
-          ref: benchmarks/1.0-vs-2.0
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.5"
-          extensions: pcntl, posix
-          coverage: none
-
-      - name: Run raw transport matrix
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p protocol-evidence/raw
-          for nodelay in 0 1; do
-            for split in 0 1; do
-              php benchmarks/raw_transport_probe.php 512 "$nodelay" "$split"                 > "protocol-evidence/raw/nodelay$nodelay-split$split.json"
-            done
-          done
-          jq -s '.' protocol-evidence/raw/*.json > protocol-evidence/raw/summary.json
-
-      - name: Upload raw transport evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: runwire-playground-raw-transport
-          path: protocol-evidence/raw/
-          retention-days: 30
-
-  http1-event:
-    name: "HTTP/1.1 EventLoop + TLS/plain + scaling"
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout playground
@@ -70,71 +35,39 @@ jobs:
       - name: Install production dependencies
         run: composer install --no-dev --no-interaction --prefer-dist --no-progress
 
-      - name: Generate playground TLS certificate
+      - name: Build benchmark-only coalescing variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/runwire-h1-coalesce
+          mkdir -p /tmp/runwire-h1-coalesce
+          tar --exclude=.git -cf - . | tar -C /tmp/runwire-h1-coalesce -xf -
+          php benchmarks/patch_h1_coalesce.php /tmp/runwire-h1-coalesce
+          php -l /tmp/runwire-h1-coalesce/src/Http/Http1/Http1ResponseWriter.php
+
+      - name: Generate TLS certificate
         shell: bash
         run: |
           mkdir -p .lab
           openssl req -x509 -newkey rsa:2048 -nodes             -keyout .lab/key.pem -out .lab/cert.pem -days 1 -subj '/CN=localhost' >/dev/null 2>&1
 
-      - name: Run EventLoop HTTP/1 matrices
+      - name: Run H1 default vs NODELAY vs coalescing
         shell: bash
         run: |
-          bash benchmarks/http1_playground.sh "$PWD" "$PWD" protocol-evidence/http1-event event plain
-          bash benchmarks/http1_playground.sh "$PWD" "$PWD" protocol-evidence/http1-tls event tls .lab/cert.pem .lab/key.pem
+          bash benchmarks/http1_coalesce_validation.sh             "$PWD" /tmp/runwire-h1-coalesce             .lab/cert.pem .lab/key.pem             validation-evidence/http1-write-shape 5 1
 
-      - name: Upload HTTP/1 EventLoop evidence
+      - name: Upload H1 validation evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: runwire-playground-http1-event
-          path: protocol-evidence/
+          name: runwire-validation-http1-write-shape
+          path: validation-evidence/http1-write-shape/
           retention-days: 30
 
-  http1-select:
-    name: "HTTP/1.1 SelectLoop"
+  http2-write-shape:
+    name: "HTTP/2 real frame coalescing validation"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout playground
-        uses: actions/checkout@v7
-        with:
-          ref: benchmarks/1.0-vs-2.0
-
-      - name: Setup PHP without ext-event
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.5"
-          tools: composer:v2
-          extensions: pcntl, posix, opcache
-          coverage: none
-
-      - name: Install production dependencies
-        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
-
-      - name: Prove SelectLoop fallback
-        shell: bash
-        run: |
-          php -r '
-          require "vendor/autoload.php";
-          if (\Infocyph\Runwire\Loop\EventLoop::supported()) {
-              throw new RuntimeException("SelectLoop playground unexpectedly has ext-event.");
-          }
-          '
-
-      - name: Run SelectLoop HTTP/1 matrix
-        run: bash benchmarks/http1_playground.sh "$PWD" "$PWD" protocol-evidence/http1-select select plain
-
-      - name: Upload HTTP/1 SelectLoop evidence
-        uses: actions/upload-artifact@v7
-        with:
-          name: runwire-playground-http1-select
-          path: protocol-evidence/
-          retention-days: 30
-
-  http2:
-    name: "HTTP/2 TLS + ALPN multiplexing"
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout playground
@@ -158,29 +91,75 @@ jobs:
       - name: Install production dependencies
         run: composer install --no-dev --no-interaction --prefer-dist --no-progress
 
+      - name: Build benchmark-only H2 coalescing variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/runwire-h2-coalesce
+          mkdir -p /tmp/runwire-h2-coalesce
+          tar --exclude=.git -cf - . | tar -C /tmp/runwire-h2-coalesce -xf -
+          php benchmarks/patch_h2_coalesce.php /tmp/runwire-h2-coalesce
+          php -l /tmp/runwire-h2-coalesce/src/Http/Http2/Internal/ResponseScheduler.php
+
       - name: Generate TLS certificate
         shell: bash
         run: |
           mkdir -p .lab
           openssl req -x509 -newkey rsa:2048 -nodes             -keyout .lab/key.pem -out .lab/cert.pem -days 1 -subj '/CN=localhost' >/dev/null 2>&1
 
-      - name: Run real HTTP/2 matrix
+      - name: Run H2 default vs NODELAY vs coalescing
         shell: bash
         run: |
-          bash benchmarks/http2_playground.sh             "$PWD" "$PWD" .lab/cert.pem .lab/key.pem protocol-evidence/http2
+          bash benchmarks/http2_coalesce_validation.sh             "$PWD" /tmp/runwire-h2-coalesce             .lab/cert.pem .lab/key.pem             validation-evidence/http2-write-shape 5
 
-      - name: Upload HTTP/2 evidence
+      - name: Upload H2 validation evidence
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: runwire-playground-http2
-          path: protocol-evidence/http2/
+          name: runwire-validation-http2-write-shape
+          path: validation-evidence/http2-write-shape/
           retention-days: 30
 
-  http3:
-    name: "HTTP/3 QUIC polling + scheduler limits"
+  backend-same-runner:
+    name: "EventLoop vs SelectLoop same runner"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress
+
+      - name: Run alternating same-runner backend trials
+        shell: bash
+        run: |
+          bash benchmarks/backend_same_runner_validation.sh             "$PWD" validation-evidence/backend-same-runner 3
+
+      - name: Upload backend comparison
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-validation-backend-same-runner
+          path: validation-evidence/backend-same-runner/
+          retention-days: 30
+
+  http3-sustained:
+    name: "HTTP/3 repeated sustained diagnostics"
     runs-on: ubuntu-latest
     container: php:8.5-cli
-    timeout-minutes: 35
+    timeout-minutes: 45
 
     steps:
       - name: Bootstrap QUIC build tools
@@ -271,15 +250,15 @@ jobs:
           mkdir -p .lab
           openssl req -x509 -newkey rsa:2048 -nodes             -keyout .lab/key.pem -out .lab/cert.pem -days 1 -subj '/CN=localhost' >/dev/null 2>&1
 
-      - name: Run HTTP/3 matrix
+      - name: Run repeated H3 diagnostics
         shell: bash
         run: |
-          bash control/benchmarks/http3_playground.sh             control .ci/ngtcp2/examples/osslclient .lab/cert.pem .lab/key.pem             protocol-evidence/http3 512
+          bash control/benchmarks/http3_sustained_validation.sh             control .ci/ngtcp2/examples/osslclient             .lab/cert.pem .lab/key.pem             validation-evidence/http3-sustained 25000 5
 
-      - name: Upload HTTP/3 evidence
+      - name: Upload H3 sustained evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: runwire-playground-http3
-          path: protocol-evidence/http3/
+          name: runwire-validation-http3-sustained
+          path: validation-evidence/http3-sustained/
           retention-days: 30
