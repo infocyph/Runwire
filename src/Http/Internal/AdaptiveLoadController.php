@@ -40,8 +40,15 @@ final class AdaptiveLoadController
         if ($transitionSamples < 1) {
             throw new InvalidArgumentException('Adaptive transition sample count must be positive.');
         }
-        if ($ewmaNumerator < 1 || $ewmaDenominator < 1 || $ewmaNumerator > $ewmaDenominator) {
-            throw new InvalidArgumentException('Adaptive EWMA ratio must satisfy 1 <= numerator <= denominator.');
+        $maxSafeDenominator = intdiv(PHP_INT_MAX, AdaptiveLoadSample::MAX_BASIS_POINTS);
+        if ($ewmaNumerator < 1
+            || $ewmaDenominator < 1
+            || $ewmaNumerator > $ewmaDenominator
+            || $ewmaDenominator > $maxSafeDenominator) {
+            throw new InvalidArgumentException(sprintf(
+                'Adaptive EWMA ratio must satisfy 1 <= numerator <= denominator <= %d.',
+                $maxSafeDenominator,
+            ));
         }
     }
 
