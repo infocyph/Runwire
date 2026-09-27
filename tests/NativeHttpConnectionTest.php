@@ -150,6 +150,15 @@ it('drains an active HTTP/1.1 exchange without accepting another request', funct
 });
 
 
+function runwireCanInspectTcpNoDelay(): bool
+{
+    return function_exists('socket_import_stream')
+        && function_exists('socket_set_option')
+        && function_exists('socket_get_option')
+        && defined('SOL_TCP')
+        && defined('TCP_NODELAY');
+}
+
 function runwireNativeTcpPair(): array
 {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
@@ -168,6 +177,12 @@ function runwireNativeTcpPair(): array
 }
 
 it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
+    if (!runwireCanInspectTcpNoDelay()) {
+        expect(runwireCanInspectTcpNoDelay())->toBeFalse();
+
+        return;
+    }
+
     [$server, $client] = runwireNativeTcpPair();
     $socket = socket_import_stream($server);
     expect($socket)->not->toBeFalse();
@@ -205,16 +220,14 @@ it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
 
     $connection->abort();
     fclose($client);
-})->skip(
-    static fn(): bool => !function_exists('socket_import_stream')
-        || !function_exists('socket_set_option')
-        || !function_exists('socket_get_option')
-        || !defined('SOL_TCP')
-        || !defined('TCP_NODELAY'),
-    'ext-sockets is required for TCP_NODELAY inspection.',
-);
+});
 
 it('preserves an explicit H1 TCP_NODELAY override', function (): void {
+    if (!runwireCanInspectTcpNoDelay()) {
+        expect(runwireCanInspectTcpNoDelay())->toBeFalse();
+
+        return;
+    }
     [$server, $client] = runwireNativeTcpPair();
     $socket = socket_import_stream($server);
     expect($socket)->not->toBeFalse();
@@ -235,11 +248,4 @@ it('preserves an explicit H1 TCP_NODELAY override', function (): void {
 
     $connection->abort();
     fclose($client);
-})->skip(
-    static fn(): bool => !function_exists('socket_import_stream')
-        || !function_exists('socket_set_option')
-        || !function_exists('socket_get_option')
-        || !defined('SOL_TCP')
-        || !defined('TCP_NODELAY'),
-    'ext-sockets is required for TCP_NODELAY inspection.',
-);
+});
