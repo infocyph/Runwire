@@ -70,7 +70,7 @@ start_server() {
 
   (
     cd "$runwire_root"
-    exec php -d opcache.enable_cli=1       "$control_root/benchmarks/http12_lab_server.php"       "$port" "$payload" 1 "$nodelay" "$certificate" "$private_key"
+    exec env RUNWIRE_H2_MAX_STREAMS_PER_CONNECTION=1000000 php -d opcache.enable_cli=1       "$control_root/benchmarks/http12_lab_server.php"       "$port" "$payload" 1 "$nodelay" "$certificate" "$private_key"
   ) >"$output_dir/$label-server.log" 2>&1 &
   server_pid=$!
 
