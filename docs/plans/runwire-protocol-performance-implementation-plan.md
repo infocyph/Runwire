@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01-J07 are QA-certified and J08/J09 transition + invariant hardening is active**
+Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01-J09 are QA-certified and J10 final promotion/regression is active**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -541,9 +541,9 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | J05 | HTTP/3 pump budgets | Can writes/reads/accept budgets adapt to backlog direction and active-stream pressure? | Independent outbound write adaptation plus inbound ready/active stream read/accept adaptation, always capped by `Http3Limits` | **Complete** |
 | J06 | HTTP/3 polling | Should poll timeout vary with idle/busy state? | Preserve readiness-driven active timeout; lengthen idle-listener wait and shorten pending-handshake wait | **Complete** |
 | J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Protocol-local `AdaptiveProtocolPolicy` exposes mode, low/high basis-point watermarks, dwell samples and EWMA ratio without changing hard limits | **Complete** |
-| J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Protocol transition/oscillation tests across H1.1/H2/H3 using explicit dwell and crossover policies | **Active** |
-| J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Cross-mode invariant tests prove adaptive choices remain at/below configured hard limits and FIXED preserves static behavior | **Active** |
-| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Implement only proven protocol-specific winners; otherwise Keep/Drop independently | **Planned** |
+| J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Protocol transition/oscillation tests across H1.1/H2/H3 using explicit dwell and crossover policies | **Complete** |
+| J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Cross-mode invariant tests prove adaptive choices remain at/below configured hard limits and FIXED preserves static behavior | **Complete** |
+| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Final normal-suite benchmark coverage + exact-head full protocol regression; promote AUTO while retaining deterministic fixed profiles | **Active** |
 
 ### J01 — common adaptive load model
 
@@ -793,7 +793,7 @@ The exact public API is intentionally undecided. First prove the adaptive model 
 
 ### J08 — transition, burst, and flapping validation
 
-**Status: active.** The batch validates sustained promotion/demotion, one-sample bursts, repeated crossover oscillation, and pinned profiles at the protocol strategy layer.
+**Status: complete.** QA-certified at head `e392ee05009735fddf60fe0e7e4b98f60965bf05`. Tests cover sustained promotion/demotion, one-sample bursts, repeated crossover oscillation, and pinned profiles at the protocol strategy layer.
 
 Static low/high benchmarks are insufficient.
 
@@ -828,7 +828,7 @@ A candidate that wins steady-state benchmarks but flaps or produces tail-latency
 
 ### J09 — safety and invariants
 
-**Status: active.** Cross-mode tests assert H2/H3 adaptive work budgets never exceed configured maxima, hard protocol limits are unchanged by performance policy, and FIXED mode reproduces the static pre-adaptive behavior.
+**Status: complete.** QA-certified at head `e392ee05009735fddf60fe0e7e4b98f60965bf05`. Cross-mode tests assert H2/H3 adaptive work budgets never exceed configured maxima, hard protocol limits are unchanged by performance policy, and FIXED mode reproduces the static pre-adaptive behavior.
 
 Adaptive policy is a **performance scheduler**, never a resource-limit controller.
 
@@ -855,6 +855,8 @@ State transitions must not:
 - bypass explicit user overrides.
 
 ### J10 — benchmark matrix and promotion gate
+
+**Status: active.** The final gate adds adaptive strategy/profile overhead to the repository's normal PHPBench suite and then requires the exact-head full protocol/quality matrix to remain green. Release-certification soak stays paused until the adaptive candidate is final.
 
 Each protocol is promoted independently. J is not an all-or-nothing feature.
 
