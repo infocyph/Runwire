@@ -931,10 +931,10 @@ Production code stayed on `feat/http-improvement`; playground-only patch/harness
 
 | ID | Finding | Required resolution | Status |
 | --- | --- | --- | --- |
-| K01 | HTTP/3 AUTO can starve later ready/request streams because each bounded read cycle restarts at the first peer stream | Add persistent bounded-fair stream rotation for both scan-based and readiness-based drain paths; regression-test reserved-stream contention | **Active** |
-| K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | Bypass load sampling entirely outside AUTO and replace full AUTO scans with bounded/incremental worker load accounting | **Planned** |
-| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Run representative sustained H1.1/H2/H3 AUTO-vs-FIXED matrices including transitions, CPU/RSS, latency and fairness before promotion | **Planned** |
-| K04 | Accepted EWMA numerator/denominator values can overflow integer multiplication during observation | Make EWMA arithmetic overflow-safe and reject/normalize unsafe configuration; add max-int regression coverage | **Planned** |
+| K01 | HTTP/3 AUTO can starve later ready/request streams because each bounded read cycle restarts at the first peer stream | Persistent round-robin read cursor implemented for both scan/readiness paths with reserved-stream regressions | **QA** |
+| K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | FIXED/LATENCY/THROUGHPUT bypass sampling; AUTO tracks at most 64 recent live connections in a worker-local bounded sampler | **QA** |
+| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Five-trial real protocol matrices wired into Benchmarks/QUIC CI with low→high→low phases, p95/p99, CPU/RSS and fairness budgets | **Active** |
+| K04 | Accepted EWMA numerator/denominator values can overflow integer multiplication during observation | Public policy + controller reject denominators above the mathematically safe integer bound; boundary/max-int tests added | **QA** |
 
 ### K01 — HTTP/3 bounded-fair read progress
 
