@@ -17,6 +17,8 @@ final readonly class PhpQuicConnection
 
     private Closure $closeCallback;
 
+    private ?Closure $closeInfoCallback;
+
     private ?Closure $handleEventsCallback;
 
     private Closure $negotiatedAlpnCallback;
@@ -32,6 +34,7 @@ final readonly class PhpQuicConnection
     {
         $this->acceptStreamCallback = self::callback($this->connection, 'acceptStream');
         $this->closeCallback = self::callback($this->connection, 'close');
+        $this->closeInfoCallback = self::optionalCallback($this->connection, 'getCloseInfo');
         $this->handleEventsCallback = self::optionalCallback($this->connection, 'handleEvents');
         $this->negotiatedAlpnCallback = self::callback($this->connection, 'getNegotiatedAlpn');
         $this->openStreamCallback = self::callback($this->connection, 'openStream');
@@ -64,6 +67,23 @@ final readonly class PhpQuicConnection
         }
 
         ($this->closeCallback)($errorCode, $reason, $rapid);
+    }
+
+    /**
+     * Determine whether the native QUIC layer has observed connection closure.
+     */
+    public function closed(): bool
+    {
+        if ($this->closeInfoCallback === null) {
+            return false;
+        }
+
+        $info = ($this->closeInfoCallback)();
+        if ($info !== null && !is_array($info)) {
+            throw new UnexpectedValueException('php-quic getCloseInfo() returned invalid close information.');
+        }
+
+        return $info !== null;
     }
 
     /**
