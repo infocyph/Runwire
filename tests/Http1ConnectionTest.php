@@ -402,7 +402,8 @@ it('preserves HEAD semantics and falls back when a coalesced write exceeds the s
     );
     $body = str_repeat('x', 32);
 
-    expect($writer->end($body)->accepted())->toBeTrue();
+    expect($writer->end($body)->accepted())->toBeTrue()
+        ->and($connection->rejectedWrites())->toBe(0);
     stream_set_blocking($client, false);
     $wire = stream_get_contents($client);
 
