@@ -135,6 +135,14 @@ final class Connection
     }
 
     /**
+     * @internal Return bytes currently available in the bounded send queue.
+     */
+    public function availableWriteBytes(): int
+    {
+        return max(0, $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes());
+    }
+
+    /**
      * Return cumulative backpressure events.
      */
     public function backpressureEvents(): int
@@ -164,14 +172,6 @@ final class Connection
     public function bytesWritten(): int
     {
         return $this->bytesWritten;
-    }
-
-    /**
-     * @internal Return bytes currently available in the bounded send queue.
-     */
-    public function availableWriteBytes(): int
-    {
-        return max(0, $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes());
     }
 
     /**
