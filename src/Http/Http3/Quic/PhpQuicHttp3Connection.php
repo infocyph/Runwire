@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Quic;
 
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3Session;
-use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http3\Internal\AdaptivePumpStrategy;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\Http3\Internal\ResponseScheduler;
