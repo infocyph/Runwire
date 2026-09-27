@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01/J02/J04/J05/J06 are QA-certified and J03 HTTP/1.1 adaptation is active**
+Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01-J06 are QA-certified and J07 public policy/configuration is active**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -536,11 +536,11 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | --- | --- | --- | --- | --- |
 | J01 | Common load model | Which runtime signals predict the crossover between latency-biased and throughput-biased behavior? | Normalized pressure/backlog/activity sample with backlog weighted above active counts | **Complete** |
 | J02 | Adaptive state machine | Can LOW / NORMAL / HIGH load states switch safely without oscillation? | Shared EWMA + low/high hysteresis + sustained-sample dwell controller | **Complete** |
-| J03 | HTTP/1.1 | Can H1 improve saturated throughput without giving back normal-load latency? | Worker-scoped controller chooses NODELAY default only for newly attached H1.1 connections from write pressure, queued bytes and active connection load | **Active** |
+| J03 | HTTP/1.1 | Can H1 improve saturated throughput without giving back normal-load latency? | Worker-scoped controller chooses NODELAY default only for newly attached H1.1 connections from write pressure, queued bytes and active connection load | **Complete** |
 | J04 | HTTP/2 | Can the tiny-response fast path incorporate multiplex/pressure state and outperform the current <1 KiB static gate? | Adaptive 1024/512/256-byte one-shot budget from active streams, queued bytes and transport pressure; 1 KiB remains the hard ceiling | **Complete** |
 | J05 | HTTP/3 pump budgets | Can writes/reads/accept budgets adapt to backlog direction and active-stream pressure? | Independent outbound write adaptation plus inbound ready/active stream read/accept adaptation, always capped by `Http3Limits` | **Complete** |
 | J06 | HTTP/3 polling | Should poll timeout vary with idle/busy state? | Preserve readiness-driven active timeout; lengthen idle-listener wait and shorten pending-handshake wait | **Complete** |
-| J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Design only after crossover evidence proves stable semantics | **Planned** |
+| J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Protocol-local `AdaptiveProtocolPolicy` exposes mode, low/high basis-point watermarks, dwell samples and EWMA ratio without changing hard limits | **Active** |
 | J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Mandatory transition/soak tests; no threshold flapping | **Planned** |
 | J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Required; adaptive policy may choose work budgets/paths only | **Planned** |
 | J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Implement only proven protocol-specific winners; otherwise Keep/Drop independently | **Planned** |
@@ -606,7 +606,7 @@ The adaptive controller must be inexpensive enough that its own bookkeeping does
 
 ### J03 — HTTP/1.1 adaptive policy
 
-**Status: active.** The implementation is worker-scoped: existing connection pressure, queued bytes and active connection load feed the shared controller only when a new H1.1 connection is attached. LATENCY/BALANCED states keep NODELAY on; sustained THROUGHPUT state selects NODELAY off for the new connection only. Existing connections are never retuned, and explicit socket-context overrides remain authoritative.
+**Status: complete.** QA-certified at head `1935288424174711525d98ad9cf5ca4be755146c`. The implementation is worker-scoped: existing connection pressure, queued bytes and active connection load feed the shared controller only when a new H1.1 connection is attached. LATENCY/BALANCED states keep NODELAY on; sustained THROUGHPUT state selects NODELAY off for the new connection only. Existing connections are never retuned, and explicit socket-context overrides remain authoritative.
 
 Current production behavior remains the baseline:
 
@@ -757,6 +757,8 @@ near timer/deadline work
 If the native poller/runtime already naturally gives this behavior from readiness + timer ownership, close J06 as Keep rather than adding a second timing controller.
 
 ### J07 — user-visible policy and crossover overrides
+
+**Status: active.** `AdaptivePolicyMode` and `AdaptiveProtocolPolicy` are now being wired into HTTP/1.1, HTTP/2, and independent HTTP/3 inbound/outbound policy ownership. Hard resource limits remain separate and authoritative.
 
 Do not expose low-level adaptive knobs before their semantics are proven.
 
