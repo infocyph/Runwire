@@ -27,7 +27,7 @@ it('adapts HTTP3 write effort without exceeding the configured maximum', functio
         ->and($limit)->toBe(128);
 });
 
-it('adapts HTTP3 read and accept effort in opposite directions under sustained load', function (): void {
+it('adapts HTTP3 read effort while keeping acceptance stable under sustained load', function (): void {
     $strategy = new AdaptivePumpStrategy();
 
     foreach (range(1, 3) as $_) {
@@ -42,7 +42,7 @@ it('adapts HTTP3 read and accept effort in opposite directions under sustained l
         $high->observe(100, 100, 100);
     }
     expect($high->state())->toBe(AdaptiveLoadState::THROUGHPUT)
-        ->and($high->acceptLimit(64))->toBe(16)
+        ->and($high->acceptLimit(64))->toBe(64)
         ->and($high->readLimit(256))->toBe(256)
         ->and($high->byteLimit(262_144))->toBe(262_144);
 });
