@@ -8,7 +8,6 @@ use Closure;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionSampler;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\HttpRequest;
-use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use Infocyph\Runwire\Http\NativeHttpConnection;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\LoopFactory;
