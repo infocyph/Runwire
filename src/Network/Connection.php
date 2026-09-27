@@ -82,6 +82,8 @@ final class Connection
         private readonly ?string $negotiatedProtocol = null,
         private readonly bool $encrypted = false,
         private readonly ?ByteBudget $bufferBudget = null,
+        private readonly bool $tcpTransport = false,
+        private readonly ?bool $tcpNoDelayOverride = null,
     ) {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('Connection requires a live stream resource.');
@@ -116,6 +118,32 @@ final class Connection
 
         $this->sendBuffer->clear();
         $this->finalize($reason);
+    }
+
+    /**
+     * @internal Apply a protocol TCP_NODELAY default unless listener configuration explicitly owns it.
+     */
+    public function applyTcpNoDelayDefault(bool $enabled): void
+    {
+        if (!$this->tcpTransport
+            || $this->tcpNoDelayOverride !== null
+            || !is_resource($this->stream)
+            || !function_exists('socket_import_stream')
+            || !function_exists('socket_set_option')
+            || !defined('SOL_TCP')
+            || !defined('TCP_NODELAY')) {
+            return;
+        }
+
+        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+        try {
+            $socket = socket_import_stream($this->stream);
+            if ($socket !== false) {
+                socket_set_option($socket, SOL_TCP, TCP_NODELAY, $enabled ? 1 : 0);
+            }
+        } finally {
+            restore_error_handler();
+        }
     }
 
     /**
