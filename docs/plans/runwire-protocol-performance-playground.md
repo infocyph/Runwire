@@ -254,3 +254,14 @@ A same-runner diagnostic is scheduled for:
 - Amp default and `BindContext::withTcpNoDelay()`
 
 All cases use PHP 8.5, portable PHP loop paths, concurrency 16, a two-byte keep-alive response, and the same Runwire load client. The purpose is **root-cause crossmatch, not framework ranking**. Absolute RPS differences are secondary; the key signal is whether the ~41 ms p95 floor appears or disappears.
+
+
+### F11 — H3 graceful drain after peer shutdown can throw
+
+Confidence: **high**
+
+The first V4 sustained run completed the request workload, then the native client closed QUIC after all requested streams completed. The benchmark server subsequently called `PhpQuicHttp3Worker::stopAccepting()`; `PhpQuicHttp3Connection::beginDrain()` attempted to flush GOAWAY on an already-shutdown control stream and ext-quic threw `Quic\Exception: protocol is shutdown`.
+
+This is a lifecycle finding, not an H3 throughput result. V4 now separates throughput completion from graceful-drain testing by ticking until the peer connection is observed closed after all responses complete. V6 retains the original graceful-drain path and must decide the production fix.
+
+Likely production expectation: beginning drain on a connection already closed by the peer must be idempotent/non-fatal, and a failed GOAWAY/control-stream write during observed peer shutdown must not terminate the worker.

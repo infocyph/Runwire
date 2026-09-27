@@ -52,6 +52,7 @@ No item is deferred merely because it is difficult. If a candidate survives vali
 | D15 | Expected write batching is common in peer PHP runtimes | Supporting | Use as design precedent, not as performance proof | H1/H2 design | V1/V2 | Supporting |
 | D16 | Graceful H2 GOAWAY exists in mature peers | Supporting | Prefer graceful rotation if Runwire tests prove it preserves hard limits | H2 lifecycle | V6 | Supporting |
 | D17 | Scoped write-warning conversion exists in Amp/React | Supporting | Adopt equivalent Runwire-owned mechanism, not their implementation | `Connection` | V7 | Supporting |
+| D18 | H3 beginDrain can write GOAWAY after peer QUIC shutdown and throw | High | Make H3 drain-after-peer-close idempotent/non-fatal while preserving real protocol errors | `PhpQuicHttp3Worker`, `PhpQuicHttp3Connection` | V6 | Validate |
 
 ## Finding-to-library action map
 
@@ -289,6 +290,38 @@ If difference is negligible:
 If SelectLoop wins a workload:
 
 - investigate why before changing preference; ext-event may still scale better at connection counts beyond select's portable ceiling.
+
+---
+
+### D18 — H3 drain after peer-close
+
+**Evidence**
+
+The first sustained V4 run served the complete request set, the client completed all streams and shut down QUIC, and the server then entered graceful worker drain. `beginDrain()` appended GOAWAY and immediately flushed the local control stream; ext-quic rejected the write because the QUIC protocol was already shutdown, producing an uncaught fatal exception.
+
+**Provisional production change**
+
+Do not treat an already-closed peer as a protocol error during local graceful shutdown.
+
+Candidate behavior:
+
+- before beginning drain, recognize connections already observed closed and skip GOAWAY;
+- if a control-stream write reports native transport shutdown while drain is starting, mark the connection closed/released rather than terminating the worker;
+- do not swallow unrelated QUIC exceptions;
+- preserve GOAWAY for live connections;
+- keep `forceClose()` semantics bounded and idempotent.
+
+**Tests**
+
+- peer closes before worker `stopAccepting()`;
+- peer closes while GOAWAY is pending;
+- live peer receives GOAWAY and drains normally;
+- native transport write error unrelated to peer shutdown remains visible;
+- repeated `stopAccepting()` / `forceClose()` is safe.
+
+**Decision gate**
+
+V6 must reproduce both live-peer graceful drain and already-closed-peer drain. If the distinction can be made reliably, implement; otherwise drop any broad exception swallowing and use a narrower lifecycle fix.
 
 ---
 

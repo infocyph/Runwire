@@ -83,6 +83,18 @@ if ($served !== $expected) {
     throw new RuntimeException(sprintf('HTTP/3 playground served %d of %d requests.', $served, $expected));
 }
 
+if (getenv('RUNWIRE_H3_BENCH_PEER_CLOSE_COMPLETION') === '1') {
+    $peerCloseDeadline = microtime(true) + 5.0;
+    while ($worker->connectionCount() > 0 && microtime(true) < $peerCloseDeadline) {
+        $worker->tick($pollTimeout);
+    }
+    if ($worker->connectionCount() > 0) {
+        throw new RuntimeException('HTTP/3 sustained benchmark peer connection did not close.');
+    }
+
+    exit(0);
+}
+
 $worker->stopAccepting();
 $drainDeadline = microtime(true) + 5.0;
 while (!$worker->drainComplete() && microtime(true) < $drainDeadline) {

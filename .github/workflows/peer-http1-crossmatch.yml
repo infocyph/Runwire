@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: runwire-peer-http1-crossmatch-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   peer-http1:

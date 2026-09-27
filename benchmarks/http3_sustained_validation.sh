@@ -62,7 +62,9 @@ run_trial() {
   uri="https://127.0.0.1:$port/benchmark?request=1"
   rm -f "$ready"
 
-  RUNWIRE_H3_MAX_STREAMS_PER_CONNECTION=1000000     php "$control_root/benchmarks/http3_lab_server.php"       "$port" "$certificate" "$private_key" "$ready" "$requests"       "$poll" "$writes" "$streams_per_pump" "$concurrent" "$payload" "$max_reads"       >"$server_log" 2>&1 &
+  RUNWIRE_H3_MAX_STREAMS_PER_CONNECTION=1000000 \
+  RUNWIRE_H3_BENCH_PEER_CLOSE_COMPLETION=1 \
+    php "$control_root/benchmarks/http3_lab_server.php"       "$port" "$certificate" "$private_key" "$ready" "$requests"       "$poll" "$writes" "$streams_per_pump" "$concurrent" "$payload" "$max_reads"       >"$server_log" 2>&1 &
   server_pid=$!
 
   for _ in $(seq 1 300); do
