@@ -10,7 +10,7 @@ it('adapts HTTP2 initial-response wire intent from sustained protocol load', fun
     $strategy = new AdaptiveResponseStrategy();
     $low = new AdaptiveLoadSample(false, 0, 0);
 
-    expect($strategy->wireLimit($low))->toBe(512);
+    expect($strategy->wireLimit($low))->toBe(1_024);
     $strategy->wireLimit($low);
     expect($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->state())->toBe(AdaptiveLoadState::LATENCY);
