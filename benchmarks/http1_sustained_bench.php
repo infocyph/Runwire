@@ -357,7 +357,11 @@ function http1SustainedCompleteResponse(
 ): void {
     $client = &$clients[$id];
     ++$counter['completed_requests'];
-    if ($response['status'] === 200 && $response['body'] === 'ok') {
+    $expectedBody = getenv('RUNWIRE_BENCH_EXPECTED_BODY');
+    $validBody = $expectedBody === false || $expectedBody === ''
+        ? $response['body'] === 'ok'
+        : hash_equals($expectedBody, $response['body']);
+    if ($response['status'] === 200 && $validBody) {
         ++$counter['successful_requests'];
     } else {
         ++$counter['validation_failures'];
@@ -645,6 +649,7 @@ function http1SustainedMain(array $argv): array
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
         'connection_reuse' => 'keep-alive',
         'client_tcp_nodelay' => getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1',
+        'expected_body_bytes' => strlen((string) (getenv('RUNWIRE_BENCH_EXPECTED_BODY') ?: 'ok')),
         'extension_versions' => http1SustainedExtensionVersions(),
         'workers' => 1,
         'concurrency' => $concurrency,

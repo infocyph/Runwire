@@ -66,7 +66,8 @@ start_server() {
     exec php -d opcache.enable_cli=1 "$control_root/benchmarks/http12_lab_server.php"       "$port" "$payload" 1 "$nodelay" "$certificate" "$private_key"
   ) >"$output_dir/$label-server.log" 2>&1 &
   server_pid=$!
-  wait_ready "$port" "$output_dir/$label-server.log"
+  CURRENT_SERVER_LOG="$label-server.log"
+  wait_ready "$port" "$output_dir/$CURRENT_SERVER_LOG"
   ACTIVE_PORT="$port"
 }
 
