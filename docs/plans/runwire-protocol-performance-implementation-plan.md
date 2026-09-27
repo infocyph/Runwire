@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation active on `feat/http-improvement`; I1-I6 are complete, I7 full protocol regression is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
+Status: **production implementation complete through I7; all D-items are closed, I8 release certification is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -71,6 +71,19 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | D17 | Scoped write-warning conversion exists in Amp/React | Supporting | Adopt equivalent Runwire-owned mechanism, not their implementation | `Connection` | V7 | Supporting |
 | D18 | H3 beginDrain can write GOAWAY after peer QUIC shutdown and throw | High; live/closed drain behavior and QUIC lanes pass | Detect native QUIC close state before/after drain flush; observed peer-close becomes idempotent local closure while unrelated write failures remain visible | `PhpQuicConnection`, `PhpQuicHttp3Connection` | complete | **Implement** |
 
+## Production batch tracker
+
+| Batch | Scope | Status | Evidence / outcome |
+| --- | --- | --- | --- |
+| I1 | H1 bounded response + H1 NODELAY policy | **Complete** | QA run `36310162888` |
+| I2 | H2 bounded initial-response batching | **Complete** | Security & Standards `36311109543` |
+| I3 | Scoped transport write-warning normalization | **Complete** | Security & Standards `36311729244` |
+| I4 | H2 graceful churn + H3 peer-close drain | **Complete** | Full QA after lifecycle fixes; static-analysis follow-up passed |
+| I5 | H3 tuning | **Complete / no code** | V4 found no stable tuning winner |
+| I6 | Worker/runtime scaling | **Complete / docs only** | Existing evidence supports benchmark-first sizing, not runtime tuning |
+| I7 | Full protocol regression | **Complete** | Final full regression at `c4a479fcf76c0c14e1769f1dacef2209d2e9fa42`; Security & Standards `36323729640` plus benchmark/portable/Swoole/source-audit lanes green |
+| I8 | Release certification | **Active** | Opt-in `release-certification` PR label enables exact-head matched comparison, release guard, Infbyte consumer gate, and 30-minute soak |
+
 ## Finding-to-library action map
 
 ### D01 — HTTP/1 bounded response coalescing
@@ -79,11 +92,9 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 
 Raw TCP reproduced the pathological shape: two small writes with ordinary TCP behavior create the ~41 ms floor; one coalesced write removes it. Runwire's current bounded response path serializes the head in `start()` and sends the final body separately in `end()`.
 
-**Candidate production change**
+**Final decision: Implement.**
 
-Add a native one-shot response fast path for responses whose full body is already known when the response is finalized.
-
-The first V1 prototype is directionally successful but not yet promotable. It removes the floor for small plaintext/TLS responses and for 16 KiB plaintext, while 16 KiB TLS remains on the ~42 ms plateau without NODELAY. One high-concurrency TLS cell also moved unfavorably in the single-sample diagnostic. Treat those as certification blockers, not reasons to discard coalescing.
+Runwire now uses a native one-shot fast path for implicit bounded responses whose full body is known at `end($body)`. Explicit streaming keeps the existing semantics. The playground evidence established the root cause; production QA verified the bounded implementation, fallbacks, HEAD/body semantics, backpressure, WebSocket isolation, and PHPForge limits.
 
 Target behavior:
 
@@ -99,7 +110,7 @@ Target behavior:
 
 Do not add a second public response API merely for performance. Keep the public writer contract and optimize the internal final-response path.
 
-**Tests to add if V1 passes**
+**Production coverage**
 
 - fixed-length `end($body)` produces one transport write;
 - large bounded response still respects configured chunk/response limits;
@@ -110,9 +121,9 @@ Do not add a second public response API merely for performance. Keep the public 
 - backpressure result propagation;
 - WebSocket upgrade unaffected.
 
-**Decision gate**
+**Decision record**
 
-Promote D01 if five repeated trials show that bounded coalescing materially improves the tiny-response path while staying within the regression budget for 1 KiB/16 KiB/64 KiB, TLS, and high concurrency. Coalescing is **not** required to eliminate the TLS 16 KiB record-boundary floor by itself; that behavior is covered by D02/D03 transport guidance. Drop the fast path if the repeated high-concurrency cost is material.
+D01 is closed as **Implement**. Coalescing addresses the application write shape; D02 owns the remaining H1/TLS transport behavior. The fast path is capacity-bounded and falls back to the existing response path rather than forcing large responses through one write.
 
 ---
 
@@ -132,28 +143,15 @@ Peer precedent is meaningful but not decisive:
 
 That ecosystem split makes this a Runwire policy decision rather than a convention to copy.
 
-**Candidate production policy**
+**Final decision: H1 default ON after protocol selection.**
 
-V1 must choose between:
-
-1. **H1 default ON** — enable NODELAY for accepted connections that are actually serving HTTP/1, while still allowing explicit override; or
-2. **H1 neutral default** — preserve current socket behavior and document NODELAY as the recommended latency-sensitive option.
-
-Do **not** make NODELAY a universal listener/TCP default merely because H1 benefits. H2 remains a separate policy and D05 already rejects unconditional NODELAY there.
+Runwire enables NODELAY only after an accepted connection is known to be HTTP/1 and only where live accepted-socket tuning is available. An explicit listener `tcp_nodelay` setting remains authoritative. H2 remains neutral and does not inherit the H1 choice.
 
 For shared TLS listeners, prefer applying the H1 choice after protocol/ALPN selection where the accepted connection can be treated according to the negotiated protocol. Do not create a design in which enabling the H1 default silently forces the same policy onto H2.
 
-**V1 decision criteria**
+**Decision record**
 
-Promote **H1 default ON** only if five repeated trials show all of the following:
-
-- the low/moderate-concurrency latency benefit remains large and stable for plaintext and TLS;
-- median throughput improvement is material for the target H1 workloads;
-- any saturated concurrency-256 throughput loss is understood and remains within the accepted regression budget;
-- CPU/RSS cost is acceptable;
-- coalescing + NODELAY interaction does not introduce correctness, backpressure, streaming, or WebSocket regressions.
-
-If the saturated-throughput penalty is material enough to outweigh the latency benefit, keep the default neutral and retain explicit opt-in.
+D02 is closed as **Implement**. The policy deliberately optimizes H1 latency without changing H2 transport defaults. The implementation preserves user override capability and keeps protocol selection as the ownership boundary.
 
 **API/configuration rule**
 
@@ -168,7 +166,7 @@ The original assumption that application-level coalescing would remove the floor
 Production rule:
 
 - D01 must remain protocol-level and identical for plaintext/TLS;
-- D02 decides whether H1 itself defaults NODELAY on; do not hard-code the answer here;
+- D02 is resolved: H1 defaults NODELAY on after protocol selection while explicit listener override remains authoritative;
 - document the measured TLS record-boundary behavior regardless of the D02 outcome;
 - do not toggle NODELAY per response;
 - do not add TLS-specific response buffering unless a lower-layer profile proves a generally useful transport fix.
@@ -181,16 +179,9 @@ Production rule:
 
 Low-multiplex tiny H2 responses reproduce the ~41 ms floor, but high multiplexing and larger payloads benefit from normal batching. Therefore the target is fewer immediate writes, not blanket NODELAY.
 
-**Candidate production change**
+**Final decision: Implement a narrow bounded fast path.**
 
-Do **not** promote the current broad benchmark patch as-is. It fixes tiny responses dramatically, but the 1 KiB / 100-stream case regresses by 15.6% and 16 KiB / 1 stream still hits the TLS floor.
-
-V2 now has a binary target:
-
-- validate a **bounded tiny-response fast path** that coalesces initial HEADERS + first DATA only when the combined wire payload and scheduler state make it safe; or
-- **Drop** D04 if avoiding the high-multiplex regression requires broad scheduler complexity or workload-specific tuning.
-
-Any production path must fall back to the existing scheduler before larger payloads or natural multiplex batching become the better strategy.
+The broad benchmark patch was rejected. Production coalescing is restricted to an implicit initial response below 1 KiB combined wire intent and only when scheduler/flow-control state is immediately safe. The measured 1 KiB body and larger/streaming paths fall back to the existing scheduler, retaining natural H2 batching and multiplex fairness.
 
 Required semantics:
 
@@ -210,7 +201,7 @@ Required semantics:
 
 Avoid a generic "concatenate arbitrary frames" switch. Model a narrow initial-response fast path so scheduler invariants remain obvious.
 
-**Tests if V2 passes**
+**Production coverage**
 
 - HEADERS + single DATA becomes one transport write;
 - large body still splits by peer/max frame size;
@@ -246,22 +237,9 @@ Close D06/D12 as **Keep**. Any future scaling code requires a new reproducible b
 
 ### D07 — H2 stream-churn lifecycle
 
-**Current behavior**
+**Final decision: Implement graceful rotation at the configured hard ceiling.**
 
-The hard `maxStreamsPerConnection = 10_000` resource bound works, but the next stream causes an abrupt protocol error path.
-
-**Candidate production behavior**
-
-Introduce a graceful rotation threshold below the hard ceiling:
-
-1. send GOAWAY with the last accepted client stream ID;
-2. mark connection draining;
-3. stop accepting new request streams;
-4. finish active streams and pending writes;
-5. close normally after drain;
-6. retain the hard 10,000 bound as an abuse/failsafe ceiling.
-
-The graceful threshold may be derived from the hard limit rather than adding a second user-facing option unless configuration evidence requires it.
+The final allowed request stream is admitted, then Runwire sends GOAWAY with that last accepted client stream ID and enters draining state. New streams are refused while active streams and pending writes finish. The configured lifetime-stream ceiling remains exact; graceful behavior does not expand the abuse/resource bound.
 
 **Security rule**
 
@@ -283,9 +261,9 @@ Expected TLS disconnects can make `fwrite()` emit `SSL: Broken pipe` warnings ev
 
 Amp and React use scoped error handling around stream writes. Workerman uses `@fwrite`, which Runwire must not copy.
 
-**Provisional production change**
+**Final decision: Implement one scoped transport writer.**
 
-Add one small Runwire-owned write primitive inside `Connection` (or a focused internal helper only if complexity requires it):
+Runwire now routes immediate and buffered stream writes through an internal `StreamWriter`:
 
 - install a temporary error handler immediately around `fwrite()`;
 - capture the warning message/errno context;
@@ -295,9 +273,9 @@ Add one small Runwire-owned write primitive inside `Connection` (or a focused in
 - preserve unexpected conditions through diagnostics/logging as appropriate;
 - use the same primitive for immediate writes and buffered `handleWritable()` writes.
 
-**Tests**
+**Production coverage**
 
-TLS peer closes before write, peer closes mid-buffer, plain TCP reset, partial write, EAGAIN-style zero write where applicable, and proof that unrelated PHP warnings are not suppressed.
+Focused tests cover immediate and buffered peer-close failures plus restoration of the caller's error handler. Existing connection/write tests and protocol regression lanes cover partial/queued write behavior without suppressing unrelated PHP warnings.
 
 ---
 
@@ -329,11 +307,9 @@ Keep `LoopFactory::native()` preferring ext-event when available and SelectLoop 
 
 The first sustained V4 run served the complete request set, the client completed all streams and shut down QUIC, and the server then entered graceful worker drain. `beginDrain()` appended GOAWAY and immediately flushed the local control stream; ext-quic rejected the write because the QUIC protocol was already shutdown, producing an uncaught fatal exception.
 
-**Provisional production change**
+**Final decision: Implement state-aware H3 drain.**
 
-Do not treat an already-closed peer as a protocol error during local graceful shutdown.
-
-Candidate behavior:
+An already-observed QUIC peer close is normal during local graceful shutdown and is handled as idempotent closure. Live connections still receive GOAWAY. Production behavior:
 
 - before beginning drain, recognize connections already observed closed and skip GOAWAY;
 - if a control-stream write reports native transport shutdown while drain is starting, mark the connection closed/released rather than terminating the worker;
@@ -349,9 +325,9 @@ Candidate behavior:
 - native transport write error unrelated to peer shutdown remains visible;
 - repeated `stopAccepting()` / `forceClose()` is safe.
 
-**Decision gate**
+**Decision record**
 
-V6 must reproduce both live-peer graceful drain and already-closed-peer drain. If the distinction can be made reliably, implement; otherwise drop any broad exception swallowing and use a narrower lifecycle fix.
+D18 is closed as **Implement**. The native close observation is treated as stateful, the drain path rechecks it around GOAWAY flushing, and unrelated QUIC exceptions remain visible.
 
 ---
 
@@ -407,48 +383,19 @@ No sufficiently comparable mature native-PHP H3 server implementation was found 
 
 ### V1 — H1 writer and NODELAY policy
 
-**Status: reference-branch evidence accepted for production implementation.** The playground remains the evidence archive; its patch scripts, synthetic harnesses, and validation workflows are not copied into `feat/http-improvement`. Production acceptance on this branch is based on source semantics, protocol regression, PHPForge QA, and the repository's normal benchmark/release gates.
+**Status: complete.**
 
-The broad single-sample matrix established the behavior of default, NODELAY, coalesced, and combined modes. V1 now has two explicit production decisions: D01 bounded response coalescing and D02 H1 default NODELAY policy. D03 closes from the same TLS evidence.
+Reference-branch diagnostics identified the split-write/delayed-ACK pathology and the TLS record-boundary case. Production implementation then closed the decision with bounded implicit response coalescing plus H1-only NODELAY after protocol selection. Full repository regression passed without changing explicit streaming, WebSocket, backpressure, or H2 transport policy.
 
-Final certification:
-
-- current production path;
-- current path + NODELAY;
-- bounded coalescing candidate;
-- bounded coalescing + NODELAY;
-- plaintext + TLS;
-- 2 B, 1 KiB, 16 KiB, 64 KiB;
-- concurrency 16/64/256, plus concurrency 1 for TLS record-boundary confirmation;
-- five alternating repeated trials per retained comparison;
-- median RPS, CV, p95/p99, CPU and RSS;
-- correctness, streaming, backpressure, WebSocket, and body-semantics gates.
-
-Decision analysis must report latency and throughput separately. Do not hide a large latency improvement behind peak-throughput averages, and do not hide a material saturation regression behind low-concurrency wins.
-
-**Output:**
-
-- D01 → Implement or Drop bounded H1 coalescing;
-- D02 → H1 NODELAY default ON or neutral;
-- D03 → close with measured TLS behavior and no TLS-specific response API.
+**Output:** D01-D03 closed as **Implement**.
 
 ### V2 — H2 real scheduler strategy
 
-**Status: broad prototype diagnostic complete; unconditional coalescing rejected.**
+**Status: complete.**
 
-D05 is closed. V2 now tests only a bounded tiny-response candidate against the current scheduler.
+The broad prototype was rejected because it regressed the 1 KiB / 100-stream path. Production uses a conservative <1 KiB combined-wire-intent fast path and retains the existing scheduler for larger, pressured, queued, continuation, or streaming cases. Repository QA and protocol benchmarks pass with H2 NODELAY still neutral.
 
-Final certification:
-
-- current production scheduler vs bounded tiny-response candidate;
-- payload 2 B/1 KiB/16 KiB/64 KiB;
-- 1/8/32/100 streams;
-- five alternating repeated trials;
-- median RPS, CV, request latency, server CPU and RSS;
-- correctness, frame-size, CONTINUATION, flow-control, pressure, fairness, and control-frame gates;
-- explicit regression guard for the 1 KiB / 100-stream and larger-payload cases.
-
-**Output:** Implement or Drop D04.
+**Output:** D04 closed as **Implement**; D05 remains **Keep**.
 
 ### V3 — same-runner EventLoop vs SelectLoop
 
@@ -484,15 +431,17 @@ H2 rotates with GOAWAY at the final configured lifetime-stream slot while preser
 
 ### V7 — write error semantics
 
-Build transport tests and benchmark-only/prototype scoped write helper.
+**Status: complete.**
 
-**Output:** D08.
+Scoped `fwrite()` warning handling is implemented in the internal transport writer and used by both immediate and buffered connection writes. QA confirms existing write-failure semantics, no `@` suppression, and restoration of caller warning handling.
+
+**Output:** D08 closed as **Implement**.
 
 ---
 
 ## Production implementation batches
 
-These batches become active only when their gates pass.
+All implementation batches below were gated by the evidence and QA recorded above.
 
 ### I1 — H1 bounded-response fast path
 
@@ -503,7 +452,7 @@ These batches become active only when their gates pass.
 - explicit listener `tcp_nodelay` configuration takes precedence;
 - H2 transport policy remains neutral;
 - focused unit/feature coverage added for one-shot semantics, HEAD behavior, fallback, H1/H2 NODELAY separation, and explicit override;
-- plaintext/TLS, streaming/WebSocket/backpressure and PHPForge gates remain the acceptance step.
+- plaintext/TLS, streaming/WebSocket/backpressure and PHPForge acceptance gates passed.
 
 ### I2 — H2 initial-response batching
 
@@ -550,27 +499,24 @@ No concrete V5-era runtime bottleneck is proven. Keep current worker/runtime beh
 
 ### I7 — full protocol regression
 
-**Status: active after I6 documentation closure.**
+**Status: complete.** Final regression head `c4a479fcf76c0c14e1769f1dacef2209d2e9fa42` passed Release Candidate, Source Audit, Portable Native, Swoole/OpenSwoole Coroutine, Benchmarks, and Security & Standards `36323729640`.
 
-- H1 plain/TLS;
-- H2 TLS/ALPN;
-- H3 QUIC;
-- WebSocket;
-- streaming/chunking;
-- backpressure;
-- lifecycle/churn;
-- peer disconnects;
-- PHP 8.4 + 8.5.
+Coverage includes H1 plain/TLS, H2 TLS/ALPN, H3 QUIC, WebSocket, streaming/chunking, backpressure, lifecycle/churn, peer disconnects, and PHP 8.4/8.5.
 
 ### I8 — release certification
 
+**Status: active.** PR #6 carries the opt-in `release-certification` label, and the workflow now supports that label without hardcoding the implementation branch.
+
+Required final gate:
+
 - 30 s warm-up;
 - five 180 s trials for final performance-sensitive paths;
-- 30-minute soak where applicable;
+- 30-minute soak;
 - CPU/RSS/latency/error evidence;
 - PHPForge full release guard;
+- representative Infbyte consumer gate;
 - no checker bypasses;
-- update benchmark docs and migration notes if behavior/config changes.
+- benchmark/deployment/migration documentation updated for the changed behavior.
 
 ---
 
@@ -588,4 +534,4 @@ For each D-item, update this plan with:
 
 `feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
-V5-V7 remain independent post-selection gates: they may prototype on the playground branch, but I3/I4/I6 production changes must not land without their own evidence records. No unresolved item is silently deferred: each remaining D-item must end as Implement, Keep, or Drop before release certification.
+V1-V7 and D01-D18 are closed. I8 is the only open gate. No unresolved implementation item is deferred; the remaining work is exact-head release certification only.
