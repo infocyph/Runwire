@@ -36,7 +36,24 @@ if (!in_array($mode, [AdaptivePolicyMode::AUTO, AdaptivePolicyMode::FIXED], true
     throw new InvalidArgumentException('Adaptive benchmark mode must be auto or fixed.');
 }
 
-$policy = new AdaptiveProtocolPolicy(mode: $mode);
+$h1Defaults = (new Http1Limits())->adaptive;
+$h2Defaults = (new Http2Limits())->adaptive;
+$h1Policy = new AdaptiveProtocolPolicy(
+    mode: $mode,
+    lowWatermarkBasisPoints: $h1Defaults->lowWatermarkBasisPoints,
+    highWatermarkBasisPoints: $h1Defaults->highWatermarkBasisPoints,
+    transitionSamples: $h1Defaults->transitionSamples,
+    ewmaNumerator: $h1Defaults->ewmaNumerator,
+    ewmaDenominator: $h1Defaults->ewmaDenominator,
+);
+$h2Policy = new AdaptiveProtocolPolicy(
+    mode: $mode,
+    lowWatermarkBasisPoints: $h2Defaults->lowWatermarkBasisPoints,
+    highWatermarkBasisPoints: $h2Defaults->highWatermarkBasisPoints,
+    transitionSamples: $h2Defaults->transitionSamples,
+    ewmaNumerator: $h2Defaults->ewmaNumerator,
+    ewmaDenominator: $h2Defaults->ewmaDenominator,
+);
 $fixed = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED);
 $tls = null;
 if ($protocol === 'h2') {
@@ -65,8 +82,14 @@ $server = new Server(
     },
     workers: 1,
     tls: $tls,
-    http1: new Http1Limits(adaptive: $protocol === 'http1' ? $policy : $fixed),
-    http2: new Http2Limits(adaptive: $protocol === 'h2' ? $policy : $fixed),
+    http1: new Http1Limits(
+        maxKeepAliveRequests: 100_000,
+        adaptive: $protocol === 'http1' ? $h1Policy : $fixed,
+    ),
+    http2: new Http2Limits(
+        maxStreamsPerConnection: 1_000_000,
+        adaptive: $protocol === 'h2' ? $h2Policy : $fixed,
+    ),
 );
 
 Runtime::create(new RuntimeOptions(driver: RuntimeDriver::NATIVE))
