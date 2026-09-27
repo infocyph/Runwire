@@ -48,7 +48,9 @@ if ($protocol === 'h2') {
     throw new InvalidArgumentException('HTTP/1.1 adaptive benchmark does not accept TLS paths.');
 }
 
-$body = str_repeat('x', $payloadBytes);
+$body = $protocol === 'http1' && $payloadBytes === 2
+    ? 'ok'
+    : str_repeat('x', $payloadBytes);
 $server = new Server(
     name: 'adaptive-' . $protocol,
     address: '127.0.0.1:' . $port,
