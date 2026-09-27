@@ -1,0 +1,123 @@
+name: "Runwire 1.0 vs 2.0 Performance"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runwire-1.0-vs-2.0-performance
+  cancel-in-progress: false
+
+jobs:
+  compare-native-http1:
+    name: "Native HTTP/1 - 1.0 vs 2.0"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout comparison harness
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+          path: control
+
+      - name: Checkout Runwire 1.0
+        uses: actions/checkout@v7
+        with:
+          ref: "1.0"
+          path: v1
+
+      - name: Checkout Runwire 2.0
+        uses: actions/checkout@v7
+        with:
+          ref: "2.0"
+          path: v2
+
+      - name: Setup identical PHP runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Record release identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "1.0: $(git -C v1 rev-parse HEAD)"
+          echo "2.0: $(git -C v2 rev-parse HEAD)"
+          test "$(git -C v1 rev-parse HEAD)" = "7ab48fcf224ee86838e5bf82a50b998c2aaa8a90"
+          test "$(git -C v2 rev-parse HEAD)" = "75e3768480c603a2432f6f0e750270df95988f79"
+
+      - name: Install production dependencies identically
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --working-dir=v1 --no-dev --no-interaction --prefer-dist --no-progress --classmap-authoritative
+          composer install --working-dir=v2 --no-dev --no-interaction --prefer-dist --no-progress --classmap-authoritative
+
+      - name: Verify matched extensions and OPcache
+        shell: bash
+        run: |
+          php -d opcache.enable_cli=1 -r '
+          foreach (["pcntl", "posix", "event", "Zend OPcache"] as $extension) {
+              if (!extension_loaded($extension)) {
+                  throw new RuntimeException("Missing extension: " . $extension);
+              }
+          }
+          if (!function_exists("opcache_get_status") || opcache_get_status(false) === false) {
+              throw new RuntimeException("CLI OPcache must be enabled.");
+          }
+          printf("PHP %s\n", PHP_VERSION);
+          '
+
+      - name: Run matched 30s warm-up and five 180s trials
+        shell: bash
+        run: |
+          bash control/benchmarks/release_version_compare.sh \
+            control v1 v2 version-performance
+
+      - name: Publish comparison summary
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f version-performance/comparison.json ]; then
+            exit 0
+          fi
+
+          {
+            echo "## Runwire 1.0 vs 2.0 native HTTP/1"
+            echo
+            echo "| Metric | 1.0 | 2.0 |"
+            echo "| --- | ---: | ---: |"
+            printf '| Median RPS | %s | %s |\n' \
+              "$(jq -r '.median_successful_rps' version-performance/v1-summary.json)" \
+              "$(jq -r '.median_successful_rps' version-performance/v2-summary.json)"
+            printf '| Median p95 | %s ms | %s ms |\n' \
+              "$(jq -r '.median_p95_ms' version-performance/v1-summary.json)" \
+              "$(jq -r '.median_p95_ms' version-performance/v2-summary.json)"
+            printf '| Median p99 | %s ms | %s ms |\n' \
+              "$(jq -r '.median_p99_ms' version-performance/v1-summary.json)" \
+              "$(jq -r '.median_p99_ms' version-performance/v2-summary.json)"
+            printf '| Median CPU | %s%% | %s%% |\n' \
+              "$(jq -r '.median_cpu_percent' version-performance/v1-summary.json)" \
+              "$(jq -r '.median_cpu_percent' version-performance/v2-summary.json)"
+            printf '| Peak RSS | %s | %s |\n' \
+              "$(jq -r '.peak_rss_bytes' version-performance/v1-summary.json)" \
+              "$(jq -r '.peak_rss_bytes' version-performance/v2-summary.json)"
+            echo
+            printf '**2.0 RPS delta:** %s%%\n\n' "$(jq -r '.delta_percent' version-performance/comparison.json)"
+            printf '**Variance-enforced:** %s  \n' "$(jq -r '.budget_enforced' version-performance/comparison.json)"
+            printf '**5%% regression budget passed:** %s\n' "$(jq -r '.passed' version-performance/comparison.json)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload full comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-1.0-vs-2.0-native-http1
+          path: version-performance/
+          retention-days: 90
