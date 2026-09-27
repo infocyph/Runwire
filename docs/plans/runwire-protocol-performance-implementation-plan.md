@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation complete through I7; all D-items are closed, I8 release certification is active, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
+Status: **production implementation complete through I7; all D-items are closed, I8 release certification is active, and J adaptive protocol tuning is planned as the next evidence-driven workstream with no code change yet**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -520,6 +520,391 @@ Required final gate:
 
 ---
 
+## J — Adaptive HTTP/1.1, HTTP/2, and HTTP/3 tuning
+
+**Status: planned / discussion approved; no code change yet.**
+
+The completed protocol work shows that several performance choices are workload-dependent rather than globally optimal. HTTP/1.1 NODELAY/coalescing, HTTP/2 initial-response batching, loop/backend behavior, and HTTP/3 pump/write/accept budgets all change their relative value as active work and transport pressure increase.
+
+The next investigation therefore must not search for one larger static default. It must determine whether Runwire can preserve its hard safety limits while selecting a better **execution strategy for the current protocol load state**.
+
+Throughout this section, "H1" means the native HTTP/1.1 path.
+
+### J tracker
+
+| ID | Scope | Question | Initial direction | Status |
+| --- | --- | --- | --- | --- |
+| J01 | Common load model | Which runtime signals predict the crossover between latency-biased and throughput-biased behavior? | Use pressure/backlog first, active counts second; do not use client concurrency alone | **Planned** |
+| J02 | Adaptive state machine | Can LOW / NORMAL / HIGH load states switch safely without oscillation? | Hysteresis + minimum dwell / EWMA; never one instantaneous threshold | **Planned** |
+| J03 | HTTP/1.1 | Can H1 improve saturated throughput without giving back normal-load latency? | Keep current one-shot response path; investigate worker/new-connection policy only, not per-request NODELAY toggling | **Planned** |
+| J04 | HTTP/2 | Can the tiny-response fast path incorporate multiplex/pressure state and outperform the current <1 KiB static gate? | Strong candidate; active streams + wire/stream queue pressure may select fast vs normal scheduler | **Planned** |
+| J05 | HTTP/3 pump budgets | Can writes/reads/accept budgets adapt to backlog direction and active-stream pressure? | Highest-value candidate; tune scheduling effort, not resource ceilings | **Planned** |
+| J06 | HTTP/3 polling | Should poll timeout vary with idle/busy state? | Investigate separately; poll timeout is not the active-traffic latency floor | **Planned** |
+| J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Design only after crossover evidence proves stable semantics | **Planned** |
+| J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Mandatory transition/soak tests; no threshold flapping | **Planned** |
+| J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Required; adaptive policy may choose work budgets/paths only | **Planned** |
+| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Implement only proven protocol-specific winners; otherwise Keep/Drop independently | **Planned** |
+
+### J01 — common adaptive load model
+
+Do **not** equate benchmark client concurrency with a server-side runtime signal. A client may report concurrency 128 while many requests are idle; a connection with only a few active streams may still be heavily pressured by queued bytes.
+
+Signal priority should be:
+
+1. **actual transport/backpressure state**;
+2. **queued work / pending bytes**;
+3. **active work** such as streams or connections;
+4. **recent admission/request rate** only when needed as a secondary signal.
+
+Candidate normalized inputs:
+
+- transport pressured / writable state;
+- pending transport bytes;
+- protocol scheduler queue depth;
+- pending response bytes;
+- active request streams;
+- active connections;
+- recent stream/request admissions;
+- ready-stream/readable-stream count;
+- HPACK/QPACK backlog where relevant.
+
+No adaptive decision may depend on wall-clock client concurrency that Runwire cannot observe directly.
+
+### J02 — adaptive state machine and hysteresis
+
+The first model should be deliberately small:
+
+```text
+LATENCY / LOW LOAD
+BALANCED / NORMAL LOAD
+THROUGHPUT / HIGH LOAD
+```
+
+A single threshold is rejected because it can flap around the crossover point.
+
+Preferred model:
+
+```text
+LOW -> HIGH        only above high watermark
+HIGH -> LOW        only below low watermark
+NORMAL             owns the hysteresis band
+```
+
+The state transition layer should also evaluate one of:
+
+- minimum dwell time before another state change;
+- EWMA / rolling load score;
+- N consecutive samples above/below a boundary.
+
+Exact mechanics remain open until transition benchmarks identify the cheapest stable approach.
+
+The adaptive controller must be inexpensive enough that its own bookkeeping does not erase the optimization benefit. Prefer integer counters and already-maintained queue/pressure state over new high-frequency telemetry.
+
+### J03 — HTTP/1.1 adaptive policy
+
+Current production behavior remains the baseline:
+
+- implicit bounded `end($body)` may coalesce response head + body;
+- H1 defaults NODELAY on after protocol selection;
+- explicit listener override remains authoritative;
+- streaming/WebSocket paths remain unchanged.
+
+The benchmark evidence shows that NODELAY is excellent for low/moderate-concurrency latency but can trade away aggregate throughput at heavy TLS saturation. That makes H1 interesting, but it is **not** a good candidate for per-request socket-option switching.
+
+Rules for J03:
+
+- never toggle NODELAY for individual responses;
+- do not switch a live connection back and forth based on instantaneous request count;
+- keep response coalescing semantic-driven, not load-driven, unless new evidence proves otherwise;
+- first investigate whether worker pressure can influence the policy for **newly accepted H1 connections**;
+- compare that against the simpler current always-NODELAY H1 behavior;
+- if the adaptive connection policy does not clearly beat the current H1 default, close J03 as Keep.
+
+Potential H1 load inputs:
+
+- worker active connection count;
+- connection pending-write bytes / pressure;
+- worker aggregate queued bytes if cheaply available;
+- recent accepted/request rate.
+
+A configurable H1 crossover must not override an explicit user `tcp_nodelay` socket-context setting.
+
+### J04 — HTTP/2 adaptive response scheduling
+
+HTTP/2 is the strongest immediate adaptive-response candidate because the current evidence already shows a crossover:
+
+- tiny / low-multiplex responses strongly benefit from fewer immediate writes;
+- the broad prototype regressed the 1 KiB / 100-stream case by about 15.6%;
+- the production <1 KiB combined-wire-intent gate avoids that known regression but is static.
+
+J04 should test whether the existing fast-path eligibility can improve by including connection state.
+
+Candidate selection inputs:
+
+- active request streams;
+- stream outbound bytes;
+- connection wire-queue bytes;
+- transport pressure;
+- flush-queue depth;
+- available connection/stream flow-control credit.
+
+Conceptual policy:
+
+```text
+tiny response
++ no pressure/backlog
++ low multiplex state
+    -> one-shot HEADERS + DATA path
+
+otherwise
+    -> normal HTTP/2 scheduler
+```
+
+The existing <1 KiB wire-intent threshold remains the safety/performance baseline until evidence proves a better bounded threshold.
+
+Important distinction:
+
+- **hard H2 limits** such as `maxConcurrentStreams`, response-byte ceilings, frame limits, and flow-control limits never change;
+- only scheduling-path selection may adapt.
+
+J04 must also test whether an active-stream crossover adds measurable value beyond today's wire-intent + pressure checks. If not, keep the simpler current implementation.
+
+### J05 — HTTP/3 adaptive pump scheduling
+
+This is the highest-value investigation.
+
+Current H3 limits expose independent scheduling budgets such as:
+
+- `maxWritesPerFlush = 128`;
+- `maxConnectionsAcceptedPerPump = 64`;
+- `maxStreamsAcceptedPerPump = 64`;
+- `maxReadsPerPump = 256`;
+- `maxInboundBytesPerPump = 262144`.
+
+V4 showed that static variants can move throughput differently without producing one universal winner. That is compatible with the hypothesis that the best work budget depends on the current backlog shape.
+
+Candidate H3 state inputs:
+
+- active request stream count;
+- streams ready to read/write;
+- pending response bytes;
+- per-stream transport pressure;
+- QPACK encoder pending bytes;
+- pending QPACK decoder instructions;
+- accepted-connection/stream backlog;
+- recent accept rate;
+- ratio of inbound backlog to outbound backlog.
+
+Candidate behavior:
+
+```text
+LOW / latency state
+    -> smaller bounded per-turn work
+    -> stronger fairness / faster return to poll
+
+NORMAL
+    -> current defaults
+
+HIGH / outbound-dominant
+    -> larger write budget if sustained write backlog exists
+
+HIGH / inbound-dominant
+    -> larger read budget if sustained readable backlog exists
+
+ACCEPT-heavy
+    -> acceptance budget remains bounded so new work cannot starve established streams
+```
+
+Do not increase every budget together merely because load is high. The controller should respond to the **direction of backlog**.
+
+Any adaptive budget remains capped by the configured `Http3Limits`; adaptation chooses a value at or below the configured maximum unless later evidence justifies a separate adaptive ceiling contract.
+
+### J06 — HTTP/3 poll policy
+
+Treat QUIC poll timeout separately from pump-budget adaptation.
+
+V4 already showed that the 50 ms default is not the active-traffic latency floor because readiness wakes the poll early. Therefore:
+
+- do not reduce poll timeout just because active-stream count is high;
+- investigate poll adaptation only for idle/busy CPU trade-offs, timer responsiveness, handshake progression, and shutdown/recycle responsiveness;
+- compare current 50 ms against candidate idle/busy policies with CPU usage as a first-class metric.
+
+Possible model:
+
+```text
+active ready/backlogged work
+    -> poll returns from readiness; no artificial short timeout required
+
+idle / no backlog
+    -> allow normal blocking timeout
+
+near timer/deadline work
+    -> clamp timeout to the nearest required deadline
+```
+
+If the native poller/runtime already naturally gives this behavior from readiness + timer ownership, close J06 as Keep rather than adding a second timing controller.
+
+### J07 — user-visible policy and crossover overrides
+
+Do not expose low-level adaptive knobs before their semantics are proven.
+
+Preferred eventual policy shape, subject to evidence:
+
+```text
+AUTO        adaptive protocol-specific policy
+LATENCY     fixed latency-biased strategy
+THROUGHPUT  fixed throughput-biased strategy
+FIXED       current/static configured limits and behavior
+```
+
+`AUTO` should be the only candidate for a future default, and only if J10 passes.
+
+Advanced users may eventually override protocol-specific crossover values, but there should be **no single global concurrency baseline** because HTTP/1.1 connections, HTTP/2 streams, and HTTP/3 pump pressure are different units.
+
+Potential advanced configuration should therefore be protocol-scoped, for example conceptually:
+
+```text
+HTTP/1.1:
+  low/high worker-pressure crossover
+
+HTTP/2:
+  low/high active-stream or pressure crossover
+
+HTTP/3:
+  low/high backlog crossover
+  optional pump-budget ranges
+```
+
+The exact public API is intentionally undecided. First prove the adaptive model internally; only then decide whether existing options can own it or a small policy object is justified.
+
+### J08 — transition, burst, and flapping validation
+
+Static low/high benchmarks are insufficient.
+
+Mandatory load-shape tests:
+
+- steady low load;
+- steady medium load;
+- steady high load;
+- ramp: low -> medium -> high;
+- ramp down: high -> medium -> low;
+- burst: low -> high -> low;
+- repeated oscillation around the proposed crossover;
+- mixed payload sizes;
+- mixed short/streaming responses;
+- TLS where applicable;
+- long-lived H2/H3 connections whose active-stream count changes over time.
+
+Record:
+
+- state transitions;
+- time spent in each state;
+- transition frequency;
+- RPS;
+- p50/p95/p99;
+- CPU;
+- RSS;
+- queue/backpressure peaks;
+- fairness/starvation indicators;
+- errors/timeouts/protocol failures.
+
+A candidate that wins steady-state benchmarks but flaps or produces tail-latency spikes during transitions must be rejected.
+
+### J09 — safety and invariants
+
+Adaptive policy is a **performance scheduler**, never a resource-limit controller.
+
+It must not dynamically weaken or raise:
+
+- max body/header/frame sizes;
+- max concurrent stream ceilings;
+- max lifetime streams;
+- connection limits;
+- queue byte ceilings;
+- QPACK/HPACK safety limits;
+- WebSocket limits;
+- drain/lifecycle safety rules.
+
+Protocol correctness, backpressure, fairness, graceful shutdown, and security boundaries remain deterministic regardless of adaptive state.
+
+State transitions must not:
+
+- lose queued bytes;
+- double-consume flow-control credit;
+- reorder required control traffic;
+- starve streams/connections;
+- alter already-observed terminal state;
+- bypass explicit user overrides.
+
+### J10 — benchmark matrix and promotion gate
+
+Each protocol is promoted independently. J is not an all-or-nothing feature.
+
+Compare at minimum:
+
+```text
+current static production behavior
+fixed latency-biased candidate
+fixed throughput-biased candidate
+adaptive candidate
+```
+
+Across representative protocol matrices:
+
+**HTTP/1.1**
+- plaintext + TLS;
+- tiny / 1 KiB / 16 KiB / 64 KiB;
+- low / medium / saturated worker load;
+- short keep-alive + longer-lived connections.
+
+**HTTP/2**
+- 2 B / 1 KiB / 16 KiB / 64 KiB;
+- 1 / 8 / 32 / 100 active streams;
+- tiny-only and mixed-payload connections;
+- transport-pressure and flow-control constrained cases.
+
+**HTTP/3**
+- tiny / 1 KiB / 16 KiB / 64 KiB;
+- low / medium / high active streams;
+- inbound-heavy / outbound-heavy / balanced workloads;
+- QPACK backlog cases;
+- acceptance-heavy connection/stream churn;
+- steady and transition workloads.
+
+Promotion requirements:
+
+- repeated trials with median + CV;
+- p95/p99 must not materially regress for the target state;
+- throughput must improve materially in at least one state without moving the loss to another common state;
+- CPU/RSS cost must remain acceptable;
+- state-transition overhead must be negligible;
+- fairness and backpressure invariants pass;
+- protocol/security/resource limits remain unchanged;
+- user fixed-policy mode must reproduce deterministic non-adaptive behavior.
+
+Decision outcomes per protocol:
+
+- **Implement AUTO** — adaptive strategy wins broadly and transition behavior is stable;
+- **Implement fixed profile only** — a useful user-selectable latency/throughput profile exists but automatic switching is not reliable;
+- **Keep current behavior** — static production logic is already sufficiently state-aware;
+- **Drop** — adaptation adds complexity without repeatable benefit.
+
+### J sequencing
+
+Recommended order:
+
+1. **J01/J02** — define one cheap common load-state/hysteresis mechanism;
+2. **J04** — HTTP/2 first adaptive-path experiment because a crossover is already measured;
+3. **J05/J06** — HTTP/3 pump/backlog adaptation and independent poll analysis;
+4. **J03** — HTTP/1.1 last, because live NODELAY switching is intentionally out of scope and the current production behavior is already strong;
+5. **J08/J09** — transition and invariant validation throughout, not only at the end;
+6. **J07** — public configuration only after internal thresholds prove stable;
+7. **J10** — final per-protocol Implement / Keep / Drop decision.
+
+J work may use the playground/evidence branch for synthetic matrices, but any production implementation must remain on a clean implementation branch and must not copy benchmark-only patch machinery into library code.
+
+---
+
 ## Final decision record template
 
 For each D-item, update this plan with:
@@ -534,4 +919,4 @@ For each D-item, update this plan with:
 
 `feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
-V1-V7 and D01-D18 are closed. I8 is the only open gate. No unresolved implementation item is deferred; the remaining work is exact-head release certification only.
+V1-V7 and D01-D18 are closed. I8 remains the only open gate for the completed production implementation. J01-J10 are a separate planned adaptive-tuning workstream and carry no implementation status yet.
