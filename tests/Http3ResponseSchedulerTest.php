@@ -170,6 +170,9 @@ it('promotes sustained HTTP3 response backlog to throughput scheduling', functio
         $writer->start(200);
         $writer->write(str_repeat('x', 100_000));
     }
+    foreach (range(1, 3) as $_) {
+        $scheduler->flush();
+    }
 
     expect($scheduler->pendingBytes())->toBeGreaterThan(262_144)
         ->and($scheduler->adaptiveState())->toBe(AdaptiveLoadState::THROUGHPUT);
