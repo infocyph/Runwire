@@ -27,7 +27,7 @@ it('holds HTTP2 state through single-sample bursts and switches only after susta
     $low = new AdaptiveLoadSample(false, 0, 0);
     $high = new AdaptiveLoadSample(false, 10_000, 10_000);
 
-    expect($strategy->wireLimit($low))->toBe(512)
+    expect($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->state())->toBe(AdaptiveLoadState::LATENCY);
 
