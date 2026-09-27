@@ -4,7 +4,7 @@ Updated: 2026-09-27
 
 Branch: `benchmarks/1.0-vs-2.0`
 
-Status: **draft decisions driven by benchmark evidence; production implementation blocked until validation gates close**
+Status: **decision plan finalized; V3/V4 are closed, V1/V2 require narrow final certification, and V5-V7 remain evidence gates before their production changes**
 
 Companion evidence tracker: `docs/plans/runwire-protocol-performance-playground.md`
 
@@ -31,23 +31,38 @@ No item is deferred merely because it is difficult. If a candidate survives vali
 - Short diagnostics identify causes; sustained repeated trials certify production decisions.
 - Cross-project behavior is supporting evidence only. Runwire decisions are based on Runwire measurements.
 
+## Latest validation snapshot
+
+Primary validation run: GitHub Actions workflow `36300595782` at `070227b07f036d890293c74fd54e25bde34aa2ef`.
+
+The workflow completed all four validation jobs successfully. The green workflow proves correctness of the exercised benchmark variants, but it does **not** by itself promote every prototype: V1 and V2 currently provide one measured sample per matrix cell, while V3 and V4 provide five repeated trials with summary statistics.
+
+Key results:
+
+- **V1 / HTTP/1:** application coalescing clearly removes the delayed-ACK floor for small plaintext and TLS responses. At 2 B / concurrency 16, plaintext moved from **392.207 RPS / 41.40 ms p95** to **6,926.433 RPS / 3.28 ms p95**; TLS moved from **385.522 RPS / 41.16 ms p95** to **5,874.581 RPS / 3.98 ms p95**. However, coalescing alone does **not** remove the floor for 16 KiB TLS at concurrency 1/16/64, where p95 remains about 42 ms; explicit NODELAY removes that low-concurrency floor. High-concurrency TLS results are mixed, so V1 still needs repeated candidate certification plus the missing 1 KiB / 64 KiB coverage.
+- **V2 / HTTP/2:** broad HEADERS + first-DATA coalescing is a strong tiny-response fix but is not universally safe as currently prototyped. At 2 B / 1 stream, throughput moved from **24.2 RPS / 41.00 ms mean** to **4,192.6 RPS / 0.23 ms mean**; at 2 B / 32 streams, **774.4 → 4,789.0 RPS**. But 1 KiB / 100 streams regressed **5,390.2 → 4,547.6 RPS (-15.6%)**, and 16 KiB / 1 stream still sits at about 41 ms without NODELAY. This rejects an unconditional H2 coalescing patch and narrows D04 to a bounded tiny-response fast path or Drop.
+- **V3 / loop backend:** same-runner five-trial results are workload-dependent. SelectLoop leads the 2 B / concurrency 16 case, EventLoop leads the 16 KiB / concurrency 64 case, and several cells have material CV. There is no evidence for a universal backend ranking. Keep the current native preference/fallback design.
+- **V4 / HTTP/3:** sustained five-trial results do not show a stable tuning winner. Baseline is **4,030.5 RPS, 2.642% CV**; 1 ms poll is **4,065.833 RPS**, 10 ms poll **4,152.651 RPS**, writes/flush 64 **4,206.267 RPS**, writes/flush 512 **4,146.957 RPS**, streams/pump 128 **4,121.603 RPS**, and concurrency 32 **4,022.529 RPS**. The small non-monotonic deltas overlap run variance and do not justify changing defaults. The 16 KiB payload case falls to **2,649.589 RPS** with only **0.807% CV**, confirming the larger-payload cost is real but not identifying an avoidable scheduler defect.
+
+CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H2 certification must add equivalent server CPU/RSS evidence before D04 can be promoted; H3 stays unchanged, so no new production tuning requires a resource-cost justification.
+
 ## Master decision tracker
 
-| ID | Finding | Current evidence | Provisional Runwire decision | Library area | Gate | Status |
+| ID | Finding | Current evidence | Runwire decision | Library area | Gate | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| D01 | H1 split small writes create ~41 ms floor | High | Coalesce bounded non-streaming head + final body into one transport write | `Http1ResponseWriter` | V1 | Validate |
-| D02 | TCP_NODELAY removes H1 tiny-write floor | High | Keep/strengthen explicit transport option; do not rely on it as sole H1 fix | listener/socket configuration | V1 | Validate |
-| D03 | H1 TLS has same split-write pathology | High | Same H1 coalescing fast path must work for TLS without special API | `Http1ResponseWriter`, `Connection` | V1 | Validate |
-| D04 | H2 tiny responses show same write-latency floor | High | Add bounded HEADERS + first DATA/END_STREAM coalescing in scheduler | `ResponseScheduler` | V2 | Validate |
-| D05 | H2 global NODELAY can reduce high-multiplex throughput | High | Do not force NODELAY globally for H2 | transport policy | V2 | Validate |
+| D01 | H1 split small writes create ~41 ms floor | High; V1 diagnostic confirms large tiny-response gain | Implement bounded non-streaming coalescing only after repeated V1 certification proves no material large/TLS/high-concurrency regression | `Http1ResponseWriter` | V1 | Validate |
+| D02 | TCP_NODELAY removes H1 tiny-write floor | High across H1/H2 diagnostics | Keep neutral default; retain explicit socket-context opt-in and document latency-sensitive use | listener/socket configuration | complete | Keep |
+| D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Do not invent TLS-specific response API; certify D01 independently and document NODELAY where TLS record-boundary behavior still matters | `Http1ResponseWriter`, transport docs | V1 | Validate |
+| D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixes tiny cases but regresses 1 KiB / 100 streams | Reject unconditional coalescing; validate a bounded tiny-response fast path, otherwise Drop | `ResponseScheduler` | V2 | Validate |
+| D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
 | D06 | H2 one connection saturates one worker | Medium-high | Focus scaling on workers before extra client connection tuning | runtime/worker docs and benchmarks | V5 | Validate |
 | D07 | H2 10k stream churn limit ends abruptly | High | Preserve hard bound, investigate graceful pre-limit GOAWAY/drain | H2 connection lifecycle / limits | V6 | Validate |
 | D08 | TLS peer close leaks broken-pipe warnings | High | Convert socket-write warnings to scoped transport failure semantics | `Connection` | V7 | Validate |
-| D09 | H3 50 ms poll timeout is not active-traffic latency floor | Medium | Keep current default unless sustained V4 disproves it | H3 session/runtime | V4 | Validate |
-| D10 | H3 scheduler knobs mostly look noisy | Low-medium | No tuning change without repeated low-CV proof | H3 limits/session | V4 | Validate |
-| D11 | H3 16 KiB payload cost becomes visible | Medium | Treat as expected payload/crypto cost unless profiling finds avoidable copies | H3 frame/body path | V4 | Validate |
+| D09 | H3 50 ms poll timeout is not active-traffic latency floor | High after sustained V4 | Keep current default | H3 session/runtime | complete | Keep |
+| D10 | H3 scheduler knobs do not show a stable sustained winner | High after sustained V4 | Keep current defaults; no tuning code | H3 limits/session | complete | Keep |
+| D11 | H3 16 KiB payload cost becomes visible | High after sustained V4 | Keep current behavior; treat as payload/crypto cost unless future profiling proves avoidable copies | H3 frame/body path | complete | Keep |
 | D12 | Worker scaling is useful but sublinear | Medium | Document measured scaling; change runtime policy only if V5 finds a code bottleneck | worker/runtime | V5 | Validate |
-| D13 | EventLoop vs SelectLoop prior numbers were on different CPUs | High | No backend ranking until same-runner alternating trials finish | `LoopFactory`, docs | V3 | Validate |
+| D13 | EventLoop vs SelectLoop is workload-dependent on the same runner | High after V3 | Keep current `LoopFactory::native()` preference/fallback; publish no universal backend ranking | `LoopFactory`, docs | complete | Keep |
 | D14 | 2.0 did not regress against matched pre-release baseline / 1.0 comparison evidence | High for tested path | No compatibility rollback; optimize forward | release docs | complete | Keep |
 | D15 | Expected write batching is common in peer PHP runtimes | Supporting | Use as design precedent, not as performance proof | H1/H2 design | V1/V2 | Supporting |
 | D16 | Graceful H2 GOAWAY exists in mature peers | Supporting | Prefer graceful rotation if Runwire tests prove it preserves hard limits | H2 lifecycle | V6 | Supporting |
@@ -62,9 +77,11 @@ No item is deferred merely because it is difficult. If a candidate survives vali
 
 Raw TCP reproduced the pathological shape: two small writes with ordinary TCP behavior create the ~41 ms floor; one coalesced write removes it. Runwire's current bounded response path serializes the head in `start()` and sends the final body separately in `end()`.
 
-**Provisional production change**
+**Candidate production change**
 
 Add a native one-shot response fast path for responses whose full body is already known when the response is finalized.
+
+The first V1 prototype is directionally successful but not yet promotable. It removes the floor for small plaintext/TLS responses and for 16 KiB plaintext, while 16 KiB TLS remains on the ~42 ms plateau without NODELAY. One high-concurrency TLS cell also moved unfavorably in the single-sample diagnostic. Treat those as certification blockers, not reasons to discard coalescing.
 
 Target behavior:
 
@@ -93,7 +110,7 @@ Do not add a second public response API merely for performance. Keep the public 
 
 **Decision gate**
 
-Promote if coalescing removes the latency floor and does not materially regress 16 KiB/64 KiB, TLS, or high-concurrency throughput.
+Promote D01 if five repeated trials show that bounded coalescing materially improves the tiny-response path while staying within the regression budget for 1 KiB/16 KiB/64 KiB, TLS, and high concurrency. Coalescing is **not** required to eliminate the TLS 16 KiB record-boundary floor by itself; that behavior is covered by D02/D03 transport guidance. Drop the fast path if the repeated high-concurrency cost is material.
 
 ---
 
@@ -103,11 +120,11 @@ Promote if coalescing removes the latency floor and does not materially regress 
 
 NODELAY eliminates the tiny split-write H1 floor. Workerman, Swoole and Swow commonly enable it; Amp exposes it explicitly but defaults it off. Runwire's own H2 evidence shows global NODELAY can be worse under natural multiplexed batching.
 
-**Provisional production change**
+**Final decision: keep the default neutral.**
 
 Keep TCP_NODELAY as a deliberate socket option, not a universal protocol default.
 
-Evaluate whether Runwire needs a first-class typed listener option in addition to the existing socket-context mechanism. Do not add one if `ListenerOptions::socketContext` already provides a clear, stable native path and documentation is enough.
+Do not add a second first-class listener option merely to mirror a socket-context capability. `ListenerOptions::socketContext` is the native configuration path; document the option for latency-sensitive H1/TLS workloads. Revisit the public API only if a real consumer requirement shows the existing path is inadequate.
 
 **Rules**
 
@@ -115,15 +132,23 @@ Evaluate whether Runwire needs a first-class typed listener option in addition t
 - H2 must not inherit an unconditional NODELAY default from H1.
 - H3 is UDP/QUIC; NODELAY is irrelevant.
 
-**Decision gate**
+**Decision record**
 
-V1/V2 determine whether any default should change. Absent strong evidence, keep the default neutral and document the option.
+V1/V2 already provide enough evidence to reject a global default change. D02 is closed as **Keep**: neutral default, explicit opt-in, protocol-specific documentation.
 
 ---
 
 ### D03 — HTTP/1 TLS write shape
 
-No separate TLS optimization should be invented. The same bounded-response coalescing path must pass plaintext and TLS tests. If TLS requires a special branch, stop and investigate the transport layer instead of duplicating HTTP logic.
+The original assumption that application-level coalescing would remove the floor for every TLS payload is disproven by the current V1 diagnostic. At 16 KiB, one coalesced application write still exhibits the ~42 ms low-concurrency plateau, while NODELAY removes it. That result is consistent with transport/TLS record segmentation creating a small tail write, but the plan does not require a new TLS-specific response API to work around it.
+
+Production rule:
+
+- D01 must remain protocol-level and identical for plaintext/TLS;
+- keep NODELAY explicit through the listener socket context;
+- document NODELAY for latency-sensitive TLS workloads where record-boundary behavior matters;
+- do not toggle NODELAY per response;
+- do not add TLS-specific response buffering unless a lower-layer profile proves a generally useful transport fix.
 
 ---
 
@@ -133,9 +158,16 @@ No separate TLS optimization should be invented. The same bounded-response coale
 
 Low-multiplex tiny H2 responses reproduce the ~41 ms floor, but high multiplexing and larger payloads benefit from normal batching. Therefore the target is fewer immediate writes, not blanket NODELAY.
 
-**Provisional production change**
+**Candidate production change**
 
-Teach `Http2\Internal\ResponseScheduler` to opportunistically emit the initial response HEADERS block and the first DATA frame in one transport write when all conditions are safe.
+Do **not** promote the current broad benchmark patch as-is. It fixes tiny responses dramatically, but the 1 KiB / 100-stream case regresses by 15.6% and 16 KiB / 1 stream still hits the TLS floor.
+
+V2 now has a binary target:
+
+- validate a **bounded tiny-response fast path** that coalesces initial HEADERS + first DATA only when the combined wire payload and scheduler state make it safe; or
+- **Drop** D04 if avoiding the high-multiplex regression requires broad scheduler complexity or workload-specific tuning.
+
+Any production path must fall back to the existing scheduler before larger payloads or natural multiplex batching become the better strategy.
 
 Required semantics:
 
@@ -171,11 +203,9 @@ Avoid a generic "concatenate arbitrary frames" switch. Model a narrow initial-re
 
 ### D05 — H2 NODELAY default
 
-**Provisional decision: do not enable globally.**
+**Final decision: do not enable globally.**
 
-A global default change is rejected unless V2 shows coalescing + NODELAY consistently wins across tiny and larger payload/multiplex cases. The current evidence already makes that unlikely.
-
-If a future runtime wants NODELAY for a specific deployment, retain explicit transport configurability.
+V2 reconfirms that NODELAY helps low-stream tiny responses but can materially reduce throughput once H2 natural batching is effective. D05 is closed as **Keep**: preserve the current neutral transport default and explicit opt-in capability.
 
 ---
 
@@ -253,43 +283,23 @@ TLS peer closes before write, peer closes mid-buffer, plain TCP reset, partial w
 
 ### D09 / D10 / D11 — HTTP/3
 
-**Current production stance**
+**Final decision: keep current production defaults.**
 
-No H3 tuning change yet.
+V4 completed five repeated sustained trials per candidate at run `36300595782`. The baseline was 4,030.5 RPS with 2.642% CV. Poll, write-budget, stream-acceptance, and concurrency variants moved non-monotonically by roughly -0.2% to +4.4%, with candidate CVs up to 2.768%. That is not a stable enough signal to justify runtime tuning.
 
-V4 must use repeated sustained trials and CV. For each candidate:
+The 16 KiB payload result, 2,649.589 RPS with 0.807% CV, is repeatable evidence that larger-payload/crypto cost becomes visible. It does not identify a correctness-preserving scheduler knob that improves the path.
 
-- if improvement is within noise: keep current default and close finding;
-- if lower limits hurt but higher values do not improve beyond noise: keep current default;
-- if a higher value repeatedly improves throughput/latency without CPU/RSS/resource regression: implement only that proven change;
-- if 16 KiB cost is mostly payload/crypto bandwidth: document, do not "optimize" by weakening correctness or buffering limits.
-
-Potential profiling targets only if V4 justifies them:
-
-- avoidable body copies;
-- frame serialization copies;
-- pump-loop iteration overhead;
-- repeated temporary allocation;
-- excessive userland/native boundary crossings.
+Close D09-D11 as **Keep**. Future profiling may still inspect avoidable copies, frame serialization, temporary allocation, or userland/native crossings, but those are new findings rather than unfinished work in this plan.
 
 ---
 
 ### D13 — EventLoop vs SelectLoop
 
-V3 must alternate both backends on the same GitHub runner and use repeated trials. If EventLoop wins materially:
+**Final decision: keep the current backend policy.**
 
-- keep `LoopFactory::native()` preference for ext-event;
-- document measured advantage;
-- no SelectLoop degradation or removal.
+V3 completed alternating same-runner five-trial comparisons. Results are workload-dependent rather than a universal backend ranking: SelectLoop leads one tiny-response cell, EventLoop leads one larger/high-concurrency cell, and several cells carry enough CV that a default flip would be overfitting.
 
-If difference is negligible:
-
-- retain current preference/fallback design;
-- do not add complexity merely to chase backend selection.
-
-If SelectLoop wins a workload:
-
-- investigate why before changing preference; ext-event may still scale better at connection counts beyond select's portable ceiling.
+Keep `LoopFactory::native()` preferring ext-event when available and SelectLoop as the portable fallback. Do not degrade or remove either backend, and do not publish a blanket performance ranking from this evidence.
 
 ---
 
@@ -377,52 +387,55 @@ No sufficiently comparable mature native-PHP H3 server implementation was found 
 
 ### V1 — H1 real writer strategy
 
-Matrix:
+**Status: diagnostic complete; final certification remains.**
 
-- current split/default TCP;
-- split + NODELAY;
-- coalesced;
-- coalesced + NODELAY;
+The broad single-sample matrix already established the behavior of default, NODELAY, coalesced, and combined modes. D02 is closed; V1 now exists only to certify D01/D03.
+
+Final certification:
+
+- current production path vs bounded coalescing candidate;
 - plaintext + TLS;
 - 2 B, 1 KiB, 16 KiB, 64 KiB;
-- concurrency 1/16/64/256.
+- concurrency 16/64/256, plus concurrency 1 for TLS record-boundary confirmation;
+- five alternating repeated trials per retained comparison;
+- median RPS, CV, p95/p99, CPU and RSS;
+- correctness, streaming, backpressure, WebSocket, and body-semantics gates.
 
-Short diagnostic runs may prune obviously losing combinations. Final candidate must receive five repeated sustained trials.
-
-**Output:** choose D01/D02 production behavior.
+**Output:** Implement or Drop D01; close D03 with measured TLS guidance.
 
 ### V2 — H2 real scheduler strategy
 
-Matrix:
+**Status: broad prototype diagnostic complete; unconditional coalescing rejected.**
 
-- current/default;
-- NODELAY;
-- initial response coalescing;
-- coalescing + NODELAY;
+D05 is closed. V2 now tests only a bounded tiny-response candidate against the current scheduler.
+
+Final certification:
+
+- current production scheduler vs bounded tiny-response candidate;
 - payload 2 B/1 KiB/16 KiB/64 KiB;
 - 1/8/32/100 streams;
-- connection scaling only where necessary.
+- five alternating repeated trials;
+- median RPS, CV, request latency, server CPU and RSS;
+- correctness, frame-size, CONTINUATION, flow-control, pressure, fairness, and control-frame gates;
+- explicit regression guard for the 1 KiB / 100-stream and larger-payload cases.
 
-**Output:** choose D04/D05 behavior.
+**Output:** Implement or Drop D04.
 
 ### V3 — same-runner EventLoop vs SelectLoop
 
-- same VM;
-- same PHP/extensions/OPcache;
-- alternate execution order;
-- five trials;
-- compare median, CV, p95/p99, CPU/RSS.
+**Status: complete** at workflow `36300595782`, SHA `070227b07f036d890293c74fd54e25bde34aa2ef`.
 
-**Output:** close D13.
+Five alternating trials on the same runner show workload-dependent results, not a universal winner.
+
+**Output:** D13 closed as **Keep**.
 
 ### V4 — sustained H3
 
-- five repeated trials per candidate;
-- enough requests/duration to remove ~100 ms noise;
-- poll timeout, write budget, stream acceptance, read budget, concurrency and payload;
-- reject changes inside variance.
+**Status: complete** at workflow `36300595782`, SHA `070227b07f036d890293c74fd54e25bde34aa2ef`.
 
-**Output:** close D09–D11.
+Five 25,000-request trials per candidate show no stable tuning winner beyond variance/noise. The larger-payload cost is repeatable, but no safe scheduler knob removes it.
+
+**Output:** D09-D11 closed as **Keep**; I5 requires no code change.
 
 ### V5 — worker scaling
 
@@ -484,9 +497,9 @@ These batches become active only when their gates pass.
 - PHPForge QA;
 - commit.
 
-### I5 — proven H3 tuning only
+### I5 — H3 tuning
 
-Apply only V4 winners. If none exceed noise, mark complete with no code change.
+**Complete with no code change.** V4 produced no winner strong enough to justify changing H3 defaults.
 
 ### I6 — worker/runtime scaling fixes only if proven
 
@@ -528,4 +541,6 @@ For each D-item, update this plan with:
 - **Public API/config impact:** none or explicit change
 - **Release target:** next patch/minor/major as appropriate
 
-The implementation branch must not be created until D01/D04/D09-D13 have enough evidence to close V1–V4. Once those decisions are final, this playground branch remains the benchmark/evidence archive and production work moves to a clean branch from current `main`.
+V3 and V4 are closed. Create the clean production implementation branch from current `main` only after V1 and V2 close D01/D03/D04 as Implement or Drop. Keep this playground branch as the benchmark/evidence archive.
+
+V5-V7 remain independent post-selection gates: they may prototype on the playground branch, but I3/I4/I6 production changes must not land without their own evidence records. No unresolved item is silently deferred: each remaining D-item must end as Implement, Keep, or Drop before release certification.
