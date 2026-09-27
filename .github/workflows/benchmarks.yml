@@ -449,7 +449,7 @@ jobs:
       - name: Run sustained AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
         shell: bash
         run: |
-          bash benchmarks/adaptive_http12_certify.sh 3 benchmark-results/adaptive-http12
+          bash benchmarks/adaptive_http12_certify.sh 5 benchmark-results/adaptive-http12
 
       - name: Upload adaptive H1/H2 evidence
         if: always()
