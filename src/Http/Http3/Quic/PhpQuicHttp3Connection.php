@@ -16,6 +16,7 @@ use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
+use Throwable;
 
 /**
  * Drives one native QUIC connection as an HTTP/3 server connection.
@@ -109,13 +110,26 @@ final class PhpQuicHttp3Connection
         if ($this->closed || $this->drainBoundary !== null) {
             return;
         }
+        if ($this->connection->closed()) {
+            $this->closeObservedConnection();
+
+            return;
+        }
 
         $this->drainBoundary = $this->nextRequestStreamId();
         $this->controlPending .= new Frame(
             FrameType::GOAWAY->value,
             VarIntCodec::encode($this->drainBoundary),
         )->encode();
-        $this->flush();
+
+        try {
+            $this->flush();
+        } catch (Throwable $exception) {
+            if (!$this->connection->closed()) {
+                throw $exception;
+            }
+            $this->closeObservedConnection();
+        }
     }
 
     /**
