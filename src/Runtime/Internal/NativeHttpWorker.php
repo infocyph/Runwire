@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionSampler;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
@@ -31,8 +32,6 @@ final class NativeHttpWorker
 {
     private const int HTTP1_ADAPTIVE_ACTIVE_CONNECTIONS = 256;
 
-    private const int HTTP1_ADAPTIVE_QUEUE_BYTES_PER_CONNECTION = 262_144;
-
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
      */
@@ -50,6 +49,15 @@ final class NativeHttpWorker
         $sessions = [];
         $connections = [];
         $http1Adaptive = new AdaptiveConnectionStrategy(policy: $bound->definition->http1->adaptive);
+        $http1Sampler = $http1Adaptive->requiresLoadSample()
+            ? new AdaptiveConnectionSampler(
+                activeCapacity: max(1, min(
+                    self::HTTP1_ADAPTIVE_ACTIVE_CONNECTIONS,
+                    $bound->definition->workerConnectionLimit,
+                    $bound->listener->maxConnections(),
+                )),
+            )
+            : null;
         $state = new WorkerStopState($ownsLoop);
         $application = $bound->definition->applicationFor(
             $context,
@@ -75,6 +83,7 @@ final class NativeHttpWorker
                     &$sessions,
                     &$connections,
                     $http1Adaptive,
+                    $http1Sampler,
                     $state,
                     $runtimeContext,
                     $sampler,
@@ -96,6 +105,7 @@ final class NativeHttpWorker
                         $sessions,
                         $connections,
                         $http1Adaptive,
+                        $http1Sampler,
                         $state,
                         $runtimeContext->metrics,
                         $sampler,
@@ -233,6 +243,7 @@ final class NativeHttpWorker
         array &$sessions,
         array &$connections,
         AdaptiveConnectionStrategy $http1Adaptive,
+        ?AdaptiveConnectionSampler $http1Sampler,
         WorkerStopState $state,
         RuntimeMetrics $metrics,
         WorkerDiagnosticsSampler $sampler,
@@ -247,7 +258,7 @@ final class NativeHttpWorker
         $http1TcpNoDelayDefault = true;
         if ($protocol === null || $protocol === '' || $protocol === 'http/1.1') {
             $http1TcpNoDelayDefault = $http1Adaptive->tcpNoDelay(
-                self::http1LoadSample($connections, $bound),
+                $http1Sampler?->sample(count($connections)),
             );
         }
 
@@ -267,6 +278,7 @@ final class NativeHttpWorker
         $id = spl_object_id($connection);
         $sessions[$id] = $session;
         $connections[$id] = $connection;
+        $http1Sampler?->add($connection);
         $connection->onClose(static function () use (
             &$sessions,
             &$connections,
@@ -277,6 +289,7 @@ final class NativeHttpWorker
             $sampler,
             $session,
             $connection,
+            $http1Sampler,
         ): void {
             $metrics->connectionClosed(
                 $session->version,
@@ -285,6 +298,7 @@ final class NativeHttpWorker
                 $connection->lifetimeNanoseconds(),
                 $connection->backpressureEvents(),
             );
+            $http1Sampler?->remove($connection);
             unset($sessions[$id], $connections[$id]);
             $sampler->sample();
             if ($sessions === []) {
@@ -336,36 +350,6 @@ final class NativeHttpWorker
             $connection->abort(CloseReason::LOCAL_ABORT);
         }
         $state->stopLoopIfStopping($loop);
-    }
-
-    /** @param array<int, Connection> $connections */
-    private static function http1LoadSample(array $connections, BoundServer $bound): AdaptiveLoadSample
-    {
-        $active = count($connections);
-        $queuedBytes = 0;
-        $pressured = false;
-        foreach ($connections as $connection) {
-            $queuedBytes += min(
-                $connection->pendingWriteBytes(),
-                self::HTTP1_ADAPTIVE_QUEUE_BYTES_PER_CONNECTION,
-            );
-            $pressured = $pressured || $connection->isWritePressured();
-        }
-
-        $activeCapacity = max(1, min(
-            self::HTTP1_ADAPTIVE_ACTIVE_CONNECTIONS,
-            $bound->definition->workerConnectionLimit,
-            $bound->listener->maxConnections(),
-        ));
-        $queueSlots = max(1, min($activeCapacity, max(1, $active)));
-
-        return AdaptiveLoadSample::fromCounters(
-            pressured: $pressured,
-            queuedBytes: $queuedBytes,
-            queueCapacityBytes: $queueSlots * self::HTTP1_ADAPTIVE_QUEUE_BYTES_PER_CONNECTION,
-            activeWork: $active,
-            activeCapacity: $activeCapacity,
-        );
     }
 
     /** @return Closure(HttpRequest, ResponseWriterInterface): void */
