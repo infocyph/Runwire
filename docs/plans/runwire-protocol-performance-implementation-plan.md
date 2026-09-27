@@ -4,7 +4,9 @@ Updated: 2026-09-27
 
 Reference Branch: `benchmarks/1.0-vs-2.0`
 
-Status: **decision plan finalized in structure; V3/V4 are closed, V1 must still decide H1 coalescing and the H1-specific NODELAY default, V2 must close bounded H2 coalescing, and V5-V7 remain evidence gates**
+Implementation Branch: `feat/http-improvement`
+
+Status: **production implementation active on `feat/http-improvement`; H1 I1 is implemented and under QA, H2 I2 follows after H1 QA, and playground-only benchmark/prototype files remain isolated on `benchmarks/1.0-vs-2.0`**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -50,9 +52,9 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 
 | ID | Finding | Current evidence | Runwire decision | Library area | Gate | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| D01 | H1 split small writes create ~41 ms floor | High; V1 diagnostic confirms large tiny-response gain | Implement bounded non-streaming coalescing only after repeated V1 certification proves no material large/TLS/high-concurrency regression | `Http1ResponseWriter` | V1 | Validate |
-| D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win at low/moderate H1 concurrency, mixed saturated-throughput trade-off | Decide H1 default ON vs neutral from repeated V1 evidence; never apply the H1 choice blindly to H2 | accepted-connection / protocol transport policy | V1 | Validate |
-| D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Do not invent TLS-specific response API; certify D01 independently and document NODELAY where TLS record-boundary behavior still matters | `Http1ResponseWriter`, transport docs | V1 | Validate |
+| D01 | H1 split small writes create ~41 ms floor | High; playground evidence confirms large tiny-response gain | Implement semantic-safe coalescing only for implicit bounded `end($body)`; explicit `start/write/end` remains streaming | `Http1ResponseWriter` | I1 | **QA** |
+| D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win plus peer-runtime precedent | Default NODELAY ON for H1 after protocol selection when live socket tuning is available; explicit listener override wins; H2 remains neutral | `NativeHttpConnection`, `Connection`, `TcpListener` | I1 | **QA** |
+| D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Keep the same H1 response path for plaintext/TLS and use H1 NODELAY policy rather than a TLS-specific response API | H1 transport path | I1 | **QA** |
 | D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixes tiny cases but regresses 1 KiB / 100 streams | Reject unconditional coalescing; validate a bounded tiny-response fast path, otherwise Drop | `ResponseScheduler` | V2 | Validate |
 | D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
 | D06 | H2 one connection saturates one worker | Medium-high | Focus scaling on workers before extra client connection tuning | runtime/worker docs and benchmarks | V5 | Validate |
@@ -408,7 +410,7 @@ No sufficiently comparable mature native-PHP H3 server implementation was found 
 
 ### V1 — H1 writer and NODELAY policy
 
-**Status: diagnostic complete; final certification remains.**
+**Status: reference-branch evidence accepted for production implementation.** The playground remains the evidence archive; its patch scripts, synthetic harnesses, and validation workflows are not copied into `feat/http-improvement`. Production acceptance on this branch is based on source semantics, protocol regression, PHPForge QA, and the repository's normal benchmark/release gates.
 
 The broad single-sample matrix established the behavior of default, NODELAY, coalesced, and combined modes. V1 now has two explicit production decisions: D01 bounded response coalescing and D02 H1 default NODELAY policy. D03 closes from the same TLS evidence.
 
@@ -493,12 +495,14 @@ These batches become active only when their gates pass.
 
 ### I1 — H1 bounded-response fast path
 
-- implement internal coalescing;
-- unit/feature tests;
-- plaintext/TLS regression;
-- streaming/WebSocket/backpressure verification;
-- PHPForge QA;
-- commit.
+**Status: implementation complete; QA running.**
+
+- implicit bounded `end($body)` coalesces head + body without delaying explicit `start()`;
+- H1 defaults NODELAY on after protocol selection where ext-sockets permits live accepted-socket tuning;
+- explicit listener `tcp_nodelay` configuration takes precedence;
+- H2 transport policy remains neutral;
+- focused unit/feature coverage added for one-shot semantics, HEAD behavior, fallback, H1/H2 NODELAY separation, and explicit override;
+- plaintext/TLS, streaming/WebSocket/backpressure and PHPForge gates remain the acceptance step.
 
 ### I2 — H2 initial-response batching
 
@@ -571,6 +575,6 @@ For each D-item, update this plan with:
 - **Public API/config impact:** none or explicit change
 - **Release target:** next patch/minor/major as appropriate
 
-V3 and V4 are closed. Create the clean production implementation branch from current `main` only after V1 and V2 close D01-D04 as final Implement / Keep / Drop decisions, including the H1-specific NODELAY default. Keep this playground branch as the benchmark/evidence archive.
+`feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
 V5-V7 remain independent post-selection gates: they may prototype on the playground branch, but I3/I4/I6 production changes must not land without their own evidence records. No unresolved item is silently deferred: each remaining D-item must end as Implement, Keep, or Drop before release certification.
