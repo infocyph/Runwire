@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadController;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use InvalidArgumentException;
@@ -23,6 +25,10 @@ final readonly class AdaptiveResponseStrategy
      */
     public function __construct(
         ?AdaptiveLoadController $controller = null,
+        private AdaptiveProtocolPolicy $policy = new AdaptiveProtocolPolicy(
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 3_000,
+        ),
         private int $latencyWireBytes = 1_024,
         private int $balancedWireBytes = 512,
         private int $throughputWireBytes = 256,
@@ -36,8 +42,11 @@ final readonly class AdaptiveResponseStrategy
         }
 
         $this->controller = $controller ?? new AdaptiveLoadController(
-            lowWatermarkBasisPoints: 1_000,
-            highWatermarkBasisPoints: 3_000,
+            lowWatermarkBasisPoints: $policy->lowWatermarkBasisPoints,
+            highWatermarkBasisPoints: $policy->highWatermarkBasisPoints,
+            transitionSamples: $policy->transitionSamples,
+            ewmaNumerator: $policy->ewmaNumerator,
+            ewmaDenominator: $policy->ewmaDenominator,
         );
     }
 
@@ -46,7 +55,12 @@ final readonly class AdaptiveResponseStrategy
      */
     public function state(): AdaptiveLoadState
     {
-        return $this->controller->state();
+        return match ($this->policy->mode) {
+            AdaptivePolicyMode::AUTO => $this->controller->state(),
+            AdaptivePolicyMode::FIXED => AdaptiveLoadState::BALANCED,
+            AdaptivePolicyMode::LATENCY => AdaptiveLoadState::LATENCY,
+            AdaptivePolicyMode::THROUGHPUT => AdaptiveLoadState::THROUGHPUT,
+        };
     }
 
     /**
@@ -54,7 +68,15 @@ final readonly class AdaptiveResponseStrategy
      */
     public function wireLimit(AdaptiveLoadSample $sample): int
     {
-        return match ($this->controller->observe($sample)) {
+        if ($this->policy->mode === AdaptivePolicyMode::FIXED) {
+            return $this->latencyWireBytes;
+        }
+
+        $state = $this->policy->mode === AdaptivePolicyMode::AUTO
+            ? $this->controller->observe($sample)
+            : $this->state();
+
+        return match ($state) {
             AdaptiveLoadState::BALANCED => $this->balancedWireBytes,
             AdaptiveLoadState::LATENCY => $this->latencyWireBytes,
             AdaptiveLoadState::THROUGHPUT => $this->throughputWireBytes,
