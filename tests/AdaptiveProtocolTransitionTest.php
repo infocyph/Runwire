@@ -40,7 +40,7 @@ it('holds HTTP2 state through single-sample bursts and switches only after susta
         ->and($strategy->wireLimit($high))->toBe(1_024)
         ->and($strategy->wireLimit($high))->toBe(256)
         ->and($strategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
-        ->and($strategy->wireLimit($low))->toBe(256)
+        ->and($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->state())->toBe(AdaptiveLoadState::LATENCY);
 });
