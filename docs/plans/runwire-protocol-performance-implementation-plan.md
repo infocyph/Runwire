@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **production implementation complete through I7; all D-items are closed, I8 release certification is active, and J adaptive protocol tuning is planned as the next evidence-driven workstream with no code change yet**
+Status: **production implementation complete through I7; I8 release certification is paused while J adaptive protocol tuning is implemented in batches; J01/J02 shared adaptive-state core is active**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -82,7 +82,7 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | I5 | H3 tuning | **Complete / no code** | V4 found no stable tuning winner |
 | I6 | Worker/runtime scaling | **Complete / docs only** | Existing evidence supports benchmark-first sizing, not runtime tuning |
 | I7 | Full protocol regression | **Complete** | Final full regression at `c4a479fcf76c0c14e1769f1dacef2209d2e9fa42`; Security & Standards `36323729640` plus benchmark/portable/Swoole/source-audit lanes green |
-| I8 | Release certification | **Active** | Opt-in `release-certification` PR label enables exact-head matched comparison, release guard, Infbyte consumer gate, and 30-minute soak |
+| I8 | Release certification | **Paused** | `release-certification` label removed while J implementation changes the candidate head; rerun only after J10 closes |
 
 ## Finding-to-library action map
 
@@ -505,7 +505,7 @@ Coverage includes H1 plain/TLS, H2 TLS/ALPN, H3 QUIC, WebSocket, streaming/chunk
 
 ### I8 — release certification
 
-**Status: active.** PR #6 carries the opt-in `release-certification` label, and the workflow now supports that label without hardcoding the implementation branch.
+**Status: paused.** The opt-in `release-certification` label was removed before J implementation so long release workers do not certify a moving candidate. Rerun I8 on the final J10 exact head.
 
 Required final gate:
 
@@ -522,7 +522,7 @@ Required final gate:
 
 ## J — Adaptive HTTP/1.1, HTTP/2, and HTTP/3 tuning
 
-**Status: planned / discussion approved; no code change yet.**
+**Status: implementation active; all J01-J10 items are required. J01/J02 are the current batch.**
 
 The completed protocol work shows that several performance choices are workload-dependent rather than globally optimal. HTTP/1.1 NODELAY/coalescing, HTTP/2 initial-response batching, loop/backend behavior, and HTTP/3 pump/write/accept budgets all change their relative value as active work and transport pressure increase.
 
@@ -534,8 +534,8 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 
 | ID | Scope | Question | Initial direction | Status |
 | --- | --- | --- | --- | --- |
-| J01 | Common load model | Which runtime signals predict the crossover between latency-biased and throughput-biased behavior? | Use pressure/backlog first, active counts second; do not use client concurrency alone | **Planned** |
-| J02 | Adaptive state machine | Can LOW / NORMAL / HIGH load states switch safely without oscillation? | Hysteresis + minimum dwell / EWMA; never one instantaneous threshold | **Planned** |
+| J01 | Common load model | Which runtime signals predict the crossover between latency-biased and throughput-biased behavior? | Normalized pressure/backlog/activity sample with backlog weighted above active counts | **Active** |
+| J02 | Adaptive state machine | Can LOW / NORMAL / HIGH load states switch safely without oscillation? | Shared EWMA + low/high hysteresis + sustained-sample dwell controller | **Active** |
 | J03 | HTTP/1.1 | Can H1 improve saturated throughput without giving back normal-load latency? | Keep current one-shot response path; investigate worker/new-connection policy only, not per-request NODELAY toggling | **Planned** |
 | J04 | HTTP/2 | Can the tiny-response fast path incorporate multiplex/pressure state and outperform the current <1 KiB static gate? | Strong candidate; active streams + wire/stream queue pressure may select fast vs normal scheduler | **Planned** |
 | J05 | HTTP/3 pump budgets | Can writes/reads/accept budgets adapt to backlog direction and active-stream pressure? | Highest-value candidate; tune scheduling effort, not resource ceilings | **Planned** |
@@ -919,4 +919,4 @@ For each D-item, update this plan with:
 
 `feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
-V1-V7 and D01-D18 are closed. I8 remains the only open gate for the completed production implementation. J01-J10 are a separate planned adaptive-tuning workstream and carry no implementation status yet.
+V1-V7 and D01-D18 are closed. I8 is paused until J10 because the candidate head is changing. J01-J10 are now a required implementation workstream executed batch-by-batch with tracker and QA closure.
