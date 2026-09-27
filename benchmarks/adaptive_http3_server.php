@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
@@ -33,10 +34,27 @@ if (!in_array($mode, [AdaptivePolicyMode::AUTO, AdaptivePolicyMode::FIXED], true
     throw new InvalidArgumentException('Adaptive HTTP/3 benchmark mode must be auto or fixed.');
 }
 
-$policy = new AdaptiveProtocolPolicy(mode: $mode);
+$defaults = new Http3Options();
+$inboundPolicy = new AdaptiveProtocolPolicy(
+    mode: $mode,
+    lowWatermarkBasisPoints: $defaults->inboundAdaptive->lowWatermarkBasisPoints,
+    highWatermarkBasisPoints: $defaults->inboundAdaptive->highWatermarkBasisPoints,
+    transitionSamples: $defaults->inboundAdaptive->transitionSamples,
+    ewmaNumerator: $defaults->inboundAdaptive->ewmaNumerator,
+    ewmaDenominator: $defaults->inboundAdaptive->ewmaDenominator,
+);
+$outboundPolicy = new AdaptiveProtocolPolicy(
+    mode: $mode,
+    lowWatermarkBasisPoints: $defaults->outboundAdaptive->lowWatermarkBasisPoints,
+    highWatermarkBasisPoints: $defaults->outboundAdaptive->highWatermarkBasisPoints,
+    transitionSamples: $defaults->outboundAdaptive->transitionSamples,
+    ewmaNumerator: $defaults->outboundAdaptive->ewmaNumerator,
+    ewmaDenominator: $defaults->outboundAdaptive->ewmaDenominator,
+);
 $options = new Http3Options(
-    inboundAdaptive: $policy,
-    outboundAdaptive: $policy,
+    limits: new Http3Limits(maxRequestStreamsPerConnection: 1_000_000),
+    inboundAdaptive: $inboundPolicy,
+    outboundAdaptive: $outboundPolicy,
 );
 $listener = PhpQuicListener::bind(
     '127.0.0.1',
