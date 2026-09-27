@@ -277,6 +277,20 @@ jobs:
           fi
           server_pid=""
 
+      - name: Run sustained AUTO vs FIXED HTTP/3 matrix
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          bash benchmarks/adaptive_http3_certify.sh 3 benchmark-results/adaptive-http3
+
+      - name: Upload adaptive HTTP/3 evidence
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-adaptive-http3
+          path: benchmark-results/adaptive-http3/
+          retention-days: 61
+
       - name: Run native HTTP/3 soak acceptance
         shell: bash
         run: |
