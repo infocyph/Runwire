@@ -18,6 +18,8 @@ Runwire deliberately separates different cost layers.
 
 These exclude socket, TLS, kernel, QUIC handshake, host-runtime, and application costs.
 
+`benchmarks/AdaptiveProtocolBench.php` separately measures the bounded strategy-selection overhead for HTTP/1.1, HTTP/2, and HTTP/3 across AUTO low/high load and deterministic FIXED profiles. These subjects are controller/scheduler microbenchmarks, not end-to-end throughput claims. They exist so adaptive-policy bookkeeping remains continuously visible in the normal PHPBench regression suite.
+
 ### Lifecycle/runtime microbenchmarks
 
 `benchmarks/LifecycleRuntimeBench.php` measures bounded runtime overhead such as:
