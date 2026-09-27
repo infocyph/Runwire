@@ -6,7 +6,7 @@ Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **release follow-up hardening is active; D01-D18 and J01-J09 remain closed, J10 is reopened pending sustained AUTO-vs-FIXED evidence, K01-K04 are release blockers, and I8 certification remains paused**
+Status: **release follow-up hardening is complete; D01-D18, J01-J10, and K01-K04 are closed. HTTP/1.1 retains FIXED/NODELAY-on as the production default, HTTP/2 and HTTP/3 promote AUTO, and I8 long release certification remains paused**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -543,7 +543,7 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Protocol-local `AdaptiveProtocolPolicy` exposes mode, low/high basis-point watermarks, dwell samples and EWMA ratio without changing hard limits | **Complete** |
 | J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Protocol transition/oscillation tests across H1.1/H2/H3 using explicit dwell and crossover policies | **Complete** |
 | J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Cross-mode invariant tests prove adaptive choices remain at/below configured hard limits and FIXED preserves static behavior | **Complete** |
-| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Promotion record reopened: CI + policy microbenchmarks are insufficient; require sustained AUTO-vs-FIXED protocol matrices with transition latency, CPU/RSS and fairness | **Reopened** |
+| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Five-trial sustained AUTO-vs-FIXED matrices decide per protocol: H1.1 retains FIXED/NODELAY-on; H2 and H3 promote AUTO | **Complete** |
 
 ### J01 — common adaptive load model
 
@@ -856,7 +856,7 @@ State transitions must not:
 
 ### J10 — benchmark matrix and promotion gate
 
-**Status: reopened.** Exact head `e7afa2656446bdc6088c76c1b11e6f1318550cd1` passed CI and permanent adaptive-policy microbenchmarks, but that evidence does not establish sustained AUTO-vs-FIXED protocol performance, transition latency, CPU/RSS, or fairness. J10 remains open until the required sustained matrices pass; I8 stays paused.
+**Status: complete after release follow-up evidence.** Five-trial real protocol matrices now cover low→high→low transitions, throughput, p95/p99, CPU, RSS and fairness. On exact evidence head `17c373ac4ca93b73238a02d28c423450b9e31460`, H2 passed with zero comparison failures and H3 passed with zero comparison failures. H1 AUTO was not repeatably within the 5% throughput floor (an earlier run passed, while the exact-head rerun failed transition-up and high-load throughput), so H1 is not release-promoted to AUTO; its production default is FIXED, which preserves NODELAY-on. I8 remains paused.
 
 Each protocol is promoted independently. J is not an all-or-nothing feature.
 
@@ -904,10 +904,10 @@ Promotion requirements:
 
 Decision outcomes per protocol:
 
-- **HTTP/1.1 — Implement AUTO.** Worker-scoped pressure/backlog/activity state selects the NODELAY default only for newly attached H1.1 connections; established connections never flap and explicit socket overrides remain authoritative.
-- **HTTP/2 — Implement AUTO.** Active streams, queued response bytes, and transport pressure select the bounded 1024 / 512 / 256-byte one-shot budget while the normal scheduler remains the fallback.
-- **HTTP/3 — Implement AUTO.** Outbound response backlog and inbound ready/active stream pressure adapt write/read/accept effort independently; polling adapts only idle/handshake behavior.
-- **Fixed profiles retained.** LATENCY and THROUGHPUT pin their protocol profile; FIXED reproduces the pre-adaptive static scheduling behavior.
+- **HTTP/1.1 — Keep FIXED as the production default.** FIXED preserves NODELAY-on and bypasses admission sampling. AUTO remains available explicitly with bounded eight-connection sampling, but is not release-promoted because sustained throughput results were not repeatable within the 5% floor.
+- **HTTP/2 — Implement AUTO.** The five-trial sustained comparison passed every throughput, p95/p99, CPU, RSS and fairness budget; active streams, queued response bytes and transport pressure select the bounded 1024 / 512 / 256-byte one-shot budget while the normal scheduler remains the fallback.
+- **HTTP/3 — Implement AUTO.** The five-trial sustained comparison passed every budget after preserving full stream-accept capacity; outbound response backlog and inbound ready/active stream pressure adapt write/read effort, while acceptance stays at the configured ceiling and polling adapts only idle/handshake behavior.
+- **Fixed profiles retained.** LATENCY and THROUGHPUT pin their protocol profile; FIXED reproduces deterministic non-adaptive behavior.
 
 ### J sequencing
 
@@ -927,14 +927,14 @@ Production code stayed on `feat/http-improvement`; playground-only patch/harness
 
 ## K — release follow-up hardening
 
-**Status: active. All four findings are release blockers before J10 can close or I8 can run.**
+**Status: complete. All four release follow-ups are resolved; I8 remains separately paused for the later long certification/soak.**
 
 | ID | Finding | Required resolution | Status |
 | --- | --- | --- | --- |
-| K01 | HTTP/3 AUTO can starve later ready/request streams because each bounded read cycle restarts at the first peer stream | Persistent round-robin read cursor implemented for both scan/readiness paths with reserved-stream regressions | **QA** |
-| K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | FIXED/LATENCY/THROUGHPUT bypass sampling; AUTO tracks at most 8 recent live connections in a worker-local bounded sampler | **QA** |
-| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Five-trial real protocol matrices wired into Benchmarks/QUIC CI with low→high→low phases, p95/p99, CPU/RSS and fairness budgets; first run kept H2 green but exposed H1 admission overhead and H3 transition-tail accept throttling, both now retuned for rerun | **Active** |
-| K04 | Accepted EWMA numerator/denominator values can overflow integer multiplication during observation | Public policy + controller reject denominators above the mathematically safe integer bound; boundary/max-int tests added | **QA** |
+| K01 | HTTP/3 AUTO can starve later ready/request streams because each bounded read cycle restarts at the first peer stream | Persistent round-robin read cursor implemented for both scan/readiness paths with reserved-stream regressions; focused H3 + aioquic validation green | **Complete** |
+| K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | FIXED/LATENCY/THROUGHPUT bypass sampling; AUTO tracks at most 8 recent live connections in a worker-local bounded sampler; production default is FIXED | **Complete** |
+| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Five-trial real matrices completed: H2/H3 AUTO pass; H1 AUTO is not repeatably within the throughput floor, so H1 retains FIXED/NODELAY-on by default | **Complete** |
+| K04 | Accepted EWMA numerator/denominator values can overflow integer multiplication during observation | Public policy + controller reject denominators above the mathematically safe integer bound; boundary/max-int tests added | **Complete** |
 
 ### K01 — HTTP/3 bounded-fair read progress
 
@@ -948,7 +948,7 @@ FIXED/LATENCY/THROUGHPUT modes must not sample the existing connection populatio
 
 ### K03 — reopen J10 evidence gate
 
-Green correctness CI and policy-selection microbenchmarks are necessary but not sufficient for promotion. J10 must remain reopened until sustained protocol comparisons cover at minimum AUTO vs FIXED for H1.1, H2 and H3, low/high/transition load, p95/p99, throughput, CPU, RSS, and fairness/starvation indicators.
+Green correctness CI and policy-selection microbenchmarks are necessary but not sufficient for promotion. The completed five-trial matrices cover AUTO vs FIXED for H1.1, H2 and H3 across low/high/transition load, p95/p99, throughput, CPU, RSS and fairness. H2 and H3 passed their hard comparison budgets. H1 produced conflicting repeated results and the exact-head rerun fell below the 0.95 throughput floor during transition-up and high load, so its release decision is FIXED/NODELAY-on by default with AUTO retained only as an explicit opt-in.
 
 ### K04 — EWMA arithmetic safety
 
@@ -970,4 +970,4 @@ For each D-item, update this plan with:
 
 `feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
-V1-V7, D01-D18, and J01-J09 are closed. J10 is reopened, K01-K04 are active release blockers, and I8 remains paused until J10/K close.
+V1-V7, D01-D18, J01-J10, and K01-K04 are closed. I8 is the only remaining gate and remains paused until the later long exact-head release certification/soak.
