@@ -609,6 +609,7 @@ final class PhpQuicHttp3Connection
 
         return $count;
     }
+
     private function registerPeerStream(PhpQuicStream $stream): void
     {
         $streamId = $stream->id();
