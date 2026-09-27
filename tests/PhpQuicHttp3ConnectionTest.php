@@ -449,3 +449,93 @@ it('enforces the HTTP3 aggregate control-stream byte budget per pump', function 
     expect($peerControl->readBytes)->toBe(16)
         ->and($connection->closed())->toBeFalse();
 });
+
+
+it('rotates scan-based HTTP3 reads so reserved streams cannot starve requests', function (): void {
+    $encoder = new Encoder(0, 0);
+    $reservedRaw = fakeHttp3ConnectionStream(2, false, ["\x21", '', '', '', '']);
+    $requestRaw = fakeHttp3ConnectionStream(0, true, [
+        (new Frame(FrameType::HEADERS->value, $encoder->encode([
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.com'],
+            [':path', '/fair-scan'],
+        ], 0)->block))->encode(),
+        null,
+    ]);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$reservedRaw, $requestRaw],
+    );
+    $requests = [];
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$requests): void {
+            $requests[] = $request;
+            $writer->end('ok');
+        },
+        new Http3Limits(maxReadsPerPump: 1),
+    );
+
+    $connection->pump();
+    expect($requestRaw->readBytes)->toBe(0);
+
+    $connection->pump();
+    expect($requestRaw->readBytes)->toBeGreaterThan(0);
+
+    $connection->pump();
+    $connection->pump();
+
+    expect($requests)->toHaveCount(1)
+        ->and($requests[0]->target)->toBe('/fair-scan')
+        ->and($connection->closed())->toBeFalse();
+});
+
+it('rotates readiness-based HTTP3 reads so reserved streams cannot starve requests', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $encoder = new Encoder(0, 0);
+    $reservedRaw = fakeHttp3ConnectionStream(2, false, ["\x21", '', '', '']);
+    $requestRaw = fakeHttp3ConnectionStream(0, true, [
+        (new Frame(FrameType::HEADERS->value, $encoder->encode([
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.com'],
+            [':path', '/fair-ready'],
+        ], 0)->block))->encode(),
+        null,
+    ]);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$reservedRaw, $requestRaw],
+    );
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (): void {},
+        new Http3Limits(maxReadsPerPump: 1),
+    );
+
+    $connection->handleReady(
+        [spl_object_id($connectionRaw) => $events->acceptStream],
+        $events,
+    );
+    $ready = [
+        spl_object_id($reservedRaw) => $events->read,
+        spl_object_id($requestRaw) => $events->read,
+    ];
+
+    $connection->handleReady($ready, $events);
+    expect($requestRaw->readBytes)->toBe(0);
+
+    $connection->handleReady($ready, $events);
+
+    expect($requestRaw->readBytes)->toBeGreaterThan(0)
+        ->and($connection->closed())->toBeFalse();
+});
