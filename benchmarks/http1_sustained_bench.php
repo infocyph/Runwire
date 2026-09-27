@@ -171,7 +171,19 @@ function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
     $error = '';
-    $socket = stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
+    $context = stream_context_create(
+        getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1'
+            ? ['socket' => ['tcp_nodelay' => true]]
+            : [],
+    );
+    $socket = stream_socket_client(
+        sprintf('tcp://%s:%d', $host, $port),
+        $errno,
+        $error,
+        2.0,
+        STREAM_CLIENT_CONNECT,
+        $context,
+    );
     if (!is_resource($socket)) {
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
@@ -621,6 +633,7 @@ function http1SustainedMain(array $argv): array
         'tls' => 'off',
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
         'connection_reuse' => 'keep-alive',
+        'client_tcp_nodelay' => getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1',
         'extension_versions' => http1SustainedExtensionVersions(),
         'workers' => 1,
         'concurrency' => $concurrency,

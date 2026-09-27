@@ -1,0 +1,92 @@
+name: "HTTP/1 Latency Diagnostic"
+
+on:
+  push:
+    branches: [ "benchmarks/1.0-vs-2.0" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runwire-1.0-vs-2.0-latency-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  nodelay-diagnostic:
+    name: "Native HTTP/1 TCP_NODELAY diagnostic"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout diagnostic harness
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+          path: control
+
+      - name: Checkout Runwire 1.0
+        uses: actions/checkout@v7
+        with:
+          ref: "1.0"
+          path: v1
+
+      - name: Checkout Runwire 2.0
+        uses: actions/checkout@v7
+        with:
+          ref: "2.0"
+          path: v2
+
+      - name: Setup identical PHP runtime
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Verify release identities
+        shell: bash
+        run: |
+          test "$(git -C v1 rev-parse HEAD)" = "7ab48fcf224ee86838e5bf82a50b998c2aaa8a90"
+          test "$(git -C v2 rev-parse HEAD)" = "75e3768480c603a2432f6f0e750270df95988f79"
+
+      - name: Install production dependencies identically
+        shell: bash
+        run: |
+          composer install --working-dir=v1 --no-dev --no-interaction --prefer-dist --no-progress --classmap-authoritative
+          composer install --working-dir=v2 --no-dev --no-interaction --prefer-dist --no-progress --classmap-authoritative
+
+      - name: Run TCP_NODELAY diagnostic
+        shell: bash
+        run: |
+          bash control/benchmarks/http1_nodelay_diagnostic.sh             control v1 v2 nodelay-evidence
+
+      - name: Publish latency diagnostic
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f nodelay-evidence/diagnostic-summary.json ]; then
+            exit 0
+          fi
+          {
+            echo "## Native HTTP/1 TCP_NODELAY diagnostic"
+            echo
+            echo "| Mode | 1.0 RPS | 1.0 p95 | 2.0 RPS | 2.0 p95 |"
+            echo "| --- | ---: | ---: | ---: | ---: |"
+            for row in               "baseline baseline"               "client-nodelay client_nodelay"               "server-nodelay server_nodelay"               "both-nodelay both_nodelay"
+            do
+              set -- $row
+              label="$1"
+              key="$2"
+              printf '| %s | %s | %s ms | %s | %s ms |\n'                 "$label"                 "$(jq -r ".$key.v1.median_successful_rps" nodelay-evidence/diagnostic-summary.json)"                 "$(jq -r ".$key.v1.median_p95_ms" nodelay-evidence/diagnostic-summary.json)"                 "$(jq -r ".$key.v2.median_successful_rps" nodelay-evidence/diagnostic-summary.json)"                 "$(jq -r ".$key.v2.median_p95_ms" nodelay-evidence/diagnostic-summary.json)"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-http1-tcp-nodelay-diagnostic
+          path: nodelay-evidence/
+          retention-days: 90
