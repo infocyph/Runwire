@@ -171,13 +171,24 @@ function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
     $error = '';
-    $context = stream_context_create(
-        getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1'
-            ? ['socket' => ['tcp_nodelay' => true]]
-            : [],
-    );
+    $tls = getenv('RUNWIRE_BENCH_TLS') === '1';
+    $options = [];
+    if (getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1') {
+        $options['socket'] = ['tcp_nodelay' => true];
+    }
+    if ($tls) {
+        $options['ssl'] = [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+            'allow_self_signed' => true,
+            'peer_name' => 'localhost',
+            'alpn_protocols' => 'http/1.1',
+        ];
+    }
+
+    $context = stream_context_create($options);
     $socket = stream_socket_client(
-        sprintf('tcp://%s:%d', $host, $port),
+        sprintf('%s://%s:%d', $tls ? 'tls' : 'tcp', $host, $port),
         $errno,
         $error,
         2.0,
@@ -624,13 +635,13 @@ function http1SustainedMain(array $argv): array
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
         'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'protocol' => 'http/1.1',
-        'workload' => 'plaintext-keepalive',
+        'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'tls-keepalive' : 'plaintext-keepalive',
         'hardware_id' => php_uname('m') . '::' . http1SustainedCpuModel(),
         'host_os' => php_uname('a'),
         'host_cpu' => http1SustainedCpuModel(),
         'php_version' => getenv('RUNWIRE_PHP_VERSION') ?: PHP_VERSION,
         'instrumentation' => getenv('RUNWIRE_INSTRUMENTATION') ?: 'ci-smoke',
-        'tls' => 'off',
+        'tls' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'on' : 'off',
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
         'connection_reuse' => 'keep-alive',
         'client_tcp_nodelay' => getenv('RUNWIRE_BENCH_TCP_NODELAY') === '1',

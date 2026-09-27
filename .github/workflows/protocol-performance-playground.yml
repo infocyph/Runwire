@@ -1,0 +1,287 @@
+name: "Protocol Performance Playground"
+
+on:
+  push:
+    branches: [ "benchmarks/1.0-vs-2.0" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runwire-protocol-performance-playground-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  raw-transport:
+    name: "Raw TCP split/coalesced writes"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: pcntl, posix
+          coverage: none
+
+      - name: Run raw transport matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p protocol-evidence/raw
+          for nodelay in 0 1; do
+            for split in 0 1; do
+              php benchmarks/raw_transport_probe.php 512 "$nodelay" "$split"                 > "protocol-evidence/raw/nodelay$nodelay-split$split.json"
+            done
+          done
+          jq -s '.' protocol-evidence/raw/*.json > protocol-evidence/raw/summary.json
+
+      - name: Upload raw transport evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-playground-raw-transport
+          path: protocol-evidence/raw/
+          retention-days: 30
+
+  http1-event:
+    name: "HTTP/1.1 EventLoop + TLS/plain + scaling"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress
+
+      - name: Generate playground TLS certificate
+        shell: bash
+        run: |
+          mkdir -p .lab
+          openssl req -x509 -newkey rsa:2048 -nodes             -keyout .lab/key.pem -out .lab/cert.pem -days 1 -subj '/CN=localhost' >/dev/null 2>&1
+
+      - name: Run EventLoop HTTP/1 matrices
+        shell: bash
+        run: |
+          bash benchmarks/http1_playground.sh "$PWD" "$PWD" protocol-evidence/http1-event event plain
+          bash benchmarks/http1_playground.sh "$PWD" "$PWD" protocol-evidence/http1-tls event tls .lab/cert.pem .lab/key.pem
+
+      - name: Upload HTTP/1 EventLoop evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-playground-http1-event
+          path: protocol-evidence/
+          retention-days: 30
+
+  http1-select:
+    name: "HTTP/1.1 SelectLoop"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+
+      - name: Setup PHP without ext-event
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, opcache
+          coverage: none
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
+
+      - name: Prove SelectLoop fallback
+        shell: bash
+        run: |
+          php -r '
+          require "vendor/autoload.php";
+          if (\Infocyph\Runwire\Loop\EventLoop::supported()) {
+              throw new RuntimeException("SelectLoop playground unexpectedly has ext-event.");
+          }
+          '
+
+      - name: Run SelectLoop HTTP/1 matrix
+        run: bash benchmarks/http1_playground.sh "$PWD" "$PWD" protocol-evidence/http1-select select plain
+
+      - name: Upload HTTP/1 SelectLoop evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-playground-http1-select
+          path: protocol-evidence/
+          retention-days: 30
+
+  http2:
+    name: "HTTP/2 TLS + ALPN multiplexing"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install h2load
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nghttp2-client
+
+      - name: Install production dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress
+
+      - name: Generate TLS certificate
+        shell: bash
+        run: |
+          mkdir -p .lab
+          openssl req -x509 -newkey rsa:2048 -nodes             -keyout .lab/key.pem -out .lab/cert.pem -days 1 -subj '/CN=localhost' >/dev/null 2>&1
+
+      - name: Run real HTTP/2 matrix
+        shell: bash
+        run: |
+          bash benchmarks/http2_playground.sh             "$PWD" "$PWD" .lab/cert.pem .lab/key.pem protocol-evidence/http2
+
+      - name: Upload HTTP/2 evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-playground-http2
+          path: protocol-evidence/http2/
+          retention-days: 30
+
+  http3:
+    name: "HTTP/3 QUIC polling + scheduler limits"
+    runs-on: ubuntu-latest
+    container: php:8.5-cli
+    timeout-minutes: 35
+
+    steps:
+      - name: Bootstrap QUIC build tools
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends             autoconf automake build-essential ca-certificates git jq libev-dev libssl-dev             libtool openssl pkg-config unzip
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout playground
+        uses: actions/checkout@v7
+        with:
+          ref: benchmarks/1.0-vs-2.0
+          path: control
+
+      - name: Checkout php-quic
+        uses: actions/checkout@v7
+        with:
+          repository: mikepultz/php-quic
+          ref: main
+          path: .ci/php-quic
+
+      - name: Checkout nghttp3
+        uses: actions/checkout@v7
+        with:
+          repository: ngtcp2/nghttp3
+          ref: v1.18.0
+          path: .ci/nghttp3
+          submodules: recursive
+
+      - name: Checkout ngtcp2
+        uses: actions/checkout@v7
+        with:
+          repository: ngtcp2/ngtcp2
+          ref: v1.25.0
+          path: .ci/ngtcp2
+          submodules: recursive
+
+      - name: Enable PHP process extensions
+        run: docker-php-ext-install -j"$(nproc)" pcntl
+
+      - name: Verify QUIC OpenSSL baseline
+        shell: bash
+        run: |
+          pkg-config --modversion libssl
+          pkg-config --atleast-version=3.5.0 libssl
+
+      - name: Build php-quic
+        shell: bash
+        working-directory: .ci/php-quic
+        run: |
+          phpize
+          ./configure --with-quic
+          make -j"$(nproc)"
+          make install
+          docker-php-ext-enable quic
+
+      - name: Build native HTTP/3 load client
+        shell: bash
+        run: |
+          pushd .ci/nghttp3
+          autoreconf -i
+          ./configure             --prefix="$GITHUB_WORKSPACE/.ci/nghttp3/build"             --enable-lib-only             --disable-dependency-tracking
+          make -j"$(nproc)"
+          make install
+          popd
+
+          pushd .ci/ngtcp2
+          autoreconf -i
+          PKG_CONFIG_PATH="$GITHUB_WORKSPACE/.ci/nghttp3/build/lib/pkgconfig"             ./configure --with-openssl --disable-dependency-tracking
+          make -j"$(nproc)"
+          test -x examples/osslclient
+          popd
+
+      - name: Install Composer
+        shell: bash
+        run: |
+          php -r 'copy("https://getcomposer.org/installer", "/tmp/composer-setup.php");'
+          php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+          rm -f /tmp/composer-setup.php
+
+      - name: Install Runwire production dependencies
+        run: composer install --working-dir=control --no-dev --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
+
+      - name: Generate QUIC certificate
+        shell: bash
+        run: |
+          mkdir -p .lab
+          openssl req -x509 -newkey rsa:2048 -nodes             -keyout .lab/key.pem -out .lab/cert.pem -days 1 -subj '/CN=localhost' >/dev/null 2>&1
+
+      - name: Run HTTP/3 matrix
+        shell: bash
+        run: |
+          bash control/benchmarks/http3_playground.sh             control .ci/ngtcp2/examples/osslclient .lab/cert.pem .lab/key.pem             protocol-evidence/http3 512
+
+      - name: Upload HTTP/3 evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-playground-http3
+          path: protocol-evidence/http3/
+          retention-days: 30

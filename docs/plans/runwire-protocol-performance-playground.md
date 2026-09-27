@@ -1,0 +1,43 @@
+# Runwire protocol performance playground
+
+Updated: 2026-09-27
+
+Branch: `benchmarks/1.0-vs-2.0`
+
+Status: **diagnostic workers scheduled; production implementation intentionally paused**
+
+## Objective
+
+Use synthetic and real protocol workloads to locate transport, event-loop, framing, batching, polling, flow-control, and scaling limits before changing Runwire production behavior. Playground-only patches and fixtures are allowed. Findings must be reproduced before promotion into a production implementation plan.
+
+## Tracker
+
+| ID | Area | Diagnostic | Status |
+| --- | --- | --- | --- |
+| P0 | HTTP/1.1 | 1.0 vs 2.0 matched release comparison | Complete — no release regression detected |
+| P1 | HTTP/1.1 | client/server/both TCP_NODELAY isolation | Complete — server side removes ~41 ms floor |
+| P2 | Raw TCP | split small writes vs coalesced write, with/without TCP_NODELAY | Scheduled |
+| P3 | HTTP/1.1 | EventLoop vs SelectLoop, payload and concurrency sweeps | Scheduled |
+| P4 | HTTP/1.1 TLS | TLS record/transport interaction with TCP_NODELAY | Scheduled |
+| P5 | HTTP/1.1 | worker scaling at optimized transport setting | Scheduled |
+| P6 | HTTP/2 | real TLS + ALPN h2, sequential vs multiplexed streams, TCP_NODELAY | Scheduled |
+| P7 | HTTP/2 | payload and multi-connection scaling | Scheduled |
+| P8 | HTTP/3 | QUIC poll-timeout sweep | Scheduled |
+| P9 | HTTP/3 | response flush/write budget sweep | Scheduled |
+| P10 | HTTP/3 | stream-accept and concurrent-request limits | Scheduled |
+| P11 | HTTP/3 | payload-size sweep | Scheduled |
+| P12 | Synthesis | classify confirmed bottlenecks and draft production implementation plan | Waiting for workers |
+
+## Evidence rules
+
+- Benchmark harnesses remain PHP/Bash or pinned native protocol tools.
+- Synthetic source changes are allowed only inside this playground branch/workflow.
+- Exact workload parameters and raw output are uploaded as artifacts.
+- Short runs identify causes; they do not become published capacity claims.
+- No production behavior changes are promoted until the relevant diagnostic is reproduced with sustained trials.
+- HTTP/3 is evaluated as QUIC/UDP; TCP_NODELAY is not applicable to it.
+- HTTP/2 network throughput is measured through real TLS/ALPN negotiation rather than only in-memory frame tests.
+
+## Existing confirmed finding
+
+For the two-byte HTTP/1.1 response at concurrency 16, default server TCP behavior produced roughly 392 RPS with ~41 ms p95. Server-side TCP_NODELAY removed that floor and raised short-run throughput into the ~7K RPS class. Client-only TCP_NODELAY did not materially change the result. These remain diagnostic numbers, not release-certified capacity.
