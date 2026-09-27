@@ -4,7 +4,9 @@ Updated: 2026-09-27
 
 Reference Branch: `benchmarks/1.0-vs-2.0`
 
-Status: **decision plan finalized in structure; V3/V4 are closed, V1 must still decide H1 coalescing and the H1-specific NODELAY default, V2 must close bounded H2 coalescing, and V5-V7 remain evidence gates**
+Implementation Branch: `feat/http-improvement`
+
+Status: **implementation active; V1 final certification is running on `feat/http-improvement`, V3/V4 are closed, V2 follows after H1 closes, and V5-V7 remain evidence gates**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -50,9 +52,9 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 
 | ID | Finding | Current evidence | Runwire decision | Library area | Gate | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| D01 | H1 split small writes create ~41 ms floor | High; V1 diagnostic confirms large tiny-response gain | Implement bounded non-streaming coalescing only after repeated V1 certification proves no material large/TLS/high-concurrency regression | `Http1ResponseWriter` | V1 | Validate |
-| D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win at low/moderate H1 concurrency, mixed saturated-throughput trade-off | Decide H1 default ON vs neutral from repeated V1 evidence; never apply the H1 choice blindly to H2 | accepted-connection / protocol transport policy | V1 | Validate |
-| D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Do not invent TLS-specific response API; certify D01 independently and document NODELAY where TLS record-boundary behavior still matters | `Http1ResponseWriter`, transport docs | V1 | Validate |
+| D01 | H1 split small writes create ~41 ms floor | High; V1 diagnostic confirms large tiny-response gain | Implement bounded non-streaming coalescing only after repeated V1 certification proves no material large/TLS/high-concurrency regression | `Http1ResponseWriter` | V1 | **Active** |
+| D02 | TCP_NODELAY removes H1/TLS delayed-ACK floor | High; major latency win at low/moderate H1 concurrency, mixed saturated-throughput trade-off | Decide H1 default ON vs neutral from repeated V1 evidence; never apply the H1 choice blindly to H2 | accepted-connection / protocol transport policy | V1 | **Active** |
+| D03 | H1 TLS has same transport pathology | High; 16 KiB TLS remains ~42 ms with coalescing alone | Do not invent TLS-specific response API; certify D01 independently and document NODELAY where TLS record-boundary behavior still matters | `Http1ResponseWriter`, transport docs | V1 | **Active** |
 | D04 | H2 tiny responses show same write-latency floor | High; broad prototype fixes tiny cases but regresses 1 KiB / 100 streams | Reject unconditional coalescing; validate a bounded tiny-response fast path, otherwise Drop | `ResponseScheduler` | V2 | Validate |
 | D05 | H2 global NODELAY can reduce high-multiplex throughput | High; reconfirmed by V2 | Do not force NODELAY globally for H2 | transport policy | complete | Keep |
 | D06 | H2 one connection saturates one worker | Medium-high | Focus scaling on workers before extra client connection tuning | runtime/worker docs and benchmarks | V5 | Validate |
@@ -408,7 +410,7 @@ No sufficiently comparable mature native-PHP H3 server implementation was found 
 
 ### V1 — H1 writer and NODELAY policy
 
-**Status: diagnostic complete; final certification remains.**
+**Status: active on `feat/http-improvement`; eight same-revision matrix jobs run five alternating trials per retained mode.**
 
 The broad single-sample matrix established the behavior of default, NODELAY, coalesced, and combined modes. V1 now has two explicit production decisions: D01 bounded response coalescing and D02 H1 default NODELAY policy. D03 closes from the same TLS evidence.
 
