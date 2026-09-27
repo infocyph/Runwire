@@ -20,7 +20,7 @@ Use synthetic and real protocol workloads to locate transport, event-loop, frami
 | P3 | HTTP/1.1 | EventLoop vs SelectLoop, payload and concurrency sweeps | Scheduled |
 | P4 | HTTP/1.1 TLS | TLS record/transport interaction with TCP_NODELAY | Scheduled |
 | P5 | HTTP/1.1 | worker scaling at optimized transport setting | Scheduled |
-| P6 | HTTP/2 | real TLS + ALPN h2, sequential vs multiplexed streams, TCP_NODELAY | Scheduled |
+| P6 | HTTP/2 | real TLS + ALPN h2, sequential vs multiplexed streams, TCP_NODELAY | Running — throughput isolated from 10k churn guard |
 | P7 | HTTP/2 | payload and multi-connection scaling | Scheduled |
 | P8 | HTTP/3 | QUIC poll-timeout sweep | Scheduled |
 | P9 | HTTP/3 | response flush/write budget sweep | Scheduled |
@@ -51,3 +51,6 @@ For the two-byte HTTP/1.1 response at concurrency 16, default server TCP behavio
 - Second protocol-playground run `36291496503`: HTTP/1 workers still failed. Generic assertion output was insufficient to distinguish response validation from request accounting or timeouts. The client/runner now emits exact counters plus first-response status/body length/hash diagnostics and the matching server log on failure.
 
 - The previous remediation did not rewrite the compacted H1/H2 shell runners because its text anchors did not match their normalized form. Both runners are now replaced wholesale. HTTP/1 now passes payload expectations and always prints client/server diagnostics; HTTP/2 now checks ALPN on combined OpenSSL output and always prints h2load/server diagnostics.
+
+- Corrected run `36291727823`: Raw TCP, HTTP/1 SelectLoop, HTTP/1 EventLoop/TLS/scaling, and HTTP/3 passed. HTTP/2 reached exactly 10,000 successful responses on one connection at 100-way multiplexing, then hit the production default `Http2Limits::maxStreamsPerConnection = 10_000` and closed with the configured churn protection. This is a real lifecycle-policy boundary, not an unexplained protocol failure.
+- H2 steady-state throughput now uses a playground-only `maxStreamsPerConnection = 1_000_000` so stream-churn policy does not cap the throughput measurement. A separate fixed 10,100-request probe preserves evidence that the production 10,000-stream boundary fires as configured.

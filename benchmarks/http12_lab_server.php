@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\ListenerOptions;
@@ -32,6 +33,10 @@ if ($port < 1 || $port > 65_535 || $payloadBytes < 0 || $payloadBytes > 1_048_57
 }
 
 $body = str_repeat('x', $payloadBytes);
+$maxStreamsPerConnection = (int) (getenv('RUNWIRE_H2_MAX_STREAMS_PER_CONNECTION') ?: '10000');
+if ($maxStreamsPerConnection < 1) {
+    throw new InvalidArgumentException('HTTP/2 max streams per connection must be positive.');
+}
 $tls = $certificate === '-'
     ? null
     : new TlsOptions(
@@ -60,6 +65,9 @@ $server = new Server(
         socketContext: $tcpNoDelay ? ['tcp_nodelay' => true] : [],
     ),
     tls: $tls,
+    http2: new Http2Limits(
+        maxStreamsPerConnection: $maxStreamsPerConnection,
+    ),
 );
 
 Runtime::create(new RuntimeOptions(driver: RuntimeDriver::NATIVE))

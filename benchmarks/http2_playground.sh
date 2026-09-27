@@ -145,4 +145,53 @@ for connections in 1 4 16; do
 done
 stop_server
 
+boundary_port="$(find_port)"
+boundary_log="$output_dir/h2-stream-churn-boundary-server.log"
+(
+  cd "$runwire_root"
+  exec env RUNWIRE_H2_MAX_STREAMS_PER_CONNECTION=10000 php -d opcache.enable_cli=1 \
+    "$control_root/benchmarks/http12_lab_server.php" \
+    "$boundary_port" 2 1 1 "$certificate" "$private_key"
+) >"$boundary_log" 2>&1 &
+server_pid=$!
+CURRENT_SERVER_LOG="$(basename "$boundary_log")"
+wait_ready "$boundary_port" "$boundary_log"
+ACTIVE_PORT="$boundary_port"
+
+set +e
+h2load -n 10100 -c 1 -m 100 -t 1 "https://127.0.0.1:$ACTIVE_PORT/benchmark" \
+  >"$output_dir/h2-stream-churn-boundary.raw" 2>&1
+boundary_exit=$?
+set -e
+
+php -r '
+$raw = file_get_contents($argv[1]);
+if (!is_string($raw)) {
+    throw new RuntimeException("Unable to read churn-boundary output.");
+}
+if (preg_match("/requests:\\s+(\\d+) total,\\s+(\\d+) started,\\s+(\\d+) done,\\s+(\\d+) succeeded,\\s+(\\d+) failed,\\s+(\\d+) errored,\\s+(\\d+) timeout/", $raw, $m) !== 1) {
+    throw new RuntimeException("Unable to parse churn-boundary counts.");
+}
+$result = [
+    "configured_max_streams_per_connection" => 10000,
+    "client_requests" => 10100,
+    "requests_total" => (int) $m[1],
+    "requests_started" => (int) $m[2],
+    "requests_done" => (int) $m[3],
+    "requests_succeeded" => (int) $m[4],
+    "requests_failed" => (int) $m[5],
+    "requests_errored" => (int) $m[6],
+    "requests_timed_out" => (int) $m[7],
+    "h2load_exit_code" => (int) $argv[2],
+    "boundary_observed" => (int) $m[4] === 10000 && (int) $m[5] > 0,
+];
+echo json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
+' "$output_dir/h2-stream-churn-boundary.raw" "$boundary_exit" \
+  >"$output_dir/h2-stream-churn-boundary.json"
+
+jq -e '.boundary_observed == true and .requests_timed_out == 0' \
+  "$output_dir/h2-stream-churn-boundary.json" >/dev/null
+
+stop_server
+
 jq -s '.' "$output_dir"/*.json > "$output_dir/summary.json"
