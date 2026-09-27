@@ -6,6 +6,8 @@ Branch: `benchmarks/1.0-vs-2.0`
 
 Status: **first-stage protocol diagnostics complete; targeted validation in progress; production implementation intentionally paused**
 
+Production decision plan: `docs/plans/runwire-protocol-performance-implementation-plan.md`
+
 ## Objective
 
 Use synthetic and real protocol workloads to locate transport, event-loop, framing, batching, polling, flow-control, lifecycle, and scaling limits before changing Runwire production behavior. Playground-only patches and fixtures are allowed. Findings must be reproduced before promotion into a production implementation plan.
