@@ -57,6 +57,8 @@ final class PhpQuicHttp3Connection
 
     private string $qpackDecoderPending;
 
+    private int $readCursorOffset = 0;
+
     /** @var array<int, true> */
     private array $requestStreams = [];
 
@@ -381,11 +383,12 @@ final class PhpQuicHttp3Connection
         $reads = 0;
         $bytes = 0;
         $controlBytes = 0;
-        foreach (array_keys($this->peerStreams) as $streamId) {
+        foreach ($this->peerStreamOrder() as [$nextOffset, $streamId]) {
             if ($reads >= $readLimit || $bytes >= $byteLimit) {
                 return;
             }
 
+            $this->readCursorOffset = $nextOffset;
             [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
                 $streamId,
                 $readLimit - $reads,
@@ -406,18 +409,24 @@ final class PhpQuicHttp3Connection
         $reads = 0;
         $bytes = 0;
         $controlBytes = 0;
-        foreach ($this->peerStreams as $streamId => $stream) {
+        foreach ($this->peerStreamOrder() as [$nextOffset, $streamId]) {
+            $stream = $this->peerStreams[$streamId] ?? null;
+            if ($stream === null) {
+                continue;
+            }
             $mask = $ready[spl_object_id($stream->object())] ?? 0;
             if (($mask & ($events->read | $events->error)) === 0) {
                 continue;
             }
+            if ($reads >= $readLimit || $bytes >= $byteLimit) {
+                return;
+            }
+
+            $this->readCursorOffset = $nextOffset;
             if (isset($this->requestStreams[$streamId]) && $stream->resetCode() !== null) {
                 $this->cancelRequestStream($streamId);
 
                 continue;
-            }
-            if ($reads >= $readLimit || $bytes >= $byteLimit) {
-                return;
             }
 
             [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
@@ -557,6 +566,27 @@ final class PhpQuicHttp3Connection
             $active,
             max(1, $this->limits->maxConcurrentRequestStreams),
         );
+    }
+
+    /** @return list<array{0: int, 1: int}> */
+    private function peerStreamOrder(): array
+    {
+        $streamIds = array_keys($this->peerStreams);
+        $streamCount = count($streamIds);
+        if ($streamCount === 0) {
+            $this->readCursorOffset = 0;
+
+            return [];
+        }
+
+        $start = $this->readCursorOffset % $streamCount;
+        $ordered = [];
+        for ($step = 0; $step < $streamCount; ++$step) {
+            $index = ($start + $step) % $streamCount;
+            $ordered[] = [($index + 1) % $streamCount, $streamIds[$index]];
+        }
+
+        return $ordered;
     }
 
     private function openCriticalStream(string $name): PhpQuicStream
