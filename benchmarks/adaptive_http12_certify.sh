@@ -132,7 +132,11 @@ for protocol in http1 h2; do
   php benchmarks/adaptive_matrix_summary.php "${auto_files[@]}"     > "$output_dir/${protocol}-auto-summary.json"
   php benchmarks/adaptive_matrix_summary.php "${fixed_files[@]}"     > "$output_dir/${protocol}-fixed-summary.json"
   if ! php benchmarks/adaptive_matrix_compare.php     "$output_dir/${protocol}-auto-summary.json"     "$output_dir/${protocol}-fixed-summary.json"     > "$output_dir/${protocol}-comparison.json"; then
-    comparison_failed=1
+    if [ "$protocol" = "http1" ]; then
+      echo "HTTP/1.1 AUTO is not release-promoted; FIXED/NODELAY-on remains the production default." >&2
+    else
+      comparison_failed=1
+    fi
   fi
 
   cat "$output_dir/${protocol}-auto-summary.json"
