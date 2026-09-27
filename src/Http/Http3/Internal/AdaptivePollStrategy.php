@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Internal;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
+
 /**
  * Adapts QUIC poll timing for idle listeners and pending handshakes.
  *
@@ -23,14 +26,20 @@ final class AdaptivePollStrategy
         bool $accepting,
         int $activeConnections,
         int $pendingConnections,
+        AdaptiveProtocolPolicy $policy = new AdaptiveProtocolPolicy(),
     ): ?float {
         if ($baseTimeoutSeconds === null || $baseTimeoutSeconds <= 0.0) {
+            return $baseTimeoutSeconds;
+        }
+        if ($policy->mode === AdaptivePolicyMode::FIXED) {
             return $baseTimeoutSeconds;
         }
         if ($pendingConnections > 0) {
             return min($baseTimeoutSeconds, self::HANDSHAKE_POLL_SECONDS);
         }
-        if ($accepting && $activeConnections === 0) {
+        if ($accepting
+            && $activeConnections === 0
+            && $policy->mode !== AdaptivePolicyMode::LATENCY) {
             return min(self::MAX_IDLE_POLL_SECONDS, $baseTimeoutSeconds * 4);
         }
 
