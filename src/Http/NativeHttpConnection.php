@@ -45,6 +45,8 @@ final readonly class NativeHttpConnection
         }
 
         if ($protocol === null || $protocol === '' || $protocol === 'http/1.1') {
+            $connection->applyTcpNoDelayDefault(true);
+
             return new self(
                 new Http1Connection($loop, $connection, $http1Limits ?? new Http1Limits(), $consumer),
                 ProtocolVersion::HTTP_1_1,
