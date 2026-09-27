@@ -9,6 +9,7 @@ use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadController;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
+use LogicException;
 
 /**
  * Selects the default TCP_NODELAY policy for newly attached HTTP/1.1 connections.
@@ -38,6 +39,14 @@ final readonly class AdaptiveConnectionStrategy
     /**
      * Return the current worker load state.
      */
+    public function requiresLoadSample(): bool
+    {
+        return $this->policy->mode === AdaptivePolicyMode::AUTO;
+    }
+
+    /**
+     * Return the current worker load state.
+     */
     public function state(): AdaptiveLoadState
     {
         return match ($this->policy->mode) {
@@ -51,10 +60,12 @@ final readonly class AdaptiveConnectionStrategy
     /**
      * Observe worker load and choose the NODELAY default for the next HTTP/1.1 connection.
      */
-    public function tcpNoDelay(AdaptiveLoadSample $sample): bool
+    public function tcpNoDelay(?AdaptiveLoadSample $sample = null): bool
     {
         return match ($this->policy->mode) {
-            AdaptivePolicyMode::AUTO => $this->controller->observe($sample) !== AdaptiveLoadState::THROUGHPUT,
+            AdaptivePolicyMode::AUTO => $this->controller->observe(
+                $sample ?? throw new LogicException('HTTP/1.1 AUTO policy requires a load sample.'),
+            ) !== AdaptiveLoadState::THROUGHPUT,
             AdaptivePolicyMode::FIXED, AdaptivePolicyMode::LATENCY => true,
             AdaptivePolicyMode::THROUGHPUT => false,
         };
