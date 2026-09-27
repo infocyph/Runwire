@@ -137,6 +137,11 @@ Automatic sizing uses effective detected resources where available, including cg
 Guidance:
 
 - explicit counts override automatic sizing;
+- automatic sizing is a deployment starting point, not a linear-throughput promise;
+- benchmark representative 1/2/4-worker configurations against the same protocol, payload, concurrency and CPU quota before fixing a production count;
+- short Runwire diagnostics showed useful but sublinear scaling (1→2 workers about 1.43×, 1→4 about 2.58×), so do not assume workers scale linearly;
+- one multiplexed HTTP/2 connection can already saturate a worker under a small-response workload; adding client connections is not a substitute for adding measured worker capacity;
+- measure CPU saturation, RSS per worker, accept distribution and socket contention together with throughput/latency;
 - measure memory per worker;
 - do not configure multiple workers for portable-only deployment;
 - HTTP/3 multi-worker topology requires explicit reuse-port support.
