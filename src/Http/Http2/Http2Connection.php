@@ -103,6 +103,7 @@ final class Http2Connection
             output: $this->output,
             handler: $this->handler,
             connectionFailure: fn(ErrorCode $code, string $message) => $this->failConnection($code, $message),
+            rotationRequested: fn() => $this->drain(),
             streamFailure: fn(StreamError $error) => $this->handleStreamError($error),
             streamRemoved: fn() => $this->finishDrainIfReady(),
         );
