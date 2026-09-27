@@ -72,7 +72,7 @@ it('adapts HTTP3 pump effort without flapping on isolated high-load samples', fu
     $strategy->observe(100, 100, 100);
     $strategy->observe(100, 100, 100);
     expect($strategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
-        ->and($strategy->acceptLimit(64))->toBe(16)
+        ->and($strategy->acceptLimit(64))->toBe(64)
         ->and($strategy->readLimit(256))->toBe(256);
 });
 
