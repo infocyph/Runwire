@@ -107,6 +107,7 @@ run_trial() {
   cleanup_server
 }
 
+comparison_failed=0
 for protocol in http1 h2; do
   auto_files=()
   fixed_files=()
@@ -130,9 +131,13 @@ for protocol in http1 h2; do
 
   php benchmarks/adaptive_matrix_summary.php "${auto_files[@]}"     > "$output_dir/${protocol}-auto-summary.json"
   php benchmarks/adaptive_matrix_summary.php "${fixed_files[@]}"     > "$output_dir/${protocol}-fixed-summary.json"
-  php benchmarks/adaptive_matrix_compare.php     "$output_dir/${protocol}-auto-summary.json"     "$output_dir/${protocol}-fixed-summary.json"     > "$output_dir/${protocol}-comparison.json"
+  if ! php benchmarks/adaptive_matrix_compare.php     "$output_dir/${protocol}-auto-summary.json"     "$output_dir/${protocol}-fixed-summary.json"     > "$output_dir/${protocol}-comparison.json"; then
+    comparison_failed=1
+  fi
 
   cat "$output_dir/${protocol}-auto-summary.json"
   cat "$output_dir/${protocol}-fixed-summary.json"
   cat "$output_dir/${protocol}-comparison.json"
 done
+
+exit "$comparison_failed"
