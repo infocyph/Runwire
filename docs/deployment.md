@@ -6,12 +6,6 @@ For complete first-run examples, see [Getting Started](getting-started.md). For 
 
 ## 1. Production baseline
 
-Hard package requirement:
-
-```text
-64-bit PHP ^8.4
-```
-
 Runtime capability baseline:
 
 | Capability | Production role | Required? |
@@ -464,7 +458,14 @@ $listener = new ListenerOptions(
 );
 ```
 
-For AUTO policy values, watermarks are basis points of normalized load and must satisfy `0 <= low < high <= 10000`. Transition samples must be positive. The EWMA ratio must satisfy `1 <= numerator <= denominator <= intdiv(PHP_INT_MAX, 10000)`. Invalid policy values fail construction rather than being clamped.
+AUTO policy validation:
+
+| Setting | Requirement |
+| --- | --- |
+| Watermarks | Basis points of normalized load; `0 <= low < high <= 10000`. |
+| Transition dwell | `transitionSamples >= 1`. |
+| EWMA ratio | `1 <= numerator <= denominator <= intdiv(PHP_INT_MAX, 10000)`. |
+| Invalid values | Constructor fails; values are not silently clamped. |
 
 A standalone `new AdaptiveProtocolPolicy()` is an AUTO policy with generic watermarks. The protocol option objects deliberately supply FIXED release defaults and, where applicable, protocol-specific crossover values. When replacing a protocol policy object, specify the intended mode and preserve/tune its watermarks consciously.
 
