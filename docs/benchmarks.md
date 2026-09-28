@@ -454,7 +454,7 @@ A public statement such as “fastest”, “faster than X”, or “top-tier”
 
 ## Adaptive policy evidence
 
-H1 defaults to FIXED with NODELAY on; H2/H3 default to AUTO by the release decision. The complete J10 matrix still requires external measurement; these defaults do not imply that certification has passed. The adaptive CI jobs are short diagnostic comparisons; their green status is not promotion evidence.
+H1, H2, and H3 default to FIXED by the final J10 release decision. AUTO/LATENCY/THROUGHPUT remain explicit opt-in policies. The adaptive CI jobs are short diagnostic comparisons; they record regressions but are not promotion evidence.
 
 Run these commands in the same prepared PHP/native-extension environment as CI (including ext-event, and ext-quic for H3). The H2 script expects the pinned h2 client at `/tmp/runwire-h2/bin/python`; H3 uses `/tmp/runwire-aioquic/bin/python`, overridable with `RUNWIRE_AIOQUIC_PYTHON`. The workflow setup steps provision these clients.
 
@@ -468,7 +468,7 @@ bash benchmarks/adaptive_http12_certify.sh 180 benchmark-results/adaptive-http12
 bash benchmarks/adaptive_http3_certify.sh 180 benchmark-results/adaptive-http3-sustained sustained
 ```
 
-The filenames are retained for compatibility. Each script runs five alternating AUTO/FIXED trials. `sustained` requests 30 seconds of warm-up and at least 180 seconds for each steady-state phase. Transition phases remain short to measure transitions. Strict comparison rejects RPS CV at or above 2.5% and keeps the existing throughput, latency, CPU, RSS and fairness budgets. H1 AUTO remains advisory as before; its regression failures are recorded without failing the combined H1/H2 job. H2/H3 regression budgets remain blocking even in diagnostic mode. Diagnostic mode does not relax their thresholds; it separately reports duration/variance deficiencies through `evidence_failures` and `measurement_qualified`.
+The filenames are retained for compatibility. Each script runs five alternating AUTO/FIXED trials. `sustained` requests 30 seconds of warm-up and at least 180 seconds for each steady-state phase. Transition phases remain short to measure transitions. Strict comparison rejects RPS CV at or above 2.5% and keeps the existing throughput, latency, CPU, RSS and fairness budgets. Diagnostic mode does not relax comparison thresholds: regression failures remain recorded in the JSON result together with duration/variance deficiencies. Because AUTO is no longer a production default, diagnostic AUTO regressions are advisory and do not fail ordinary CI. `sustained` mode remains strict and returns nonzero when a promotion gate fails.
 
 Records include payload/workload, phase concurrency and requested/actual duration, runtime build and environment identity. Summaries reject mismatched or invalid trials and report per-phase sample CV plus successful RPM. Comparisons require matching metadata. Keep the raw trials, summaries, comparison JSON, and environment details together.
 
@@ -497,7 +497,7 @@ The evaluator checks every mandatory case and all four modes from raw trials, ma
 
 The clients validate status and response bytes, validate uploaded bytes end to end, use bounded latency histograms, and rotate drained connections below unchanged production stream/keep-alive limits. H2/H3 retain live connection state across phase transitions except the deliberate churn case and required lifetime rotation. The H3 backlog case delays actual QPACK encoder instructions and requires observed dynamic header dependencies in every phase; the [encoder hook](https://github.com/aiortc/aioquic/blob/1.3.0/src/aioquic/h3/connection.py) is pinned to aioquic 1.3.0. Transport-pressure cases record delayed reads and flow-control cases record bytes received under the reduced stream window rather than merely naming a workload “pressure.” Server/client logs, failure markers and raw records are retained. Failed trials are not silently retried or replaced by passing samples.
 
-`<protocol>-promotion.json` reports `performance_gate_passed` independently per protocol. It never edits defaults and always keeps `promotion_certified: false`: exact-candidate protocol/security/resource-invariant CI and I8 release certification must also pass. H1 remains FIXED and H2/H3 remain AUTO unless a separate release decision changes them.
+`<protocol>-promotion.json` reports `performance_gate_passed` independently per protocol. It never edits defaults and always keeps `promotion_certified: false`: exact-candidate protocol/security/resource-invariant CI and release certification must also pass. The 2.0 release decision keeps H1/H2/H3 FIXED; a future AUTO-default proposal must explicitly reopen the promotion decision.
 
 Harness regression tests:
 
