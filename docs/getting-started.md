@@ -250,7 +250,85 @@ $server = Server::http('0.0.0.0:8443', $handler)
 
 HTTP/3 uses UDP/QUIC while the TCP listener continues to serve HTTP/1.1/HTTP/2. 0-RTT application dispatch is disabled in Runwire 2.0. Explicit HTTP/3 configuration without supported QUIC capability is a startup error; it is never silently ignored.
 
-## 7. Worker counts
+## 7. Adaptive protocol scheduling
+
+Runwire 2.0 defaults HTTP/1.1, HTTP/2, and HTTP/3 to `AdaptivePolicyMode::FIXED`. Nothing needs to be configured to get the release-certified deterministic behavior.
+
+The other modes are explicit opt-ins:
+
+| Mode | Behavior |
+| --- | --- |
+| `FIXED` | Release default. Deterministic static scheduling; H1 keeps TCP_NODELAY enabled unless listener configuration explicitly owns it. |
+| `LATENCY` | Deterministic latency-biased scheduling. |
+| `THROUGHPUT` | Deterministic throughput-biased scheduling; H1 selects NODELAY off unless explicitly overridden by listener socket configuration. |
+| `AUTO` | Dynamically crosses latency/balanced/throughput states from bounded protocol-local load samples. Use only after representative workload measurement. |
+
+Each protocol owns its policy separately. HTTP/3 has independent inbound and outbound policies:
+
+```php
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
+use Infocyph\Runwire\Http\Http1\Http1Limits;
+use Infocyph\Runwire\Http\Http2\Http2Limits;
+use Infocyph\Runwire\Http\Http3\Http3Options;
+
+$server = new Server(
+    name: 'web',
+    address: '0.0.0.0:8443',
+    handler: $handler,
+    tls: $tls,
+    http1: new Http1Limits(
+        adaptive: new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::AUTO,
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_500,
+            transitionSamples: 128,
+            ewmaNumerator: 1,
+            ewmaDenominator: 1,
+        ),
+    ),
+    http2: new Http2Limits(
+        adaptive: new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::AUTO,
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 3_000,
+        ),
+    ),
+    http3: new Http3Options(
+        inboundAdaptive: new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::AUTO,
+        ),
+        outboundAdaptive: new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::AUTO,
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_000,
+        ),
+    ),
+);
+```
+
+The values above preserve each protocol's existing tuned crossover settings while changing only the mode. This matters because a standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO` with generic 25%/65% watermarks; replacing a protocol's default policy object with that standalone default is an explicit AUTO opt-in and also replaces that protocol's tuned watermarks.
+
+Policy validation is strict:
+
+```text
+0 <= lowWatermarkBasisPoints < highWatermarkBasisPoints <= 10000
+transitionSamples >= 1
+1 <= ewmaNumerator <= ewmaDenominator <= intdiv(PHP_INT_MAX, 10000)
+```
+
+Operational conditions:
+
+- H1 applies the selected NODELAY default when a connection is attached; changing load later does not retroactively retune an already attached connection.
+- H1 AUTO samples at most eight recent live connections; FIXED/LATENCY/THROUGHPUT bypass AUTO sampling.
+- An explicit `ListenerOptions(socketContext: ['tcp_nodelay' => ...])` setting takes precedence over the H1 protocol default.
+- H2 adaptive policy only affects the bounded initial-response scheduling fast path. Normal flow control, multiplexing, response queues, and backpressure remain unchanged.
+- H3 `inboundAdaptive` controls bounded read/poll effort; `outboundAdaptive` controls bounded response-write effort. Neither raises `Http3Limits`.
+- Adaptive scheduling never raises request/body/header/frame, stream, connection, queue, HPACK/QPACK, WebSocket, or lifecycle ceilings.
+
+Keep `FIXED` unless your own repeated benchmark evidence shows a reason to select another profile.
+
+## 8. Worker counts
 
 Explicit prefork count:
 
@@ -272,7 +350,7 @@ $server = new Server(
 
 Portable native mode is one process. `workers: 0` and `workers: 1` are valid; explicit `workers > 1` fails startup when prefork capability is unavailable.
 
-## 8. Runtime policies
+## 9. Runtime policies
 
 ```php
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
@@ -314,7 +392,7 @@ Runtime::create($options)
 
 Worker recycle/replacement is a prefork capability. Portable mode fails startup when any worker-recycle threshold is enabled because there is no replacement worker. Use an external service manager for whole-process retirement in portable deployments.
 
-## 9. Framed TCP server
+## 10. Framed TCP server
 
 ```php
 <?php
@@ -346,7 +424,7 @@ Test:
 printf 'hello\n' | nc 127.0.0.1 9000
 ```
 
-## 10. Unix-domain framed server
+## 11. Unix-domain framed server
 
 ```php
 $server = StreamServer::unix(
@@ -363,7 +441,7 @@ Runtime::create()->listen($server)->run();
 
 Configure permissions/stale-socket/unlink behavior with `UnixListenerOptions` when needed.
 
-## 11. UDP server
+## 12. UDP server
 
 ```php
 <?php
@@ -390,7 +468,7 @@ Runtime::create()->listen($server)->run();
 
 UDP provides datagram semantics only; application protocols must account for ordering, duplication, loss, maximum datagram size, and bounded callback work.
 
-## 12. Hosted runtimes and Swoole/OpenSwoole selection
+## 13. Hosted runtimes and Swoole/OpenSwoole selection
 
 For an already active FPM, FrankenPHP, or RoadRunner host, `RuntimeDriver::AUTO` can resolve the host from the current environment:
 
@@ -457,7 +535,7 @@ Runtime::serveApplication() host-owned application factory
 
 Do not combine `listen()` with host-owned `serve()`/`serveApplication()`.
 
-## 13. Application factory and lifecycle
+## 14. Application factory and lifecycle
 
 ```php
 <?php
@@ -522,7 +600,7 @@ For Swoole/OpenSwoole, construct the runtime with explicit `RuntimeDriver::SWOOL
 
 Persistent application integrations must reset framework-owned request-local state after each request, including failure/cancellation/deadline paths. See [Runtime Security](security.md).
 
-## 14. Capability checks
+## 15. Capability checks
 
 ```php
 use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
@@ -536,7 +614,7 @@ $context->requireCapability(RuntimeCapability::RUNWIRE_COROUTINES);
 
 Prefer capabilities for generic behavior; branch on a driver only for genuinely host-specific APIs.
 
-## 15. Structured coroutines
+## 16. Structured coroutines
 
 ```php
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
@@ -563,7 +641,7 @@ $result = $coroutines->run(
 
 See [Coroutines and structured concurrency](coroutines.md) for channels, futures, synchronization, task-local state, deadlines, request integration, worker background work, and `AsyncConnection`.
 
-## 16. Bounded response transfer
+## 17. Bounded response transfer
 
 `ResponseTransfer` is intended for already-authorized stream resources and runs inside a coroutine request scope:
 
@@ -602,7 +680,7 @@ $handler = new CoroutineRequestHandler(
 
 The helper does not authorize files or choose response headers. It owns bounded body pumping and closes the source by default.
 
-## 17. Native HTTP/1 WebSocket
+## 18. Native HTTP/1 WebSocket
 
 ```php
 use Infocyph\Runwire\Http\HttpRequest;
