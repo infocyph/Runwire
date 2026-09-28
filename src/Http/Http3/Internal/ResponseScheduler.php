@@ -6,8 +6,8 @@ namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Closure;
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
-use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
