@@ -59,6 +59,7 @@ function adaptivePromotionWriteJson(string $path, array $value): void
         if (is_file($temporary)) {
             unlink($temporary);
         }
+
         throw new RuntimeException('Unable to publish adaptive promotion JSON: ' . $path);
     }
 }
@@ -349,6 +350,7 @@ function adaptivePromotionEvaluate(string $output, string $protocol, array $iden
     foreach (adaptivePromotionCases($protocol) as $case) {
         $directory = $output . '/' . $case['id'];
         $result = ['valid' => false, 'comparisons' => []];
+
         try {
             $summaries = [];
             foreach (ADAPTIVE_PROMOTION_MODES as $mode) {
@@ -395,6 +397,7 @@ function adaptivePromotionEvaluate(string $output, string $protocol, array $iden
 function adaptivePromotionCanConnect(int $port): bool
 {
     set_error_handler(static fn(): bool => true);
+
     try {
         $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $error, 0.05);
     } finally {
@@ -450,6 +453,7 @@ function adaptivePromotionStart(array $command, string $stdout, string $stderr, 
     if (!is_array($status) || (int) ($status['pid'] ?? 0) < 2) {
         proc_terminate($process);
         proc_close($process);
+
         throw new RuntimeException('Adaptive promotion process did not expose a PID.');
     }
 
@@ -568,6 +572,7 @@ function adaptivePromotionRunTrial(
         'RUNWIRE_ADAPTIVE_WARMUP_SECONDS' => (string) $warmup,
     ];
     $started = adaptivePromotionStart($server, $serverLog, $serverLog, $environment);
+
     try {
         $deadline = microtime(true) + 10;
         while (true) {
@@ -748,9 +753,11 @@ function adaptivePromotionMain(array $argv): int
                             $trial,
                             $identity,
                         );
+
                         continue;
                     }
                     fwrite(STDOUT, sprintf("%s %s trial %d/5\n", $case['id'], $mode, $trial));
+
                     try {
                         adaptivePromotionRunTrial(
                             $output,
@@ -769,6 +776,7 @@ function adaptivePromotionMain(array $argv): int
                             'mode' => $mode,
                             'trial' => $trial,
                         ]);
+
                         throw $error;
                     }
                 }
