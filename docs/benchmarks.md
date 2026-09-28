@@ -491,13 +491,13 @@ Run on a dedicated Linux host with the native extensions and OpenSSL CLI. The co
 
 ```bash
 php benchmarks/adaptive_promotion_matrix.php list --protocol h2
-php benchmarks/adaptive_promotion_matrix.php run --protocol h2 --output benchmark-results/j10-h2
-php benchmarks/adaptive_promotion_matrix.php run --protocol h3 --output benchmark-results/j10-h3
-php benchmarks/adaptive_promotion_matrix.php run --protocol http1 --output benchmark-results/j10-h1
+php benchmarks/adaptive_promotion_matrix.php run --protocol h2 --output benchmark-results/adaptive-promotion-h2
+php benchmarks/adaptive_promotion_matrix.php run --protocol h3 --output benchmark-results/adaptive-promotion-h3
+php benchmarks/adaptive_promotion_matrix.php run --protocol http1 --output benchmark-results/adaptive-promotion-h1
 # Resume an interrupted run with the identical candidate and environment:
-php benchmarks/adaptive_promotion_matrix.php run --protocol h2 --output benchmark-results/j10-h2 --resume
+php benchmarks/adaptive_promotion_matrix.php run --protocol h2 --output benchmark-results/adaptive-promotion-h2 --resume
 # Recompute summaries and the gate from raw records, including missing cases:
-php benchmarks/adaptive_promotion_matrix.php evaluate --protocol h2 --output benchmark-results/j10-h2
+php benchmarks/adaptive_promotion_matrix.php evaluate --protocol h2 --output benchmark-results/adaptive-promotion-h2
 ```
 
 Use repeated `--case <id>` arguments to run selected cells, then `--resume` to fill the rest. Partial selections never pass the full protocol gate. For a quick harness check, use a separate output directory with `--case <id> --diagnostic --seconds 1 --warmup 1`; short runs also return nonzero because they cannot certify the matrix. A full run is intentionally lengthy: approximately 4.2 hours per cell, or 67/117/176 hours for H1/H2/H3 before connection/drain overhead. Do not run competing load jobs on the same host. No native sustained matrix was run during harness implementation.
