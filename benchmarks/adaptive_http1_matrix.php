@@ -148,6 +148,8 @@ if (!in_array($mode, ['auto', 'fixed', 'latency', 'throughput'], true)
     throw new InvalidArgumentException('Adaptive HTTP/1.1 mode or phase duration is invalid.');
 }
 
+$rawPromotionCase = getenv('RUNWIRE_ADAPTIVE_CASE');
+$promotionCase = is_string($rawPromotionCase) && $rawPromotionCase !== '';
 $case = adaptiveHttp1Workload();
 $warmupSeconds = max(1.0, (float) (getenv('RUNWIRE_ADAPTIVE_WARMUP_SECONDS') ?: 1));
 $warmup = http1SustainedRun(
@@ -167,7 +169,11 @@ http1SustainedAssertCorrect($warmup['counter'], 'Adaptive HTTP/1.1 warm-up');
 $transitionSeconds = min(2.0, $phaseSeconds);
 $phasePlan = [
     'low_before' => [(int) $case['low'], $phaseSeconds],
-    'medium' => [(int) $case['medium'], $phaseSeconds],
+];
+if ($promotionCase) {
+    $phasePlan['medium'] = [(int) $case['medium'], $phaseSeconds];
+}
+$phasePlan += [
     'transition_up' => [(int) $case['high'], $transitionSeconds],
     'high' => [(int) $case['high'], $phaseSeconds],
     'transition_down' => [(int) $case['low'], $transitionSeconds],
@@ -187,8 +193,6 @@ $result = [
     'runtime_build' => getenv('RUNWIRE_ADAPTIVE_BUILD') ?: 'unrecorded',
     'environment' => getenv('RUNWIRE_ADAPTIVE_ENVIRONMENT') ?: 'unrecorded',
     'warmup_seconds' => $warmupSeconds,
-    'case' => $case,
-    'trial' => (int) (getenv('RUNWIRE_ADAPTIVE_TRIAL') ?: 0),
     'phases' => $phases,
     'correctness_passed' => array_reduce(
         $phases,
@@ -196,6 +200,10 @@ $result = [
         true,
     ),
 ];
+if ($promotionCase) {
+    $result['case'] = $case;
+    $result['trial'] = (int) (getenv('RUNWIRE_ADAPTIVE_TRIAL') ?: 0);
+}
 
 fwrite(
     STDOUT,
