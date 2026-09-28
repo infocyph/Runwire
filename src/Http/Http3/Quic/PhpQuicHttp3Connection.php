@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http3\Quic;
 
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
-use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
