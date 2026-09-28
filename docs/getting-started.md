@@ -339,12 +339,15 @@ transitionSamples >= 1
 
 Operational conditions:
 
-- H1 applies the selected NODELAY default when a connection is attached; changing load later does not retroactively retune an already attached connection.
-- H1 AUTO samples at most eight recent live connections; FIXED/LATENCY/THROUGHPUT bypass AUTO sampling.
-- An explicit `ListenerOptions(socketContext: ['tcp_nodelay' => ...])` setting takes precedence over the H1 protocol default.
-- H2 adaptive policy only affects the bounded initial-response scheduling fast path. Normal flow control, multiplexing, response queues, and backpressure remain unchanged.
-- H3 `inboundAdaptive` controls bounded read/poll effort; `outboundAdaptive` controls bounded response-write effort. Neither raises `Http3Limits`.
-- Adaptive scheduling never raises request/body/header/frame, stream, connection, queue, HPACK/QPACK, WebSocket, or lifecycle ceilings.
+| Area | Condition |
+| --- | --- |
+| H1 connection timing | The selected NODELAY default is applied when a connection is attached; later load changes do not retune an existing connection. |
+| H1 AUTO cost | AUTO samples at most eight recent live connections; FIXED/LATENCY/THROUGHPUT bypass AUTO sampling. |
+| H1 precedence | Explicit `ListenerOptions(socketContext: ['tcp_nodelay' => ...])` wins over the protocol default. |
+| H2 scope | Only the bounded initial-response fast path changes; normal flow control, multiplexing, response queues, and backpressure remain unchanged. |
+| H3 inbound | `inboundAdaptive` controls bounded read/poll effort. |
+| H3 outbound | `outboundAdaptive` controls bounded response-write effort. |
+| Resource ceilings | No adaptive mode raises request/body/header/frame, stream, connection, queue, HPACK/QPACK, WebSocket, or lifecycle ceilings. |
 
 Keep `FIXED` unless your own repeated benchmark evidence shows a reason to select another profile.
 
