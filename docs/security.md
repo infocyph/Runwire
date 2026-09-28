@@ -166,14 +166,14 @@ $policy = new ProcessPolicy(
 
 Never let untrusted input directly choose executable paths, unrestricted arguments, environment variable names/values, or working directories. Validate application-level arguments according to the called program's own grammar as well; shell avoidance does not make every target executable safe for arbitrary user-controlled arguments.
 
-ProcessRunner does not require PCNTL. It requires these PHP process functions to remain available:
+ProcessRunner does not require PCNTL. It requires these PHP process functions:
 
-```text
-proc_open
-proc_get_status
-proc_terminate
-proc_close
-```
+| Function | Role |
+| --- | --- |
+| `proc_open` | Start the validated child process without a shell. |
+| `proc_get_status` | Observe child state/exit information. |
+| `proc_terminate` | Request graceful/forced termination according to policy. |
+| `proc_close` | Close process resources and collect termination state. |
 
 ## `disable_functions`
 
@@ -187,14 +187,7 @@ When the application does not use the corresponding APIs, a portable CLI profile
 disable_functions = exec,passthru,shell_exec,system,popen,pcntl_exec
 ```
 
-If the application uses `ProcessRunner`, retain:
-
-```text
-proc_open
-proc_get_status
-proc_terminate
-proc_close
-```
+If the application uses `ProcessRunner`, retain all four process functions in the table above.
 
 ### Native prefork example
 
