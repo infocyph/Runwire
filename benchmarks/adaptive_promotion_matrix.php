@@ -298,6 +298,7 @@ function adaptivePromotionEvaluateProtocol(array $caseResults, string $protocol)
         $result = $caseResults[$name] ?? null;
         if (!is_array($result) || ($result['valid'] ?? false) !== true) {
             $failures[] = $name . ': missing or invalid trial evidence';
+
             continue;
         }
         $comparisons = is_array($result['comparisons'] ?? null) ? $result['comparisons'] : [];
@@ -722,6 +723,7 @@ function adaptivePromotionMain(array $argv): int
     if (!mkdir($temporary, 0o700, true) && !is_dir($temporary)) {
         throw new RuntimeException('Unable to create adaptive promotion temporary directory.');
     }
+
     try {
         $openssl = [
             'openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '7',
