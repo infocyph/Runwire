@@ -452,7 +452,7 @@ jobs:
           cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest-adaptive.xml
           trap 'rm -f .phpforge-pest-adaptive.xml' EXIT
           vendor/bin/pest --configuration=.phpforge-pest-adaptive.xml             tests/AdaptiveBenchmarkEvidenceTest.php             tests/AdaptivePromotionMatrixTest.php
-          /tmp/runwire-h2/bin/python -m unittest tests/benchmarks/test_adaptive_h2_client.py -v
+          /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h2_client.py' -v
 
       - name: Run diagnostic AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
         shell: bash
