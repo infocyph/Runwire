@@ -195,7 +195,9 @@ it('recomputes promotion evidence from raw records and rejects failure markers',
         foreach ($iterator as $item) {
             $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
-        @rmdir($directory);
+        if (is_dir($directory)) {
+            rmdir($directory);
+        }
     }
 });
 
