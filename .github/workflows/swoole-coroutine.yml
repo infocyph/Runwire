@@ -85,13 +85,18 @@ jobs:
           }
           trap cleanup EXIT
 
-          port="$(python3 - <<'PY'
-          import socket
-          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-              sock.bind(('127.0.0.1', 0))
-              print(sock.getsockname()[1])
-          PY
-          )"
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($name) || !str_contains($name, ":")) {
+              throw new RuntimeException("Unable to resolve ephemeral TCP port.");
+          }
+          echo substr(strrchr($name, ":"), 1);
+          ')"
 
           php tests/fixtures/swoole_coroutine_server.php "$port" \
             >"$logfile" 2>&1 &
