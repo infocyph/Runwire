@@ -33,6 +33,10 @@ function adaptivePromotionCases(string $protocol): array
 /** @return array<string, mixed> */
 function adaptivePromotionLoadJson(string $path): array
 {
+    if (!is_file($path) || !is_readable($path)) {
+        throw new RuntimeException('Unable to read adaptive promotion JSON: ' . $path);
+    }
+
     $contents = file_get_contents($path);
     if (!is_string($contents)) {
         throw new RuntimeException('Unable to read adaptive promotion JSON: ' . $path);
