@@ -67,13 +67,13 @@ Nested `run()` on the same runtime is rejected; use the active scope instead.
 
 Defaults:
 
-```text
-maxTasks                1024
-maxReadyBacklog         1024
-maxFutureWaiters        1024
-maxResumesPerTick       128
-maxWaitersPerPrimitive  1024
-```
+| Policy | Default | Purpose |
+| --- | ---: | --- |
+| `maxTasks` | 1024 | Bounds live coroutine tasks. |
+| `maxReadyBacklog` | 1024 | Bounds scheduler-ready backlog; must be at least `maxTasks`. |
+| `maxFutureWaiters` | 1024 | Bounds waiters attached to a Future/Deferred path. |
+| `maxResumesPerTick` | 128 | Bounds coroutine resume work per scheduler turn. |
+| `maxWaitersPerPrimitive` | 1024 | Bounds waiters retained by synchronization primitives. |
 
 Override deliberately:
 
