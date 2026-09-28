@@ -129,8 +129,17 @@ done
 
 php benchmarks/adaptive_matrix_summary.php "${auto_files[@]}"   > "$output_dir/http3-auto-summary.json"
 php benchmarks/adaptive_matrix_summary.php "${fixed_files[@]}"   > "$output_dir/http3-fixed-summary.json"
-php benchmarks/adaptive_matrix_compare.php   "$output_dir/http3-auto-summary.json"   "$output_dir/http3-fixed-summary.json" "${compare_args[@]}"   > "$output_dir/http3-comparison.json"
+comparison_failed=0
+if ! php benchmarks/adaptive_matrix_compare.php   "$output_dir/http3-auto-summary.json"   "$output_dir/http3-fixed-summary.json" "${compare_args[@]}"   > "$output_dir/http3-comparison.json"; then
+  if [ "$evidence_mode" = "sustained" ]; then
+    comparison_failed=1
+  else
+    echo "HTTP/3 AUTO diagnostic regression recorded; FIXED remains the production default." >&2
+  fi
+fi
 
 cat "$output_dir/http3-auto-summary.json"
 cat "$output_dir/http3-fixed-summary.json"
 cat "$output_dir/http3-comparison.json"
+
+exit "$comparison_failed"
