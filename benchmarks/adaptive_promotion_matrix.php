@@ -52,10 +52,13 @@ function adaptivePromotionWriteJson(string $path, array $value): void
     if (!is_dir($directory) && !mkdir($directory, 0o777, true) && !is_dir($directory)) {
         throw new RuntimeException('Unable to create adaptive promotion directory: ' . $directory);
     }
+
     $temporary = $path . '.tmp';
     $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     if (file_put_contents($temporary, $json . PHP_EOL) === false || !rename($temporary, $path)) {
-        @unlink($temporary);
+        if (is_file($temporary)) {
+            unlink($temporary);
+        }
         throw new RuntimeException('Unable to publish adaptive promotion JSON: ' . $path);
     }
 }
@@ -389,6 +392,28 @@ function adaptivePromotionEvaluate(string $output, string $protocol, array $iden
     return $report;
 }
 
+function adaptivePromotionCanConnect(int $port): bool
+{
+    $warning = null;
+    set_error_handler(static function (int $severity, string $message) use (&$warning): bool {
+        $warning = $message;
+
+        return true;
+    });
+    try {
+        $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $error, 0.05);
+    } finally {
+        restore_error_handler();
+    }
+    if (!is_resource($socket)) {
+        return false;
+    }
+
+    fclose($socket);
+
+    return true;
+}
+
 function adaptivePromotionPickPort(bool $udp): int
 {
     $server = stream_socket_server(
@@ -446,14 +471,14 @@ function adaptivePromotionStop($process, int $pid): void
         return;
     }
     if (($status['running'] ?? false) === true) {
-        @posix_kill(-$pid, SIGTERM);
+        posix_kill(-$pid, SIGTERM);
         $deadline = microtime(true) + 10;
         do {
             usleep(50_000);
             $status = proc_get_status($process);
         } while (($status['running'] ?? false) === true && microtime(true) < $deadline);
         if (($status['running'] ?? false) === true) {
-            @posix_kill(-$pid, SIGKILL);
+            posix_kill(-$pid, SIGKILL);
         }
     }
     proc_close($process);
@@ -479,7 +504,7 @@ function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog
 
     $pid = (int) ($status['pid'] ?? 0);
     if ($pid > 1) {
-        @posix_kill(-$pid, SIGKILL);
+        posix_kill(-$pid, SIGKILL);
     }
     proc_close($process);
     $details = is_file($errorLog) ? trim((string) file_get_contents($errorLog)) : '';
@@ -505,7 +530,9 @@ function adaptivePromotionRunTrial(
     }
     $port = adaptivePromotionPickPort($protocol === 'h3');
     $ready = $temporary . '/ready';
-    @unlink($ready);
+    if (is_file($ready)) {
+        unlink($ready);
+    }
     $certificate = $temporary . '/cert.pem';
     $privateKey = $temporary . '/key.pem';
     $serverLog = sprintf('%s/%s-%d-server.log', $directory, $mode, $trial);
@@ -558,9 +585,7 @@ function adaptivePromotionRunTrial(
                     break;
                 }
             } else {
-                $socket = @stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $error, 0.05);
-                if (is_resource($socket)) {
-                    fclose($socket);
+                if (adaptivePromotionCanConnect($port)) {
                     break;
                 }
             }
@@ -582,7 +607,9 @@ function adaptivePromotionRunTrial(
             throw new RuntimeException('Adaptive promotion client failed with exit code ' . $code . '.');
         }
         $record = adaptivePromotionLoadJson($resultPath . '.raw');
-        @unlink($resultPath . '.raw');
+        if (is_file($resultPath . '.raw')) {
+            unlink($resultPath . '.raw');
+        }
         $record['run_id'] = bin2hex(random_bytes(16));
         adaptivePromotionValidateRecord($record, $case, $mode, $trial, $identity);
     } finally {
@@ -754,9 +781,13 @@ function adaptivePromotionMain(array $argv): int
         }
     } finally {
         foreach (glob($temporary . '/*') ?: [] as $path) {
-            @unlink($path);
+            if (is_file($path)) {
+                unlink($path);
+            }
         }
-        @rmdir($temporary);
+        if (is_dir($temporary)) {
+            rmdir($temporary);
+        }
     }
 
     $report = adaptivePromotionEvaluate($output, $options['protocol'], $identity);
@@ -774,5 +805,8 @@ function adaptivePromotionMain(array $argv): int
 }
 
 if (realpath($argv[0] ?? '') === __FILE__) {
-    exit(adaptivePromotionMain($argv));
+    $status = adaptivePromotionMain($argv);
+    if ($status !== 0) {
+        throw new RuntimeException('Adaptive promotion matrix did not satisfy its gate.');
+    }
 }
