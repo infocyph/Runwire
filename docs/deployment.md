@@ -448,14 +448,17 @@ Production requirements:
 
 The production default for HTTP/1.1, HTTP/2, and HTTP/3 is `FIXED`. `AUTO`, `LATENCY`, and `THROUGHPUT` remain supported explicit profiles, but they should be treated as workload-specific tuning rather than generic upgrades.
 
-Use these rules in production:
+Production selection:
 
-- keep `FIXED` when deterministic behavior is preferred or no representative repeated benchmark exists;
-- use `LATENCY` or `THROUGHPUT` when a deterministic bias has been measured to help the deployment;
-- use `AUTO` only after repeated measurements cover steady load, transitions, tail latency, CPU, memory, fairness, and backpressure;
-- configure policies per protocol rather than assuming one crossover profile is suitable everywhere;
-- configure HTTP/3 inbound and outbound policies independently when only one direction needs tuning;
-- do not compensate for policy changes by raising hard resource ceilings unless capacity testing separately justifies those limit changes.
+| Choice | Use when | Avoid when |
+| --- | --- | --- |
+| `FIXED` | Deterministic behavior is preferred, workload is mixed/unknown, or no representative repeated benchmark exists. | Only when a measured alternative clearly performs better for the deployment. |
+| `LATENCY` | A deterministic latency bias improves measured interactive/RPC traffic. | Bulk/sustained workloads where the bias hurts throughput. |
+| `THROUGHPUT` | A deterministic throughput bias improves measured sustained transfer performance. | Tail latency or small-response behavior regresses materially. |
+| `AUTO` | Repeated tests cover steady load, transitions, p95/p99, CPU, RSS, fairness, and backpressure and remain inside your release budget. | Workloads without transition evidence, unstable measurements, or deployments that require strict determinism. |
+| Per-protocol tuning | One protocol has a distinct traffic shape or bottleneck. | Applying one crossover profile blindly to H1/H2/H3. |
+| H3 split tuning | Only inbound or outbound HTTP/3 behavior needs adaptation. | Changing both directions without evidence. |
+| Hard limits | Change only after separate capacity testing. | Never raise them merely to compensate for an adaptive-policy choice. |
 
 HTTP/1.1 chooses its default TCP_NODELAY behavior when each connection is attached. An explicit listener socket setting owns the decision and prevents the protocol strategy from overriding it:
 
