@@ -124,16 +124,16 @@ Do not combine host-owned serving with a competing Runwire listener.
 
 Portable native is intentionally not a substitute supervisor:
 
-```text
-workers 0 or 1            one process
-workers > 1               startup error
-enabled recycle threshold startup error
-control endpoint           startup error
-development watcher        startup error
-lifecycle listener         startup error
-worker privilege drop      startup error
-HTTP/3 without QUIC        startup error
-```
+| Configuration | Portable-native behavior |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One process. |
+| `workers > 1` | Startup error. |
+| Worker recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop policy configured | Startup error. |
+| HTTP/3 configured without QUIC | Startup error. |
 
 HTTP/1.1, framed TCP/Unix, and UDP remain available when their platform capabilities are present. External supervision owns process restart/replacement.
 
@@ -305,26 +305,12 @@ Runwire does **not** make arbitrary blocking PHP APIs asynchronous.
 
 ## Runtime and request context
 
-`RuntimeContext` contains immutable worker/application-lifetime facts:
+Runtime and request state are separated by lifetime:
 
-```text
-driver / mode
-worker slot / generation / PID
-persistence / concurrency
-listener / event-loop / worker-pool ownership
-resolved capabilities
-runtime metrics
-```
-
-`RequestContext` contains request-lifetime state:
-
-```text
-request ID
-monotonic start/deadline
-cancellation token
-bounded request attributes
-owning RuntimeContext
-```
+| Context | Lifetime | Contains |
+| --- | --- | --- |
+| `RuntimeContext` | Worker/application lifetime | Driver/mode; worker slot/generation/PID; persistence/concurrency; listener/event-loop/worker-pool ownership; resolved capabilities; runtime metrics. |
+| `RequestContext` | Request lifetime | Request ID; monotonic start/deadline; cancellation token; bounded request attributes; owning `RuntimeContext`. |
 
 Framework integrations should use capability checks instead of driver-name branching for generic behavior:
 
