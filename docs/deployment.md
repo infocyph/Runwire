@@ -94,16 +94,16 @@ Portable mode keeps ordinary native serving available when PCNTL/POSIX are missi
 
 The portable contract is fail-closed:
 
-```text
-workers 0 or 1            one process
-workers > 1               startup error
-enabled recycle threshold startup error
-control endpoint           startup error
-development watcher        startup error
-lifecycle listener         startup error
-worker privilege drop      startup error
-HTTP/3 without QUIC        startup error
-```
+| Configuration | Result |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One process. |
+| `workers > 1` | Startup error. |
+| Worker recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop configured | Startup error. |
+| HTTP/3 configured without QUIC | Startup error. |
 
 External supervision owns portable process restart/replacement.
 
@@ -514,13 +514,13 @@ Do not respond to slow consumers by creating an unbounded application buffer.
 
 Default limits:
 
-```text
-maxTasks                1024
-maxReadyBacklog         1024
-maxFutureWaiters        1024
-maxResumesPerTick       128
-maxWaitersPerPrimitive  1024
-```
+| Coroutine policy | Default |
+| --- | ---: |
+| `maxTasks` | 1024 |
+| `maxReadyBacklog` | 1024 |
+| `maxFutureWaiters` | 1024 |
+| `maxResumesPerTick` | 128 |
+| `maxWaitersPerPrimitive` | 1024 |
 
 Override intentionally:
 
@@ -559,14 +559,14 @@ Keep labels fixed-cardinality. Do not emit request IDs, connection IDs, URLs, or
 
 Operational state should distinguish:
 
-```text
-live
-ready
-healthy
-draining
-```
+| State | Meaning |
+| --- | --- |
+| `live` | Process/runtime exists. |
+| `ready` | Prepared to accept intended work. |
+| `healthy` | Runtime is operating within its health contract. |
+| `draining` | New work is restricted while admitted work completes. |
 
-A PID existing is not sufficient evidence of readiness or health.
+A PID existing proves only liveness; it is not sufficient evidence of readiness or health.
 
 ## 25. Production checklist
 
