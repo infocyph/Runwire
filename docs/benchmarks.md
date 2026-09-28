@@ -126,25 +126,26 @@ Keep loopback results labeled as loopback results. They are useful for regressio
 
 The benchmark workflow runs five repeated native HTTP/1.1 keep-alive trials against the real Runwire native server on PHP 8.4 and 8.5. Pull requests use short CI-smoke durations to validate correctness and evidence plumbing. They are not stable production baselines and do not enforce small timing deltas on shared runners.
 
-The dedicated Release Certification workflow runs through `workflow_dispatch`, the historical `feature/next-edition` lane, or an explicit `release-certification` pull-request label. The label is the normal opt-in gate for a release-critical PR; ordinary PRs keep the lighter regression lanes.
+The dedicated Release Certification workflow runs through `workflow_dispatch` or an explicit `release-certification` pull-request label. The label is the normal opt-in gate for a release-critical PR; ordinary PRs keep the lighter regression lanes.
 
-Release certification contains four independent jobs:
-
-1. **Matched baseline/candidate performance (PHP 8.5):** checks out the exact candidate and the pinned pre-consolidation baseline, verifies PCNTL/POSIX/ext-event/OPcache, gives each server a 30-second warmup, and runs five alternating 180-second measured trials for each side.
-2. **Candidate 30-minute HTTP soak (PHP 8.5):** runs one real native HTTP/1.1 server with concurrency 32, a 30-second warmup, and 1800 seconds of measured traffic. Every attempted request must complete successfully with zero errors, timeouts, or response-validation failures.
-3. **Representative Infbyte consumer:** installs the exact Runwire candidate into `infocyph/Infbyte` from its `main` branch, runs the full consumer test suite, boots Foundation, checks the health route, and exercises the Webrick/Runwire adapter bridge.
-4. **PHPForge release guard with ext-event:** verifies PCNTL, POSIX, ext-event and OPcache on PHP 8.5, runs `composer check-platform-reqs`, then executes `composer ic:release:guard`.
+| Certification job | Environment / duration | Pass condition |
+| --- | --- | --- |
+| Matched baseline/candidate performance | PHP 8.5; exact candidate vs pinned baseline; PCNTL/POSIX/ext-event/OPcache; 30 s warmup + five 180 s measured trials per side | Correctness passes, max RPS CV <2.5%, regression budget is enforced, candidate median RPS stays within 5% of baseline. |
+| Candidate 30-minute HTTP soak | PHP 8.5; real native H1 server; concurrency 32; 30 s warmup + 1800 s measured traffic | Every request completes successfully; zero errors, timeouts, and validation failures. |
+| Representative Infbyte consumer | Infbyte `main` with exact Runwire candidate | Full consumer suite passes; Foundation boots; health route and Webrick/Runwire bridge probe pass. |
+| PHPForge release guard | PHP 8.5 with PCNTL/POSIX/ext-event/OPcache | Platform requirements pass and `composer ic:release:guard` succeeds. |
 
 The resulting artifacts record:
 
-- total, completed and successful requests;
-- errors, timeouts and response-validation failures;
-- p50/p95/p99 latency;
-- successful RPS and median successful RPM across repeated trials;
-- trial-to-trial RPS coefficient of variation;
-- process-tree CPU and peak RSS;
-- worker count, concurrency, connection reuse and duration;
-- PHP, extension, OPcache, build, host OS and CPU metadata.
+| Evidence area | Recorded data |
+| --- | --- |
+| Correctness | Total/completed/successful requests, errors, timeouts, response-validation failures. |
+| Latency | p50, p95, p99. |
+| Throughput | Successful RPS and median successful RPM. |
+| Stability | Trial-to-trial RPS coefficient of variation. |
+| Resource use | Process-tree CPU and peak RSS. |
+| Workload | Worker count, concurrency, connection reuse, duration. |
+| Environment | PHP, extensions, OPcache, build, host OS, CPU metadata. |
 
 A certification record fails if a response is incomplete, times out, errors, or fails response validation. The matched comparison additionally requires both five-trial RPS series to be stable enough for enforcement: the larger RPS coefficient of variation must be below 2.5%. When that condition is met, the candidate median successful RPS must remain within 5% of the baseline. The release workflow requires `budget_enforced == true` as well as `passed == true`, so evidence with CV at or above 2.5% is not accepted as a release pass; it must be rerun in a stable environment.
 
