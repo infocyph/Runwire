@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Http\Http3\Internal;
 
 use Closure;
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
@@ -55,6 +56,7 @@ final class ResponseScheduler
         private readonly Http3TransportInterface $transport,
         private readonly ?ByteBudget $bufferBudget = null,
         AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::FIXED,
             lowWatermarkBasisPoints: 1_000,
             highWatermarkBasisPoints: 4_000,
         ),
