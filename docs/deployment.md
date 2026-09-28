@@ -12,24 +12,18 @@ Hard package requirement:
 64-bit PHP ^8.4
 ```
 
-Recommended native prefork extensions:
+Runtime capability baseline:
 
-```text
-ext-pcntl
-ext-posix
-ext-event         scalable native HTTP worker loop; strongly recommended for high connection counts
-```
-
-Optional capabilities:
-
-```text
-ext-openssl       TLS / HTTP/2 ALPN
-ext-quic          native QUIC / HTTP/3
-ext-swoole        Swoole host integration; select RuntimeDriver::SWOOLE explicitly
-ext-openswoole    OpenSwoole host integration; select RuntimeDriver::SWOOLE explicitly
-ext-sockets       optional socket features
-ext-zend-opcache  bytecode cache
-```
+| Capability | Production role | Required? |
+| --- | --- | --- |
+| 64-bit PHP `^8.4` | Core runtime requirement. | **Required** |
+| `ext-pcntl` + `ext-posix` | Native prefork workers, reload/recycle, signals, control operations, privilege reduction. | Recommended for prefork; not required for portable native. |
+| `ext-event` | Scalable native HTTP worker loop. | Strongly recommended for high-connection prefork HTTP; SelectLoop is the fallback. |
+| `ext-openssl` | TLS and HTTP/2 ALPN. | Required only when TLS/HTTP2 is enabled. |
+| `ext-quic` | Native QUIC and HTTP/3. | Required only when HTTP/3 is enabled. |
+| `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host integration. | Required only for that host; select `RuntimeDriver::SWOOLE` explicitly. |
+| `ext-sockets` | Optional low-level socket features and transport tuning. | Optional. |
+| OPcache | Persistent bytecode caching. | Recommended for production; required by release-certification performance evidence. |
 
 ## 2. Correct ownership model and host selection
 
