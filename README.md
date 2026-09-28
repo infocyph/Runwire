@@ -24,6 +24,7 @@ Optional runtime capabilities:
 | Extension/capability | Enables |
 | --- | --- |
 | `ext-pcntl` + `ext-posix` | native prefork supervision, reload, worker replacement/recycle, signals, control operations, privilege reduction |
+| `ext-event` | scalable native HTTP event-loop backend for prefork workers; SelectLoop remains the fallback |
 | `ext-openssl` | native TLS and HTTP/2 ALPN |
 | `ext-quic` | native QUIC / HTTP/3 |
 | `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host runtime integration; select `RuntimeDriver::SWOOLE` explicitly when using this host adapter |
@@ -396,9 +397,9 @@ Report throughput together with p50/p95/p99 latency, errors, CPU, and RSS.
 
 Start here for complete examples and operational guidance:
 
-- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, TCP/Unix, UDP, hosted-runtime, explicit Swoole/OpenSwoole selection, application-factory, capability, and coroutine examples.
+- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, adaptive scheduling, TCP/Unix, UDP, hosted-runtime, explicit Swoole/OpenSwoole selection, application-factory, capability, and coroutine examples.
 - [`docs/architecture.md`](docs/architecture.md) — runtime selection, ownership boundaries, capability model, contexts, lifecycle, networking, protocol, coroutine, observability, and security contracts.
-- [`docs/deployment.md`](docs/deployment.md) — production topology, host selection, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, backpressure, resource limits, and deployment acceptance.
+- [`docs/deployment.md`](docs/deployment.md) — production topology, host selection, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, adaptive policy selection, backpressure, resource limits, and deployment acceptance.
 - [`docs/security.md`](docs/security.md) — least privilege, persistent-state isolation, ProcessRunner policy, `disable_functions`, resource ceilings, and systemd/container hardening.
 - [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
 - [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.
