@@ -547,13 +547,13 @@ Runtime::create($options)->serve(
 
 Either compatible `ext-swoole` or `ext-openswoole` can back `RuntimeDriver::SWOOLE`. Explicit selection fails if neither is available.
 
-Use:
+Choose the entry point by ownership:
 
-```text
-Runtime::run()              Runwire-owned native listeners
-Runtime::serve()            simple host-owned handler
-Runtime::serveApplication() host-owned application factory
-```
+| Entry point | Use when |
+| --- | --- |
+| `Runtime::run()` | Runwire owns native listeners/runtime driving. |
+| `Runtime::serve()` | A supported host owns serving and you provide a simple handler. |
+| `Runtime::serveApplication()` | A supported host owns serving and you provide an application factory/lifecycle. |
 
 Do not combine `listen()` with host-owned `serve()`/`serveApplication()`.
 
