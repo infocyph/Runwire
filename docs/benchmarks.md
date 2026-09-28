@@ -478,7 +478,7 @@ These scripts currently cover H1 plaintext 2-byte responses, H2 TLS 768-byte res
 
 `adaptive_promotion_matrix.php` defines 86 mandatory cases: 16 H1 (plaintext/TLS, four sizes, short/long reuse), 28 H2 (four sizes, mixed payloads, constrained flow and transport reads, 1/8/32/100 streams), and 42 H3 (four sizes, three concurrency levels, upload/download/balanced traffic, delayed QPACK instructions and connection churn). Each case runs FIXED, LATENCY, THROUGHPUT and AUTO, five trials each with rotated order, 30-second warm-up, and 180-second low/medium/high/low steady phases surrounding short up/down transitions.
 
-Run on a dedicated Linux host with the native extensions and OpenSSL CLI. HTTP/1.1 load generation and the complete matrix orchestration/evaluation are PHP-native. HTTP/2 deliberately retains the pinned independent `h2==4.3.0` Python client, and HTTP/3 deliberately retains the pinned independent `aioquic==1.3.0` Python client. Set `RUNWIRE_H2_PYTHON` and `RUNWIRE_AIOQUIC_PYTHON` if those client environments are outside the paths above. Client dependencies stay outside production Composer dependencies.
+Run on a dedicated Linux host with the native extensions and OpenSSL CLI. The complete matrix orchestration/evaluation, case manifest and gate contracts are PHP-native. HTTP/1.1 retains its asynchronous Python stdlib load client because the short-reuse TLS cells require concurrent connection/handshake churn; replacing it with the synchronous PHP sustained client would weaken generator fidelity. HTTP/2 deliberately retains the pinned independent `h2==4.3.0` client, and HTTP/3 retains the pinned independent `aioquic==1.3.0` client. Set `RUNWIRE_H1_PYTHON`, `RUNWIRE_H2_PYTHON`, and `RUNWIRE_AIOQUIC_PYTHON` if those client environments are outside the defaults. Client dependencies stay outside production Composer dependencies.
 
 ```bash
 php benchmarks/adaptive_promotion_matrix.php list --protocol h2
@@ -505,6 +505,10 @@ Harness regression tests:
 # PHP-owned manifest, evaluator, provenance, and promotion-gate contracts.
 vendor/bin/pest tests/AdaptiveBenchmarkEvidenceTest.php tests/AdaptivePromotionMatrixTest.php
 
+# Asynchronous HTTP/1.1 load client.
+RUNWIRE_H1_PYTHON=/tmp/runwire-h2/bin/python \
+  /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h1_client.py' -v
+
 # Independent HTTP/2 transport client.
 RUNWIRE_H2_PYTHON=/tmp/runwire-h2/bin/python \
   /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h2_client.py' -v
@@ -514,7 +518,7 @@ RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
   /tmp/runwire-aioquic/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_http3_client.py' -v
 ```
 
-Python is intentionally retained only where it supplies an independent protocol implementation or QUIC interoperability surface. The promotion runner, case manifest/evaluation, H1 client, port allocation, and gate contract tests are PHP/Bash-owned.
+Python is intentionally retained only for the asynchronous H1 load client and the independent hyper-h2/aioquic load or interoperability clients. The promotion runner, case manifest/evaluation, port allocation, and promotion-gate contract tests are PHP/Bash-owned.
 
 ## Related documentation
 
