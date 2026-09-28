@@ -114,7 +114,7 @@ Use operating-system or container memory limits as the authoritative hard proces
 
 Portable native is one process and has no internal replacement worker. Worker recycle thresholds therefore fail closed instead of being silently ignored.
 
-If process-level recycling is required, use the external service manager or deployment platform, for example systemd, a container orchestrator, or another process supervisor. A distinct Runwire single-process retirement policy may be considered after 1.0; `WorkerRecyclePolicy` is intentionally not overloaded for this purpose.
+If process-level recycling is required, use the external service manager or deployment platform, for example systemd, a container orchestrator, or another process supervisor. Runwire 2.0 intentionally does not overload `WorkerRecyclePolicy` for whole-process retirement in portable mode.
 
 ## Portable native capability contract
 
@@ -141,7 +141,7 @@ Portable native remains suitable for ordinary HTTP, framed TCP/Unix, and UDP ser
 
 `ProcessRunner` deliberately avoids a shell and executes a validated argv vector with `bypass_shell = true`. It also supports explicit bounds for arguments, environment, working directory, stdin, output, runtime, graceful termination, post-exit pipe draining, and the wait after force termination. If a child still reports itself running after `ProcessPolicy::postKillWaitSeconds`, execution fails instead of silently extending the configured shutdown bound indefinitely.
 
-The 1.0 default keeps:
+The 2.0 default keeps:
 
 ```php
 allowedExecutables: null
