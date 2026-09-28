@@ -14,6 +14,7 @@ Optional capabilities:
 
 ```text
 ext-pcntl + ext-posix   native prefork supervision/reload/recycle
+ext-event               scalable native HTTP loop for prefork workers; SelectLoop fallback otherwise
 ext-openssl             TLS and HTTP/2 ALPN
 ext-quic                native QUIC / HTTP/3
 ext-swoole              Swoole host integration; select RuntimeDriver::SWOOLE explicitly
