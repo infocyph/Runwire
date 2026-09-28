@@ -12,16 +12,15 @@ composer require infocyph/runwire
 
 Optional capabilities:
 
-```text
-ext-pcntl + ext-posix   native prefork supervision/reload/recycle
-ext-event               scalable native HTTP loop for prefork workers; SelectLoop fallback otherwise
-ext-openssl             TLS and HTTP/2 ALPN
-ext-quic                native QUIC / HTTP/3
-ext-swoole              Swoole host integration; select RuntimeDriver::SWOOLE explicitly
-ext-openswoole          OpenSwoole host integration; select RuntimeDriver::SWOOLE explicitly
-ext-sockets             optional socket features
-ext-zend-opcache        bytecode cache
-```
+| Extension/capability | Enables / changes |
+| --- | --- |
+| `ext-pcntl` + `ext-posix` | Native prefork supervision, reload, worker replacement/recycle, signals, control operations, and privilege reduction. |
+| `ext-event` | Scalable native HTTP event-loop backend for prefork workers; SelectLoop remains the fallback. |
+| `ext-openssl` | Native TLS and HTTP/2 ALPN. |
+| `ext-quic` | Native QUIC transport and HTTP/3. |
+| `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host integration; select `RuntimeDriver::SWOOLE` explicitly. |
+| `ext-sockets` | Optional low-level socket features and transport tuning. |
+| OPcache | Persistent bytecode caching. |
 
 Native CLI serving remains available without PCNTL/POSIX through the portable single-process runtime.
 
