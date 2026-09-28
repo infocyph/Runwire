@@ -167,11 +167,27 @@ function http1SustainedParseHead(string $head): array
 }
 
 /** @return resource */
-function http1SustainedConnect(string $host, int $port)
+function http1SustainedConnect(string $host, int $port, bool $tls = false)
 {
     $errno = 0;
     $error = '';
-    $socket = stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
+    $context = $tls
+        ? stream_context_create(['ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+            'allow_self_signed' => true,
+            'peer_name' => 'localhost',
+            'alpn_protocols' => 'http/1.1',
+        ]])
+        : null;
+    $socket = stream_socket_client(
+        sprintf('%s://%s:%d', $tls ? 'tls' : 'tcp', $host, $port),
+        $errno,
+        $error,
+        2.0,
+        STREAM_CLIENT_CONNECT,
+        $context,
+    );
     if (!is_resource($socket)) {
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
@@ -189,10 +205,10 @@ function http1SustainedConnect(string $host, int $port)
  * @param array<string, int> $counter
  * @return array<string, mixed>|null
  */
-function http1SustainedOpenClient(string $host, int $port, array &$counter): ?array
+function http1SustainedOpenClient(string $host, int $port, array &$counter, bool $tls = false): ?array
 {
     try {
-        $stream = http1SustainedConnect($host, $port);
+        $stream = http1SustainedConnect($host, $port, $tls);
     } catch (Http1SustainedTimeout) {
         ++$counter['requests_total'];
         ++$counter['timeouts_total'];
@@ -212,6 +228,7 @@ function http1SustainedOpenClient(string $host, int $port, array &$counter): ?ar
         'head' => null,
         'request_started' => 0,
         'request_deadline' => 0.0,
+        'reuse_count' => 0,
         'active' => true,
     ];
 }
@@ -248,14 +265,21 @@ function http1SustainedRecordLatency(array &$histogram, int $started): void
  * @param array<int, array<string, mixed>> $clients
  * @param array<string, int> $counter
  */
-function http1SustainedReconnect(array &$clients, int $id, string $host, int $port, float $deadline, array &$counter): void
-{
+function http1SustainedReconnect(
+    array &$clients,
+    int $id,
+    string $host,
+    int $port,
+    float $deadline,
+    array &$counter,
+    bool $tls = false,
+): void {
     http1SustainedCloseClient($clients[$id]);
     if (microtime(true) >= $deadline) {
         return;
     }
     ++$counter['reconnects_total'];
-    $client = http1SustainedOpenClient($host, $port, $counter);
+    $client = http1SustainedOpenClient($host, $port, $counter, $tls);
     if ($client === null) {
         return;
     }
@@ -333,11 +357,14 @@ function http1SustainedCompleteResponse(
     array &$slotCompleted,
     bool $collectLatency,
     array $response,
+    string $expectedBody,
+    bool $tls,
+    int $maxRequestsPerConnection,
 ): void {
     $client = &$clients[$id];
     ++$counter['completed_requests'];
     ++$slotCompleted[$id];
-    if ($response['status'] === 200 && $response['body'] === 'ok') {
+    if ($response['status'] === 200 && hash_equals($expectedBody, $response['body'])) {
         ++$counter['successful_requests'];
     } else {
         ++$counter['validation_failures'];
@@ -345,8 +372,9 @@ function http1SustainedCompleteResponse(
     if ($collectLatency) {
         http1SustainedRecordLatency($histogram, (int) $client['request_started']);
     }
-    if ($response['close']) {
-        http1SustainedReconnect($clients, $id, $host, $port, $deadline, $counter);
+    ++$client['reuse_count'];
+    if ($response['close'] || $client['reuse_count'] >= $maxRequestsPerConnection) {
+        http1SustainedReconnect($clients, $id, $host, $port, $deadline, $counter, $tls);
     } elseif (microtime(true) < $deadline) {
         http1SustainedPrepareRequest($client, $counter);
     } else {
@@ -370,6 +398,9 @@ function http1SustainedHandleReadable(
     array &$histogram,
     array &$slotCompleted,
     bool $collectLatency,
+    string $expectedBody,
+    bool $tls,
+    int $maxRequestsPerConnection,
 ): void {
     try {
         http1SustainedReadChunk($clients[$id]);
@@ -394,6 +425,9 @@ function http1SustainedHandleReadable(
         $slotCompleted,
         $collectLatency,
         $response,
+        $expectedBody,
+        $tls,
+        $maxRequestsPerConnection,
     );
 }
 
@@ -461,19 +495,27 @@ function http1SustainedRun(
     float $duration,
     int $serverPid,
     bool $collectLatency,
+    bool $tls = false,
+    string $target = '/benchmark',
+    string $expectedBody = 'ok',
+    int $maxRequestsPerConnection = PHP_INT_MAX,
 ): array {
+    if ($target === '' || !str_starts_with($target, '/') || $maxRequestsPerConnection < 1) {
+        throw new InvalidArgumentException('Invalid sustained HTTP/1.1 target or reuse limit.');
+    }
+
     $counter = http1SustainedCounters();
     $histogram = [];
     $slotCompleted = array_fill(0, $concurrency, 0);
     $clients = [];
-    $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n";
+    $request = "GET {$target} HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n";
     $started = hrtime(true);
     $deadline = microtime(true) + $duration;
     $startTicks = http1SustainedTreeTicks($serverPid);
     $peakRss = http1SustainedTreeRss($serverPid);
 
     for ($id = 0; $id < $concurrency; ++$id) {
-        $client = http1SustainedOpenClient($host, $port, $counter);
+        $client = http1SustainedOpenClient($host, $port, $counter, $tls);
         if ($client !== null) {
             http1SustainedPrepareRequest($client, $counter);
             $clients[$id] = $client;
@@ -506,6 +548,9 @@ function http1SustainedRun(
                     $histogram,
                     $slotCompleted,
                     $collectLatency,
+                    $expectedBody,
+                    $tls,
+                    $maxRequestsPerConnection,
                 );
             }
         }
