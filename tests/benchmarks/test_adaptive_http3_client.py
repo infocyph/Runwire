@@ -88,9 +88,30 @@ class H3ClientTest(unittest.IsolatedAsyncioTestCase):
             finally:
                 await session.close()
 
-    async def test_qpack_backlog_is_real_and_connection_state_survives_phases(self):
-        result = await self.exercise("qpack", concurrency=32, duration=0.75)
-        self.assertGreater(result["observed"]["qpack_delayed_headers"], 0)
+    async def test_qpack_backlog_is_real_after_peer_settings_are_processed(self):
+        matching = [
+            case for case in cases("h3")
+            if case["scenario"] == "qpack" and case["payload_bytes"] == 1024
+        ]
+        case = max(matching, key=lambda value: value["high"])
+        old = os.environ.get("RUNWIRE_ADAPTIVE_CASE")
+        os.environ["RUNWIRE_ADAPTIVE_CASE"] = json.dumps(case)
+        session = H3Session(self.port)
+        try:
+            protocol = await session.acquire()
+            for _ in range(128):
+                await protocol.request(f"localhost:{self.port}", 1024, 0)
+                if protocol.http.delayed_headers > 0:
+                    break
+            self.assertGreater(protocol.http.delayed_headers, 0)
+            result = await run_phase(session, os.getpid(), 32, 0.25, 1024)
+            self.assertTrue(result["correctness_passed"])
+        finally:
+            await session.close()
+            if old is None:
+                os.environ.pop("RUNWIRE_ADAPTIVE_CASE", None)
+            else:
+                os.environ["RUNWIRE_ADAPTIVE_CASE"] = old
 
     async def test_uploads_are_checked_end_to_end(self):
         result = await self.exercise("inbound")
