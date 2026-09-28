@@ -415,7 +415,7 @@ function adaptivePromotionStart(array $command, string $stdout, string $stderr, 
         [0 => ['file', '/dev/null', 'r'], 1 => ['file', $stdout, 'a'], 2 => ['file', $stderr, 'a']],
         $pipes,
         dirname(__DIR__),
-        array_replace($_ENV, $_SERVER, $environment),
+        array_replace(getenv(), $environment),
     );
     if (!is_resource($process)) {
         throw new RuntimeException('Unable to start adaptive promotion process.');
