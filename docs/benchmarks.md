@@ -476,19 +476,19 @@ These scripts currently cover H1 plaintext 2-byte responses, H2 TLS 768-byte res
 
 ### Complete J10 matrix
 
-`adaptive_promotion_matrix.py` defines 86 mandatory cases: 16 H1 (plaintext/TLS, four sizes, short/long reuse), 28 H2 (four sizes, mixed payloads, constrained flow and transport reads, 1/8/32/100 streams), and 42 H3 (four sizes, three concurrency levels, upload/download/balanced traffic, delayed QPACK instructions and connection churn). Each case runs FIXED, LATENCY, THROUGHPUT and AUTO, five trials each with rotated order, 30-second warm-up, and 180-second low/medium/high/low steady phases surrounding short up/down transitions.
+`adaptive_promotion_matrix.php` defines 86 mandatory cases: 16 H1 (plaintext/TLS, four sizes, short/long reuse), 28 H2 (four sizes, mixed payloads, constrained flow and transport reads, 1/8/32/100 streams), and 42 H3 (four sizes, three concurrency levels, upload/download/balanced traffic, delayed QPACK instructions and connection churn). Each case runs FIXED, LATENCY, THROUGHPUT and AUTO, five trials each with rotated order, 30-second warm-up, and 180-second low/medium/high/low steady phases surrounding short up/down transitions.
 
-Run on a dedicated Linux host with the native extensions, Python 3.11+, OpenSSL CLI, `h2==4.3.0` and `aioquic==1.3.0`. Set `RUNWIRE_H2_PYTHON` and `RUNWIRE_AIOQUIC_PYTHON` if the clients are outside the paths above. Client dependencies stay outside production Composer dependencies.
+Run on a dedicated Linux host with the native extensions and OpenSSL CLI. HTTP/1.1 load generation and the complete matrix orchestration/evaluation are PHP-native. HTTP/2 deliberately retains the pinned independent `h2==4.3.0` Python client, and HTTP/3 deliberately retains the pinned independent `aioquic==1.3.0` Python client. Set `RUNWIRE_H2_PYTHON` and `RUNWIRE_AIOQUIC_PYTHON` if those client environments are outside the paths above. Client dependencies stay outside production Composer dependencies.
 
 ```bash
-python3 benchmarks/adaptive_promotion_matrix.py list --protocol h2
-python3 benchmarks/adaptive_promotion_matrix.py run --protocol h2 --output benchmark-results/j10-h2
-python3 benchmarks/adaptive_promotion_matrix.py run --protocol h3 --output benchmark-results/j10-h3
-python3 benchmarks/adaptive_promotion_matrix.py run --protocol http1 --output benchmark-results/j10-h1
+php benchmarks/adaptive_promotion_matrix.php list --protocol h2
+php benchmarks/adaptive_promotion_matrix.php run --protocol h2 --output benchmark-results/j10-h2
+php benchmarks/adaptive_promotion_matrix.php run --protocol h3 --output benchmark-results/j10-h3
+php benchmarks/adaptive_promotion_matrix.php run --protocol http1 --output benchmark-results/j10-h1
 # Resume an interrupted run with the identical candidate and environment:
-python3 benchmarks/adaptive_promotion_matrix.py run --protocol h2 --output benchmark-results/j10-h2 --resume
+php benchmarks/adaptive_promotion_matrix.php run --protocol h2 --output benchmark-results/j10-h2 --resume
 # Recompute summaries and the gate from raw records, including missing cases:
-python3 benchmarks/adaptive_promotion_matrix.py evaluate --protocol h2 --output benchmark-results/j10-h2
+php benchmarks/adaptive_promotion_matrix.php evaluate --protocol h2 --output benchmark-results/j10-h2
 ```
 
 Use repeated `--case <id>` arguments to run selected cells, then `--resume` to fill the rest. Partial selections never pass the full protocol gate. For a quick harness check, use a separate output directory with `--case <id> --diagnostic --seconds 1 --warmup 1`; short runs also return nonzero because they cannot certify the matrix. A full run is intentionally lengthy: approximately 4.2 hours per cell, or 67/117/176 hours for H1/H2/H3 before connection/drain overhead. Do not run competing load jobs on the same host. No native sustained matrix was run during harness implementation.
@@ -502,9 +502,19 @@ The clients validate status and response bytes, validate uploaded bytes end to e
 Harness regression tests:
 
 ```bash
-# Use a Python environment with both pinned protocol-client dependencies.
-python3 -m unittest discover -s tests/benchmarks -p 'test_adaptive*.py' -v
+# PHP-owned manifest, evaluator, provenance, and promotion-gate contracts.
+vendor/bin/pest tests/AdaptiveBenchmarkEvidenceTest.php tests/AdaptivePromotionMatrixTest.php
+
+# Independent HTTP/2 transport client.
+RUNWIRE_H2_PYTHON=/tmp/runwire-h2/bin/python \
+  /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h2_client.py' -v
+
+# Independent HTTP/3/aioquic transport client.
+RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
+  /tmp/runwire-aioquic/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_http3_client.py' -v
 ```
+
+Python is intentionally retained only where it supplies an independent protocol implementation or QUIC interoperability surface. The promotion runner, case manifest/evaluation, H1 client, port allocation, and gate contract tests are PHP/Bash-owned.
 
 ## Related documentation
 
