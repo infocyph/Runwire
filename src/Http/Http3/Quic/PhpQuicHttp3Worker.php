@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Http3\Quic;
 use Closure;
 use Infocyph\Runwire\Exception\ListenerException;
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
@@ -52,8 +53,9 @@ final class PhpQuicHttp3Worker
         ?PhpQuicHttp3Poller $poller = null,
         private readonly float $handshakeTimeoutSeconds = self::DEFAULT_HANDSHAKE_TIMEOUT_SECONDS,
         private readonly ?ByteBudget $bufferBudget = null,
-        private readonly AdaptiveProtocolPolicy $inboundAdaptive = new AdaptiveProtocolPolicy(),
+        private readonly AdaptiveProtocolPolicy $inboundAdaptive = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED),
         private readonly AdaptiveProtocolPolicy $outboundAdaptive = new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::FIXED,
             lowWatermarkBasisPoints: 1_000,
             highWatermarkBasisPoints: 4_000,
         ),
