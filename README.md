@@ -175,6 +175,12 @@ $server = Server::http('0.0.0.0:8443', $handler)
 
 HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 2.0.
 
+### Protocol scheduling policy
+
+HTTP/1.1, HTTP/2, and HTTP/3 all default to deterministic `AdaptivePolicyMode::FIXED` behavior for the 2.0 release. `AUTO`, `LATENCY`, and `THROUGHPUT` are explicit per-protocol opt-ins through `AdaptiveProtocolPolicy`; they do not raise body, header, stream, queue, flow-control, or lifecycle limits.
+
+Use non-default scheduling profiles only after measuring the representative workload you intend to deploy. HTTP/1.1 applies its scheduling choice when a connection is attached, HTTP/2 uses it only for bounded initial-response scheduling, and HTTP/3 exposes independent inbound and outbound policies. See the Getting Started and Deployment guides for configuration examples, validation constraints, TCP_NODELAY precedence, and operational conditions.
+
 ### Native HTTP/1 WebSocket
 
 ```php
