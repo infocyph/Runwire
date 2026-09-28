@@ -440,7 +440,9 @@ monotonic time
 run / stop
 ```
 
-`SelectLoop` is the built-in portable loop and fallback implementation.
+`SelectLoop` is the built-in portable loop and fallback implementation. Portable native always uses one shared SelectLoop. Native prefork HTTP workers use `LoopFactory`: when ext-event is available they select the scalable `EventLoop`; otherwise they use SelectLoop with a conservative 256-connection worker ceiling to avoid pretending that `select()` scales beyond descriptor-safe bounds. Native framed-stream and datagram workers continue to use SelectLoop.
+
+Installing ext-event is therefore optional for correctness but recommended when a native prefork HTTP deployment requires high per-worker connection counts. Application code should program against `LoopInterface`, not a concrete backend.
 
 Optional host/custom loop integrations must preserve the same contract. Runwire does not ship a second independent timer reactor for coroutines.
 
