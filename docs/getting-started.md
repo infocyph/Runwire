@@ -330,11 +330,13 @@ The values above preserve each protocol's existing tuned crossover settings whil
 
 Policy validation is strict:
 
-```text
-0 <= lowWatermarkBasisPoints < highWatermarkBasisPoints <= 10000
-transitionSamples >= 1
-1 <= ewmaNumerator <= ewmaDenominator <= intdiv(PHP_INT_MAX, 10000)
-```
+| Setting | Valid range / relationship |
+| --- | --- |
+| `lowWatermarkBasisPoints` | `>= 0` and lower than `highWatermarkBasisPoints`. |
+| `highWatermarkBasisPoints` | `<= 10000` and higher than `lowWatermarkBasisPoints`. |
+| `transitionSamples` | `>= 1`. |
+| `ewmaNumerator` | `>= 1` and `<= ewmaDenominator`. |
+| `ewmaDenominator` | `>= 1` and `<= intdiv(PHP_INT_MAX, 10000)`. |
 
 Operational conditions:
 
