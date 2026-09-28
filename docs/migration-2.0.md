@@ -113,6 +113,8 @@ A standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO` with generic 25%/
 
 H1 selects its NODELAY default when a connection is attached; explicit listener `tcp_nodelay` configuration has precedence. H2 policy only changes bounded initial-response scheduling eligibility. H3 owns inbound read/poll effort separately from outbound response-write effort.
 
+Consumers constructing the low-level `PhpQuicHttp3Worker` or `PhpQuicHttp3Connection` directly can now pass inbound/outbound adaptive policies; both constructor defaults are FIXED. `PhpQuicConnection::closed()` exposes whether the native QUIC layer has already reported connection closure so graceful drain can treat peer-close ordering as normal. Most applications should continue using `Server`/`Http3Options` rather than constructing these adapters directly.
+
 Policy construction fails unless `0 <= low < high <= 10000`, `transitionSamples >= 1`, and `1 <= ewmaNumerator <= ewmaDenominator <= intdiv(PHP_INT_MAX, 10000)`.
 
 Adaptive policy never raises hard body/header/frame, stream, queue, connection, QPACK/HPACK, WebSocket, or lifecycle limits. Those existing configuration objects remain the authoritative resource ceilings. See [Getting Started](getting-started.md#7-adaptive-protocol-scheduling) for complete configuration examples and [Deployment](deployment.md#19-adaptive-protocol-scheduling) for production selection guidance.
