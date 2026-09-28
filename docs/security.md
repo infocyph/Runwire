@@ -120,20 +120,17 @@ If process-level recycling is required, use the external service manager or depl
 
 Without PCNTL/POSIX prefork capability, native CLI uses the single-process portable runtime.
 
-```text
-workers 0 → one process
-workers 1 → one process
-workers > 1 → startup error
-
-enabled worker recycle threshold → startup error
-native control endpoint → startup error
-development worker watcher → startup error
-supervisor lifecycle listener → startup error
-worker privilege drop → startup error
-
-HTTP/3 configured without QUIC → startup error
-HTTP/3 not configured → HTTP/1.1/HTTP/2 remain unaffected
-```
+| Configuration | Result |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One portable process. |
+| `workers > 1` | Startup error. |
+| Worker recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development worker watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop policy configured | Startup error. |
+| HTTP/3 configured without QUIC | Startup error. |
+| HTTP/3 not configured | HTTP/1.1 and HTTP/2 remain unaffected. |
 
 Portable native remains suitable for ordinary HTTP, framed TCP/Unix, and UDP serving when their required platform capabilities exist. External supervision owns process restart/replacement.
 
