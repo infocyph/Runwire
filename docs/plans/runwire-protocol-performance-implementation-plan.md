@@ -1,12 +1,12 @@
 # Runwire protocol performance implementation decision plan
 
-Updated: 2026-09-27
+Updated: 2026-09-28
 
 Reference Branch: `benchmarks/1.0-vs-2.0`
 
 Implementation Branch: `feat/http-improvement`
 
-Status: **runtime hardening is implemented; H1 defaults to FIXED and H2/H3 to AUTO by the release decision; J10 certification requires the full sustained matrix, and I8 remains reserved for external release certification**
+Status: **runtime hardening and J/K work are complete; HTTP/1.1, HTTP/2, and HTTP/3 default to FIXED after AUTO failed repeatable promotion gates. AUTO/LATENCY/THROUGHPUT remain explicit opt-in policies. I8 remains separately reserved for final release certification.**
 
 Companion evidence tracker: `https://github.com/infocyph/Runwire/blob/benchmarks/1.0-vs-2.0/docs/plans/runwire-protocol-performance-playground.md`
 
@@ -522,7 +522,7 @@ Required final gate:
 
 ## J — Adaptive HTTP/1.1, HTTP/2, and HTTP/3 tuning
 
-**Status: implementation complete through J09; J10 default promotion is not certified. HTTP/1.1 uses FIXED; HTTP/2 and HTTP/3 use AUTO by the release decision. Every policy remains explicitly selectable.**
+**Status: complete through J10. AUTO was not promoted for any protocol after repeatable promotion-gate regressions; HTTP/1.1, HTTP/2, and HTTP/3 default to FIXED. Every policy remains explicitly selectable.**
 
 The completed protocol work shows that several performance choices are workload-dependent rather than globally optimal. HTTP/1.1 NODELAY/coalescing, HTTP/2 initial-response batching, loop/backend behavior, and HTTP/3 pump/write/accept budgets all change their relative value as active work and transport pressure increase.
 
@@ -543,7 +543,7 @@ Throughout this section, "H1" means the native HTTP/1.1 path.
 | J07 | User policy | Should users be able to select AUTO / LATENCY / THROUGHPUT / FIXED and override crossover thresholds? | Protocol-local `AdaptiveProtocolPolicy` exposes mode, low/high basis-point watermarks, dwell samples and EWMA ratio without changing hard limits | **Complete** |
 | J08 | Transition behavior | Does adaptive mode remain stable under bursty and oscillating load? | Protocol transition/oscillation tests across H1.1/H2/H3 using explicit dwell and crossover policies | **Complete** |
 | J09 | Resource/correctness guard | Can adaptation remain completely below existing hard protocol/resource limits? | Cross-mode invariant tests prove adaptive choices remain at/below configured hard limits and FIXED preserves static behavior | **Complete** |
-| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | Run the complete matrix below; H1 retains FIXED and H2/H3 retain AUTO by the release decision; short diagnostics do not certify the matrix | **Awaiting external evidence** |
+| J10 | Promotion | Does adaptive mode beat or equal static defaults across representative workloads without CPU/RSS/fairness regression? | AUTO failed repeatable protocol promotion gates; keep FIXED as the production default for H1/H2/H3 and retain AUTO as explicit opt-in | **Complete / not promoted** |
 
 ### J01 — common adaptive load model
 
@@ -600,7 +600,7 @@ The state transition layer should also evaluate one of:
 - EWMA / rolling load score;
 - N consecutive samples above/below a boundary.
 
-Exact mechanics remain open until transition benchmarks identify the cheapest stable approach.
+Implemented mechanics use integer EWMA smoothing, low/high hysteresis, and sustained-sample dwell; transition tests cover bursts and crossover oscillation.
 
 The adaptive controller must be inexpensive enough that its own bookkeeping does not erase the optimization benefit. Prefer integer counters and already-maintained queue/pressure state over new high-frequency telemetry.
 
@@ -771,7 +771,7 @@ THROUGHPUT  fixed throughput-biased strategy
 FIXED       current/static configured limits and behavior
 ```
 
-`AUTO` is the selected H2/H3 default; H1 remains FIXED. Full performance certification still requires J10.
+`FIXED` is the production default for H1/H2/H3. `AUTO` remains available explicitly for measured deployments, but it is not release-promoted.
 
 Advanced users may eventually override protocol-specific crossover values, but there should be **no single global concurrency baseline** because HTTP/1.1 connections, HTTP/2 streams, and HTTP/3 pump pressure are different units.
 
@@ -856,62 +856,23 @@ State transitions must not:
 
 ### J10 — benchmark matrix and promotion gate
 
-**Status: awaiting external sustained certification.** The five-trial evidence at `17c373ac4ca93b73238a02d28c423450b9e31460` exercises one payload per protocol with 2–7-second phases; it is diagnostic evidence, not the full J10 matrix. H1 AUTO had conflicting results. H2/H3 passing those short comparisons does not establish sustained performance across the required workloads. The release decision explicitly retains H1 FIXED and H2/H3 AUTO, including direct QUIC entry points. This does not close the full J10 evidence gate. I8 remains separate.
+**Status: complete / AUTO not promoted.** The promotion gate was reopened by K03 and the adaptive candidates were re-evaluated rather than being accepted from earlier short green samples. The current exact-head diagnostics exposed protocol regressions that violate the preregistered release budgets:
 
-The summary now records per-phase sample CV, successful RPM, minimum actual duration, concurrency, payload, build and environment identity. Strict comparisons require five valid matching trials, 30-second warm-up, at least 180 seconds per steady phase, and RPS CV below 2.5% in both profiles. Diagnostic mode preserves all existing regression budgets but reports inadequate duration/variance explicitly. A single-workload comparison always reports `promotion_certified: false`; promotion still requires all coverage and material-gain requirements below.
+- **HTTP/1.1:** earlier repeated evidence already failed the 5% throughput floor under transition/high load, so H1 remains FIXED with NODELAY on.
+- **HTTP/2:** workflow `36369444583` at head `2b6e69696c2b7cf4f7d47741efac1552f0c41a04` measured AUTO/FIXED throughput ratios of **0.9411** at low-before and **0.9494** at high load. The short-run combined CV was above the sustained-evidence ceiling in several phases, so this is not certification-quality magnitude evidence, but it is sufficient to reject release promotion because AUTO did not consistently satisfy the basic no-regression floor.
+- **HTTP/3:** workflow `36369444991` at the same head measured low-after p99 **15.46 ms AUTO vs 13.42 ms FIXED**, a **1.152× / +2.04 ms** regression that crosses the configured tail-latency gate. Throughput remained within the floor, but the transition tail regression rejects promotion.
 
-The PHP-native expanded runner and shared JSON case manifest define all 86 mandatory cases and all four profiles, with resumable exact-build trials and per-protocol evaluation. Python remains only for the asynchronous H1 load client and the pinned independent H2/H3 transport clients, where replacing it would reduce load or protocol fidelity. Material gain and transition overhead are quantified in `docs/benchmarks.md`. The runner is implemented; measured results must come from the prepared environment.
+The expanded PHP-native runner and shared JSON manifest remain in-tree for future tuning work. They define all 86 representative cases, four policy profiles, repeated trials, provenance, CPU/RSS/fairness, transition checks, and strict sustained-evidence requirements. They are no longer a 2.0 release blocker because the candidate has already failed the earlier promotion gate: per this plan's decision rules, an unproven or regressing optimization is kept opt-in rather than deferred indefinitely.
 
-Each protocol is evaluated independently. J is not an all-or-nothing feature.
+Production decision:
 
-Compare at minimum:
+- **HTTP/1.1 — FIXED default.** NODELAY-on behavior remains deterministic; AUTO is explicit opt-in.
+- **HTTP/2 — FIXED default.** The proven bounded <1 KiB response fast path remains; the adaptive 1024/512/256 selector is available only when AUTO/LATENCY/THROUGHPUT is explicitly selected.
+- **HTTP/3 — FIXED default.** Existing configured pump/write ceilings remain deterministic; adaptive read/write effort remains explicit opt-in.
+- **LATENCY / THROUGHPUT / AUTO retained.** They remain supported policy choices for deployments that benchmark their own workload.
+- Diagnostic AUTO-vs-FIXED jobs continue to record all regression failures in JSON evidence. Because AUTO is not the production default, diagnostic regressions are advisory and do not fail ordinary CI; sustained promotion runs remain strict and return nonzero on a failed gate.
 
-```text
-current static production behavior
-fixed latency-biased candidate
-fixed throughput-biased candidate
-adaptive candidate
-```
-
-Across representative protocol matrices:
-
-**HTTP/1.1**
-- plaintext + TLS;
-- tiny / 1 KiB / 16 KiB / 64 KiB;
-- low / medium / saturated worker load;
-- short keep-alive + longer-lived connections.
-
-**HTTP/2**
-- 2 B / 1 KiB / 16 KiB / 64 KiB;
-- 1 / 8 / 32 / 100 active streams;
-- tiny-only and mixed-payload connections;
-- transport-pressure and flow-control constrained cases.
-
-**HTTP/3**
-- tiny / 1 KiB / 16 KiB / 64 KiB;
-- low / medium / high active streams;
-- inbound-heavy / outbound-heavy / balanced workloads;
-- QPACK backlog cases;
-- acceptance-heavy connection/stream churn;
-- steady and transition workloads.
-
-Promotion requirements:
-
-- repeated trials with median + CV;
-- p95/p99 must not materially regress for the target state;
-- throughput must improve materially in at least one state without moving the loss to another common state;
-- CPU/RSS cost must remain acceptable;
-- state-transition overhead must be negligible;
-- fairness and backpressure invariants pass;
-- protocol/security/resource limits remain unchanged;
-- user fixed-policy mode must reproduce deterministic non-adaptive behavior.
-
-Decision outcomes per protocol:
-
-- **HTTP/1.1 — Keep FIXED as the production default.** FIXED preserves NODELAY-on and bypasses admission sampling. AUTO remains available explicitly with bounded eight-connection sampling, but is not release-promoted because sustained throughput results were not repeatable within the 5% floor.
-- **HTTP/2 — Keep AUTO as the production default by the release decision.** The bounded 1024 / 512 / 256-byte selector remains active; full sustained certification is pending.
-- **HTTP/3 — Keep AUTO as the production default by the release decision.** Fair read rotation and resource ceilings apply in every mode. Full sustained certification is pending.
-- **Fixed profiles retained.** LATENCY and THROUGHPUT pin their protocol profile; FIXED reproduces deterministic non-adaptive behavior.
+This closes J10 as **Keep FIXED / AUTO not promoted**. A future attempt to make AUTO the default must reopen J10 and satisfy the full sustained matrix on the exact candidate.
 
 ### J sequencing
 
@@ -923,7 +884,7 @@ Decision outcomes per protocol:
 4. J03 — worker-scoped HTTP/1.1 new-connection policy;
 5. J07 — protocol-local public AUTO / LATENCY / THROUGHPUT / FIXED policy;
 6. J08/J09 — transition/flapping validation and hard-limit invariants;
-7. J10 — complete matrix runner and evaluator implemented; external sustained evidence remains pending.
+7. J10 — promotion gate closed as Keep FIXED after repeatable H1/H2/H3 regression evidence; expanded matrix retained for any future AUTO promotion attempt.
 
 Production code stayed on `feat/http-improvement`; playground-only patch/harness machinery was not migrated into the library branch.
 
@@ -931,13 +892,13 @@ Production code stayed on `feat/http-improvement`; playground-only patch/harness
 
 ## K — release follow-up hardening
 
-**Status: runtime defects are resolved. H1 FIXED / H2-H3 AUTO defaults follow the release decision. J10 remains open for external evidence; I8 remains separate for final release certification.**
+**Status: complete. Runtime defects are resolved, J10 is closed as Keep FIXED / AUTO not promoted, and K01-K04 are complete. I8 remains separate for final release certification.**
 
 | ID | Finding | Required resolution | Status |
 | --- | --- | --- | --- |
 | K01 | HTTP/3 AUTO can starve later ready/request streams because each bounded read cycle restarts at the first peer stream | Persistent round-robin read cursor implemented for both scan/readiness paths with reserved-stream regressions; focused H3 + aioquic validation green | **Complete** |
 | K02 | HTTP/1.1 AUTO admission samples every live connection, making admission sampling O(N) and aggregate growth quadratic | FIXED/LATENCY/THROUGHPUT bypass sampling; AUTO tracks at most 8 recent live connections in a worker-local bounded sampler; production default is FIXED | **Complete** |
-| K03 | J10 performance promotion lacks sustained AUTO-vs-FIXED evidence | Complete matrix runner and validated CV/duration/provenance reporting distinguish diagnostics from sustained evidence; H1 FIXED / H2-H3 AUTO defaults follow the release decision | **Harness implemented; J10 evidence pending** |
+| K03 | J10 performance promotion lacks trustworthy AUTO-vs-FIXED evidence | Reopened the gate, preserved the complete matrix harness, and rejected AUTO default promotion after repeatable H1/H2/H3 regression evidence; all protocols now default FIXED | **Complete** |
 | K04 | Accepted EWMA numerator/denominator values can overflow integer multiplication during observation | Public policy + controller reject denominators above the mathematically safe integer bound; boundary/max-int tests added | **Complete** |
 
 ### K01 — HTTP/3 bounded-fair read progress
@@ -952,9 +913,9 @@ FIXED/LATENCY/THROUGHPUT modes must not sample the existing connection populatio
 
 ### K03 — reopen J10 evidence gate
 
-Green correctness CI and policy microbenchmarks are necessary but insufficient for promotion. Five short single-payload trials did not close J10. The release decision retains H1 FIXED and H2/H3 AUTO at the options, direct QUIC connection/worker, and scheduler entry points. Regression tests explicitly cover the default contract and selectable policies.
+K03 is complete. Reopening the gate changed the release decision rather than weakening the benchmark: repeated diagnostics showed that AUTO is not consistently inside the preregistered regression budgets for H1, H2, and H3. The complete 86-case sustained runner remains available for a future promotion attempt, but Runwire 2.0 does not need to spend the release cycle certifying a candidate that has already failed the earlier promotion gate.
 
-Use the complete J10 matrix runner documented in `docs/benchmarks.md` in the prepared external environment. The original J10 matrix and performance requirements remain unchanged. No local result or individual workload comparison substitutes for that matrix.
+The production defaults are therefore FIXED for all three native HTTP protocols. AUTO, LATENCY, and THROUGHPUT remain explicit public choices. Ordinary diagnostic CI records AUTO failures without failing the release branch; an explicit sustained promotion run remains strict.
 
 ### K04 — EWMA arithmetic safety
 
@@ -976,4 +937,4 @@ For each D-item, update this plan with:
 
 `feat/http-improvement` is the clean production implementation branch from current `main`. Keep `benchmarks/1.0-vs-2.0` as the benchmark/evidence archive; do not migrate playground-only harnesses, patch scripts, or validation workflows into this branch.
 
-V1-V7, D01-D18, J01-J09, and the runtime hardening fixes are implemented. J10 remains open for full adaptive performance certification; I8 remains open before final release certification. Neither is claimed passed by the diagnostic jobs.
+V1-V7, D01-D18, J01-J10, and K01-K04 are closed. Adaptive policies remain implemented, but AUTO is not promoted as a default for any protocol. I8 remains intentionally separate for final release certification.
