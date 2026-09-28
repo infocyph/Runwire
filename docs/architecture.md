@@ -104,16 +104,16 @@ It does **not** advertise:
 
 The portable contract is fail-closed:
 
-```text
-workers 0 or 1            one portable process
-workers > 1               startup error
-enabled recycle threshold startup error
-control endpoint           startup error
-development watcher        startup error
-lifecycle listener         startup error
-worker privilege drop      startup error
-HTTP/3 without QUIC        startup error
-```
+| Configuration | Portable-native result |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One portable process. |
+| `workers > 1` | Startup error. |
+| Any worker-recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development worker watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop policy configured | Startup error. |
+| HTTP/3 configured without QUIC capability | Startup error. |
 
 External supervision owns process replacement for portable deployments.
 
