@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Runtime\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionSampler;
+use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\NativeHttpConnection;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -27,6 +29,8 @@ use Throwable;
  */
 final class NativeHttpWorker
 {
+    private const int HTTP1_ADAPTIVE_ACTIVE_CONNECTIONS = 256;
+
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
      */
@@ -43,6 +47,16 @@ final class NativeHttpWorker
         $context->attachLoop($loop);
         $sessions = [];
         $connections = [];
+        $http1Adaptive = new AdaptiveConnectionStrategy(policy: $bound->definition->http1->adaptive);
+        $http1Sampler = $http1Adaptive->requiresLoadSample()
+            ? new AdaptiveConnectionSampler(
+                activeCapacity: max(1, min(
+                    self::HTTP1_ADAPTIVE_ACTIVE_CONNECTIONS,
+                    $bound->definition->workerConnectionLimit,
+                    $bound->listener->maxConnections(),
+                )),
+            )
+            : null;
         $state = new WorkerStopState($ownsLoop);
         $application = $bound->definition->applicationFor(
             $context,
@@ -67,6 +81,8 @@ final class NativeHttpWorker
                     $handler,
                     &$sessions,
                     &$connections,
+                    $http1Adaptive,
+                    $http1Sampler,
                     $state,
                     $runtimeContext,
                     $sampler,
@@ -87,6 +103,8 @@ final class NativeHttpWorker
                         $handler,
                         $sessions,
                         $connections,
+                        $http1Adaptive,
+                        $http1Sampler,
                         $state,
                         $runtimeContext->metrics,
                         $sampler,
@@ -223,6 +241,8 @@ final class NativeHttpWorker
         Closure $handler,
         array &$sessions,
         array &$connections,
+        AdaptiveConnectionStrategy $http1Adaptive,
+        ?AdaptiveConnectionSampler $http1Sampler,
         WorkerStopState $state,
         RuntimeMetrics $metrics,
         WorkerDiagnosticsSampler $sampler,
@@ -233,12 +253,21 @@ final class NativeHttpWorker
             return;
         }
 
+        $protocol = $connection->negotiatedProtocol();
+        $http1TcpNoDelayDefault = true;
+        if ($protocol === null || $protocol === '' || $protocol === 'http/1.1') {
+            $http1TcpNoDelayDefault = $http1Adaptive->tcpNoDelay(
+                $http1Sampler?->sample(count($connections)),
+            );
+        }
+
         $session = NativeHttpConnection::attach(
             $loop,
             $connection,
             $handler,
             $bound->definition->http1,
             $bound->definition->http2,
+            $http1TcpNoDelayDefault,
         );
         if ($session === null) {
             return;
@@ -248,6 +277,7 @@ final class NativeHttpWorker
         $id = spl_object_id($connection);
         $sessions[$id] = $session;
         $connections[$id] = $connection;
+        $http1Sampler?->add($connection);
         $connection->onClose(static function () use (
             &$sessions,
             &$connections,
@@ -258,6 +288,7 @@ final class NativeHttpWorker
             $sampler,
             $session,
             $connection,
+            $http1Sampler,
         ): void {
             $metrics->connectionClosed(
                 $session->version,
@@ -266,6 +297,7 @@ final class NativeHttpWorker
                 $connection->lifetimeNanoseconds(),
                 $connection->backpressureEvents(),
             );
+            $http1Sampler?->remove($connection);
             unset($sessions[$id], $connections[$id]);
             $sampler->sample();
             if ($sessions === []) {

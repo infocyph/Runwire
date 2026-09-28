@@ -24,6 +24,7 @@ Optional runtime capabilities:
 | Extension/capability | Enables |
 | --- | --- |
 | `ext-pcntl` + `ext-posix` | native prefork supervision, reload, worker replacement/recycle, signals, control operations, privilege reduction |
+| `ext-event` | scalable native HTTP event-loop backend for prefork workers; SelectLoop remains the fallback |
 | `ext-openssl` | native TLS and HTTP/2 ALPN |
 | `ext-quic` | native QUIC / HTTP/3 |
 | `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host runtime integration; select `RuntimeDriver::SWOOLE` explicitly when using this host adapter |
@@ -123,16 +124,16 @@ Do not combine host-owned serving with a competing Runwire listener.
 
 Portable native is intentionally not a substitute supervisor:
 
-```text
-workers 0 or 1            one process
-workers > 1               startup error
-enabled recycle threshold startup error
-control endpoint           startup error
-development watcher        startup error
-lifecycle listener         startup error
-worker privilege drop      startup error
-HTTP/3 without QUIC        startup error
-```
+| Configuration | Portable-native behavior |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One process. |
+| `workers > 1` | Startup error. |
+| Worker recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop policy configured | Startup error. |
+| HTTP/3 configured without QUIC | Startup error. |
 
 HTTP/1.1, framed TCP/Unix, and UDP remain available when their platform capabilities are present. External supervision owns process restart/replacement.
 
@@ -174,6 +175,34 @@ $server = Server::http('0.0.0.0:8443', $handler)
 ```
 
 HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 2.0.
+
+### Protocol scheduling policy
+
+Runwire can tune a small set of **protocol-internal scheduling decisions** without changing the application-facing HTTP contract. The policy is useful when the same server must favor deterministic behavior, lower interactive latency, sustained transfer efficiency, or automatic crossover under changing load.
+
+HTTP/1.1, HTTP/2, and HTTP/3 all default to `AdaptivePolicyMode::FIXED` in Runwire 2.0. The other modes are explicit opt-ins because a scheduling profile that helps one workload can hurt another, especially during load transitions or at tail latency.
+
+| Mode | Why it exists | Use it when | HTTP/1.1 effect | HTTP/2 effect | HTTP/3 effect |
+| --- | --- | --- | --- | --- | --- |
+| `FIXED` | Predictable, release-certified behavior with no load-state transitions. | **Default choice**; use when you want deterministic behavior, have not benchmarked another profile, or operate a mixed/unknown workload. | Keeps the protocol default TCP_NODELAY behavior enabled unless the listener explicitly overrides it. | Uses the full bounded initial-response fast-path budget; otherwise normal multiplexed scheduling applies. | Uses configured read/write maxima and the configured base poll timing. |
+| `LATENCY` | Pins the latency-biased state instead of adapting at runtime. | Small interactive responses, RPC-style traffic, or latency-sensitive workloads where repeated measurement shows this profile helps. | Keeps TCP_NODELAY enabled. | Keeps the larger latency-biased one-shot initial-response budget. | Reduces adaptive read/write work per turn to favor shorter scheduling turns; idle polling is not stretched by the throughput profile. |
+| `THROUGHPUT` | Pins the throughput-biased state for sustained/bulk work. | Large or sustained transfers where batching/fewer scheduling interruptions improve measured throughput without unacceptable tail latency. | Disables TCP_NODELAY by default so TCP may coalesce small writes; an explicit listener socket setting still wins. | Uses the smaller throughput-profile one-shot budget so larger responses fall back to normal multiplexed scheduling sooner. | Uses the configured maximum read/write work budgets and may use a longer idle poll interval when appropriate. |
+| `AUTO` | Dynamically moves between latency, balanced, and throughput states as protocol-local pressure changes. | Variable workloads **only after** steady-state and transition benchmarks show it is safe for your deployment. | Samples a bounded set of recent live connections and chooses the NODELAY default for newly attached connections. | Adjusts only the bounded initial-response fast-path budget from queue/stream pressure. | Adapts inbound read/poll effort and outbound response-write effort independently. |
+
+`AUTO` uses integer EWMA smoothing, low/high watermarks, and sustained-sample dwell to avoid rapid state flapping. The internal `BALANCED` state is not a separate public mode; it is one state AUTO may select.
+
+Important boundaries:
+
+| Area | Contract |
+| --- | --- |
+| Hard limits | Scheduling policy **never raises** body, header, frame, stream, connection, queue, flow-control, HPACK/QPACK, WebSocket, or lifecycle limits. |
+| H1 application point | NODELAY policy is chosen when a connection is attached; existing connections are not retroactively retuned. |
+| H1 precedence | Explicit listener `tcp_nodelay` configuration overrides the protocol policy. |
+| H2 scope | Policy affects only the bounded initial-response optimization; normal flow control, multiplexing, fairness, and backpressure remain unchanged. |
+| H3 scope | `inboundAdaptive` and `outboundAdaptive` are independent; one direction can remain FIXED while the other is tuned. |
+| Constructor default | Standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; protocol option objects intentionally supply Runwire 2.0 `FIXED` release defaults. |
+
+Use non-default modes only with representative repeated measurements that include throughput, p95/p99 latency, CPU/RSS, backpressure, fairness, and load transitions. See [Getting Started](docs/getting-started.md#7-adaptive-protocol-scheduling) for configuration examples and validation rules, and [Deployment](docs/deployment.md#19-adaptive-protocol-scheduling) for production selection guidance.
 
 ### Native HTTP/1 WebSocket
 
@@ -276,26 +305,12 @@ Runwire does **not** make arbitrary blocking PHP APIs asynchronous.
 
 ## Runtime and request context
 
-`RuntimeContext` contains immutable worker/application-lifetime facts:
+Runtime and request state are separated by lifetime:
 
-```text
-driver / mode
-worker slot / generation / PID
-persistence / concurrency
-listener / event-loop / worker-pool ownership
-resolved capabilities
-runtime metrics
-```
-
-`RequestContext` contains request-lifetime state:
-
-```text
-request ID
-monotonic start/deadline
-cancellation token
-bounded request attributes
-owning RuntimeContext
-```
+| Context | Lifetime | Contains |
+| --- | --- | --- |
+| `RuntimeContext` | Worker/application lifetime | Driver/mode; worker slot/generation/PID; persistence/concurrency; listener/event-loop/worker-pool ownership; resolved capabilities; runtime metrics. |
+| `RequestContext` | Request lifetime | Request ID; monotonic start/deadline; cancellation token; bounded request attributes; owning `RuntimeContext`. |
 
 Framework integrations should use capability checks instead of driver-name branching for generic behavior:
 
@@ -375,24 +390,35 @@ See the security guide before exposing process execution to application-controll
 
 Repository benchmark artifacts are regression/workload evidence, not a universal runtime ranking.
 
-Meaningful cross-runtime comparisons require equivalent:
-
-- hardware and OS;
-- PHP/runtime versions;
-- protocol/TLS configuration;
-- worker count and concurrency;
-- workload;
-- duration and instrumentation.
+| Comparison dimension | Keep equivalent |
+| --- | --- |
+| Platform | Hardware/runner class and OS. |
+| Runtime | PHP/runtime and extension versions. |
+| Transport | Protocol and TLS configuration. |
+| Topology | Worker count and concurrency. |
+| Workload | Request/response shape, payload, reuse, and pressure profile. |
+| Measurement | Warmup, duration, trials, and instrumentation. |
 
 Report throughput together with p50/p95/p99 latency, errors, CPU, and RSS.
+
+Before a release-critical tag/merge, the opt-in Release Certification workflow covers:
+
+| Gate | What it proves |
+| --- | --- |
+| Matched sustained performance | Five 180-second baseline/candidate trials after warmup; correctness, stability, and the 5% throughput-regression budget. |
+| 30-minute native HTTP soak | Sustained correctness with zero errors, timeouts, or response-validation failures. |
+| Representative Infbyte consumer | Exact candidate installs into the real consumer, its full suite passes, and the Foundation/Webrick bridge works. |
+| PHPForge release guard | Required extensions/platform checks plus the full `composer ic:release:guard` gate. |
+
+See [Benchmark Methodology](docs/benchmarks.md) for exact commands, evidence fields, acceptance conditions, and adaptive-policy promotion rules.
 
 ## Documentation
 
 Start here for complete examples and operational guidance:
 
-- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, TCP/Unix, UDP, hosted-runtime, explicit Swoole/OpenSwoole selection, application-factory, capability, and coroutine examples.
+- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, adaptive scheduling, TCP/Unix, UDP, hosted-runtime, explicit Swoole/OpenSwoole selection, application-factory, capability, and coroutine examples.
 - [`docs/architecture.md`](docs/architecture.md) — runtime selection, ownership boundaries, capability model, contexts, lifecycle, networking, protocol, coroutine, observability, and security contracts.
-- [`docs/deployment.md`](docs/deployment.md) — production topology, host selection, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, backpressure, resource limits, and deployment acceptance.
+- [`docs/deployment.md`](docs/deployment.md) — production topology, host selection, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, adaptive policy selection, backpressure, resource limits, and deployment acceptance.
 - [`docs/security.md`](docs/security.md) — least privilege, persistent-state isolation, ProcessRunner policy, `disable_functions`, resource ceilings, and systemd/container hardening.
 - [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
 - [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.

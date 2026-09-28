@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Network\TlsOptions;
 use InvalidArgumentException;
 
@@ -21,6 +23,12 @@ final readonly class Http3Options
         public Http3Limits $limits = new Http3Limits(),
         public float $pollTimeoutSeconds = 0.05,
         public float $handshakeTimeoutSeconds = 10.0,
+        public AdaptiveProtocolPolicy $inboundAdaptive = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED),
+        public AdaptiveProtocolPolicy $outboundAdaptive = new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::FIXED,
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_000,
+        ),
     ) {
         if (!is_finite($pollTimeoutSeconds) || $pollTimeoutSeconds <= 0 || $pollTimeoutSeconds > 1.0) {
             throw new InvalidArgumentException('HTTP/3 poll timeout must be finite and between 0 and 1 second.');

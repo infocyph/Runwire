@@ -33,6 +33,7 @@ final readonly class NativeHttpConnection
         callable $handler,
         ?Http1Limits $http1Limits = null,
         ?Http2Limits $http2Limits = null,
+        bool $http1TcpNoDelayDefault = true,
     ): ?self {
         $consumer = Closure::fromCallable($handler);
         $protocol = $connection->negotiatedProtocol();
@@ -45,6 +46,8 @@ final readonly class NativeHttpConnection
         }
 
         if ($protocol === null || $protocol === '' || $protocol === 'http/1.1') {
+            $connection->applyTcpNoDelayDefault($http1TcpNoDelayDefault);
+
             return new self(
                 new Http1Connection($loop, $connection, $http1Limits ?? new Http1Limits(), $consumer),
                 ProtocolVersion::HTTP_1_1,

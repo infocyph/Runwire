@@ -69,6 +69,8 @@ final class NativeHttp3Worker
             $options->limits,
             $context->admissionPolicy->connectionLimit($server->workerConnectionLimit),
             handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
+            inboundAdaptive: $options->inboundAdaptive,
+            outboundAdaptive: $options->outboundAdaptive,
             bufferBudget: $context->bufferBudget,
         );
         $attachment = new NativeHttp3Attachment(
@@ -124,6 +126,8 @@ final class NativeHttp3Worker
             $options->limits,
             $context->admissionPolicy->connectionLimit($server->workerConnectionLimit),
             handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
+            inboundAdaptive: $options->inboundAdaptive,
+            outboundAdaptive: $options->outboundAdaptive,
         );
 
         $failure = null;

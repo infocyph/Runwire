@@ -18,7 +18,7 @@ env:
 jobs:
   matched-performance:
     name: "Matched baseline/candidate - PHP 8.5"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
     runs-on: ubuntu-latest
     timeout-minutes: 55
 
@@ -86,7 +86,7 @@ jobs:
 
   candidate-soak:
     name: "Candidate 30-minute HTTP soak - PHP 8.5"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -197,7 +197,7 @@ jobs:
 
   consumer-app:
     name: "Representative Infbyte consumer"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -327,7 +327,7 @@ jobs:
 
   release-guard:
     name: "PHPForge release guard with ext-event"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition'
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
     runs-on: ubuntu-latest
     timeout-minutes: 25
 

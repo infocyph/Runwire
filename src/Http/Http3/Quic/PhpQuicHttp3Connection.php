@@ -4,24 +4,31 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Http3\Quic;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3Session;
+use Infocyph\Runwire\Http\Http3\Internal\AdaptivePumpStrategy;
 use Infocyph\Runwire\Http\Http3\Internal\ConnectionState;
 use Infocyph\Runwire\Http\Http3\Internal\ResponseScheduler;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
+use Throwable;
 
 /**
  * Drives one native QUIC connection as an HTTP/3 server connection.
  */
 final class PhpQuicHttp3Connection
 {
+    private readonly AdaptivePumpStrategy $adaptivePump;
+
     private readonly PhpQuicStream $controlStream;
 
     private readonly PhpQuicStream $qpackDecoderStream;
@@ -51,6 +58,8 @@ final class PhpQuicHttp3Connection
 
     private string $qpackDecoderPending;
 
+    private int $readCursorOffset = 0;
+
     /** @var array<int, true> */
     private array $requestStreams = [];
 
@@ -62,12 +71,19 @@ final class PhpQuicHttp3Connection
         ?string $peerAddress = null,
         ?string $localAddress = null,
         ?ByteBudget $bufferBudget = null,
+        AdaptiveProtocolPolicy $inboundAdaptive = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED),
+        AdaptiveProtocolPolicy $outboundAdaptive = new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::FIXED,
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_000,
+        ),
     ) {
         $this->connection->setNonBlocking();
         if ($this->connection->negotiatedAlpn() !== 'h3') {
             throw new Http3Exception(ErrorCode::GENERAL_PROTOCOL_ERROR, 'QUIC connection did not negotiate the h3 ALPN protocol.');
         }
 
+        $this->adaptivePump = new AdaptivePumpStrategy(policy: $inboundAdaptive);
         $this->state = new ConnectionState($limits, $bufferBudget);
         $this->controlStream = $this->openCriticalStream('control');
         $qpackEncoderStream = $this->openCriticalStream('QPACK encoder');
@@ -75,7 +91,13 @@ final class PhpQuicHttp3Connection
         $this->controlPending = $this->state->localControlPreamble();
         $this->qpackDecoderPending = $this->state->localQpackDecoderPreamble();
         $this->transport = new PhpQuicTransport($qpackEncoderStream, $this->state->localQpackEncoderPreamble());
-        $this->scheduler = new ResponseScheduler($this->state, $limits, $this->transport, $bufferBudget);
+        $this->scheduler = new ResponseScheduler(
+            $this->state,
+            $limits,
+            $this->transport,
+            $bufferBudget,
+            $outboundAdaptive,
+        );
         $this->session = new Http3Session(
             $this->state,
             $handler,
@@ -102,11 +124,24 @@ final class PhpQuicHttp3Connection
     }
 
     /**
+     * Return the current HTTP/3 inbound adaptive state.
+     */
+    public function adaptivePumpState(): AdaptiveLoadState
+    {
+        return $this->adaptivePump->state();
+    }
+
+    /**
      * Begin graceful HTTP/3 draining by sending a GOAWAY boundary.
      */
     public function beginDrain(): void
     {
         if ($this->closed || $this->drainBoundary !== null) {
+            return;
+        }
+        if ($this->connection->closed()) {
+            $this->closeObservedConnection();
+
             return;
         }
 
@@ -115,7 +150,15 @@ final class PhpQuicHttp3Connection
             FrameType::GOAWAY->value,
             VarIntCodec::encode($this->drainBoundary),
         )->encode();
-        $this->flush();
+
+        try {
+            $this->flush();
+        } catch (Throwable $exception) {
+            if (!$this->connection->closed()) {
+                throw $exception;
+            }
+            $this->closeObservedConnection();
+        }
     }
 
     /**
@@ -156,6 +199,7 @@ final class PhpQuicHttp3Connection
 
                 return;
             }
+            $this->observePump($ready, $events);
             if ($this->objectReady($ready, $this->connection->object(), $events->acceptStream)) {
                 $this->acceptAvailableStreams();
             }
@@ -221,6 +265,7 @@ final class PhpQuicHttp3Connection
 
         try {
             $this->expireRequestStreams();
+            $this->observePump();
             $this->acceptAvailableStreams();
             $this->flush();
             $this->drainReadableStreams();
@@ -246,7 +291,8 @@ final class PhpQuicHttp3Connection
 
     private function acceptAvailableStreams(): void
     {
-        for ($accepted = 0; $accepted < $this->limits->maxStreamsAcceptedPerPump; ++$accepted) {
+        $acceptLimit = $this->adaptivePump->acceptLimit($this->limits->maxStreamsAcceptedPerPump);
+        for ($accepted = 0; $accepted < $acceptLimit; ++$accepted) {
             $stream = $this->connection->acceptStream();
             if ($stream === null) {
                 return;
@@ -334,18 +380,21 @@ final class PhpQuicHttp3Connection
 
     private function drainReadableStreams(): void
     {
+        $readLimit = $this->adaptivePump->readLimit($this->limits->maxReadsPerPump);
+        $byteLimit = $this->adaptivePump->byteLimit($this->limits->maxInboundBytesPerPump);
         $reads = 0;
         $bytes = 0;
         $controlBytes = 0;
-        foreach (array_keys($this->peerStreams) as $streamId) {
-            if ($reads >= $this->limits->maxReadsPerPump || $bytes >= $this->limits->maxInboundBytesPerPump) {
+        foreach ($this->peerStreamOrder() as [$nextOffset, $streamId]) {
+            if ($reads >= $readLimit || $bytes >= $byteLimit) {
                 return;
             }
 
+            $this->readCursorOffset = $nextOffset;
             [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
                 $streamId,
-                $this->limits->maxReadsPerPump - $reads,
-                $this->limits->maxInboundBytesPerPump - $bytes,
+                $readLimit - $reads,
+                $byteLimit - $bytes,
                 $this->limits->maxControlBytesPerTick - $controlBytes,
             );
             $reads += $streamReads;
@@ -357,27 +406,35 @@ final class PhpQuicHttp3Connection
     /** @param array<int, int> $ready */
     private function drainReadyStreams(array $ready, PhpQuicEventMasks $events): void
     {
+        $readLimit = $this->adaptivePump->readLimit($this->limits->maxReadsPerPump);
+        $byteLimit = $this->adaptivePump->byteLimit($this->limits->maxInboundBytesPerPump);
         $reads = 0;
         $bytes = 0;
         $controlBytes = 0;
-        foreach ($this->peerStreams as $streamId => $stream) {
+        foreach ($this->peerStreamOrder() as [$nextOffset, $streamId]) {
+            $stream = $this->peerStreams[$streamId] ?? null;
+            if ($stream === null) {
+                continue;
+            }
             $mask = $ready[spl_object_id($stream->object())] ?? 0;
             if (($mask & ($events->read | $events->error)) === 0) {
                 continue;
             }
+            if ($reads >= $readLimit || $bytes >= $byteLimit) {
+                return;
+            }
+
+            $this->readCursorOffset = $nextOffset;
             if (isset($this->requestStreams[$streamId]) && $stream->resetCode() !== null) {
                 $this->cancelRequestStream($streamId);
 
                 continue;
             }
-            if ($reads >= $this->limits->maxReadsPerPump || $bytes >= $this->limits->maxInboundBytesPerPump) {
-                return;
-            }
 
             [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
                 $streamId,
-                $this->limits->maxReadsPerPump - $reads,
-                $this->limits->maxInboundBytesPerPump - $bytes,
+                $readLimit - $reads,
+                $byteLimit - $bytes,
                 $this->limits->maxControlBytesPerTick - $controlBytes,
             );
             $reads += $streamReads;
@@ -498,6 +555,21 @@ final class PhpQuicHttp3Connection
         return (($ready[spl_object_id($object)] ?? 0) & $event) !== 0;
     }
 
+    /** @param array<int, int>|null $ready */
+    private function observePump(?array $ready = null, ?PhpQuicEventMasks $events = null): void
+    {
+        $active = count($this->requestStreams);
+        $readyWork = $ready === null || $events === null
+            ? $active
+            : $this->readyRequestStreams($ready, $events);
+
+        $this->adaptivePump->observe(
+            $readyWork,
+            $active,
+            max(1, $this->limits->maxConcurrentRequestStreams),
+        );
+    }
+
     private function openCriticalStream(string $name): PhpQuicStream
     {
         $stream = $this->connection->openStream(false);
@@ -509,6 +581,27 @@ final class PhpQuicHttp3Connection
         }
 
         return $stream;
+    }
+
+    /** @return list<array{0: int, 1: int}> */
+    private function peerStreamOrder(): array
+    {
+        $streamIds = array_keys($this->peerStreams);
+        $streamCount = count($streamIds);
+        if ($streamCount === 0) {
+            $this->readCursorOffset = 0;
+
+            return [];
+        }
+
+        $start = $this->readCursorOffset % $streamCount;
+        $ordered = [];
+        for ($step = 0; $step < $streamCount; ++$step) {
+            $index = ($start + $step) % $streamCount;
+            $ordered[] = [($index + 1) % $streamCount, $streamIds[$index]];
+        }
+
+        return $ordered;
     }
 
     private function processStreamChunk(int $streamId, string $chunk, bool $requestStream): void
@@ -541,6 +634,24 @@ final class PhpQuicHttp3Connection
         }
 
         $this->qpackDecoderPending .= $instructions;
+    }
+
+    /** @param array<int, int> $ready */
+    private function readyRequestStreams(array $ready, PhpQuicEventMasks $events): int
+    {
+        $count = 0;
+        foreach (array_keys($this->requestStreams) as $streamId) {
+            $stream = $this->peerStreams[$streamId] ?? null;
+            if ($stream === null) {
+                continue;
+            }
+            $mask = $ready[spl_object_id($stream->object())] ?? 0;
+            if (($mask & ($events->read | $events->error)) !== 0) {
+                ++$count;
+            }
+        }
+
+        return $count;
     }
 
     private function registerPeerStream(PhpQuicStream $stream): void

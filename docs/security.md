@@ -114,26 +114,23 @@ Use operating-system or container memory limits as the authoritative hard proces
 
 Portable native is one process and has no internal replacement worker. Worker recycle thresholds therefore fail closed instead of being silently ignored.
 
-If process-level recycling is required, use the external service manager or deployment platform, for example systemd, a container orchestrator, or another process supervisor. A distinct Runwire single-process retirement policy may be considered after 1.0; `WorkerRecyclePolicy` is intentionally not overloaded for this purpose.
+If process-level recycling is required, use the external service manager or deployment platform, for example systemd, a container orchestrator, or another process supervisor. Runwire 2.0 intentionally does not overload `WorkerRecyclePolicy` for whole-process retirement in portable mode.
 
 ## Portable native capability contract
 
 Without PCNTL/POSIX prefork capability, native CLI uses the single-process portable runtime.
 
-```text
-workers 0 → one process
-workers 1 → one process
-workers > 1 → startup error
-
-enabled worker recycle threshold → startup error
-native control endpoint → startup error
-development worker watcher → startup error
-supervisor lifecycle listener → startup error
-worker privilege drop → startup error
-
-HTTP/3 configured without QUIC → startup error
-HTTP/3 not configured → HTTP/1.1/HTTP/2 remain unaffected
-```
+| Configuration | Result |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One portable process. |
+| `workers > 1` | Startup error. |
+| Worker recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development worker watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop policy configured | Startup error. |
+| HTTP/3 configured without QUIC | Startup error. |
+| HTTP/3 not configured | HTTP/1.1 and HTTP/2 remain unaffected. |
 
 Portable native remains suitable for ordinary HTTP, framed TCP/Unix, and UDP serving when their required platform capabilities exist. External supervision owns process restart/replacement.
 
@@ -141,7 +138,7 @@ Portable native remains suitable for ordinary HTTP, framed TCP/Unix, and UDP ser
 
 `ProcessRunner` deliberately avoids a shell and executes a validated argv vector with `bypass_shell = true`. It also supports explicit bounds for arguments, environment, working directory, stdin, output, runtime, graceful termination, post-exit pipe draining, and the wait after force termination. If a child still reports itself running after `ProcessPolicy::postKillWaitSeconds`, execution fails instead of silently extending the configured shutdown bound indefinitely.
 
-The 1.0 default keeps:
+The 2.0 default keeps:
 
 ```php
 allowedExecutables: null
@@ -169,14 +166,14 @@ $policy = new ProcessPolicy(
 
 Never let untrusted input directly choose executable paths, unrestricted arguments, environment variable names/values, or working directories. Validate application-level arguments according to the called program's own grammar as well; shell avoidance does not make every target executable safe for arbitrary user-controlled arguments.
 
-ProcessRunner does not require PCNTL. It requires these PHP process functions to remain available:
+ProcessRunner does not require PCNTL. It requires these PHP process functions:
 
-```text
-proc_open
-proc_get_status
-proc_terminate
-proc_close
-```
+| Function | Role |
+| --- | --- |
+| `proc_open` | Start the validated child process without a shell. |
+| `proc_get_status` | Observe child state/exit information. |
+| `proc_terminate` | Request graceful/forced termination according to policy. |
+| `proc_close` | Close process resources and collect termination state. |
 
 ## `disable_functions`
 
@@ -190,14 +187,7 @@ When the application does not use the corresponding APIs, a portable CLI profile
 disable_functions = exec,passthru,shell_exec,system,popen,pcntl_exec
 ```
 
-If the application uses `ProcessRunner`, retain:
-
-```text
-proc_open
-proc_get_status
-proc_terminate
-proc_close
-```
+If the application uses `ProcessRunner`, retain all four process functions in the table above.
 
 ### Native prefork example
 

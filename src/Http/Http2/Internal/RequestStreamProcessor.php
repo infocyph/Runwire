@@ -34,6 +34,8 @@ final class RequestStreamProcessor
 
     private readonly Closure $handler;
 
+    private readonly Closure $rotationRequested;
+
     private readonly Closure $streamFailure;
 
     private readonly Closure $streamRemoved;
@@ -48,6 +50,8 @@ final class RequestStreamProcessor
 
     private ?PendingHeaderBlock $pendingHeaders = null;
 
+    private bool $rotationPending = false;
+
     /** @var array<int, Http2Stream> */
     private array $streams = [];
 
@@ -56,6 +60,7 @@ final class RequestStreamProcessor
     /**
      * @param callable(HttpRequest, \Infocyph\Runwire\Http\Http2\Http2ResponseWriter): void $handler
      * @param callable(ErrorCode, string): void $connectionFailure
+     * @param callable(): void $rotationRequested
      * @param callable(StreamError): void $streamFailure
      * @param callable(): void $streamRemoved
      */
@@ -68,6 +73,7 @@ final class RequestStreamProcessor
         private readonly ResponseScheduler $output,
         callable $handler,
         callable $connectionFailure,
+        callable $rotationRequested,
         callable $streamFailure,
         callable $streamRemoved,
     ) {
@@ -79,6 +85,7 @@ final class RequestStreamProcessor
         $this->validator = new RequestHeaderValidator('HTTP/2');
         $this->handler = Closure::fromCallable($handler);
         $this->connectionFailure = Closure::fromCallable($connectionFailure);
+        $this->rotationRequested = Closure::fromCallable($rotationRequested);
         $this->streamFailure = Closure::fromCallable($streamFailure);
         $this->streamRemoved = Closure::fromCallable($streamRemoved);
     }
@@ -297,14 +304,20 @@ final class RequestStreamProcessor
         if (++$this->streamsCreated > $this->limits->maxStreamsPerConnection) {
             throw new ConnectionError(ErrorCode::ENHANCE_YOUR_CALM, 'HTTP/2 stream churn limit exceeded.');
         }
+        $rotationDue = $this->streamsCreated === $this->limits->maxStreamsPerConnection;
         if ($this->count() >= $this->limits->maxConcurrentStreams) {
             $this->output->sendControl(FrameWriter::rstStream($pending->streamId, ErrorCode::REFUSED_STREAM));
+            if ($rotationDue) {
+                ($this->rotationRequested)();
+            }
 
             return false;
         }
         if ($pending->endStream && ($contentLength ?? 0) !== 0) {
             throw new StreamError($pending->streamId, ErrorCode::PROTOCOL_ERROR, 'HTTP/2 END_STREAM conflicts with non-zero Content-Length.');
         }
+
+        $this->rotationPending = $rotationDue;
 
         return true;
     }
@@ -524,6 +537,7 @@ final class RequestStreamProcessor
         $stream->open($pending->endStream);
         $this->streams[$stream->id] = $stream;
         $this->touch($stream);
+        $this->requestRotationIfPending();
         $writer = $this->output->writer($stream, $head->method, fn() => $this->handleResponseEnd($stream->id));
         $stream->writer = $writer;
         $this->dispatch($stream, $head, $writer);
@@ -538,6 +552,16 @@ final class RequestStreamProcessor
         $this->cancelTimer($stream->idleTimer);
         unset($this->streams[$stream->id]);
         ($this->streamRemoved)();
+    }
+
+    private function requestRotationIfPending(): void
+    {
+        if (!$this->rotationPending) {
+            return;
+        }
+
+        $this->rotationPending = false;
+        ($this->rotationRequested)();
     }
 
     /** @param list<array{0: string, 1: string}> $fields */

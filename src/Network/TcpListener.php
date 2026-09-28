@@ -346,6 +346,10 @@ final class TcpListener
             $protocol,
             $this->tls !== null,
             $this->bufferBudget,
+            tcpTransport: true,
+            tcpNoDelayOverride: array_key_exists('tcp_nodelay', $this->options->socketContext)
+                ? (bool) $this->options->socketContext['tcp_nodelay']
+                : null,
         );
         $id = spl_object_id($connection);
         $this->connections[$id] = $connection;

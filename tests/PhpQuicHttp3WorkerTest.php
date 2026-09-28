@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
@@ -518,4 +520,39 @@ it('serves an interoperable HTTP/3 request through the full native runtime', fun
         ->and($reaped)->toBe($runtimePid)
         ->and(pcntl_wifexited($status))->toBeTrue()
         ->and(pcntl_wexitstatus($status))->toBe(0);
+});
+
+
+it('uses adaptive HTTP3 poll timeouts for idle and handshaking workers', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $connectionRaw = workerQuicConnection([null, null]);
+    $listenerRaw = workerQuicListener([$connectionRaw]);
+    $timeouts = [];
+    $poller = new PhpQuicHttp3Poller(
+        $events,
+        static function (array $items, ?float $timeout) use (&$timeouts, $listenerRaw, $events): array {
+            if ($items === []) {
+                throw new RuntimeException('Adaptive HTTP/3 poll test requires at least one poll item.');
+            }
+            $timeouts[] = $timeout;
+
+            return count($timeouts) === 1
+                ? [spl_object_id($listenerRaw) => $events->acceptConnection]
+                : [];
+        },
+    );
+    $worker = new PhpQuicHttp3Worker(
+        new PhpQuicListener($listenerRaw),
+        static function (): void {},
+        new Http3Limits(),
+        4,
+        $poller,
+        inboundAdaptive: new AdaptiveProtocolPolicy(),
+    );
+
+    $worker->tick(0.05);
+    $worker->tick(0.05);
+
+    expect($timeouts)->toBe([0.2, 0.01])
+        ->and($worker->connectionCount())->toBe(1);
 });

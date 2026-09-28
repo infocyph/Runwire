@@ -219,6 +219,7 @@ jobs:
         run: |
           python3 -m venv /tmp/runwire-aioquic
           /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'aioquic==1.3.0'
+          /tmp/runwire-aioquic/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_http3_client.py' -v
 
           tmpdir="$(mktemp -d)"
           server_pid=""
@@ -237,13 +238,18 @@ jobs:
             -days 1 \
             -subj '/CN=localhost' >/dev/null 2>&1
 
-          port="$(python3 - <<'PY'
-          import socket
-          with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-              sock.bind(('127.0.0.1', 0))
-              print(sock.getsockname()[1])
-          PY
-          )"
+          port="$(php -r '
+          $server = stream_socket_server("udp://127.0.0.1:0", $errno, $error, STREAM_SERVER_BIND);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($name) || !str_contains($name, ":")) {
+              throw new RuntimeException("Unable to resolve ephemeral UDP port.");
+          }
+          echo substr(strrchr($name, ":"), 1);
+          ')"
 
           php tests/fixtures/http3_interop_server.php \
             "$port" "$tmpdir/cert.pem" "$tmpdir/key.pem" "$tmpdir/ready" \
@@ -277,6 +283,20 @@ jobs:
           fi
           server_pid=""
 
+      - name: Run diagnostic AUTO vs FIXED HTTP/3 matrix
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          bash benchmarks/adaptive_http3_certify.sh 5 benchmark-results/adaptive-http3
+
+      - name: Upload adaptive HTTP/3 evidence
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-adaptive-http3
+          path: benchmark-results/adaptive-http3/
+          retention-days: 61
+
       - name: Run native HTTP/3 soak acceptance
         shell: bash
         run: |
@@ -298,13 +318,18 @@ jobs:
             -days 1 \
             -subj '/CN=localhost' >/dev/null 2>&1
 
-          port="$(python3 - <<'PY'
-          import socket
-          with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-              sock.bind(('127.0.0.1', 0))
-              print(sock.getsockname()[1])
-          PY
-          )"
+          port="$(php -r '
+          $server = stream_socket_server("udp://127.0.0.1:0", $errno, $error, STREAM_SERVER_BIND);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($name) || !str_contains($name, ":")) {
+              throw new RuntimeException("Unable to resolve ephemeral UDP port.");
+          }
+          echo substr(strrchr($name, ":"), 1);
+          ')"
 
           php tests/fixtures/http3_interop_server.php \
             "$port" "$tmpdir/cert.pem" "$tmpdir/key.pem" "$tmpdir/ready" 128 \
@@ -361,13 +386,18 @@ jobs:
             -subj '/CN=localhost' \
             -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
 
-          port="$(python3 - <<'PY'
-          import socket
-          with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-              sock.bind(('127.0.0.1', 0))
-              print(sock.getsockname()[1])
-          PY
-          )"
+          port="$(php -r '
+          $server = stream_socket_server("udp://127.0.0.1:0", $errno, $error, STREAM_SERVER_BIND);
+          if (!is_resource($server)) {
+              throw new RuntimeException($error);
+          }
+          $name = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($name) || !str_contains($name, ":")) {
+              throw new RuntimeException("Unable to resolve ephemeral UDP port.");
+          }
+          echo substr(strrchr($name, ":"), 1);
+          ')"
 
           php tests/fixtures/http3_interop_server.php \
             "$port" "$tmpdir/cert.pem" "$tmpdir/key.pem" "$tmpdir/ready" \

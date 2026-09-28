@@ -24,6 +24,10 @@ function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = 
 
         public int $readBytes = 0;
 
+        public ?Closure $writeFailure = null;
+
+        public bool $writeFails = false;
+
         public string $written = '';
 
         /** @param list<string|null> $reads */
@@ -80,6 +84,12 @@ function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = 
 
         public function write(string $data, bool $fin = false): int
         {
+            if ($this->writeFails) {
+                ($this->writeFailure)?->__invoke();
+
+                throw new RuntimeException('Native QUIC stream is already shut down.');
+            }
+
             $written = min(strlen($data), $this->maxWrite);
             $this->written .= substr($data, 0, $written);
             if ($fin) {
@@ -99,6 +109,9 @@ function fakeHttp3ConnectionRaw(array $localStreams, array $acceptedStreams, str
         /** @var list<array{0: int, 1: string, 2: bool}> */
         public array $closed = [];
 
+        /** @var array{error_code: int, frame_type: int, reason: string, local: bool, transport: bool}|null */
+        public ?array $closeInfo = null;
+
         /** @param list<object> $localStreams @param list<object> $acceptedStreams */
         public function __construct(
             private array $localStreams,
@@ -114,6 +127,11 @@ function fakeHttp3ConnectionRaw(array $localStreams, array $acceptedStreams, str
         public function close(int $errorCode = 0, string $reason = '', bool $rapid = false): void
         {
             $this->closed[] = [$errorCode, $reason, $rapid];
+        }
+
+        public function getCloseInfo(): ?array
+        {
+            return $this->closeInfo;
         }
 
         public function getNegotiatedAlpn(): ?string
@@ -264,6 +282,75 @@ it('treats connection poll errors as transport closure without sending a second 
         ->and($connectionRaw->closed)->toBe([]);
 });
 
+it('treats native peer closure before or during GOAWAY flush as an idempotent drain', function (): void {
+    $control = fakeHttp3ConnectionStream(3, false);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            $control,
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [],
+    );
+    $connection = new PhpQuicHttp3Connection(new PhpQuicConnection($connectionRaw), static function (): void {});
+
+    $connectionRaw->closeInfo = [
+        'error_code' => 0,
+        'frame_type' => 0,
+        'reason' => '',
+        'local' => false,
+        'transport' => false,
+    ];
+    $control->writeFails = true;
+
+    $connection->beginDrain();
+
+    expect($connection->closed())->toBeTrue()
+        ->and($connection->draining())->toBeFalse();
+
+    $control = fakeHttp3ConnectionStream(3, false);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            $control,
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [],
+    );
+    $connection = new PhpQuicHttp3Connection(new PhpQuicConnection($connectionRaw), static function (): void {});
+    $control->writeFails = true;
+    $control->writeFailure = static function () use ($connectionRaw): void {
+        $connectionRaw->closeInfo = [
+            'error_code' => 0,
+            'frame_type' => 0,
+            'reason' => '',
+            'local' => false,
+            'transport' => false,
+        ];
+    };
+
+    $connection->beginDrain();
+
+    expect($connection->closed())->toBeTrue();
+});
+
+it('keeps unrelated HTTP3 drain write failures visible', function (): void {
+    $control = fakeHttp3ConnectionStream(3, false);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            $control,
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [],
+    );
+    $connection = new PhpQuicHttp3Connection(new PhpQuicConnection($connectionRaw), static function (): void {});
+    $control->writeFails = true;
+
+    expect(fn() => $connection->beginDrain())->toThrow(RuntimeException::class)
+        ->and($connection->closed())->toBeFalse();
+});
+
 it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', function (): void {
     $invalidPeer = fakeHttp3ConnectionStream(1, true);
     $connectionRaw = fakeHttp3ConnectionRaw(
@@ -360,5 +447,95 @@ it('enforces the HTTP3 aggregate control-stream byte budget per pump', function 
     $connection->pump();
 
     expect($peerControl->readBytes)->toBe(16)
+        ->and($connection->closed())->toBeFalse();
+});
+
+
+it('rotates scan-based HTTP3 reads so reserved streams cannot starve requests', function (): void {
+    $encoder = new Encoder(0, 0);
+    $reservedRaw = fakeHttp3ConnectionStream(2, false, ["\x21", '', '', '', '']);
+    $requestRaw = fakeHttp3ConnectionStream(0, true, [
+        (new Frame(FrameType::HEADERS->value, $encoder->encode([
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.com'],
+            [':path', '/fair-scan'],
+        ], 0)->block))->encode(),
+        null,
+    ]);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$reservedRaw, $requestRaw],
+    );
+    $requests = [];
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$requests): void {
+            $requests[] = $request;
+            $writer->end('ok');
+        },
+        new Http3Limits(maxReadsPerPump: 1),
+    );
+
+    $connection->pump();
+    expect($requestRaw->readBytes)->toBe(0);
+
+    $connection->pump();
+    expect($requestRaw->readBytes)->toBeGreaterThan(0);
+
+    $connection->pump();
+    $connection->pump();
+
+    expect($requests)->toHaveCount(1)
+        ->and($requests[0]->target)->toBe('/fair-scan')
+        ->and($connection->closed())->toBeFalse();
+});
+
+it('rotates readiness-based HTTP3 reads so reserved streams cannot starve requests', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $encoder = new Encoder(0, 0);
+    $reservedRaw = fakeHttp3ConnectionStream(2, false, ["\x21", '', '', '']);
+    $requestRaw = fakeHttp3ConnectionStream(0, true, [
+        (new Frame(FrameType::HEADERS->value, $encoder->encode([
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.com'],
+            [':path', '/fair-ready'],
+        ], 0)->block))->encode(),
+        null,
+    ]);
+    $connectionRaw = fakeHttp3ConnectionRaw(
+        [
+            fakeHttp3ConnectionStream(3, false),
+            fakeHttp3ConnectionStream(7, false),
+            fakeHttp3ConnectionStream(11, false),
+        ],
+        [$reservedRaw, $requestRaw],
+    );
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($connectionRaw),
+        static function (): void {},
+        new Http3Limits(maxReadsPerPump: 1),
+    );
+
+    $connection->handleReady(
+        [spl_object_id($connectionRaw) => $events->acceptStream],
+        $events,
+    );
+    $ready = [
+        spl_object_id($reservedRaw) => $events->read,
+        spl_object_id($requestRaw) => $events->read,
+    ];
+
+    $connection->handleReady($ready, $events);
+    expect($requestRaw->readBytes)->toBe(0);
+
+    $connection->handleReady($ready, $events);
+
+    expect($requestRaw->readBytes)->toBeGreaterThan(0)
         ->and($connection->closed())->toBeFalse();
 });

@@ -146,3 +146,70 @@ it('uses activity-aware idle deadlines without rescheduling on every I/O', funct
     $connection->abort();
     fclose($peer);
 });
+
+
+it('contains immediate peer-close write warnings and restores the caller error handler', function (): void {
+    [$server, $peer] = runwireConnectionPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    fclose($peer);
+
+    $warnings = [];
+    set_error_handler(static function (int $severity, string $message) use (&$warnings): bool {
+        $warnings[] = [$severity, $message];
+
+        return true;
+    });
+
+    try {
+        $result = $connection->write('x');
+        if ($connection->state() !== ConnectionState::CLOSED) {
+            $loop->delay(0.05, static fn () => $loop->stop());
+            $loop->run();
+        }
+        trigger_error('runwire-error-handler-restored', E_USER_WARNING);
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($connection->state())->toBe(ConnectionState::CLOSED)
+        ->and($connection->closeReason())->toBe(CloseReason::WRITE_ERROR)
+        ->and($result->state)->toBeIn([WriteState::ACCEPTED, WriteState::PRESSURED, WriteState::CLOSED])
+        ->and($warnings)->toHaveCount(1)
+        ->and($warnings[0][0])->toBe(E_USER_WARNING)
+        ->and($warnings[0][1])->toBe('runwire-error-handler-restored');
+});
+
+it('contains buffered peer-close write warnings', function (): void {
+    [$server, $peer] = runwireConnectionPair();
+    $loop = new SelectLoop();
+    $connection = new Connection(
+        $loop,
+        $server,
+        new ConnectionLimits(maxWriteBytesPerTick: 1),
+    );
+
+    $result = $connection->write(str_repeat('x', 4_096));
+    expect($result->accepted())->toBeTrue()
+        ->and($connection->pendingWriteBytes())->toBeGreaterThan(0);
+
+    $connection->pauseReads();
+    fclose($peer);
+    $warnings = [];
+    set_error_handler(static function (int $severity, string $message) use (&$warnings): bool {
+        $warnings[] = [$severity, $message];
+
+        return true;
+    });
+
+    try {
+        $loop->delay(0.1, static fn () => $loop->stop());
+        $loop->run();
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($connection->state())->toBe(ConnectionState::CLOSED)
+        ->and($connection->closeReason())->toBe(CloseReason::WRITE_ERROR)
+        ->and($warnings)->toBe([]);
+});

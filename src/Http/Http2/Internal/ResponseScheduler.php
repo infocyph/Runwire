@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http2\Internal;
 
 use Closure;
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
@@ -12,6 +13,7 @@ use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http2\Http2ResponseWriter;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
+use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\WriteState;
@@ -24,12 +26,20 @@ use LogicException;
  */
 final class ResponseScheduler
 {
+    private const int ADAPTIVE_ACTIVE_STREAM_BASELINE = 32;
+
+    private const int ADAPTIVE_QUEUE_BASELINE_BYTES = 262_144;
+
+    private const int INITIAL_RESPONSE_WIRE_BYTES = 1_024;
+
     private const int OUTBOUND_FRAME_SIZE = 16_384;
 
     private const int WIRE_CHUNK_BYTES = self::OUTBOUND_FRAME_SIZE + 9;
 
     /** @var Closure(Http2Stream): void */
     private readonly Closure $activityCallback;
+
+    private readonly AdaptiveResponseStrategy $adaptiveResponse;
 
     /** @var Closure(Http2Stream): void */
     private readonly Closure $cleanupClosed;
@@ -41,6 +51,9 @@ final class ResponseScheduler
     private readonly Closure $streamLookup;
 
     private readonly ByteQueue $wireQueue;
+
+    /** @var Closure(): int */
+    private Closure $activeStreamCount;
 
     /** @var array<int, true> */
     private array $flushQueue = [];
@@ -69,6 +82,7 @@ final class ResponseScheduler
         callable $readyCallback,
         callable $activityCallback,
     ) {
+        $this->activeStreamCount = static fn(): int => 0;
         /** @var Closure(int): ?Http2Stream $lookupClosure */
         $lookupClosure = Closure::fromCallable($streamLookup);
         $this->streamLookup = $lookupClosure;
@@ -81,8 +95,17 @@ final class ResponseScheduler
         /** @var Closure(Http2Stream): void $activityClosure */
         $activityClosure = Closure::fromCallable($activityCallback);
         $this->activityCallback = $activityClosure;
+        $this->adaptiveResponse = new AdaptiveResponseStrategy(policy: $limits->adaptive);
         $this->wireQueue = new ByteQueue($connection->bufferBudget());
         $connection->onDrain(fn() => $this->handleTransportDrain());
+    }
+
+    /**
+     * Return the current HTTP/2 adaptive response state.
+     */
+    public function adaptiveState(): AdaptiveLoadState
+    {
+        return $this->adaptiveResponse->state();
     }
 
     /**
@@ -151,6 +174,18 @@ final class ResponseScheduler
     }
 
     /**
+     * Replace the active-stream count source after request-stream ownership is initialized.
+     *
+     * @internal
+     */
+    public function setActiveStreamCount(callable $activeStreamCount): void
+    {
+        /** @var Closure(): int $activeCountClosure */
+        $activeCountClosure = Closure::fromCallable($activeStreamCount);
+        $this->activeStreamCount = $activeCountClosure;
+    }
+
+    /**
      * Determine whether transport backpressure is active.
      */
     public function transportPressured(): bool
@@ -179,7 +214,31 @@ final class ResponseScheduler
                 $stream->drainCallback = $callback;
             },
             $onEnd,
+            fn(array $headers, string $data): ?WriteResult => $this->sendInitialResponse($stream, $headers, $data),
         );
+    }
+
+    private function adaptiveInitialResponseWireLimit(): int
+    {
+        $queueCapacity = max(1, min(
+            self::ADAPTIVE_QUEUE_BASELINE_BYTES,
+            $this->limits->maxPendingResponseBytesPerConnection,
+        ));
+        $activeCapacity = max(1, min(
+            self::ADAPTIVE_ACTIVE_STREAM_BASELINE,
+            $this->limits->maxConcurrentStreams,
+        ));
+        $sample = AdaptiveLoadSample::fromCounters(
+            pressured: $this->transportPressured
+                || !$this->wireQueue->isEmpty()
+                || $this->pressuredStreams !== [],
+            queuedBytes: $this->pendingStreamBytes + $this->wireQueue->bytes(),
+            queueCapacityBytes: $queueCapacity,
+            activeWork: ($this->activeStreamCount)(),
+            activeCapacity: $activeCapacity,
+        );
+
+        return min(self::INITIAL_RESPONSE_WIRE_BYTES, $this->adaptiveResponse->wireLimit($sample));
     }
 
     private function blocked(): bool
@@ -197,6 +256,51 @@ final class ResponseScheduler
     private function closedResult(): WriteResult
     {
         return new WriteResult(WriteState::CLOSED, 0);
+    }
+
+    private function completeInitialResponse(
+        Http2Stream $stream,
+        int $dataBytes,
+        WriteResult $result,
+    ): WriteResult {
+        if ($dataBytes > 0) {
+            $this->flow->consumeSend($stream, $dataBytes);
+        }
+        if ($result->pressured()) {
+            $this->transportPressured = true;
+        }
+
+        $stream->localEnd();
+        if ($stream->remoteOpen()) {
+            ($this->activityCallback)($stream);
+        } else {
+            ($this->cleanupClosed)($stream);
+        }
+
+        return new WriteResult(
+            $result->pressured() ? WriteState::PRESSURED : WriteState::ACCEPTED,
+            0,
+        );
+    }
+
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     */
+    private function encodeInitialResponse(Http2Stream $stream, array $headers, string $data): string
+    {
+        $dataBytes = strlen($data);
+        $block = $this->encoder->encode($headers);
+        $wire = FrameWriter::encode(new Frame(
+            FrameType::HEADERS->value,
+            $dataBytes === 0 ? 0x5 : 0x4,
+            $stream->id,
+            $block,
+        ));
+        if ($dataBytes > 0) {
+            $wire .= FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, $stream->id, $data));
+        }
+
+        return $wire;
     }
 
     private function fitsResponseLimits(Http2Stream $stream, int $bytes): bool
@@ -301,10 +405,7 @@ final class ResponseScheduler
      */
     private function headerFrames(Http2Stream $stream, array $headers): ?array
     {
-        $bytes = 0;
-        foreach ($headers as [$name, $value]) {
-            $bytes += 32 + strlen($name) + strlen($value);
-        }
+        $bytes = $this->headerListBytes($headers);
         $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
         if ($bytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
             return null;
@@ -325,6 +426,57 @@ final class ResponseScheduler
         }
 
         return $frames;
+    }
+
+    /** @param list<array{0: string, 1: string}> $headers */
+    private function headerListBytes(array $headers): int
+    {
+        $bytes = 0;
+        foreach ($headers as [$name, $value]) {
+            $bytes += 32 + strlen($name) + strlen($value);
+        }
+
+        return $bytes;
+    }
+
+    private function initialResponseAvailable(Http2Stream $stream): bool
+    {
+        return !$this->blocked()
+            && $this->flushQueue === []
+            && $stream->outbound->isEmpty()
+            && !$stream->endPending;
+    }
+
+    private function initialResponseIntent(
+        Http2Stream $stream,
+        int $headerBytes,
+        int $dataBytes,
+    ): ?int {
+        $wireLimit = $this->adaptiveInitialResponseWireLimit();
+        if (!$this->initialResponseAvailable($stream)) {
+            return null;
+        }
+
+        $wireIntentBytes = $headerBytes + $dataBytes + ($dataBytes === 0 ? 9 : 18);
+        if ($headerBytes > $this->limits->maxHeaderBlockBytes
+            || $wireIntentBytes > $wireLimit
+            || $wireIntentBytes > $this->connection->availableWriteBytes()) {
+            return null;
+        }
+        if ($dataBytes === 0) {
+            return $wireIntentBytes;
+        }
+        if (!$this->fitsResponseLimits($stream, $dataBytes)) {
+            return null;
+        }
+
+        $available = min(
+            $this->flow->availableSend($stream),
+            $this->peerSettings->maxFrameSize,
+            self::OUTBOUND_FRAME_SIZE,
+        );
+
+        return $dataBytes <= $available ? $wireIntentBytes : null;
     }
 
     private function nextStream(): ?Http2Stream
@@ -446,6 +598,40 @@ final class ResponseScheduler
             $pressured ? WriteState::PRESSURED : WriteState::ACCEPTED,
             $stream->outbound->bytes(),
         );
+    }
+
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     */
+    private function sendInitialResponse(Http2Stream $stream, array $headers, string $data): ?WriteResult
+    {
+        if (!$stream->localOpen()) {
+            return $this->closedResult();
+        }
+
+        $headerBytes = $this->headerListBytes($headers);
+        $peerLimit = $this->peerSettings->maxHeaderListSize ?? PHP_INT_MAX;
+        if ($headerBytes > min($peerLimit, $this->limits->maxHeaderListBytes)) {
+            return new WriteResult(WriteState::REJECTED_LIMIT, $stream->outbound->bytes());
+        }
+
+        $dataBytes = strlen($data);
+        $wireIntentBytes = $this->initialResponseIntent($stream, $headerBytes, $dataBytes);
+        if ($wireIntentBytes === null) {
+            return null;
+        }
+
+        $wire = $this->encodeInitialResponse($stream, $headers, $data);
+        if (strlen($wire) > $wireIntentBytes) {
+            throw new LogicException('HTTP/2 one-shot wire encoding exceeded its conservative bound.');
+        }
+
+        $result = $this->connection->write($wire);
+        if (!$result->accepted()) {
+            return $result;
+        }
+
+        return $this->completeInitialResponse($stream, $dataBytes, $result);
     }
 
     private function streamWriteResult(Http2Stream $stream): WriteResult

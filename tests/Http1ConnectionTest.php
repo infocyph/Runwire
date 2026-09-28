@@ -6,6 +6,7 @@ use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http1\Http1Connection;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
+use Infocyph\Runwire\Http\Http1\Http1ResponseWriter;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -306,4 +307,108 @@ it('re-arms the HTTP/1 header deadline while waiting for the next keep-alive req
 
     expect($response)->toContain('HTTP/1.1 200 OK')
         ->and($response)->toContain('HTTP/1.1 408 Request Timeout');
+});
+
+
+it('coalesces implicit bounded responses without delaying explicit start output', function (): void {
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    $writer = new Http1ResponseWriter(
+        $connection,
+        new Http1Limits(),
+        'GET',
+        true,
+        static function (): void {},
+    );
+
+    $result = $writer->end('ok');
+    stream_set_blocking($client, false);
+    $wire = stream_get_contents($client);
+
+    expect($result->accepted())->toBeTrue()
+        ->and($writer->isStarted())->toBeTrue()
+        ->and($writer->isEnded())->toBeTrue()
+        ->and($wire)->toBe("HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok");
+
+    $connection->abort();
+    fclose($client);
+
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    $writer = new Http1ResponseWriter(
+        $connection,
+        new Http1Limits(),
+        'GET',
+        true,
+        static function (): void {},
+    );
+
+    $writer->start(200, Headers::fromArray(['content-length' => '2']));
+    stream_set_blocking($client, false);
+    $head = stream_get_contents($client);
+    $writer->end('ok');
+    $body = stream_get_contents($client);
+
+    expect($head)->toBe("HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\n")
+        ->and($body)->toBe('ok');
+
+    $connection->abort();
+    fclose($client);
+});
+
+it('preserves HEAD semantics and falls back when a coalesced write exceeds the send bound', function (): void {
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    $writer = new Http1ResponseWriter(
+        $connection,
+        new Http1Limits(),
+        'HEAD',
+        false,
+        static function (): void {},
+    );
+
+    $writer->end('hidden');
+    stream_set_blocking($client, false);
+    $wire = stream_get_contents($client);
+
+    expect($wire)->toBe(
+        "HTTP/1.1 200 OK\r\ncontent-length: 6\r\nconnection: close\r\n\r\n",
+    );
+
+    $connection->abort();
+    fclose($client);
+
+    [$server, $client] = runwireHttpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection(
+        $loop,
+        $server,
+        new ConnectionLimits(
+            sendLowWatermarkBytes: 16,
+            sendHighWatermarkBytes: 32,
+            maxSendBufferBytes: 64,
+            maxWriteBytesPerTick: 64,
+        ),
+    );
+    $writer = new Http1ResponseWriter(
+        $connection,
+        new Http1Limits(),
+        'GET',
+        true,
+        static function (): void {},
+    );
+    $body = str_repeat('x', 32);
+
+    expect($writer->end($body)->accepted())->toBeTrue()
+        ->and($connection->rejectedWrites())->toBe(0);
+    stream_set_blocking($client, false);
+    $wire = stream_get_contents($client);
+
+    expect($wire)->toBe("HTTP/1.1 200 OK\r\ncontent-length: 32\r\n\r\n" . $body);
+
+    $connection->abort();
+    fclose($client);
 });

@@ -1,0 +1,850 @@
+[
+  {
+    "id": "h1-plain-2-reuse8",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 2,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-plain-2-reuse800",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 2,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-plain-1024-reuse8",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 1024,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-plain-1024-reuse800",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 1024,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-plain-16384-reuse8",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 16384,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-plain-16384-reuse800",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 16384,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-plain-65536-reuse8",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 65536,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-plain-65536-reuse800",
+    "protocol": "http1",
+    "tls": false,
+    "payload_bytes": 65536,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-2-reuse8",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 2,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-2-reuse800",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 2,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-1024-reuse8",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 1024,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-1024-reuse800",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 1024,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-16384-reuse8",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 16384,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-16384-reuse800",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 16384,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-65536-reuse8",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 65536,
+    "keepalive": 8,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h1-tls-65536-reuse800",
+    "protocol": "http1",
+    "tls": true,
+    "payload_bytes": 65536,
+    "keepalive": 800,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 32,
+    "high": 256
+  },
+  {
+    "id": "h2-2-s1",
+    "protocol": "h2",
+    "payload_bytes": 2,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h2-1024-s1",
+    "protocol": "h2",
+    "payload_bytes": 1024,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h2-16384-s1",
+    "protocol": "h2",
+    "payload_bytes": 16384,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h2-65536-s1",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h2-mixed-s1",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "mixed",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h2-flow-s1",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "flow",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h2-pressure-s1",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "pressure",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h2-2-s8",
+    "protocol": "h2",
+    "payload_bytes": 2,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 4,
+    "high": 8
+  },
+  {
+    "id": "h2-1024-s8",
+    "protocol": "h2",
+    "payload_bytes": 1024,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 4,
+    "high": 8
+  },
+  {
+    "id": "h2-16384-s8",
+    "protocol": "h2",
+    "payload_bytes": 16384,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 4,
+    "high": 8
+  },
+  {
+    "id": "h2-65536-s8",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 4,
+    "high": 8
+  },
+  {
+    "id": "h2-mixed-s8",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "mixed",
+    "low": 1,
+    "medium": 4,
+    "high": 8
+  },
+  {
+    "id": "h2-flow-s8",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "flow",
+    "low": 1,
+    "medium": 4,
+    "high": 8
+  },
+  {
+    "id": "h2-pressure-s8",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "pressure",
+    "low": 1,
+    "medium": 4,
+    "high": 8
+  },
+  {
+    "id": "h2-2-s32",
+    "protocol": "h2",
+    "payload_bytes": 2,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h2-1024-s32",
+    "protocol": "h2",
+    "payload_bytes": 1024,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h2-16384-s32",
+    "protocol": "h2",
+    "payload_bytes": 16384,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h2-65536-s32",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h2-mixed-s32",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "mixed",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h2-flow-s32",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "flow",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h2-pressure-s32",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "pressure",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h2-2-s100",
+    "protocol": "h2",
+    "payload_bytes": 2,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 50,
+    "high": 100
+  },
+  {
+    "id": "h2-1024-s100",
+    "protocol": "h2",
+    "payload_bytes": 1024,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 50,
+    "high": 100
+  },
+  {
+    "id": "h2-16384-s100",
+    "protocol": "h2",
+    "payload_bytes": 16384,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 50,
+    "high": 100
+  },
+  {
+    "id": "h2-65536-s100",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "steady",
+    "low": 1,
+    "medium": 50,
+    "high": 100
+  },
+  {
+    "id": "h2-mixed-s100",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "mixed",
+    "low": 1,
+    "medium": 50,
+    "high": 100
+  },
+  {
+    "id": "h2-flow-s100",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "flow",
+    "low": 1,
+    "medium": 50,
+    "high": 100
+  },
+  {
+    "id": "h2-pressure-s100",
+    "protocol": "h2",
+    "payload_bytes": 65536,
+    "scenario": "pressure",
+    "low": 1,
+    "medium": 50,
+    "high": 100
+  },
+  {
+    "id": "h3-inbound-2-s1",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-outbound-2-s1",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-balanced-2-s1",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 2,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-inbound-1024-s1",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-outbound-1024-s1",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-balanced-1024-s1",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 1024,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-inbound-16384-s1",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-outbound-16384-s1",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-balanced-16384-s1",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 16384,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-inbound-65536-s1",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 262144,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-outbound-65536-s1",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-balanced-65536-s1",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 65536,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-inbound-2-s32",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-outbound-2-s32",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-balanced-2-s32",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 2,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-inbound-1024-s32",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-outbound-1024-s32",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-balanced-1024-s32",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 1024,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-inbound-16384-s32",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-outbound-16384-s32",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-balanced-16384-s32",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 16384,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-inbound-65536-s32",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 262144,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-outbound-65536-s32",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-balanced-65536-s32",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 65536,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-inbound-2-s80",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-outbound-2-s80",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-balanced-2-s80",
+    "protocol": "h3",
+    "payload_bytes": 2,
+    "upload_bytes": 2,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-inbound-1024-s80",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-outbound-1024-s80",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-balanced-1024-s80",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 1024,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-inbound-16384-s80",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 65536,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-outbound-16384-s80",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-balanced-16384-s80",
+    "protocol": "h3",
+    "payload_bytes": 16384,
+    "upload_bytes": 16384,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-inbound-65536-s80",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 262144,
+    "scenario": "inbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-outbound-65536-s80",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 0,
+    "scenario": "outbound",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-balanced-65536-s80",
+    "protocol": "h3",
+    "payload_bytes": 65536,
+    "upload_bytes": 65536,
+    "scenario": "balanced",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-qpack-s1",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "qpack",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-churn-s1",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "churn",
+    "low": 1,
+    "medium": 1,
+    "high": 1
+  },
+  {
+    "id": "h3-qpack-s32",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "qpack",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-churn-s32",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "churn",
+    "low": 1,
+    "medium": 16,
+    "high": 32
+  },
+  {
+    "id": "h3-qpack-s80",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "qpack",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  },
+  {
+    "id": "h3-churn-s80",
+    "protocol": "h3",
+    "payload_bytes": 1024,
+    "upload_bytes": 0,
+    "scenario": "churn",
+    "low": 1,
+    "medium": 40,
+    "high": 80
+  }
+]

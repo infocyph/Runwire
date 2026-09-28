@@ -14,6 +14,8 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
+use Infocyph\Runwire\Network\Internal\StreamWriter;
+use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -82,6 +84,8 @@ final class Connection
         private readonly ?string $negotiatedProtocol = null,
         private readonly bool $encrypted = false,
         private readonly ?ByteBudget $bufferBudget = null,
+        private readonly bool $tcpTransport = false,
+        private readonly ?bool $tcpNoDelayOverride = null,
     ) {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('Connection requires a live stream resource.');
@@ -116,6 +120,27 @@ final class Connection
 
         $this->sendBuffer->clear();
         $this->finalize($reason);
+    }
+
+    /**
+     * @internal Apply a protocol TCP_NODELAY default unless listener configuration explicitly owns it.
+     */
+    public function applyTcpNoDelayDefault(bool $enabled): void
+    {
+        TcpSocketTuner::applyNoDelayDefault(
+            $this->stream,
+            $this->tcpTransport,
+            $this->tcpNoDelayOverride,
+            $enabled,
+        );
+    }
+
+    /**
+     * @internal Return bytes currently available in the bounded send queue.
+     */
+    public function availableWriteBytes(): int
+    {
+        return max(0, $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes());
     }
 
     /**
@@ -464,7 +489,7 @@ final class Connection
                 return new WriteResult(WriteState::CLOSED, 0);
             }
             $attempt = max(0, min($length, $this->limits->maxWriteBytesPerTick));
-            $written = fwrite($stream, $data, $attempt);
+            $written = StreamWriter::write($stream, $data, $attempt);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
 
@@ -636,7 +661,7 @@ final class Connection
                 break;
             }
 
-            $written = fwrite($stream, $chunk);
+            $written = StreamWriter::write($stream, $chunk);
             if ($written === false) {
                 $this->finalize(CloseReason::WRITE_ERROR);
 

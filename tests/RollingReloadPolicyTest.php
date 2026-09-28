@@ -190,8 +190,14 @@ it('aborts a failed rollout while preserving healthy old capacity', function ():
     ));
     $snapshot = null;
     $reloadFailedEvents = 0;
-    $supervisor->onEvent(static function (SupervisorEvent $event) use (&$reloadFailedEvents): void {
-        $reloadFailedEvents += $event->type === SupervisorEventType::RELOAD_FAILED ? 1 : 0;
+    $supervisor->onEvent(static function (SupervisorEvent $event) use ($supervisor, &$snapshot, &$reloadFailedEvents): void {
+        if ($event->type !== SupervisorEventType::RELOAD_FAILED) {
+            return;
+        }
+
+        ++$reloadFailedEvents;
+        $snapshot = $supervisor->status();
+        $supervisor->stop();
     });
     $supervisor->group(WorkerGroup::callbacks(
         name: 'rollback',
@@ -211,10 +217,7 @@ it('aborts a failed rollout while preserving healthy old capacity', function ():
     ));
 
     $loop->delay(0.02, static fn() => $supervisor->reload());
-    $loop->delay(0.11, static function () use ($supervisor, &$snapshot): void {
-        $snapshot = $supervisor->status();
-        $supervisor->stop();
-    });
+    $loop->delay(0.5, static fn() => $supervisor->stop());
     $supervisor->run();
 
     expect($snapshot)->toBeInstanceOf(SupervisorStatus::class)

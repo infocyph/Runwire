@@ -104,16 +104,16 @@ It does **not** advertise:
 
 The portable contract is fail-closed:
 
-```text
-workers 0 or 1            one portable process
-workers > 1               startup error
-enabled recycle threshold startup error
-control endpoint           startup error
-development watcher        startup error
-lifecycle listener         startup error
-worker privilege drop      startup error
-HTTP/3 without QUIC        startup error
-```
+| Configuration | Portable-native result |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One portable process. |
+| `workers > 1` | Startup error. |
+| Any worker-recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development worker watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop policy configured | Startup error. |
+| HTTP/3 configured without QUIC capability | Startup error. |
 
 External supervision owns process replacement for portable deployments.
 
@@ -192,22 +192,22 @@ $context->requireCapability(RuntimeCapability::RUNWIRE_COROUTINES);
 
 Important capabilities include:
 
-```text
-PERSISTENT
-CONCURRENT
-OWNS_LISTENER
-OWNS_EVENT_LOOP
-OWNS_WORKER_POOL
-RUNWIRE_LOOP_AVAILABLE
-RUNWIRE_COROUTINES
-HOST_NATIVE_COROUTINES
-HOST_OWNS_EVENT_LOOP
-SUPPORTS_GRACEFUL_RELOAD
-SUPPORTS_WORKER_RECYCLE
-SUPPORTS_HTTP1
-SUPPORTS_HTTP2
-SUPPORTS_HTTP3
-```
+| Capability | Meaning |
+| --- | --- |
+| `PERSISTENT` | Application/runtime state can persist across requests. |
+| `CONCURRENT` | The selected runtime can execute multiple requests concurrently. |
+| `OWNS_LISTENER` | Runwire owns listener binding/acceptance. |
+| `OWNS_EVENT_LOOP` | Runwire owns the active event loop. |
+| `OWNS_WORKER_POOL` | Runwire owns worker creation/replacement. |
+| `RUNWIRE_LOOP_AVAILABLE` | A Runwire-compatible loop is available to integrations. |
+| `RUNWIRE_COROUTINES` | Runwire structured coroutines are available. |
+| `HOST_NATIVE_COROUTINES` | The selected host provides its own native coroutine model. |
+| `HOST_OWNS_EVENT_LOOP` | The host, not Runwire, owns event-loop driving. |
+| `SUPPORTS_GRACEFUL_RELOAD` | Graceful worker reload is actually usable in the selected configuration. |
+| `SUPPORTS_WORKER_RECYCLE` | Worker replacement/recycle is actually usable. |
+| `SUPPORTS_HTTP1` | HTTP/1.1 serving is available. |
+| `SUPPORTS_HTTP2` | HTTP/2 serving is available in the selected configuration. |
+| `SUPPORTS_HTTP3` | HTTP/3/QUIC serving is available in the selected configuration. |
 
 Driver-name branching is appropriate only for truly host-specific APIs.
 
@@ -215,19 +215,14 @@ Driver-name branching is appropriate only for truly host-specific APIs.
 
 `RuntimeContext` is immutable application/worker-lifetime metadata.
 
-It exposes:
-
-```text
-driver
-mode
-worker slot
-generation
-PID
-persistent/concurrent flags
-listener/event-loop/worker-pool ownership
-resolved RuntimeCapabilities
-RuntimeMetrics
-```
+| Field group | Meaning |
+| --- | --- |
+| Driver / mode | Selected runtime driver and execution mode. |
+| Worker slot / generation / PID | Worker identity and replacement generation. |
+| Persistence / concurrency | Whether worker-lifetime state is valid and requests may overlap. |
+| Ownership | Listener, event-loop, and worker-pool ownership. |
+| Capabilities | Resolved `RuntimeCapability` set for the selected configuration. |
+| Metrics | Current `RuntimeMetrics` snapshot source. |
 
 Example:
 
@@ -248,14 +243,14 @@ Do not store request-specific data on `RuntimeContext`.
 
 `RequestContext` owns one logical request's runtime state:
 
-```text
-request ID
-monotonic start time
-request deadline
-cancellation token
-bounded request-local attributes
-owning RuntimeContext
-```
+| Field | Meaning |
+| --- | --- |
+| Request ID | Bounded identifier for one logical request. |
+| Monotonic start time | Stable runtime-relative request start. |
+| Deadline | Optional request execution deadline. |
+| Cancellation token | Request-owned cancellation state. |
+| Attributes | Bounded request-local key/value state. |
+| Runtime context | Owning immutable `RuntimeContext`. |
 
 Example:
 
@@ -362,6 +357,21 @@ HTTP/3 frames / streams / QPACK / QUIC transport
 
 The application should not need to implement protocol framing to respond to a request.
 
+Implicit bounded responses have transparent protocol-local fast paths. HTTP/1.1 can coalesce the implicit response head/body into one transport write when the complete wire payload fits available bounded send capacity. HTTP/2 can use a one-shot initial HEADERS/DATA path only when scheduler, header, flow-control, policy-budget, and transport-capacity conditions all permit it. Failure of any eligibility condition falls back to the normal response scheduler; explicit streaming and backpressure semantics are unchanged.
+
+### Protocol-local scheduling policy
+
+`AdaptiveProtocolPolicy` changes bounded scheduling effort inside a protocol; it does not change application semantics or hard resource ceilings. Runwire 2.0 supplies `FIXED` as the default through `Http1Limits`, `Http2Limits`, and both HTTP/3 policy slots.
+
+| Protocol | Policy scope | FIXED behavior | Adaptive boundary |
+| --- | --- | --- | --- |
+| HTTP/1.1 | Default TCP_NODELAY choice when a connection is attached | NODELAY on | AUTO samples at most eight recent live connections; deterministic modes skip AUTO sampling; explicit listener `tcp_nodelay` wins. |
+| HTTP/2 | Eligibility/budget for the bounded one-shot initial HEADERS/DATA path | Full bounded one-shot budget | Normal multiplexing, peer flow control, frame/stream limits, queues, and backpressure remain authoritative. |
+| HTTP/3 inbound | Bounded read/poll effort | Configured read maxima and base poll timing | Does not reduce the configured connection-accept ceiling; remains capped by `Http3Limits`. |
+| HTTP/3 outbound | Bounded response-write effort | Configured write maxima | Remains capped by `Http3Limits`. |
+
+`AUTO` uses integer EWMA smoothing, low/high hysteresis, and sustained-sample dwell. `LATENCY` and `THROUGHPUT` pin deterministic profile states. The release defaults remain `FIXED` because AUTO did not satisfy the release promotion gates consistently; consumers may still opt in after workload-specific measurement.
+
 ## 11. TLS and HTTP/2
 
 `TcpListener` validates that OpenSSL is available before binding a configured TLS listener.
@@ -393,7 +403,7 @@ drain / GOAWAY behavior
 resource ceilings
 ```
 
-0-RTT application dispatch is disabled for 1.0.
+0-RTT application dispatch is disabled for Runwire 2.0.
 
 Explicit HTTP/3 configuration without a supported QUIC capability is a startup error; it is never silently ignored. When HTTP/3 is not configured, absence of QUIC does not affect HTTP/1.1 or HTTP/2.
 
@@ -430,7 +440,9 @@ monotonic time
 run / stop
 ```
 
-`SelectLoop` is the built-in portable loop and fallback implementation.
+`SelectLoop` is the built-in portable loop and fallback implementation. Portable native always uses one shared SelectLoop. Native prefork HTTP workers use `LoopFactory`: when ext-event is available they select the scalable `EventLoop`; otherwise they use SelectLoop with a conservative 256-connection worker ceiling to avoid pretending that `select()` scales beyond descriptor-safe bounds. Native framed-stream and datagram workers continue to use SelectLoop.
+
+Installing ext-event is therefore optional for correctness but recommended when a native prefork HTTP deployment requires high per-worker connection counts. Application code should program against `LoopInterface`, not a concrete backend.
 
 Optional host/custom loop integrations must preserve the same contract. Runwire does not ship a second independent timer reactor for coroutines.
 
@@ -502,29 +514,29 @@ Runtime observability is fixed-cardinality by design.
 
 Metrics/diagnostics cover:
 
-```text
-requests / failures
-connections / bytes
-streams
-backpressure / overload
-worker state / age / busy time
-event-loop health
-coroutine scheduler state
-protocol-specific state
-```
+| Area | Examples |
+| --- | --- |
+| Requests | Request totals and failures. |
+| Connections | Connection counts and bytes. |
+| Streams | Protocol stream counts/state. |
+| Pressure | Backpressure and overload signals. |
+| Workers | State, age, busy time. |
+| Event loop | Lag/overrun/backend health. |
+| Coroutines | Scheduler/task/backlog state. |
+| Protocols | Protocol-specific counters/state. |
 
 Do not retain unbounded per-request/per-connection history in runtime status structures.
 
 Operational concepts are intentionally distinct:
 
-```text
-live      control/runtime path functions
-ready     can admit work
-healthy   no configured health failure
-draining  intentionally refusing new work while finishing admitted work
-```
+| State | Meaning |
+| --- | --- |
+| `live` | Control/runtime path functions. |
+| `ready` | Runtime can admit intended work. |
+| `healthy` | No configured health failure is active. |
+| `draining` | New work is restricted while admitted work finishes. |
 
-A PID existing is not sufficient evidence of readiness or health.
+A PID existing proves only liveness; it is not sufficient evidence of readiness or health.
 
 ## 19. Security contract
 

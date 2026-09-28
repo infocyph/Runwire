@@ -6,9 +6,12 @@ namespace Infocyph\Runwire\Http\Http3\Quic;
 
 use Closure;
 use Infocyph\Runwire\Exception\ListenerException;
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
+use Infocyph\Runwire\Http\Http3\Internal\AdaptivePollStrategy;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
@@ -50,6 +53,12 @@ final class PhpQuicHttp3Worker
         ?PhpQuicHttp3Poller $poller = null,
         private readonly float $handshakeTimeoutSeconds = self::DEFAULT_HANDSHAKE_TIMEOUT_SECONDS,
         private readonly ?ByteBudget $bufferBudget = null,
+        private readonly AdaptiveProtocolPolicy $inboundAdaptive = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED),
+        private readonly AdaptiveProtocolPolicy $outboundAdaptive = new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::FIXED,
+            lowWatermarkBasisPoints: 1_000,
+            highWatermarkBasisPoints: 4_000,
+        ),
     ) {
         if ($connectionLimit < 1 || $connectionLimit > 1_000_000) {
             throw new InvalidArgumentException('HTTP/3 worker connection limit must be between 1 and 1000000.');
@@ -140,7 +149,13 @@ final class PhpQuicHttp3Worker
             $listener,
             array_values($this->connections),
             $canAccept,
-            $timeoutSeconds,
+            AdaptivePollStrategy::timeout(
+                $timeoutSeconds,
+                $this->accepting,
+                count($this->connections),
+                count($this->pendingConnections),
+                $this->inboundAdaptive,
+            ),
             array_map(
                 static fn(array $pending): PhpQuicConnection => $pending['connection'],
                 array_values($this->pendingConnections),
@@ -252,7 +267,14 @@ final class PhpQuicHttp3Worker
             }
 
             try {
-                $http3 = new PhpQuicHttp3Connection($connection, $this->handler, $this->limits, bufferBudget: $this->bufferBudget);
+                $http3 = new PhpQuicHttp3Connection(
+                    $connection,
+                    $this->handler,
+                    $this->limits,
+                    bufferBudget: $this->bufferBudget,
+                    inboundAdaptive: $this->inboundAdaptive,
+                    outboundAdaptive: $this->outboundAdaptive,
+                );
                 if (!$this->accepting) {
                     $http3->beginDrain();
                 }

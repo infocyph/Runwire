@@ -6,29 +6,18 @@ For complete first-run examples, see [Getting Started](getting-started.md). For 
 
 ## 1. Production baseline
 
-Hard package requirement:
+Runtime capability baseline:
 
-```text
-64-bit PHP ^8.4
-```
-
-Recommended native prefork extensions:
-
-```text
-ext-pcntl
-ext-posix
-```
-
-Optional capabilities:
-
-```text
-ext-openssl       TLS / HTTP/2 ALPN
-ext-quic          native QUIC / HTTP/3
-ext-swoole        Swoole host integration; select RuntimeDriver::SWOOLE explicitly
-ext-openswoole    OpenSwoole host integration; select RuntimeDriver::SWOOLE explicitly
-ext-sockets       optional socket features
-ext-zend-opcache  bytecode cache
-```
+| Capability | Production role | Required? |
+| --- | --- | --- |
+| 64-bit PHP `^8.4` | Core runtime requirement. | **Required** |
+| `ext-pcntl` + `ext-posix` | Native prefork workers, reload/recycle, signals, control operations, privilege reduction. | Recommended for prefork; not required for portable native. |
+| `ext-event` | Scalable native HTTP worker loop. | Strongly recommended for high-connection prefork HTTP; SelectLoop is the fallback. |
+| `ext-openssl` | TLS and HTTP/2 ALPN. | Required only when TLS/HTTP2 is enabled. |
+| `ext-quic` | Native QUIC and HTTP/3. | Required only when HTTP/3 is enabled. |
+| `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host integration. | Required only for that host; select `RuntimeDriver::SWOOLE` explicitly. |
+| `ext-sockets` | Optional low-level socket features and transport tuning. | Optional. |
+| OPcache | Persistent bytecode caching. | Recommended for production; required by release-certification performance evidence. |
 
 ## 2. Correct ownership model and host selection
 
@@ -95,20 +84,20 @@ Either compatible Swoole-family extension can back `RuntimeDriver::SWOOLE`. Expl
 | HTTP/3 | with QUIC | with QUIC |
 | Structured coroutines | yes | yes |
 
-Portable mode keeps ordinary native serving available when PCNTL/POSIX are missing; it is not a substitute supervisor.
+Portable mode keeps ordinary native serving available when PCNTL/POSIX are missing; it is not a substitute supervisor. Portable native uses SelectLoop. Prefork HTTP workers prefer ext-event when installed and otherwise use SelectLoop with a conservative 256-connection loop ceiling, so install ext-event for high-connection native HTTP deployments.
 
 The portable contract is fail-closed:
 
-```text
-workers 0 or 1            one process
-workers > 1               startup error
-enabled recycle threshold startup error
-control endpoint           startup error
-development watcher        startup error
-lifecycle listener         startup error
-worker privilege drop      startup error
-HTTP/3 without QUIC        startup error
-```
+| Configuration | Result |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One process. |
+| `workers > 1` | Startup error. |
+| Worker recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop configured | Startup error. |
+| HTTP/3 configured without QUIC | Startup error. |
 
 External supervision owns portable process restart/replacement.
 
@@ -137,6 +126,11 @@ Automatic sizing uses effective detected resources where available, including cg
 Guidance:
 
 - explicit counts override automatic sizing;
+- automatic sizing is a deployment starting point, not a linear-throughput promise;
+- benchmark representative 1/2/4-worker configurations against the same protocol, payload, concurrency and CPU quota before fixing a production count;
+- short Runwire diagnostics showed useful but sublinear scaling (1→2 workers about 1.43×, 1→4 about 2.58×), so do not assume workers scale linearly;
+- one multiplexed HTTP/2 connection can already saturate a worker under a small-response workload; adding client connections is not a substitute for adding measured worker capacity;
+- measure CPU saturation, RSS per worker, accept distribution and socket contention together with throughput/latency;
 - measure memory per worker;
 - do not configure multiple workers for portable-only deployment;
 - HTTP/3 multi-worker topology requires explicit reuse-port support.
@@ -436,15 +430,54 @@ Production requirements:
 5. ALPN `h3`;
 6. suitable QUIC/stream resource ceilings.
 
-0-RTT application dispatch is disabled in 1.0. Explicit HTTP/3 without QUIC is a startup error. QUIC peer address changes must not be used as an authentication identity.
+0-RTT application dispatch is disabled in Runwire 2.0. Explicit HTTP/3 without QUIC is a startup error. QUIC peer address changes must not be used as an authentication identity.
 
-## 19. SO_REUSEPORT
+## 19. Adaptive protocol scheduling
+
+The production default for HTTP/1.1, HTTP/2, and HTTP/3 is `FIXED`. `AUTO`, `LATENCY`, and `THROUGHPUT` remain supported explicit profiles, but they should be treated as workload-specific tuning rather than generic upgrades.
+
+Production selection:
+
+| Choice | Use when | Avoid when |
+| --- | --- | --- |
+| `FIXED` | Deterministic behavior is preferred, workload is mixed/unknown, or no representative repeated benchmark exists. | Only when a measured alternative clearly performs better for the deployment. |
+| `LATENCY` | A deterministic latency bias improves measured interactive/RPC traffic. | Bulk/sustained workloads where the bias hurts throughput. |
+| `THROUGHPUT` | A deterministic throughput bias improves measured sustained transfer performance. | Tail latency or small-response behavior regresses materially. |
+| `AUTO` | Repeated tests cover steady load, transitions, p95/p99, CPU, RSS, fairness, and backpressure and remain inside your release budget. | Workloads without transition evidence, unstable measurements, or deployments that require strict determinism. |
+| Per-protocol tuning | One protocol has a distinct traffic shape or bottleneck. | Applying one crossover profile blindly to H1/H2/H3. |
+| H3 split tuning | Only inbound or outbound HTTP/3 behavior needs adaptation. | Changing both directions without evidence. |
+| Hard limits | Change only after separate capacity testing. | Never raise them merely to compensate for an adaptive-policy choice. |
+
+HTTP/1.1 chooses its default TCP_NODELAY behavior when each connection is attached. An explicit listener socket setting owns the decision and prevents the protocol strategy from overriding it:
+
+```php
+use Infocyph\Runwire\Network\ListenerOptions;
+
+$listener = new ListenerOptions(
+    socketContext: ['tcp_nodelay' => true],
+);
+```
+
+AUTO policy validation:
+
+| Setting | Requirement |
+| --- | --- |
+| Watermarks | Basis points of normalized load; `0 <= low < high <= 10000`. |
+| Transition dwell | `transitionSamples >= 1`. |
+| EWMA ratio | `1 <= numerator <= denominator <= intdiv(PHP_INT_MAX, 10000)`. |
+| Invalid values | Constructor fails; values are not silently clamped. |
+
+A standalone `new AdaptiveProtocolPolicy()` is an AUTO policy with generic watermarks. The protocol option objects deliberately supply FIXED release defaults and, where applicable, protocol-specific crossover values. When replacing a protocol policy object, specify the intended mode and preserve/tune its watermarks consciously.
+
+See [Getting Started](getting-started.md#7-adaptive-protocol-scheduling) for complete construction examples and mode behavior.
+
+## 20. SO_REUSEPORT
 
 Reuse-port is explicit and off by default. Use only after validating platform support and load distribution.
 
 Native HTTP/3 with multiple independently bound QUIC workers requires explicit reuse-port configuration.
 
-## 20. Resource ceilings
+## 21. Resource ceilings
 
 Defaults are conservative. Constructor validation in the protocol limit objects is authoritative.
 
@@ -454,15 +487,15 @@ Defaults are conservative. Constructor validation in the protocol limit objects 
 | Header / field-section | 64 KiB | 64 KiB | 64 KiB |
 | Header fields | 100 | 100 | 128 |
 | Concurrent streams | n/a | 100 | 100 |
-| Lifetime request streams | bounded | 10,000 | 10,000 |
-| Pending response / stream | bounded writer | 1 MiB | 1 MiB |
-| Pending response / connection | bounded connection buffer | 8 MiB | 8 MiB |
+| Lifetime requests/streams per connection | 1,000 keep-alive requests | 10,000 streams | 10,000 request streams |
+| Pending response / stream | transport-bounded | 1 MiB | 1 MiB |
+| Pending response / connection | 1 MiB transport send buffer | 8 MiB | 8 MiB |
 | Compression table | n/a | HPACK 4 KiB | QPACK max 64 KiB |
 | Blocked compression streams | n/a | n/a | 32 |
 
 Increase limits only after measuring memory, file-descriptor usage, and tail latency.
 
-## 21. Backpressure
+## 22. Backpressure
 
 ```php
 $result = $writer->write($chunk);
@@ -478,17 +511,17 @@ if ($result->pressured()) {
 
 Do not respond to slow consumers by creating an unbounded application buffer.
 
-## 22. Coroutine resource policy
+## 23. Coroutine resource policy
 
 Default limits:
 
-```text
-maxTasks                1024
-maxReadyBacklog         1024
-maxFutureWaiters        1024
-maxResumesPerTick       128
-maxWaitersPerPrimitive  1024
-```
+| Coroutine policy | Default |
+| --- | ---: |
+| `maxTasks` | 1024 |
+| `maxReadyBacklog` | 1024 |
+| `maxFutureWaiters` | 1024 |
+| `maxResumesPerTick` | 128 |
+| `maxWaitersPerPrimitive` | 1024 |
 
 Override intentionally:
 
@@ -509,7 +542,7 @@ $coroutines = new CoroutineRuntime(
 
 Higher limits retain more task/waiter state.
 
-## 23. Metrics and diagnostics
+## 24. Metrics and diagnostics
 
 Runtime metrics:
 
@@ -527,21 +560,21 @@ Keep labels fixed-cardinality. Do not emit request IDs, connection IDs, URLs, or
 
 Operational state should distinguish:
 
-```text
-live
-ready
-healthy
-draining
-```
+| State | Meaning |
+| --- | --- |
+| `live` | Process/runtime exists. |
+| `ready` | Prepared to accept intended work. |
+| `healthy` | Runtime is operating within its health contract. |
+| `draining` | New work is restricted while admitted work completes. |
 
-A PID existing is not sufficient evidence of readiness or health.
+A PID existing proves only liveness; it is not sufficient evidence of readiness or health.
 
-## 24. Production checklist
+## 25. Production checklist
 
 Before traffic, verify:
 
 - service runs unprivileged or workers drop privilege before bootstrap/readiness;
-- 64-bit PHP and required extensions;
+- 64-bit PHP and required extensions; for high-connection native prefork HTTP, verify ext-event is installed and selected;
 - the intended runtime driver is selected; Swoole/OpenSwoole deployments explicitly use `RuntimeDriver::SWOOLE` unless a custom integration supplies a reliable hosted signal;
 - effective CPU/memory limits;
 - file-descriptor limits;
@@ -558,7 +591,7 @@ Before traffic, verify:
 
 See [Runtime Security](security.md) for `disable_functions`, ProcessRunner allowlisting, systemd controls, container hardening, and persistent-state guidance.
 
-## 25. Deployment acceptance
+## 26. Deployment acceptance
 
 A production candidate should exercise:
 

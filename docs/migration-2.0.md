@@ -85,6 +85,48 @@ Runwire 2.0 preserves explicit TLS verification settings rather than replacing c
 
 HTTP/1 parsing, HTTP/2 compression/framing, HTTP/3 QPACK/control streams, UDP callbacks, and host response writers all use stricter bounded failure behavior covered by the 2.0 regression matrix.
 
+## Native HTTP transport behavior
+
+Runwire 2.0 also tightens several native HTTP transport defaults without changing the public response-writing contract.
+
+- Native HTTP/1 connections enable `TCP_NODELAY` after HTTP/1 protocol selection when live accepted-socket tuning is available. An explicit listener `tcp_nodelay` socket-context setting still wins. HTTP/2 does not inherit the HTTP/1 default.
+- Bounded implicit HTTP/1 `end($body)` responses may serialize the response head and body into one transport write. Explicit `start() / write() / end()`, chunked streaming, WebSocket upgrade, and backpressure semantics remain on their existing paths.
+- Tiny implicit HTTP/2 responses may use a bounded initial HEADERS+DATA fast path only while the combined wire intent remains below the scheduler's conservative threshold. Larger and streaming responses retain normal multiplexed scheduling.
+- HTTP/2 lifetime stream churn now rotates gracefully with GOAWAY when the configured ceiling is reached while preserving the same hard resource bound.
+- Expected TCP/TLS peer-close write warnings are scoped inside Runwire's transport writer and map to existing write-failure/close semantics instead of leaking raw `fwrite()` warnings.
+- HTTP/3 graceful drain recognizes an already-observed QUIC peer close and does not turn that normal shutdown ordering into a worker-fatal exception.
+
+These are native transport/runtime behaviors. Applications should not add duplicate socket toggles, response buffering, or protocol-specific shutdown workarounds unless their deployment has a measured reason to override Runwire policy.
+
+### Adaptive protocol policy
+
+Runwire 2.0 exposes protocol-local adaptive scheduling through `AdaptiveProtocolPolicy` and `AdaptivePolicyMode`. HTTP/1.1, HTTP/2, and HTTP/3 default to `FIXED`; H1 keeps NODELAY on. Direct QUIC connection and worker construction follow the same FIXED default. All protocols retain explicit `FIXED`, `LATENCY`, `THROUGHPUT`, and `AUTO` overrides. AUTO remains opt-in because repeated promotion diagnostics did not stay inside the preregistered H1/H2/H3 regression budgets.
+
+| Mode | Migration meaning | Recommended use |
+| --- | --- | --- |
+| `FIXED` | Reproduces the deterministic static scheduling profile and is the Runwire 2.0 protocol default. | Keep unless measured evidence supports another mode. |
+| `LATENCY` | Pins the latency-biased profile. | Use only for measured latency-sensitive workloads. |
+| `THROUGHPUT` | Pins the throughput-biased profile. | Use only for measured sustained/bulk workloads. |
+| `AUTO` | Uses the protocol-specific pressure/backlog/activity controller and can move through latency/balanced/throughput states. | Explicit opt-in for deployments with steady-state and transition evidence. |
+
+HTTP/1.1 owns its policy through `Http1Limits::$adaptive`; HTTP/2 owns its policy through `Http2Limits::$adaptive`; HTTP/3 owns independent `Http3Options::$inboundAdaptive` and `Http3Options::$outboundAdaptive` policies. Advanced callers may override low/high basis-point watermarks, transition sample count, and EWMA ratio per protocol.
+
+A standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO` with generic 25%/65% watermarks. The protocol configuration objects intentionally replace that standalone default with `FIXED` and, for H1/H2/H3 outbound, protocol-specific crossover values. Therefore replacing a protocol's policy with an unqualified `new AdaptiveProtocolPolicy()` is an explicit behavioral change, not a way to preserve the protocol default.
+
+H1 selects its NODELAY default when a connection is attached; explicit listener `tcp_nodelay` configuration has precedence. H2 policy only changes bounded initial-response scheduling eligibility. H3 owns inbound read/poll effort separately from outbound response-write effort.
+
+Consumers constructing the low-level `PhpQuicHttp3Worker` or `PhpQuicHttp3Connection` directly can now pass inbound/outbound adaptive policies; both constructor defaults are FIXED. `PhpQuicConnection::closed()` exposes whether the native QUIC layer has already reported connection closure so graceful drain can treat peer-close ordering as normal. Most applications should continue using `Server`/`Http3Options` rather than constructing these adapters directly.
+
+Policy validation remains fail-fast:
+
+| Setting | Requirement |
+| --- | --- |
+| Watermarks | `0 <= low < high <= 10000`. |
+| `transitionSamples` | `>= 1`. |
+| EWMA ratio | `1 <= numerator <= denominator <= intdiv(PHP_INT_MAX, 10000)`. |
+
+Adaptive policy never raises hard body/header/frame, stream, queue, connection, QPACK/HPACK, WebSocket, or lifecycle limits. Those existing configuration objects remain the authoritative resource ceilings. See [Getting Started](getting-started.md#7-adaptive-protocol-scheduling) for complete configuration examples and [Deployment](deployment.md#19-adaptive-protocol-scheduling) for production selection guidance.
+
 ## New bounded 2.0 surfaces
 
 Two reviewed candidates were retained after their correctness, resource, interoperability, performance, and exact-head quality gates passed.

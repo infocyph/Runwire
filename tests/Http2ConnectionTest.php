@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
@@ -156,4 +160,135 @@ it('does not expose unexpected callback exception text in HTTP/2 GOAWAY debug da
     }
 
     expect($debug)->not->toContain($secret);
+});
+
+
+it('ends an empty implicit response on HEADERS without an empty DATA frame', function (): void {
+    [$wire] = runwireH2Exchange(
+        runwireH2ClientPrelude() . runwireH2Headers(1, '/empty'),
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            expect($request->target)->toBe('/empty');
+            $writer->end();
+        },
+    );
+
+    $responseHeaders = [];
+    $dataFrames = [];
+    foreach (runwireH2Frames($wire) as $frame) {
+        if ($frame->streamId !== 1) {
+            continue;
+        }
+        if ($frame->knownType() === FrameType::HEADERS) {
+            $responseHeaders[] = $frame;
+        }
+        if ($frame->knownType() === FrameType::DATA) {
+            $dataFrames[] = $frame;
+        }
+    }
+
+    expect($responseHeaders)->toHaveCount(1)
+        ->and($responseHeaders[0]->hasFlag(0x4))->toBeTrue()
+        ->and($responseHeaders[0]->hasFlag(0x1))->toBeTrue()
+        ->and($dataFrames)->toBe([]);
+});
+
+it('keeps the 1 KiB response path correct outside the tiny one-shot budget', function (): void {
+    $body = str_repeat('x', 1_024);
+    [$wire] = runwireH2Exchange(
+        runwireH2ClientPrelude() . runwireH2Headers(1, '/one-kib'),
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($body): void {
+            expect($request->target)->toBe('/one-kib');
+            $writer->end($body);
+        },
+    );
+
+    $decoded = '';
+    $ended = false;
+    foreach (runwireH2Frames($wire) as $frame) {
+        if ($frame->streamId !== 1 || $frame->knownType() !== FrameType::DATA) {
+            continue;
+        }
+        $decoded .= $frame->payload;
+        $ended = $ended || $frame->hasFlag(0x1);
+    }
+
+    expect($decoded)->toBe($body)
+        ->and($ended)->toBeTrue();
+});
+
+
+it('rotates gracefully when the HTTP2 stream churn ceiling is reached', function (): void {
+    $handled = [];
+    [$wire] = runwireH2Exchange(
+        runwireH2ClientPrelude()
+            . runwireH2Headers(1, '/one')
+            . runwireH2Headers(3, '/two')
+            . runwireH2Headers(5, '/beyond'),
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$handled): void {
+            $handled[] = $request->target;
+            $writer->end('ok');
+        },
+        new Http2Limits(maxStreamsPerConnection: 2),
+    );
+
+    $goAway = [];
+    foreach (runwireH2Frames($wire) as $frame) {
+        if ($frame->knownType() !== FrameType::GOAWAY) {
+            continue;
+        }
+
+        /** @var array{last: int, error: int}|false $decoded */
+        $decoded = unpack('Nlast/Nerror', substr($frame->payload, 0, 8));
+        expect($decoded)->toBeArray();
+        $goAway[] = [
+            'last' => $decoded['last'] & 0x7FFF_FFFF,
+            'error' => $decoded['error'],
+        ];
+    }
+
+    expect($handled)->toBe(['/one', '/two'])
+        ->and($goAway)->not->toBe([])
+        ->and($goAway[0])->toBe([
+            'last' => 3,
+            'error' => ErrorCode::NO_ERROR->value,
+        ]);
+});
+
+
+it('feeds sustained H2 multiplex load into the adaptive response strategy', function (): void {
+    $wire = runwireH2ClientPrelude();
+    for ($index = 0; $index < 32; ++$index) {
+        $wire .= runwireH2Headers(($index * 2) + 1, '/adaptive-' . $index, false);
+    }
+
+    $writers = [];
+    [$response, $http2] = runwireH2Exchange(
+        $wire,
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$writers): void {
+            expect($request->version->value)->toBe('2');
+            $writers[] = $writer;
+            if (count($writers) !== 32) {
+                return;
+            }
+
+            foreach (array_slice($writers, 0, 3) as $candidate) {
+                $candidate->end('ok');
+            }
+        },
+        new Http2Limits(adaptive: new AdaptiveProtocolPolicy(lowWatermarkBasisPoints: 1_000, highWatermarkBasisPoints: 3_000)),
+    );
+
+    $property = new ReflectionProperty(Http2Connection::class, 'output');
+    $scheduler = $property->getValue($http2);
+
+    $ended = 0;
+    foreach (runwireH2Frames($response) as $frame) {
+        if ($frame->knownType() === FrameType::DATA && $frame->hasFlag(0x1)) {
+            ++$ended;
+        }
+    }
+
+    expect($scheduler->adaptiveState())->toBe(AdaptiveLoadState::THROUGHPUT)
+        ->and($http2->activeStreams())->toBe(32)
+        ->and($ended)->toBe(3);
 });

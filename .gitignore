@@ -21,3 +21,5 @@ composer.lock
 /.agents
 /.codex
 /graphify-out
+/benchmarks/__pycache__
+/tests/benchmarks/__pycache__/
