@@ -860,7 +860,7 @@ State transitions must not:
 
 The summary now records per-phase sample CV, successful RPM, minimum actual duration, concurrency, payload, build and environment identity. Strict comparisons require five valid matching trials, 30-second warm-up, at least 180 seconds per steady phase, and RPS CV below 2.5% in both profiles. Diagnostic mode preserves all existing regression budgets but reports inadequate duration/variance explicitly. A single-workload comparison always reports `promotion_certified: false`; promotion still requires all coverage and material-gain requirements below.
 
-The expanded runner defines all 86 mandatory cases and all four profiles, with resumable exact-build trials and per-protocol evaluation. Material gain and transition overhead are quantified in `docs/benchmarks.md`. The runner is implemented; measured results must come from the prepared environment.
+The PHP-native expanded runner and shared JSON case manifest define all 86 mandatory cases and all four profiles, with resumable exact-build trials and per-protocol evaluation. Python remains only for the pinned independent H2 and H3 transport clients. Material gain and transition overhead are quantified in `docs/benchmarks.md`. The runner is implemented; measured results must come from the prepared environment.
 
 Each protocol is evaluated independently. J is not an all-or-nothing feature.
 
