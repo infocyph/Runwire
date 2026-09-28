@@ -102,10 +102,12 @@ These are native transport/runtime behaviors. Applications should not add duplic
 
 Runwire 2.0 exposes protocol-local adaptive scheduling through `AdaptiveProtocolPolicy` and `AdaptivePolicyMode`. HTTP/1.1, HTTP/2, and HTTP/3 default to `FIXED`; H1 keeps NODELAY on. Direct QUIC connection and worker construction follow the same FIXED default. All protocols retain explicit `FIXED`, `LATENCY`, `THROUGHPUT`, and `AUTO` overrides. AUTO remains opt-in because repeated promotion diagnostics did not stay inside the preregistered H1/H2/H3 regression budgets.
 
-- `AUTO` uses Runwire's protocol-specific pressure/backlog/activity controller.
-- `LATENCY` pins the latency-biased profile.
-- `THROUGHPUT` pins the throughput-biased profile.
-- `FIXED` reproduces the static pre-adaptive scheduling behavior for deterministic deployments.
+| Mode | Migration meaning | Recommended use |
+| --- | --- | --- |
+| `FIXED` | Reproduces the deterministic static scheduling profile and is the Runwire 2.0 protocol default. | Keep unless measured evidence supports another mode. |
+| `LATENCY` | Pins the latency-biased profile. | Use only for measured latency-sensitive workloads. |
+| `THROUGHPUT` | Pins the throughput-biased profile. | Use only for measured sustained/bulk workloads. |
+| `AUTO` | Uses the protocol-specific pressure/backlog/activity controller and can move through latency/balanced/throughput states. | Explicit opt-in for deployments with steady-state and transition evidence. |
 
 HTTP/1.1 owns its policy through `Http1Limits::$adaptive`; HTTP/2 owns its policy through `Http2Limits::$adaptive`; HTTP/3 owns independent `Http3Options::$inboundAdaptive` and `Http3Options::$outboundAdaptive` policies. Advanced callers may override low/high basis-point watermarks, transition sample count, and EWMA ratio per protocol.
 
