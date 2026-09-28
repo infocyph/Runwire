@@ -192,22 +192,22 @@ $context->requireCapability(RuntimeCapability::RUNWIRE_COROUTINES);
 
 Important capabilities include:
 
-```text
-PERSISTENT
-CONCURRENT
-OWNS_LISTENER
-OWNS_EVENT_LOOP
-OWNS_WORKER_POOL
-RUNWIRE_LOOP_AVAILABLE
-RUNWIRE_COROUTINES
-HOST_NATIVE_COROUTINES
-HOST_OWNS_EVENT_LOOP
-SUPPORTS_GRACEFUL_RELOAD
-SUPPORTS_WORKER_RECYCLE
-SUPPORTS_HTTP1
-SUPPORTS_HTTP2
-SUPPORTS_HTTP3
-```
+| Capability | Meaning |
+| --- | --- |
+| `PERSISTENT` | Application/runtime state can persist across requests. |
+| `CONCURRENT` | The selected runtime can execute multiple requests concurrently. |
+| `OWNS_LISTENER` | Runwire owns listener binding/acceptance. |
+| `OWNS_EVENT_LOOP` | Runwire owns the active event loop. |
+| `OWNS_WORKER_POOL` | Runwire owns worker creation/replacement. |
+| `RUNWIRE_LOOP_AVAILABLE` | A Runwire-compatible loop is available to integrations. |
+| `RUNWIRE_COROUTINES` | Runwire structured coroutines are available. |
+| `HOST_NATIVE_COROUTINES` | The selected host provides its own native coroutine model. |
+| `HOST_OWNS_EVENT_LOOP` | The host, not Runwire, owns event-loop driving. |
+| `SUPPORTS_GRACEFUL_RELOAD` | Graceful worker reload is actually usable in the selected configuration. |
+| `SUPPORTS_WORKER_RECYCLE` | Worker replacement/recycle is actually usable. |
+| `SUPPORTS_HTTP1` | HTTP/1.1 serving is available. |
+| `SUPPORTS_HTTP2` | HTTP/2 serving is available in the selected configuration. |
+| `SUPPORTS_HTTP3` | HTTP/3/QUIC serving is available in the selected configuration. |
 
 Driver-name branching is appropriate only for truly host-specific APIs.
 
@@ -215,19 +215,14 @@ Driver-name branching is appropriate only for truly host-specific APIs.
 
 `RuntimeContext` is immutable application/worker-lifetime metadata.
 
-It exposes:
-
-```text
-driver
-mode
-worker slot
-generation
-PID
-persistent/concurrent flags
-listener/event-loop/worker-pool ownership
-resolved RuntimeCapabilities
-RuntimeMetrics
-```
+| Field group | Meaning |
+| --- | --- |
+| Driver / mode | Selected runtime driver and execution mode. |
+| Worker slot / generation / PID | Worker identity and replacement generation. |
+| Persistence / concurrency | Whether worker-lifetime state is valid and requests may overlap. |
+| Ownership | Listener, event-loop, and worker-pool ownership. |
+| Capabilities | Resolved `RuntimeCapability` set for the selected configuration. |
+| Metrics | Current `RuntimeMetrics` snapshot source. |
 
 Example:
 
@@ -248,14 +243,14 @@ Do not store request-specific data on `RuntimeContext`.
 
 `RequestContext` owns one logical request's runtime state:
 
-```text
-request ID
-monotonic start time
-request deadline
-cancellation token
-bounded request-local attributes
-owning RuntimeContext
-```
+| Field | Meaning |
+| --- | --- |
+| Request ID | Bounded identifier for one logical request. |
+| Monotonic start time | Stable runtime-relative request start. |
+| Deadline | Optional request execution deadline. |
+| Cancellation token | Request-owned cancellation state. |
+| Attributes | Bounded request-local key/value state. |
+| Runtime context | Owning immutable `RuntimeContext`. |
 
 Example:
 
@@ -519,29 +514,29 @@ Runtime observability is fixed-cardinality by design.
 
 Metrics/diagnostics cover:
 
-```text
-requests / failures
-connections / bytes
-streams
-backpressure / overload
-worker state / age / busy time
-event-loop health
-coroutine scheduler state
-protocol-specific state
-```
+| Area | Examples |
+| --- | --- |
+| Requests | Request totals and failures. |
+| Connections | Connection counts and bytes. |
+| Streams | Protocol stream counts/state. |
+| Pressure | Backpressure and overload signals. |
+| Workers | State, age, busy time. |
+| Event loop | Lag/overrun/backend health. |
+| Coroutines | Scheduler/task/backlog state. |
+| Protocols | Protocol-specific counters/state. |
 
 Do not retain unbounded per-request/per-connection history in runtime status structures.
 
 Operational concepts are intentionally distinct:
 
-```text
-live      control/runtime path functions
-ready     can admit work
-healthy   no configured health failure
-draining  intentionally refusing new work while finishing admitted work
-```
+| State | Meaning |
+| --- | --- |
+| `live` | Control/runtime path functions. |
+| `ready` | Runtime can admit intended work. |
+| `healthy` | No configured health failure is active. |
+| `draining` | New work is restricted while admitted work finishes. |
 
-A PID existing is not sufficient evidence of readiness or health.
+A PID existing proves only liveness; it is not sufficient evidence of readiness or health.
 
 ## 19. Security contract
 
