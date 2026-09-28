@@ -152,8 +152,10 @@ for protocol in http1 h2; do
   if ! php benchmarks/adaptive_matrix_compare.php     "$output_dir/${protocol}-auto-summary.json"     "$output_dir/${protocol}-fixed-summary.json" "${compare_args[@]}"     > "$output_dir/${protocol}-comparison.json"; then
     if [ "$protocol" = "http1" ]; then
       echo "HTTP/1.1 AUTO is not release-promoted; FIXED/NODELAY-on remains the production default." >&2
-    else
+    elif [ "$evidence_mode" = "sustained" ]; then
       comparison_failed=1
+    else
+      echo "HTTP/2 AUTO diagnostic regression recorded; FIXED remains the production default." >&2
     fi
   fi
 
