@@ -362,6 +362,16 @@ HTTP/3 frames / streams / QPACK / QUIC transport
 
 The application should not need to implement protocol framing to respond to a request.
 
+### Protocol-local scheduling policy
+
+`AdaptiveProtocolPolicy` changes bounded scheduling effort inside a protocol; it does not change application semantics or hard resource ceilings. Runwire 2.0 supplies `FIXED` as the default through `Http1Limits`, `Http2Limits`, and both HTTP/3 policy slots.
+
+- **HTTP/1.1:** the policy chooses the default TCP_NODELAY behavior when each connection is attached. `FIXED` and `LATENCY` keep NODELAY enabled; `THROUGHPUT` selects the throughput-biased setting; `AUTO` observes a bounded worker-local sample of at most eight recent live connections. Deterministic modes do not perform AUTO load sampling. An explicit listener `tcp_nodelay` socket-context setting owns the decision and is not overwritten by the protocol default.
+- **HTTP/2:** the policy only selects whether a small implicit response is eligible for the bounded one-shot initial HEADERS/DATA path. Normal multiplexed scheduling, peer flow control, frame limits, stream limits, response queues, and backpressure remain authoritative when the fast path is ineligible.
+- **HTTP/3:** inbound and outbound policies are independent. The inbound policy controls bounded read/poll effort; it does not reduce the configured connection-accept ceiling. The outbound policy controls bounded response-write effort. `FIXED` uses the configured maxima/base poll timing; adaptive profiles remain capped by `Http3Limits`.
+
+`AUTO` uses integer EWMA smoothing, low/high hysteresis, and sustained-sample dwell. `LATENCY` and `THROUGHPUT` pin deterministic profile states. The release defaults remain `FIXED` because AUTO did not satisfy the release promotion gates consistently; consumers may still opt in after workload-specific measurement.
+
 ## 11. TLS and HTTP/2
 
 `TcpListener` validates that OpenSSL is available before binding a configured TLS listener.
@@ -393,7 +403,7 @@ drain / GOAWAY behavior
 resource ceilings
 ```
 
-0-RTT application dispatch is disabled for 1.0.
+0-RTT application dispatch is disabled for Runwire 2.0.
 
 Explicit HTTP/3 configuration without a supported QUIC capability is a startup error; it is never silently ignored. When HTTP/3 is not configured, absence of QUIC does not affect HTTP/1.1 or HTTP/2.
 
