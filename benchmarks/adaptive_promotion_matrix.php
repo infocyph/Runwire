@@ -394,12 +394,7 @@ function adaptivePromotionEvaluate(string $output, string $protocol, array $iden
 
 function adaptivePromotionCanConnect(int $port): bool
 {
-    $warning = null;
-    set_error_handler(static function (int $severity, string $message) use (&$warning): bool {
-        $warning = $message;
-
-        return true;
-    });
+    set_error_handler(static fn(): bool => true);
     try {
         $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errno, $error, 0.05);
     } finally {
