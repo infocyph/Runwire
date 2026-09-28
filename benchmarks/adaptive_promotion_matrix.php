@@ -117,9 +117,10 @@ function adaptivePromotionCodeIdentity(): string
 function adaptivePromotionPython(string $protocol): string
 {
     return match ($protocol) {
+        'http1' => getenv('RUNWIRE_H1_PYTHON') ?: '/usr/bin/python3',
         'h2' => getenv('RUNWIRE_H2_PYTHON') ?: '/tmp/runwire-h2/bin/python',
         'h3' => getenv('RUNWIRE_AIOQUIC_PYTHON') ?: '/tmp/runwire-aioquic/bin/python',
-        default => PHP_BINARY,
+        default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
     };
 }
 
@@ -149,25 +150,30 @@ function adaptivePromotionEnvironment(string $protocol): array
     }
     ksort($extensions, SORT_STRING);
 
-    $client = ['runtime' => $protocol === 'http1' ? 'php' : 'python'];
-    if ($protocol !== 'http1') {
-        $python = adaptivePromotionPython($protocol);
-        if (!is_executable($python)) {
-            throw new RuntimeException('Adaptive promotion Python client is unavailable: ' . $python);
-        }
-        $client['python'] = adaptivePromotionCommandOutput([$python, '--version']);
-        [$package, $expected] = $protocol === 'h2' ? ['h2', '4.3.0'] : ['aioquic', '1.3.0'];
+    $python = adaptivePromotionPython($protocol);
+    if (!is_executable($python)) {
+        throw new RuntimeException('Adaptive promotion Python client is unavailable: ' . $python);
+    }
+    $client = [
+        'runtime' => 'python',
+        'python' => adaptivePromotionCommandOutput([$python, '--version']),
+    ];
+    $package = match ($protocol) {
+        'h2' => ['h2', '4.3.0'],
+        'h3' => ['aioquic', '1.3.0'],
+        default => null,
+    };
+    if ($package !== null) {
+        [$name, $expected] = $package;
         $version = adaptivePromotionCommandOutput([
             $python,
             '-c',
-            sprintf('import importlib.metadata; print(importlib.metadata.version(%s))', var_export($package, true)),
+            sprintf('import importlib.metadata; print(importlib.metadata.version(%s))', var_export($name, true)),
         ]);
         if ($version !== $expected) {
-            throw new RuntimeException(sprintf('Expected %s==%s, found %s.', $package, $expected, $version));
+            throw new RuntimeException(sprintf('Expected %s==%s, found %s.', $name, $expected, $version));
         }
-        $client[$package] = $version;
-    } else {
-        $client['php'] = PHP_VERSION;
+        $client[$name] = $version;
     }
 
     $cpu = [];
@@ -565,7 +571,7 @@ function adaptivePromotionRunTrial(
         }
 
         $client = match ($protocol) {
-            'http1' => [PHP_BINARY, 'benchmarks/adaptive_http1_matrix.php', (string) $port, (string) $started['pid'], $mode, (string) $seconds],
+            'http1' => [adaptivePromotionPython('http1'), 'benchmarks/http1_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds],
             'h2' => [adaptivePromotionPython('h2'), 'benchmarks/h2_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds, (string) $case['payload_bytes']],
             'h3' => [adaptivePromotionPython('h3'), 'benchmarks/http3_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds, (string) $case['payload_bytes']],
         };
