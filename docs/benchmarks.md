@@ -126,7 +126,16 @@ Keep loopback results labeled as loopback results. They are useful for regressio
 
 The benchmark workflow runs five repeated native HTTP/1.1 keep-alive trials against the real Runwire native server on PHP 8.4 and 8.5. Pull requests use short CI-smoke durations to validate correctness and evidence plumbing. They are not stable production baselines and do not enforce small timing deltas on shared runners.
 
-The same workflow exposes release-certification mode through `workflow_dispatch`, the historical `feature/next-edition` lane, or an explicit `release-certification` pull-request label. It uses the phase-4 starting settings of a 30-second warmup, five 180-second measured trials, then a 30-minute sustained soak. The label is an opt-in gate for release-critical PRs; ordinary PRs keep the lighter regression lanes. The resulting artifacts record:
+The dedicated Release Certification workflow runs through `workflow_dispatch`, the historical `feature/next-edition` lane, or an explicit `release-certification` pull-request label. The label is the normal opt-in gate for a release-critical PR; ordinary PRs keep the lighter regression lanes.
+
+Release certification contains four independent jobs:
+
+1. **Matched baseline/candidate performance (PHP 8.5):** checks out the exact candidate and the pinned pre-consolidation baseline, verifies PCNTL/POSIX/ext-event/OPcache, gives each server a 30-second warmup, and runs five alternating 180-second measured trials for each side.
+2. **Candidate 30-minute HTTP soak (PHP 8.5):** runs one real native HTTP/1.1 server with concurrency 32, a 30-second warmup, and 1800 seconds of measured traffic. Every attempted request must complete successfully with zero errors, timeouts, or response-validation failures.
+3. **Representative Infbyte consumer:** installs the exact Runwire candidate into `infocyph/Infbyte` from its `main` branch, runs the full consumer test suite, boots Foundation, checks the health route, and exercises the Webrick/Runwire adapter bridge.
+4. **PHPForge release guard with ext-event:** verifies PCNTL, POSIX, ext-event and OPcache on PHP 8.5, runs `composer check-platform-reqs`, then executes `composer ic:release:guard`.
+
+The resulting artifacts record:
 
 - total, completed and successful requests;
 - errors, timeouts and response-validation failures;
@@ -137,13 +146,13 @@ The same workflow exposes release-certification mode through `workflow_dispatch`
 - worker count, concurrency, connection reuse and duration;
 - PHP, extension, OPcache, build, host OS and CPU metadata.
 
-A certification record fails if a response is incomplete, times out, errors, or fails response validation. Timing variance is recorded rather than hidden; no 5% regression threshold is enforced until stable-environment variance proves such a threshold meaningful.
+A certification record fails if a response is incomplete, times out, errors, or fails response validation. The matched comparison additionally requires both five-trial RPS series to be stable enough for enforcement: the larger RPS coefficient of variation must be below 2.5%. When that condition is met, the candidate median successful RPS must remain within 5% of the baseline. The release workflow requires `budget_enforced == true` as well as `passed == true`, so evidence with CV at or above 2.5% is not accepted as a release pass; it must be rerun in a stable environment.
 
 HTTP/3 real-server interoperability and soak evidence remains owned by the dedicated QUIC lane using aioquic and ngtcp2/nghttp3. Protocol-core PHPBench results remain separate from real-server throughput.
 
-### F-04/F-05 acceptance smoke evidence
+### ResponseTransfer and WebSocket acceptance smoke evidence
 
-On exact-head commit `7b315220d7cd412ca0058f54802ce8b32800c95c`, the shared-runner acceptance lane remained inside the 5% F-04 helper budget:
+On exact-head commit `7b315220d7cd412ca0058f54802ce8b32800c95c`, the shared-runner ResponseTransfer acceptance lane remained inside its 5% helper budget:
 
 | PHP | ResponseTransfer helper | Manual bounded pump | Delta | Helper CV | Manual CV |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -454,7 +463,7 @@ A public statement such as “fastest”, “faster than X”, or “top-tier”
 
 ## Adaptive policy evidence
 
-H1, H2, and H3 default to FIXED by the final J10 release decision. AUTO/LATENCY/THROUGHPUT remain explicit opt-in policies. The adaptive CI jobs are short diagnostic comparisons; they record regressions but are not promotion evidence.
+H1, H2, and H3 default to FIXED by the final adaptive-policy release decision. AUTO/LATENCY/THROUGHPUT remain explicit opt-in policies. The adaptive CI jobs are short diagnostic comparisons; they record regressions but are not promotion evidence.
 
 Run these commands in the same prepared PHP/native-extension environment as CI (including ext-event, and ext-quic for H3). The H2 script expects the pinned h2 client at `/tmp/runwire-h2/bin/python`; H3 uses `/tmp/runwire-aioquic/bin/python`, overridable with `RUNWIRE_AIOQUIC_PYTHON`. The workflow setup steps provision these clients.
 
@@ -472,9 +481,9 @@ The filenames are retained for compatibility. Each script runs five alternating 
 
 Records include payload/workload, phase concurrency and requested/actual duration, runtime build and environment identity. Summaries reject mismatched or invalid trials and report per-phase sample CV plus successful RPM. Comparisons require matching metadata. Keep the raw trials, summaries, comparison JSON, and environment details together.
 
-These scripts currently cover H1 plaintext 2-byte responses, H2 TLS 768-byte responses, and H3 16 KiB responses. Even a passing strict comparison is a **single-workload** result and always reports `promotion_certified: false`. Use the expanded J10 runner below for mixed-payload, constrained-flow/pressure, QPACK, churn, profile and concurrency coverage. Missing matrix cells remain pending; a short diagnostic result cannot certify them.
+These scripts currently cover H1 plaintext 2-byte responses, H2 TLS 768-byte responses, and H3 16 KiB responses. Even a passing strict comparison is a **single-workload** result and always reports `promotion_certified: false`. Use the expanded promotion runner below for mixed-payload, constrained-flow/pressure, QPACK, churn, profile and concurrency coverage. Missing matrix cells remain pending; a short diagnostic result cannot certify them.
 
-### Complete J10 matrix
+### Complete adaptive promotion matrix
 
 `adaptive_promotion_matrix.php` defines 86 mandatory cases: 16 H1 (plaintext/TLS, four sizes, short/long reuse), 28 H2 (four sizes, mixed payloads, constrained flow and transport reads, 1/8/32/100 streams), and 42 H3 (four sizes, three concurrency levels, upload/download/balanced traffic, delayed QPACK instructions and connection churn). Each case runs FIXED, LATENCY, THROUGHPUT and AUTO, five trials each with rotated order, 30-second warm-up, and 180-second low/medium/high/low steady phases surrounding short up/down transitions.
 
