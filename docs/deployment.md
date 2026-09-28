@@ -17,6 +17,7 @@ Recommended native prefork extensions:
 ```text
 ext-pcntl
 ext-posix
+ext-event         scalable native HTTP worker loop; strongly recommended for high connection counts
 ```
 
 Optional capabilities:
