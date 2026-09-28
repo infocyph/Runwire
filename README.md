@@ -193,12 +193,14 @@ HTTP/1.1, HTTP/2, and HTTP/3 all default to `AdaptivePolicyMode::FIXED` in Runwi
 
 Important boundaries:
 
-- scheduling policy **never raises** configured body, header, frame, stream, connection, queue, flow-control, HPACK/QPACK, WebSocket, or lifecycle limits;
-- HTTP/1.1 chooses its NODELAY default when a connection is attached; existing connections are not retroactively retuned;
-- an explicit listener `tcp_nodelay` setting takes precedence over the H1 protocol policy;
-- HTTP/2 policy affects only the bounded initial-response optimization, not normal HTTP/2 flow control or fairness;
-- HTTP/3 has separate `inboundAdaptive` and `outboundAdaptive` policies, so one direction can remain FIXED while the other is tuned;
-- a standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; the protocol option objects deliberately provide the Runwire 2.0 `FIXED` release defaults.
+| Area | Contract |
+| --- | --- |
+| Hard limits | Scheduling policy **never raises** body, header, frame, stream, connection, queue, flow-control, HPACK/QPACK, WebSocket, or lifecycle limits. |
+| H1 application point | NODELAY policy is chosen when a connection is attached; existing connections are not retroactively retuned. |
+| H1 precedence | Explicit listener `tcp_nodelay` configuration overrides the protocol policy. |
+| H2 scope | Policy affects only the bounded initial-response optimization; normal flow control, multiplexing, fairness, and backpressure remain unchanged. |
+| H3 scope | `inboundAdaptive` and `outboundAdaptive` are independent; one direction can remain FIXED while the other is tuned. |
+| Constructor default | Standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; protocol option objects intentionally supply Runwire 2.0 `FIXED` release defaults. |
 
 Use non-default modes only with representative repeated measurements that include throughput, p95/p99 latency, CPU/RSS, backpressure, fairness, and load transitions. See [Getting Started](docs/getting-started.md#7-adaptive-protocol-scheduling) for configuration examples and validation rules, and [Deployment](docs/deployment.md#19-adaptive-protocol-scheduling) for production selection guidance.
 
