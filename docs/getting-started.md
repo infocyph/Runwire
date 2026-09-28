@@ -268,6 +268,8 @@ $server = Server::http('0.0.0.0:8443', $handler)
 
 HTTP/3 uses UDP/QUIC while the TCP listener continues to serve HTTP/1.1/HTTP/2. 0-RTT application dispatch is disabled in Runwire 2.0. Explicit HTTP/3 configuration without supported QUIC capability is a startup error; it is never silently ignored.
 
+Most applications should enable HTTP/3 through `Server`/`Http3Options`. The lower-level `PhpQuicHttp3Worker` and `PhpQuicHttp3Connection` adapters are for integrations that already own ext-quic listener/connection objects; they require a negotiated `h3` connection, enforce the same HTTP/3 limits, and default both adaptive directions to FIXED.
+
 ## 7. Adaptive protocol scheduling
 
 Runwire 2.0 defaults HTTP/1.1, HTTP/2, and HTTP/3 to `AdaptivePolicyMode::FIXED`. Nothing needs to be configured to get the release-certified deterministic behavior.
