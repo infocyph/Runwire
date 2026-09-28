@@ -95,7 +95,7 @@ Either compatible Swoole-family extension can back `RuntimeDriver::SWOOLE`. Expl
 | HTTP/3 | with QUIC | with QUIC |
 | Structured coroutines | yes | yes |
 
-Portable mode keeps ordinary native serving available when PCNTL/POSIX are missing; it is not a substitute supervisor.
+Portable mode keeps ordinary native serving available when PCNTL/POSIX are missing; it is not a substitute supervisor. Portable native uses SelectLoop. Prefork HTTP workers prefer ext-event when installed and otherwise use SelectLoop with a conservative 256-connection loop ceiling, so install ext-event for high-connection native HTTP deployments.
 
 The portable contract is fail-closed:
 
@@ -488,9 +488,9 @@ Defaults are conservative. Constructor validation in the protocol limit objects 
 | Header / field-section | 64 KiB | 64 KiB | 64 KiB |
 | Header fields | 100 | 100 | 128 |
 | Concurrent streams | n/a | 100 | 100 |
-| Lifetime request streams | bounded | 10,000 | 10,000 |
-| Pending response / stream | bounded writer | 1 MiB | 1 MiB |
-| Pending response / connection | bounded connection buffer | 8 MiB | 8 MiB |
+| Lifetime requests/streams per connection | 1,000 keep-alive requests | 10,000 streams | 10,000 request streams |
+| Pending response / stream | transport-bounded | 1 MiB | 1 MiB |
+| Pending response / connection | 1 MiB transport send buffer | 8 MiB | 8 MiB |
 | Compression table | n/a | HPACK 4 KiB | QPACK max 64 KiB |
 | Blocked compression streams | n/a | n/a | 32 |
 
@@ -575,7 +575,7 @@ A PID existing is not sufficient evidence of readiness or health.
 Before traffic, verify:
 
 - service runs unprivileged or workers drop privilege before bootstrap/readiness;
-- 64-bit PHP and required extensions;
+- 64-bit PHP and required extensions; for high-connection native prefork HTTP, verify ext-event is installed and selected;
 - the intended runtime driver is selected; Swoole/OpenSwoole deployments explicitly use `RuntimeDriver::SWOOLE` unless a custom integration supplies a reliable hosted signal;
 - effective CPU/memory limits;
 - file-descriptor limits;
