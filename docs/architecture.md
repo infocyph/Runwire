@@ -368,9 +368,12 @@ Implicit bounded responses have transparent protocol-local fast paths. HTTP/1.1 
 
 `AdaptiveProtocolPolicy` changes bounded scheduling effort inside a protocol; it does not change application semantics or hard resource ceilings. Runwire 2.0 supplies `FIXED` as the default through `Http1Limits`, `Http2Limits`, and both HTTP/3 policy slots.
 
-- **HTTP/1.1:** the policy chooses the default TCP_NODELAY behavior when each connection is attached. `FIXED` and `LATENCY` keep NODELAY enabled; `THROUGHPUT` selects the throughput-biased setting; `AUTO` observes a bounded worker-local sample of at most eight recent live connections. Deterministic modes do not perform AUTO load sampling. An explicit listener `tcp_nodelay` socket-context setting owns the decision and is not overwritten by the protocol default.
-- **HTTP/2:** the policy only selects whether a small implicit response is eligible for the bounded one-shot initial HEADERS/DATA path. Normal multiplexed scheduling, peer flow control, frame limits, stream limits, response queues, and backpressure remain authoritative when the fast path is ineligible.
-- **HTTP/3:** inbound and outbound policies are independent. The inbound policy controls bounded read/poll effort; it does not reduce the configured connection-accept ceiling. The outbound policy controls bounded response-write effort. `FIXED` uses the configured maxima/base poll timing; adaptive profiles remain capped by `Http3Limits`.
+| Protocol | Policy scope | FIXED behavior | Adaptive boundary |
+| --- | --- | --- | --- |
+| HTTP/1.1 | Default TCP_NODELAY choice when a connection is attached | NODELAY on | AUTO samples at most eight recent live connections; deterministic modes skip AUTO sampling; explicit listener `tcp_nodelay` wins. |
+| HTTP/2 | Eligibility/budget for the bounded one-shot initial HEADERS/DATA path | Full bounded one-shot budget | Normal multiplexing, peer flow control, frame/stream limits, queues, and backpressure remain authoritative. |
+| HTTP/3 inbound | Bounded read/poll effort | Configured read maxima and base poll timing | Does not reduce the configured connection-accept ceiling; remains capped by `Http3Limits`. |
+| HTTP/3 outbound | Bounded response-write effort | Configured write maxima | Remains capped by `Http3Limits`. |
 
 `AUTO` uses integer EWMA smoothing, low/high hysteresis, and sustained-sample dwell. `LATENCY` and `THROUGHPUT` pin deterministic profile states. The release defaults remain `FIXED` because AUTO did not satisfy the release promotion gates consistently; consumers may still opt in after workload-specific measurement.
 
