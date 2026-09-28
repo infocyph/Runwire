@@ -178,9 +178,29 @@ HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without 
 
 ### Protocol scheduling policy
 
-HTTP/1.1, HTTP/2, and HTTP/3 all default to deterministic `AdaptivePolicyMode::FIXED` behavior for the 2.0 release. `AUTO`, `LATENCY`, and `THROUGHPUT` are explicit per-protocol opt-ins through `AdaptiveProtocolPolicy`; they do not raise body, header, stream, queue, flow-control, or lifecycle limits.
+Runwire can tune a small set of **protocol-internal scheduling decisions** without changing the application-facing HTTP contract. The policy is useful when the same server must favor deterministic behavior, lower interactive latency, sustained transfer efficiency, or automatic crossover under changing load.
 
-Use non-default scheduling profiles only after measuring the representative workload you intend to deploy. HTTP/1.1 applies its scheduling choice when a connection is attached, HTTP/2 uses it only for bounded initial-response scheduling, and HTTP/3 exposes independent inbound and outbound policies. See the Getting Started and Deployment guides for configuration examples, validation constraints, TCP_NODELAY precedence, and operational conditions.
+HTTP/1.1, HTTP/2, and HTTP/3 all default to `AdaptivePolicyMode::FIXED` in Runwire 2.0. The other modes are explicit opt-ins because a scheduling profile that helps one workload can hurt another, especially during load transitions or at tail latency.
+
+| Mode | Why it exists | Use it when | HTTP/1.1 effect | HTTP/2 effect | HTTP/3 effect |
+| --- | --- | --- | --- | --- | --- |
+| `FIXED` | Predictable, release-certified behavior with no load-state transitions. | **Default choice**; use when you want deterministic behavior, have not benchmarked another profile, or operate a mixed/unknown workload. | Keeps the protocol default TCP_NODELAY behavior enabled unless the listener explicitly overrides it. | Uses the full bounded initial-response fast-path budget; otherwise normal multiplexed scheduling applies. | Uses configured read/write maxima and the configured base poll timing. |
+| `LATENCY` | Pins the latency-biased state instead of adapting at runtime. | Small interactive responses, RPC-style traffic, or latency-sensitive workloads where repeated measurement shows this profile helps. | Keeps TCP_NODELAY enabled. | Keeps the larger latency-biased one-shot initial-response budget. | Reduces adaptive read/write work per turn to favor shorter scheduling turns; idle polling is not stretched by the throughput profile. |
+| `THROUGHPUT` | Pins the throughput-biased state for sustained/bulk work. | Large or sustained transfers where batching/fewer scheduling interruptions improve measured throughput without unacceptable tail latency. | Disables TCP_NODELAY by default so TCP may coalesce small writes; an explicit listener socket setting still wins. | Uses the smaller throughput-profile one-shot budget so larger responses fall back to normal multiplexed scheduling sooner. | Uses the configured maximum read/write work budgets and may use a longer idle poll interval when appropriate. |
+| `AUTO` | Dynamically moves between latency, balanced, and throughput states as protocol-local pressure changes. | Variable workloads **only after** steady-state and transition benchmarks show it is safe for your deployment. | Samples a bounded set of recent live connections and chooses the NODELAY default for newly attached connections. | Adjusts only the bounded initial-response fast-path budget from queue/stream pressure. | Adapts inbound read/poll effort and outbound response-write effort independently. |
+
+`AUTO` uses integer EWMA smoothing, low/high watermarks, and sustained-sample dwell to avoid rapid state flapping. The internal `BALANCED` state is not a separate public mode; it is one state AUTO may select.
+
+Important boundaries:
+
+- scheduling policy **never raises** configured body, header, frame, stream, connection, queue, flow-control, HPACK/QPACK, WebSocket, or lifecycle limits;
+- HTTP/1.1 chooses its NODELAY default when a connection is attached; existing connections are not retroactively retuned;
+- an explicit listener `tcp_nodelay` setting takes precedence over the H1 protocol policy;
+- HTTP/2 policy affects only the bounded initial-response optimization, not normal HTTP/2 flow control or fairness;
+- HTTP/3 has separate `inboundAdaptive` and `outboundAdaptive` policies, so one direction can remain FIXED while the other is tuned;
+- a standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; the protocol option objects deliberately provide the Runwire 2.0 `FIXED` release defaults.
+
+Use non-default modes only with representative repeated measurements that include throughput, p95/p99 latency, CPU/RSS, backpressure, fairness, and load transitions. See [Getting Started](docs/getting-started.md#7-adaptive-protocol-scheduling) for configuration examples and validation rules, and [Deployment](docs/deployment.md#19-adaptive-protocol-scheduling) for production selection guidance.
 
 ### Native HTTP/1 WebSocket
 
