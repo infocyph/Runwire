@@ -80,13 +80,13 @@ it('rejects invalid adaptive protocol crossover configuration', function (): voi
 });
 
 
-it('defaults H1 to FIXED and H2 and H3 to AUTO', function (): void {
+it('defaults H1 H2 and H3 to FIXED', function (): void {
     $http1 = new \Infocyph\Runwire\Http\Http1\Http1Limits();
     $http2 = new \Infocyph\Runwire\Http\Http2\Http2Limits();
     $http3 = new \Infocyph\Runwire\Http\Http3\Http3Options();
 
     expect($http1->adaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
-        ->and($http2->adaptive->mode)->toBe(AdaptivePolicyMode::AUTO)
-        ->and($http3->inboundAdaptive->mode)->toBe(AdaptivePolicyMode::AUTO)
-        ->and($http3->outboundAdaptive->mode)->toBe(AdaptivePolicyMode::AUTO);
+        ->and($http2->adaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
+        ->and($http3->inboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
+        ->and($http3->outboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED);
 });
