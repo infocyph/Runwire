@@ -390,16 +390,27 @@ See the security guide before exposing process execution to application-controll
 
 Repository benchmark artifacts are regression/workload evidence, not a universal runtime ranking.
 
-Meaningful cross-runtime comparisons require equivalent:
-
-- hardware and OS;
-- PHP/runtime versions;
-- protocol/TLS configuration;
-- worker count and concurrency;
-- workload;
-- duration and instrumentation.
+| Comparison dimension | Keep equivalent |
+| --- | --- |
+| Platform | Hardware/runner class and OS. |
+| Runtime | PHP/runtime and extension versions. |
+| Transport | Protocol and TLS configuration. |
+| Topology | Worker count and concurrency. |
+| Workload | Request/response shape, payload, reuse, and pressure profile. |
+| Measurement | Warmup, duration, trials, and instrumentation. |
 
 Report throughput together with p50/p95/p99 latency, errors, CPU, and RSS.
+
+Before a release-critical tag/merge, the opt-in Release Certification workflow covers:
+
+| Gate | What it proves |
+| --- | --- |
+| Matched sustained performance | Five 180-second baseline/candidate trials after warmup; correctness, stability, and the 5% throughput-regression budget. |
+| 30-minute native HTTP soak | Sustained correctness with zero errors, timeouts, or response-validation failures. |
+| Representative Infbyte consumer | Exact candidate installs into the real consumer, its full suite passes, and the Foundation/Webrick bridge works. |
+| PHPForge release guard | Required extensions/platform checks plus the full `composer ic:release:guard` gate. |
+
+See [Benchmark Methodology](docs/benchmarks.md) for exact commands, evidence fields, acceptance conditions, and adaptive-policy promotion rules.
 
 ## Documentation
 
