@@ -82,7 +82,7 @@ CPU/RSS is already captured by the H1 and same-runner backend harnesses. Final H
 | I5 | H3 tuning | **Complete / no code** | V4 found no stable tuning winner |
 | I6 | Worker/runtime scaling | **Complete / docs only** | Existing evidence supports benchmark-first sizing, not runtime tuning |
 | I7 | Full protocol regression | **Complete** | Final full regression at `c4a479fcf76c0c14e1769f1dacef2209d2e9fa42`; Security & Standards `36323729640` plus benchmark/portable/Swoole/source-audit lanes green |
-| I8 | Release certification | **Paused** | `release-certification` label removed while J implementation changes the candidate head; rerun on the final candidate; J10 evidence remains separately tracked |
+| I8 | Release certification | **Running** | `release-certification` enabled on the final candidate; matched sustained comparison, 30-minute soak, representative Infbyte integration, and full PHPForge release guard are executing |
 
 ## Finding-to-library action map
 
@@ -505,7 +505,7 @@ Coverage includes H1 plain/TLS, H2 TLS/ALPN, H3 QUIC, WebSocket, streaming/chunk
 
 ### I8 — release certification
 
-**Status: paused.** The opt-in `release-certification` label was removed before J implementation so long release workers do not certify a moving candidate. Rerun I8 on the final release candidate; full adaptive performance certification independently requires J10.
+**Status: running.** The opt-in `release-certification` label is enabled on the final candidate. I8 runs the matched sustained comparison, 30-minute HTTP soak, representative Infbyte consumer integration, and the full PHPForge release guard with the required extensions.
 
 Required final gate:
 
