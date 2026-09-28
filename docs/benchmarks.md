@@ -87,13 +87,13 @@ Use the dedicated repository workflow as the release evidence because it records
 
 Requirements:
 
-```text
-64-bit PHP 8.4/8.5
-supported ext-quic build
-supported QUIC-capable OpenSSL baseline
-certificate/private key
-Python + aioquic version used by CI
-```
+| Requirement | Why |
+| --- | --- |
+| 64-bit PHP 8.4/8.5 | Matches supported runtime lines. |
+| Supported ext-quic build | Provides native QUIC transport. |
+| Supported QUIC-capable OpenSSL baseline | Matches the native QUIC adapter requirements. |
+| Certificate/private key | Required for HTTP/3 TLS. |
+| Python + CI-pinned aioquic | Independent HTTP/3 client/load generator. |
 
 Representative loopback run:
 
@@ -110,15 +110,15 @@ python benchmarks/aioquic_http3_bench.py 8443 256 32
 
 The final two numbers represent measured requests and warmup requests for this example.
 
-The client emits structured measurement fields such as:
+The client emits structured measurement fields:
 
-```text
-requests
-warmup_requests
-elapsed_ms
-requests_per_second
-amortized_us_per_request
-```
+| Field | Meaning |
+| --- | --- |
+| `requests` | Measured request count. |
+| `warmup_requests` | Requests excluded from the measured window. |
+| `elapsed_ms` | Measured elapsed time. |
+| `requests_per_second` | Measured throughput. |
+| `amortized_us_per_request` | Average measured microseconds per request. |
 
 Keep loopback results labeled as loopback results. They are useful for regressions and protocol/runtime tuning, not public Internet capacity claims.
 
@@ -188,21 +188,18 @@ Documentation-only changes may still trigger CI according to repository policy; 
 
 ## 6. Regression comparison rules
 
-When comparing one Runwire commit against another, keep these constant as far as practical:
+When comparing one Runwire commit against another, keep these dimensions constant as far as practical:
 
-```text
-hardware / runner class
-PHP version
-extension versions
-Composer dependency set
-protocol
-TLS settings
-worker count
-concurrency
-workload
-measurement duration
-instrumentation
-```
+| Dimension | Match requirement |
+| --- | --- |
+| Hardware / runner class | Same CPU/virtualization class. |
+| PHP / extensions | Same PHP and extension versions. |
+| Dependencies | Same Composer dependency set. |
+| Protocol / TLS | Same protocol and TLS configuration. |
+| Runtime shape | Same worker count and concurrency. |
+| Workload | Same request/response behavior and payload shape. |
+| Measurement | Same duration/warmup/trial structure. |
+| Instrumentation | Same metrics/profiler/APM state. |
 
 Treat a runner CPU model or virtualization change as an environment change before attributing a small timing difference to Runwire.
 
@@ -212,47 +209,25 @@ Use repeated evidence for performance decisions. Do not change safety limits bec
 
 `benchmarks/comparative_evidence.php` validates independently collected records before rendering a comparison.
 
-Comparable records must match key environment/workload dimensions:
+Comparable records must match these key dimensions:
 
-```text
-hardware_id
-php_version
-protocol
-workload
-instrumentation
-workers
-concurrency
-duration_seconds
-tls
-opcache
-connection_reuse
-```
+| Group | Fields |
+| --- | --- |
+| Environment | `hardware_id`, `php_version`, extension set. |
+| Protocol | `protocol`, `tls`, `connection_reuse`. |
+| Workload | `workload`, `workers`, `concurrency`, `duration_seconds`. |
+| Runtime settings | `instrumentation`, `opcache`. |
 
 Each record should include:
 
-```text
-runtime
-runtime_version
-runtime_build
-instrumentation
-host_os / host_cpu / hardware_id
-tls / opcache / connection_reuse
-extension_versions
-requests_total
-completed_requests
-successful_requests
-throughput_rps
-latency_ms.p50
-latency_ms.p95
-latency_ms.p99
-errors_total
-timeouts_total
-validation_failures
-correctness_passed
-error_rate
-cpu_percent
-rss_peak_bytes
-```
+| Evidence group | Fields |
+| --- | --- |
+| Runtime identity | `runtime`, `runtime_version`, `runtime_build`. |
+| Environment | `host_os`, `host_cpu`, `hardware_id`, `extension_versions`, `instrumentation`, `tls`, `opcache`, `connection_reuse`. |
+| Request accounting | `requests_total`, `completed_requests`, `successful_requests`. |
+| Throughput/latency | `throughput_rps`, `latency_ms.p50`, `latency_ms.p95`, `latency_ms.p99`. |
+| Correctness | `errors_total`, `timeouts_total`, `validation_failures`, `correctness_passed`, `error_rate`. |
+| Resources | `cpu_percent`, `rss_peak_bytes`. |
 
 Schema example:
 
@@ -336,14 +311,14 @@ Do not collapse unrelated workload shapes into one ranking.
 
 At minimum separate:
 
-```text
-plaintext/minimal handler
-JSON response
-JSON request + response
-streaming response
-streaming request
-multiplexed protocol concurrency where supported
-```
+| Workload class | What it isolates |
+| --- | --- |
+| Plaintext/minimal handler | Runtime/protocol overhead with minimal application work. |
+| JSON response | Response serialization/write path. |
+| JSON request + response | Request parsing/body + response path. |
+| Streaming response | Backpressure and incremental output. |
+| Streaming request | Incremental body/read pressure. |
+| Multiplexed concurrency | H2/H3 scheduling/fairness under concurrent streams. |
 
 Measure HTTP/1.1, HTTP/2, and HTTP/3 separately. If a peer cannot expose an equivalent protocol, mark that comparison inapplicable rather than substituting a different protocol.
 
@@ -353,26 +328,23 @@ Throughput alone is insufficient.
 
 Report together:
 
-```text
-throughput
-p50 latency
-p95 latency
-p99 latency
-error count/rate
-CPU
-peak RSS
-worker count
-concurrency
-duration
-protocol
-TLS state
-```
+| Category | Metrics/context |
+| --- | --- |
+| Throughput | Successful throughput/RPS. |
+| Latency | p50, p95, p99. |
+| Correctness | Error count/rate, timeouts, validation failures. |
+| Resources | CPU and peak RSS. |
+| Runtime shape | Worker count and concurrency. |
+| Measurement | Duration/warmup/trials. |
+| Transport | Protocol and TLS state. |
 
 For persistent runtimes, also observe:
 
-- memory growth over time;
-- file-descriptor stability;
-- event-loop backlog;
+| Persistent-runtime signal | Why |
+| --- | --- |
+| Memory growth over time | Detect leaks/unbounded retention. |
+| File-descriptor stability | Detect resource leakage. |
+| Event-loop backlog | Detect scheduler/IO saturation. |
 - worker recycle/reload impact;
 - error recovery after overload.
 
@@ -411,16 +383,16 @@ Planned recycle exits must not be counted as crashes.
 
 Coroutine microbenchmarks should isolate:
 
-```text
-task spawn/join
-ready-queue dispatch
-future resolve/await
-channel rendezvous/buffering
-mutex/semaphore contention
-sleep/timer wakeup
-stream readiness wakeup
-request-scope creation/drain
-```
+| Area | Operation |
+| --- | --- |
+| Tasks | Spawn/join. |
+| Scheduler | Ready-queue dispatch. |
+| Futures | Resolve/await. |
+| Channels | Rendezvous/buffering. |
+| Synchronization | Mutex/semaphore contention. |
+| Timers | Sleep/timer wakeup. |
+| I/O | Stream readiness wakeup. |
+| Request integration | Request-scope creation/drain. |
 
 Always include policy settings such as `maxResumesPerTick` when comparing scheduler behavior.
 
@@ -430,14 +402,14 @@ Do not benchmark a blocking API inside a coroutine and then describe the result 
 
 Fixed-cardinality runtime metrics are part of normal runtime behavior. Optional diagnostics/profilers/APM can materially affect results.
 
-Record an `instrumentation` label for comparative evidence, for example:
+Record an `instrumentation` label for comparative evidence:
 
-```text
-default
-metrics-only
-xdebug-off-apm-off
-production-apm
-```
+| Label example | Meaning |
+| --- | --- |
+| `default` | Repository/default instrumentation state. |
+| `metrics-only` | Runtime metrics enabled without external profiler/APM. |
+| `xdebug-off-apm-off` | Explicitly uninstrumented application profile. |
+| `production-apm` | Production-like APM/profiling stack enabled. |
 
 Never compare an instrumented peer with an uninstrumented Runwire run without stating the difference.
 
