@@ -441,15 +441,44 @@ Production requirements:
 5. ALPN `h3`;
 6. suitable QUIC/stream resource ceilings.
 
-0-RTT application dispatch is disabled in 1.0. Explicit HTTP/3 without QUIC is a startup error. QUIC peer address changes must not be used as an authentication identity.
+0-RTT application dispatch is disabled in Runwire 2.0. Explicit HTTP/3 without QUIC is a startup error. QUIC peer address changes must not be used as an authentication identity.
 
-## 19. SO_REUSEPORT
+## 19. Adaptive protocol scheduling
+
+The production default for HTTP/1.1, HTTP/2, and HTTP/3 is `FIXED`. `AUTO`, `LATENCY`, and `THROUGHPUT` remain supported explicit profiles, but they should be treated as workload-specific tuning rather than generic upgrades.
+
+Use these rules in production:
+
+- keep `FIXED` when deterministic behavior is preferred or no representative repeated benchmark exists;
+- use `LATENCY` or `THROUGHPUT` when a deterministic bias has been measured to help the deployment;
+- use `AUTO` only after repeated measurements cover steady load, transitions, tail latency, CPU, memory, fairness, and backpressure;
+- configure policies per protocol rather than assuming one crossover profile is suitable everywhere;
+- configure HTTP/3 inbound and outbound policies independently when only one direction needs tuning;
+- do not compensate for policy changes by raising hard resource ceilings unless capacity testing separately justifies those limit changes.
+
+HTTP/1.1 chooses its default TCP_NODELAY behavior when each connection is attached. An explicit listener socket setting owns the decision and prevents the protocol strategy from overriding it:
+
+```php
+use Infocyph\Runwire\Network\ListenerOptions;
+
+$listener = new ListenerOptions(
+    socketContext: ['tcp_nodelay' => true],
+);
+```
+
+For AUTO policy values, watermarks are basis points of normalized load and must satisfy `0 <= low < high <= 10000`. Transition samples must be positive. The EWMA ratio must satisfy `1 <= numerator <= denominator <= intdiv(PHP_INT_MAX, 10000)`. Invalid policy values fail construction rather than being clamped.
+
+A standalone `new AdaptiveProtocolPolicy()` is an AUTO policy with generic watermarks. The protocol option objects deliberately supply FIXED release defaults and, where applicable, protocol-specific crossover values. When replacing a protocol policy object, specify the intended mode and preserve/tune its watermarks consciously.
+
+See [Getting Started](getting-started.md#7-adaptive-protocol-scheduling) for complete construction examples and mode behavior.
+
+## 20. SO_REUSEPORT
 
 Reuse-port is explicit and off by default. Use only after validating platform support and load distribution.
 
 Native HTTP/3 with multiple independently bound QUIC workers requires explicit reuse-port configuration.
 
-## 20. Resource ceilings
+## 21. Resource ceilings
 
 Defaults are conservative. Constructor validation in the protocol limit objects is authoritative.
 
@@ -467,7 +496,7 @@ Defaults are conservative. Constructor validation in the protocol limit objects 
 
 Increase limits only after measuring memory, file-descriptor usage, and tail latency.
 
-## 21. Backpressure
+## 22. Backpressure
 
 ```php
 $result = $writer->write($chunk);
@@ -483,7 +512,7 @@ if ($result->pressured()) {
 
 Do not respond to slow consumers by creating an unbounded application buffer.
 
-## 22. Coroutine resource policy
+## 23. Coroutine resource policy
 
 Default limits:
 
@@ -514,7 +543,7 @@ $coroutines = new CoroutineRuntime(
 
 Higher limits retain more task/waiter state.
 
-## 23. Metrics and diagnostics
+## 24. Metrics and diagnostics
 
 Runtime metrics:
 
@@ -541,7 +570,7 @@ draining
 
 A PID existing is not sufficient evidence of readiness or health.
 
-## 24. Production checklist
+## 25. Production checklist
 
 Before traffic, verify:
 
@@ -563,7 +592,7 @@ Before traffic, verify:
 
 See [Runtime Security](security.md) for `disable_functions`, ProcessRunner allowlisting, systemd controls, container hardening, and persistent-state guidance.
 
-## 25. Deployment acceptance
+## 26. Deployment acceptance
 
 A production candidate should exercise:
 
