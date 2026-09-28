@@ -179,6 +179,23 @@ if ($result->pressured()) {
 
 Do not accumulate an unbounded producer buffer while the transport is pressured.
 
+### Transparent bounded response fast paths
+
+For an implicit response such as:
+
+```php
+$writer->end('ok');
+```
+
+Runwire may use a bounded transport fast path without changing the application contract:
+
+- HTTP/1.1 may serialize the implicit 200 response head and final body into one transport write when the complete wire response fits the currently available bounded send capacity.
+- HTTP/2 may send an implicit 200 HEADERS+DATA response through its bounded initial-response path only when the scheduler is otherwise idle, the encoded response fits the active policy's one-shot budget, peer/header limits allow it, flow-control credit is available, and the transport has capacity.
+- If any fast-path condition is not satisfied, Runwire falls back to the normal response path automatically.
+- Explicit `start() / write() / end()`, chunked/streaming responses, response backpressure, declared Content-Length validation, and body-suppression semantics keep their normal behavior.
+
+Applications should not add special buffering to force these paths; they are transparent runtime optimizations.
+
 ## 5. TLS and HTTP/2
 
 ```php
