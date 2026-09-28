@@ -362,6 +362,8 @@ HTTP/3 frames / streams / QPACK / QUIC transport
 
 The application should not need to implement protocol framing to respond to a request.
 
+Implicit bounded responses have transparent protocol-local fast paths. HTTP/1.1 can coalesce the implicit response head/body into one transport write when the complete wire payload fits available bounded send capacity. HTTP/2 can use a one-shot initial HEADERS/DATA path only when scheduler, header, flow-control, policy-budget, and transport-capacity conditions all permit it. Failure of any eligibility condition falls back to the normal response scheduler; explicit streaming and backpressure semantics are unchanged.
+
 ### Protocol-local scheduling policy
 
 `AdaptiveProtocolPolicy` changes bounded scheduling effort inside a protocol; it does not change application semantics or hard resource ceilings. Runwire 2.0 supplies `FIXED` as the default through `Http1Limits`, `Http2Limits`, and both HTTP/3 policy slots.
