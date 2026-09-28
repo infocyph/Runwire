@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Http2;
 
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use InvalidArgumentException;
 
 /**
@@ -40,6 +41,7 @@ final readonly class Http2Limits
         public float $streamIdleTimeoutSeconds = 60.0,
         public float $drainTimeoutSeconds = 30.0,
         public AdaptiveProtocolPolicy $adaptive = new AdaptiveProtocolPolicy(
+            mode: AdaptivePolicyMode::FIXED,
             lowWatermarkBasisPoints: 1_000,
             highWatermarkBasisPoints: 3_000,
         ),
