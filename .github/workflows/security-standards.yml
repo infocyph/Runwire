@@ -277,7 +277,7 @@ jobs:
           fi
           server_pid=""
 
-      - name: Run sustained AUTO vs FIXED HTTP/3 matrix
+      - name: Run diagnostic AUTO vs FIXED HTTP/3 matrix
         if: matrix.php-version == '8.5'
         shell: bash
         run: |

@@ -100,7 +100,7 @@ These are native transport/runtime behaviors. Applications should not add duplic
 
 ### Adaptive protocol policy
 
-Runwire 2.0 exposes protocol-local adaptive scheduling through `AdaptiveProtocolPolicy` and `AdaptivePolicyMode`.
+Runwire 2.0 exposes protocol-local adaptive scheduling through `AdaptiveProtocolPolicy` and `AdaptivePolicyMode`. HTTP/1.1 defaults to `FIXED` with NODELAY on. HTTP/2 and HTTP/3 default to `AUTO`, including direct QUIC connection and worker construction. All protocols retain explicit `FIXED`, `LATENCY`, `THROUGHPUT`, and `AUTO` overrides. These defaults are the release decision; full J10 sustained certification remains separate from the historical short-run comparisons.
 
 - `AUTO` uses Runwire's protocol-specific pressure/backlog/activity controller.
 - `LATENCY` pins the latency-biased profile.

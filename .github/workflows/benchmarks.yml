@@ -419,7 +419,7 @@ jobs:
           retention-days: 61
 
   adaptive-http12:
-    name: "Adaptive H1/H2 sustained - PHP 8.5"
+    name: "Adaptive H1/H2 diagnostics - PHP 8.5"
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -444,9 +444,12 @@ jobs:
         shell: bash
         run: |
           python3 -m venv /tmp/runwire-h2
-          /tmp/runwire-h2/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0'
+          /tmp/runwire-h2/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0' 'aioquic==1.3.0'
 
-      - name: Run sustained AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
+      - name: Test adaptive matrix harness
+        run: /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive*.py' -v
+
+      - name: Run diagnostic AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
         shell: bash
         run: |
           bash benchmarks/adaptive_http12_certify.sh 5 benchmark-results/adaptive-http12

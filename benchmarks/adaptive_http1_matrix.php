@@ -33,6 +33,8 @@ function adaptiveHttp1Phase(array $run): array
 
     return [
         'requests' => $requests,
+        'errors' => 0,
+        'duration_seconds' => $run['elapsed'],
         'throughput_rps' => $run['elapsed'] > 0 ? round($requests / $run['elapsed'], 3) : 0.0,
         'p50_ms' => $p50,
         'p95_ms' => $p95,
@@ -64,7 +66,8 @@ if (!in_array($mode, ['auto', 'fixed'], true) || $phaseSeconds < 1.0) {
 $transitionSeconds = max(1.0, min(2.0, $phaseSeconds / 2));
 $highSeconds = max($phaseSeconds, $phaseSeconds + 2.0);
 
-$warmup = http1SustainedRun('127.0.0.1', $port, 8, 1.0, $serverPid, false);
+$warmupSeconds = max(1.0, (float) (getenv('RUNWIRE_ADAPTIVE_WARMUP_SECONDS') ?: 1));
+$warmup = http1SustainedRun('127.0.0.1', $port, 8, $warmupSeconds, $serverPid, false);
 http1SustainedAssertCorrect($warmup['counter'], 'Adaptive HTTP/1.1 warm-up');
 
 $phases = [
@@ -85,7 +88,18 @@ $phases = [
     ),
 ];
 
+foreach ($phases as $name => &$phase) {
+    $phase['concurrency'] = in_array($name, ['transition_up', 'high'], true) ? 256 : 8;
+    $phase['requested_duration_seconds'] = str_starts_with($name, 'transition_') ? $transitionSeconds : ($name === 'high' ? $highSeconds : $phaseSeconds);
+}
+unset($phase);
+
 $result = [
+    'workload' => 'plaintext-2-bytes',
+    'payload_bytes' => 2,
+    'runtime_build' => getenv('RUNWIRE_ADAPTIVE_BUILD') ?: 'unrecorded',
+    'environment' => getenv('RUNWIRE_ADAPTIVE_ENVIRONMENT') ?: 'unrecorded',
+    'warmup_seconds' => $warmupSeconds,
     'protocol' => 'http/1.1',
     'mode' => $mode,
     'phases' => $phases,

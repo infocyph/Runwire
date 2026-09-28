@@ -5,6 +5,24 @@ phase_seconds="${1:-3}"
 output_dir="${2:-benchmark-results/adaptive-http12}"
 mkdir -p "$output_dir"
 
+# Retained filenames are compatible; the default run is a diagnostic, not promotion evidence.
+evidence_mode="${3:-diagnostic}"
+compare_args=()
+case "$evidence_mode" in
+  diagnostic) compare_args=(--diagnostic) ;;
+  sustained)
+    if ! [[ "$phase_seconds" =~ ^[0-9]+$ ]] || [ "$phase_seconds" -lt 180 ]; then
+      echo "Sustained comparison requires phase-seconds >= 180." >&2
+      exit 1
+    fi
+    export RUNWIRE_ADAPTIVE_WARMUP_SECONDS=30
+    ;;
+  *) echo "Evidence mode must be diagnostic or sustained." >&2; exit 1 ;;
+esac
+export RUNWIRE_ADAPTIVE_BUILD="$(git rev-parse HEAD)-$(git diff --binary HEAD -- src benchmarks | sha256sum | cut -d ' ' -f 1)"
+export RUNWIRE_ADAPTIVE_ENVIRONMENT="$(hostname):$(uname -sr):$(php -r 'echo PHP_VERSION;')"
+
+
 tmpdir="$(mktemp -d)"
 server_pid=""
 
@@ -131,7 +149,7 @@ for protocol in http1 h2; do
 
   php benchmarks/adaptive_matrix_summary.php "${auto_files[@]}"     > "$output_dir/${protocol}-auto-summary.json"
   php benchmarks/adaptive_matrix_summary.php "${fixed_files[@]}"     > "$output_dir/${protocol}-fixed-summary.json"
-  if ! php benchmarks/adaptive_matrix_compare.php     "$output_dir/${protocol}-auto-summary.json"     "$output_dir/${protocol}-fixed-summary.json"     > "$output_dir/${protocol}-comparison.json"; then
+  if ! php benchmarks/adaptive_matrix_compare.php     "$output_dir/${protocol}-auto-summary.json"     "$output_dir/${protocol}-fixed-summary.json" "${compare_args[@]}"     > "$output_dir/${protocol}-comparison.json"; then
     if [ "$protocol" = "http1" ]; then
       echo "HTTP/1.1 AUTO is not release-promoted; FIXED/NODELAY-on remains the production default." >&2
     else

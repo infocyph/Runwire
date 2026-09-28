@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
@@ -163,7 +165,7 @@ it('promotes sustained HTTP3 response backlog to throughput scheduling', functio
     );
     $transport = new Http3SchedulerTransport();
     $transport->blocked = true;
-    $scheduler = new ResponseScheduler(new ConnectionState($limits), $limits, $transport);
+    $scheduler = new ResponseScheduler(new ConnectionState($limits), $limits, $transport, adaptive: new AdaptiveProtocolPolicy(lowWatermarkBasisPoints: 1_000, highWatermarkBasisPoints: 4_000));
 
     foreach (range(0, 2) as $streamId) {
         $writer = $scheduler->writer($streamId * 4, 'GET', static function (): void {});

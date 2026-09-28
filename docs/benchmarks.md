@@ -452,6 +452,60 @@ Runwire 2.0 may be released without a public cross-runtime ranking.
 
 A public statement such as “fastest”, “faster than X”, or “top-tier” requires equivalent real peer evidence. Until that evidence exists, benchmark artifacts should be described as regression, protocol, interoperability, or workload-specific measurements.
 
+## Adaptive policy evidence
+
+H1 defaults to FIXED with NODELAY on; H2/H3 default to AUTO by the release decision. The complete J10 matrix still requires external measurement; these defaults do not imply that certification has passed. The adaptive CI jobs are short diagnostic comparisons; their green status is not promotion evidence.
+
+Run these commands in the same prepared PHP/native-extension environment as CI (including ext-event, and ext-quic for H3). The H2 script expects the pinned h2 client at `/tmp/runwire-h2/bin/python`; H3 uses `/tmp/runwire-aioquic/bin/python`, overridable with `RUNWIRE_AIOQUIC_PYTHON`. The workflow setup steps provision these clients.
+
+```bash
+# Existing quick checks: regression budgets remain enforced.
+bash benchmarks/adaptive_http12_certify.sh 5 benchmark-results/adaptive-http12 diagnostic
+bash benchmarks/adaptive_http3_certify.sh 5 benchmark-results/adaptive-http3 diagnostic
+
+# Strict, repeated comparisons for the scripts' reported workloads.
+bash benchmarks/adaptive_http12_certify.sh 180 benchmark-results/adaptive-http12-sustained sustained
+bash benchmarks/adaptive_http3_certify.sh 180 benchmark-results/adaptive-http3-sustained sustained
+```
+
+The filenames are retained for compatibility. Each script runs five alternating AUTO/FIXED trials. `sustained` requests 30 seconds of warm-up and at least 180 seconds for each steady-state phase. Transition phases remain short to measure transitions. Strict comparison rejects RPS CV at or above 2.5% and keeps the existing throughput, latency, CPU, RSS and fairness budgets. H1 AUTO remains advisory as before; its regression failures are recorded without failing the combined H1/H2 job. H2/H3 regression budgets remain blocking even in diagnostic mode. Diagnostic mode does not relax their thresholds; it separately reports duration/variance deficiencies through `evidence_failures` and `measurement_qualified`.
+
+Records include payload/workload, phase concurrency and requested/actual duration, runtime build and environment identity. Summaries reject mismatched or invalid trials and report per-phase sample CV plus successful RPM. Comparisons require matching metadata. Keep the raw trials, summaries, comparison JSON, and environment details together.
+
+These scripts currently cover H1 plaintext 2-byte responses, H2 TLS 768-byte responses, and H3 16 KiB responses. Even a passing strict comparison is a **single-workload** result and always reports `promotion_certified: false`. Use the expanded J10 runner below for mixed-payload, constrained-flow/pressure, QPACK, churn, profile and concurrency coverage. Missing matrix cells remain pending; a short diagnostic result cannot certify them.
+
+### Complete J10 matrix
+
+`adaptive_promotion_matrix.py` defines 86 mandatory cases: 16 H1 (plaintext/TLS, four sizes, short/long reuse), 28 H2 (four sizes, mixed payloads, constrained flow and transport reads, 1/8/32/100 streams), and 42 H3 (four sizes, three concurrency levels, upload/download/balanced traffic, delayed QPACK instructions and connection churn). Each case runs FIXED, LATENCY, THROUGHPUT and AUTO, five trials each with rotated order, 30-second warm-up, and 180-second low/medium/high/low steady phases surrounding short up/down transitions.
+
+Run on a dedicated Linux host with the native extensions, Python 3.11+, OpenSSL CLI, `h2==4.3.0` and `aioquic==1.3.0`. Set `RUNWIRE_H2_PYTHON` and `RUNWIRE_AIOQUIC_PYTHON` if the clients are outside the paths above. Client dependencies stay outside production Composer dependencies.
+
+```bash
+python3 benchmarks/adaptive_promotion_matrix.py list --protocol h2
+python3 benchmarks/adaptive_promotion_matrix.py run --protocol h2 --output benchmark-results/j10-h2
+python3 benchmarks/adaptive_promotion_matrix.py run --protocol h3 --output benchmark-results/j10-h3
+python3 benchmarks/adaptive_promotion_matrix.py run --protocol http1 --output benchmark-results/j10-h1
+# Resume an interrupted run with the identical candidate and environment:
+python3 benchmarks/adaptive_promotion_matrix.py run --protocol h2 --output benchmark-results/j10-h2 --resume
+# Recompute summaries and the gate from raw records, including missing cases:
+python3 benchmarks/adaptive_promotion_matrix.py evaluate --protocol h2 --output benchmark-results/j10-h2
+```
+
+Use repeated `--case <id>` arguments to run selected cells, then `--resume` to fill the rest. Partial selections never pass the full protocol gate. For a quick harness check, use a separate output directory with `--case <id> --diagnostic --seconds 1 --warmup 1`; short runs also return nonzero because they cannot certify the matrix. A full run is intentionally lengthy: approximately 4.2 hours per cell, or 67/117/176 hours for H1/H2/H3 before connection/drain overhead. Do not run competing load jobs on the same host. No native sustained matrix was run during harness implementation.
+
+The evaluator checks every mandatory case and all four modes from raw trials, matching code/environment/workload identities and distinct run IDs. It reuses the existing regression budgets, strict duration requirements and CV ceiling. Additional preregistered criteria are a 5% steady throughput gain over FIXED in at least one case that also exceeds twice the combined AUTO/FIXED CV, transition overhead no greater than 1% throughput and 0.1 ms p95/p99, and generator CPU below 85% of one core in every trial. These are acceptance criteria, not measured improvements. A generator-bound run needs more capable load generation and fresh evidence; do not interpret it as a server limit.
+
+The clients validate status and response bytes, validate uploaded bytes end to end, use bounded latency histograms, and rotate drained connections below unchanged production stream/keep-alive limits. H2/H3 retain live connection state across phase transitions except the deliberate churn case and required lifetime rotation. The H3 backlog case delays actual QPACK encoder instructions and requires observed dynamic header dependencies in every phase; the [encoder hook](https://github.com/aiortc/aioquic/blob/1.3.0/src/aioquic/h3/connection.py) is pinned to aioquic 1.3.0. Transport-pressure cases record delayed reads and flow-control cases record bytes received under the reduced stream window rather than merely naming a workload “pressure.” Server/client logs, failure markers and raw records are retained. Failed trials are not silently retried or replaced by passing samples.
+
+`<protocol>-promotion.json` reports `performance_gate_passed` independently per protocol. It never edits defaults and always keeps `promotion_certified: false`: exact-candidate protocol/security/resource-invariant CI and I8 release certification must also pass. H1 remains FIXED and H2/H3 remain AUTO unless a separate release decision changes them.
+
+Harness regression tests:
+
+```bash
+# Use a Python environment with both pinned protocol-client dependencies.
+python3 -m unittest discover -s tests/benchmarks -p 'test_adaptive*.py' -v
+```
+
 ## Related documentation
 
 - [2.0 migration guide](migration-2.0.md)

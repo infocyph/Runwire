@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
@@ -545,6 +547,7 @@ it('uses adaptive HTTP3 poll timeouts for idle and handshaking workers', functio
         new Http3Limits(),
         4,
         $poller,
+        inboundAdaptive: new AdaptiveProtocolPolicy(),
     );
 
     $worker->tick(0.05);

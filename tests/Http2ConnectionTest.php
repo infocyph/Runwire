@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
@@ -273,6 +275,7 @@ it('feeds sustained H2 multiplex load into the adaptive response strategy', func
                 $candidate->end('ok');
             }
         },
+        new Http2Limits(adaptive: new AdaptiveProtocolPolicy(lowWatermarkBasisPoints: 1_000, highWatermarkBasisPoints: 3_000)),
     );
 
     $property = new ReflectionProperty(Http2Connection::class, 'output');

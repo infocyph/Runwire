@@ -18,7 +18,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 
 if ($argc !== 5 && $argc !== 7) {
     throw new InvalidArgumentException(
-        'Usage: php adaptive_http_server.php <http1|h2> <port> <auto|fixed> <payload-bytes> [certificate private-key]',
+        'Usage: php adaptive_http_server.php <http1|h2> <port> <auto|fixed|latency|throughput> <payload-bytes> [certificate private-key]',
     );
 }
 
@@ -31,9 +31,6 @@ if (!in_array($protocol, ['http1', 'h2'], true)) {
 }
 if ($port < 1 || $port > 65_535 || $payloadBytes < 1 || $payloadBytes > 1_048_576) {
     throw new InvalidArgumentException('Adaptive benchmark port or payload size is invalid.');
-}
-if (!in_array($mode, [AdaptivePolicyMode::AUTO, AdaptivePolicyMode::FIXED], true)) {
-    throw new InvalidArgumentException('Adaptive benchmark mode must be auto or fixed.');
 }
 
 $h1Defaults = (new Http1Limits())->adaptive;
@@ -56,13 +53,10 @@ $h2Policy = new AdaptiveProtocolPolicy(
 );
 $fixed = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED);
 $tls = null;
-if ($protocol === 'h2') {
-    if ($argc !== 7) {
-        throw new InvalidArgumentException('HTTP/2 adaptive benchmark requires certificate and private-key paths.');
-    }
-    $tls = new TlsOptions($argv[5], $argv[6], alpnProtocols: ['h2']);
-} elseif ($argc !== 5) {
-    throw new InvalidArgumentException('HTTP/1.1 adaptive benchmark does not accept TLS paths.');
+if ($argc === 7) {
+    $tls = new TlsOptions($argv[5], $argv[6], alpnProtocols: [$protocol === 'h2' ? 'h2' : 'http/1.1']);
+} elseif ($protocol === 'h2') {
+    throw new InvalidArgumentException('HTTP/2 adaptive benchmark requires TLS paths.');
 }
 
 $body = $protocol === 'http1' && $payloadBytes === 2
@@ -72,22 +66,21 @@ $server = new Server(
     name: 'adaptive-' . $protocol,
     address: '127.0.0.1:' . $port,
     handler: static function (HttpRequest $request, ResponseWriterInterface $writer) use ($body): void {
-        if ($request->method !== 'GET' || $request->target !== '/benchmark') {
+        if ($request->method !== 'GET' || !preg_match('~^/benchmark(?:/(2|1024|16384|65536))?$~D', $request->target)) {
             $writer->end('bad');
 
             return;
         }
 
-        $writer->end($body);
+        $size = basename($request->target);
+        $writer->end(ctype_digit($size) ? str_repeat('x', (int) $size) : $body);
     },
     workers: 1,
     tls: $tls,
     http1: new Http1Limits(
-        maxKeepAliveRequests: 100_000,
         adaptive: $protocol === 'http1' ? $h1Policy : $fixed,
     ),
     http2: new Http2Limits(
-        maxStreamsPerConnection: 1_000_000,
         adaptive: $protocol === 'h2' ? $h2Policy : $fixed,
     ),
 );
