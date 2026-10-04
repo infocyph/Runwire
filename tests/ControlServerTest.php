@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Control\ControlOptions;
+use Infocyph\Runwire\Internal\MonotonicTime;
+use Infocyph\Runwire\Supervisor\Internal\ChildReaper;
 use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
-it('serves bounded runtime control over a protected unix socket', function (): void {
+it('serves bounded runtime control over a protected unix socket', function (int $publicationDelayMicroseconds): void {
     $socket = sys_get_temp_dir() . '/runwire-control-test-' . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sock';
     $resultFile = tempnam(sys_get_temp_dir(), 'runwire-control-result-');
     if ($resultFile === false) {
@@ -98,6 +100,9 @@ it('serves bounded runtime control over a protected unix socket', function (): v
                 'force' => false,
             ]);
 
+            if ($publicationDelayMicroseconds > 0) {
+                usleep($publicationDelayMicroseconds);
+            }
             file_put_contents($resultFile, json_encode(
                 compact('mode', 'status', 'stale', 'stop'),
                 JSON_THROW_ON_ERROR,
@@ -132,6 +137,9 @@ it('serves bounded runtime control over a protected unix socket', function (): v
         ));
         $supervisor->run();
 
+        if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), 3.0))) {
+            throw new RuntimeException('Control client did not exit before the result deadline.');
+        }
         $raw = file_get_contents($resultFile);
         if (!is_string($raw) || $raw === '') {
             throw new RuntimeException('Control client did not write a result.');
@@ -151,6 +159,12 @@ it('serves bounded runtime control over a protected unix socket', function (): v
             ->and(file_exists($socket))->toBeFalse()
             ->and($supervisor->status()->workers)->toBe([]);
     } finally {
+        if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::nowNanoseconds())) {
+            posix_kill($clientPid, SIGKILL);
+            if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), 1.0))) {
+                throw new RuntimeException('Control client did not exit after cleanup.');
+            }
+        }
         if (file_exists($socket)) {
             unlink($socket);
         }
@@ -158,7 +172,7 @@ it('serves bounded runtime control over a protected unix socket', function (): v
             unlink($resultFile);
         }
     }
-});
+})->with(['immediate publication' => 0, 'delayed publication' => 50_000]);
 
 it('rejects unsafe control options', function (): void {
     expect(fn () => new ControlOptions('relative.sock'))->toThrow(InvalidArgumentException::class)
