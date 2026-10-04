@@ -66,9 +66,13 @@ final class NativeHttpWorker
             $loop,
         );
         $sampler = new WorkerDiagnosticsSampler($context, $runtimeContext->metrics, $diagnostics, $loop);
-        $handler = self::requestHandler($application, $context, $sampler);
         $stopWatcher = null;
         $shutdown = false;
+        $applicationDraining = false;
+        $drainApplication = static function () use ($application, $context, $state, &$sessions, &$applicationDraining): void {
+            self::drainApplication($application, $context, $state, $sessions, $applicationDraining);
+        };
+        $handler = self::requestHandler($application, $context, $sampler, $drainApplication);
 
         try {
             $application->start();
@@ -79,6 +83,7 @@ final class NativeHttpWorker
                     $loop,
                     $bound,
                     $handler,
+                    $drainApplication,
                     &$sessions,
                     &$connections,
                     $http1Adaptive,
@@ -109,12 +114,13 @@ final class NativeHttpWorker
                         $runtimeContext->metrics,
                         $sampler,
                     );
+                    $connection->onClose($drainApplication);
                 },
             );
             $stopWatcher = $loop->onReadable(
                 $context->stopStream(),
-                static function () use ($application, $context, $bound, $loop, &$sessions, &$connections, $state, $sampler): void {
-                    self::beginDrain($application, $context, $bound, $loop, $sessions, $connections, $state);
+                static function () use ($drainApplication, $context, $bound, $loop, &$sessions, &$connections, $state, $sampler): void {
+                    self::beginDrain($drainApplication, $context, $bound, $loop, $sessions, $connections, $state);
                     $sampler->sample(true);
                 },
             );
@@ -143,7 +149,7 @@ final class NativeHttpWorker
                 $context->requestStop();
             },
             forceStop: static function () use (
-                $application,
+                $drainApplication,
                 $context,
                 $bound,
                 $loop,
@@ -153,7 +159,7 @@ final class NativeHttpWorker
                 $sampler,
             ): void {
                 $context->requestStop();
-                self::beginDrain($application, $context, $bound, $loop, $sessions, $connections, $state);
+                self::beginDrain($drainApplication, $context, $bound, $loop, $sessions, $connections, $state);
                 self::forceClose($connections, $loop, $state);
                 $sampler->sample(true);
             },
@@ -307,11 +313,12 @@ final class NativeHttpWorker
     }
 
     /**
+     * @param Closure(): void $drainApplication
      * @param array<int, NativeHttpConnection> $sessions
      * @param array<int, Connection> $connections
      */
     private static function beginDrain(
-        RuntimeApplicationInterface $application,
+        Closure $drainApplication,
         WorkerContext $context,
         BoundServer $bound,
         LoopInterface $loop,
@@ -324,9 +331,9 @@ final class NativeHttpWorker
             return;
         }
 
-        $application->drain($context->shutdownReason());
         $state->stop();
         $bound->listener->close();
+        $drainApplication();
         foreach ($sessions as $session) {
             $session->drain();
         }
@@ -342,6 +349,28 @@ final class NativeHttpWorker
         }
     }
 
+    /** @param array<int, NativeHttpConnection> $sessions */
+    private static function drainApplication(
+        RuntimeApplicationInterface $application,
+        WorkerContext $context,
+        WorkerStopState $state,
+        array $sessions,
+        bool &$applicationDraining,
+    ): void {
+        if (!$state->isStopping() || $applicationDraining) {
+            return;
+        }
+
+        foreach ($sessions as $session) {
+            if ($session->hasPendingRequestAdmission()) {
+                return;
+            }
+        }
+
+        $applicationDraining = true;
+        $application->drain($context->shutdownReason());
+    }
+
     /** @param array<int, Connection> $connections */
     private static function forceClose(array $connections, LoopInterface $loop, WorkerStopState $state): void
     {
@@ -351,13 +380,17 @@ final class NativeHttpWorker
         $state->stopLoopIfStopping($loop);
     }
 
-    /** @return Closure(HttpRequest, ResponseWriterInterface): void */
+    /**
+     * @param Closure(): void|null $drainApplication
+     * @return Closure(HttpRequest, ResponseWriterInterface): void
+     */
     private static function requestHandler(
         RuntimeApplicationInterface $application,
         WorkerContext $context,
         WorkerDiagnosticsSampler $sampler,
+        ?Closure $drainApplication = null,
     ): Closure {
-        return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
+        return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler, $drainApplication): void {
             $context->recordRequestStarted();
             $completed = false;
             $complete = static function () use (
@@ -392,6 +425,8 @@ final class NativeHttpWorker
                 }
 
                 throw $error;
+            } finally {
+                $drainApplication?->__invoke();
             }
         };
     }

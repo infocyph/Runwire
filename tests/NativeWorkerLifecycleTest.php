@@ -9,6 +9,7 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\RequestContext;
@@ -221,6 +222,85 @@ it('drains an attached native TCP worker after a late coroutine reset failure', 
             ->and($worker->stopping())->toBeTrue()
             ->and($worker->requestsTotal())->toBe(1)
             ->and($handle->drained())->toBeTrue();
+    } finally {
+        fclose($client);
+        $handle->close();
+        $worker->close();
+    }
+});
+
+
+it('finishes the first accepted HTTP request when recycling precedes header completion', function (string $prefix): void {
+    $loop = new SelectLoop();
+    $worker = new WorkerContext('test', 0, 1, getmypid(), 0, recyclePolicy: new WorkerRecyclePolicy(gracefulTimeoutSeconds: 0.08));
+    $events = [];
+    $server = \Infocyph\Runwire\Server::http('127.0.0.1:0', static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$events): void {
+        $events[] = $request->target;
+        $writer->end('accepted-first');
+    });
+    $listener = \Infocyph\Runwire\Network\TcpListener::bind($server->address, $server->listener, $server->connection);
+    $handle = NativeHttpWorker::attach(
+        $loop, $worker, new \Infocyph\Runwire\Runtime\Internal\BoundServer($server, $listener),
+        RuntimeContext::standalone(), new \Infocyph\Runwire\Runtime\RequestExecutionPolicy(),
+        new ApplicationLifecycleHooks(drain: static function () use (&$events): void { $events[] = 'drain'; }),
+    );
+    $client = stream_socket_client('tcp://' . $listener->address());
+    if (!is_resource($client)) {
+        throw new RuntimeException('Unable to connect recycling race test client.');
+    }
+
+    try {
+        if ($prefix !== '') {
+            fwrite($client, $prefix);
+        }
+        $loop->delay(0.01, static fn() => $worker->requestRecycle());
+        $loop->delay(0.02, static function () use ($client, $prefix): void {
+            $request = "GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n";
+            fwrite($client, substr($request, strlen($prefix)) . "GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        });
+        $loop->delay(0.12, static fn() => $loop->stop());
+        $loop->run();
+        stream_set_blocking($client, false);
+        $response = stream_get_contents($client);
+
+        expect($response)->toContain('accepted-first')
+            ->and(substr_count($response, 'HTTP/1.1 200'))->toBe(1)
+            ->and($events)->toBe(['/first', 'drain'])
+            ->and($worker->requestsTotal())->toBe(1)
+            ->and($handle->drained())->toBeTrue();
+    } finally {
+        fclose($client);
+        $handle->close();
+        $worker->close();
+    }
+})->with(['before first bytes' => '', 'partial headers' => "GET /first HTTP/1.1\r\nHost:"]);
+
+it('bounds accepted idle connections by the recycling grace period', function (): void {
+    $loop = new SelectLoop();
+    $worker = new WorkerContext('test', 0, 1, getmypid(), 0, recyclePolicy: new WorkerRecyclePolicy(gracefulTimeoutSeconds: 0.02));
+    $drains = 0;
+    $server = \Infocyph\Runwire\Server::http('127.0.0.1:0', static function (): void {
+        throw new RuntimeException('An idle connection must not dispatch a request.');
+    });
+    $listener = \Infocyph\Runwire\Network\TcpListener::bind($server->address, $server->listener, $server->connection);
+    $handle = NativeHttpWorker::attach(
+        $loop, $worker, new \Infocyph\Runwire\Runtime\Internal\BoundServer($server, $listener),
+        RuntimeContext::standalone(), new \Infocyph\Runwire\Runtime\RequestExecutionPolicy(),
+        new ApplicationLifecycleHooks(drain: static function () use (&$drains): void { ++$drains; }),
+    );
+    $client = stream_socket_client('tcp://' . $listener->address());
+    if (!is_resource($client)) {
+        throw new RuntimeException('Unable to connect idle recycling test client.');
+    }
+
+    try {
+        $loop->delay(0.01, static fn() => $worker->requestRecycle());
+        $loop->delay(0.06, static function () use ($handle, &$drains): void {
+            expect($handle->drained())->toBeTrue()->and($drains)->toBe(1);
+        });
+        $loop->delay(0.08, static fn() => $loop->stop());
+        $loop->run();
+        expect($worker->requestsTotal())->toBe(0);
     } finally {
         fclose($client);
         $handle->close();

@@ -135,7 +135,7 @@ final class Http2Connection
 
         $this->draining = true;
         $this->requests->setDraining(true);
-        $this->output->sendControl(FrameWriter::goAway($this->requests->lastClientStreamId(), ErrorCode::NO_ERROR));
+        $this->output->sendControl(FrameWriter::goAway($this->requests->lastAcceptedStreamId(), ErrorCode::NO_ERROR));
         $this->finishDrainIfReady();
         if ($this->closed) {
             return;
@@ -148,6 +148,12 @@ final class Http2Connection
                 $this->connection->abort(CloseReason::LOCAL_ABORT);
             }
         });
+    }
+
+    /** @internal Reports an accepted header block awaiting request dispatch. */
+    public function hasPendingRequestAdmission(): bool
+    {
+        return $this->requests->hasOpenHeaderBlock();
     }
 
     /**
@@ -269,7 +275,7 @@ final class Http2Connection
 
     private function finishDrainIfReady(): void
     {
-        if (!$this->draining || $this->closed || $this->requests->count() !== 0 || !$this->output->wireIdle()) {
+        if (!$this->draining || $this->closed || $this->requests->count() !== 0 || $this->requests->hasOpenHeaderBlock() || !$this->output->wireIdle()) {
             return;
         }
 

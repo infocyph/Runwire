@@ -292,3 +292,51 @@ it('feeds sustained H2 multiplex load into the adaptive response strategy', func
         ->and($http2->activeStreams())->toBe(32)
         ->and($ended)->toBe(3);
 });
+
+
+it('finishes accepted fragmented HTTP2 headers across drain and refuses later streams', function (): void {
+    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server);
+    $requests = [];
+    $http2 = new Http2Connection($loop, $connection, new Http2Limits(), static function (HttpRequest $request, ResponseWriterInterface $writer) use ($loop, &$requests): void {
+        $requests[] = $request->target;
+        $loop->delay(0.02, static fn() => $writer->end('accepted-h2'));
+    });
+    $block = (new Encoder())->encode([
+        [':method', 'GET'], [':scheme', 'https'], [':authority', 'example.test'], [':path', '/first'],
+    ]);
+
+    try {
+        fwrite($client, runwireH2ClientPrelude() . FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x1, 1, substr($block, 0, 1))));
+        $loop->delay(0.01, static fn() => $http2->drain());
+        $loop->delay(0.02, static function () use ($client, $block): void {
+            fwrite($client, FrameWriter::encode(new Frame(FrameType::CONTINUATION->value, 0x4, 1, substr($block, 1))) . runwireH2Headers(3, '/later'));
+        });
+        $loop->delay(0.08, static fn() => $loop->stop());
+        $loop->run();
+        stream_set_blocking($client, false);
+        $frames = runwireH2Frames(stream_get_contents($client));
+        $data = '';
+        $boundary = null;
+        $refused = null;
+        foreach ($frames as $frame) {
+            if ($frame->knownType() === FrameType::DATA) {
+                $data .= $frame->payload;
+            }
+            if ($frame->knownType() === FrameType::GOAWAY) {
+                $boundary = unpack('N', substr($frame->payload, 0, 4))[1];
+            }
+            if ($frame->knownType() === FrameType::RST_STREAM && $frame->streamId === 3) {
+                $refused = unpack('N', $frame->payload)[1];
+            }
+        }
+
+        expect($data)->toBe('accepted-h2')
+            ->and($requests)->toBe(['/first'])
+            ->and($boundary)->toBe(1)
+            ->and($refused)->toBe(ErrorCode::REFUSED_STREAM->value);
+    } finally {
+        fclose($client);
+    }
+});

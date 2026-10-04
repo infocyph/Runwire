@@ -42,7 +42,7 @@ final class RequestStreamProcessor
 
     private readonly RequestHeaderValidator $validator;
 
-    private bool $draining = false;
+    private ?int $drainBoundary = null;
 
     private ?int $headerBlockTimer = null;
 
@@ -203,6 +203,12 @@ final class RequestStreamProcessor
         return $this->pendingHeaders !== null;
     }
 
+    /** Return the boundary including an accepted unfinished header block. */
+    public function lastAcceptedStreamId(): int
+    {
+        return max($this->lastClientStreamId, $this->pendingHeaders->streamId ?? 0);
+    }
+
     /**
      * Return the greatest client-initiated stream ID observed.
      */
@@ -226,7 +232,7 @@ final class RequestStreamProcessor
      */
     public function setDraining(bool $draining): void
     {
-        $this->draining = $draining;
+        $this->drainBoundary = $draining ? $this->lastAcceptedStreamId() : null;
     }
 
     /**
@@ -295,7 +301,7 @@ final class RequestStreamProcessor
 
     private function admit(PendingHeaderBlock $pending, ?int $contentLength): bool
     {
-        if ($this->draining) {
+        if ($this->drainBoundary !== null && $pending->streamId > $this->drainBoundary) {
             $this->output->sendControl(FrameWriter::rstStream($pending->streamId, ErrorCode::REFUSED_STREAM));
 
             return false;

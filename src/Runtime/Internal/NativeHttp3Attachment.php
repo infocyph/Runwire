@@ -21,6 +21,8 @@ final class NativeHttp3Attachment
 {
     private readonly WorkerStopState $state;
 
+    private bool $applicationDraining = false;
+
     private ?int $drainTimer = null;
 
     private ?int $pollTimer = null;
@@ -76,8 +78,8 @@ final class NativeHttp3Attachment
         }
 
         $this->state->stop();
-        $this->application->drain($this->context->shutdownReason());
         $this->worker->stopAccepting();
+        $this->drainApplication();
         $this->drainTimer = $this->loop->delay(
             $this->context->recyclePolicy->gracefulTimeoutSeconds,
             $this->expireDrain(...),
@@ -121,6 +123,16 @@ final class NativeHttp3Attachment
         $this->shutdown();
     }
 
+    private function drainApplication(): void
+    {
+        if (!$this->state->isStopping() || $this->applicationDraining || $this->worker->hasPendingRequestAdmission()) {
+            return;
+        }
+
+        $this->applicationDraining = true;
+        $this->application->drain($this->context->shutdownReason());
+    }
+
     private function drained(): bool
     {
         return $this->state->isStopping() && $this->worker->drainComplete();
@@ -136,6 +148,7 @@ final class NativeHttp3Attachment
 
     private function finishDrain(): void
     {
+        $this->drainApplication();
         if (!$this->drained()) {
             return;
         }

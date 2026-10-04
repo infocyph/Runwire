@@ -250,13 +250,18 @@ Graceful sequence:
 
 ```text
 stop accepting
-→ application drain
 → protocol drain / GOAWAY
+→ finish admission of previously accepted requests
+→ application drain
 → finish admitted work
 → timeout
 → force remaining work
 → close resources
 ```
+
+Native HTTP/1.1 connections accepted before stopping may finish their first exchange, including incomplete headers. Protocol draining prevents another keep-alive exchange. Application draining begins once these first requests have entered the application or their connections have closed; header/body deadlines and the recycling grace period remain enforced. Idle connections cannot extend recycling beyond that grace period.
+
+HTTP/2 includes an accepted but incomplete HEADERS/CONTINUATION block in the GOAWAY boundary and lets it finish; higher stream IDs remain refused. HTTP/3 likewise lets previously accepted request streams finish decoding their headers before application draining begins. Both protocols retain their existing resource limits and drain deadlines. Native HTTP/3 continues advancing application tasks while draining.
 
 Portable mode drains all attachments on its shared `SelectLoop` until complete or deadline expiry.
 

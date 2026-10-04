@@ -122,6 +122,12 @@ final class PhpQuicHttp3Worker
         }
     }
 
+    /** @internal Reports accepted request streams awaiting application admission. */
+    public function hasPendingRequestAdmission(): bool
+    {
+        return array_any($this->connections, fn($connection) => $connection->hasPendingRequestAdmission());
+    }
+
     /**
      * Stop accepting new connections and begin graceful draining.
      */
