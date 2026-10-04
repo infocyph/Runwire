@@ -72,6 +72,12 @@ final class Http3Session
         $this->dispatchReadyRequests();
     }
 
+    /** @internal Reports whether an accepted stream still needs application admission. */
+    public function hasPendingRequestAdmission(int $streamId): bool
+    {
+        return !isset($this->dispatchedRequestStreams[$streamId]);
+    }
+
     /**
      * Feed bytes from a peer unidirectional stream into connection state.
      */

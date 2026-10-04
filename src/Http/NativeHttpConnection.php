@@ -66,4 +66,10 @@ final readonly class NativeHttpConnection
     {
         $this->protocol->drain();
     }
+
+    /** @internal Reports accepted input whose request has not reached the application. */
+    public function hasPendingRequestAdmission(): bool
+    {
+        return $this->protocol->hasPendingRequestAdmission();
+    }
 }

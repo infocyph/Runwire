@@ -539,3 +539,67 @@ it('rotates readiness-based HTTP3 reads so reserved streams cannot starve reques
     expect($requestRaw->readBytes)->toBeGreaterThan(0)
         ->and($connection->closed())->toBeFalse();
 });
+
+
+it('keeps accepted HTTP3 headers admissible through application draining', function (): void {
+    $block = (new Encoder(0, 0))->encode([
+        [':method', 'GET'], [':scheme', 'https'], [':authority', 'example.com'], [':path', '/accepted'],
+    ], 0)->block;
+    $frame = new Frame(FrameType::HEADERS->value, $block)->encode();
+    $stream = fakeHttp3ConnectionStream(0, true, [substr($frame, 0, 1), '', substr($frame, 1), null]);
+    $raw = fakeHttp3ConnectionRaw([
+        fakeHttp3ConnectionStream(3, false), fakeHttp3ConnectionStream(7, false), fakeHttp3ConnectionStream(11, false),
+    ], [$stream]);
+    $events = [];
+    $runtime = \Infocyph\Runwire\RuntimeContext::standalone();
+    $application = new \Infocyph\Runwire\Runtime\Host\RuntimeApplication(
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$events): void {
+            $events[] = $request->target;
+            $writer->end('accepted-h3');
+        },
+        runtimeContext: $runtime,
+        lifecycle: new \Infocyph\Runwire\Runtime\ApplicationLifecycleHooks(drain: static function () use (&$events): void { $events[] = 'drain'; }),
+    );
+    $connection = new PhpQuicHttp3Connection(new PhpQuicConnection($raw), $application->handle(...));
+    $connection->pump();
+    $listener = new \Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener(new class {
+        public function accept(): ?object { return null; }
+        public function close(): void {}
+        public function setBlocking(bool $blocking): void { unset($blocking); }
+    });
+    $masks = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $poller = new \Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Poller($masks, static function (array $items) use ($masks): array {
+        $ready = [];
+        foreach ($items as $id => $item) {
+            $ready[$id] = $item[1] & ~$masks->error;
+        }
+        return $ready;
+    });
+    $worker = new \Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker($listener, $application->handle(...), new Http3Limits(), 4, $poller);
+    (new ReflectionProperty($worker, 'connections'))->setValue($worker, [spl_object_id($raw) => $connection]);
+    $loop = new \Infocyph\Runwire\Loop\SelectLoop();
+    $taskLoop = new \Infocyph\Runwire\Loop\SelectLoop();
+    $context = new \Infocyph\Runwire\Supervisor\WorkerContext('h3', 0, 1, getmypid(), 0);
+    $context->attachLoop($taskLoop);
+    $sampler = new \Infocyph\Runwire\Runtime\Internal\WorkerDiagnosticsSampler($context, $runtime->metrics, new \Infocyph\Runwire\Metrics\DiagnosticsPolicy(), $taskLoop);
+    $attachment = new \Infocyph\Runwire\Runtime\Internal\NativeHttp3Attachment($loop, $taskLoop, $context, $application, $worker, $sampler, static function (): void {});
+    $handle = $attachment->start(0.01);
+
+    try {
+        expect($connection->activeRequestStreams())->toBe(1);
+        $handle->stop();
+        $loop->tick();
+        $rejected = fakeHttp3ConnectionStream(4, true, ['']);
+        $raw->acceptedStreams[] = $rejected;
+        $loop->delay(0.05, static fn() => $loop->stop());
+        $loop->run();
+
+        expect($stream->written)->toContain('accepted-h3')
+            ->and($stream->ended)->toBeTrue()
+            ->and($events)->toBe(['/accepted', 'drain'])
+            ->and($rejected->peerResetCode)->toBe(ErrorCode::REQUEST_REJECTED->value);
+    } finally {
+        $handle->close();
+        $context->close();
+    }
+});

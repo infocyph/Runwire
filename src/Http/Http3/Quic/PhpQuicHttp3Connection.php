@@ -215,6 +215,12 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    /** @internal Reports accepted streams awaiting headers or QPACK decoding. */
+    public function hasPendingRequestAdmission(): bool
+    {
+        return array_any(array_keys($this->requestStreams), $this->session->hasPendingRequestAdmission(...));
+    }
+
     /**
      * Return a tracked peer stream by QUIC stream ID.
      */

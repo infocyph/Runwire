@@ -145,8 +145,8 @@ final class NativeHttp3Worker
             }
 
             $context->consumeStopWake();
-            $application->drain($context->shutdownReason());
             $worker->stopAccepting();
+            $applicationDraining = false;
             $deadline = $context->recycling()
                 ? MonotonicTime::deadlineAfterSeconds(
                     MonotonicTime::nowNanoseconds(),
@@ -154,15 +154,18 @@ final class NativeHttp3Worker
                 )
                 : null;
             while (!$worker->drainComplete()) {
+                self::drainApplication($application, $context, $worker, $applicationDraining);
                 if ($deadline !== null && MonotonicTime::nowNanoseconds() >= $deadline) {
                     $worker->forceClose();
 
                     break;
                 }
                 $worker->tick($options->pollTimeoutSeconds);
+                $taskLoop->tick();
                 self::observeTransport($runtimeContext, $worker);
                 $sampler->sample();
             }
+            self::drainApplication($application, $context, $worker, $applicationDraining);
             self::observeTransport($runtimeContext, $worker);
             $sampler->sample(true);
         } catch (Throwable $error) {
@@ -191,6 +194,20 @@ final class NativeHttp3Worker
         }
 
         ApplicationShutdown::resolve($failure, $shutdownFailures);
+    }
+
+    private static function drainApplication(
+        \Infocyph\Runwire\Runtime\RuntimeApplicationInterface $application,
+        WorkerContext $context,
+        PhpQuicHttp3Worker $worker,
+        bool &$applicationDraining,
+    ): void {
+        if ($applicationDraining || $worker->hasPendingRequestAdmission()) {
+            return;
+        }
+
+        $applicationDraining = true;
+        $application->drain($context->shutdownReason());
     }
 
     /** @return array{0: string, 1: int} */

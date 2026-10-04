@@ -141,7 +141,7 @@ final class Http1Connection
     }
 
     /**
-     * Stop accepting further keep-alive work and drain the active exchange.
+     * Stop further keep-alive work and finish the accepted initial exchange.
      */
     public function drain(): void
     {
@@ -158,9 +158,15 @@ final class Http1Connection
         $this->responseCloseAfter = true;
         $this->writer?->forceCloseAfterResponse();
 
-        if ($this->body === null && $this->writer === null) {
+        if ($this->writer === null && $this->requestCount > 0) {
             $this->connection->closeGracefully();
         }
+    }
+
+    /** @internal Reports an accepted connection awaiting its first request. */
+    public function hasPendingRequestAdmission(): bool
+    {
+        return $this->requestCount === 0;
     }
 
     /**
