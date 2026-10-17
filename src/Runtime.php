@@ -15,6 +15,7 @@ use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Network\UnixListenerOptions;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\DevelopmentWatchPolicy;
+use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\HostDriverFactory;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
@@ -236,15 +237,15 @@ final class Runtime
     public function serve(callable $handler, ?callable $requestCleanup = null, ?callable $shutdown = null): void
     {
         $context = $this->prepareHostRuntime();
-        $this->runHostApplication(new RuntimeApplication(
+        $this->runHostApplication(fn(RuntimeContext $worker): RuntimeApplication => new RuntimeApplication(
             $handler,
             $requestCleanup,
             $shutdown,
-            $context,
+            $worker,
             $this->options->requestExecution,
             $this->options->applicationLifecycle,
             $this->options->admission,
-        ));
+        ), $context);
     }
 
     /**
@@ -253,7 +254,7 @@ final class Runtime
     public function serveApplication(RuntimeApplicationFactoryInterface $factory): void
     {
         $context = $this->prepareHostRuntime();
-        $this->runHostApplication($factory->create($context));
+        $this->runHostApplication($factory->create(...), $context);
     }
 
     /**
@@ -596,13 +597,20 @@ final class Runtime
         return $selection->capabilities->resources->resolveWorkerCount($configured);
     }
 
-    private function runHostApplication(RuntimeApplicationInterface $application): void
+    /** @param callable(RuntimeContext): RuntimeApplicationInterface $factory */
+    private function runHostApplication(callable $factory, RuntimeContext $context): void
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
         $this->hostDriver = new HostDriverFactory()->create($selection->driver, $this->options);
-        $this->hostApplication = $application;
 
         try {
+            if ($this->hostDriver instanceof SwooleDriver) {
+                $this->hostDriver->runFactory($factory, $context);
+
+                return;
+            }
+            $application = $factory($context);
+            $this->hostApplication = $application;
             $this->hostDriver->run($application);
         } finally {
             $this->hostApplication = null;

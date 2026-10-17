@@ -11,15 +11,18 @@ use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\DynamicHostObject;
 use Infocyph\Runwire\Runtime\Host\HostDriverInterface;
 use Infocyph\Runwire\Runtime\Host\HostProtocolVersion;
 use Infocyph\Runwire\Runtime\Internal\ApplicationShutdown;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Runtime\RuntimeApplicationInterface;
+use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use InvalidArgumentException;
+use LogicException;
 use ReflectionClass;
 use RuntimeException;
 use Throwable;
@@ -31,6 +34,10 @@ final class SwooleDriver implements HostDriverInterface
 {
     /** @var Closure(string, int): object */
     private readonly Closure $serverFactory;
+
+    private ?RuntimeApplicationInterface $application = null;
+
+    private bool $draining = false;
 
     private ?object $server = null;
 
@@ -50,24 +57,28 @@ final class SwooleDriver implements HostDriverInterface
      */
     public function run(RuntimeApplicationInterface $application): void
     {
-        $server = ($this->serverFactory)($this->options->host, $this->options->port);
-        $this->server = $server;
+        $this->runServer($application);
+    }
 
-        $failure = null;
-
-        try {
-            $this->configure($server, $application);
-            $started = DynamicHostObject::method($server, 'start')();
-            if ($started === false) {
-                throw new RuntimeException('Swoole/OpenSwoole server failed to start.');
-            }
-        } catch (Throwable $error) {
-            $failure = $error;
-        } finally {
-            $this->server = null;
+    /**
+     * Creates the application inside each host worker, after any fork.
+     *
+     * @param callable(RuntimeContext): RuntimeApplicationInterface $factory
+     */
+    public function runFactory(callable $factory, RuntimeContext $context): void
+    {
+        if ($context->driver !== RuntimeDriver::SWOOLE) {
+            throw new InvalidArgumentException('Swoole/OpenSwoole application factories require a Swoole runtime context.');
         }
-
-        ApplicationShutdown::finish($application, $failure);
+        $this->runServer(null, static fn(?int $workerId): RuntimeApplicationInterface => $factory(
+            RuntimeContext::fromCapabilities(
+                $context->capabilities,
+                $context->mode,
+                workerSlot: $workerId,
+                generation: $context->generation,
+                concurrent: $context->concurrent,
+            ),
+        ));
     }
 
     /**
@@ -75,11 +86,26 @@ final class SwooleDriver implements HostDriverInterface
      */
     public function stop(): void
     {
-        if ($this->server === null) {
+        $server = $this->server;
+        if ($server === null) {
             return;
         }
 
-        DynamicHostObject::method($this->server, 'shutdown')();
+        $failure = null;
+
+        try {
+            $this->drainApplication();
+        } catch (Throwable $error) {
+            $failure = $error;
+        }
+        $shutdownFailures = [];
+
+        try {
+            DynamicHostObject::method($server, 'shutdown')();
+        } catch (Throwable $error) {
+            $shutdownFailures[] = $error;
+        }
+        ApplicationShutdown::resolve($failure, $shutdownFailures);
     }
 
     /** @param array<string, mixed> $server */
@@ -180,7 +206,8 @@ final class SwooleDriver implements HostDriverInterface
         return $query === '' || str_contains($target, '?') ? $target : $target . '?' . $query;
     }
 
-    private function configure(object $server, RuntimeApplicationInterface $application): void
+    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    private function configure(object $server, ?Closure $factory): void
     {
         $configured = DynamicHostObject::method($server, 'set')($this->options->serverSettings($this->recyclePolicy));
         if ($configured === false) {
@@ -190,22 +217,31 @@ final class SwooleDriver implements HostDriverInterface
         $recycleState = null;
         DynamicHostObject::method($server, 'on')(
             'WorkerStart',
-            function () use ($application, &$recycleState): void {
-                $application->start();
+            function (?object $host = null, ?int $workerId = null) use ($factory, &$recycleState): void {
+                unset($host);
+                $this->startApplication($factory, $workerId);
                 $recycleState = new WorkerRecycleState($this->recyclePolicy);
             },
         );
         DynamicHostObject::method($server, 'on')(
             'WorkerStop',
-            static function () use ($application): void {
-                $application->drain();
-                $application->shutdown();
+            function (): void {
+                $failure = null;
+
+                try {
+                    $this->drainApplication();
+                } catch (Throwable $error) {
+                    $failure = $error;
+                }
+                $this->finishApplication($failure);
             },
         );
 
         $registered = DynamicHostObject::method($server, 'on')(
             'Request',
-            function (object $request, object $response) use ($application, $server, &$recycleState): void {
+            function (object $request, object $response) use ($server, &$recycleState): void {
+                $application = $this->application
+                    ?? throw new LogicException('Swoole/OpenSwoole worker application has not started.');
                 $recycleState ??= new WorkerRecycleState($this->recyclePolicy);
                 $normalized = $this->request($request);
                 $completed = false;
@@ -234,6 +270,26 @@ final class SwooleDriver implements HostDriverInterface
         }
     }
 
+    private function drainApplication(): void
+    {
+        if ($this->application === null || $this->draining) {
+            return;
+        }
+        $this->draining = true;
+        $this->application->drain();
+    }
+
+    private function finishApplication(?Throwable $failure = null): void
+    {
+        $application = $this->application;
+        $this->application = null;
+        if ($application !== null) {
+            ApplicationShutdown::finish($application, $failure);
+        } elseif ($failure !== null) {
+            throw $failure;
+        }
+    }
+
     private function request(object $request): HttpRequest
     {
         $server = DynamicHostObject::arrayProperty($request, 'server');
@@ -258,6 +314,50 @@ final class SwooleDriver implements HostDriverInterface
             localAddress: self::address($server, 'server_addr', 'server_port'),
             encrypted: self::encrypted($server),
         );
+    }
+
+    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    private function runServer(?RuntimeApplicationInterface $application, ?Closure $factory = null): void
+    {
+        $server = ($this->serverFactory)($this->options->host, $this->options->port);
+        $this->server = $server;
+        $this->application = $application;
+        $this->draining = false;
+
+        $failure = null;
+
+        try {
+            $this->configure($server, $factory);
+            $started = DynamicHostObject::method($server, 'start')();
+            if ($started === false) {
+                throw new RuntimeException('Swoole/OpenSwoole server failed to start.');
+            }
+        } catch (Throwable $error) {
+            $failure = $error;
+        } finally {
+            $this->server = null;
+        }
+
+        $this->finishApplication($failure);
+    }
+
+    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    private function startApplication(?Closure $factory, ?int $workerId): void
+    {
+        try {
+            if ($factory !== null) {
+                if ($this->application !== null) {
+                    throw new LogicException('Swoole/OpenSwoole worker application is already started.');
+                }
+                $this->application = $factory($workerId);
+            }
+            $this->draining = false;
+            $application = $this->application
+                ?? throw new LogicException('Swoole/OpenSwoole worker application is unavailable.');
+            $application->start();
+        } catch (Throwable $error) {
+            $this->finishApplication($error);
+        }
     }
 
     private function writer(object $response, string $method): ResponseWriterInterface

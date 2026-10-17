@@ -13,11 +13,137 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleServer;
+
+it('creates a Swoole application only inside worker startup with a fresh worker context', function (): void {
+    $server = new FakeSwooleServer(new FakeSwooleRequest([
+        'request_method' => 'GET', 'request_uri' => '/worker', 'server_protocol' => 'HTTP/1.1',
+    ], [], ''), new FakeSwooleResponse());
+    $driver = new SwooleDriver(new SwooleOptions(workerCount: 2), static fn(): object => $server);
+    $selection = new RuntimeSelector()->select(new RuntimeOptions(driver: RuntimeDriver::SWOOLE), new RuntimeEnvironment(
+        sapi: 'cli', availableDrivers: [RuntimeDriver::SWOOLE],
+    ));
+    $parent = RuntimeContext::fromCapabilities($selection->capabilities, 'host', pid: getmypid() + 100_000);
+    $seen = [];
+    $driver->runFactory(static function (RuntimeContext $worker) use (&$seen, $parent): RuntimeApplication {
+        expect($worker)->not->toBe($parent)
+            ->and($worker->pid)->toBe(getmypid())
+            ->and($worker->workerSlot)->toBe(0)
+            ->and($worker->capabilities)->toBe($parent->capabilities);
+        $seen[] = 'create';
+
+        return new RuntimeApplication(
+            static function (HttpRequest $request, ResponseWriterInterface $writer) use ($worker, &$seen): void {
+                expect($request->context->runtime())->toBe($worker);
+                $seen[] = 'request';
+                $writer->end('worker-ok');
+            },
+            shutdown: static function () use (&$seen): void { $seen[] = 'shutdown'; },
+            runtimeContext: $worker,
+            lifecycle: new \Infocyph\Runwire\Runtime\ApplicationLifecycleHooks(
+                boot: static function () use (&$seen): void { $seen[] = 'boot'; },
+                drain: static function () use (&$seen): void { $seen[] = 'drain'; },
+            ),
+        );
+    }, $parent);
+
+    expect($seen)->toBe(['create', 'boot', 'request', 'drain', 'shutdown'])
+        ->and($server->response->chunks)->toBe(['worker-ok']);
+});
+
+it('rejects a foreign runtime context before constructing a Swoole host', function (): void {
+    $driver = new SwooleDriver(new SwooleOptions(), static function (): never {
+        throw new LogicException('Invalid context started the host.');
+    });
+    expect(fn() => $driver->runFactory(static function (): never {
+        throw new LogicException('Invalid context constructed the application.');
+    }, RuntimeContext::standalone()))->toThrow(InvalidArgumentException::class, 'require a Swoole runtime context');
+});
+
+it('does not construct an application when Swoole configuration fails', function (): void {
+    $server = new class {
+        public function set(array $settings): bool { unset($settings); return false; }
+    };
+    $created = 0;
+    $driver = new SwooleDriver(new SwooleOptions(), static fn(): object => $server);
+    expect(fn() => $driver->runFactory(static function () use (&$created): never {
+        $created++;
+        throw new LogicException('Factory must not run in the supervisor.');
+    }, swooleWorkerTemplate()))->toThrow(RuntimeException::class, 'rejected the configured server settings')
+        ->and($created)->toBe(0);
+});
+
+it('preserves startup and shutdown failures and releases a failed worker exactly once', function (): void {
+    $server = new FakeSwooleServer(new FakeSwooleRequest([], [], ''), new FakeSwooleResponse());
+    $driver = new SwooleDriver(new SwooleOptions(), static fn(): object => $server);
+    $bootFailure = new RuntimeException('worker boot failed');
+    $shutdownFailure = new RuntimeException('worker shutdown failed');
+    $shutdowns = 0;
+    $caught = null;
+    try {
+        $driver->runFactory(static function (RuntimeContext $context) use ($bootFailure, $shutdownFailure, &$shutdowns): RuntimeApplication {
+            return new RuntimeApplication(
+                static function (): void { throw new LogicException('An unbooted worker handled a request.'); },
+                runtimeContext: $context,
+                lifecycle: new \Infocyph\Runwire\Runtime\ApplicationLifecycleHooks(
+                    boot: static function () use ($bootFailure): never { throw $bootFailure; },
+                    shutdown: static function () use (&$shutdowns, $shutdownFailure): never { $shutdowns++; throw $shutdownFailure; },
+                ),
+            );
+        }, swooleWorkerTemplate());
+    } catch (\Infocyph\Runwire\Exception\ApplicationShutdownException $error) {
+        $caught = $error;
+    }
+    expect($caught)->toBeInstanceOf(\Infocyph\Runwire\Exception\ApplicationShutdownException::class)
+        ->and($caught?->primaryFailure?->getPrevious())->toBe($bootFailure)
+        ->and($caught?->shutdownFailures)->toBe([$shutdownFailure])
+        ->and($shutdowns)->toBe(1)
+        ->and($server->response->ends)->toBe(0);
+});
+
+it('creates independent contexts and metrics when Swoole starts or replaces a worker', function (): void {
+    $server = new FakeSwooleServer(new FakeSwooleRequest([], [], ''), new FakeSwooleResponse());
+    $server->workerIds = [0, 1, 0];
+    $driver = new SwooleDriver(new SwooleOptions(), static fn(): object => $server);
+    $contexts = [];
+    $shutdowns = [];
+    $driver->runFactory(static function (RuntimeContext $context) use (&$contexts, &$shutdowns): RuntimeApplication {
+        $contexts[] = $context;
+
+        return new RuntimeApplication(
+            static function (HttpRequest $request, ResponseWriterInterface $writer) use ($context): void {
+                expect($request->context->runtime())->toBe($context);
+                $writer->end('worker');
+            },
+            shutdown: static function () use (&$shutdowns, $context): void { $shutdowns[] = $context; },
+            runtimeContext: $context,
+        );
+    }, swooleWorkerTemplate());
+
+    expect($contexts)->toHaveCount(3)
+        ->and($shutdowns)->toBe($contexts)
+        ->and(array_column($contexts, 'workerSlot'))->toBe([0, 1, 0])
+        ->and($contexts[0])->not->toBe($contexts[2])
+        ->and($contexts[0]->metrics)->not->toBe($contexts[1]->metrics);
+    foreach ($contexts as $context) {
+        expect($context->snapshot()->requestsTotal)->toBe(1)
+            ->and($context->snapshot()->requestsActive)->toBe(0);
+    }
+});
+
+function swooleWorkerTemplate(): RuntimeContext
+{
+    $selection = new RuntimeSelector()->select(new RuntimeOptions(driver: RuntimeDriver::SWOOLE), new RuntimeEnvironment(
+        sapi: 'cli', availableDrivers: [RuntimeDriver::SWOOLE],
+    ));
+
+    return RuntimeContext::fromCapabilities($selection->capabilities, 'worker');
+}
 
 it('validates and maps bounded Swoole server settings with generic recycle policy', function (): void {
     $options = new SwooleOptions(

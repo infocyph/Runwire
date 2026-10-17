@@ -130,6 +130,10 @@ jobs:
           wait "$server_pid" 2>/dev/null || true
           server_pid=""
 
+      - name: Verify multiworker application ownership and shutdown
+        shell: bash
+        run: php tests/fixtures/swoole_worker_acceptance.php
+
       - name: Upload Swoole family acceptance diagnostics
         if: failure()
         uses: actions/upload-artifact@v7 # v4

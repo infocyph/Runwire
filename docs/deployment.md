@@ -68,6 +68,19 @@ Runtime::create($options)->serve($handler);
 
 Either compatible Swoole-family extension can back `RuntimeDriver::SWOOLE`. Explicit selection fails startup if neither is available. Keep Swoole/OpenSwoole listener/reactor ownership in the host adapter; do not configure competing Runwire native listeners in the same runtime.
 
+Use `serveApplication($factory)` for framework integration and create the
+framework container and process-bound resources inside `create($context)`.
+Runwire invokes the factory from each Swoole worker's startup callback, after
+prefork, with the worker's PID, slot and independent metrics. Each request uses
+that same context instance. `serve($handler)` creates its native application at
+the same worker boundary; captured user resources must still be safe for their
+actual process lifetime.
+
+The low-level `SwooleDriver::run($application)` entrypoint accepts an already
+constructed application. Callers using that API own its process-safety;
+`runFactory($factory, $context)` is the worker-local construction path. The
+high-level `Runtime` APIs select the appropriate path automatically.
+
 ## 3. Native prefork versus portable native
 
 | Feature | Prefork | Portable |
