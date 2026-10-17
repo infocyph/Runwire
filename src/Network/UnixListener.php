@@ -338,6 +338,41 @@ final class UnixListener
         }
     }
 
+    /**
+     * @param resource $client
+     * @param Closure(Connection): void $callback
+     */
+    private function activateConnection(LoopInterface $loop, mixed $client, mixed $peer, Closure $callback): void
+    {
+        $connection = new Connection(
+            $loop,
+            $client,
+            $this->connectionLimits,
+            is_string($peer) && $peer !== '' ? $peer : null,
+            $this->path,
+        );
+        $id = spl_object_id($connection);
+        $this->connections[$id] = $connection;
+        $connection->onClose(function (Connection $closed) use ($id): void {
+            $this->closedBytesRead += $closed->bytesRead();
+            $this->closedBytesWritten += $closed->bytesWritten();
+            unset($this->connections[$id]);
+            $this->syncAcceptWatcher();
+        });
+
+        try {
+            $callback($connection);
+        } catch (Throwable $failure) {
+            try {
+                $connection->abort();
+            } catch (Throwable) {
+                // Preserve the originating connection callback failure.
+            }
+
+            throw $failure;
+        }
+    }
+
     private function handleAccept(): void
     {
         $loop = $this->loop;
@@ -369,33 +404,7 @@ final class UnixListener
                 continue;
             }
             ++$this->acceptedConnections;
-            $connection = new Connection(
-                $loop,
-                $client,
-                $this->connectionLimits,
-                is_string($peer) && $peer !== '' ? $peer : null,
-                $this->path,
-            );
-            $id = spl_object_id($connection);
-            $this->connections[$id] = $connection;
-            $connection->onClose(function (Connection $closed) use ($id): void {
-                $this->closedBytesRead += $closed->bytesRead();
-                $this->closedBytesWritten += $closed->bytesWritten();
-                unset($this->connections[$id]);
-                $this->syncAcceptWatcher();
-            });
-
-            try {
-                $callback($connection);
-            } catch (Throwable $failure) {
-                try {
-                    $connection->abort();
-                } catch (Throwable) {
-                    // Preserve the originating connection callback failure.
-                }
-
-                throw $failure;
-            }
+            $this->activateConnection($loop, $client, $peer, $callback);
         }
         $this->syncAcceptWatcher();
     }

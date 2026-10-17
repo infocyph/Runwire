@@ -365,6 +365,14 @@ final class Supervisor
         return $this->restartCoordinator->cancel($key);
     }
 
+    private function closeChildWatchers(ChildRecord $record): void
+    {
+        ReadinessChannel::close($this->loop, $record);
+        if ($record->killTimerId !== null) {
+            $this->loop->cancel($record->killTimerId);
+        }
+    }
+
     private function emit(SupervisorEvent $event): void
     {
         $this->events->emit($event);
@@ -415,10 +423,7 @@ final class Supervisor
             }
         }
         foreach ($this->children as $record) {
-            ReadinessChannel::close($this->loop, $record);
-            if ($record->killTimerId !== null) {
-                $this->loop->cancel($record->killTimerId);
-            }
+            $this->closeChildWatchers($record);
         }
 
         $this->children = [];
@@ -588,10 +593,7 @@ final class Supervisor
         $this->children = [];
         $this->currentSlots = [];
         foreach ($orphans as $record) {
-            ReadinessChannel::close($this->loop, $record);
-            if ($record->killTimerId !== null) {
-                $this->loop->cancel($record->killTimerId);
-            }
+            $this->closeChildWatchers($record);
         }
         if ($this->stopping) {
             $this->loop->stop();

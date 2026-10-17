@@ -41,12 +41,7 @@ final readonly class WorkerRecyclePolicy
         if ($jitterSeconds < 0 || $jitterSeconds > self::MAX_LIFETIME_SECONDS) {
             throw new InvalidArgumentException('Worker recycle jitterSeconds must be between 0 and 31536000.');
         }
-        if ($maxRequests === 0 && $jitterRequests !== 0) {
-            throw new InvalidArgumentException('Worker recycle jitterRequests requires maxRequests to be enabled.');
-        }
-        if ($maxLifetimeSeconds === 0 && $jitterSeconds !== 0) {
-            throw new InvalidArgumentException('Worker recycle jitterSeconds requires maxLifetimeSeconds to be enabled.');
-        }
+        $this->validateJitter();
         if (!is_finite($gracefulTimeoutSeconds) || $gracefulTimeoutSeconds <= 0 || $gracefulTimeoutSeconds > 3_600.0) {
             throw new InvalidArgumentException('Worker recycle gracefulTimeoutSeconds must be finite and between 0 and 3600 seconds.');
         }
@@ -58,5 +53,15 @@ final readonly class WorkerRecyclePolicy
     public function enabled(): bool
     {
         return $this->maxRequests > 0 || $this->maxLifetimeSeconds > 0 || $this->maxMemoryBytes > 0;
+    }
+
+    private function validateJitter(): void
+    {
+        if ($this->maxRequests === 0 && $this->jitterRequests !== 0) {
+            throw new InvalidArgumentException('Worker recycle jitterRequests requires maxRequests to be enabled.');
+        }
+        if ($this->maxLifetimeSeconds === 0 && $this->jitterSeconds !== 0) {
+            throw new InvalidArgumentException('Worker recycle jitterSeconds requires maxLifetimeSeconds to be enabled.');
+        }
     }
 }

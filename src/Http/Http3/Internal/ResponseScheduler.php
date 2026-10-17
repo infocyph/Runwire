@@ -111,28 +111,7 @@ final class ResponseScheduler
                 break;
             }
 
-            $stream = $this->nextStream();
-            if ($stream === null) {
-                if (!$qpackProgress) {
-                    break;
-                }
-
-                continue;
-            }
-
-            $streamProgress = $this->flushResponseStream($stream);
-            if ($streamProgress) {
-                ++$writes;
-                $stalled = 0;
-
-                continue;
-            }
-            if ($qpackProgress) {
-                $stalled = 0;
-
-                continue;
-            }
-            if (++$stalled >= count($this->flushQueue) + 1) {
+            if (!$this->flushNextResponse($qpackProgress, $writes, $stalled)) {
                 break;
             }
         }
@@ -315,6 +294,25 @@ final class ResponseScheduler
         }
 
         return $bytes;
+    }
+
+    private function flushNextResponse(bool $qpackProgress, int &$writes, int &$stalled): bool
+    {
+        $stream = $this->nextStream();
+        if ($stream === null) {
+            return $qpackProgress;
+        }
+        $streamProgress = $this->flushResponseStream($stream);
+        if ($streamProgress) {
+            ++$writes;
+        }
+        if ($streamProgress || $qpackProgress) {
+            $stalled = 0;
+
+            return true;
+        }
+
+        return ++$stalled < count($this->flushQueue) + 1;
     }
 
     private function flushQpack(): bool

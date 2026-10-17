@@ -34,7 +34,12 @@ final readonly class ControlOptions
         if ($maxConnections < 1 || $maxConnections > 256) {
             throw new InvalidArgumentException('Control connection limit must be between 1 and 256.');
         }
-        foreach ([$idleTimeoutSeconds, $lifetimeTimeoutSeconds] as $seconds) {
+        self::validateTimeouts($idleTimeoutSeconds, $lifetimeTimeoutSeconds);
+    }
+
+    private static function validateTimeouts(float ...$timeouts): void
+    {
+        foreach ($timeouts as $seconds) {
             if (!is_finite($seconds) || $seconds <= 0) {
                 throw new InvalidArgumentException('Control timeouts must be finite and positive.');
             }

@@ -100,6 +100,22 @@ final readonly class RequestHeaderValidator
         $pseudo[$name] = $value;
     }
 
+    /**
+     * @param array<string, string> $pseudo
+     * @return array{string, string, null}
+     */
+    private function connectTarget(array $pseudo, ?string $authority): array
+    {
+        if ($authority === null || $authority === '' || isset($pseudo[':scheme']) || isset($pseudo[':path'])) {
+            throw new HeaderValidationException(sprintf(
+                '%s CONNECT requires :authority and forbids :scheme/:path.',
+                $this->protocol,
+            ));
+        }
+
+        return [$authority, $authority, null];
+    }
+
     private function contentLength(Headers $headers): ?int
     {
         $values = $headers->all('content-length');
@@ -197,14 +213,7 @@ final readonly class RequestHeaderValidator
     {
         $authority = $pseudo[':authority'] ?? null;
         if (strcasecmp($method, 'CONNECT') === 0) {
-            if ($authority === null || $authority === '' || isset($pseudo[':scheme']) || isset($pseudo[':path'])) {
-                throw new HeaderValidationException(sprintf(
-                    '%s CONNECT requires :authority and forbids :scheme/:path.',
-                    $this->protocol,
-                ));
-            }
-
-            return [$authority, $authority, null];
+            return $this->connectTarget($pseudo, $authority);
         }
 
         $scheme = $pseudo[':scheme'] ?? null;

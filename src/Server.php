@@ -87,11 +87,12 @@ final readonly class Server
 
         if ($workerHandlerFactory === null) {
             $this->workerHandlerFactory = null;
-        } else {
-            /** @var Closure(WorkerContext): callable $factoryClosure */
-            $factoryClosure = Closure::fromCallable($workerHandlerFactory);
-            $this->workerHandlerFactory = $factoryClosure;
+
+            return;
         }
+        /** @var Closure(WorkerContext): callable $factoryClosure */
+        $factoryClosure = Closure::fromCallable($workerHandlerFactory);
+        $this->workerHandlerFactory = $factoryClosure;
     }
 
     /**

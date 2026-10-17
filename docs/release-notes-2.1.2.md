@@ -26,6 +26,13 @@ applications at their correct worker boundary without changing caller code.
 Swoole factory side effects execute once per worker, including replacements;
 host-wide setup belongs before serving rather than inside an application factory.
 
+The patch also resolves 38 pre-existing cognitive-complexity findings exposed
+by the current 1.3.0 analyzer. Private helpers and simpler control flow retain
+validation order, buffer limits, protocol fairness, cancellation and shutdown
+semantics. No production classes, required dependencies, options or existing
+public/protected signatures were added or changed for this quality maintenance.
+An AST comparison preserves all 2,022 existing public/protected contracts.
+
 Regression coverage includes worker-local creation, failure before creation,
 combined startup/shutdown failure and independent replacement state. The
 existing PHP 8.4/8.5 Swoole/OpenSwoole workflow now exercises both high-level
@@ -37,11 +44,12 @@ Local real Swoole acceptance passes both APIs (64 concurrent requests each).
 A Foundation integration probe passes 40 concurrent requests across both
 workers, unique request IDs and HTTP failure recovery using the candidate
 source through a test-only loader; installed vendor sources are untouched.
-Local PHP 8.5.11 detailed quality passes: 556 tests / 3,654 assertions,
-syntax/reference/comment/duplicate checks, coding standards, architecture,
-PHPStan, Psalm and Rector. Composer reports zero security advisories and one
-non-blocking abandoned development dependency (`doctrine/annotations`, through
-PHPForge's PHPBench dependency). The final release guard, exact-source hosted
-acceptance and publication remain required.
+Local PHP 8.5.11 regression tests pass: 556 tests / 3,654 assertions. PHPStan
+with cognitive-complexity 1.3.0 passes without exclusions or threshold changes.
+The full detailed quality suite and final release guard also pass in the
+provisioned PHP 8.5.11 container. Hosted acceptance must cover the completed
+patch revision before publication. Composer reports zero security
+advisories and one non-blocking abandoned development dependency
+(`doctrine/annotations`, through PHPForge's PHPBench dependency).
 No Foundation-wide throughput or release-readiness claim follows from these
 functional probes.

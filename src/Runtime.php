@@ -445,31 +445,7 @@ final class Runtime
                 name: self::groupPrefix($target) . ':' . $name,
                 count: $this->resolvedWorkerCount($definition->workers),
                 factory: function (WorkerContext $context) use ($bound, $target): void {
-                    foreach ($bound as $candidate) {
-                        if ($candidate !== $target) {
-                            self::closeBound($candidate, false);
-                        }
-                    }
-                    match (true) {
-                        $target instanceof BoundServer => NativeHttpWorker::run(
-                            $context,
-                            $target,
-                            $this->nativeRuntimeContext($context),
-                            $this->options->requestExecution,
-                            $this->options->applicationLifecycle,
-                            $this->options->diagnostics,
-                        ),
-                        $target instanceof BoundStreamServer => NativeStreamWorker::run(
-                            $context,
-                            $target,
-                            $this->options->diagnostics,
-                        ),
-                        $target instanceof BoundDatagramServer => NativeDatagramWorker::run(
-                            $context,
-                            $target,
-                            $this->options->diagnostics,
-                        ),
-                    };
+                    $this->runNativeWorker($context, $bound, $target);
                 },
                 recyclePolicy: $this->options->workerRecycle,
                 admissionPolicy: $this->options->admission,
@@ -616,5 +592,35 @@ final class Runtime
             $this->hostApplication = null;
             $this->hostDriver = null;
         }
+    }
+
+    /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
+    private function runNativeWorker(WorkerContext $context, array $bound, BoundServer|BoundStreamServer|BoundDatagramServer $target): void
+    {
+        foreach ($bound as $candidate) {
+            if ($candidate !== $target) {
+                self::closeBound($candidate, false);
+            }
+        }
+        match (true) {
+            $target instanceof BoundServer => NativeHttpWorker::run(
+                $context,
+                $target,
+                $this->nativeRuntimeContext($context),
+                $this->options->requestExecution,
+                $this->options->applicationLifecycle,
+                $this->options->diagnostics,
+            ),
+            $target instanceof BoundStreamServer => NativeStreamWorker::run(
+                $context,
+                $target,
+                $this->options->diagnostics,
+            ),
+            $target instanceof BoundDatagramServer => NativeDatagramWorker::run(
+                $context,
+                $target,
+                $this->options->diagnostics,
+            ),
+        };
     }
 }

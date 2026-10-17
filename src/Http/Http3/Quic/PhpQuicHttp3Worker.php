@@ -237,6 +237,28 @@ final class PhpQuicHttp3Worker
         return (($ready[spl_object_id($connection->object())] ?? 0) & $this->poller->events->error) !== 0;
     }
 
+    private function promoteConnection(int $id, PhpQuicConnection $connection): void
+    {
+        try {
+            $http3 = new PhpQuicHttp3Connection(
+                $connection,
+                $this->handler,
+                $this->limits,
+                bufferBudget: $this->bufferBudget,
+                inboundAdaptive: $this->inboundAdaptive,
+                outboundAdaptive: $this->outboundAdaptive,
+            );
+            if (!$this->accepting) {
+                $http3->beginDrain();
+            }
+            $this->connections[$id] = $http3;
+        } catch (Http3Exception $exception) {
+            self::closeConnection($connection, $exception->errorCode->value, $exception->getMessage());
+        } catch (Throwable $exception) {
+            self::closeConnection($connection, ErrorCode::INTERNAL_ERROR->value, $exception->getMessage());
+        }
+    }
+
     /** @param array<int, int> $ready */
     private function promotePendingConnections(array $ready): void
     {
@@ -272,24 +294,7 @@ final class PhpQuicHttp3Worker
                 continue;
             }
 
-            try {
-                $http3 = new PhpQuicHttp3Connection(
-                    $connection,
-                    $this->handler,
-                    $this->limits,
-                    bufferBudget: $this->bufferBudget,
-                    inboundAdaptive: $this->inboundAdaptive,
-                    outboundAdaptive: $this->outboundAdaptive,
-                );
-                if (!$this->accepting) {
-                    $http3->beginDrain();
-                }
-                $this->connections[$id] = $http3;
-            } catch (Http3Exception $exception) {
-                self::closeConnection($connection, $exception->errorCode->value, $exception->getMessage());
-            } catch (Throwable $exception) {
-                self::closeConnection($connection, ErrorCode::INTERNAL_ERROR->value, $exception->getMessage());
-            }
+            $this->promoteConnection($id, $connection);
         }
     }
 

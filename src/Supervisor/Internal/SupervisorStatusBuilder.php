@@ -145,7 +145,7 @@ final class SupervisorStatusBuilder
             $serving = $record->state->serving();
             $current += $isCurrent ? 1 : 0;
             $ready += $serving ? 1 : 0;
-            $currentServing += $isCurrent && $serving ? 1 : 0;
+            $currentServing += (int) ($isCurrent && $serving);
             $unhealthy = $unhealthy || ($isCurrent && self::unhealthyState($record->state));
             $draining = $draining || in_array($record->state, [WorkerState::DRAINING, WorkerState::STOPPING], true);
             $started = $record->startedAtNs / self::NANOS_PER_SECOND;

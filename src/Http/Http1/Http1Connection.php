@@ -32,6 +32,16 @@ use Throwable;
  */
 final class Http1Connection
 {
+    private const array ERROR_PHRASES = [
+        400 => 'Bad Request',
+        408 => 'Request Timeout',
+        413 => 'Content Too Large',
+        414 => 'URI Too Long',
+        417 => 'Expectation Failed',
+        431 => 'Request Header Fields Too Large',
+        503 => 'Service Unavailable',
+    ];
+
     private readonly ChunkSizeDecoder $chunkSizeDecoder;
 
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
@@ -177,18 +187,20 @@ final class Http1Connection
         return $this->requestCount;
     }
 
-    private static function errorPhrase(int $status): string
+    private function advanceChunk(int $bytes): void
     {
-        return match ($status) {
-            400 => 'Bad Request',
-            408 => 'Request Timeout',
-            413 => 'Content Too Large',
-            414 => 'URI Too Long',
-            417 => 'Expectation Failed',
-            431 => 'Request Header Fields Too Large',
-            503 => 'Service Unavailable',
-            default => 'Bad Request',
-        };
+        $this->remainingChunk -= $bytes;
+        if ($this->remainingChunk === 0) {
+            $this->state = ParserState::CHUNK_CRLF;
+        }
+    }
+
+    private function advanceFixedBody(int $bytes): void
+    {
+        $this->remainingBody -= $bytes;
+        if ($this->remainingBody === 0) {
+            $this->finishBody();
+        }
     }
 
     private function armBodyTimer(): void
@@ -199,15 +211,7 @@ final class Http1Connection
 
     private function armHeaderTimer(): void
     {
-        if ($this->headerTimer !== null) {
-            return;
-        }
-        $this->headerTimer = $this->loop->delay($this->limits->headerTimeoutSeconds, function (): void {
-            $this->headerTimer = null;
-            if (!$this->closed && ($this->state === ParserState::REQUEST_LINE || $this->state === ParserState::HEADERS)) {
-                $this->fail(408);
-            }
-        });
+        $this->headerTimer ??= $this->loop->delay($this->limits->headerTimeoutSeconds, $this->handleHeaderTimeout(...));
     }
 
     private function cancelTimer(?int $handle): void
@@ -270,14 +274,14 @@ final class Http1Connection
         if ($this->input->availableBytes() === 0) {
             return false;
         }
-        if (!$this->discardBody && $this->body !== null && $this->body->transferCapacity() <= 0) {
+        $capacity = $this->discardBody || $this->body === null ? 65_536 : $this->body->transferCapacity();
+        if ($capacity <= 0) {
             $this->bodyPressured = true;
             $this->syncReadPause();
 
             return false;
         }
 
-        $capacity = $this->discardBody || $this->body === null ? 65_536 : $this->body->transferCapacity();
         $length = min($remaining, 65_536, $capacity, $this->input->availableBytes());
         if ($length <= 0) {
             return false;
@@ -320,12 +324,7 @@ final class Http1Connection
             return true;
         }
 
-        return $this->consumeBodyBytes($this->remainingChunk, function (int $bytes): void {
-            $this->remainingChunk -= $bytes;
-            if ($this->remainingChunk === 0) {
-                $this->state = ParserState::CHUNK_CRLF;
-            }
-        });
+        return $this->consumeBodyBytes($this->remainingChunk, $this->advanceChunk(...));
     }
 
     private function consumeFixedBody(): bool
@@ -336,12 +335,7 @@ final class Http1Connection
             return true;
         }
 
-        return $this->consumeBodyBytes($this->remainingBody, function (int $bytes): void {
-            $this->remainingBody -= $bytes;
-            if ($this->remainingBody === 0) {
-                $this->finishBody();
-            }
-        });
+        return $this->consumeBodyBytes($this->remainingBody, $this->advanceFixedBody(...));
     }
 
     private function createBody(): StreamingRequestBody
@@ -452,7 +446,7 @@ final class Http1Connection
         $wire = sprintf(
             "HTTP/1.1 %d %s\r\nconnection: close\r\ncontent-length: 0\r\n\r\n",
             $status,
-            self::errorPhrase($status),
+            self::ERROR_PHRASES[$status] ?? 'Bad Request',
         );
         $result = $this->connection->write($wire);
         if ($result->state === WriteState::REJECTED_LIMIT || $result->state === WriteState::CLOSED) {
@@ -476,17 +470,23 @@ final class Http1Connection
         $this->syncReadPause();
 
         if ($this->responseEnded) {
-            if ($this->responseCloseAfter) {
-                $this->connection->closeGracefully();
-            } else {
-                $this->resetExchange();
-            }
+            $this->finishExchange($this->responseCloseAfter);
 
             return;
         }
         $this->waitingResponse = true;
         $this->state = ParserState::WAIT_RESPONSE;
         $this->syncReadPause();
+    }
+
+    private function finishExchange(bool $closeAfter): void
+    {
+        if ($closeAfter) {
+            $this->connection->closeGracefully();
+
+            return;
+        }
+        $this->resetExchange();
     }
 
     private function handleEof(): void
@@ -499,6 +499,14 @@ final class Http1Connection
         }
         if (!$this->closed && ($this->state !== ParserState::REQUEST_LINE || $this->input->bufferedBytes() > 0)) {
             $this->fail(400);
+        }
+    }
+
+    private function handleHeaderTimeout(): void
+    {
+        $this->headerTimer = null;
+        if (!$this->closed && ($this->state === ParserState::REQUEST_LINE || $this->state === ParserState::HEADERS)) {
+            $this->fail(408);
         }
     }
 
@@ -518,12 +526,7 @@ final class Http1Connection
 
             return;
         }
-        if ($closeAfter) {
-            $this->connection->closeGracefully();
-
-            return;
-        }
-        $this->resetExchange();
+        $this->finishExchange($closeAfter);
     }
 
     private function parseChunkSizeLine(): bool
@@ -740,8 +743,9 @@ final class Http1Connection
     {
         if ($this->bodyPressured || $this->waitingResponse) {
             $this->connection->pauseReads();
-        } else {
-            $this->connection->resumeReads();
+
+            return;
         }
+        $this->connection->resumeReads();
     }
 }

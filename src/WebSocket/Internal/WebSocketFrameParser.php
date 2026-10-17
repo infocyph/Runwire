@@ -133,6 +133,26 @@ final class WebSocketFrameParser
         return $data;
     }
 
+    private function decodeExtendedLength(int &$offset): int
+    {
+        $highValue = self::uint32(substr($this->buffer, 2, 4));
+        $lowValue = self::uint32(substr($this->buffer, 6, 4));
+        if (($highValue & 0x80000000) !== 0) {
+            throw new WebSocketProtocolException(1002, 'WebSocket frame length has the reserved high bit set.');
+        }
+        if ($highValue !== 0 || $lowValue < 65_536) {
+            throw new WebSocketProtocolException(
+                $highValue === 0 ? 1002 : 1009,
+                $highValue === 0
+                    ? 'WebSocket frame uses a non-minimal 64-bit length.'
+                    : 'WebSocket frame exceeds the configured payload ceiling.',
+            );
+        }
+        $offset = 10;
+
+        return $lowValue;
+    }
+
     private function decodeLength(int $indicator, int &$offset): ?int
     {
         if ($indicator < 126) {
@@ -156,22 +176,7 @@ final class WebSocketFrameParser
             return null;
         }
 
-        $highValue = self::uint32(substr($this->buffer, 2, 4));
-        $lowValue = self::uint32(substr($this->buffer, 6, 4));
-        if (($highValue & 0x80000000) !== 0) {
-            throw new WebSocketProtocolException(1002, 'WebSocket frame length has the reserved high bit set.');
-        }
-        if ($highValue !== 0 || $lowValue < 65_536) {
-            throw new WebSocketProtocolException(
-                $highValue === 0 ? 1002 : 1009,
-                $highValue === 0
-                    ? 'WebSocket frame uses a non-minimal 64-bit length.'
-                    : 'WebSocket frame exceeds the configured payload ceiling.',
-            );
-        }
-        $offset = 10;
-
-        return $lowValue;
+        return $this->decodeExtendedLength($offset);
     }
 
     private function extract(): ?WebSocketFrame

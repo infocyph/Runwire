@@ -173,19 +173,7 @@ final class NativeHttpWorker
                 $sampler,
                 &$shutdown,
             ): void {
-                if ($stopWatcher !== null) {
-                    $loop->cancel($stopWatcher);
-                    $stopWatcher = null;
-                }
-                foreach ($connections as $connection) {
-                    $connection->abort(CloseReason::LOCAL_ABORT);
-                }
-                $sampler->sample(true);
-                $bound->listener->close();
-                if (!$shutdown) {
-                    $shutdown = true;
-                    $application->shutdown($context->shutdownReason());
-                }
+                self::closeWorker($loop, $stopWatcher, $bound, $connections, $application, $context, $sampler, $shutdown);
             },
             drained: static function () use (&$sessions, $state): bool {
                 return $state->isStopping() && $sessions === [];
@@ -349,6 +337,66 @@ final class NativeHttpWorker
         }
     }
 
+    /**
+     * @param array<int, Connection> $connections
+     * @param-out null $stopWatcher
+     */
+    private static function closeWorker(
+        LoopInterface $loop,
+        ?int &$stopWatcher,
+        BoundServer $bound,
+        array $connections,
+        RuntimeApplicationInterface $application,
+        WorkerContext $context,
+        WorkerDiagnosticsSampler $sampler,
+        bool &$shutdown,
+    ): void {
+        if ($stopWatcher !== null) {
+            $loop->cancel($stopWatcher);
+            $stopWatcher = null;
+        }
+        foreach ($connections as $connection) {
+            $connection->abort(CloseReason::LOCAL_ABORT);
+        }
+        $sampler->sample(true);
+        $bound->listener->close();
+        if (!$shutdown) {
+            $shutdown = true;
+            $application->shutdown($context->shutdownReason());
+        }
+    }
+
+    private static function completionCallback(
+        RuntimeApplicationInterface $application,
+        WorkerContext $context,
+        HttpRequest $request,
+        WorkerDiagnosticsSampler $sampler,
+    ): Closure {
+        $completed = false;
+
+        return static function () use (
+            $application,
+            $context,
+            $request,
+            $sampler,
+            &$completed,
+        ): void {
+            if ($completed) {
+                return;
+            }
+
+            $completed = true;
+            $context->recordRequestCompleted();
+            if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
+                $context->reportDeadlineExceeded($request->context->requestId);
+            }
+            if (!$application->healthy()) {
+                $context->requestStop();
+            }
+            $sampler->sample();
+        };
+    }
+
     /** @param array<int, NativeHttpConnection> $sessions */
     private static function drainApplication(
         RuntimeApplicationInterface $application,
@@ -392,28 +440,7 @@ final class NativeHttpWorker
     ): Closure {
         return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler, $drainApplication): void {
             $context->recordRequestStarted();
-            $completed = false;
-            $complete = static function () use (
-                $application,
-                $context,
-                $request,
-                $sampler,
-                &$completed,
-            ): void {
-                if ($completed) {
-                    return;
-                }
-
-                $completed = true;
-                $context->recordRequestCompleted();
-                if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
-                    $context->reportDeadlineExceeded($request->context->requestId);
-                }
-                if (!$application->healthy()) {
-                    $context->requestStop();
-                }
-                $sampler->sample();
-            };
+            $complete = self::completionCallback($application, $context, $request, $sampler);
 
             $request->context->observeCompletion($complete);
 
