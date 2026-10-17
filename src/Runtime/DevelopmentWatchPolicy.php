@@ -26,14 +26,7 @@ final readonly class DevelopmentWatchPolicy
         if ($enabled && $paths === []) {
             throw new InvalidArgumentException('Enabled development watcher requires at least one path.');
         }
-        if (count($paths) > self::MAX_ROOTS || count(array_unique($paths)) !== count($paths)) {
-            throw new InvalidArgumentException('Development watcher paths must be unique and contain at most 32 roots.');
-        }
-        foreach ($paths as $path) {
-            if ($path === '' || strlen($path) > 4_096 || str_contains($path, "\0")) {
-                throw new InvalidArgumentException('Development watcher paths must be non-empty strings of at most 4096 bytes.');
-            }
-        }
+        $this->validatePaths();
         if (!is_finite($pollIntervalSeconds) || $pollIntervalSeconds < 0.05 || $pollIntervalSeconds > 60.0) {
             throw new InvalidArgumentException('Development watcher poll interval must be between 0.05 and 60 seconds.');
         }
@@ -42,6 +35,18 @@ final readonly class DevelopmentWatchPolicy
         }
         if ($maxFiles < 1 || $maxFiles > self::MAX_FILES) {
             throw new InvalidArgumentException(sprintf('Development watcher maxFiles must be between 1 and %d.', self::MAX_FILES));
+        }
+    }
+
+    private function validatePaths(): void
+    {
+        if (count($this->paths) > self::MAX_ROOTS || count(array_unique($this->paths)) !== count($this->paths)) {
+            throw new InvalidArgumentException('Development watcher paths must be unique and contain at most 32 roots.');
+        }
+        foreach ($this->paths as $path) {
+            if ($path === '' || strlen($path) > 4_096 || str_contains($path, "\0")) {
+                throw new InvalidArgumentException('Development watcher paths must be non-empty strings of at most 4096 bytes.');
+            }
         }
     }
 }

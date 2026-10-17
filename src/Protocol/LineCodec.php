@@ -98,14 +98,7 @@ final class LineCodec implements FrameCodecInterface
             $this->buffer = substr($this->buffer, $cursor);
         }
 
-        $nextDelimiter = strpos($this->buffer, $this->delimiter);
-        if ($nextDelimiter !== false) {
-            if ($nextDelimiter > $this->maxFrameBytes) {
-                throw new CodecException('Line-delimited frame exceeds the configured limit.');
-            }
-        } elseif ($this->payloadBytesBeforePossibleDelimiter() > $this->maxFrameBytes) {
-            throw new CodecException('Line-delimited frame exceeds the configured limit.');
-        }
+        $this->validateBufferedFrame();
 
         return $frames;
     }
@@ -131,5 +124,18 @@ final class LineCodec implements FrameCodecInterface
         }
 
         return $bufferBytes;
+    }
+
+    private function validateBufferedFrame(): void
+    {
+        $nextDelimiter = strpos($this->buffer, $this->delimiter);
+        if ($nextDelimiter !== false) {
+            if ($nextDelimiter > $this->maxFrameBytes) {
+                throw new CodecException('Line-delimited frame exceeds the configured limit.');
+            }
+        } elseif ($this->payloadBytesBeforePossibleDelimiter() > $this->maxFrameBytes) {
+            throw new CodecException('Line-delimited frame exceeds the configured limit.');
+        }
+
     }
 }

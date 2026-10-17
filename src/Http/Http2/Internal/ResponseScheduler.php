@@ -142,22 +142,7 @@ final class ResponseScheduler
         $frames = 0;
         $stalled = 0;
         while ($this->canFlush($frames)) {
-            $stream = $this->nextStream();
-            if ($stream === null) {
-                continue;
-            }
-
-            $progress = $this->flushOne($stream);
-            if (!$stream->outbound->isEmpty() || $stream->endPending) {
-                $this->flushQueue[$stream->id] = true;
-            }
-            if ($progress) {
-                ++$frames;
-                $stalled = 0;
-
-                continue;
-            }
-            if (++$stalled >= count($this->flushQueue) + 1) {
+            if (!$this->flushNextStream($frames, $stalled)) {
                 break;
             }
         }
@@ -271,11 +256,8 @@ final class ResponseScheduler
         }
 
         $stream->localEnd();
-        if ($stream->remoteOpen()) {
-            ($this->activityCallback)($stream);
-        } else {
-            ($this->cleanupClosed)($stream);
-        }
+        $callback = $stream->remoteOpen() ? $this->activityCallback : $this->cleanupClosed;
+        $callback($stream);
 
         return new WriteResult(
             $result->pressured() ? WriteState::PRESSURED : WriteState::ACCEPTED,
@@ -331,6 +313,26 @@ final class ResponseScheduler
         ($this->cleanupClosed)($stream);
 
         return true;
+    }
+
+    private function flushNextStream(int &$frames, int &$stalled): bool
+    {
+        $stream = $this->nextStream();
+        if ($stream === null) {
+            return true;
+        }
+        $progress = $this->flushOne($stream);
+        if (!$stream->outbound->isEmpty() || $stream->endPending) {
+            $this->flushQueue[$stream->id] = true;
+        }
+        if ($progress) {
+            ++$frames;
+            $stalled = 0;
+
+            return true;
+        }
+
+        return ++$stalled < count($this->flushQueue) + 1;
     }
 
     private function flushOne(Http2Stream $stream): bool
@@ -419,10 +421,11 @@ final class ResponseScheduler
         $frameSize = max(1, min($this->peerSettings->maxFrameSize, self::OUTBOUND_FRAME_SIZE));
         $chunks = str_split($block, $frameSize) ?: [''];
         $frames = [];
+        $type = FrameType::HEADERS;
         foreach ($chunks as $index => $chunk) {
             $last = $index === count($chunks) - 1;
-            $type = $index === 0 ? FrameType::HEADERS : FrameType::CONTINUATION;
             $frames[] = new Frame($type->value, $last ? 0x4 : 0, $stream->id, $chunk);
+            $type = FrameType::CONTINUATION;
         }
 
         return $frames;
@@ -530,24 +533,29 @@ final class ResponseScheduler
         return new WriteResult(WriteState::PRESSURED, $this->wireQueue->bytes());
     }
 
+    private function relieveStream(int $streamId): void
+    {
+        $stream = ($this->streamLookup)($streamId);
+        if (!$stream instanceof Http2Stream) {
+            unset($this->pressuredStreams[$streamId]);
+
+            return;
+        }
+        if ($stream->outbound->bytes() > $this->limits->responseLowWatermarkBytes) {
+            return;
+        }
+        $stream->writePressured = false;
+        unset($this->pressuredStreams[$streamId]);
+        ($stream->drainCallback)?->__invoke();
+    }
+
     private function relieveStreams(): void
     {
         if ($this->blocked()) {
             return;
         }
         foreach (array_keys($this->pressuredStreams) as $streamId) {
-            $stream = ($this->streamLookup)($streamId);
-            if (!$stream instanceof Http2Stream) {
-                unset($this->pressuredStreams[$streamId]);
-
-                continue;
-            }
-            if ($stream->outbound->bytes() > $this->limits->responseLowWatermarkBytes) {
-                continue;
-            }
-            $stream->writePressured = false;
-            unset($this->pressuredStreams[$streamId]);
-            ($stream->drainCallback)?->__invoke();
+            $this->relieveStream($streamId);
         }
     }
 

@@ -442,6 +442,11 @@ final class RequestStream
             }
         }
 
+        $this->drainParsedFrames();
+    }
+
+    private function drainParsedFrames(): void
+    {
         while (($frame = $this->parser->shift()) !== null) {
             if ($this->blocked) {
                 $this->bufferBlockedFrame($frame);

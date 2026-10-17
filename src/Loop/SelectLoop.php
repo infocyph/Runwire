@@ -254,29 +254,36 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     private function dispatchReady(array $ready, bool $readable): void
     {
         foreach ($ready as $stream) {
-            if (!is_resource($stream)) {
+            $id = null;
+            $callback = $this->readyCallback($stream, $readable, $id);
+            if ($callback === null) {
                 continue;
             }
 
-            $resourceId = get_resource_id($stream);
-            $id = $readable
-                ? ($this->readIndex[$resourceId] ?? null)
-                : ($this->writeIndex[$resourceId] ?? null);
-            if ($id === null) {
-                continue;
-            }
-
-            $watcher = $readable
-                ? ($this->readWatchers[$id] ?? null)
-                : ($this->writeWatchers[$id] ?? null);
-            if ($watcher === null) {
-                continue;
-            }
-
-            $this->invoke($watcher['callback'], $stream, $id);
+            $this->invoke($callback, $stream, $id);
             if (!$this->running) {
                 return;
             }
+        }
+    }
+
+    /** @param array{deadline: int, interval: int, callback: Closure} $timer */
+    private function fireTimer(int $id, array $timer): void
+    {
+        if ($timer['interval'] === 0) {
+            $this->timers->consumeOneShot($id);
+        }
+
+        try {
+            $this->invoke($timer['callback'], $id);
+        } catch (Throwable $throwable) {
+            $this->timers->cancel($id);
+
+            throw $throwable;
+        }
+
+        if ($timer['interval'] !== 0) {
+            $this->timers->rescheduleRepeat($id);
         }
     }
 
@@ -368,6 +375,27 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $removed + $this->pruneClosedDirection(false);
     }
 
+    private function readyCallback(mixed $stream, bool $readable, ?int &$id): ?Closure
+    {
+        if (!is_resource($stream)) {
+            return null;
+        }
+
+        $resourceId = get_resource_id($stream);
+        $id = $readable
+            ? ($this->readIndex[$resourceId] ?? null)
+            : ($this->writeIndex[$resourceId] ?? null);
+        if ($id === null) {
+            return null;
+        }
+
+        $watcher = $readable
+            ? ($this->readWatchers[$id] ?? null)
+            : ($this->writeWatchers[$id] ?? null);
+
+        return $watcher['callback'] ?? null;
+    }
+
     private function recordTick(int $tickStart): void
     {
         $this->lastTickNanoseconds = max(0, MonotonicTime::nowNanoseconds() - $tickStart);
@@ -408,21 +436,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             if ($timer === null) {
                 continue;
             }
-            if ($timer['interval'] === 0) {
-                $this->timers->consumeOneShot($id);
-            }
-
-            try {
-                $this->invoke($timer['callback'], $id);
-            } catch (Throwable $throwable) {
-                $this->timers->cancel($id);
-
-                throw $throwable;
-            }
-
-            if ($timer['interval'] !== 0) {
-                $this->timers->rescheduleRepeat($id);
-            }
+            $this->fireTimer($id, $timer);
             if (!$this->running) {
                 return;
             }

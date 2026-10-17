@@ -407,38 +407,7 @@ final class TcpListener
                 continue;
             }
             ++$this->acceptedConnections;
-            $local = stream_socket_get_name($client, false);
-            $peerAddress = is_string($peer) ? $peer : null;
-            $localAddress = is_string($local) ? $local : null;
-
-            if ($this->tls === null) {
-                $this->activateConnection($client, $peerAddress, $localAddress, null);
-
-                continue;
-            }
-
-            $id = get_resource_id($client);
-            $this->handshakes[$id] = TlsHandshake::start(
-                $loop,
-                $client,
-                $this->tls,
-                function (mixed $stream, ?string $protocol) use ($id, $peerAddress, $localAddress): void {
-                    unset($this->handshakes[$id]);
-                    if (!is_resource($stream)) {
-                        ++$this->rejectedConnections;
-                        $this->syncAcceptWatcher();
-
-                        return;
-                    }
-                    $this->activateConnection($stream, $peerAddress, $localAddress, $protocol);
-                    $this->syncAcceptWatcher();
-                },
-                function () use ($id): void {
-                    unset($this->handshakes[$id]);
-                    ++$this->rejectedConnections;
-                    $this->syncAcceptWatcher();
-                },
-            );
+            $this->startAcceptedConnection($loop, $client, $peer);
         }
 
         $this->syncAcceptWatcher();
@@ -447,6 +416,42 @@ final class TcpListener
     private function load(): int
     {
         return count($this->connections) + count($this->handshakes);
+    }
+
+    /** @param resource $client */
+    private function startAcceptedConnection(LoopInterface $loop, mixed $client, mixed $peer): void
+    {
+        $local = stream_socket_get_name($client, false);
+        $peerAddress = is_string($peer) ? $peer : null;
+        $localAddress = is_string($local) ? $local : null;
+        if ($this->tls === null) {
+            $this->activateConnection($client, $peerAddress, $localAddress, null);
+
+            return;
+        }
+
+        $id = get_resource_id($client);
+        $this->handshakes[$id] = TlsHandshake::start(
+            $loop,
+            $client,
+            $this->tls,
+            function (mixed $stream, ?string $protocol) use ($id, $peerAddress, $localAddress): void {
+                unset($this->handshakes[$id]);
+                if (!is_resource($stream)) {
+                    ++$this->rejectedConnections;
+                    $this->syncAcceptWatcher();
+
+                    return;
+                }
+                $this->activateConnection($stream, $peerAddress, $localAddress, $protocol);
+                $this->syncAcceptWatcher();
+            },
+            function () use ($id): void {
+                unset($this->handshakes[$id]);
+                ++$this->rejectedConnections;
+                $this->syncAcceptWatcher();
+            },
+        );
     }
 
     private function syncAcceptWatcher(): void

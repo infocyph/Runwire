@@ -33,15 +33,9 @@ final readonly class FutureSuspension implements Suspension
 
         $state = new SuspensionState();
         $finishFuture = function () use ($state, $scheduler, $task): void {
-            if (!$state->beginSettlement()) {
+            if (!$this->settle($state)) {
                 return;
             }
-
-            $waiterId = $state->takeHandle();
-            if ($waiterId !== null) {
-                $this->future->unsubscribe($waiterId);
-            }
-            $state->closeCancellation();
             $this->resumeFromFuture($scheduler, $task);
         };
 
@@ -50,15 +44,9 @@ final readonly class FutureSuspension implements Suspension
                 $scheduler->loop(),
                 $task->cancellation(),
                 function (Throwable $error) use ($state, $scheduler, $task): void {
-                    if (!$state->beginSettlement()) {
+                    if (!$this->settle($state)) {
                         return;
                     }
-
-                    $waiterId = $state->takeHandle();
-                    if ($waiterId !== null) {
-                        $this->future->unsubscribe($waiterId);
-                    }
-                    $state->closeCancellation();
                     $scheduler->resumeException($task, $error);
                 },
             );
@@ -85,5 +73,19 @@ final readonly class FutureSuspension implements Suspension
         } catch (Throwable $error) {
             $scheduler->resumeException($task, $error, $ignoreCancellation);
         }
+    }
+
+    private function settle(SuspensionState $state): bool
+    {
+        if (!$state->beginSettlement()) {
+            return false;
+        }
+        $waiterId = $state->takeHandle();
+        if ($waiterId !== null) {
+            $this->future->unsubscribe($waiterId);
+        }
+        $state->closeCancellation();
+
+        return true;
     }
 }

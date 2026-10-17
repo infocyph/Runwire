@@ -371,12 +371,11 @@ final class WebSocketSession
         $callback = $this->closeCallback;
         $this->closeCallback = null;
         $this->drainCallbacks = [];
-        if ($callback !== null) {
-            try {
-                $callback($this, $this->closeCode, $this->closeReason);
-            } catch (Throwable) {
-                // Close observers are isolated from transport teardown.
-            }
+
+        try {
+            $callback?->__invoke($this, $this->closeCode, $this->closeReason);
+        } catch (Throwable) {
+            // Close observers are isolated from transport teardown.
         }
     }
 

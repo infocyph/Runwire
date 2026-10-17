@@ -55,14 +55,7 @@ final readonly class Http1Input
             $buffer = $this->buffer->peek();
             $position = strpos($buffer, "\r\n");
             if ($position !== false) {
-                if ($position > $maxBytes) {
-                    throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
-                }
-
-                $line = substr($buffer, 0, $position);
-                $this->buffer->discard($position + 2);
-
-                return $line;
+                return $this->takeLine($buffer, $position, $maxBytes, $tooLongStatus);
             }
 
             $buffered = $this->buffer->bytes();
@@ -103,5 +96,16 @@ final readonly class Http1Input
         }
 
         return $data;
+    }
+
+    private function takeLine(string $buffer, int $position, int $maxBytes, int $tooLongStatus): string
+    {
+        if ($position > $maxBytes) {
+            throw new ParseFailure($tooLongStatus, 'HTTP line exceeds configured limit.');
+        }
+        $line = substr($buffer, 0, $position);
+        $this->buffer->discard($position + 2);
+
+        return $line;
     }
 }

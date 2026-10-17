@@ -13,11 +13,17 @@ final class FakeSwooleServer
 
     public bool $shutdownCalled = false;
 
+    /** @var list<int> */
+    public array $workerIds = [0];
+
     /** @var Closure(): void|null */
     public ?Closure $startHook = null;
 
     /** @var Closure(object, object): void|null */
     private ?Closure $requestHandler = null;
+
+    /** @var array<string, Closure> */
+    private array $events = [];
 
     public function __construct(
         public readonly FakeSwooleRequest $request,
@@ -26,11 +32,10 @@ final class FakeSwooleServer
 
     public function on(string $event, callable $handler): bool
     {
-        if (strtolower($event) !== 'request') {
-            return false;
+        $this->events[strtolower($event)] = Closure::fromCallable($handler);
+        if (strtolower($event) === 'request') {
+            $this->requestHandler = Closure::fromCallable($handler);
         }
-
-        $this->requestHandler = Closure::fromCallable($handler);
 
         return true;
     }
@@ -56,8 +61,15 @@ final class FakeSwooleServer
             return false;
         }
 
-        ($this->requestHandler)($this->request, $this->response);
-        ($this->startHook)?->__invoke();
+        foreach ($this->workerIds as $workerId) {
+            try {
+                ($this->events['workerstart'] ?? null)?->__invoke($this, $workerId);
+                ($this->requestHandler)($this->request, $this->response);
+                ($this->startHook)?->__invoke();
+            } finally {
+                ($this->events['workerstop'] ?? null)?->__invoke();
+            }
+        }
 
         return true;
     }

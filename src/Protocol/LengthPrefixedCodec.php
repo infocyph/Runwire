@@ -65,22 +65,11 @@ final class LengthPrefixedCodec implements FrameCodecInterface
 
         $frames = [];
         while (count($frames) < $maxFrames) {
-            if ($this->pendingLength === null) {
-                if ($this->buffer->bytes() < $this->format->value) {
-                    break;
-                }
-                $this->pendingLength = $this->decodeLength($this->buffer->read($this->format->value));
-                if ($this->pendingLength > $this->maxFrameBytes) {
-                    throw new CodecException('Length-prefixed frame exceeds the configured limit.');
-                }
-            }
-
-            if ($this->buffer->bytes() < $this->pendingLength) {
+            $frame = $this->nextFrame();
+            if ($frame === null) {
                 break;
             }
-
-            $frames[] = $this->buffer->read($this->pendingLength);
-            $this->pendingLength = null;
+            $frames[] = $frame;
         }
 
         return $frames;
@@ -142,5 +131,27 @@ final class LengthPrefixedCodec implements FrameCodecInterface
             LengthPrefixFormat::UINT16_BE => pack('n', $length),
             LengthPrefixFormat::UINT32_BE => pack('N', $length),
         };
+    }
+
+    private function nextFrame(): ?string
+    {
+        if ($this->pendingLength === null) {
+            if ($this->buffer->bytes() < $this->format->value) {
+                return null;
+            }
+            $this->pendingLength = $this->decodeLength($this->buffer->read($this->format->value));
+            if ($this->pendingLength > $this->maxFrameBytes) {
+                throw new CodecException('Length-prefixed frame exceeds the configured limit.');
+            }
+        }
+
+        if ($this->buffer->bytes() < $this->pendingLength) {
+            return null;
+        }
+
+        $frame = $this->buffer->read($this->pendingLength);
+        $this->pendingLength = null;
+
+        return $frame;
     }
 }

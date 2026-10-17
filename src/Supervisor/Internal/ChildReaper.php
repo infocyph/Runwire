@@ -92,15 +92,11 @@ final class ChildReaper
                 return true;
             }
             if ($result === -1) {
-                $error = pcntl_get_last_error();
-                if ($error === PCNTL_EINTR) {
+                if (self::retryWait()) {
                     continue;
                 }
-                if ($error === PCNTL_ECHILD) {
-                    return true;
-                }
 
-                throw new SupervisorException(sprintf('waitpid failed with PCNTL error %d.', $error));
+                return true;
             }
 
             $now = MonotonicTime::nowNanoseconds();
@@ -110,5 +106,18 @@ final class ChildReaper
 
             usleep((int) min(1_000, max(1, ceil(($deadlineNanoseconds - $now) / 1_000))));
         }
+    }
+
+    private static function retryWait(): bool
+    {
+        $error = pcntl_get_last_error();
+        if ($error === PCNTL_EINTR) {
+            return true;
+        }
+        if ($error === PCNTL_ECHILD) {
+            return false;
+        }
+
+        throw new SupervisorException(sprintf('waitpid failed with PCNTL error %d.', $error));
     }
 }

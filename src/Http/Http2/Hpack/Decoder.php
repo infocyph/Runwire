@@ -65,14 +65,7 @@ final class Decoder
             }
 
             if (($first & 0x20) !== 0) {
-                if ($sawHeader) {
-                    throw new HpackException('HPACK dynamic table size update must precede header representations.');
-                }
-                $size = IntegerCodec::decode($block, $offset, 5);
-                if ($size > $this->allowedDynamicTableBytes) {
-                    throw new HpackException('HPACK dynamic table size update exceeds the advertised limit.');
-                }
-                $this->dynamic->setMaxBytes($size);
+                $this->updateDynamicTable($block, $offset, $sawHeader);
 
                 continue;
             }
@@ -185,5 +178,17 @@ final class Decoder
     private function remainingHeaderBytes(int $used, int $nameBytes): int
     {
         return max(0, $this->maxHeaderListBytes - $used - 32 - $nameBytes);
+    }
+
+    private function updateDynamicTable(string $block, int &$offset, bool $sawHeader): void
+    {
+        if ($sawHeader) {
+            throw new HpackException('HPACK dynamic table size update must precede header representations.');
+        }
+        $size = IntegerCodec::decode($block, $offset, 5);
+        if ($size > $this->allowedDynamicTableBytes) {
+            throw new HpackException('HPACK dynamic table size update exceeds the advertised limit.');
+        }
+        $this->dynamic->setMaxBytes($size);
     }
 }

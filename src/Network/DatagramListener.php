@@ -248,33 +248,34 @@ final class DatagramListener
             if ($payload === false) {
                 break;
             }
-            if (!is_string($peer) || $peer === '') {
-                ++$this->rejectedDatagrams;
-
+            $datagram = $this->receivedDatagram($stream, $peer, $payload);
+            if ($datagram === null) {
                 continue;
             }
-            if (strlen($payload) > $this->options->maxDatagramBytes) {
-                ++$this->rejectedDatagrams;
-
-                continue;
-            }
-
-            ++$this->receivedDatagrams;
-            $this->bytesRead += strlen($payload);
-            $local = stream_socket_get_name($stream, false);
 
             if ($this->dispatchDatagram(
                 $callback,
-                new Datagram(
-                    $payload,
-                    $peer,
-                    is_string($local) ? $local : null,
-                ),
+                $datagram,
                 $stream,
             )) {
                 break;
             }
         }
+    }
+
+    /** @param resource $stream */
+    private function receivedDatagram(mixed $stream, mixed $peer, string $payload): ?Datagram
+    {
+        if (!is_string($peer) || $peer === '' || strlen($payload) > $this->options->maxDatagramBytes) {
+            ++$this->rejectedDatagrams;
+
+            return null;
+        }
+        ++$this->receivedDatagrams;
+        $this->bytesRead += strlen($payload);
+        $local = stream_socket_get_name($stream, false);
+
+        return new Datagram($payload, $peer, is_string($local) ? $local : null);
     }
 
     private function syncWatcher(): void

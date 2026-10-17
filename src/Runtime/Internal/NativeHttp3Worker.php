@@ -196,6 +196,37 @@ final class NativeHttp3Worker
         ApplicationShutdown::resolve($failure, $shutdownFailures);
     }
 
+    private static function completionCallback(
+        \Infocyph\Runwire\Runtime\RuntimeApplicationInterface $application,
+        WorkerContext $context,
+        HttpRequest $request,
+        WorkerDiagnosticsSampler $sampler,
+    ): \Closure {
+        $completed = false;
+
+        return static function () use (
+            $application,
+            $context,
+            $request,
+            $sampler,
+            &$completed,
+        ): void {
+            if ($completed) {
+                return;
+            }
+
+            $completed = true;
+            $context->recordRequestCompleted();
+            if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
+                $context->reportDeadlineExceeded($request->context->requestId);
+            }
+            if (!$application->healthy()) {
+                $context->requestStop();
+            }
+            $sampler->sample();
+        };
+    }
+
     private static function drainApplication(
         \Infocyph\Runwire\Runtime\RuntimeApplicationInterface $application,
         WorkerContext $context,
@@ -245,28 +276,7 @@ final class NativeHttp3Worker
     ): \Closure {
         return static function (HttpRequest $request, ResponseWriterInterface $writer) use ($application, $context, $sampler): void {
             $context->recordRequestStarted();
-            $completed = false;
-            $complete = static function () use (
-                $application,
-                $context,
-                $request,
-                $sampler,
-                &$completed,
-            ): void {
-                if ($completed) {
-                    return;
-                }
-
-                $completed = true;
-                $context->recordRequestCompleted();
-                if ($request->context->cancellation->reason() === CancellationReason::DEADLINE_EXCEEDED) {
-                    $context->reportDeadlineExceeded($request->context->requestId);
-                }
-                if (!$application->healthy()) {
-                    $context->requestStop();
-                }
-                $sampler->sample();
-            };
+            $complete = self::completionCallback($application, $context, $request, $sampler);
 
             $request->context->observeCompletion($complete);
 

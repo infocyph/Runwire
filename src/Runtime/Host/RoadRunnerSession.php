@@ -103,18 +103,29 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
                 continue;
             }
 
-            $list = [];
-            foreach ($values as $value) {
-                if (is_string($value)) {
-                    $list[] = $value;
-                }
-            }
+            $list = self::headerValues($values);
             if ($list !== []) {
                 $headers[strtolower($name)] = $list;
             }
         }
 
         return $headers;
+    }
+
+    /**
+     * @param array<array-key, mixed> $values
+     * @return list<string>
+     */
+    private static function headerValues(array $values): array
+    {
+        $list = [];
+        foreach ($values as $value) {
+            if (is_string($value)) {
+                $list[] = $value;
+            }
+        }
+
+        return $list;
     }
 
     private static function hostClass(string ...$parts): string

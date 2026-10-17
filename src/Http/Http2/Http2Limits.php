@@ -70,16 +70,8 @@ final readonly class Http2Limits
                 throw new InvalidArgumentException(sprintf('%s must be positive.', $name));
             }
         }
-        if ($bodyLowWatermarkBytes < 0
-            || $bodyLowWatermarkBytes >= $bodyHighWatermarkBytes
-            || $bodyHighWatermarkBytes > $maxPendingBodyBytesPerStream) {
-            throw new InvalidArgumentException('HTTP/2 body watermarks must satisfy 0 <= low < high <= max pending body bytes.');
-        }
-        if ($responseLowWatermarkBytes < 0
-            || $responseLowWatermarkBytes >= $responseHighWatermarkBytes
-            || $responseHighWatermarkBytes > $maxPendingResponseBytesPerStream) {
-            throw new InvalidArgumentException('HTTP/2 response watermarks must satisfy 0 <= low < high <= max pending response bytes.');
-        }
+        self::validateWatermarks($bodyLowWatermarkBytes, $bodyHighWatermarkBytes, $maxPendingBodyBytesPerStream, 'body');
+        self::validateWatermarks($responseLowWatermarkBytes, $responseHighWatermarkBytes, $maxPendingResponseBytesPerStream, 'response');
         if ($maxPendingResponseBytesPerStream > $maxPendingResponseBytesPerConnection) {
             throw new InvalidArgumentException('Per-stream pending response limit cannot exceed the connection aggregate limit.');
         }
@@ -100,5 +92,16 @@ final readonly class Http2Limits
     public function initialReceiveWindow(): int
     {
         return min(65_535, $this->maxPendingBodyBytesPerStream);
+    }
+
+    private static function validateWatermarks(int $low, int $high, int $maximum, string $kind): void
+    {
+        if ($low < 0 || $low >= $high || $high > $maximum) {
+            throw new InvalidArgumentException(sprintf(
+                'HTTP/2 %s watermarks must satisfy 0 <= low < high <= max pending %s bytes.',
+                $kind,
+                $kind,
+            ));
+        }
     }
 }

@@ -94,6 +94,26 @@ final readonly class ProcessRunner
         }
     }
 
+    /** @param array<int, resource> $pipes */
+    private function consumeOutput(array &$pipes, int $index, OutputSink $sink, int $limit, int &$accepted): bool
+    {
+        $chunk = fread($pipes[$index], self::IO_CHUNK_BYTES);
+        if ($chunk === false || ($chunk === '' && feof($pipes[$index]))) {
+            $this->closePipe($pipes, $index);
+
+            return false;
+        }
+        if ($chunk === '') {
+            return false;
+        }
+        $remaining = max(0, $limit - $accepted);
+        $allowed = min(strlen($chunk), $remaining);
+        $sink->consume($chunk, $allowed);
+        $accepted += $allowed;
+
+        return $allowed < strlen($chunk);
+    }
+
     private function ensureProcessFunctions(): void
     {
         foreach (['proc_open', 'proc_get_status', 'proc_terminate', 'proc_close'] as $function) {
@@ -255,10 +275,7 @@ final readonly class ProcessRunner
             if (get_resource_id($resource) !== $inputResourceId) {
                 continue;
             }
-            $chunk = $input->pull(self::IO_CHUNK_BYTES);
-            if ($chunk !== null) {
-                $buffer = $chunk;
-            }
+            $buffer = $input->pull(self::IO_CHUNK_BYTES) ?? '';
 
             return;
         }
@@ -275,20 +292,8 @@ final readonly class ProcessRunner
             if (!isset($pipes[$index]) || !in_array($pipes[$index], $read, true)) {
                 continue;
             }
-            $chunk = fread($pipes[$index], self::IO_CHUNK_BYTES);
-            if ($chunk === false || ($chunk === '' && feof($pipes[$index]))) {
-                $this->closePipe($pipes, $index);
-
-                continue;
-            }
-            if ($chunk === '') {
-                continue;
-            }
-            $remaining = max(0, $limit - $accepted);
-            $allowed = min(strlen($chunk), $remaining);
-            $sink->consume($chunk, $allowed);
-            $accepted += $allowed;
-            $overflowed = $overflowed || $allowed < strlen($chunk);
+            $exceeded = $this->consumeOutput($pipes, $index, $sink, $limit, $accepted);
+            $overflowed = $overflowed || $exceeded;
         }
 
         return $overflowed;

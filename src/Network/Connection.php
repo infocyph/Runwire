@@ -482,27 +482,9 @@ final class Connection
         }
 
         if ($this->sendBuffer->isEmpty()) {
-            $stream = $this->stream;
-            if (!is_resource($stream)) {
-                $this->finalize(CloseReason::WRITE_ERROR);
-
-                return new WriteResult(WriteState::CLOSED, 0);
-            }
-            $attempt = max(0, min($length, $this->limits->maxWriteBytesPerTick));
-            $written = StreamWriter::write($stream, $data, $attempt);
-            if ($written === false) {
-                $this->finalize(CloseReason::WRITE_ERROR);
-
-                return new WriteResult(WriteState::CLOSED, 0);
-            }
-
-            if ($written > 0) {
-                $this->bytesWritten += $written;
-                $this->timeouts->touch();
-                if ($written === $length) {
-                    return $this->writeResult();
-                }
-                $data = substr($data, $written);
+            $result = $this->writeImmediately($data, $length);
+            if ($result !== null) {
+                return $result;
             }
         }
 
@@ -546,6 +528,13 @@ final class Connection
         }
     }
 
+    private function cancelWatcher(?int $id): void
+    {
+        if ($id !== null) {
+            $this->loop->cancel($id);
+        }
+    }
+
     private function finalize(CloseReason $reason): void
     {
         if ($this->state === ConnectionState::CLOSED) {
@@ -554,11 +543,10 @@ final class Connection
 
         $this->state = ConnectionState::CLOSED;
         $this->closeReason = $reason;
-        foreach ([$this->readWatcher, $this->writeWatcher] as $handle) {
-            if ($handle !== null) {
-                $this->loop->cancel($handle);
-            }
-        }
+        $readWatcher = $this->readWatcher;
+        $writeWatcher = $this->writeWatcher;
+        $this->cancelWatcher($readWatcher);
+        $this->cancelWatcher($writeWatcher);
         $this->readWatcher = $this->writeWatcher = null;
         $this->timeouts->cancel();
 
@@ -587,51 +575,9 @@ final class Connection
             return;
         }
 
-        $readThisTick = 0;
         $received = false;
         $sawEof = false;
-
-        while ($readThisTick < $this->limits->maxReadBytesPerTick) {
-            $capacity = min(
-                $this->limits->maxReceiveBufferBytes - $this->receiveBuffer->bytes(),
-                $this->receiveBuffer->budgetAvailable(),
-            );
-            if ($capacity <= 0) {
-                $this->pauseForPressure();
-
-                break;
-            }
-
-            $length = max(1, min(
-                $this->limits->readChunkBytes,
-                $this->limits->maxReadBytesPerTick - $readThisTick,
-                $capacity,
-            ));
-            $chunk = fread($stream, $length);
-            if ($chunk === false) {
-                $this->finalize(CloseReason::READ_ERROR);
-
-                return;
-            }
-            if ($chunk === '') {
-                $sawEof = feof($stream);
-
-                break;
-            }
-
-            $bytes = strlen($chunk);
-            $this->receiveBuffer->append($chunk);
-            $this->bytesRead += $bytes;
-            $readThisTick += $bytes;
-            $received = true;
-            $this->timeouts->touch();
-
-            if ($this->receiveBuffer->bytes() >= $this->limits->receiveHighWatermarkBytes) {
-                $this->pauseForPressure();
-
-                break;
-            }
-        }
+        $this->readAvailable($stream, $received, $sawEof);
 
         if ($received && $this->state === ConnectionState::OPEN) {
             $this->invoke($this->dataCallback);
@@ -716,6 +662,55 @@ final class Connection
         $this->syncReadWatcher();
     }
 
+    /** @param resource $stream */
+    private function readAvailable(mixed $stream, bool &$received, bool &$sawEof): void
+    {
+        $readThisTick = 0;
+
+        while ($readThisTick < $this->limits->maxReadBytesPerTick) {
+            $capacity = min(
+                $this->limits->maxReceiveBufferBytes - $this->receiveBuffer->bytes(),
+                $this->receiveBuffer->budgetAvailable(),
+            );
+            if ($capacity <= 0) {
+                $this->pauseForPressure();
+
+                break;
+            }
+
+            $length = max(1, min(
+                $this->limits->readChunkBytes,
+                $this->limits->maxReadBytesPerTick - $readThisTick,
+                $capacity,
+            ));
+            $chunk = fread($stream, $length);
+            if ($chunk === false) {
+                $this->finalize(CloseReason::READ_ERROR);
+
+                return;
+            }
+            if ($chunk === '') {
+                $sawEof = feof($stream);
+
+                break;
+            }
+
+            $bytes = strlen($chunk);
+            $this->receiveBuffer->append($chunk);
+            $this->bytesRead += $bytes;
+            $readThisTick += $bytes;
+            $received = true;
+            $this->timeouts->touch();
+
+            if ($this->receiveBuffer->bytes() >= $this->limits->receiveHighWatermarkBytes) {
+                $this->pauseForPressure();
+
+                break;
+            }
+        }
+
+    }
+
     private function syncReadWatcher(): void
     {
         $stream = $this->stream;
@@ -725,8 +720,8 @@ final class Connection
             && !$this->peerReadClosed
             && is_resource($stream);
 
-        if ($shouldWatch && $this->readWatcher === null) {
-            $this->readWatcher = $this->loop->onReadable(
+        if ($shouldWatch) {
+            $this->readWatcher ??= $this->loop->onReadable(
                 $stream,
                 function (): void {
                     $this->handleReadable();
@@ -735,10 +730,8 @@ final class Connection
 
             return;
         }
-        if (!$shouldWatch && $this->readWatcher !== null) {
-            $this->loop->cancel($this->readWatcher);
-            $this->readWatcher = null;
-        }
+        $this->cancelWatcher($this->readWatcher);
+        $this->readWatcher = null;
     }
 
     private function syncWriteWatcher(): void
@@ -748,8 +741,8 @@ final class Connection
             && !$this->sendBuffer->isEmpty()
             && is_resource($stream);
 
-        if ($shouldWatch && $this->writeWatcher === null) {
-            $this->writeWatcher = $this->loop->onWritable(
+        if ($shouldWatch) {
+            $this->writeWatcher ??= $this->loop->onWritable(
                 $stream,
                 function (): void {
                     $this->handleWritable();
@@ -758,10 +751,8 @@ final class Connection
 
             return;
         }
-        if (!$shouldWatch && $this->writeWatcher !== null) {
-            $this->loop->cancel($this->writeWatcher);
-            $this->writeWatcher = null;
-        }
+        $this->cancelWatcher($this->writeWatcher);
+        $this->writeWatcher = null;
     }
 
     private function updateWritePressure(): void
@@ -777,6 +768,34 @@ final class Connection
             $this->writePressured = false;
             $this->invoke($this->drainCallback);
         }
+    }
+
+    private function writeImmediately(string &$data, int $length): ?WriteResult
+    {
+        $stream = $this->stream;
+        if (!is_resource($stream)) {
+            $this->finalize(CloseReason::WRITE_ERROR);
+
+            return new WriteResult(WriteState::CLOSED, 0);
+        }
+        $attempt = max(0, min($length, $this->limits->maxWriteBytesPerTick));
+        $written = StreamWriter::write($stream, $data, $attempt);
+        if ($written === false) {
+            $this->finalize(CloseReason::WRITE_ERROR);
+
+            return new WriteResult(WriteState::CLOSED, 0);
+        }
+
+        if ($written > 0) {
+            $this->bytesWritten += $written;
+            $this->timeouts->touch();
+            if ($written === $length) {
+                return $this->writeResult();
+            }
+            $data = substr($data, $written);
+        }
+
+        return null;
     }
 
     private function writeResult(): WriteResult

@@ -341,6 +341,14 @@ boot
 
 Frameworks can implement `RuntimeApplicationFactoryInterface` so application construction happens after the concrete runtime context/capabilities are known.
 
+For Swoole/OpenSwoole, `serveApplication()` invokes that factory inside each
+actual worker after the host forks. The exact context passed to the factory is
+also used by its application requests; its PID and worker slot identify the
+current worker. `serve()` likewise creates its built-in application per worker.
+Construct framework containers, connections and other process-bound resources
+inside the factory. Worker stop/replacement drains and shuts down the worker's
+application once, and replacements receive independent contexts and metrics.
+
 Request cleanup is part of the persistent-runtime security boundary. Framework adapters must reset framework-owned request-local state after every request, including failure/cancellation/deadline paths.
 
 ## Worker lifecycle

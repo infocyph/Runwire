@@ -93,18 +93,7 @@ final class HuffmanCodec
                 if ($symbol === null) {
                     continue;
                 }
-                if ($symbol === 256) {
-                    throw new HpackException('HPACK Huffman EOS symbol is forbidden in encoded strings.');
-                }
-                if ($symbol < 0 || $symbol > 255) {
-                    throw new HpackException('Invalid HPACK Huffman symbol.');
-                }
-                if (strlen($output) >= $maxOutputBytes) {
-                    throw new HpackException('HPACK Huffman output exceeds configured limit.');
-                }
-                $output .= chr($symbol);
-                $bits -= $length;
-                $buffer &= $bits === 0 ? 0 : ((1 << $bits) - 1);
+                $this->consumeSymbol($symbol, $length, $buffer, $bits, $output, $maxOutputBytes);
                 $matched = true;
 
                 break;
@@ -118,5 +107,21 @@ final class HuffmanCodec
 
             return;
         }
+    }
+
+    private function consumeSymbol(int $symbol, int $length, int &$buffer, int &$bits, string &$output, int $maxOutputBytes): void
+    {
+        if ($symbol === 256) {
+            throw new HpackException('HPACK Huffman EOS symbol is forbidden in encoded strings.');
+        }
+        if ($symbol < 0 || $symbol > 255) {
+            throw new HpackException('Invalid HPACK Huffman symbol.');
+        }
+        if (strlen($output) >= $maxOutputBytes) {
+            throw new HpackException('HPACK Huffman output exceeds configured limit.');
+        }
+        $output .= chr($symbol);
+        $bits -= $length;
+        $buffer &= $bits === 0 ? 0 : ((1 << $bits) - 1);
     }
 }
