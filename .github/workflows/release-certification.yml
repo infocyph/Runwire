@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  BASELINE_SHA: dc78bdc9d8684dcff48dac197d6cc0f21ed86043
+  BASELINE_SHA: 7e9bf20ad0737a187dfed77b723791b141b36378
 
 jobs:
   matched-performance:
@@ -29,11 +29,20 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: candidate
 
-      - name: Checkout pre-consolidation baseline
+      - name: Checkout published 2.1.2 baseline at immutable SHA
         uses: actions/checkout@v7
         with:
           ref: ${{ env.BASELINE_SHA }}
           path: baseline
+
+      - name: Verify immutable source identities
+        shell: bash
+        env:
+          EXPECTED_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git -C baseline rev-parse HEAD)" = "$BASELINE_SHA"
+          test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_CANDIDATE"
+          printf 'Release baseline: %s\nRelease candidate: %s\n' "$BASELINE_SHA" "$EXPECTED_CANDIDATE"
 
       - name: Setup matched PHP runtime
         uses: shivammathur/setup-php@v2
@@ -153,7 +162,7 @@ jobs:
             sleep 0.02
           done
 
-          export RUNWIRE_RUNTIME_VERSION="2.0-candidate"
+          export RUNWIRE_RUNTIME_VERSION="2.2-candidate"
           export RUNWIRE_RUNTIME_BUILD="$RUNWIRE_CANDIDATE_BUILD"
           export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
           export RUNWIRE_INSTRUMENTATION="release-certification-soak"
@@ -227,9 +236,18 @@ jobs:
         shell: bash
         run: |
           cd consumer
-          composer config repositories.runwire             '{"type":"path","url":"../runwire","options":{"symlink":false,"versions":{"infocyph/runwire":"2.0.x-dev"}}}'
-          composer require infocyph/runwire:2.0.x-dev             --no-interaction --prefer-dist --no-progress --with-all-dependencies
+          composer config repositories.runwire             '{"type":"path","url":"../runwire","options":{"symlink":false,"versions":{"infocyph/runwire":"2.2.x-dev"}}}'
+          composer require infocyph/runwire:2.2.x-dev             --no-interaction --prefer-dist --no-progress --with-all-dependencies
           composer show infocyph/runwire
+
+      - name: Confirm candidate package source and revision
+        shell: bash
+        env:
+          EXPECTED_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git -C runwire rev-parse HEAD)" = "$EXPECTED_CANDIDATE"
+          diff -qr runwire/src consumer/vendor/infocyph/runwire/src
+          cmp runwire/composer.json consumer/vendor/infocyph/runwire/composer.json
 
       - name: Run Infbyte full test suite
         shell: bash

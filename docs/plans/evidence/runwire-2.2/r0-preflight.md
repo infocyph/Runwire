@@ -59,3 +59,17 @@ All above runs correspond to `7e9bf20ad0737a187dfed77b723791b141b36378`, not the
 ## Integrity
 
 No local tests, benchmark measurements, or missing extension acceptance are claimed as passed here. This is an initial preflight artifact; follow-up evidence and exact SHA/job URLs are required before R0 is DONE and R1 begins.
+
+## R0 certification hygiene changes (2026-10-19, PR #9)
+
+- Verified the annotated Git tag `2.1.2` resolves to immutable commit `7e9bf20ad0737a187dfed77b723791b141b36378`. The previously pinned `dc78bdc9...` remains historical only.
+- Updated release certification baseline selection, source identity validation, and `2.1.2` → `2.2` evidence labels.
+- Updated consumer package path alias from `2.0.x-dev` to `2.2.x-dev`, validating copied source files against candidate checkout and expected candidate HEAD.
+- This commit changes the **certification harness**; no production `src/` code changed. A full matched performance certification run on the final candidate, 5 × 180 s trials and 30-minute soak are still REQUIRED. A changed script alone is not benchmark evidence.
+- Source QA on previous branch SHA `acb01ca6802c90fe16efb7c897fca5885222be92` is green:
+  - Security & Standards: https://github.com/infocyph/Runwire/actions/runs/39227015800
+  - Benchmarks: https://github.com/infocyph/Runwire/actions/runs/39227015117
+  - Portable Native: https://github.com/infocyph/Runwire/actions/runs/39227016314
+  - Swoole/OpenSwoole: https://github.com/infocyph/Runwire/actions/runs/39227015079
+  - Release Candidate: https://github.com/infocyph/Runwire/actions/runs/39227015120
+- Exact previous SHA security/standards job details: both PHP 8.4 and 8.5 with stable/lowest QA and static analysis passed, plus QUIC tests on both versions. Conditional release/security-report jobs skipped by design. The full release certification was skipped, **not passed**.

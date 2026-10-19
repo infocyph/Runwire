@@ -70,7 +70,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 ### R0 — establish truthful baseline
 
-**Initial evidence:** [R0 repository and QA preflight](evidence/runwire-2.2/r0-preflight.md), 2026-10-19. PR [#9](https://github.com/infocyph/Runwire/pull/9) opened as draft. This first preflight is a partial R0 deliverable only: current candidate CI, environment manifest, full tests, measured baselines and p99/RSS budgets remain pending. No R0 task checkbox is marked done prematurely.
+**Initial evidence:** [R0 repository and QA preflight](evidence/runwire-2.2/r0-preflight.md), 2026-10-19. PR [#9](https://github.com/infocyph/Runwire/pull/9) opened as draft. The original preflight and subsequent published-2.1.2 tag verification are partial R0 deliverables. CI succeeded for the earlier `acb01ca6` revision; current candidate CI, complete environment manifest, actual matched tests, measured baselines and p99/RSS budgets remain pending. No R0 task checkbox is marked done prematurely.
 
 - Capture exact source SHA, PHForge version, PHP 8.4/8.5 NTS, extensions, kernel/CPU and OPcache.
 - Document representative workloads: empty response, small JSON, streaming response, 64KiB and 1MiB, keep-alive, TLS, H2 multiplexing, H3, WebSocket, TCP/UDP, cooperative tasks; repeat warmed measurements.
