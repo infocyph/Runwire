@@ -77,9 +77,9 @@ it('compares a stable, identical release topology and reports p99/RSS deltas', f
     expect($exit)->toBe(0)
         ->and($result['passed'])->toBeTrue()
         ->and($result['budget_enforced'])->toBeTrue()
-        ->and($result['delta_percent'])->toBe(2.0)
-        ->and($result['p99_delta_percent'])->toBe(20.0)
-        ->and($result['rss_delta_percent'])->toBe(10.0);
+        ->and($result['delta_percent'])->toBe(2)
+        ->and($result['p99_delta_percent'])->toBe(20)
+        ->and($result['rss_delta_percent'])->toBe(10);
 });
 
 it('rejects mismatched release topologies rather than comparing incomparable results', function (): void {

@@ -58,11 +58,27 @@ jobs:
           {
             php -v
             composer --version
+            printf 'DEPENDENCY LOCK SHA256: '
+            sha256sum composer.lock
+            printf 'Cgroup CPU limit: '
+            cat /sys/fs/cgroup/cpu.max 2>/dev/null || true
+            printf 'Cgroup memory limit: '
+            cat /sys/fs/cgroup/memory.max 2>/dev/null || true
+            printf 'FD soft/hard limits: '
+            ulimit -Sn
+            ulimit -Hn
+            php --ini=diff || true
             php --ri event || true
             php --ri 'Zend OPcache' || true
             uname -a
             lscpu
           } > "benchmark-results/environment-php-${{ matrix.php-version }}.txt"
+
+      - name: Record exact locked development dependencies
+        shell: bash
+        run: |
+          composer show --locked --format=json > "benchmark-results/dependencies-php-${{ matrix.php-version }}.json"
+          jq -e '(.installed // []) | length > 0' "benchmark-results/dependencies-php-${{ matrix.php-version }}.json" >/dev/null
 
       - name: Snapshot public and protected PHP contracts
         shell: bash

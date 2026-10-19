@@ -45,10 +45,16 @@ foreach ($iterator as $file) {
                 'default' => $default,
             ];
         }
+        // PHP 8.5 reflection resolves return 'self' to a fully qualified class name.
+        // Normalize the 8.4 representation so snapshots are comparable across PHP minors.
+        $returnType = (string) $method->getReturnType();
+        if ($returnType === 'self' || $returnType === '?self') {
+            $returnType = ($returnType === '?self' ? '?' : '') . $class;
+        }
         $methods[$method->getName()] = [
             'visibility' => $method->isPublic() ? 'public' : 'protected',
             'static' => $method->isStatic(),
-            'returns' => (string) $method->getReturnType(),
+            'returns' => $returnType,
             'parameters' => $parameters,
         ];
     }

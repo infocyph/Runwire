@@ -42,3 +42,9 @@
 - Hosted driver mode remains capability-first. Installed Swoole does not itself imply active hosting.
 - A complete machine-readable source inventory is **not** equivalent to runtime behavior or real-host validation.
 
+
+## Verified CI source snapshots — 2026-10-19
+
+Artifact source: [benchmark workflow 39231526186](https://github.com/infocyph/Runwire/actions/runs/39231526186) against pull-request merge commit `92618dba0f799edaba25d8da70285910dd87c6c6`; artifacts `12177801077` (PHP 8.4) and `12178105739` (PHP 8.5). Both contain **350 class/interface/trait/enum types, 1,481 public/protected methods and 702 public/protected properties**. Source-declared names and symbol counts match; 37 apparent differences were all `self` return-type reflection formatting (PHP 8.4 emits `self`; PHP 8.5 resolves the FQCN). No substantive member-signature delta was found after canonicalizing those representations. The generator now emits this canonical representation.
+
+Scope note: the source snapshot captures exact type signatures/defaults without changing production code. R0.04 remains open pending verification of the normalized artifact and final documented exception semantics.
