@@ -1,12 +1,12 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** DRAFT / detailed implementation plan; all implementation tasks open
+**Status:** ACTIVE — R0 baseline preflight underway; all canonical task checkboxes remain open pending complete evidence
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-19
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
-**Implementation:** NOT STARTED
+**Implementation:** R0 IN PROGRESS (repository and CI preflight recorded; fresh QA/benchmarks not yet performed)
 **Release:** No tag, merge or publish authorized.
 
 ## Release decision
@@ -57,7 +57,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 | Batch | Scope | Exit criteria | Status |
 |---|---|---|---|
-| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [ ] Not started |
+| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — preflight only; baseline measurements pending |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [ ] Not started |
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [ ] Not started |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [ ] Not started |
@@ -69,6 +69,8 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [ ] Not started |
 
 ### R0 — establish truthful baseline
+
+**Initial evidence:** [R0 repository and QA preflight](evidence/runwire-2.2/r0-preflight.md), 2026-10-19. PR [#9](https://github.com/infocyph/Runwire/pull/9) opened as draft. This first preflight is a partial R0 deliverable only: current candidate CI, environment manifest, full tests, measured baselines and p99/RSS budgets remain pending. No R0 task checkbox is marked done prematurely.
 
 - Capture exact source SHA, PHForge version, PHP 8.4/8.5 NTS, extensions, kernel/CPU and OPcache.
 - Document representative workloads: empty response, small JSON, streaming response, 64KiB and 1MiB, keep-alive, TLS, H2 multiplexing, H3, WebSocket, TCP/UDP, cooperative tasks; repeat warmed measurements.
