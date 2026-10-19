@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** DRAFT / planning only
+**Status:** DRAFT / detailed implementation plan; all implementation tasks open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-19
@@ -124,6 +124,301 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 - Execute the **actual** release-certification workflow against candidate SHA: matched baseline/candidate 5 × 180-second trials with warmup, 30-minute soak, Infbyte consumer full tests, Foundation/Webrick bridge.
 - Confirm no open high-severity protocol/security regressions; investigate all skips and failures, including flaky or timing-sensitive runs.
 - Update docs, migration, changelog comparing immediate previous tag; plan-only branch never tags/publishes.
+
+
+## Detailed implementation specification and delivery contract
+
+This section converts the R0–R9 roadmap into executable engineering packages. Each checkbox is an **unstarted planned task**; mentioning a source file identifies a review or likely implementation site, not a confirmed defect. Final changes must be based on profiling, reproduced failures and the current source. The already-existing batch descriptions above remain the scope summary; the task IDs below are the canonical per-batch tracker.
+
+### Release scope, change control and dependency graph
+
+- Release target: **2.2**; base tag: **2.1.2**; no Rust, Runwire-Core or Runwire-Cells dependency; preserve the pure-PHP/Composer delivery model.
+- Desired outcome: highest sustainable **successful requests per minute (RPM)** on representative production-equivalent workloads, subject to all protocol, security, fairness, memory and latency constraints. Convert successful RPS to RPM using 60 × RPS; do not include invalid, incomplete, timed-out or failed requests.
+- Performance improvements are not presumed defects in existing code. A measured bottleneck, complexity reduction, or demonstrated correctness issue must justify every behavior-sensitive change.
+- Plan change policy: only one active implementation batch at a time; if a blocking issue requires expanding scope, update this plan and its tracker **before or in the same commit as** the corrective work. Never silently skip a batch, change a baseline, or mark a step finished because its CI job was skipped.
+- Suggested ordering: R0 -> R1 -> R2 -> R3 -> R4 -> R5 -> R6 -> R7 -> R8 -> R9. A regression-fix detour may return to a previous batch, but its tracker and evidence must reflect that interruption.
+- Prioritize simple direct hot paths, optimized immutable configuration and optional instrumentation. Do not introduce pools, memoization, redundant abstractions, compatibility wrappers or new packages without lifecycle proof and measured request-level value.
+- Do not modify Foundation, Infbyte, Webrick, Omnibus, PHPForge or another repository as part of this plan. Consumer failures are evidence or separate follow-up changes, not implicit authorization to edit their code.
+- 2.2 is a minor release: preserve intended public/protected contracts by default. If a breaking change proves essential, record the affected symbols, migration, rationale and explicit decision before implementation; do not hide a major incompatibility in a minor release.
+
+### Definition of done for **every** batch
+
+1. Precondition reviewed: base commit and previously closed batch QA status are recorded.
+2. Each task has a reproducible issue, selected design, touched-file list and success/failure behavior.
+3. Implementation commit contains only scoped changes and the updated checkbox tracker.
+4. Focused tests cover normal, malicious, timeout/cancellation, failure/cleanup and boundary cases where applicable.
+5. PHPForge format/static/quality/test lanes and appropriate real-host or protocol tests pass; a green unit suite does not substitute for a required interoperability test.
+6. A/B performance evidence exists for every hot-path change; include complete production-like successful RPM, tail latency, CPU, RSS, queues and error counts.
+7. CI is checked against exact commit; all failing, cancelled, skipped or flaky required jobs are explicitly resolved and not counted as passes.
+8. Regression or instability means fix in the **same batch**, rerun its gates and update the tracker; only then start the next batch.
+9. Where performance is within noise, prefer simpler code and record a **no-change / rejected optimization** result as a valid closed task.
+10. At release preparation, carry forward all outstanding blocking items instead of relabeling unfinished work as complete.
+
+### QA execution and evidence workspace
+
+Existing sources of truth:
+- Test configuration/commands: Composer + PHPForge; first verify available scripts and their exact semantics from the installed toolchain. The project's existing entry points include composer ic:ci, composer ic:process, composer ic:release:guard, composer ic:benchmark and the repository PHPBench/Pest scripts.
+- GitHub workflows: .github/workflows/security-standards.yml, benchmarks.yml, portable-native.yml, swoole-coroutine.yml, source-audit.yml, release-candidate.yml, release-certification.yml.
+- Benchmark scripts: benchmarks/matched_release_certification.sh, http1_sustained_bench.php, adaptive_promotion_matrix.php, regression_compare.php, sustained_summary.php, comparative_evidence.php, opcache_footprint.php, websocket_evidence.php, transfer_compare.php.
+- Suggested persisted evidence location: docs/plans/evidence/runwire-2.2/ for compact human-readable manifests, with raw large logs/JSON as linked CI artifacts; avoid committing massive samples to git.
+- Store for each batch: base/candidate SHA, environment manifest, exact commands, correctness counters, warmup/trial duration, p50/p95/p99, **successful RPM**, CPU, RSS, memory/queue pressure, regression comparator result and CI run URLs. Redact tokens, private paths and secrets.
+
+Preflight examples (not substitutes for their workflow-specific configurations):
+1. composer validate --strict --no-check-publish
+2. composer install
+3. composer ic:ci
+4. composer ic:release:guard (release gate; prerequisites must be satisfied)
+5. vendor/bin/phpbench run --report=aggregate --output=json --progress=none --bootstrap=vendor/autoload.php --config=vendor/infocyph/phpforge/resources/phpbench.json benchmarks
+6. Execute native listener and real-client acceptance using the repository's existing benchmark/integration scripts with explicit environment and correct worker topology.
+7. Use the GitHub Actions artifacts and job conclusions to certify exact candidate SHA, **not** only the status badge.
+
+### R0 — baseline, correctness inventory, toolchain audit
+
+**Goal:** Make later changes measurable and prevent improvements that win on an irrelevant microbenchmark while losing real successful RPM.
+
+**Likely sources:** composer.json, README.md, docs/benchmarks.md, docs/architecture.md, docs/deployment.md, docs/security.md, every .github/workflows/*.yml, benchmarks/*, tests/*.
+
+**Tasks**
+- [ ] **R0.01** Freeze reference: 2.1.2 tag SHA, current 2.2 branch SHA, Composer lock/dependency mode, PHP 8.4/8.5, extension versions, OPcache mode, OS/kernel/CPU and cgroup limits. Include the exact git diff and confirm a clean baseline.
+- [ ] **R0.02** Audit package dependencies, capabilities and selection: native prefork PCNTL/POSIX, native portable without PCNTL, ext-event vs SelectLoop, TLS/ALPN, ext-quic/HTTP3, FPM, FrankenPHP, RoadRunner, Swoole and OpenSwoole; distinguish supported, optional and non-applicable.
+- [ ] **R0.03** Run the existing full local test/analysis quality suite and enumerate skipped tests, optional extension unavailable cases and warnings. Investigate current red baseline rather than attributing it to future changes.
+- [ ] **R0.04** Inventory public/protected PHP API signatures, documented constructor defaults, exception/fail-closed behavior, capabilities, config policies and known contract limitations; record what 2.2 must retain.
+- [ ] **R0.05** Define workload matrix: HTTP1 plaintext/keepalive, TLS H1, H2 multiplexing, H3/QUIC, JSON, 64KiB/1MiB transfer, chunk streaming, WebSocket sustained, framed TCP/Unix, UDP, coroutine task/channel workload, worker reload under load, and representative consumer request.
+- [ ] **R0.06** Profile realistic steady-state and cold paths, separating application handler, framework bootstrap, Runwire request context, HTTP parser, response writer, socket/syscall, event loop and Fiber scheduler costs. Rank only verified bottlenecks by end-to-end impact.
+- [ ] **R0.07** Establish repeated, warmed concurrency curves and compare **successful RPM**, p50/p95/p99, errors, CPU, PHP allocator, process RSS, queues, FD count and cancellation/response failures. Confirm the load generator is not saturated.
+- [ ] **R0.08** Validate benchmark correctness accounting and baseline equivalence: response shape, TLS, worker count, OPcache, CPU limits, payload sizes, active extensions, client reuse and trial timing. Keep raw evidence and hashes.
+- [ ] **R0.09** Inspect release-certification.yml baseline currently pinned to pre-consolidation commit dc78bdc9.... For 2.2, define **published 2.1.2** as the primary immediate predecessor comparison; retain the historical baseline as a separately labeled optional trend only. Do not rewrite this until its reproduction data and workflow effects are known.
+- [ ] **R0.10** Record all baseline risks and acceptance budgets (minimum: no invalid responses or protocol violations, zero uncontrolled queue/memory growth; existing 5% throughput budget where applicable; explicit p99/RSS budgets chosen based on baseline variance). Do not invent absolute target numbers before measurements.
+- [ ] **R0.11** Create evidence manifest and tracker update showing exact baseline status. Commit it before initiating R1.
+
+**Tests/evidence:** Full PHPForge matrix; tests/RuntimeTest.php, RuntimeSelectorTest.php, RuntimeCapabilityResolverTest.php, HttpProtocolSemanticParityTest.php, BatchPSoakTest.php; existing benchmarks and optional-host suites as available.
+
+**Exit:** Reproducible baseline, documented constraints, known red/skip matrix and ranked hot spots. If the environment cannot reproduce production topology, document a required CI or dedicated-machine job instead of accepting a speculative performance result.
+
+### R1 — request dispatch, lifecycle and allocation economy
+
+**Likely sources:** src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/RequestFinalizer.php, src/Runtime/RequestResetterRegistry.php, src/Runtime/Host/HostRequestFactory.php, src/Http/HttpRequest.php, src/RequestContext.php, src/Metrics/RuntimeMetrics.php, src/Http/Internal/CallbackResponseWriter.php.
+
+**Tasks**
+- [ ] **R1.01** Profile native and hosted request construction, headers normalization, request-ID allocation, deadline creation, body representation and response callback assembly; rank avoidable work by requests-per-second frequency.
+- [ ] **R1.02** Remove demonstrably redundant conversions/normalization or repeated immutable config parsing without changing input validation, authorization assumptions or public response semantics.
+- [ ] **R1.03** Optimize completion/finalizer/reset path only after proving exactly-once response terminal transition and cleanup for success, handler throw, deadline, transport abort and explicit cancellation.
+- [ ] **R1.04** Audit exception aggregation when handler, reset and shutdown all fail; preserve primary failure and actionable diagnostics without leaking response or request-local state.
+- [ ] **R1.05** Recheck stable RuntimeContext vs single-use RequestContext ownership; reject double activation and inherited/reused mutable request fields.
+- [ ] **R1.06** Compare cold, first-use, and warmed persistent worker request costs; ensure optimizations do not shift expensive initialization into unsuspecting per-request paths.
+- [ ] **R1.07** Add focused regressions for null-valued request attributes, attribute-count limits, request IDs, cancellation completion, finalizer reentrancy and double close.
+- [ ] **R1.08** Run matched native HTTP and hosted-adapter performance trials with tracing enabled/disabled; no request throughput penalty hidden by isolated lifecycle benchmarks.
+
+**Existing test candidates:** tests/ApplicationLifecycleTest.php, RequestContextTest.php, RequestContextActivationTest.php, PersistentRuntimeIsolationTest.php, PersistentStateIsolationAcceptanceTest.php, ResponseSemanticsTest.php, HostRuntimeTest.php.
+
+**Exit:** Equivalent request/response behavior, verified request isolation, no reset/finalization leaks, documented measured wins or rejected changes.
+
+### R2 — event loop, scheduler and synchronization
+
+**Likely sources:** src/Loop/EventLoop.php, src/Loop/SelectLoop.php, src/Loop/LoopFactory.php, src/Loop/Internal/TimerQueue.php, src/Coroutine/Internal/FiberScheduler.php, ReadyQueue.php, Suspension.php, src/Coroutine/CoroutineRuntime.php, CoroutineScope.php, Channel.php, Future.php, TaskLocal.php.
+
+**Tasks**
+- [ ] **R2.01** Measure scheduler per-spawn, resume, cancel, sleep/wake and wait registration costs under low, medium and overload pressure; include allocated bytes and peak ready backlog.
+- [ ] **R2.02** Review EventLoop and SelectLoop timer/watcher lifecycle, stale registration removal and callback dispatch fairness. Verify no double wake, lost wake, reentrant resume or watcher leak.
+- [ ] **R2.03** Audit timer accuracy, ordering, clock-monotonicity assumptions and cancellation races, including task cancellation just before/after readiness.
+- [ ] **R2.04** Inspect queue data structures, primitive waiters and wakeup scheduling; simplify or optimize only demonstrated hot paths while retaining resource ceilings.
+- [ ] **R2.05** Verify parent/child scope completion, fail-fast sibling cancellation, collect-all errors, task-local snapshot inheritance and background scope generation ownership.
+- [ ] **R2.06** Validate bounded channels including capacity 0, full/empty/close contention, rejected send, multiple waiting senders/receivers; test synchronization owner rules and barrier break behavior.
+- [ ] **R2.07** Verify ext-event backend at high descriptor counts, SelectLoop ceiling of 256 Runwire-owned connections and native portable fallback without PCNTL/POSIX. No platform downgrade or misleading capability advertisement.
+- [ ] **R2.08** Exercise I/O wait under repeated socket close, invalid descriptor, canceled task, slow peer and nested coroutine group; ensure no deadlock or busy-spin.
+- [ ] **R2.09** Run sustained mixed timer/network/CPU tests with fairness and p99, proving stable queues and bounded memory as throughput increases.
+
+**Existing test candidates:** tests/EventLoopTest.php, SelectLoopTest.php, BatchLCoroutineSchedulerTest.php, BatchMStructuredConcurrencyTest.php, BatchNSynchronizationTest.php, CoroutineHardeningTest.php, AsyncConnectionTest.php, MonotonicTimeTest.php.
+
+**Exit:** Correct wakeup/ownership semantics, performance evidence on both event-loop backends, no starvation and no unbounded scheduler growth.
+
+### R3 — HTTP/1.1, transport buffers and WebSocket performance
+
+**Likely sources:** src/Http/Http1/Http1Connection.php, Http1ResponseWriter.php, Internal/Http1Input.php, RequestHeadValidator.php, src/Network/Connection.php, Internal/ByteQueue.php, ByteBudget.php, StreamWriter.php, src/Http/ResponseTransfer.php, src/WebSocket/*, src/Runtime/Internal/NativeHttpWorker.php.
+
+**Tasks**
+- [ ] **R3.01** Measure HTTP/1 request-head scanning, header validation, chunk/body decode, keepalive reuse and response-write allocations; isolate handler-independent and end-to-end costs.
+- [ ] **R3.02** Optimize byte queue compaction/write batching only after testing partial reads/writes, boundary fragmentation, backpressure and slow clients; avoid hidden payload copies and large retained buffers.
+- [ ] **R3.03** Check pipelining/connection reuse, request admission during worker drain, incomplete headers, 100-continue, method/status-specific response body semantics, HEAD and connection close behavior.
+- [ ] **R3.04** Validate TLS handshakes and ALPN selection, close-notify/error behavior, no plaintext downgrade and correct application-visible scheme/headers.
+- [ ] **R3.05** Verify ResponseTransfer chunk sizes, cooperative cancellation, streaming source ownership, writable wait and no uncontrolled memory growth.
+- [ ] **R3.06** Exercise WebSocket handshake/origin enforcement, frame parser masking, fragmentation/control frames, close codes, send backpressure and worker draining on live sessions.
+- [ ] **R3.07** Evaluate FIXED/LATENCY/THROUGHPUT/AUTO HTTP/1 scheduling and explicit TCP_NODELAY override under small interactive and sustained bulk responses; avoid global AUTO default change without evidence.
+- [ ] **R3.08** Add malicious traffic matrix: slowloris, oversized/duplicate/conflicting headers, invalid transfer lengths, forbidden trailer/state transitions, fragmented upgrade, half-open sockets, bursts of reconnects.
+- [ ] **R3.09** Compare successful RPM, p99, CPU/RSS and socket bytes/write syscalls across plaintext/TLS, sizes, keepalive/close and low/high connection count.
+
+**Existing test candidates:** tests/Http1ConnectionTest.php, Http1AbuseAcceptanceTest.php, Http1BackpressureTest.php, Http1WorkerBudgetTest.php, Http1AdaptiveConnectionSamplerTest.php, WebSocketIntegrationTest.php, WebSocketFrameParserTest.php, ResponseTransferTest.php, ResponseTransferTlsTest.php.
+
+**Exit:** No protocol regression, all resource budgets intact, proven improved or unchanged real-server throughput and tail latency.
+
+### R4 — HTTP/2, HTTP/3 and adaptive protocol behavior
+
+**Likely sources:** src/Http/Http2/Http2Connection.php, Hpack/*, Internal/FlowController.php, ResponseScheduler.php, src/Http/Http3/Http3Session.php, Qpack/*, Quic/PhpQuicHttp3Worker.php, Internal/*, src/Http/Internal/AdaptiveLoadController.php, src/Http/AdaptiveProtocolPolicy.php.
+
+**Tasks**
+- [ ] **R4.01** Baseline real H2/H3 multiplexed response throughput, streams/connection, dynamic-table pressure, header block sizes and flow-control stalls using independent real protocol clients.
+- [ ] **R4.02** Profile H2 HPACK integer/huffman paths, header validation, frame parsing, data scheduling and output buffer churn; change only hot paths with mirrored encode/decode and malformed-input tests.
+- [ ] **R4.03** Validate H2 per-stream vs connection cancellation, fair scheduling, window updates, SETTINGS, GOAWAY and admission of already accepted incomplete header blocks when draining.
+- [ ] **R4.04** Profile H3 QPACK dynamic table/blocking/unblocking, varint/frame codec and QUIC poll/write budgets; retain no application 0-RTT dispatch.
+- [ ] **R4.05** Validate H3 request-stream reset, header decoding completion during drain, control stream limits, cancellation, peer unidirectional streams and graceful bounded shutdown.
+- [ ] **R4.06** Perform independent interop with available ngtcp2/aioquic clients and supported PHP 8.4/8.5 QUIC/OpenSSL combination; record protocol version and extension ABI.
+- [ ] **R4.07** Revalidate adaptive FIXED baseline plus all AUTO crossover/transition promotion cases; no promotion based solely on average throughput or microbenchmark wins.
+- [ ] **R4.08** Fuzz framing, HPACK/QPACK invalid indexes/overflows, oversized stream counts, blocked sections, invalid SETTINGS and decompression limits with memory ceilings.
+- [ ] **R4.09** Test slow receiver, many simultaneous streams, stream cancellation storms, stalled flow-control and mixed H1/H2/H3 listeners under rolling recycle.
+- [ ] **R4.10** Preserve end-user unified HttpRequest and ResponseWriterInterface semantics across three HTTP versions.
+
+**Existing test candidates:** tests/Http2ConnectionTest.php, Http2AbuseTest.php, HpackTest.php, Http3SessionTest.php, QpackTest.php, Http3AbuseFaultAcceptanceTest.php, HttpProtocolSemanticParityTest.php, AdaptivePromotionMatrixTest.php, AdaptiveProtocolTransitionTest.php.
+
+**Exit:** Real H2/H3 interoperability and fault validation pass, protocol-local fairness/backpressure preserved and performance claim reproducible.
+
+### R5 — coroutine-aware outbound network I/O (bounded feature slice)
+
+**Scope rule:** Start with the existing coroutine/network abstraction; do not build a full HTTP client, DNS subsystem or database client just because it might be useful. Large API additions require a reviewed design gate; feature may be explicitly deferred if it cannot meet the 2.2 timeline without weakening guarantees.
+
+**Likely sources:** src/Coroutine/Network/AsyncConnection.php, src/Coroutine/CoroutineScope.php, src/Coroutine/Internal/FiberScheduler.php, src/Network/Connection.php, src/Loop/LoopInterface.php, docs/coroutines.md.
+
+**Tasks**
+- [ ] **R5.01** Review existing AsyncConnection operations and limitations; specify what remains blocking in PHP stream/DNS/TLS integration. Record exact user-visible promises.
+- [ ] **R5.02** Design minimal public contract for nonblocking TCP connect/read/write using loop readiness and bounded memory; prefer extending an existing contract rather than parallel APIs.
+- [ ] **R5.03** Bind connection/socket/waiter lifetime to owning request or worker scope; cancellation and deadline must close or reliably detach stale readiness registrations.
+- [ ] **R5.04** Define partial read/write, EOF, peer hangup, timeouts, backpressure and retry/close semantics; avoid implicit infinite buffering.
+- [ ] **R5.05** If TLS connect is included, verify certificate validation, timeout, handshake state and no synchronous execution surprise; otherwise explicitly document unsupported operation.
+- [ ] **R5.06** Test real local TCP servers under many concurrent Fiber tasks, late/early cancellation, socket reuse, back-to-back close, full write buffers and slow peer.
+- [ ] **R5.07** Probe Swoole/OpenSwoole host reactor integration and no competing event-loop ownership; do not claim every third-party blocking PHP API is awaitable.
+- [ ] **R5.08** Benchmark I/O overlap and request-level benefit against equivalent sequential I/O; ensure no worse CPU/RSS/latency under overload.
+- [ ] **R5.09** Document interoperability limits, valid host modes and cancellation guarantees. Any deferred HTTP/DNS/DB integration must be listed as future scope, not checked as complete.
+
+**Existing test candidates:** tests/AsyncConnectionTest.php, BatchORuntimeIntegrationTest.php, BatchPRaceFaultTest.php, BatchPSoakTest.php, CoroutineHardeningTest.php.
+
+**Exit:** Small, safe, demonstrated networking improvement or an evidence-backed deferral approved in the tracker; no implied support for arbitrary async PHP calls.
+
+### R6 — native supervisor and hosted-runtime lifecycle parity
+
+**Likely sources:** src/Runtime.php, src/Runtime/Driver/{FpmDriver,FrankenPhpDriver,RoadRunnerDriver,SwooleDriver}.php, src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/{NativeHttpWorker,PortableNativeRuntime,WorkerRecycleState}.php, src/Supervisor/*.
+
+**Tasks**
+- [ ] **R6.01** Inventory ownership matrix for listener, event loop, worker pool, application instance and request cleanup across every driver; enforce capability-first semantics.
+- [ ] **R6.02** Test native prefork boot/readiness, crashed worker replacement, restart backoff, rolling reload, manual recycle and stop under active HTTP1/H2/H3/TCP/UDP traffic.
+- [ ] **R6.03** Test portable runtime with truly absent PCNTL/POSIX: one process only, no fictitious worker controls, explicit rejection of prefork-only settings.
+- [ ] **R6.04** Confirm Swoole and OpenSwoole real two-worker/worker-replacement factory runs **after fork** and reports child PID, worker slot and fresh context/metrics; run both serve() and serveApplication().
+- [ ] **R6.05** Confirm FPM request-scoped and FrankenPHP classic/worker/RoadRunner hosted boundaries do not attempt to bind a competing listener or drive a second incompatible event loop.
+- [ ] **R6.06** Exercise accepted-but-incomplete HTTP header admission during drain (H1/H2/H3), wait deadlines, keepalive stop, GOAWAY and WebSocket close; never drop already accepted requests incorrectly.
+- [ ] **R6.07** Verify worker-generation invalidation for active coroutine scopes, callback handles, application references, request contexts and timers after replacement.
+- [ ] **R6.08** Verify privilege drop: supplementary groups, GID-before-UID, final identity check, non-root warning and startup rejection on partial transition.
+- [ ] **R6.09** Check host request/body/response fidelity, reset on every exception, and one drain/shutdown per instance including startup failure.
+- [ ] **R6.10** Run real host and consumer acceptance on PHP 8.4/8.5, not just fake adapters; document environments unavailable in CI.
+
+**Existing test candidates:** tests/SwooleDriverTest.php, SwooleLoopTest.php, RoadRunnerRuntimeTest.php, GenericRuntimeTest.php, SupervisorLifecycleTest.php, NativeWorkerLifecycleTest.php, SupervisorRecycleTest.php, PrivilegeDropOrderingTest.php, PortableNativeRuntimeTest.php, BatchGDrainTest.php.
+
+**Exit:** No orphaned workers, duplicated reactor owner, leaked request state or stale worker-generation work; external host acceptance proven.
+
+### R7 — observability, threat models, fuzzing and process safety
+
+**Likely sources:** src/Metrics/RuntimeMetrics.php, RuntimeMetricsSnapshot.php, DiagnosticsPolicy.php, src/Runtime/Internal/WorkerDiagnosticsSampler.php, src/Network/ConnectionLimits.php, src/Process/ProcessRunner.php, src/Control/ControlServer.php, docs/security.md.
+
+**Tasks**
+- [ ] **R7.01** Enumerate low-overhead diagnostics already available: throughput/latency attribution, event-loop max lag, callback overruns, scheduler backlog, waiters, protocol control/errors, admission and worker churn.
+- [ ] **R7.02** Expose missing indicators **only if needed** for incident diagnosis and measurable overhead remains low; diagnostics disabled remains a cheap path.
+- [ ] **R7.03** Distinguish PHP allocated memory, actual process RSS/native extension memory, peak cgroup/container usage and FD/socket count; do not describe allocator-only recycle threshold as full RSS protection.
+- [ ] **R7.04** Review ProcessRunner absolute executable validation, shell bypass, allowlist, argv/environment/stdin/output limits, timeouts and process-group termination; test attacker-controlled input and no-PCNTL operation.
+- [ ] **R7.05** Review control endpoint access, socket/file permissions, privilege changes and shutdown capabilities; document safe default deployment.
+- [ ] **R7.06** Add fuzz/property/abuse tests for all HTTP versions, WebSocket frame validation, line/length-framed codecs, UDP oversized datagrams and TLS failure paths.
+- [ ] **R7.07** Fault-inject slow peers, connection floods, half-open streams, callbacks throwing during dispatch, cancelled request scopes, worker kill -9 and malformed protocol sequences.
+- [ ] **R7.08** Run long soak against persistent application resets, PHP garbage collector/OPcache behavior, RSS drift and retained references; distinguish leak from deliberate cache growth.
+- [ ] **R7.09** Security audit of exposed surfaces and third-party packages, plus dependency advisories; record vulnerabilities explicitly without weakening requirements to get green CI.
+- [ ] **R7.10** Update runbook with exact gauges for event-loop lag, blocked callbacks, queue pressure, overload behavior and required platform limits.
+
+**Existing test candidates:** tests/MetricsDiagnosticsTest.php, ProcessRunnerTest.php, ControlServerTest.php, DatagramAbuseAcceptanceTest.php, Http1AbuseAcceptanceTest.php, Http2AbuseTest.php, Http3AbuseFaultAcceptanceTest.php, BatchISoakFaultTest.php.
+
+**Exit:** Incident-relevant bounded diagnostics and adversarial safety suite passing, with instrumentation overhead measured and recorded.
+
+### R8 — cross-integration, complete QA and release certification
+
+**Likely sources:** all .github/workflows/*.yml, benchmarks/*, tests/*, docs/deployment.md, docs/benchmarks.md; existing consumer projects **read/test only**.
+
+**Tasks**
+- [ ] **R8.01** Audit required CI and fix missing/incorrect gates, always applying them to the candidate SHA. Reconcile normal PR workflows vs opt-in release certification, reporting skips honestly.
+- [ ] **R8.02** Run PHPForge full tests, static analysis, formatting/quality, security and release guard for PHP 8.4 + 8.5 with preferably both lowest and stable dependency modes where existing pipeline supports them.
+- [ ] **R8.03** Run accelerated ext-event, portable no-PCNTL, OpenSSL missing/fail-closed, Swoole/OpenSwoole, real QUIC/H3 and OPcache lanes.
+- [ ] **R8.04** Run real native H1, H2, H3, WebSocket, TCP/Unix, UDP and process lifecycle integration; explicitly note unavailable host infrastructure as blocking or accepted risk.
+- [ ] **R8.05** Run the existing release-certification workflow on the exact Runwire 2.2 candidate SHA; verify all four intended categories: matched sustained performance, 30-minute native HTTP soak, Infbyte consumer integration and PHPForge release guard.
+- [ ] **R8.06** Modify primary matched performance baseline to **immediate predecessor tag 2.1.2** with verified source SHA and output provenance; separately preserve historical dc78bdc9... comparisons if still useful. This is a deliberate workflow/benchmark change, not evidence already achieved.
+- [ ] **R8.07** Ensure matched sustained runs execute five 180-second measured trials after warmup using comparable environments; enforce throughput regression budget, response correctness, confidence/variance and resource/tail bounds.
+- [ ] **R8.08** Run the actual Infbyte full suite and Foundation/Webrick Runwire bridge against the candidate via isolated test install; record dependency resolution and run output, but do **not** modify consumer repos without a separate request.
+- [ ] **R8.09** Audit test artifacts for false success, expected skips, timing flakiness, malformed JSON metrics, missing test jobs, altered benchmarks and stale pinned dependencies.
+- [ ] **R8.10** Build a signed-off test matrix with per-mode and per-protocol evidence, known constraints and release-risk register. No performance headline unsupported by same-topology repeated evidence.
+
+**Exit:** All mandatory full certification gates actually ran and passed for exact candidate; consumer acceptance recorded; zero unresolved critical/high blockers.
+
+### R9 — developer-facing documentation, release-quality finalization
+
+**Likely sources:** README.md, docs/getting-started.md, architecture.md, deployment.md, coroutines.md, benchmarks.md, migration-2.0.md (historical), SECURITY.md, composer.json, new docs/release-notes-2.2.md if chosen.
+
+**Tasks**
+- [ ] **R9.01** Summarize final behavior vs 2.1.2 only (or actual immediately preceding tag if maintainers publish another), with change descriptions backed by commits and tests; do not report draft metrics as certified.
+- [ ] **R9.02** Update API examples and runtime selection, capability table, hosted ownership, coroutine blocking boundary, transport/TLS/QUIC requirements, graceful shutdown and production deployment.
+- [ ] **R9.03** Document opt-in scheduling tuning and measured tradeoffs; retain supported defaults and fail-closed behavior.
+- [ ] **R9.04** Document any intentional 2.2 API changes, exact compatibility/migration and deprecations; keep no-op migrations out of the changelog.
+- [ ] **R9.05** Verify clean Composer archive, excluded development artifacts, reproducible install, supported PHP versions/extensions and safe default configuration.
+- [ ] **R9.06** Re-run final source audit, complete QA and certification when code/docs/workflow changes could affect results; all evidence must match the final release candidate.
+- [ ] **R9.07** Check zero release-blocking QA findings, fuzz/correctness defects, security advisories, unexplained benchmark changes or cross-host integration failures.
+- [ ] **R9.08** Prepare release handoff: candidate SHA, checklist, compare link, full changelog, benchmark methodology/results, complete test matrix, nonblocking limitations and maintainer manual release steps.
+- [ ] **R9.09** Leave branch/PR unmerged and untagged until explicit maintainer instruction; only record **READY FOR MAINTAINER RELEASE** when exit criteria are met.
+
+**Exit:** Traceable, complete 2.2 candidate with release handoff and trustworthy evidence; no automatic publication.
+
+### Mandatory execution matrix and ownership map
+
+| Axis | Modes that must be considered | Key risks |
+|---|---|---|
+| PHP | 8.4, 8.5; 64-bit | ABI/behavior and toolchain differences |
+| Runtime | Native prefork, native portable, FPM, FrankenPHP classic/worker, RoadRunner, Swoole, OpenSwoole | Listener ownership, bootstrap lifetime, worker replacement |
+| Event | ext-event native, SelectLoop fallback, Swoole reactor | wakeups, descriptor counts, shutdown |
+| HTTP | H1 plaintext/TLS, H2/TLS, H3/QUIC | parser, flow-control, stream cancellation, ALPN |
+| Socket | TCP, Unix-domain, UDP, WebSocket H1 upgrade | framing, origin policy, backpressure, timeouts |
+| Lifecycle | boot/ready/handle/reset/drain/shutdown, reload/recycle/crash | stale context, accepted admission, resource leaks |
+| Traffic | low load, saturation, mixed interactive/bulk, connection churn | fairness, p99, stable queues |
+| Security | malformed/incomplete frames, oversized inputs, TLS failure, untrusted subprocess inputs | fail-closed, bounded memory, privilege boundary |
+| Resources | PHP allocator, RSS/cgroup, FDs, queue counts, callback time | leaks, allocator vs RSS confusion |
+| Dependencies | min/stable where required, no optional extension, actual optional extension | honest capabilities, portable behavior |
+
+### Performance decision protocol
+
+1. Primary KPI = **successful sustained RPM**, measured across repeatable full-server workloads and verified correct responses; note successful RPS as supplementary.
+2. Collect warmup then repeated steady-state trials, preferably 5 for release-grade decisions. Include concurrency sweep, peak sustainable throughput and saturation knee.
+3. Keep identity of baseline/candidate, CPU/OS, workers, transports, TLS/ALPN, PHP/ext versions, OPcache, payload, headers, keepalive, client and sample duration constant.
+4. Compare median successful RPM, coefficient of variation, p50/p95/p99, errors/timeouts, CPU use, peak and plateau RSS, growing queues, reconnection and open sockets/FDs.
+5. Existing matched release comparison has a **5% throughput regression budget**; do not quietly change it or confuse it with a minimum improvement target. Agree tail-latency/RSS budgets during R0 with real variance and operational constraints.
+6. Higher throughput with uncontrolled queue growth, response failure, unsafe stale state, resource exhaustion or materially worsened p99 **does not pass**. A real trade-off requires explicit decision and documentation before promotion.
+7. Instrumentation overhead is measured: disabled diagnostics should not change the critical execution path appreciably.
+8. For an unproven optimization, capture negative result and stop; don't continue a speculative rewrite for aesthetic reasons.
+
+### Batch progress log template
+
+For every completed or attempted task, add a dated entry in an evidence manifest rather than deleting failed experiments:
+
+| Field | Example format |
+|---|---|
+| Task | R3.02 |
+| Status | NOT STARTED / IN PROGRESS / BLOCKED / DONE / REJECTED WITH EVIDENCE |
+| Why | Baseline profiler and reproduction |
+| Files | Source/test/docs/benchmark paths |
+| Candidate SHA | Exact commit |
+| Functional QA | Commands, failures, pass counts |
+| Real-host/interop | Modes, client versions, failure simulations |
+| Benchmark | Baseline + candidate raw artifact URLs; RPM, tail, CPU/RSS |
+| Gate | Passed / failed / skipped with reason |
+| Next action | Precise remaining work or next batch |
+
+### Plan integrity rules
+
+- The **canonical tracker** is the R0–R9 table plus R0.01–R9.09 checkboxes above. Both must agree; update batch status only after its task/evidence requirements are complete.
+- Do not mark an entire batch done merely because all code is committed; QA + benchmarks + integration + evidence + tracker sync are part of completion.
+- Do not rewrite the plan to erase failed trials; distinguish negative results from unfinished requirements.
+- At any user request for progress, report Rn task completion fraction, blocking failures, exact head SHA and whether the corresponding mandatory CI jobs actually passed.
+- If an optional workload is genuinely unavailable, classify as unverified and identify the dependency needed; avoid pretending it passed.
+- No cross-repository edits, no required dependencies on the two Rust libraries, no merge/tag/publish actions under this planning authorization.
+
 
 ## Evidence and acceptance template (repeat for every batch)
 
