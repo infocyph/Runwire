@@ -1,11 +1,20 @@
 # Runwire 2.2 — runtime improvement and release plan
 
 **Status:** DRAFT / planning only
+**Target release:** `2.2` (confirmed 2026-10-19)
+**Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-19
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
 **Implementation:** NOT STARTED
 **Release:** No tag, merge or publish authorized.
+
+## Release decision
+
+- **Confirmed target: Runwire 2.2.** Deliver the PHP-runtime improvement program as the next planned minor release; do not insert a speculative `2.1.x` hardening milestone.
+- Scope is restricted to the existing standalone PHP Runwire library. Runwire-Core and Runwire-Cells retain their own independent versions and roadmaps.
+- No release, merge, or tag until all applicable QA, benchmark, integration, and release-certification gates pass for the exact candidate SHA.
+- If a release-blocking security or correctness issue requires an emergency patch, handle it explicitly as a separate maintainer decision; do not silently change the 2.2 target.
 
 ## Mission and product boundary
 
@@ -133,10 +142,9 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 ## Open decisions before implementation
 
-1. Is the next PHP release specifically 2.2, or should a 2.1.x hardening release precede it?
-2. Which workloads are the business-critical performance targets? Select primary and secondary, rather than benchmark cherry-picking.
-3. Which existing contracts may intentionally break in a major version? No automatic BC promise.
-4. What measurable regression budgets apply to p99 and RSS, alongside existing 5% sustained-throughput budget?
-5. What is the minimum supported native QUIC build/ABI for the release matrix?
+1. Which workloads are the business-critical performance targets? Select primary and secondary, rather than benchmark cherry-picking.
+2. Which existing contracts may intentionally break in a major version? No automatic BC promise.
+3. What measurable regression budgets apply to p99 and RSS, alongside existing 5% sustained-throughput budget?
+4. What is the minimum supported native QUIC build/ABI for the release matrix?
 
 **This branch contains documentation only. All tracker boxes stay open until evidenced and committed.**
