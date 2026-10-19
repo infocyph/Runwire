@@ -81,3 +81,9 @@ No local tests, benchmark measurements, or missing extension acceptance are clai
 - Report observed p99 and RSS deltas without inventing acceptance thresholds. Set and enforce p99/RSS promotion budgets only after true measured R0 variance is available.
 - Add Pest CLI-level regression tests covering comparable runs, mismatched environments, insufficient evidence, stable regression and noisy trials.
 - **These changes are an R0 measurement-safety improvement, not certified speed gains or R0 completion.**
+
+## R0 source-contract snapshot instrumentation
+
+- Added `benchmarks/public_api_snapshot.php` as an explicit **developer-only** reflection tool; it does not execute during production package loading.
+- Added PHP 8.4 and PHP 8.5 snapshot checks to the existing benchmark CI matrix; each result stays in the existing benchmark artifact workspace.
+- Added [runtime contract inventory](r0-runtime-contracts.md) with current defaults and ownership matrix. Full-machine outputs require a successful CI run and review; R0.04 remains OPEN until verification.

@@ -64,6 +64,12 @@ jobs:
             lscpu
           } > "benchmark-results/environment-php-${{ matrix.php-version }}.txt"
 
+      - name: Snapshot public and protected PHP contracts
+        shell: bash
+        run: |
+          php benchmarks/public_api_snapshot.php > "benchmark-results/public-api-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .type_count > 0 and (.types | length) == .type_count' "benchmark-results/public-api-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Capture Runwire OPcache footprint
         shell: bash
         run: |
