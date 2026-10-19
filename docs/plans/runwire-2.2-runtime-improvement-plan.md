@@ -57,7 +57,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 | Batch | Scope | Exit criteria | Status |
 |---|---|---|---|
-| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 5/11 tasks complete; matched measurements variance-inconclusive and QA repair pending |
+| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 6/11 tasks complete; core QA green but validated concurrency profiling/variance gates pending |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [ ] Not started |
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [ ] Not started |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [ ] Not started |
@@ -70,7 +70,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 ### R0 — establish truthful baseline
 
-**Confirmed R0 evidence tasks:** R0.02 environment/capability audit, R0.05 workload matrix, R0.08 matched benchmark equivalence/correctness audit, R0.09 immediate-predecessor baseline qualification, and R0.11 persisted evidence/tracker setup are complete (see [workloads and retrieved CI evidence](evidence/runwire-2.2/r0-workload-matrix.md)). All runtime measurements and mandatory R0 exit gates remain open.
+**Confirmed R0 evidence tasks:** R0.02 environment/capability audit, R0.04 PHP 8.4/8.5 contract inventory, R0.05 workload matrix, R0.08 matched benchmark equivalence/correctness audit, R0.09 immediate-predecessor baseline qualification, and R0.11 persisted evidence/tracker setup are complete (see [workloads and retrieved CI evidence](evidence/runwire-2.2/r0-workload-matrix.md)). All runtime measurements and mandatory R0 exit gates remain open.
 
 **Initial evidence:** [R0 repository and QA preflight](evidence/runwire-2.2/r0-preflight.md), 2026-10-19. PR [#9](https://github.com/infocyph/Runwire/pull/9) opened as draft. The original preflight and subsequent published-2.1.2 tag verification are partial R0 deliverables. CI succeeded for the earlier `acb01ca6` revision; current candidate CI, complete environment manifest, actual matched tests, measured baselines and p99/RSS budgets remain pending. No R0 task checkbox is marked done prematurely.
 
@@ -186,7 +186,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [ ] **R0.01** Freeze reference: 2.1.2 tag SHA, current 2.2 branch SHA, Composer lock/dependency mode, PHP 8.4/8.5, extension versions, OPcache mode, OS/kernel/CPU and cgroup limits. Include the exact git diff and confirm a clean baseline.
 - [x] **R0.02** Audit package dependencies, capabilities and selection: native prefork PCNTL/POSIX, native portable without PCNTL, ext-event vs SelectLoop, TLS/ALPN, ext-quic/HTTP3, FPM, FrankenPHP, RoadRunner, Swoole and OpenSwoole; distinguish supported, optional and non-applicable.
 - [ ] **R0.03** Run the existing full local test/analysis quality suite and enumerate skipped tests, optional extension unavailable cases and warnings. Investigate current red baseline rather than attributing it to future changes.
-- [ ] **R0.04** Inventory public/protected PHP API signatures, documented constructor defaults, exception/fail-closed behavior, capabilities, config policies and known contract limitations; record what 2.2 must retain.
+- [x] **R0.04** Inventory public/protected PHP API signatures, documented constructor defaults, exception/fail-closed behavior, capabilities, config policies and known contract limitations; record what 2.2 must retain.
 - [x] **R0.05** Define workload matrix: HTTP1 plaintext/keepalive, TLS H1, H2 multiplexing, H3/QUIC, JSON, 64KiB/1MiB transfer, chunk streaming, WebSocket sustained, framed TCP/Unix, UDP, coroutine task/channel workload, worker reload under load, and representative consumer request.
 - [ ] **R0.06** Profile realistic steady-state and cold paths, separating application handler, framework bootstrap, Runwire request context, HTTP parser, response writer, socket/syscall, event loop and Fiber scheduler costs. Rank only verified bottlenecks by end-to-end impact.
 - [ ] **R0.07** Establish repeated, warmed concurrency curves and compare **successful RPM**, p50/p95/p99, errors, CPU, PHP allocator, process RSS, queues, FD count and cancellation/response failures. Confirm the load generator is not saturated.
@@ -200,6 +200,8 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 **Exit:** Reproducible baseline, documented constraints, known red/skip matrix and ranked hot spots. If the environment cannot reproduce production topology, document a required CI or dedicated-machine job instead of accepting a speculative performance result.
 
 ### R1 — request dispatch, lifecycle and allocation economy
+
+**Preflight while R0 performance gates remain open (not an R1 completion):** Following green PHPForge QA on `0414fa0153e2`, add targeted request/response ownership regressions under R1.07; do not accept runtime hot-path optimizations until R0.06/R0.07 profiling and stabilized baseline are recorded. This explicitly isolates correctness-test preparation from the one-active-batch implementation rule. R0 remains the active implementation batch.
 
 **Likely sources:** src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/RequestFinalizer.php, src/Runtime/RequestResetterRegistry.php, src/Runtime/Host/HostRequestFactory.php, src/Http/HttpRequest.php, src/RequestContext.php, src/Metrics/RuntimeMetrics.php, src/Http/Internal/CallbackResponseWriter.php.
 
