@@ -73,3 +73,11 @@ No local tests, benchmark measurements, or missing extension acceptance are clai
   - Swoole/OpenSwoole: https://github.com/infocyph/Runwire/actions/runs/39227015079
   - Release Candidate: https://github.com/infocyph/Runwire/actions/runs/39227015120
 - Exact previous SHA security/standards job details: both PHP 8.4 and 8.5 with stable/lowest QA and static analysis passed, plus QUIC tests on both versions. Conditional release/security-report jobs skipped by design. The full release certification was skipped, **not passed**.
+
+## R0 benchmark-comparator comparability hardening
+
+- Extend sustained summaries to carry explicit worker count, TLS, keepalive policy, host OS/CPU, OPcache and extension-version metadata already present in raw trial evidence.
+- Compare these fields across baseline and candidate; reject silent topology mismatches, missing/non-finite metrics and incorrect/missing source provenance before considering a throughput delta.
+- Report observed p99 and RSS deltas without inventing acceptance thresholds. Set and enforce p99/RSS promotion budgets only after true measured R0 variance is available.
+- Add Pest CLI-level regression tests covering comparable runs, mismatched environments, insufficient evidence, stable regression and noisy trials.
+- **These changes are an R0 measurement-safety improvement, not certified speed gains or R0 completion.**
