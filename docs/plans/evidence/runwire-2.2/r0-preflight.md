@@ -87,3 +87,9 @@ No local tests, benchmark measurements, or missing extension acceptance are clai
 - Added `benchmarks/public_api_snapshot.php` as an explicit **developer-only** reflection tool; it does not execute during production package loading.
 - Added PHP 8.4 and PHP 8.5 snapshot checks to the existing benchmark CI matrix; each result stays in the existing benchmark artifact workspace.
 - Added [runtime contract inventory](r0-runtime-contracts.md) with current defaults and ownership matrix. Full-machine outputs require a successful CI run and review; R0.04 remains OPEN until verification.
+
+## Certification-trigger decision — 2026-10-19
+
+PR #9 was labeled `release-certification` to request **actual** conditional GitHub Actions certification on the next pull-request synchronization. R0 measurements are still **unverified**, and any pending/queued/skipped result is not a pass. Confirm that `matched-performance`, `candidate-soak`, `consumer-app` and `release-guard` all start and succeed on the exact candidate SHA before accepting their evidence. If any fails or skips, record exact failing job/artifact and keep R0 blocked until corrected.
+
+This deliberate test invocation does not imply permission to merge, tag or publish.
