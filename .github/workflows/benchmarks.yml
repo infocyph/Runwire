@@ -278,7 +278,7 @@ jobs:
             exit 1
           fi
 
-          export RUNWIRE_RUNTIME_VERSION="2.0-candidate"
+          export RUNWIRE_RUNTIME_VERSION="2.2-development"
           export RUNWIRE_RUNTIME_BUILD="$GITHUB_SHA"
           export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
           export RUNWIRE_INSTRUMENTATION="$instrumentation"

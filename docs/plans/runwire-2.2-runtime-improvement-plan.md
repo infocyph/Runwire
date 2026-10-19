@@ -57,7 +57,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 | Batch | Scope | Exit criteria | Status |
 |---|---|---|---|
-| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — preflight only; baseline measurements pending |
+| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 2/11 definition/setup tasks complete; matched measurements and QA pending |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [ ] Not started |
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [ ] Not started |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [ ] Not started |
@@ -69,6 +69,8 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [ ] Not started |
 
 ### R0 — establish truthful baseline
+
+**Confirmed R0 definition tasks:** R0.05 workload matrix and R0.11 persisted evidence/tracker setup are complete (see [workloads and retrieved CI evidence](evidence/runwire-2.2/r0-workload-matrix.md)). All runtime measurements and mandatory R0 exit gates remain open.
 
 **Initial evidence:** [R0 repository and QA preflight](evidence/runwire-2.2/r0-preflight.md), 2026-10-19. PR [#9](https://github.com/infocyph/Runwire/pull/9) opened as draft. The original preflight and subsequent published-2.1.2 tag verification are partial R0 deliverables. CI succeeded for the earlier `acb01ca6` revision; current candidate CI, complete environment manifest, actual matched tests, measured baselines and p99/RSS budgets remain pending. No R0 task checkbox is marked done prematurely.
 
@@ -185,13 +187,13 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [ ] **R0.02** Audit package dependencies, capabilities and selection: native prefork PCNTL/POSIX, native portable without PCNTL, ext-event vs SelectLoop, TLS/ALPN, ext-quic/HTTP3, FPM, FrankenPHP, RoadRunner, Swoole and OpenSwoole; distinguish supported, optional and non-applicable.
 - [ ] **R0.03** Run the existing full local test/analysis quality suite and enumerate skipped tests, optional extension unavailable cases and warnings. Investigate current red baseline rather than attributing it to future changes.
 - [ ] **R0.04** Inventory public/protected PHP API signatures, documented constructor defaults, exception/fail-closed behavior, capabilities, config policies and known contract limitations; record what 2.2 must retain.
-- [ ] **R0.05** Define workload matrix: HTTP1 plaintext/keepalive, TLS H1, H2 multiplexing, H3/QUIC, JSON, 64KiB/1MiB transfer, chunk streaming, WebSocket sustained, framed TCP/Unix, UDP, coroutine task/channel workload, worker reload under load, and representative consumer request.
+- [x] **R0.05** Define workload matrix: HTTP1 plaintext/keepalive, TLS H1, H2 multiplexing, H3/QUIC, JSON, 64KiB/1MiB transfer, chunk streaming, WebSocket sustained, framed TCP/Unix, UDP, coroutine task/channel workload, worker reload under load, and representative consumer request.
 - [ ] **R0.06** Profile realistic steady-state and cold paths, separating application handler, framework bootstrap, Runwire request context, HTTP parser, response writer, socket/syscall, event loop and Fiber scheduler costs. Rank only verified bottlenecks by end-to-end impact.
 - [ ] **R0.07** Establish repeated, warmed concurrency curves and compare **successful RPM**, p50/p95/p99, errors, CPU, PHP allocator, process RSS, queues, FD count and cancellation/response failures. Confirm the load generator is not saturated.
 - [ ] **R0.08** Validate benchmark correctness accounting and baseline equivalence: response shape, TLS, worker count, OPcache, CPU limits, payload sizes, active extensions, client reuse and trial timing. Keep raw evidence and hashes.
 - [ ] **R0.09** Inspect release-certification.yml baseline currently pinned to pre-consolidation commit dc78bdc9.... For 2.2, define **published 2.1.2** as the primary immediate predecessor comparison; retain the historical baseline as a separately labeled optional trend only. Do not rewrite this until its reproduction data and workflow effects are known.
 - [ ] **R0.10** Record all baseline risks and acceptance budgets (minimum: no invalid responses or protocol violations, zero uncontrolled queue/memory growth; existing 5% throughput budget where applicable; explicit p99/RSS budgets chosen based on baseline variance). Do not invent absolute target numbers before measurements.
-- [ ] **R0.11** Create evidence manifest and tracker update showing exact baseline status. Commit it before initiating R1.
+- [x] **R0.11** Create evidence manifest and tracker update showing exact baseline status. Commit it before initiating R1.
 
 **Tests/evidence:** Full PHPForge matrix; tests/RuntimeTest.php, RuntimeSelectorTest.php, RuntimeCapabilityResolverTest.php, HttpProtocolSemanticParityTest.php, BatchPSoakTest.php; existing benchmarks and optional-host suites as available.
 
