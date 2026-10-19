@@ -201,7 +201,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R1 — request dispatch, lifecycle and allocation economy
 
-**Preflight while R0 performance gates remain open (not an R1 completion):** Following green PHPForge QA on `0414fa0153e2`, add targeted request/response ownership regressions under R1.07; do not accept runtime hot-path optimizations until R0.06/R0.07 profiling and stabilized baseline are recorded. This explicitly isolates correctness-test preparation from the one-active-batch implementation rule. R0 remains the active implementation batch.
+**R1 correctness preflight — R1.07 complete (1/8):** Four new focused regressions were added in `tests/R1RequestLifecycleRegressionTest.php`; existing activation/finalizer tests cover other required branches. Exact-source PHPForge Security & Standards QA [39238439296](https://github.com/infocyph/Runwire/actions/runs/39238439296) passed all PHP 8.4/8.5, stable/lowest Pest, Pint and analysis checks at source commit `ca1eb4c427094c462858cad01e8ce69004f64633`. This is **R1 preparatory regression coverage**, not a measured optimization or full R1 closure. R0 remains the active implementation batch: R0.06/R0.07 profiling and stable acceptance baseline must precede runtime hot-path edits. This explicitly isolates correctness-test preparation from the one-active-batch implementation rule.
 
 **Likely sources:** src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/RequestFinalizer.php, src/Runtime/RequestResetterRegistry.php, src/Runtime/Host/HostRequestFactory.php, src/Http/HttpRequest.php, src/RequestContext.php, src/Metrics/RuntimeMetrics.php, src/Http/Internal/CallbackResponseWriter.php.
 
@@ -212,7 +212,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [ ] **R1.04** Audit exception aggregation when handler, reset and shutdown all fail; preserve primary failure and actionable diagnostics without leaking response or request-local state.
 - [ ] **R1.05** Recheck stable RuntimeContext vs single-use RequestContext ownership; reject double activation and inherited/reused mutable request fields.
 - [ ] **R1.06** Compare cold, first-use, and warmed persistent worker request costs; ensure optimizations do not shift expensive initialization into unsuspecting per-request paths.
-- [ ] **R1.07** Add focused regressions for null-valued request attributes, attribute-count limits, request IDs, cancellation completion, finalizer reentrancy and double close.
+- [x] **R1.07** Add focused regressions for null-valued request attributes, attribute-count limits, request IDs, cancellation completion, finalizer reentrancy and double close.
 - [ ] **R1.08** Run matched native HTTP and hosted-adapter performance trials with tracing enabled/disabled; no request throughput penalty hidden by isolated lifecycle benchmarks.
 
 **Existing test candidates:** tests/ApplicationLifecycleTest.php, RequestContextTest.php, RequestContextActivationTest.php, PersistentRuntimeIsolationTest.php, PersistentStateIsolationAcceptanceTest.php, ResponseSemanticsTest.php, HostRuntimeTest.php.
