@@ -78,7 +78,7 @@ jobs:
         shell: bash
         run: |
           composer show --locked --format=json > "benchmark-results/dependencies-php-${{ matrix.php-version }}.json"
-          jq -e '(.installed // []) | length > 0' "benchmark-results/dependencies-php-${{ matrix.php-version }}.json" >/dev/null
+          jq -e '(.locked // []) | length > 0' "benchmark-results/dependencies-php-${{ matrix.php-version }}.json" >/dev/null
 
       - name: Snapshot public and protected PHP contracts
         shell: bash
