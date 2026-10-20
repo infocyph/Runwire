@@ -628,6 +628,25 @@ A production candidate should exercise:
 - persistent-worker state isolation and memory/FD soak;
 - hosted-runtime acceptance for the selected host, including explicit Swoole/OpenSwoole selection when applicable.
 
+
+## 27. Runwire 2.2 operational diagnostics and incident triage
+
+`RuntimeContext::snapshot()` returns a versioned `RuntimeMetricsSnapshot`. It records cumulative `requestsTotal`, `requestsFailedTotal`, `rejectedRequestsTotal`, `rejectedConnectionsTotal`, `bytesReadTotal`, `bytesWrittenTotal`, and protocol/error classes; worker gauges include `requestsActive`, `connectionsActive`, `queuedBytesCurrent`, `queuedBytesPeak`, `queuedBytesLimit`, `eventLoopLagNanoseconds`, `eventLoopTickNanoseconds`, and `callbackOverrunsTotal`. When coroutine tasks are enabled, `CoroutineRuntime::diagnostics()` exposes `readyQueueDepth`, `readyQueueMaxDepth`, active/suspended tasks, cancellation/failure totals, and configured limits. Sampling is worker-interval-driven, not an unbounded per-request trace.
+
+| Symptom | Record and correlate | Decision point |
+| --- | --- | --- |
+| Rising tail latency | `eventLoopLagNanoseconds`, `callbackOverrunsTotal`, ready-queue depth, p99, worker CPU | Find long callback, blocking PHP I/O or excessive runnable work; retain fairness limits |
+| Pressure or overload | `queuedBytesCurrent/queuedBytesLimit`, `backpressureEventsTotal`, `rejectedRequestsTotal`, live connections | Investigate slow recipients and admission; never bypass worker quotas to mask errors |
+| High request errors | `requestsFailedTotal`, `errors`, `protocol` and failing protocol-client logs | Distinguish handler/reset/cancellation/transport error classes |
+| Suspected leak | Process RSS (`VmRSS`/`VmHWM` or container equivalent), PHP `memoryCurrentBytes` and `memoryPeakBytes`, queue depth and FD count | PHP allocator usage is not total resident memory; repeat under warmed soak with controlled workers |
+| Worker churn | age, busy seconds, restart/recycle reason, requested shutdown, active contexts | Confirm readiness and application ownership before accepting new work |
+
+**Measure OS resources independently**: sample actual RSS from `/proc/<pid>/status` or process/container metrics and FDs through `/proc/<pid>/fd` where supported. Cgroup CPU/memory quotas might be unavailable in GitHub-hosted runners; record `N/A`, never report zero as a measured limit. OPcache/native extension memory, allocator high-water and process RSS are different gauges.
+
+**Exposure limits:** Keep labels fixed-cardinality; don't expose request IDs, raw headers, URLs, command arguments, secrets, or per-socket identifiers as metric labels. Run the existing control socket with restrictive owner and directory permissions. Disable diagnostics or increase worker sampling interval only with observed overhead evidence; never suppress errors or remove resource bounds to improve benchmark scores.
+
+**Incident procedure:** capture exact Runwire commit, PHP/ext versions, loop/worker topology, CPU/cgroup limits, active protocol, request success counts and errors; reproduce with fixed payload and concurrency; inspect parser and backpressure errors; isolate cancellation/worker recycle; run the protocol-appropriate QA before resuming traffic. Review process-execution allowlist and disable shell execution paths for untrusted input.
+
 ## Related documentation
 
 - [2.0 migration guide](migration-2.0.md)

@@ -332,19 +332,21 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R7 — observability, threat models, fuzzing and process safety
 
+**Audited 8/10 tasks** against existing CI-tested diagnostics, process safety, protocol abuse and fault suites. Remaining final soak and security advisory signoff are R8 promotion gates. [R7/R8 audit](evidence/runwire-2.2/r7-r8-qa.md).
+
 **Likely sources:** src/Metrics/RuntimeMetrics.php, RuntimeMetricsSnapshot.php, DiagnosticsPolicy.php, src/Runtime/Internal/WorkerDiagnosticsSampler.php, src/Network/ConnectionLimits.php, src/Process/ProcessRunner.php, src/Control/ControlServer.php, docs/security.md.
 
 **Tasks**
-- [ ] **R7.01** Enumerate low-overhead diagnostics already available: throughput/latency attribution, event-loop max lag, callback overruns, scheduler backlog, waiters, protocol control/errors, admission and worker churn.
-- [ ] **R7.02** Expose missing indicators **only if needed** for incident diagnosis and measurable overhead remains low; diagnostics disabled remains a cheap path.
-- [ ] **R7.03** Distinguish PHP allocated memory, actual process RSS/native extension memory, peak cgroup/container usage and FD/socket count; do not describe allocator-only recycle threshold as full RSS protection.
-- [ ] **R7.04** Review ProcessRunner absolute executable validation, shell bypass, allowlist, argv/environment/stdin/output limits, timeouts and process-group termination; test attacker-controlled input and no-PCNTL operation.
-- [ ] **R7.05** Review control endpoint access, socket/file permissions, privilege changes and shutdown capabilities; document safe default deployment.
-- [ ] **R7.06** Add fuzz/property/abuse tests for all HTTP versions, WebSocket frame validation, line/length-framed codecs, UDP oversized datagrams and TLS failure paths.
-- [ ] **R7.07** Fault-inject slow peers, connection floods, half-open streams, callbacks throwing during dispatch, cancelled request scopes, worker kill -9 and malformed protocol sequences.
+- [x] **R7.01** Enumerate low-overhead diagnostics already available: throughput/latency attribution, event-loop max lag, callback overruns, scheduler backlog, waiters, protocol control/errors, admission and worker churn.
+- [x] **R7.02** Expose missing indicators **only if needed** for incident diagnosis and measurable overhead remains low; diagnostics disabled remains a cheap path.
+- [x] **R7.03** Distinguish PHP allocated memory, actual process RSS/native extension memory, peak cgroup/container usage and FD/socket count; do not describe allocator-only recycle threshold as full RSS protection.
+- [x] **R7.04** Review ProcessRunner absolute executable validation, shell bypass, allowlist, argv/environment/stdin/output limits, timeouts and process-group termination; test attacker-controlled input and no-PCNTL operation.
+- [x] **R7.05** Review control endpoint access, socket/file permissions, privilege changes and shutdown capabilities; document safe default deployment.
+- [x] **R7.06** Add fuzz/property/abuse tests for all HTTP versions, WebSocket frame validation, line/length-framed codecs, UDP oversized datagrams and TLS failure paths.
+- [x] **R7.07** Fault-inject slow peers, connection floods, half-open streams, callbacks throwing during dispatch, cancelled request scopes, worker kill -9 and malformed protocol sequences.
 - [ ] **R7.08** Run long soak against persistent application resets, PHP garbage collector/OPcache behavior, RSS drift and retained references; distinguish leak from deliberate cache growth.
 - [ ] **R7.09** Security audit of exposed surfaces and third-party packages, plus dependency advisories; record vulnerabilities explicitly without weakening requirements to get green CI.
-- [ ] **R7.10** Update runbook with exact gauges for event-loop lag, blocked callbacks, queue pressure, overload behavior and required platform limits.
+- [x] **R7.10** Update runbook with exact gauges for event-loop lag, blocked callbacks, queue pressure, overload behavior and required platform limits.
 
 **Existing test candidates:** tests/MetricsDiagnosticsTest.php, ProcessRunnerTest.php, ControlServerTest.php, DatagramAbuseAcceptanceTest.php, Http1AbuseAcceptanceTest.php, Http2AbuseTest.php, Http3AbuseFaultAcceptanceTest.php, BatchISoakFaultTest.php.
 
@@ -352,18 +354,20 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R8 — cross-integration, complete QA and release certification
 
+**3/10 audit/CI hygiene tasks complete**; remaining real promotion/certification and the external Infbyte publication-order failure remain visible. [R7/R8 audit](evidence/runwire-2.2/r7-r8-qa.md).
+
 **Likely sources:** all .github/workflows/*.yml, benchmarks/*, tests/*, docs/deployment.md, docs/benchmarks.md; existing consumer projects **read/test only**.
 
 **Tasks**
-- [ ] **R8.01** Audit required CI and fix missing/incorrect gates, always applying them to the candidate SHA. Reconcile normal PR workflows vs opt-in release certification, reporting skips honestly.
+- [x] **R8.01** Audit required CI and fix missing/incorrect gates, always applying them to the candidate SHA. Reconcile normal PR workflows vs opt-in release certification, reporting skips honestly.
 - [ ] **R8.02** Run PHPForge full tests, static analysis, formatting/quality, security and release guard for PHP 8.4 + 8.5 with preferably both lowest and stable dependency modes where existing pipeline supports them.
 - [ ] **R8.03** Run accelerated ext-event, portable no-PCNTL, OpenSSL missing/fail-closed, Swoole/OpenSwoole, real QUIC/H3 and OPcache lanes.
 - [ ] **R8.04** Run real native H1, H2, H3, WebSocket, TCP/Unix, UDP and process lifecycle integration; explicitly note unavailable host infrastructure as blocking or accepted risk.
 - [ ] **R8.05** Run the existing release-certification workflow on the exact Runwire 2.2 candidate SHA; verify all four intended categories: matched sustained performance, 30-minute native HTTP soak, Infbyte consumer integration and PHPForge release guard.
-- [ ] **R8.06** Modify primary matched performance baseline to **immediate predecessor tag 2.1.2** with verified source SHA and output provenance; separately preserve historical dc78bdc9... comparisons if still useful. This is a deliberate workflow/benchmark change, not evidence already achieved.
+- [x] **R8.06** Modify primary matched performance baseline to **immediate predecessor tag 2.1.2** with verified source SHA and output provenance; separately preserve historical dc78bdc9... comparisons if still useful. This is a deliberate workflow/benchmark change, not evidence already achieved.
 - [ ] **R8.07** Ensure matched sustained runs execute five 180-second measured trials after warmup using comparable environments; enforce throughput regression budget, response correctness, confidence/variance and resource/tail bounds.
 - [ ] **R8.08** Run the actual Infbyte full suite and Foundation/Webrick Runwire bridge against the candidate via isolated test install; record dependency resolution and run output, but do **not** modify consumer repos without a separate request.
-- [ ] **R8.09** Audit test artifacts for false success, expected skips, timing flakiness, malformed JSON metrics, missing test jobs, altered benchmarks and stale pinned dependencies.
+- [x] **R8.09** Audit test artifacts for false success, expected skips, timing flakiness, malformed JSON metrics, missing test jobs, altered benchmarks and stale pinned dependencies.
 - [ ] **R8.10** Build a signed-off test matrix with per-mode and per-protocol evidence, known constraints and release-risk register. No performance headline unsupported by same-topology repeated evidence.
 
 **Exit:** All mandatory full certification gates actually ran and passed for exact candidate; consumer acceptance recorded; zero unresolved critical/high blockers.
