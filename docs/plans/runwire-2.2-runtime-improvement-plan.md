@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — 60/95 canonical tasks checked; 7 R5 dialer tasks deferred outside 2.2, leaving 28 in-scope open tasks; R8/R9 not complete
+**Status:** ACTIVE — 64/95 canonical tasks checked; 7 R5 dialer tasks deferred outside 2.2, leaving 24 in-scope open tasks; R8/R9 release qualification remains open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-20
@@ -59,14 +59,14 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 |---|---|---|---|
 | R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] 9/11 — audit complete; end-to-end A/B qualification in R8 |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [~] 7/8 — host fast path and lifetime QA; A/B trace guard outstanding |
-| R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [~] 7/9 — portable timer fairness; mixed-load perf/soak open |
+| R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [~] 8/9 — scheduler profiler/boundary verified; mixed-load soak open |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [~] 8/9 — HTTP1/ByteQueue regression suite; end-to-end A/B open |
 | R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 6/10 — aioquic/ngtcp2 confirmed; workload saturation and storm stress open |
 | R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
-| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 6/10 — host ownership and real Swoole parity; extended host/cross-transport gates open |
-| R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 8/10 — observability/process safety audit; final soak/CVE signoff open |
+| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 7/10 — privilege rejection and ordering verified; real cross-transport recycle/host gates open |
+| R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 9/10 — dependency advisories audited; final leak/soak measurements open |
 | R8 | Integration + certification | Foundation/Infbyte/Webrick smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 3/10 — baseline/CI audit complete; release certification outstanding |
-| R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 4/9 — documentation ready in draft; final QA/release handoff outstanding |
+| R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 5/9 — clean PHP8.4/8.5 archive install certified; final release handoff open |
 
 ### Active release-scope and critical-path ledger — 2026-10-20
 
@@ -77,14 +77,16 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | Accounting | Tasks |
 |---|---:|
 | Canonical original plan | 95 |
-| Checked DONE with evidence | 60 |
+| Checked DONE with evidence | 64 |
 | Explicitly deferred beyond 2.2 | 7 (R5.02–R5.08, still unchecked) |
-| **Active 2.2 remaining** | **28** |
-| **In-scope completion** | **60/88 (68.2%)** |
+| **Active 2.2 remaining** | **24** |
+| **In-scope completion** | **64/88 (72.7%)** |
 
 Do **not** check deferred R5 tasks or silently delete them. Their deferral is recorded in [R5/R6 handoff](evidence/runwire-2.2/r5-r6-handoff.md). R5 can be signed off as a *scope resolution* only; this is not a new nonblocking dialer release.
 
 **R4.06 verified:** [Security & Standards #39374716440](https://github.com/infocyph/Runwire/actions/runs/39374716440) passed live aioquic 1.3.0 interop on PHP 8.4/8.5, independent ngtcp2 v1.25.0 / nghttp3 v1.18.0 client on PHP 8.5, OpenSSL >=3.5, ext-quic API/soak, and response-body validation. PHP 8.4 ngtcp2 job was intentionally skipped; do not present it as passed. See [R4 evidence](evidence/runwire-2.2/r3-r4-protocol-audit.md).
+
+**QA-supported closure checkpoint (2026-10-20):** R2.01 scheduler task/wakeup/cancel/I/O profiling and hard overload cleanup verified in [benchmarks 39378520084](https://github.com/infocyph/Runwire/actions/runs/39378520084) on PHP8.4/8.5; R6.08 mock POSIX transition/partial failure acceptance Pest/Pint/analysis passed in [QA 39379164190](https://github.com/infocyph/Runwire/actions/runs/39379164190); R7.09 locked Composer audit found zero published security advisories with only a reported abandoned dev package; R9.05 [archive install 39379163941](https://github.com/infocyph/Runwire/actions/runs/39379163941) succeeded on PHP8.4/8.5 with safe AUTO defaults and no installed optional ext-event. Final SHA release certification/real-host soak remains R8/R9 and not implied by this checkpoint.
 
 **Unblocked execution sequence (source work → focused QA → evidence, then next package):**
 
@@ -257,7 +259,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 **Likely sources:** src/Loop/EventLoop.php, src/Loop/SelectLoop.php, src/Loop/LoopFactory.php, src/Loop/Internal/TimerQueue.php, src/Coroutine/Internal/FiberScheduler.php, ReadyQueue.php, Suspension.php, src/Coroutine/CoroutineRuntime.php, CoroutineScope.php, Channel.php, Future.php, TaskLocal.php.
 
 **Tasks**
-- [ ] **R2.01** Measure scheduler per-spawn, resume, cancel, sleep/wake and wait registration costs under low, medium and overload pressure; include allocated bytes and peak ready backlog.
+- [x] **R2.01** Measure scheduler per-spawn, resume, cancel, sleep/wake and wait registration costs under low, medium and overload pressure; include allocated bytes and peak ready backlog.
 - [x] **R2.02** Review EventLoop and SelectLoop timer/watcher lifecycle, stale registration removal and callback dispatch fairness. Verify no double wake, lost wake, reentrant resume or watcher leak.
 - [x] **R2.03** Audit timer accuracy, ordering, clock-monotonicity assumptions and cancellation races, including task cancellation just before/after readiness.
 - [x] **R2.04** Inspect queue data structures, primitive waiters and wakeup scheduling; simplify or optimize only demonstrated hot paths while retaining resource ceilings.
@@ -351,7 +353,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R6.05** Confirm FPM request-scoped and FrankenPHP classic/worker/RoadRunner hosted boundaries do not attempt to bind a competing listener or drive a second incompatible event loop.
 - [x] **R6.06** Exercise accepted-but-incomplete HTTP header admission during drain (H1/H2/H3), wait deadlines, keepalive stop, GOAWAY and WebSocket close; never drop already accepted requests incorrectly.
 - [ ] **R6.07** Verify worker-generation invalidation for active coroutine scopes, callback handles, application references, request contexts and timers after replacement.
-- [ ] **R6.08** Verify privilege drop: supplementary groups, GID-before-UID, final identity check, non-root warning and startup rejection on partial transition.
+- [x] **R6.08** Verify privilege drop: supplementary groups, GID-before-UID, final identity check, non-root warning and startup rejection on partial transition.
 - [x] **R6.09** Check host request/body/response fidelity, reset on every exception, and one drain/shutdown per instance including startup failure.
 - [ ] **R6.10** Run real host and consumer acceptance on PHP 8.4/8.5, not just fake adapters; document environments unavailable in CI.
 
@@ -374,7 +376,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R7.06** Add fuzz/property/abuse tests for all HTTP versions, WebSocket frame validation, line/length-framed codecs, UDP oversized datagrams and TLS failure paths.
 - [x] **R7.07** Fault-inject slow peers, connection floods, half-open streams, callbacks throwing during dispatch, cancelled request scopes, worker kill -9 and malformed protocol sequences.
 - [ ] **R7.08** Run long soak against persistent application resets, PHP garbage collector/OPcache behavior, RSS drift and retained references; distinguish leak from deliberate cache growth.
-- [ ] **R7.09** Security audit of exposed surfaces and third-party packages, plus dependency advisories; record vulnerabilities explicitly without weakening requirements to get green CI.
+- [x] **R7.09** Security audit of exposed surfaces and third-party packages, plus dependency advisories; record vulnerabilities explicitly without weakening requirements to get green CI.
 - [x] **R7.10** Update runbook with exact gauges for event-loop lag, blocked callbacks, queue pressure, overload behavior and required platform limits.
 
 **Existing test candidates:** tests/MetricsDiagnosticsTest.php, ProcessRunnerTest.php, ControlServerTest.php, DatagramAbuseAcceptanceTest.php, Http1AbuseAcceptanceTest.php, Http2AbuseTest.php, Http3AbuseFaultAcceptanceTest.php, BatchISoakFaultTest.php.
@@ -412,7 +414,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R9.02** Update API examples and runtime selection, capability table, hosted ownership, coroutine blocking boundary, transport/TLS/QUIC requirements, graceful shutdown and production deployment.
 - [x] **R9.03** Document opt-in scheduling tuning and measured tradeoffs; retain supported defaults and fail-closed behavior.
 - [x] **R9.04** Document any intentional 2.2 API changes, exact compatibility/migration and deprecations; keep no-op migrations out of the changelog.
-- [ ] **R9.05** Verify clean Composer archive, excluded development artifacts, reproducible install, supported PHP versions/extensions and safe default configuration.
+- [x] **R9.05** Verify clean Composer archive, excluded development artifacts, reproducible install, supported PHP versions/extensions and safe default configuration.
 - [ ] **R9.06** Re-run final source audit, complete QA and certification when code/docs/workflow changes could affect results; all evidence must match the final release candidate.
 - [ ] **R9.07** Check zero release-blocking QA findings, fuzz/correctness defects, security advisories, unexplained benchmark changes or cross-host integration failures.
 - [ ] **R9.08** Prepare release handoff: candidate SHA, checklist, compare link, full changelog, benchmark methodology/results, complete test matrix, nonblocking limitations and maintainer manual release steps.

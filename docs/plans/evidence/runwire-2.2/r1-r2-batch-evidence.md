@@ -16,3 +16,17 @@
 - R2.03: existing `MonotonicTimeTest`, `SelectLoopTest`, and `BatchLCoroutineSchedulerTest` validate ordering, monotonic deadlines, cancellation-before/after readiness and timer cancellation. R2.04: existing bounded ready queue, `TimerQueue` heap compaction and cancellation cleanup reviewed; no extra caching introduced.
 - R2.05: `BatchMStructuredConcurrencyTest` verifies fail-fast/collect-all, nested deadline, task-local inherited snapshot and request-scope reuse. R2.06: `BatchNSynchronizationTest` verifies zero-capacity rendezvous FIFO, bounded waiters, semaphore ownership, mutex waiters, barrier cancellation/reuse. R2.07: [native portable 39372948300](https://github.com/infocyph/Runwire/actions/runs/39372948300) passed PHP8.4/8.5 and scalable ext-event; `EventLoopTest` covers >1024 descriptors, core SelectLoop remains 256 owned-connection limit. R2.08: `AsyncConnectionTest` and `BatchLCoroutineSchedulerTest` exercise I/O watcher deregistration, EOF, cancellation, pressure and close. Those source suites passed at prior green baseline; new bounded timer tests passed Pest on SHA `429d956e`. Pint initially failed constant ordering and was fixed on `5e14b750`; its full new CI still requires final confirmation. **R2.01** scheduler all-load allocation profiler and **R2.09** sustained mixed p99/queue soak remain open (R8 qualification).
 - R3.02 experiment: `ByteQueue::read` had an `O(chunks)` loop that called `discard()` for *each* chunk, reapplying compaction checks and budget releases. The candidate performs exactly one aggregate budget release and compaction after reading, retaining chunk order, partial offsets, byte accounting and validation. Local PHP8.4.24 isolated emulation consumed 525k bytes over 350 repetitions: old 42.5ms vs candidate 31.3ms (same machine); this is **not** full-server RPS evidence. New `ByteQueueReadTest` covers partial reads, 300-chunk compaction, exact shared quota, interleaved discard and queue reuse. R3.02 **requires fresh CI** before being considered complete.
+
+## R2.01 scheduler pressure task complete — 2026-10-20
+
+[Benchmark workflow 39378520084](https://github.com/infocyph/Runwire/actions/runs/39378520084) ran `benchmarks/r2_scheduler_pressure.php` on PHP 8.4.26 and PHP 8.5.11 with 6 measured rounds after 2 warmups for each of 8/32/128 tasks, covering spawn/join, two yields, timer sleep/wake, cancelled sleeping tasks and actual Unix socket readiness. It also verified fail-closed rejection at `maxTasks=8` and `maxReadyBacklog=8`, with zero retained tasks.
+
+| 128-task isolated operation | PHP 8.4 median µs | PHP 8.5 median µs | Max ready depth |
+|---|---:|---:|---:|
+| Spawn/join | 1859.727 | 1812.716 | 128 |
+| Yield/resume twice | 2593.540 | 2531.721 | 128 |
+| Sleep/wake | 3127.273 | 2972.876 | 128 |
+| Cancel sleeping tasks | 3438.642 | 3201.402 | 129 |
+| Unix socket readiness (2 tasks) | 80.641 | 72.990 | 2 |
+
+Each runner reported 12,582,912 PHP peak allocation bytes, correct completion counts and zero lingering timers/watchers/active tasks. Overload rejection at the configured eight-task limit left zero active tasks and peaked at ready depth 7. The PHP versions used distinct runners; the results are **not** a PHP version comparison, not real network saturation and not a 2.1.2→2.2 end-to-end throughput claim. R2.09's sustained mixed-load/fairness soak remains outstanding.

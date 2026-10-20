@@ -22,3 +22,7 @@ Source/test review on Runwire 2.2 branch, with previous standard green workflow 
 ## Batch handoff integrity
 
 These are audit/doc updates only; no runtime code changes after the ByteQueue R3 commit. Full QA of any final source SHA and release promotion evidence remain mandatory. R5 deferred scope is a conscious architecture decision, not an inadvertent incomplete feature.
+
+## R6.08 privilege-transition acceptance — completed
+
+`tests/PrivilegeDropperAcceptanceTest.php` and a PSR-4 compliant `tests/Fixtures/RunwirePrivilegeAuditIdentity.php` use the internal `IdentitySystemInterface` fake rather than mutating the CI runner's real UID/GID. Cases assert supplementary group initialization, GID-before-UID ordering, GID-only operation, non-root rejection, failed group/GID/UID changes, post-transition effective identity verification and no-op policy. Existing `PrivilegeDropOrderingTest` asserts policy applied before worker readiness/bootstrap. [PHPForge QA 39379164190](https://github.com/infocyph/Runwire/actions/runs/39379164190) passed Pest/Pint/analysis on PHP8.4/8.5 stable and lowest dependency lanes. Full root-to-nonroot live host acceptance is a separate R6.10/R8 gate, not inferred from these controlled tests.

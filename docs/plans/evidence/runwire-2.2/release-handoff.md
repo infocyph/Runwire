@@ -27,3 +27,7 @@ Once every required gate is green for a single exact SHA, the maintainer may rev
 3. Consumer dependency `infocyph/foundation:^3.0.1` currently not resolvable from published versions.
 4. Final exact-SHA optional host/protocol tests and 30-minute soak remain unverified.
 5. New connect/dialer work intentionally deferred; do not announce it as a 2.2 capability.
+
+## R9.05 clean archive acceptance completed — 2026-10-20
+
+[Release Candidate 39379163941](https://github.com/infocyph/Runwire/actions/runs/39379163941) passed on PHP 8.4 and 8.5 using the generated Composer ZIP. Both jobs extracted the package, confirmed required source/package metadata and the absence of tests/vendor, installed Runwire into a separate fresh Composer consumer via a path repository with the untagged **candidate's explicit dev version**, compared the installed `RuntimeOptions.php` source to the archived source, autoloaded `Runtime`, and checked safe AUTO runtime/OPcache defaults. This proves a consumer installation without `ext-event`, even though Runwire's root development dependencies include that optional extension. It is a candidate smoke test, **not** the unpublished Foundation/Infbyte consumer acceptance required by R8.05 and R8.08.
