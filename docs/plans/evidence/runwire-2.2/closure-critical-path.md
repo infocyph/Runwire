@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 70 checked complete; **18 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 70 complete + 18 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 71 checked complete; **17 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 71 complete + 17 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -21,7 +21,7 @@ Original 95 task IDs: 70 checked complete; **18 active open**; 7 R5 dialer tasks
 | R6 (2) | R6.02, R6.10 | Real live restart/recycle and supported host matrix; generation invalidation QA passed R6.07 |
 | R7 (1) | R7.08 | Final RSS/queue/GC soak and leak attribution |
 | R8 (3) | R8.05, R8.07, R8.10 | Full release certification, independent protocol/host completeness and risk signoff (R8.02/.03/.08 passed) |
-| R9 (4) | R9.06, R9.07, R9.08, R9.09 | Final QA, risk, handoff; maintainer controls release |
+| R9 (3) | R9.06, R9.07, R9.09 | Final QA, risk, handoff; maintainer controls release |
 
 ## Active ownership / decision boundaries
 
@@ -104,3 +104,7 @@ All six standard workflows were green on immutable source [1770ba8](https://gith
 The first [benchmark run 39441425725](https://github.com/infocyph/Runwire/actions/runs/39441425725) failed because the harness itself left the *last* burst's one-shot CPU timer registrations pending when its timeout fired; [fix 93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37) explicitly cancels those handles and emits per-field accounting on failure. This remains a fail-closed test, not a waived assertion. [Security & Standards run 39441739912](https://github.com/infocyph/Runwire/actions/runs/39441739912) passed all four PHPForge Pest/format QA variants (8.4/8.5 stable/lowest) at the exact source; optional QUIC/analysis jobs were not all finished when this task was closed.
 
 **R2.09 completed** as a scheduler-local sustained fairness/p99/queue proof; comparison versus published 2.1.2, traffic at production protocol/network saturation and long-run process RSS drift remain independent R0/R3/R4/R7/R8 gates. Do not infer a successful-RPM speedup from this short 3×3 second micro/mixed benchmark.
+
+## R9.08 prepared
+
+[Maintainer release handoff](release-handoff.md) contains the frozen-SHA procedure, baseline/changelog links, full QA matrix, strict benchmark/soak acceptance and actual unresolved risks. This marks the **preparation deliverable** complete, **not a release readiness or performance certificate**. Remaining 17 in-scope tasks stay open until verified.

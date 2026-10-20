@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — 70/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 18 in-scope open tasks; R2 scheduler batch complete, full R0/R1/R3/R4/R6/R7/R8/R9 release certification still open
+**Status:** ACTIVE — 71/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 17 in-scope open tasks; R2 complete and R9.08 release handoff PREPARED, release certification and maintainer approval still open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-20
@@ -75,7 +75,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 8/10 — worker-generation invalidation and privilege ordering verified; real cross-transport recycle/host gates open |
 | R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 9/10 — dependency advisories audited; final leak/soak measurements open |
 | R8 | Runwire-only integration + certification | Standalone package/host smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 7/10 — real H1/H2/H3/WS/TCP/Unix/UDP and QA passed; full release certification remains open |
-| R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 5/9 — clean PHP8.4/8.5 archive install certified; final release handoff open |
+| R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 6/9 — full handoff/checklists assembled; final exact-head QA and release signoff open |
 
 ### Active release-scope and critical-path ledger — 2026-10-20
 
@@ -426,7 +426,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R9.05** Verify clean Composer archive, excluded development artifacts, reproducible install, supported PHP versions/extensions and safe default configuration.
 - [ ] **R9.06** Re-run final source audit, complete QA and certification when code/docs/workflow changes could affect results; all evidence must match the final release candidate.
 - [ ] **R9.07** Check zero release-blocking QA findings, fuzz/correctness defects, security advisories, unexplained benchmark changes or cross-host integration failures.
-- [ ] **R9.08** Prepare release handoff: candidate SHA, checklist, compare link, full changelog, benchmark methodology/results, complete test matrix, nonblocking limitations and maintainer manual release steps.
+- [x] **R9.08** Prepare release handoff: candidate SHA, checklist, compare link, full changelog, benchmark methodology/results, complete test matrix, nonblocking limitations and maintainer manual release steps. **Prepared:** [full handoff](evidence/runwire-2.2/release-handoff.md) with source checkpoint, 2.1.2 diff/changelog, exact benchmark thresholds/methodology, [QA matrix](evidence/runwire-2.2/final-qa-matrix.md), 17 remaining open task IDs, unavailable hosts, explicit commands and maintainer-only release authority. **Preparation complete; R9.06/.07/.09 & R8 gates still unchecked.**
 - [ ] **R9.09** Leave branch/PR unmerged and untagged until explicit maintainer instruction; only record **READY FOR MAINTAINER RELEASE** when exit criteria are met.
 
 **Exit:** Traceable, complete 2.2 candidate with release handoff and trustworthy evidence; no automatic publication.
@@ -587,3 +587,7 @@ The [single Runwire 2.2 final QA matrix](evidence/runwire-2.2/final-qa-matrix.md
 The first [benchmark run 39441425725](https://github.com/infocyph/Runwire/actions/runs/39441425725) failed because the harness itself left the *last* burst's one-shot CPU timer registrations pending when its timeout fired; [fix 93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37) explicitly cancels those handles and emits per-field accounting on failure. This remains a fail-closed test, not a waived assertion. [Security & Standards run 39441739912](https://github.com/infocyph/Runwire/actions/runs/39441739912) passed all four PHPForge Pest/format QA variants (8.4/8.5 stable/lowest) at the exact source; optional QUIC/analysis jobs were not all finished when this task was closed.
 
 **R2.09 completed** as a scheduler-local sustained fairness/p99/queue proof; comparison versus published 2.1.2, traffic at production protocol/network saturation and long-run process RSS drift remain independent R0/R3/R4/R7/R8 gates. Do not infer a successful-RPM speedup from this short 3×3 second micro/mixed benchmark.
+
+### R9.08 release handoff — prepared, not authorized for release
+
+The [maintainer handoff](evidence/runwire-2.2/release-handoff.md) now includes reproducible candidate-SHA commands, 2.1.2 full diff/commit changelog link and curated draft notes, strict 5×180-second matched-performance and 30-minute soak methodology/limitations, QA matrix, risk register and manual release instructions. This **closes preparation R9.08 only**; R9.06/.07/.09, R8.05/.07/.10, and functional remaining work cannot be checked until evidence is complete. Foundation/Infbyte are independent and untouched.

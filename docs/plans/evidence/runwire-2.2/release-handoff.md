@@ -53,3 +53,32 @@ All six standard workflows were green on immutable source [1770ba8](https://gith
 ## Final QA matrix / exact-source release gate
 
 See [the Runwire-only final qualification matrix](final-qa-matrix.md) for all accepted CI modes, 19 still-open tasks, R5 deferrals, archival consumer dependency note and exact-source guard. Source [d2646e2](https://github.com/infocyph/Runwire/commit/d2646e2919317cc376f19fd1237affb1dbc87679) fixes the new resource profiler's PHPForge lint policy issues; do not mark its final CI as green until checks conclude. Live 30-minute RSS/FD sampling and paired stable CV <2.5% performance gate remain unverified on one frozen candidate. This remains **NOT READY FOR MAINTAINER RELEASE**.
+
+## R9.08 release handoff assembled — 2026-10-20
+
+**Preparation checkpoint:** Runwire code source [93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37) and canonical documentation checkpoint [82eef9e](https://github.com/infocyph/Runwire/commit/82eef9e3e8e0533c7e35ca9d7d154267d7e0602c). **Before any release, the maintainer must record the final source SHA after the very last change and re-run all required gates on that SHA.** A documentation or PR-merge SHA must never be silently substituted for the exact tested candidate SHA.
+
+**Release comparison:** Immediate published predecessor [2.1.2](https://github.com/infocyph/Runwire/releases/tag/2.1.2) at `7e9bf20ad0737a187dfed77b723791b141b36378`. [Full commit-by-commit/diff comparison](https://github.com/infocyph/Runwire/compare/2.1.2...plan/runwire-independent-ecosystem-roadmaps) and the curated [2.2 release-notes draft](../../../release-notes-2.2.md) together form the maintained changelog and implementation scope. [Canonical tracker](../../runwire-2.2-runtime-improvement-plan.md), [full per-mode QA matrix](final-qa-matrix.md), [critical-path blockers](closure-critical-path.md), and [R5/R6 host gap details](r5-r6-handoff.md) are authoritative for this handoff.
+
+**Acceptance methodology:** same actual runner topology for 2.1.2 baseline and candidate; PHP 8.5, OPcache enabled, matched dependencies/extension versions, one worker, 16 persistent clients, warmed 30 seconds per runtime, five 180-second trials per side, alternating comparison order, correct complete HTTP 200 responses, zero timeout/validation errors. Candidate median successful RPM must not regress more than 5%, **both baseline and candidate RPS CV must remain below 2.5%**, and p99/RSS ceilings must pass `benchmarks/regression_compare.php` (the CI command fails closed on inconclusive variance). Separate 30-minute native HTTP run uses 32 concurrent connections, plus 15-second process RSS/FD samples; incomplete or growing resource windows must fail. Benchmark report is a gate, **not a claim of observed performance gain**.
+
+**Still unaccepted:** sustained R0/R1/R3/R4 performance attribution and H2/H3 pressure/slow-peer storms; real native prefork mixed-protocol worker crash/rolling-restart cycle (R6.02); real FrankenPHP and RoadRunner acceptance (R6.10); long-running GC/OPcache/queue reference and RSS/FD retention (R7.08); exact-final-SHA matched benchmark and release certification (R8.05/R8.07), R8.10 final signoff, R9.06/R9.07 release blocker review. The existing Runwire Core and Cells Rust proposals and the R5.02–.08 outbound dialer remain independent/deferred, **not** required for 2.2. There is **no** Foundation or Infbyte release/CI dependency and neither repository is modified.
+
+**Maintainer-only release commands**, to run **only after all mandatory checks have passed on the frozen SHA**:
+
+```bash
+git fetch origin --tags
+git checkout plan/runwire-independent-ecosystem-roadmaps
+git pull --ff-only origin plan/runwire-independent-ecosystem-roadmaps
+candidate_sha="$(git rev-parse HEAD)"
+printf 'Candidate source SHA: %s\n' "$candidate_sha"
+git log --oneline 2.1.2.."$candidate_sha"
+git diff --check 2.1.2.."$candidate_sha"
+composer validate --strict --no-check-publish
+composer audit --locked --abandoned=report
+# Validate PR #9's six standard QA workflows and the opt-in Release Certification
+# workflow against candidate_sha; attach run IDs, full artifacts and risk signoff.
+# Do not merge/tag/publish unless every R8/R9 release gate has been explicitly approved.
+```
+
+When all gates have been evidenced and the maintainer explicitly approves: merge PR #9, tag the actual merged release commit as directed by the maintainer, publish the Composer/GitHub release with the release notes, and coordinate downstream adoption **separately**. These are instructions, **not actions performed**. Current handoff remains **NOT READY**.
