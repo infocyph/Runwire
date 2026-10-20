@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 65 checked complete; **23 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 65 complete + 23 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 67 checked complete; **21 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 67 complete + 21 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -20,7 +20,7 @@ Original 95 task IDs: 65 checked complete; **23 active open**; 7 R5 dialer tasks
 | R5 (0 in scope) | R5.02–R5.08 deferred | Deliberately not an R2.2 dialer release |
 | R6 (3) | R6.02, R6.07, R6.10 | Real restart/recycle, generation invalidation and real hosts |
 | R7 (1) | R7.08 | Final RSS/queue/GC soak and leak attribution |
-| R8 (6) | R8.02, R8.03, R8.04, R8.05, R8.07, R8.10 | Full exact-SHA certification, independent protocols/hosts and risk signoff (standalone R8.08 passed) |
+| R8 (4) | R8.04, R8.05, R8.07, R8.10 | Full release certification, independent protocol/host completeness and risk signoff (R8.02/.03/.08 passed) |
 | R9 (4) | R9.06, R9.07, R9.08, R9.09 | Final QA, risk, handoff; maintainer controls release |
 
 ## Active ownership / decision boundaries
@@ -71,3 +71,11 @@ All six [source head `f804a5a6`](https://github.com/infocyph/Runwire/commit/f804
 ## R8.08 accepted (2026-10-20)
 
 At exact Runwire source [9940779](https://github.com/infocyph/Runwire/commit/99407799fdee964bc50c64ef918d8f30d05ef432), both [isolated Composer-installed native HTTP consumer jobs](https://github.com/infocyph/Runwire/actions/runs/39426401438) **passed** for PHP 8.4 and 8.5. Checks cover archive integrity, source equivalence, defaults, live H1 200/400 response correctness and process cleanup; no independent repositories are involved. PHPForge's PHP8.4/8.5 lowest/stable QA and both analysis jobs passed on [39426401968](https://github.com/infocyph/Runwire/actions/runs/39426401968). This closes standalone R8.08 only; broader runtime generation/host matrix, stable matched performance and final release certification remain open. **Live ledger: 65/95, 23 active in-scope tasks; R8 4/10.**
+
+### R8.02 / R8.03 — QA and optional-runtime matrix acceptance (2026-10-20)
+
+- Exact tested Runwire SHA: [2e761de](https://github.com/infocyph/Runwire/commit/2e761ded1676b18a83417215659ebb9af55e99d2). [Security & Standards run 39427241144](https://github.com/infocyph/Runwire/actions/runs/39427241144) finished **success on attempt 2**: Pest, PHPCS/Pint, analysis and PHPForge quality lanes on PHP8.4/8.5, stable and lowest Composer modes. PHP8.4 lowest originally exceeded the 300s task timeout, then passed unchanged on exact-SHA job retry. This timing flakiness remains recorded; do not claim the first attempt passed or weaken QA time limits. The conditional PHPForge Security Report job was skipped, not counted as passing.
+- [Release Certification 39427240745](https://github.com/infocyph/Runwire/actions/runs/39427240745) verified the **PHPForge release guard with ext-event succeeded**; standalone package/HTTP smoke passed PHP8.4/8.5. The 5×180s performance and 30m soak were still active at this checkpoint, not accepted here.
+- [Portable Native 39427240811](https://github.com/infocyph/Runwire/actions/runs/39427240811) passed PHP8.4/8.5 genuinely no-PCNTL/POSIX, TLS and disabled OpenSSL crypto-function fail-closed, and ext-event accelerated lane. [Swoole/OpenSwoole 39427240740](https://github.com/infocyph/Runwire/actions/runs/39427240740) passed four PHP8.4/8.5 extension modes including live two-worker identity. HTTP3/QUIC PHP8.4/8.5 jobs of Security & Standards passed OpenSSL/extension ABI and independent aioquic and PHP8.5 ngtcp2 interop. [Release Candidate 39427240721](https://github.com/infocyph/Runwire/actions/runs/39427240721), [Source Audit 39427240706](https://github.com/infocyph/Runwire/actions/runs/39427240706), and [Benchmarks 39427240739](https://github.com/infocyph/Runwire/actions/runs/39427240739) all succeeded; OPcache-enabled benchmark/runtime checks retained.
+- R8.02 and R8.03 closed as executed and evidenced; R8.04 real comprehensive protocol/fault integration, R8.05 full release certification, R8.07 statistically stable paired performance, and R9.06/R9.07 final frozen-source QA remain separate gates. Rerun relevant QA after any new production source change.
+

@@ -13,13 +13,13 @@
 
 **R7.08 OPEN:** prior actual 30-minute native HTTP soak passed 12,901,151 requests and zero errors, but final exact SHA does not yet have full queue/RSS leak and GC/OPcache soak analysis. **R7.09 OPEN:** security advisories and full dependency CVE provenance on the last candidate remain to be signed off.
 
-## R8 audit completed: 4/10 tasks
+## R8 audit completed: 6/10 tasks
 
 - **R8.01:** Standard PR workflows vs conditional release-certification fully audited. Green normal CI ≠ release certification. The former four release jobs were matched performance, native soak, Infbyte consumer and PHPForge guard. The updated Runwire-only workflow retains performance/soak/guard and substitutes a PHP 8.4/8.5 standalone Composer-installed native HTTP consumer; this new job is not accepted without CI evidence.
 - **R8.06:** Published 2.1.2 annotated tag resolved to immutable `7e9bf20ad0737a187dfed77b723791b141b36378` and is primary matched benchmark baseline in release workflow; historical pre-consolidation SHA removed as the release baseline. Candidate SHA/path install checks added.
 - **R8.09:** Retrieved real workflow/benchmark artifacts, identified nonmatching GitHub CPU models, baseline CV 4.283% > 2.5% ceiling, previous conditional skips and actual Infbyte dependency failure, and corrected loose evidence metadata. Unsupported comparisons never counted as passing.
 
-**R8.02/.03/.04/.05/.07/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
+**R8.04/.05/.07/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
 
 ## Change scope
 
@@ -44,3 +44,11 @@ Both PHP 8.4.26 and PHP 8.5.11 benchmark core jobs [39378520084](https://github.
 ## R8.08 completion — isolated PHP 8.4/8.5 Runwire consumer
 
 [Exact-SHA source 9940779 certification jobs 39426401438](https://github.com/infocyph/Runwire/actions/runs/39426401438) successfully installed the clean candidate archive as a copied Composer dependency, verified package/source identity, class loading and AUTO defaults, then ran real native H1 200/`ok` and 400/`bad` requests on both PHP 8.4 and 8.5. Process termination and temporary workspace cleanup are built into the test; this is not a rolling-recycle/QUIC/consumer-framework suite. Runwire-owned [PHPForge QA 39426401968](https://github.com/infocyph/Runwire/actions/runs/39426401968) ran the corrected comparator tests successfully in PHP8.4/8.5 stable/lowest modes. **R8.08 checked; R8.05 and R8.04 still open.**
+
+### R8.02 / R8.03 — QA and optional-runtime matrix acceptance (2026-10-20)
+
+- Exact tested Runwire SHA: [2e761de](https://github.com/infocyph/Runwire/commit/2e761ded1676b18a83417215659ebb9af55e99d2). [Security & Standards run 39427241144](https://github.com/infocyph/Runwire/actions/runs/39427241144) finished **success on attempt 2**: Pest, PHPCS/Pint, analysis and PHPForge quality lanes on PHP8.4/8.5, stable and lowest Composer modes. PHP8.4 lowest originally exceeded the 300s task timeout, then passed unchanged on exact-SHA job retry. This timing flakiness remains recorded; do not claim the first attempt passed or weaken QA time limits. The conditional PHPForge Security Report job was skipped, not counted as passing.
+- [Release Certification 39427240745](https://github.com/infocyph/Runwire/actions/runs/39427240745) verified the **PHPForge release guard with ext-event succeeded**; standalone package/HTTP smoke passed PHP8.4/8.5. The 5×180s performance and 30m soak were still active at this checkpoint, not accepted here.
+- [Portable Native 39427240811](https://github.com/infocyph/Runwire/actions/runs/39427240811) passed PHP8.4/8.5 genuinely no-PCNTL/POSIX, TLS and disabled OpenSSL crypto-function fail-closed, and ext-event accelerated lane. [Swoole/OpenSwoole 39427240740](https://github.com/infocyph/Runwire/actions/runs/39427240740) passed four PHP8.4/8.5 extension modes including live two-worker identity. HTTP3/QUIC PHP8.4/8.5 jobs of Security & Standards passed OpenSSL/extension ABI and independent aioquic and PHP8.5 ngtcp2 interop. [Release Candidate 39427240721](https://github.com/infocyph/Runwire/actions/runs/39427240721), [Source Audit 39427240706](https://github.com/infocyph/Runwire/actions/runs/39427240706), and [Benchmarks 39427240739](https://github.com/infocyph/Runwire/actions/runs/39427240739) all succeeded; OPcache-enabled benchmark/runtime checks retained.
+- R8.02 and R8.03 closed as executed and evidenced; R8.04 real comprehensive protocol/fault integration, R8.05 full release certification, R8.07 statistically stable paired performance, and R9.06/R9.07 final frozen-source QA remain separate gates. Rerun relevant QA after any new production source change.
+
