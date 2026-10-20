@@ -11,7 +11,12 @@ use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Server;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
-require_once __DIR__ . '/soak_runtime_telemetry.php';
+
+// Diagnostic helpers are only needed in opt-in soak mode. A clean Composer
+// consumer can execute this standalone server fixture without copying them.
+if (getenv('RUNWIRE_SOAK_DIAGNOSTICS') === '1') {
+    require_once __DIR__ . '/soak_runtime_telemetry.php';
+}
 
 if ($argc !== 2) {
     throw new InvalidArgumentException('Usage: php http1_server.php <port>');
