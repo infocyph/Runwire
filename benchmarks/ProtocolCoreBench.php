@@ -28,7 +28,6 @@ use PhpBench\Attributes\Warmup;
 #[Warmup(1)]
 final class ProtocolCoreBench
 {
-
     private HpackDecoder $hpackDecoder;
 
     private HpackEncoder $hpackEncoder;
@@ -216,5 +215,4 @@ final class ProtocolCoreBench
 
         return VarIntCodec::decode($encoded, $offset);
     }
-
 }
