@@ -121,6 +121,19 @@ jobs:
             and ([.modes[] | select(.active_after != 0 or .watchers_after != 0 or .timers_after != 0)] | length) == 0' \
             "benchmark-results/r2-scheduler-php-${{ matrix.php-version }}.json" >/dev/null
 
+      - name: Soak mixed real socket, CPU and timer pressure across three levels
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/r2_mixed_scheduler_soak.php 3.0 \
+            > "benchmark-results/r2-mixed-soak-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .real_socket_io == true and .tier_count == 3
+            and ([.tiers[] | select(.correctness_passed != true or .readable_p99_ms > 500
+              or .pending_socket_bytes > 1 or .watchers_after != 0
+              or .timers_after != 0 or .deferred_after != 0)] | length) == 0' \
+            "benchmark-results/r2-mixed-soak-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Capture Runwire OPcache footprint
         shell: bash
         run: |
