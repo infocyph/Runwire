@@ -48,3 +48,25 @@ These represent **different algorithms and workload shapes**, not an apples-to-a
 ## Profiling work and certification boundary — 2026-10-20
 
 [Protocol profiler code `afa381f`](https://github.com/infocyph/Runwire/commit/afa381fa82dcc266043e4a6b1e2747ee89e88786) and [Benchmarks run 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538) add direct HPACK Huffman/prefixed integer, H2 complete/split frame parse, QPACK prefixed integer and H3 QUIC varint cost subjects alongside existing codecs. PHPBench 1,000-rev/5-iteration mode values compare local isolated operations only. HTTP2 adaptive real client diagnostics are NOT statistically qualified and cannot certify end-to-end throughput, header-heavy flow-control or poll/write buffer gains. R4.01/.02/.04/.09 stay unchecked until the missing workload, polling/scheduling, cancellation-storm and stable evidence exists. Current tracker is 6/10 for R4; R8.04 real transport integration is separately complete.
+
+
+### R4 protocol profiling expansion and QA — 2026-10-20
+
+**Source:** [benchmark subjects `561edbf`](https://github.com/infocyph/Runwire/commit/561edbfebd0d0ec688580cff867450a73c891414), [PHPForge order-only fix `db9bfe7`](https://github.com/infocyph/Runwire/commit/db9bfe767f8b893348d2fcd7b1a7c16267db0e4d). No production runtime classes were changed. Three reproducible additional PHPBench subjects measure **HTTP/2 request header validation**, **HTTP/3 request header validation**, and **QPACK dynamic insert → blocked decode → encoder instructions → unblock → acknowledgment**. Pest tests check valid request-target output across H2/H3, and that a QPACK block actually waits for unblocking and returns the expected five fields; existing H2/H3 malformed-header and bounded-QPACK abuse tests remain in place.
+
+[Protocol + host PHP8.4/8.5 core benchmark jobs 39464102766](https://github.com/infocyph/Runwire/actions/runs/39464102766) **both passed** on source `561edbf`, with 18 measured `ProtocolCoreBench` subjects in each PHP version. Immutable artifacts: [PHP 8.4 #12283493850](https://github.com/infocyph/Runwire/actions/runs/39464102766/artifacts/12283493850), [PHP 8.5 #12284460759](https://github.com/infocyph/Runwire/actions/runs/39464102766/artifacts/12284460759). Selected PHPBench `mode` readings, in raw report units (isolated operations with unlike workloads, **not** comparable across runner hosts or a request RPM claim):
+
+| Subject | PHP 8.4 `mode` | PHP 8.5 `mode` |
+|---|---:|---:|
+| H2 request header validation | 6.2365 | 3.1714 |
+| H3 request header validation | 6.2890 | 3.1394 |
+| QPACK dynamic table roundtrip | 291.6636 | 143.7608 |
+| QPACK forced blocked→unblocked roundtrip | 199.3141 | 97.8706 |
+| HPACK decode | 45.5124 | 22.2764 |
+| H3 QUIC varint roundtrip | 0.6495 | 0.2930 |
+
+The two QPACK full-state subjects have much larger *per-operation work* than integer-only and header-validation subjects. This **prioritizes additional isolation of dynamic QPACK and scheduler integration**, not a blanket conclusion that QPACK is the end-to-end bottleneck: the subjects perform different work, are not production-frequency weighted and the CI hosts differ. Do not divide one subject's `mode` by another to claim runtime speedup.
+
+**QA:** [four PHPForge stable/lowest PHP8.4/8.5 Pest jobs 39464104137](https://github.com/infocyph/Runwire/actions/runs/39464104137) passed tests and static analysis, but **all failed Pint `ordered_class_elements`** because new benchmark methods were inserted out of alphabetical order. The order-only [fix `db9bfe7`](https://github.com/infocyph/Runwire/commit/db9bfe767f8b893348d2fcd7b1a7c16267db0e4d) preserves benchmark semantics. [New QA run 39464797304](https://github.com/infocyph/Runwire/actions/runs/39464797304) on the fixed source was still pending at the latest evidence read; do not call it green prematurely.
+
+**Canonical tracker stays at 72/95 checked, seven R5 tasks deferred, 72/88 in 2.2 scope complete (81.8%), 16 open.** R4.02 remains OPEN for H2 response scheduling/output allocation hot-path attribution and production-equivalent workload/malformed-input validation; R4.04 remains OPEN for **actual QUIC poll/write budgets and blocked-stream pressure under live H3 clients**, not just local QPACK codec cost. R4.01/R4.09 and R8 matched release certification remain open. Only Runwire was modified; Foundation, Infbyte, Rust library siblings, merge, tag and publication are untouched.
