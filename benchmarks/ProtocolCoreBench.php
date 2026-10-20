@@ -17,6 +17,7 @@ use Infocyph\Runwire\Http\Http3\Qpack\Decoder as QpackDecoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder as QpackEncoder;
 use Infocyph\Runwire\Http\Http3\Qpack\IntegerCodec as QpackIntegerCodec;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
+use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
 use PhpBench\Attributes\Revs;
@@ -129,6 +130,13 @@ final class ProtocolCoreBench
         return strlen($frames[0]->payload);
     }
 
+    public function benchHttp2RequestHeaderValidation(): int
+    {
+        $head = (new RequestHeaderValidator('HTTP/2'))->request($this->http2Headers);
+
+        return strlen($head->target);
+    }
+
     public function benchHttp2HpackDecode(): int
     {
         return count($this->hpackDecoder->decode($this->hpackWire));
@@ -155,6 +163,44 @@ final class ProtocolCoreBench
     public function benchHttp2HuffmanEncode(): int
     {
         return strlen($this->huffmanCodec->encode('https://example.test/benchmark'));
+    }
+
+    public function benchHttp3RequestHeaderValidation(): int
+    {
+        $head = (new RequestHeaderValidator('HTTP/3'))->request($this->http3Headers);
+
+        return strlen($head->target);
+    }
+
+    public function benchHttp3QpackBlockedUnblock(): int
+    {
+        $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
+        $decoder = new QpackDecoder(512, 8, maxBlockedBytes: 8_192);
+        $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
+
+        $fields = [
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'example.test'],
+            [':path', '/benchmark'],
+            ['x-runwire-dynamic', 'blocked-profile-value'],
+        ];
+        $encoded = $encoder->encode($fields, 0);
+        if (!$encoded->blocking || $decoder->decode($encoded->block, 0) !== null) {
+            throw new RuntimeException('QPACK blocking benchmark did not enter pending state.');
+        }
+
+        $unblocked = $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
+        if (count($unblocked) !== 1 || $unblocked[0]->streamId !== 0) {
+            throw new RuntimeException('QPACK blocking benchmark did not unblock exactly one stream.');
+        }
+
+        $feedback = $decoder->takeDecoderInstructions();
+        if ($feedback !== '') {
+            $encoder->pushDecoderInstructions($feedback);
+        }
+
+        return count($unblocked[0]->section->fields);
     }
 
     public function benchHttp3FrameDecode(): int
