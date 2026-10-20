@@ -86,6 +86,19 @@ jobs:
           php benchmarks/public_api_snapshot.php > "benchmark-results/public-api-php-${{ matrix.php-version }}.json"
           jq -e '.schema == 1 and .type_count > 0 and (.types | length) == .type_count' "benchmark-results/public-api-php-${{ matrix.php-version }}.json" >/dev/null
 
+      - name: Profile hosted request path phases without production instrumentation
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/r0_host_profile.php 5000 1000 \
+            > "benchmark-results/r0-host-profile-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .completed == 5000
+            and .host_network_included == false
+            and .phases.total.p99_us > 0
+            and .phases.dispatch_and_finalization.p99_us > 0' \
+            "benchmark-results/r0-host-profile-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Capture Runwire OPcache footprint
         shell: bash
         run: |

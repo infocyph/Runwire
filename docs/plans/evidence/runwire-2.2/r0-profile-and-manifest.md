@@ -79,3 +79,10 @@ Existing adaptive comparator already uses these ceilings. Applying the same poli
 The original five ×180s paired baseline trial gave p99 [5.55, 5.54, 5.51, 5.61, 4.86]ms (13.54% full range / median) and candidate [5.69, 5.69, 5.67, 5.69, 5.70]ms. RSS varied under 0.004% within baseline trials. Reusing the previously proven guardrails is materially safer than relying on one p99 number or fabricating zero variance.
 
 **Do not promote R0 complete** until genuine R0.01, R0.06, and R0.07 exit evidence exists and the full release blocker matrix is resolved.
+
+## Scoped R0.06 profiler (2026-10-20, pending QA artifact)
+
+- Added `benchmarks/r0_host_profile.php`: real HostRequestFactory normalization → CallbackResponseWriter setup → RuntimeApplication persistent dispatch/finalization on a single synthetic request path; validates HTTP 200, correct body, exactly-once end and request-context completion every sample.
+- Includes 1,000 warmup iterations and 5,000 independent measured requests on PHP8.4 and 8.5 CI. Captures each phase's p50/p95/p99/mean microseconds, total wall seconds, PHP allocator delta/peak and process peak RSS where exposed. No instrumentation in production classes.
+- Test `tests/R0HostProfileTest.php` exercises verified response completion, phase availability and rejects invalid sample bounds. Full CI artifact must pass before using numbers in an optimization decision.
+- **Scope:** hosted synthetic in-process request path. No real socket, parser, syscalls, worker load, kernel scheduling, or framework bootstrap. This complements existing real native H1/H2 benchmark curves; it is not release-grade end-to-end CPU attribution. R0.06 remains open until missing native/host attribution is addressed.
