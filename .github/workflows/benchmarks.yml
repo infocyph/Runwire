@@ -83,9 +83,9 @@ jobs:
       - name: Audit exact locked dependencies for published security advisories
         shell: bash
         run: |
-          composer audit --locked --no-interaction --format=json \
+          composer audit --locked --abandoned=report --no-interaction --format=json \
             > "benchmark-results/composer-security-audit-php-${{ matrix.php-version }}.json"
-          jq -e '.advisories | type == "object" and length == 0' \
+          jq -e '(.advisories | length) == 0' \
             "benchmark-results/composer-security-audit-php-${{ matrix.php-version }}.json" >/dev/null
 
       - name: Snapshot public and protected PHP contracts

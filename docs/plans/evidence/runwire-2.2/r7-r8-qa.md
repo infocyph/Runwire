@@ -24,3 +24,9 @@
 ## Change scope
 
 This batch adds no new runtime instrumentation. Safety/defaults unchanged. All future performance claims require R8 exact-SHA certification, with measured successful RPM/p99/CPU/RSS and zero protocol correctness errors.
+
+## Security advisory run and abandoned-dev-package policy — 2026-10-20
+
+- Benchmarks workflow [39378091893](https://github.com/infocyph/Runwire/actions/runs/39378091893) ran `composer audit --locked --format=json` against PHP 8.4 and 8.5 dependency locks. Both raw JSON artifacts reported **zero published security advisories** and identified **abandoned `doctrine/annotations`** (development dependency). Artifact IDs `12244127741` and `12243898319`. The original command failed on Composer's abandoned-package fail policy, not because of a CVE.
+- CI now runs `composer audit --locked --abandoned=report --format=json`: abandonments remain visible as recorded evidence while security advisories still fail the job. The JSON check correctly accepts `advisories: []` when empty. No audit is skipped or suppressed.
+- R7.09 remains open until fresh exact-SHA CI runs this corrected command; dependency lock hashes and reports must be included in final handoff. Do not change upstream PHPForge or a consumer repository to silence the nonsecurity abandonment notice.

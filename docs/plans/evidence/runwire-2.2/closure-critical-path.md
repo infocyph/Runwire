@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 59 checked complete; **29 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 59 complete + 29 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 60 checked complete; **28 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 60 complete + 28 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -16,7 +16,7 @@ Original 95 task IDs: 59 checked complete; **29 active open**; 7 R5 dialer tasks
 | R1 (1) | R1.08 | Native/host trace on/off matched performance |
 | R2 (2) | R2.01, R2.09 | Task allocation/pressure cost curves and mixed scheduler soak |
 | R3 (1) | R3.09 | HTTP1/streaming small/bulk matched performance and syscalls |
-| R4 (5) | R4.01, R4.02, R4.04, R4.06, R4.09 | H2/H3 realistic saturation, HPACK/QPACK hotspots, independent QUIC clients and cancellation storm |
+| R4 (4) | R4.01, R4.02, R4.04, R4.09 | H2/H3 realistic saturation, HPACK/QPACK hotspots, independent QUIC clients and cancellation storm |
 | R5 (0 in scope) | R5.02–R5.08 deferred | Deliberately not an R2.2 dialer release |
 | R6 (4) | R6.02, R6.07, R6.08, R6.10 | Restart/recycle, handle generation, privilege transition and real hosts |
 | R7 (2) | R7.08, R7.09 | Final RSS/queue/GC soak and advisory audit |
@@ -29,7 +29,7 @@ Original 95 task IDs: 59 checked complete; **29 active open**; 7 R5 dialer tasks
 
 **Shared performance bench:** R0.06/.07, R1.08, R2.09, R3.09, R4.01/.09 and R7.08 should reuse a single pinned runner and production-equivalent workload matrix. The 2.1.2 comparison produced zero-invalid-response paired trials but baseline coefficient of variation 4.283%, above the strict 2.5% threshold. Do not mark these tasks complete until new stable reproducible data exists.
 
-**External dependencies:** R4.06 ngtcp2/aioquic interoperability requires exact protocol/client ABI, R6.10 real supported hosts, R8.05 Infbyte consumer. Current Infbyte main requires unpublished Foundation `^3.0.1`; Foundation 4 and Infbyte 4 candidates are draft and must not be falsified as published or modified under this PR.
+**External dependencies:** R4.06 independent ngtcp2/aioquic interoperability passed at `f804a5a6` (PHP8.4/8.5 aioquic, PHP8.5 ngtcp2); R8.04 immutable php-quic extension ABI and R6.10 real supported hosts still need release proof, as does the R8.05 Infbyte consumer. Current Infbyte main requires unpublished Foundation `^3.0.1`; Foundation 4 and Infbyte 4 candidates are draft and must not be falsified as published or modified under this PR.
 
 **Release-only tasks:** R8/R9 are *not* prerequisites to develop safe R1–R7 code; they are mandatory before merging/tagging/publishing. The full 30-minute soak need not rerun for a documentation-only commit, but must pass on final exact source SHA.
 
