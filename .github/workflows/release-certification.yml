@@ -138,7 +138,12 @@ jobs:
           echo substr(strrchr((string) $name, ":"), 1);
           ')"
           server_pid=""
+          sampler_pid=""
           cleanup() {
+            if [ -n "$sampler_pid" ] && kill -0 "$sampler_pid" 2>/dev/null; then
+              kill -TERM "$sampler_pid" 2>/dev/null || true
+              wait "$sampler_pid" 2>/dev/null || true
+            fi
             if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
               kill -TERM "$server_pid" 2>/dev/null || true
               wait "$server_pid" 2>/dev/null || true
@@ -186,7 +191,16 @@ jobs:
           ')"
 
           test "$RUNWIRE_OPCACHE" = "enabled-cli"
+          php benchmarks/soak_resource_profile.php sample "$server_pid" release-certification/soak/resources.csv 15 \
+            > release-certification/soak/resource-sampler.log 2>&1 &
+          sampler_pid=$!
           php benchmarks/http1_sustained_bench.php             "$port" 32 30 1800 "$server_pid"             > release-certification/soak/http1-30m.json
+          kill -TERM "$sampler_pid" 2>/dev/null || true
+          wait "$sampler_pid" 2>/dev/null || true
+          sampler_pid=""
+          php benchmarks/soak_resource_profile.php analyze \
+            release-certification/soak/resources.csv release-certification/soak/resource-analysis.json
+          jq -e '.passed == true' release-certification/soak/resource-analysis.json >/dev/null
 
           jq -e '
             .correctness_passed == true
