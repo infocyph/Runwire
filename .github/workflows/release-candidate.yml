@@ -71,7 +71,15 @@ jobs:
         run: |
           set -euo pipefail
           workspace="$(mktemp -d)"
-          trap 'rm -rf "$workspace"' EXIT
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$workspace"
+          }
+          trap cleanup EXIT
           mkdir -p "$workspace/package" "$workspace/consumer"
           unzip -q build/package/runwire-candidate.zip -d "$workspace/package"
           test -f "$workspace/package/composer.json"
@@ -113,6 +121,48 @@ jobs:
           '
           popd
 
+          # A copied native fixture must run from the clean installed package
+          # without Runwire development-only soak helpers or other repositories.
+          mkdir -p "$workspace/consumer/benchmarks"
+          cp benchmarks/http1_server.php "$workspace/consumer/benchmarks/http1_server.php"
+          port="$(php -r '
+          $listener = stream_socket_server("tcp://127.0.0.1:0", $errorCode, $error);
+          if (!is_resource($listener)) {
+              throw new RuntimeException($error);
+          }
+          $address = stream_socket_get_name($listener, false);
+          fclose($listener);
+          echo substr(strrchr((string) $address, ":"), 1);
+          ')"
+          php "$workspace/consumer/benchmarks/http1_server.php" "$port" > build/package-native-server.log 2>&1 &
+          server_pid=$!
+          ready=0
+          for attempt in $(seq 1 100); do
+            if curl -fsS --http1.1 --max-time 2 -H 'Connection: close' \
+              "http://127.0.0.1:$port/benchmark" -o build/package-native-body.txt 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat build/package-native-server.log
+              exit 1
+            fi
+            sleep 0.05
+          done
+          test "$ready" -eq 1
+          test "$(cat build/package-native-body.txt)" = "ok"
+          status="$(curl -sS --http1.1 --max-time 5 -H 'Connection: close' \
+            "http://127.0.0.1:$port/invalid" -o build/package-native-invalid.txt -w '%{http_code}')"
+          test "$status" = "400"
+          test "$(cat build/package-native-invalid.txt)" = "bad"
+          jq -n \
+            --arg source_sha "$(git rev-parse HEAD)" \
+            --arg php_version "$(php -r 'echo PHP_VERSION;')" \
+            '{source_sha:$source_sha,php_version:$php_version,isolated_package_install:true,
+              native_http_200:true,native_http_400:true,
+              diagnostics_disabled:true,correctness_passed:true}' \
+            > "build/package-native-php-${{ matrix.php-version }}.json"
+
       - name: Upload candidate package evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -121,4 +171,6 @@ jobs:
           path: |
             build/package/runwire-candidate.zip
             build/package-contents.txt
+            build/package-native-php-${{ matrix.php-version }}.json
+            build/package-native-server.log
           retention-days: 61
