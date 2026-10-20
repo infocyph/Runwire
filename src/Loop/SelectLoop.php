@@ -18,10 +18,9 @@ use Throwable;
  */
 final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
-    private const int MICROS_PER_SECOND = 1_000_000;
-
-    // Prevent a due-timer storm from starving readable/writable watchers.
     private const int MAX_TIMERS_PER_TICK = 256;
+
+    private const int MICROS_PER_SECOND = 1_000_000;
 
     private readonly int $callbackOverrunNanoseconds;
 
