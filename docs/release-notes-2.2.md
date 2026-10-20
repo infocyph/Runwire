@@ -42,3 +42,7 @@ The standard six-workflow PR matrix last fully passed at [1770ba8](https://githu
 ## Scheduler mixed-pressure validation
 
 [PHP 8.4/8.5 benchmarks 39441738432](https://github.com/infocyph/Runwire/actions/runs/39441738432) completed an actual socket/4ms timer/CPU load at three 3-second tiers (8/32/96 CPU callbacks). The worst observed socket progress p99 was 0.393ms, peak pending workload one byte and zero residual timers/watchers; four PHPForge QA variants passed. These are scheduler fairness and resource accounting checks, **not an independent published-release successful-RPM speedup claim**.
+
+## Latest measured candidate certification — still not release certified
+
+[Release Certification #39438778354](https://github.com/infocyph/Runwire/actions/runs/39438778354) at candidate `d69ddfa7`: **passed** standalone PHP8.4/8.5 package/native HTTP smoke, PHPForge release guard, and a 30-minute H1 run of **11,141,982 successful responses with zero errors/timeouts**. The paired 2.1.2-vs-2.2 five ×180-second throughput comparison observed **+3.593%** median RPS, but failed the strict confidence gate because **baseline CV 2.984% exceeded 2.5%**. No verified throughput win is claimed. That soak sampled only root-PID RSS/FDs; new Runwire-only source `8828851` and QA correction `7609bed` include *child process-tree* resource counts, but a full corrected final-head soak and PHP-internal GC/OPcache reference attribution remain pending. The entire release-certification run was **failure**, not success; no merge, tag or publication.
