@@ -31,7 +31,8 @@ function soakSampleProcess(int $pid, string $path, int $interval): void
             fwrite($output, sprintf("%.3f,%d,%d,%d\n", $elapsed, (int) $rss[1] * 1024, (int) $virtual[1] * 1024, count($fds) - 2));
             fflush($output);
             ++$total;
-            sleep($interval);
+            // External observer only: do not suspend a Runwire worker or event loop.
+            time_nanosleep($interval, 0);
         }
         if ($total === 0) {
             throw new RuntimeException('No resource samples collected.');
@@ -49,6 +50,7 @@ function soakResourceMedian(array $values): float
     }
     sort($values, SORT_NUMERIC);
     $at = intdiv(count($values), 2);
+
     return count($values) % 2 === 0
         ? ((float) $values[$at - 1] + (float) $values[$at]) / 2
         : (float) $values[$at];
@@ -135,6 +137,7 @@ function soakReadSamples(string $path): array
                 'fd' => (int) $row[3],
             ];
         }
+
         return $samples;
     } finally {
         fclose($f);
@@ -144,17 +147,15 @@ function soakReadSamples(string $path): array
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
     if ($argc === 5 && $argv[1] === 'sample') {
         soakSampleProcess((int) $argv[2], $argv[3], (int) $argv[4]);
-        exit(0);
-    }
-    if ($argc === 4 && $argv[1] === 'analyze') {
+    } elseif ($argc === 4 && $argv[1] === 'analyze') {
         $result = soakAnalyzeSamples(soakReadSamples($argv[2]));
         file_put_contents($argv[3], json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL);
         if (!$result['passed']) {
-            fwrite(STDERR, 'Resource drift or sample coverage gate failed.' . PHP_EOL);
-            exit(1);
+            throw new RuntimeException('Resource drift or sample coverage gate failed.');
         }
-        exit(0);
+    } else {
+        throw new InvalidArgumentException(
+            'Usage: php soak_resource_profile.php sample <pid> <csv> <seconds> | analyze <csv> <json>',
+        );
     }
-    fwrite(STDERR, "Usage: php soak_resource_profile.php sample <pid> <csv> <seconds> | analyze <csv> <json>\n");
-    exit(2);
 }
