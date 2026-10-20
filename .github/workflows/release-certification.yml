@@ -205,142 +205,160 @@ jobs:
           retention-days: 90
 
   consumer-app:
-    name: "Representative Infbyte consumer"
+    name: "Standalone Runwire package / native HTTP - PHP ${{ matrix.php-version }}"
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
 
     steps:
-      - name: Checkout Runwire candidate exact head
+      - name: Checkout exact Runwire candidate
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: runwire
 
-      - name: Checkout Infbyte consumer
-        uses: actions/checkout@v7
-        with:
-          repository: infocyph/Infbyte
-          ref: main
-          path: consumer
-
-      - name: Setup consumer PHP runtime
+      - name: Setup standalone consumer PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.5"
+          php-version: ${{ matrix.php-version }}
           tools: composer:v2
           extensions: pcntl, posix, event, opcache
           coverage: none
 
-      - name: Install Infbyte with exact Runwire candidate
-        shell: bash
-        run: |
-          cd consumer
-          composer config repositories.runwire             '{"type":"path","url":"../runwire","options":{"symlink":false,"versions":{"infocyph/runwire":"2.2.x-dev"}}}'
-          composer require infocyph/runwire:2.2.x-dev             --no-interaction --prefer-dist --no-progress --with-all-dependencies
-          composer show infocyph/runwire
-
-      - name: Confirm candidate package source and revision
+      - name: Archive exact candidate and install into isolated Composer consumer
         shell: bash
         env:
           EXPECTED_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
+          set -euo pipefail
           test "$(git -C runwire rev-parse HEAD)" = "$EXPECTED_CANDIDATE"
-          diff -qr runwire/src consumer/vendor/infocyph/runwire/src
-          cmp runwire/composer.json consumer/vendor/infocyph/runwire/composer.json
+          mkdir -p release-certification/standalone
+          workspace="$(mktemp -d)"
+          echo "$workspace" > release-certification/standalone/workspace-path
+          mkdir -p "$workspace/package" "$workspace/consumer"
+          (
+            cd runwire
+            composer validate --strict --no-check-publish
+            composer archive --format=zip --dir=../release-certification/standalone --file=runwire-candidate
+          )
+          unzip -q release-certification/standalone/runwire-candidate.zip -d "$workspace/package"
+          test -f "$workspace/package/composer.json"
+          test -f "$workspace/package/src/RuntimeOptions.php"
+          test ! -e "$workspace/package/vendor"
+          test ! -e "$workspace/package/tests"
+          cat > "$workspace/consumer/composer.json" <<'JSON'
+          {
+            "name": "runwire/standalone-release-smoke",
+            "type": "project",
+            "repositories": [
+              {"type": "path", "url": "../package", "options": {"symlink": false, "versions": {"infocyph/runwire": "2.2.x-dev"}}}
+            ],
+            "require": {"infocyph/runwire": "2.2.x-dev"},
+            "minimum-stability": "dev",
+            "prefer-stable": true
+          }
+          JSON
+          composer install --working-dir="$workspace/consumer" --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+          cmp runwire/src/RuntimeOptions.php "$workspace/consumer/vendor/infocyph/runwire/src/RuntimeOptions.php"
+          cmp runwire/composer.json "$workspace/consumer/vendor/infocyph/runwire/composer.json"
+          (
+            cd "$workspace/consumer"
+            php -r '
+              require "vendor/autoload.php";
+              $options = new Infocyph\Runwire\RuntimeOptions();
+              if ($options->driver !== Infocyph\Runwire\Runtime\Enum\RuntimeDriver::AUTO
+                  || $options->opcache !== Infocyph\Runwire\Runtime\Enum\OpcacheMode::AUTO
+                  || !class_exists(Infocyph\Runwire\Runtime::class)) {
+                  throw new RuntimeException("Standalone candidate autoload or defaults differ.");
+              }
+            '
+          )
 
-      - name: Run Infbyte full test suite
-        shell: bash
-        run: |
-          cd consumer
-          cp vendor/infocyph/phpforge/resources/pest.xml .runwire-consumer-pest.xml
-          trap 'rm -f .runwire-consumer-pest.xml' EXIT
-          vendor/bin/pest --configuration=.runwire-consumer-pest.xml
-
-      - name: Exercise Foundation + Webrick + Runwire bridge
+      - name: Exercise installed package through native HTTP/1.1 server
         shell: bash
         env:
-          RUNWIRE_CONSUMER_REF: main
           RUNWIRE_CANDIDATE_BUILD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          mkdir -p release-certification
-          cd consumer
-          php <<'PHP' | tee ../release-certification/consumer-app.json
-          <?php
-
-          declare(strict_types=1);
-
-          use Infocyph\Runwire\Http\Enum\ProtocolVersion;
-          use Infocyph\Runwire\Http\Headers;
-          use Infocyph\Runwire\Http\HttpRequest;
-          use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
-          use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
-          use Infocyph\Webrick\Request\Request;
-          use Infocyph\Webrick\Response\Response;
-          use Infocyph\Webrick\Runtime\Http\RunwireRuntimeAdapter;
-
-          require 'vendor/autoload.php';
-
-          $app = require 'bootstrap/app.php';
-          $health = $app->handle(Request::fake(method: 'GET', uri: 'http://localhost/api/health'));
-          $payload = json_decode((string) $health->getBody(), true, flags: JSON_THROW_ON_ERROR);
-          if ($health->getStatusCode() !== 200 || $payload !== ['status' => 'ok']) {
-              throw new RuntimeException('Infbyte health route failed under the candidate dependency graph.');
+          set -euo pipefail
+          workspace="$(cat release-certification/standalone/workspace-path)"
+          mkdir -p "$workspace/consumer/benchmarks"
+          cp runwire/benchmarks/http1_server.php "$workspace/consumer/benchmarks/http1_server.php"
+          port="$(php -r '
+            $socket = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+            if (!is_resource($socket)) { throw new RuntimeException($error); }
+            $address = stream_socket_get_name($socket, false);
+            fclose($socket);
+            echo substr(strrchr((string) $address, ":"), 1);
+          ')"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$workspace"
           }
+          trap cleanup EXIT
+          php -d opcache.enable_cli=1 "$workspace/consumer/benchmarks/http1_server.php" "$port" \
+            > release-certification/standalone/server.log 2>&1 &
+          server_pid=$!
+          ready=0
+          for attempt in $(seq 1 100); do
+            if curl -fsS --http1.1 --max-time 2 -H 'Connection: close' \
+              "http://127.0.0.1:$port/benchmark" \
+              -o release-certification/standalone/body.txt 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat release-certification/standalone/server.log
+              exit 1
+            fi
+            sleep 0.05
+          done
+          if [ "$ready" -ne 1 ] || [ "$(cat release-certification/standalone/body.txt)" != "ok" ]; then
+            cat release-certification/standalone/server.log
+            echo "::error::Standalone native HTTP success response invalid or unavailable."
+            exit 1
+          fi
+          invalid_status="$(curl -sS --http1.1 --max-time 5 -H 'Connection: close' \
+            "http://127.0.0.1:$port/invalid" \
+            -o release-certification/standalone/invalid-body.txt -w '%{http_code}')"
+          if [ "$invalid_status" != "400" ] || [ "$(cat release-certification/standalone/invalid-body.txt)" != "bad" ]; then
+            echo "::error::Standalone native HTTP invalid-path response failed."
+            exit 1
+          fi
+          jq -n \
+            --arg source_sha "$RUNWIRE_CANDIDATE_BUILD" \
+            --arg php_version "$(php -r 'echo PHP_VERSION;')" \
+            --arg archive "runwire-candidate.zip" \
+            '{
+              consumer: "standalone-runwire-composer",
+              source_sha: $source_sha,
+              php_version: $php_version,
+              archive: $archive,
+              isolated_composer_install: true,
+              autoload_and_defaults: true,
+              native_http_success_200: true,
+              native_http_invalid_400: true,
+              correctness_passed: true
+            }' > release-certification/standalone/result.json
+          jq -e '.correctness_passed and .isolated_composer_install
+                 and .native_http_success_200 and .native_http_invalid_400' \
+            release-certification/standalone/result.json >/dev/null
 
-          $status = null;
-          $body = '';
-          $ended = false;
-          $writer = new CallbackResponseWriter(
-              static function (int $responseStatus, Headers $headers) use (&$status): void {
-                  unset($headers);
-                  $status = $responseStatus;
-              },
-              static function (string $chunk) use (&$body): void {
-                  $body .= $chunk;
-              },
-              static function () use (&$ended): void {
-                  $ended = true;
-              },
-              4096,
-          );
-          $request = new HttpRequest(
-              method: 'GET',
-              target: '/consumer-probe',
-              version: ProtocolVersion::HTTP_1_1,
-              headers: Headers::fromArray(['Host' => 'consumer.test']),
-              body: new BufferedRequestBody(''),
-          );
-
-          $adapter = new RunwireRuntimeAdapter();
-          $context = $adapter->context($request, $writer);
-          $adapter->write(Response::plaintext('consumer-runwire-ok', 200), $context);
-
-          if ($status !== 200 || $body !== 'consumer-runwire-ok' || !$ended || !$writer->isEnded()) {
-              throw new RuntimeException('Infbyte/Webrick Runwire bridge probe failed.');
-          }
-
-          fwrite(STDOUT, json_encode([
-              'consumer' => 'infocyph/infbyte',
-              'consumer_ref' => getenv('RUNWIRE_CONSUMER_REF') ?: 'main',
-              'runwire_build' => getenv('RUNWIRE_CANDIDATE_BUILD') ?: 'unknown',
-              'foundation_boot' => true,
-              'health_route' => true,
-              'webrick_runwire_adapter' => true,
-              'response_status' => $status,
-              'response_body' => $body,
-              'correctness_passed' => true,
-          ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
-          PHP
-          cd ..
-          jq -e '.correctness_passed == true and .foundation_boot == true and .health_route == true and .webrick_runwire_adapter == true' release-certification/consumer-app.json >/dev/null
-
-      - name: Upload consumer evidence
+      - name: Upload standalone consumer evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: runwire-release-consumer-infbyte
-          path: release-certification/consumer-app.json
+          name: runwire-release-consumer-standalone-php-${{ matrix.php-version }}
+          path: |
+            release-certification/standalone/result.json
+            release-certification/standalone/server.log
           retention-days: 90
 
   release-guard:
