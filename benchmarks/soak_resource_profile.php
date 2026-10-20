@@ -15,6 +15,7 @@ function soakSampleProcess(int $pid, string $path, int $interval): void
     if (!is_resource($output)) {
         throw new RuntimeException('Unable to open resource sample file.');
     }
+
     try {
         fwrite($output, "elapsed_seconds,rss_bytes,virtual_bytes,fd_count\n");
         $start = hrtime(true);
@@ -120,6 +121,7 @@ function soakReadSamples(string $path): array
     if (!is_resource($f)) {
         throw new RuntimeException('Resource sample CSV is not readable.');
     }
+
     try {
         if (fgetcsv($f, 0, ',', '"', '') !== ['elapsed_seconds', 'rss_bytes', 'virtual_bytes', 'fd_count']) {
             throw new RuntimeException('Invalid resource sample CSV header.');
