@@ -1,7 +1,7 @@
 # Runwire 2.2 — critical-path closure register
 
 **Status:** Active engineering, not release-ready. Updated 2026-10-20.
-**Verified head:** `f804a5a6f6e7d9844dd18faedc15cba001bbc80f` (PR [#9](https://github.com/infocyph/Runwire/pull/9)).
+**Last pre-isolation fully green standard QA source:** `5b88cff2f40824526ffcd91b56e5a310a60d692f`. **Certification-isolation implementation checkpoint:** `87cfca5a40e9bf9a9792a1d975a408cadc1e582c` (PR [#9](https://github.com/infocyph/Runwire/pull/9)); final all-job QA still pending.
 **Release predecessor:** `2.1.2` at `7e9bf20ad0737a187dfed77b723791b141b36378`.
 
 ## Exact accounting
@@ -29,7 +29,7 @@ Original 95 task IDs: 64 checked complete; **24 active open**; 7 R5 dialer tasks
 
 **Shared performance bench:** R0.06/.07, R1.08, R2.09, R3.09, R4.01/.09 and R7.08 should reuse a single pinned runner and production-equivalent workload matrix. The 2.1.2 comparison produced zero-invalid-response paired trials but baseline coefficient of variation 4.283%, above the strict 2.5% threshold. Do not mark these tasks complete until new stable reproducible data exists.
 
-**External dependencies:** R4.06 independent ngtcp2/aioquic interoperability passed at `f804a5a6` (PHP8.4/8.5 aioquic, PHP8.5 ngtcp2); R8.04 immutable php-quic extension ABI and R6.10 real supported hosts still need release proof, as does the R8.05 Infbyte consumer. Current Infbyte main requires unpublished Foundation `^3.0.1`; Foundation 4 and Infbyte 4 candidates are draft and must not be falsified as published or modified under this PR.
+**External dependencies:** R4.06 independent ngtcp2/aioquic interoperability passed at `f804a5a6` (PHP8.4/8.5 aioquic, PHP8.5 ngtcp2); R8.04 immutable php-quic extension ABI and R6.10 real supported hosts still need release proof, as does the R8.05 **standalone Runwire-only** exact-SHA certification. The earlier external Infbyte Composer failure is historical evidence only, not a release gate or authorization to change another repository.
 
 **Release-only tasks:** R8/R9 are *not* prerequisites to develop safe R1–R7 code; they are mandatory before merging/tagging/publishing. The full 30-minute soak need not rerun for a documentation-only commit, but must pass on final exact source SHA.
 
@@ -52,7 +52,7 @@ All six [source head `f804a5a6`](https://github.com/infocyph/Runwire/commit/f804
 3. Validate R6 real-worker restart and privilege transitions and R7 advisory provenance with focused QA.
 4. Consolidate identical-host sustained performance and interop data before freezing the final R8/R9 candidate.
 
-**Non-goals:** no partial release, no weakened CV/p99/RSS correctness gates, no fake dependent Composer versions, no Rust interdependency and no automatic merge or tag.
+**Non-goals:** no Foundation/Infbyte changes or mandatory consumer checks, no partial release, no weakened CV/p99/RSS correctness gates, no fake dependent Composer versions, no Rust interdependency and no automatic merge or tag.
 
 ## 2026-10-20 verification checkpoint
 
@@ -61,3 +61,9 @@ All six [source head `f804a5a6`](https://github.com/infocyph/Runwire/commit/f804
 - [Full PHPForge QA matrix 39379164190](https://github.com/infocyph/Runwire/actions/runs/39379164190) validated the privilege tests in PHP8.4/8.5 stable/lowest modes. Root identity transitions were simulated using `IdentitySystemInterface`; real privilege transitions remain under native host acceptance.
 - [Archive smoke 39379163941](https://github.com/infocyph/Runwire/actions/runs/39379163941): clean archives from both PHP8.4 and 8.5 installed into isolated Composer consumer projects, with `ext-event` absent and `RuntimeOptions` AUTO defaults intact.
 - Composer audit returned **zero advisories**, with `doctrine/annotations` documented as abandoned **without an associated published advisory**. R7.09 auditing is complete; final candidate signoff remains R9.07.
+
+## Runwire-only release-certification isolation — 2026-10-20
+
+- Old dependent Infbyte acceptance replaced in Runwire's own [certification workflow](https://github.com/infocyph/Runwire/commit/fd78bf9481e45dae0dfc0712760b2f6fa2724ae4) with PHP8.4/8.5 clean ZIP + Composer install + native HTTP 200/400 fixture proof. Existing Runwire-contained [Release Candidate source install](https://github.com/infocyph/Runwire/actions/runs/39425802479) passed on both PHP versions at `87cfca5`.
+- [Comparator fix](https://github.com/infocyph/Runwire/commit/09817e878fd6003ed1f8c288a040396a191fe23c) removes false-positive `passed=true` for noisy paired release results. [Three regression cases](https://github.com/infocyph/Runwire/commit/87cfca5a40e9bf9a9792a1d975a408cadc1e582c) added; test-suite CI outcome is pending at this checkpoint.
+- R8.05/R8.08 checkboxes remain open until Runwire's *new* release jobs and isolated native runtime prove correctness on an exact final candidate. The separately failing external dependency is not a Runwire blocker. R8 performance CV threshold is unchanged at 2.5%; prior 5 ×180s matched data failed certification.

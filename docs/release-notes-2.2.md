@@ -14,7 +14,7 @@
 ## Benchmarking, QA and reproducibility
 
 - Pinned primary release comparison to the **published 2.1.2 commit**, not the older pre-consolidation revision. Added exact-source candidate validation in CI and path-repository consumer installation.
-- Matched comparison now checks consistent PHP/host, workers, concurrency, TLS, extensions, OPcache and time. Retains the 5% successful-RPM regression budget only when RPS CV is below 2.5%, and independently enforces p99 and RSS safety ceilings.
+- Matched comparison now checks consistent PHP/host, workers, concurrency, TLS, extensions, OPcache and time. Retains the 5% successful-RPM regression budget only when RPS CV is below 2.5%, and independently enforces p99 and RSS safety ceilings. Paired results with excessive CV now report `passed=false`, `certification_status=inconclusive_variance`, with regression tests; no misleading success result.
 - Added PHP8.4/8.5 reflected API manifest, exact locked development dependency record, worker/cgroup/OPcache environment inventory, phase-scoped hosted request profiler, and comparator regression tests.
 - Hardened HTTP/1 fixture's readiness publication and the live Swoole/OpenSwoole two-worker acceptance against scheduling variance while retaining strict response correctness and worker-identity validation.
 - The standard PHPForge, native portable, Swoole family, protocol benchmark and audit workflows have passed at prior exact commit checkpoints. The **final commit** still requires full source QA and optional-host/certification verification.
@@ -29,7 +29,7 @@
 
 - No defensible **successful-RPM improvement** over 2.1.2 is established: previous actual five ×180s paired benchmark was variance-inconclusive, because baseline RPS CV exceeded the established 2.5% gate.
 - One previous 30-minute native HTTP soak passed with 12,901,151 valid responses and zero errors, but that is not a soak of the final candidate.
-- Final H1/H2/H3/tail/RSS, multi-protocol drain and fault tests, PHP8.4/8.5 full QA, five ×180s matched performance, 30-minute soak and consumer bridge certification remain required.
-- Infbyte/main consumer testing is externally blocked by an unavailable declared Foundation `^3.0.1` dependency. Do not publish a success claim or alter external repositories to bypass this.
+- Final H1/H2/H3/tail/RSS, multi-protocol drain and fault tests, PHP8.4/8.5 full QA, five ×180s matched performance, 30-minute soak and **Runwire-only** standalone Composer/native-host smoke certification remain required.
+- Foundation and Infbyte are independent. Their dependency resolution is not a Runwire release gate and neither repository may be modified as part of this work. The replacement standalone Runwire consumer CI still needs to pass on the final candidate.
 
 **Release authority:** Only the maintainer may merge, tag or publish once the [handoff checklist](plans/evidence/runwire-2.2/release-handoff.md) has all required gates verified.
