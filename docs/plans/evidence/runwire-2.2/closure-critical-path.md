@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 71 checked complete; **17 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 71 complete + 17 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 72 checked complete; **16 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 72 complete + 16 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -20,7 +20,7 @@ Original 95 task IDs: 71 checked complete; **17 active open**; 7 R5 dialer tasks
 | R5 (0 in scope) | R5.02–R5.08 deferred | Deliberately not an R2.2 dialer release |
 | R6 (2) | R6.02, R6.10 | Real live restart/recycle and supported host matrix; generation invalidation QA passed R6.07 |
 | R7 (1) | R7.08 | Final RSS/queue/GC soak and leak attribution |
-| R8 (3) | R8.05, R8.07, R8.10 | Full release certification, independent protocol/host completeness and risk signoff (R8.02/.03/.08 passed) |
+| R8 (2) | R8.05, R8.10 | Full release certification, independent protocol/host completeness and risk signoff (R8.02/.03/.08 passed) |
 | R9 (3) | R9.06, R9.07, R9.09 | Final QA, risk, handoff; maintainer controls release |
 
 ## Active ownership / decision boundaries

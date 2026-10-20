@@ -3,7 +3,7 @@
 **State:** NOT READY — immutable source qualification not yet complete; no merge, tag, or publication.
 **Repository:** infocyph/Runwire only — [PR #9](https://github.com/infocyph/Runwire/pull/9), branch plan/runwire-independent-ecosystem-roadmaps.
 **Baseline:** published 2.1.2 at 7e9bf20ad0737a187dfed77b723791b141b36378.
-**Tracker:** 71/95 checked, seven R5.02–R5.08 intentionally deferred beyond 2.2; **71/88 in-scope passed (80.7%), 17 active remaining**. See [canonical task tracker](../../runwire-2.2-runtime-improvement-plan.md).
+**Tracker:** 72/95 checked, seven R5.02–R5.08 intentionally deferred beyond 2.2; **72/88 in-scope checked (81.8%), 16 active remaining**. R8.07 verifies that the benchmark gate correctly rejects inconclusive evidence; it does NOT certify the release. See [canonical task tracker](../../runwire-2.2-runtime-improvement-plan.md).
 **Latest fully-green six-standard-workflow PR head before current sampler change:** 7025e4e8d207b299a96eb0e10b5c0dbd2a9c18ac. Current corrected sampler source 7609bed requires a fresh final-source QA. Later resource sampler PHPForge fix: d2646e2919317cc376f19fd1237affb1dbc87679. The final docs commit is not a release acceptance stamp.
 
 ## Accepted integration / development QA evidence
@@ -23,7 +23,7 @@
 
 Standard PR jobs may check out a synthetic merge commit; the benchmark artifact runtime_build stamp can therefore differ from the PR branch head. Do **not** interchange ordinary CI completion, workload microbenchmarks and exact-source release certification. The opt-in workflow explicitly checks out candidate head SHA; its run ID, source identity, full artifacts and conclusions must all be recorded.
 
-## Remaining 17 in-scope canonical task IDs
+## Remaining 16 in-scope canonical task IDs
 
 | Batch | IDs | Evidence still required |
 |---|---|---|
@@ -34,7 +34,7 @@ Standard PR jobs may check out a synthetic merge commit; the benchmark artifact 
 | R4 | R4.01, R4.02, R4.04, R4.09 | Qualified multiplex H2/H3, HPACK/QPACK hotspots and QUIC poll/write, slow-peer/cancel-storm stress |
 | R6 | R6.02, R6.10 | Live native prefork crash/reload/mixed transport plus actual FrankenPHP/RoadRunner in isolated Runwire host fixtures |
 | R7 | R7.08 | Full 30-minute process RSS/FD trajectory, GC/OPcache/queue retention and leak/cache separation |
-| R8 | R8.05, R8.07, R8.10 | Single frozen head 5×180s matched CV <2.5%, full sampled 30m soak and signed-off matrix |
+| R8 | R8.05, R8.10 | 5×180s gate is enforced (R8.07); still need passing frozen-head CV <2.5%, full sampled 30m soak and risk signoff |
 | R9 | R9.06, R9.07, R9.09 | Final exact-head QA/security/risk reconciliation; release handoff prepared as R9.08, no automatic release |
 
 ## Non-blocking scope / authorization

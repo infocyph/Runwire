@@ -13,13 +13,13 @@
 
 **R7.08 OPEN:** prior actual 30-minute native HTTP soak passed 12,901,151 requests and zero errors, but final exact SHA does not yet have full queue/RSS leak and GC/OPcache soak analysis. **R7.09 OPEN:** security advisories and full dependency CVE provenance on the last candidate remain to be signed off.
 
-## R8 audit completed: 7/10 tasks
+## R8 audit completed: 8/10 tasks
 
 - **R8.01:** Standard PR workflows vs conditional release-certification fully audited. Green normal CI ≠ release certification. The former four release jobs were matched performance, native soak, Infbyte consumer and PHPForge guard. The updated Runwire-only workflow retains performance/soak/guard and substitutes a PHP 8.4/8.5 standalone Composer-installed native HTTP consumer; this new job is not accepted without CI evidence.
 - **R8.06:** Published 2.1.2 annotated tag resolved to immutable `7e9bf20ad0737a187dfed77b723791b141b36378` and is primary matched benchmark baseline in release workflow; historical pre-consolidation SHA removed as the release baseline. Candidate SHA/path install checks added.
 - **R8.09:** Retrieved real workflow/benchmark artifacts, identified nonmatching GitHub CPU models, baseline CV 4.283% > 2.5% ceiling, previous conditional skips and actual Infbyte dependency failure, and corrected loose evidence metadata. Unsupported comparisons never counted as passing.
 
-**R8.05/.07/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
+**R8.05/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
 
 ## Change scope
 
