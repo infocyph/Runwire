@@ -196,6 +196,12 @@ jobs:
           ')"
 
           test "$RUNWIRE_OPCACHE" = "enabled-cli"
+          curl -fsS --http1.1 --max-time 3 -H 'Connection: close' \
+            "http://127.0.0.1:$port/__runwire_soak_diagnostics" \
+            > release-certification/soak/internal-initial.json
+          jq -e '.gc_enabled == true and .opcache_enabled == true
+            and .allocated_bytes > 0 and .gc_roots >= 0 and .opcache_used_bytes > 0' \
+            release-certification/soak/internal-initial.json >/dev/null
           php benchmarks/soak_resource_profile.php sample "$server_pid" release-certification/soak/resources.csv 15 \
             > release-certification/soak/resource-sampler.log 2>&1 &
           sampler_pid=$!
