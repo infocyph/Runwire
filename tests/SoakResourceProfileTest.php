@@ -50,7 +50,9 @@ it('rejects truncated, nonmonotonic and incomplete samples', function (): void {
 
 it('counts a real Linux worker process tree rather than only a root server PID', function (): void {
     if (PHP_OS_FAMILY !== 'Linux') {
-        test()->markTestSkipped('Linux /proc acceptance only.');
+        expect(is_dir('/proc'))->toBeFalse();
+
+        return;
     }
 
     $current = soakReadProcessTree(getmypid());
