@@ -1,12 +1,12 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — R0–R7 engineering QA/audits advanced; R8 release qualification and R9 handoff are not complete
+**Status:** ACTIVE — 59/95 canonical tasks checked; 7 R5 dialer tasks deferred outside 2.2, leaving 29 in-scope open tasks; R8/R9 not complete
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-20
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
-**Implementation:** Core 2.2 improvements committed (host header normalization, SelectLoop timer fairness, ByteQueue batched read); incomplete performance, interop, and release-certification requirements remain visible
+**Implementation:** Core 2.2 improvements committed (host header normalization, SelectLoop timer fairness, ByteQueue batched read); standard CI passed at `f804a5a6f6e7`; final matched performance, interop and release-certification requirements remain open
 **Release:** No tag, merge or publish authorized.
 
 ## Release decision
@@ -62,17 +62,44 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [~] 7/9 — portable timer fairness; mixed-load perf/soak open |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [~] 8/9 — HTTP1/ByteQueue regression suite; end-to-end A/B open |
 | R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 5/10 — H2/H3 correctness; performance/independent-client stress open |
-| R5 | Coroutine-aware outbound I/O | Nonblocking networking primitives, real cancellation/deadline/backpressure behavior | [~] 2/9 — reviewed/documented; 7 new-dialer tasks explicitly DEFERRED |
+| R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
 | R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 6/10 — host ownership and real Swoole parity; extended host/cross-transport gates open |
 | R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 8/10 — observability/process safety audit; final soak/CVE signoff open |
 | R8 | Integration + certification | Foundation/Infbyte/Webrick smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 3/10 — baseline/CI audit complete; release certification outstanding |
 | R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 4/9 — documentation ready in draft; final QA/release handoff outstanding |
 
+### Active release-scope and critical-path ledger — 2026-10-20
+
+**Why progress appeared stalled:** Earlier progress updates focused repeatedly on R0's last benchmark checkboxes despite successful implementation work across R1–R7. The source branch has moved well beyond that earlier checkpoint. Do not use a stale R0/R1 snapshot as the total program status.
+
+**Verified at source SHA `f804a5a6f6e7d9844dd18faedc15cba001bbc80f`:** [Security & Standards](https://github.com/infocyph/Runwire/actions/runs/39374716440), [Benchmarks](https://github.com/infocyph/Runwire/actions/runs/39374716128), [Portable Native](https://github.com/infocyph/Runwire/actions/runs/39374715960), [Swoole/OpenSwoole](https://github.com/infocyph/Runwire/actions/runs/39374715907), [Source Audit](https://github.com/infocyph/Runwire/actions/runs/39374716040), [Release Candidate](https://github.com/infocyph/Runwire/actions/runs/39374716170) all **succeeded**. Conditional [Release Certification](https://github.com/infocyph/Runwire/actions/runs/39374715989) was **skipped** and cannot be counted as passing.
+
+| Accounting | Tasks |
+|---|---:|
+| Canonical original plan | 95 |
+| Checked DONE with evidence | 59 |
+| Explicitly deferred beyond 2.2 | 7 (R5.02–R5.08, still unchecked) |
+| **Active 2.2 remaining** | **29** |
+| **In-scope completion** | **59/88 (67.0%)** |
+
+Do **not** check deferred R5 tasks or silently delete them. Their deferral is recorded in [R5/R6 handoff](evidence/runwire-2.2/r5-r6-handoff.md). R5 can be signed off as a *scope resolution* only; this is not a new nonblocking dialer release.
+
+**Unblocked execution sequence (source work → focused QA → evidence, then next package):**
+
+1. **P1 — Complete independently testable work:** focused R2 scheduler profiling, R4 H2/H3 codec profiling/interop, R6 real worker fault/privilege testing and R7 security dependency audit. Preserve correct behavior and avoid speculative fast-path changes.
+2. **P2 — Consolidate actual performance proof:** R0.06/.07, R1.08, R2.09, R3.09, R4.01/.02/.04/.09, R7.08. Run real same-host baseline and candidate for **each changed hot path**, classify noisy results as inconclusive; no invented speedups. Reuse one pinned environment manifest and evidence protocol, rather than each batch reinventing benchmark setup.
+3. **P3 — Independent hosted/protocol evidence:** R4.06, R6.02/.07/.08/.10, R8.04/.05 (including real client QUIC/OpenSSL ABI and worker restart). If external infrastructure is unavailable, keep its gate OPEN with an explicit test owner and installation condition.
+4. **P4 — One immutable release candidate:** R8.02/.03/.07/.08/.10, R9.05–R9.09, plus R7.09, full exact-SHA QA, 5×180s matched benchmark with CV < 2.5%, 30-minute soak, real Infbyte consumer and release guard. **Infbyte/main Foundation dependency is an external publication-order blocker**; no alias substitution, no cross-repo changes. No merge, tag or publication.
+
+**Batch protocol:** We may prepare and QA independent source audits while one statistically unstable release benchmark is inconclusive, but may not close a task requiring that missing measurement. Avoid repeatedly triggering the 30-minute soak on documentation-only commits. At each code checkpoint use the exact-SHA regular CI suite, record red/skipped lanes, resolve Runwire-owned regressions before a subsequent hot-path change, and update the canonical checkboxes in the same development pass.
+
+Detailed remaining-task register: [2.2 closure critical path](evidence/runwire-2.2/closure-critical-path.md).
+
 ### R0 — establish truthful baseline
 
-**Confirmed R0 evidence tasks:** R0.02 environment/capability audit, R0.04 PHP 8.4/8.5 contract inventory, R0.05 workload matrix, R0.08 matched benchmark equivalence/correctness audit, R0.09 immediate-predecessor baseline qualification, and R0.11 persisted evidence/tracker setup are complete (see [workloads and retrieved CI evidence](evidence/runwire-2.2/r0-workload-matrix.md)). All runtime measurements and mandatory R0 exit gates remain open.
+**Current R0 status: 9/11 complete.** R0.01–R0.05 and R0.08–R0.11 have evidence; R0.06 actual end-to-end cost attribution and R0.07 stable same-host 2.1.2-to-2.2 concurrency curves remain open. The long release-certification process is tracked separately in R8; do not use an old CI smoke sample as full R0 completion.
 
-**Initial evidence:** [R0 repository and QA preflight](evidence/runwire-2.2/r0-preflight.md), 2026-10-19. PR [#9](https://github.com/infocyph/Runwire/pull/9) opened as draft. The original preflight and subsequent published-2.1.2 tag verification are partial R0 deliverables. CI succeeded for the earlier `acb01ca6` revision; current candidate CI, complete environment manifest, actual matched tests, measured baselines and p99/RSS budgets remain pending. No R0 task checkbox is marked done prematurely.
+**Initial evidence:** [R0 repository and QA preflight](evidence/runwire-2.2/r0-preflight.md), 2026-10-19. PR [#9](https://github.com/infocyph/Runwire/pull/9) opened as draft. Preflight and subsequent CI artifacts now establish the checked R0 audit and acceptance-policy tasks; see [R0 profile and manifest](evidence/runwire-2.2/r0-profile-and-manifest.md) for latest toolchain, risk and measurement provenance. The final same-host profiler/concurrency tasks remain open. Latest standard CI is green at `f804a5a6`; its release-certification job was skipped.
 
 - Capture exact source SHA, PHForge version, PHP 8.4/8.5 NTS, extensions, kernel/CPU and OPcache.
 - Document representative workloads: empty response, small JSON, streaming response, 64KiB and 1MiB, keep-alive, TLS, H2 multiplexing, H3, WebSocket, TCP/UDP, cooperative tasks; repeat warmed measurements.
