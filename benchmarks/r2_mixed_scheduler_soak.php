@@ -42,6 +42,7 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
     $pending = [];
     $latency = [];
     $sampledMemory = [];
+    $lastCpuTimerIds = [];
     $started = hrtime(true);
 
     $readWatcher = $loop->onReadable($reader, static function (mixed $stream) use (&$received, &$pending, &$latency): void {
@@ -69,6 +70,7 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
         &$pending,
         &$maxPending,
         &$sampledMemory,
+        &$lastCpuTimerIds,
     ): void {
         if (count($pending) > 8) {
             throw new RuntimeException('Mixed pressure network backlog exceeded its safety bound.');
@@ -80,8 +82,9 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
         $pending[] = $timestamp;
         ++$sent;
         $maxPending = max($maxPending, count($pending));
+        $lastCpuTimerIds = [];
         for ($index = 0; $index < $cpuBurst; ++$index) {
-            $loop->delay(0.0, static function () use (&$cpuCalls): void {
+            $lastCpuTimerIds[] = $loop->delay(0.0, static function () use (&$cpuCalls): void {
                 hash('sha256', 'runwire-mixed-scheduler-' . $cpuCalls);
                 ++$cpuCalls;
             });
@@ -96,6 +99,9 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
         $loop->run();
     } finally {
         $loop->cancel($timer);
+        foreach ($lastCpuTimerIds as $cpuTimerId) {
+            $loop->cancel($cpuTimerId);
+        }
         $loop->cancel($readWatcher);
         $loop->cancel($stop);
         fclose($reader);
@@ -115,7 +121,19 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
         && $diagnostics->deferredBacklog === 0
         && count($latency) >= 4;
     if (!$correct) {
-        throw new RuntimeException('Mixed scheduler run leaked loop work or starved real socket responses.');
+        throw new RuntimeException(sprintf(
+            'Mixed scheduler invariant failed: sent=%d read=%d pending=%d cpu=%d expected_cpu=%d timers=%d read_watchers=%d write_watchers=%d deferred=%d latency_samples=%d.',
+            $sent,
+            $received,
+            $pendingCount,
+            $cpuCalls,
+            ($sent - 1) * $cpuBurst,
+            $diagnostics->timersActive,
+            $diagnostics->readWatchers,
+            $diagnostics->writeWatchers,
+            $diagnostics->deferredBacklog,
+            count($latency),
+        ));
     }
 
     $p99 = r2MixedPercentile($latency, 0.99);
