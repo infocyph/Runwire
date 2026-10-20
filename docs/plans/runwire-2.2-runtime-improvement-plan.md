@@ -6,7 +6,7 @@
 **Updated:** 2026-10-20
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
-**Implementation:** Core 2.2 improvements committed (host header normalization, SelectLoop timer fairness, ByteQueue batched read); standard CI passed at `f804a5a6f6e7`; final matched performance, interop and release-certification requirements remain open
+**Implementation:** Core 2.2 improvements committed (host header normalization, SelectLoop timer fairness, ByteQueue batched read); all six standard workflows passed on `5b88cff2f408`; exact-SHA 30-minute soak and PHPForge release guard passed, but paired throughput variance failed the certification limit. The historical Infbyte Composer failure is external, not a Runwire-owned release gate; workflow isolation still needs implementing in this repository.
 **Release:** No tag, merge or publish authorized.
 
 ## Release decision
@@ -15,6 +15,15 @@
 - Scope is restricted to the existing standalone PHP Runwire library. Runwire-Core and Runwire-Cells retain their own independent versions and roadmaps.
 - No release, merge, or tag until all applicable QA, benchmark, integration, and release-certification gates pass for the exact candidate SHA.
 - If a release-blocking security or correctness issue requires an emergency patch, handle it explicitly as a separate maintainer decision; do not silently change the 2.2 target.
+
+### Strict Runwire-only development and qualification boundary — maintainer decision, 2026-10-20
+
+- **This plan authorizes changes only to `infocyph/Runwire`, on `plan/runwire-independent-ecosystem-roadmaps` and PR #9.** Do not edit, push, rebase, open PRs in, patch, upgrade, or publish `infocyph/Foundation` or `infocyph/Infbyte`. Do not change any other dependency or consumer repository under this plan.
+- Foundation and Infbyte are independent projects. Their package versions, dependency graphs, release schedules, and failed Composer resolutions are **outside Runwire's ownership and must not block Runwire 2.2 development or release qualification**. Keep historical failures as truthful external observations, not as mandatory Runwire pass/fail criteria.
+- No Foundation/Infbyte source clone, suite, bridge, alias, synthetic Composer version, or branch pin is required for Runwire's R6/R8/R9 acceptance. Use Runwire-owned fixtures, standalone Composer package install checks, supported real hosts, independent protocol clients, and self-contained smoke tests for Runwire release proof.
+- **Required Runwire-only follow-up:** update `.github/workflows/release-certification.yml` within this repository to decouple the old Infbyte consumer job from the release verdict. Prefer replacing the mandatory consumer gate with self-contained package and real-host checks; do not camouflage old external failures or count them as passing. Workflow changes require their own exact-SHA QA.
+- Runwire-owned correctness, PHP 8.4/8.5 quality, H1/H2/H3 interoperability, worker lifecycle, matched 5 × 180-second baseline comparison (CV < 2.5%), p99/RSS constraints, 30-minute soak, and release guard **remain mandatory**. No merge, tag or publication until those gates pass.
+- This scope decision changes **acceptance requirements, not completion evidence**: leave R6.10, R8.05, R8.08 and R9 tasks unchecked until their revised Runwire-only requirements demonstrably pass.
 
 ## Mission and product boundary
 
@@ -65,7 +74,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
 | R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 7/10 — privilege rejection and ordering verified; real cross-transport recycle/host gates open |
 | R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 9/10 — dependency advisories audited; final leak/soak measurements open |
-| R8 | Integration + certification | Foundation/Infbyte/Webrick smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 3/10 — baseline/CI audit complete; release certification outstanding |
+| R8 | Runwire-only integration + certification | Standalone package/host smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 3/10 — baseline/CI audit complete; workflow isolation and performance certification outstanding |
 | R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 5/9 — clean PHP8.4/8.5 archive install certified; final release handoff open |
 
 ### Active release-scope and critical-path ledger — 2026-10-20
@@ -93,7 +102,7 @@ Do **not** check deferred R5 tasks or silently delete them. Their deferral is re
 1. **P1 — Complete independently testable work:** focused R2 scheduler profiling, R4 H2/H3 codec profiling/interop, R6 real worker fault/privilege testing and R7 security dependency audit. Preserve correct behavior and avoid speculative fast-path changes.
 2. **P2 — Consolidate actual performance proof:** R0.06/.07, R1.08, R2.09, R3.09, R4.01/.02/.04/.09, R7.08. Run real same-host baseline and candidate for **each changed hot path**, classify noisy results as inconclusive; no invented speedups. Reuse one pinned environment manifest and evidence protocol, rather than each batch reinventing benchmark setup.
 3. **P3 — Independent hosted/protocol evidence:** R4.06, R6.02/.07/.08/.10, R8.04/.05 (including real client QUIC/OpenSSL ABI and worker restart). If external infrastructure is unavailable, keep its gate OPEN with an explicit test owner and installation condition.
-4. **P4 — One immutable release candidate:** R8.02/.03/.07/.08/.10, R9.05–R9.09, plus R7.09, full exact-SHA QA, 5×180s matched benchmark with CV < 2.5%, 30-minute soak, real Infbyte consumer and release guard. **Infbyte/main Foundation dependency is an external publication-order blocker**; no alias substitution, no cross-repo changes. No merge, tag or publication.
+4. **P4 — One immutable Runwire-only release candidate:** R8.02/.03/.05/.07/.08/.10 and R9.05–R9.09, full exact-SHA QA, 5×180s matched benchmark with CV < 2.5%, 30-minute soak, independent Runwire package/host smoke and release guard. Revise Runwire's certification workflow to remove the mandatory Infbyte consumer job. The historic unpublished Foundation dependency is outside this release's pass/fail criteria. No cross-repo changes, merge, tag or publication.
 
 **Batch protocol:** We may prepare and QA independent source audits while one statistically unstable release benchmark is inconclusive, but may not close a task requiring that missing measurement. Avoid repeatedly triggering the 30-minute soak on documentation-only commits. At each code checkpoint use the exact-SHA regular CI suite, record red/skipped lanes, resolve Runwire-owned regressions before a subsequent hot-path change, and update the canonical checkboxes in the same development pass.
 
@@ -156,7 +165,7 @@ Detailed remaining-task register: [2.2 closure critical path](evidence/runwire-2
 
 - Run focused and complete PHPForge gates, PHP 8.4/8.5 matrix, optional-extension absence, portable-no-PCNTL and accelerated-ext-event lanes.
 - Test hosted runtimes against real worker processes; Swoole & OpenSwoole both.
-- Execute the **actual** release-certification workflow against candidate SHA: matched baseline/candidate 5 × 180-second trials with warmup, 30-minute soak, Infbyte consumer full tests, Foundation/Webrick bridge.
+- Execute the **Runwire-only** release-certification workflow against candidate SHA: matched baseline/candidate 5 × 180-second trials with warmup, 30-minute soak, standalone Composer consumer and real-host smoke owned by Runwire, and PHPForge release guard; Foundation/Infbyte integration is not a release gate.
 - Confirm no open high-severity protocol/security regressions; investigate all skips and failures, including flaky or timing-sensitive runs.
 - Update docs, migration, changelog comparing immediate previous tag; plan-only branch never tags/publishes.
 
@@ -173,7 +182,7 @@ This section converts the R0–R9 roadmap into executable engineering packages. 
 - Plan change policy: only one active implementation batch at a time; if a blocking issue requires expanding scope, update this plan and its tracker **before or in the same commit as** the corrective work. Never silently skip a batch, change a baseline, or mark a step finished because its CI job was skipped.
 - Suggested ordering: R0 -> R1 -> R2 -> R3 -> R4 -> R5 -> R6 -> R7 -> R8 -> R9. A regression-fix detour may return to a previous batch, but its tracker and evidence must reflect that interruption.
 - Prioritize simple direct hot paths, optimized immutable configuration and optional instrumentation. Do not introduce pools, memoization, redundant abstractions, compatibility wrappers or new packages without lifecycle proof and measured request-level value.
-- Do not modify Foundation, Infbyte, Webrick, Omnibus, PHPForge or another repository as part of this plan. Consumer failures are evidence or separate follow-up changes, not implicit authorization to edit their code.
+- No repository other than `infocyph/Runwire` may be changed under this plan: expressly no Foundation or Infbyte code, metadata, branches, dependency changes or releases. Their external failures are archival observations and not Runwire blockers. Only Runwire-owned certification tests are mandatory; do not modify dependent projects to obtain green CI.
 - 2.2 is a minor release: preserve intended public/protected contracts by default. If a breaking change proves essential, record the affected symbols, migration, rationale and explicit decision before implementation; do not hide a major incompatibility in a minor release.
 
 ### Definition of done for **every** batch
@@ -341,7 +350,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R6 — native supervisor and hosted-runtime lifecycle parity
 
-**R6 audit progress: 6/10 tasks completed** from actual native, hosted, worker/portability suites. Remaining multi-protocol live recycle, worker-generation, exhaustive privilege and full consumer/real-host checks are explicitly still open; see [R5/R6 evidence](evidence/runwire-2.2/r5-r6-handoff.md).
+**R6 audit progress: 6/10 tasks completed** from actual native, hosted, worker/portability suites. Remaining multi-protocol live recycle, worker-generation, exhaustive privilege and standalone Runwire real-host checks are explicitly still open; see [R5/R6 evidence](evidence/runwire-2.2/r5-r6-handoff.md).
 
 **Likely sources:** src/Runtime.php, src/Runtime/Driver/{FpmDriver,FrankenPhpDriver,RoadRunnerDriver,SwooleDriver}.php, src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/{NativeHttpWorker,PortableNativeRuntime,WorkerRecycleState}.php, src/Supervisor/*.
 
@@ -355,7 +364,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [ ] **R6.07** Verify worker-generation invalidation for active coroutine scopes, callback handles, application references, request contexts and timers after replacement.
 - [x] **R6.08** Verify privilege drop: supplementary groups, GID-before-UID, final identity check, non-root warning and startup rejection on partial transition.
 - [x] **R6.09** Check host request/body/response fidelity, reset on every exception, and one drain/shutdown per instance including startup failure.
-- [ ] **R6.10** Run real host and consumer acceptance on PHP 8.4/8.5, not just fake adapters; document environments unavailable in CI.
+- [ ] **R6.10** Run real Runwire-host acceptance on PHP 8.4/8.5, including standalone Composer-installed Runwire fixtures; verify supported worker/process boundaries rather than fake adapters alone. Document unavailable infrastructure. No Foundation or Infbyte repository dependency.
 
 **Existing test candidates:** tests/SwooleDriverTest.php, SwooleLoopTest.php, RoadRunnerRuntimeTest.php, GenericRuntimeTest.php, SupervisorLifecycleTest.php, NativeWorkerLifecycleTest.php, SupervisorRecycleTest.php, PrivilegeDropOrderingTest.php, PortableNativeRuntimeTest.php, BatchGDrainTest.php.
 
@@ -383,25 +392,25 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 **Exit:** Incident-relevant bounded diagnostics and adversarial safety suite passing, with instrumentation overhead measured and recorded.
 
-### R8 — cross-integration, complete QA and release certification
+### R8 — standalone Runwire integration, complete QA and release certification
 
-**3/10 audit/CI hygiene tasks complete**; remaining real promotion/certification and the external Infbyte publication-order failure remain visible. [R7/R8 audit](evidence/runwire-2.2/r7-r8-qa.md).
+**3/10 audit/CI hygiene tasks complete**; real protocol/host promotion and Runwire-owned certification remain open. The historical external Infbyte publication-order failure is recorded but removed from Runwire's release gates by the 2026-10-20 scope decision; the existing CI workflow must still be updated accordingly. [R7/R8 audit](evidence/runwire-2.2/r7-r8-qa.md).
 
-**Likely sources:** all .github/workflows/*.yml, benchmarks/*, tests/*, docs/deployment.md, docs/benchmarks.md; existing consumer projects **read/test only**.
+**Likely sources:** Runwire's .github/workflows/*.yml, benchmarks/*, tests/*, docs/deployment.md, docs/benchmarks.md; standalone Runwire-owned client/consumer fixtures only. No Foundation or Infbyte repo work.
 
 **Tasks**
 - [x] **R8.01** Audit required CI and fix missing/incorrect gates, always applying them to the candidate SHA. Reconcile normal PR workflows vs opt-in release certification, reporting skips honestly.
 - [ ] **R8.02** Run PHPForge full tests, static analysis, formatting/quality, security and release guard for PHP 8.4 + 8.5 with preferably both lowest and stable dependency modes where existing pipeline supports them.
 - [ ] **R8.03** Run accelerated ext-event, portable no-PCNTL, OpenSSL missing/fail-closed, Swoole/OpenSwoole, real QUIC/H3 and OPcache lanes.
 - [ ] **R8.04** Run real native H1, H2, H3, WebSocket, TCP/Unix, UDP and process lifecycle integration; explicitly note unavailable host infrastructure as blocking or accepted risk.
-- [ ] **R8.05** Run the existing release-certification workflow on the exact Runwire 2.2 candidate SHA; verify all four intended categories: matched sustained performance, 30-minute native HTTP soak, Infbyte consumer integration and PHPForge release guard.
+- [ ] **R8.05** Update and run the Runwire-owned release-certification workflow on the exact 2.2 candidate SHA; verify matched sustained performance, 30-minute native HTTP soak, standalone Runwire Composer/real-host consumer smoke, and PHPForge release guard. Remove the current mandatory Infbyte CI job; do not let unrelated Foundation/Infbyte dependency resolution determine Runwire release readiness.
 - [x] **R8.06** Modify primary matched performance baseline to **immediate predecessor tag 2.1.2** with verified source SHA and output provenance; separately preserve historical dc78bdc9... comparisons if still useful. This is a deliberate workflow/benchmark change, not evidence already achieved.
 - [ ] **R8.07** Ensure matched sustained runs execute five 180-second measured trials after warmup using comparable environments; enforce throughput regression budget, response correctness, confidence/variance and resource/tail bounds.
-- [ ] **R8.08** Run the actual Infbyte full suite and Foundation/Webrick Runwire bridge against the candidate via isolated test install; record dependency resolution and run output, but do **not** modify consumer repos without a separate request.
+- [ ] **R8.08** Run Runwire's isolated package consumer and owned end-to-end fixtures against the exact candidate, covering real HTTP/native-host behaviors without depending on, testing or modifying Foundation, Infbyte, or other external consumer repositories. Record installation, response correctness, lifecycle outcomes and missing-host limitations.
 - [x] **R8.09** Audit test artifacts for false success, expected skips, timing flakiness, malformed JSON metrics, missing test jobs, altered benchmarks and stale pinned dependencies.
 - [ ] **R8.10** Build a signed-off test matrix with per-mode and per-protocol evidence, known constraints and release-risk register. No performance headline unsupported by same-topology repeated evidence.
 
-**Exit:** All mandatory full certification gates actually ran and passed for exact candidate; consumer acceptance recorded; zero unresolved critical/high blockers.
+**Exit:** All Runwire-owned mandatory certification gates actually ran and passed for the exact candidate; standalone Runwire consumer and real-host acceptance recorded; zero unresolved Runwire-owned critical/high blockers. Third-party package publication issues are out of scope.
 
 ### R9 — developer-facing documentation, release-quality finalization
 
@@ -472,7 +481,7 @@ For every completed or attempted task, add a dated entry in an evidence manifest
 - Do not rewrite the plan to erase failed trials; distinguish negative results from unfinished requirements.
 - At any user request for progress, report Rn task completion fraction, blocking failures, exact head SHA and whether the corresponding mandatory CI jobs actually passed.
 - If an optional workload is genuinely unavailable, classify as unverified and identify the dependency needed; avoid pretending it passed.
-- No cross-repository edits, no required dependencies on the two Rust libraries, no merge/tag/publish actions under this planning authorization.
+- Only Runwire repository edits are authorized; Foundation and Infbyte are fully independent and cannot be changed or required by certification. No required dependencies on the two Rust libraries, no merge/tag/publish actions under this planning authorization.
 
 
 ## Evidence and acceptance template (repeat for every batch)
@@ -510,3 +519,11 @@ For every completed or attempted task, add a dated entry in an evidence manifest
 - R2.03: existing `MonotonicTimeTest`, `SelectLoopTest`, and `BatchLCoroutineSchedulerTest` validate ordering, monotonic deadlines, cancellation-before/after readiness and timer cancellation. R2.04: existing bounded ready queue, `TimerQueue` heap compaction and cancellation cleanup reviewed; no extra caching introduced.
 - R2.05: `BatchMStructuredConcurrencyTest` verifies fail-fast/collect-all, nested deadline, task-local inherited snapshot and request-scope reuse. R2.06: `BatchNSynchronizationTest` verifies zero-capacity rendezvous FIFO, bounded waiters, semaphore ownership, mutex waiters, barrier cancellation/reuse. R2.07: [native portable 39372948300](https://github.com/infocyph/Runwire/actions/runs/39372948300) passed PHP8.4/8.5 and scalable ext-event; `EventLoopTest` covers >1024 descriptors, core SelectLoop remains 256 owned-connection limit. R2.08: `AsyncConnectionTest` and `BatchLCoroutineSchedulerTest` exercise I/O watcher deregistration, EOF, cancellation, pressure and close. Those source suites passed at prior green baseline; new bounded timer tests passed Pest on SHA `429d956e`. Pint initially failed constant ordering and was fixed on `5e14b750`; its full new CI still requires final confirmation. **R2.01** scheduler all-load allocation profiler and **R2.09** sustained mixed p99/queue soak remain open (R8 qualification).
 - R3.02 experiment: `ByteQueue::read` had an `O(chunks)` loop that called `discard()` for *each* chunk, reapplying compaction checks and budget releases. The candidate performs exactly one aggregate budget release and compaction after reading, retaining chunk order, partial offsets, byte accounting and validation. Local PHP8.4.24 isolated emulation consumed 525k bytes over 350 repetitions: old 42.5ms vs candidate 31.3ms (same machine); this is **not** full-server RPS evidence. New `ByteQueueReadTest` covers partial reads, 300-chunk compaction, exact shared quota, interleaved discard and queue reuse. R3.02 **requires fresh CI** before being considered complete.
+
+### Runwire-only scope reconciliation — 2026-10-20
+
+Maintainer instruction: **do not touch Foundation or Infbyte**. This supersedes the roadmap's earlier language making the Infbyte consumer suite and Foundation/Webrick bridge release blockers. Such external consumer work is removed from R6.10/R8.05/R8.08 acceptance without treating any unfinished checkboxes as done. The current release-certification workflow still includes an old failing Infbyte job; modifying that workflow **within Runwire only** is the next required implementation step.
+
+At source `5b88cff2f40824526ffcd91b56e5a310a60d692f`, the six standard CI workflows succeeded; the release-certification run [39379880727](https://github.com/infocyph/Runwire/actions/runs/39379880727) completed with a **passing 30-minute native soak and PHPForge release guard**, a **failed matched-performance acceptance due to excessive variation**, and a **failed external Infbyte Composer dependency resolution**. The last result is retained as truthful historical evidence, not an ongoing Runwire-owned release blocker. The next candidate must pass a refactored Runwire-only certification workflow.
+
+**Canonical progress unchanged by this plan decision:** 64/95 checked, seven R5 dialer tasks deferred, **64/88 in scope (72.7%)** complete, **24 active open**. Do not infer code or QA completion from a documentation-only scope update.
