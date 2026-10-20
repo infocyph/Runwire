@@ -9,6 +9,7 @@
 - **Hosted request normalization:** Inlined CGI header-name translation for `HTTP_*`, `CONTENT_TYPE` and `CONTENT_LENGTH` in `HostRequestFactory`, avoiding an extra per-server-entry helper dispatch while maintaining scalar validation and normalized `HeaderField` enforcement. Expanded host scalar-header regression tests.
 - **Portable event-loop fairness:** `SelectLoop` now caps due-timer work at 256 entries per tick, preserving outstanding timers for subsequent ticks so ready network watchers are not starved by a timer storm. Added 600-timer plus ready-socket tests. The ext-event backend is unchanged.
 - **ByteQueue work batching:** Shared worker byte-budget release and chunk compaction now happen once per `ByteQueue::read()` batch rather than per consumed chunk. Added tests for 300 chunks, partial offsets, interleaved discard, shared quota and queue reuse. This does not remove any buffer ceiling.
+- **Worker-generation closure:** Closed WorkerContext instances now immediately reject background admission and invalidate previously scheduled periodic work. Added focused test coverage for retired callbacks, cancelled scopes, application instances and request-context isolation during replacement.
 - **Compatibility:** No new public or protected runtime API contract is introduced by those changes. PHP `^8.4`, 64-bit, framework-agnostic Composer install, optional ext-event, PCNTL/POSIX, TLS, QUIC and host integrations remain as before.
 
 ## Benchmarking, QA and reproducibility

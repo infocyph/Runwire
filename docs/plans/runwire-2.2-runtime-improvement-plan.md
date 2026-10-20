@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — 67/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 21 in-scope open tasks; R8.02/.03/.08 completed with exact-SHA QA, full R8/R9 qualification still open
+**Status:** ACTIVE — 68/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 20 in-scope open tasks; R6.07 worker-generation isolation accepted, full R6/R8/R9 certification still open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-20
@@ -72,7 +72,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [~] 8/9 — HTTP1/ByteQueue regression suite; end-to-end A/B open |
 | R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 6/10 — aioquic/ngtcp2 confirmed; workload saturation and storm stress open |
 | R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
-| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 7/10 — privilege rejection and ordering verified; real cross-transport recycle/host gates open |
+| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 8/10 — worker-generation invalidation and privilege ordering verified; real cross-transport recycle/host gates open |
 | R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 9/10 — dependency advisories audited; final leak/soak measurements open |
 | R8 | Runwire-only integration + certification | Standalone package/host smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 6/10 — PHP8.4/8.5 QA, optional runtime matrix and standalone consumer passed; full release certification remains open |
 | R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 5/9 — clean PHP8.4/8.5 archive install certified; final release handoff open |
@@ -350,7 +350,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R6 — native supervisor and hosted-runtime lifecycle parity
 
-**R6 audit progress: 6/10 tasks completed** from actual native, hosted, worker/portability suites. Remaining multi-protocol live recycle, worker-generation, exhaustive privilege and standalone Runwire real-host checks are explicitly still open; see [R5/R6 evidence](evidence/runwire-2.2/r5-r6-handoff.md).
+**R6 audit progress: 8/10 tasks completed** from native, hosted, worker/portability and verified worker-generation QA. Only multi-protocol live recycle and complete standalone Runwire real-host matrix remain open (R6.02 and R6.10); see [R5/R6 evidence](evidence/runwire-2.2/r5-r6-handoff.md).
 
 **Likely sources:** src/Runtime.php, src/Runtime/Driver/{FpmDriver,FrankenPhpDriver,RoadRunnerDriver,SwooleDriver}.php, src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/{NativeHttpWorker,PortableNativeRuntime,WorkerRecycleState}.php, src/Supervisor/*.
 
@@ -361,7 +361,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R6.04** Confirm Swoole and OpenSwoole real two-worker/worker-replacement factory runs **after fork** and reports child PID, worker slot and fresh context/metrics; run both serve() and serveApplication().
 - [x] **R6.05** Confirm FPM request-scoped and FrankenPHP classic/worker/RoadRunner hosted boundaries do not attempt to bind a competing listener or drive a second incompatible event loop.
 - [x] **R6.06** Exercise accepted-but-incomplete HTTP header admission during drain (H1/H2/H3), wait deadlines, keepalive stop, GOAWAY and WebSocket close; never drop already accepted requests incorrectly.
-- [ ] **R6.07** Verify worker-generation invalidation for active coroutine scopes, callback handles, application references, request contexts and timers after replacement.
+- [x] **R6.07** Verify worker-generation invalidation for active coroutine scopes, callback handles, application references, request contexts and timers after replacement. **Verified:** [WorkerGenerationIsolationTest](https://github.com/infocyph/Runwire/blob/plan/runwire-independent-ecosystem-roadmaps/tests/WorkerGenerationIsolationTest.php), [code d9117e7](https://github.com/infocyph/Runwire/commit/d9117e732e2f8a17602fed17273528330eb15d22), [PHPForge PHP8.4/8.5 QA 39429653975](https://github.com/infocyph/Runwire/actions/runs/39429653975); real multi-transport process reload still R6.02.
 - [x] **R6.08** Verify privilege drop: supplementary groups, GID-before-UID, final identity check, non-root warning and startup rejection on partial transition.
 - [x] **R6.09** Check host request/body/response fidelity, reset on every exception, and one drain/shutdown per instance including startup failure.
 - [ ] **R6.10** Run real Runwire-host acceptance on PHP 8.4/8.5, including standalone Composer-installed Runwire fixtures; verify supported worker/process boundaries rather than fake adapters alone. Document unavailable infrastructure. No Foundation or Infbyte repository dependency.
@@ -548,4 +548,12 @@ At source `5b88cff2f40824526ffcd91b56e5a310a60d692f`, the six standard CI workfl
 - [Release Certification 39427240745](https://github.com/infocyph/Runwire/actions/runs/39427240745) verified the **PHPForge release guard with ext-event succeeded**; standalone package/HTTP smoke passed PHP8.4/8.5. The 5×180s performance and 30m soak were still active at this checkpoint, not accepted here.
 - [Portable Native 39427240811](https://github.com/infocyph/Runwire/actions/runs/39427240811) passed PHP8.4/8.5 genuinely no-PCNTL/POSIX, TLS and disabled OpenSSL crypto-function fail-closed, and ext-event accelerated lane. [Swoole/OpenSwoole 39427240740](https://github.com/infocyph/Runwire/actions/runs/39427240740) passed four PHP8.4/8.5 extension modes including live two-worker identity. HTTP3/QUIC PHP8.4/8.5 jobs of Security & Standards passed OpenSSL/extension ABI and independent aioquic and PHP8.5 ngtcp2 interop. [Release Candidate 39427240721](https://github.com/infocyph/Runwire/actions/runs/39427240721), [Source Audit 39427240706](https://github.com/infocyph/Runwire/actions/runs/39427240706), and [Benchmarks 39427240739](https://github.com/infocyph/Runwire/actions/runs/39427240739) all succeeded; OPcache-enabled benchmark/runtime checks retained.
 - R8.02 and R8.03 closed as executed and evidenced; R8.04 real comprehensive protocol/fault integration, R8.05 full release certification, R8.07 statistically stable paired performance, and R9.06/R9.07 final frozen-source QA remain separate gates. Rerun relevant QA after any new production source change.
+
+
+### R6.07 — retired worker generation isolation accepted (2026-10-20)
+
+- [Production fix b820293](https://github.com/infocyph/Runwire/commit/b820293e67da2e6b1473088f0d99775e96ea658e): close() marks the retiring WorkerContext as stopping before disposing of scope, periodic timer and reactor handles, so it cannot advertise background admission after closure. The transition is idempotent.
+- [WorkerGenerationIsolationTest from b820293 and d9117e7](https://github.com/infocyph/Runwire/commit/d9117e732e2f8a17602fed17273528330eb15d22): three focused Pest cases cover idempotent closure, rejected late background and periodic admission, cancelled suspended coroutine tasks, old periodic handle invalidation while a new generation reuses the same task name, no old callback bleed, timer/watch cleanup, retired application rejection, completed request-context rejection and successful fresh-generation application handling. Existing BatchPSoakTest and NativeWorkerLifecycleTest continue to assert multi-generation drains and request ownership.
+- [Security & Standards run 39429653975](https://github.com/infocyph/Runwire/actions/runs/39429653975) at exact code source d9117e7 passed all four PHPForge Pest QA combinations (8.4/8.5 × lowest/stable), PHP8.4/8.5 analysis, PHPCS and Pint. [Portable Native 39429653366](https://github.com/infocyph/Runwire/actions/runs/39429653366), [Swoole/OpenSwoole 39429653245](https://github.com/infocyph/Runwire/actions/runs/39429653245), [Source Audit 39429653353](https://github.com/infocyph/Runwire/actions/runs/39429653353), and [Release Candidate 39429653220](https://github.com/infocyph/Runwire/actions/runs/39429653220) passed. H3 PHP8.5 and full release certification were still running at this evidence checkpoint, so those are not credited.
+- **R6.07 complete for local generation invalidation**. R6.02 remains the live multi-protocol process restart/recycle stress and R6.10 remains the complete real-host environment matrix; neither is implied by these in-process tests. No Foundation or Infbyte work performed.
 

@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 67 checked complete; **21 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 67 complete + 21 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 68 checked complete; **20 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 68 complete + 20 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -18,14 +18,14 @@ Original 95 task IDs: 67 checked complete; **21 active open**; 7 R5 dialer tasks
 | R3 (1) | R3.09 | HTTP1/streaming small/bulk matched performance and syscalls |
 | R4 (4) | R4.01, R4.02, R4.04, R4.09 | H2/H3 realistic saturation, HPACK/QPACK hotspots, independent QUIC clients and cancellation storm |
 | R5 (0 in scope) | R5.02–R5.08 deferred | Deliberately not an R2.2 dialer release |
-| R6 (3) | R6.02, R6.07, R6.10 | Real restart/recycle, generation invalidation and real hosts |
+| R6 (2) | R6.02, R6.10 | Real live restart/recycle and supported host matrix; generation invalidation QA passed R6.07 |
 | R7 (1) | R7.08 | Final RSS/queue/GC soak and leak attribution |
 | R8 (4) | R8.04, R8.05, R8.07, R8.10 | Full release certification, independent protocol/host completeness and risk signoff (R8.02/.03/.08 passed) |
 | R9 (4) | R9.06, R9.07, R9.08, R9.09 | Final QA, risk, handoff; maintainer controls release |
 
 ## Active ownership / decision boundaries
 
-**Runwire-owned engineering work:** R2.01, R6.08 and R7.09 now have focused QA evidence. R4.02/.04 and R6.02/.07 remain independently actionable without waiting for unrelated published Foundation packages. Any source optimization still needs its own end-to-end same-host proof.
+**Runwire-owned engineering work:** R2.01, R6.08 and R7.09 now have focused QA evidence. R4.02/.04 and R6.02/.10 remain independently actionable without waiting for unrelated published Foundation packages. Any source optimization still needs its own end-to-end same-host proof.
 
 **Shared performance bench:** R0.06/.07, R1.08, R2.09, R3.09, R4.01/.09 and R7.08 should reuse a single pinned runner and production-equivalent workload matrix. The 2.1.2 comparison produced zero-invalid-response paired trials but baseline coefficient of variation 4.283%, above the strict 2.5% threshold. Do not mark these tasks complete until new stable reproducible data exists.
 
@@ -78,4 +78,12 @@ At exact Runwire source [9940779](https://github.com/infocyph/Runwire/commit/994
 - [Release Certification 39427240745](https://github.com/infocyph/Runwire/actions/runs/39427240745) verified the **PHPForge release guard with ext-event succeeded**; standalone package/HTTP smoke passed PHP8.4/8.5. The 5×180s performance and 30m soak were still active at this checkpoint, not accepted here.
 - [Portable Native 39427240811](https://github.com/infocyph/Runwire/actions/runs/39427240811) passed PHP8.4/8.5 genuinely no-PCNTL/POSIX, TLS and disabled OpenSSL crypto-function fail-closed, and ext-event accelerated lane. [Swoole/OpenSwoole 39427240740](https://github.com/infocyph/Runwire/actions/runs/39427240740) passed four PHP8.4/8.5 extension modes including live two-worker identity. HTTP3/QUIC PHP8.4/8.5 jobs of Security & Standards passed OpenSSL/extension ABI and independent aioquic and PHP8.5 ngtcp2 interop. [Release Candidate 39427240721](https://github.com/infocyph/Runwire/actions/runs/39427240721), [Source Audit 39427240706](https://github.com/infocyph/Runwire/actions/runs/39427240706), and [Benchmarks 39427240739](https://github.com/infocyph/Runwire/actions/runs/39427240739) all succeeded; OPcache-enabled benchmark/runtime checks retained.
 - R8.02 and R8.03 closed as executed and evidenced; R8.04 real comprehensive protocol/fault integration, R8.05 full release certification, R8.07 statistically stable paired performance, and R9.06/R9.07 final frozen-source QA remain separate gates. Rerun relevant QA after any new production source change.
+
+
+### R6.07 — retired worker generation isolation accepted (2026-10-20)
+
+- [Production fix b820293](https://github.com/infocyph/Runwire/commit/b820293e67da2e6b1473088f0d99775e96ea658e): close() marks the retiring WorkerContext as stopping before disposing of scope, periodic timer and reactor handles, so it cannot advertise background admission after closure. The transition is idempotent.
+- [WorkerGenerationIsolationTest from b820293 and d9117e7](https://github.com/infocyph/Runwire/commit/d9117e732e2f8a17602fed17273528330eb15d22): three focused Pest cases cover idempotent closure, rejected late background and periodic admission, cancelled suspended coroutine tasks, old periodic handle invalidation while a new generation reuses the same task name, no old callback bleed, timer/watch cleanup, retired application rejection, completed request-context rejection and successful fresh-generation application handling. Existing BatchPSoakTest and NativeWorkerLifecycleTest continue to assert multi-generation drains and request ownership.
+- [Security & Standards run 39429653975](https://github.com/infocyph/Runwire/actions/runs/39429653975) at exact code source d9117e7 passed all four PHPForge Pest QA combinations (8.4/8.5 × lowest/stable), PHP8.4/8.5 analysis, PHPCS and Pint. [Portable Native 39429653366](https://github.com/infocyph/Runwire/actions/runs/39429653366), [Swoole/OpenSwoole 39429653245](https://github.com/infocyph/Runwire/actions/runs/39429653245), [Source Audit 39429653353](https://github.com/infocyph/Runwire/actions/runs/39429653353), and [Release Candidate 39429653220](https://github.com/infocyph/Runwire/actions/runs/39429653220) passed. H3 PHP8.5 and full release certification were still running at this evidence checkpoint, so those are not credited.
+- **R6.07 complete for local generation invalidation**. R6.02 remains the live multi-protocol process restart/recycle stress and R6.10 remains the complete real-host environment matrix; neither is implied by these in-process tests. No Foundation or Infbyte work performed.
 

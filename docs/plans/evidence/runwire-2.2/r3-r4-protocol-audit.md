@@ -28,3 +28,19 @@ At source SHA `f804a5a6f6e7d9844dd18faedc15cba001bbc80f`, [Security & Standards 
 - PHP 8.4 ngtcp2 checkout/build/run was intentionally **skipped** by workflow matrix; no claim that independent ngtcp2 was tested there.
 - The extension source currently tracks `mikepultz/php-quic@main`, which is a remaining reproducibility risk for final R8.04/R8.10 ABI manifest; R4.06 tests itself were actually executed and passed.
 - Exact independent client job IDs: PHP 8.4 `118470344941`; PHP 8.5 `118470345205`. R4.06 is marked DONE on the canonical plan; other R4 stress/throughput tasks remain open.
+
+## Protocol core cost measurements — supporting R4.02/R4.04 evidence only (2026-10-20)
+
+[Benchmarks 39427240739](https://github.com/infocyph/Runwire/actions/runs/39427240739) attached PHP8.4 and PHP8.5 PHPBench artifacts, each 5 measured iterations per existing ProtocolCoreBench subject, 1,000 repetitions, one warmup. The fields below are exact reported PHPBench mode values, NOT server latency or successful RPM:
+
+| Subject | PHP 8.4 mode | PHP 8.5 mode |
+|---|---:|---:|
+| H2 HPACK encode | 20.681 | 14.346 |
+| H2 HPACK decode | 35.487 | 23.093 |
+| H3 QPACK dynamic round-trip | 211.869 | 153.302 |
+| H3 QPACK static encode | 87.997 | 60.213 |
+| H3 QPACK static decode | 97.505 | 65.860 |
+| H3 frame encode | 0.191 | 0.123 |
+| H3 frame decode | 1.015 | 0.678 |
+
+These represent **different algorithms and workload shapes**, not an apples-to-apples HPACK-vs-QPACK speed comparison; distinct runner versions/conditions are also not evidence of a production-version gain. No rewrite or performance improvement claim is authorized by this profile alone. **R4.02 and R4.04 remain OPEN** pending integer/Huffman, frame/scheduling, QUIC poll/write and representative end-to-end attribution. The release primary metric remains sustained successful RPM.
