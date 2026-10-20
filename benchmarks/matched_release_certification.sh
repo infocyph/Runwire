@@ -33,6 +33,45 @@ if [ "$opcache" != "enabled-cli" ]; then
   exit 1
 fi
 
+if ! command -v taskset >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+  echo "Matched certification requires Linux taskset and Python 3 for verifiable CPU isolation." >&2
+  exit 1
+fi
+
+# Select two different physical cores from the actual runner cpuset. Both
+# baseline and candidate servers use the SAME server core, sequentially;
+# the benchmark client uses a separate physical core in every trial.
+affinity_json="$(python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+allowed = sorted(os.sched_getaffinity(0))
+physical = {}
+for cpu in allowed:
+    topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+    core = (topology / "core_id").read_text().strip()
+    package = (topology / "physical_package_id").read_text().strip()
+    physical.setdefault((package, core), cpu)
+if len(physical) < 2:
+    raise SystemExit("Matched certification needs two allowed distinct physical CPU cores.")
+servers = list(physical.values())
+print(json.dumps({
+    "mode": "pinned_distinct_physical_cores",
+    "server_cpu": servers[0],
+    "client_cpu": servers[1],
+    "allowed_logical_cpu_count": len(allowed),
+    "available_physical_core_count": len(physical),
+    "same_server_cpu_for_baseline_and_candidate": True,
+    "client_separate_physical_core": True,
+}, separators=(",", ":")))
+PY
+)"
+printf '%s\n' "$affinity_json" | jq -e '.client_separate_physical_core == true and .same_server_cpu_for_baseline_and_candidate == true' \
+  > "$output_dir/cpu-affinity.json"
+server_cpu="$(jq -r '.server_cpu' "$output_dir/cpu-affinity.json")"
+client_cpu="$(jq -r '.client_cpu' "$output_dir/cpu-affinity.json")"
+
 baseline_pid=""
 candidate_pid=""
 
@@ -102,7 +141,7 @@ start_server() {
   local log="$3"
   (
     cd "$root"
-    exec php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port"
+    exec taskset -c "$server_cpu" php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port"
   ) >"$log" 2>&1 &
   LAST_PID=$!
 }
@@ -119,10 +158,10 @@ run_evidence() {
   RUNWIRE_RUNTIME_VERSION="$label" \
   RUNWIRE_RUNTIME_BUILD="$build" \
   RUNWIRE_PHP_VERSION="$php_version" \
-  RUNWIRE_INSTRUMENTATION="release-certification-matched" \
+  RUNWIRE_INSTRUMENTATION="release-certification-matched-pinned-physical-cores" \
   RUNWIRE_OPCACHE="$opcache" \
   RUNWIRE_EXTENSION_VERSIONS="$extension_versions" \
-    php "$candidate_dir/benchmarks/http1_sustained_bench.php" \
+    taskset -c "$client_cpu" php "$candidate_dir/benchmarks/http1_sustained_bench.php" \
       "$port" 16 "$warmup" "$duration" "$pid" > "$result"
 
   jq -e '
