@@ -15,8 +15,12 @@ permissions:
 
 jobs:
   package:
-    name: "Package contents - PHP 8.5"
+    name: "Package contents and install - PHP ${{ matrix.php-version }}"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
 
     steps:
       - name: Checkout Runwire
@@ -25,7 +29,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2 # v2
         with:
-          php-version: "8.5"
+          php-version: ${{ matrix.php-version }}
           tools: composer:v2
           coverage: none
 
@@ -62,11 +66,37 @@ jobs:
             fi
           done
 
+      - name: Verify archive clean install and safe defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(mktemp -d)"
+          trap 'rm -rf "$workspace"' EXIT
+          unzip -q build/package/runwire-candidate.zip -d "$workspace"
+          test -f "$workspace/composer.json"
+          test -f "$workspace/src/RuntimeOptions.php"
+          if [ -e "$workspace/tests" ] || [ -e "$workspace/vendor" ]; then
+            echo "::error::Clean archive unexpectedly contains test or vendor dependencies."
+            exit 1
+          fi
+          pushd "$workspace"
+          composer install --no-dev --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+          php -r '
+          require "vendor/autoload.php";
+          $options = new Infocyph\Runwire\RuntimeOptions();
+          if ($options->driver !== Infocyph\Runwire\Runtime\Enum\RuntimeDriver::AUTO
+              || $options->opcache !== Infocyph\Runwire\Runtime\Enum\OpcacheMode::AUTO
+              || !class_exists(Infocyph\Runwire\Runtime::class)) {
+              throw new RuntimeException("Runwire archive autoload or safe defaults failed.");
+          }
+          '
+          popd
+
       - name: Upload candidate package evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: runwire-candidate-package
+          name: runwire-candidate-package-php-${{ matrix.php-version }}
           path: |
             build/package/runwire-candidate.zip
             build/package-contents.txt
