@@ -22,7 +22,18 @@ if (!is_resource($server)) {
     throw new RuntimeException($error);
 }
 $name = stream_socket_get_name($server, false);
-file_put_contents($argv[1], substr(strrchr((string) $name, ':'), 1));
+if (!is_string($name) || !str_contains($name, ':')) {
+    throw new RuntimeException('Fixture did not obtain a valid listening address.');
+}
+$port = (int) substr(strrchr($name, ':'), 1);
+if ($port < 1 || $port > 65535) {
+    throw new RuntimeException('Fixture did not obtain a valid listening port.');
+}
+// Atomic publication prevents reading the port file before the write is complete.
+$pending = $argv[1] . '.pending';
+if (file_put_contents($pending, (string) $port, LOCK_EX) === false || !rename($pending, $argv[1])) {
+    throw new RuntimeException('Unable to publish the fixture listening port.');
+}
 $response = base64_decode($argv[2], true);
 if (!is_string($response)) {
     throw new RuntimeException('Invalid fixture response.');

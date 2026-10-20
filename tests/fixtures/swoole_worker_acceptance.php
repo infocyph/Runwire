@@ -88,11 +88,29 @@ try {
                 array_push($responses, ...json_decode($json, true, flags: JSON_THROW_ON_ERROR));
             }
             $workers = array_unique(array_column($responses, 'pid'));
+            // Reactor scheduling need not distribute the initial burst evenly.
+            // Keep a finite probe budget; fail if both workers cannot actually serve traffic.
+            for ($probe = 0; $probe < 64 && count($workers) === 1; ++$probe) {
+                usleep(20_000);
+                $responses[] = $request($port);
+                $workers = array_unique(array_column($responses, 'pid'));
+            }
             $slots = array_unique(array_column($responses, 'worker_slot'));
             sort($slots);
-            $check(count($responses) === 64 && count($workers) === 2, 'Expected 64 requests across two workers.');
+            $check(
+                count($responses) >= 64 && count($responses) <= 128 && count($workers) === 2,
+                sprintf(
+                    'Expected two active workers; observed %d responses from %d workers (PIDs: %s).',
+                    count($responses),
+                    count($workers),
+                    implode(', ', $workers),
+                ),
+            );
             $check($slots === [0, 1], 'Expected both native worker slots.');
-            $check(count(array_unique(array_column($responses, 'request_id'))) === 64, 'Request identities leaked across requests.');
+            $check(
+                count(array_unique(array_column($responses, 'request_id'))) === count($responses),
+                'Request identities leaked across requests.',
+            );
             foreach ($responses as $response) {
                 $check($response['runtime_pid'] === $response['pid'] && $response['pid'] !== $masterPid, 'Request inherited its parent context.');
             }
@@ -131,7 +149,11 @@ try {
             foreach ($events as $event) {
                 $check($event['pid'] === $event['runtime_pid'], 'Lifecycle inherited its parent context.');
             }
-            fwrite(STDOUT, $api . ': 2 workers, 64 isolated requests, exact worker contexts and one shutdown each' . PHP_EOL);
+            fwrite(STDOUT, sprintf(
+                '%s: 2 workers, %d isolated requests, exact worker contexts and one shutdown each',
+                $api,
+                count($responses),
+            ) . PHP_EOL);
         } catch (Throwable $error) {
             fwrite(STDERR, (string) file_get_contents($log));
             if (is_file($trace)) {
