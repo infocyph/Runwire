@@ -1,0 +1,12 @@
+# Runwire 2.2 — R1 completion and R2 fairness work
+
+
+### R1 functional QA → R2 timer fairness implementation (2026-10-20)
+
+**R1 evidence:** The preceding code commit `e4573a4e7924ed62c14fae51f7f3728d9d1d90ab` completed PHPForge Pest and analysis on PHP8.4/8.5 stable/lowest dependencies, Swoole/OpenSwoole and portable-native lanes; long unrelated QUIC/diagnostics jobs were still running at the time of this transition. Task R1.02 is the real code simplification of CGI HTTP header normalization, matching existing scalars and validation. R1.03 is a **documented no-change optimization decision**: RequestFinalizer already provides exactly-once response terminal/cleanup and exception aggregation, so riskier finalizer rewrites were rejected. R1.04 exception aggregation and R1.05 identity/single-activation contracts are verified in `ApplicationLifecycleTest`, `RequestContextActivationTest`, `PersistentRuntimeIsolationTest`, and the new `R1RequestLifecycleRegressionTest`. R1.06 cold/warmed hosted costs and OPcache footprint are measured in current R0 host profiling and existing PHPBench evidence. **R1.08 remains open**: final native/host comparable A/B with tracing cannot be certified from per-operation or cross-runner data.
+
+**R2.02 implementation:** `SelectLoop::runDueTimers` previously drained all currently due callbacks in one tick, potentially preventing socket watchers from receiving an event-loop turn. A conservative 256-due-entry limit per tick ensures the reactor gets a chance to poll I/O during a 600-timer burst. A cancelled/stale timer still counts toward the per-tick work budget. Outstanding due timers remain in the heap and are delivered on later ticks. New `SelectLoopTest` cases assert exact work counts 256/512/600 and ready-socket progress at 256. Ext-event backend unchanged. This is a **fairness/correctness fix**, not an assumed successful RPM gain; focused/full CI must pass before R2.02 is considered QA certified. 
+
+**QA links:** [R1 PHPForge](https://github.com/infocyph/Runwire/actions/runs/39372118013), [R1 benchmarks](https://github.com/infocyph/Runwire/actions/runs/39372117689), [Swoole](https://github.com/infocyph/Runwire/actions/runs/39372117726), [Portable](https://github.com/infocyph/Runwire/actions/runs/39372117688).
+
+**Definition:** R1.08 remains a hard performance gate; no unqualified throughput improvement claimed. R2 timer limits require fresh PHP8.4/8.5 and portable event-loop QA, including exact-SHA failure review. Neither changes Rust library behavior.

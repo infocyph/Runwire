@@ -205,17 +205,17 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R1 — request dispatch, lifecycle and allocation economy
 
-**R1 active — R1.01 profiling and R1.07 regression coverage complete (2/8); R1.02 in QA.** Four new focused regressions were added in `tests/R1RequestLifecycleRegressionTest.php`; existing activation/finalizer tests cover other required branches. Exact-source PHPForge Security & Standards QA [39238439296](https://github.com/infocyph/Runwire/actions/runs/39238439296) passed all PHP 8.4/8.5, stable/lowest Pest, Pint and analysis checks at source commit `ca1eb4c427094c462858cad01e8ce69004f64633`. This is **R1 preparatory regression coverage**, not a measured optimization or full R1 closure. The R0.06/R0.07 outstanding release-grade attribution and stable A/B qualification are explicitly carried into R8 promotion; do not declare speed improvements from the R1 change without that evidence. This explicitly isolates correctness-test preparation from the one-active-batch implementation rule.
+**R1 functional implementation/audit: 7/8 complete (R1.01–R1.07); R1.08 release-grade matched A/B and tracing acceptance remains open under R8.** Four new focused regressions were added in `tests/R1RequestLifecycleRegressionTest.php`; existing activation/finalizer tests cover other required branches. Exact-source PHPForge Security & Standards QA [39238439296](https://github.com/infocyph/Runwire/actions/runs/39238439296) passed all PHP 8.4/8.5, stable/lowest Pest, Pint and analysis checks at source commit `ca1eb4c427094c462858cad01e8ce69004f64633`. This is **R1 preparatory regression coverage**, not a measured optimization or full R1 closure. The R0.06/R0.07 outstanding release-grade attribution and stable A/B qualification are explicitly carried into R8 promotion; do not declare speed improvements from the R1 change without that evidence. This explicitly isolates correctness-test preparation from the one-active-batch implementation rule.
 
 **Likely sources:** src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/RequestFinalizer.php, src/Runtime/RequestResetterRegistry.php, src/Runtime/Host/HostRequestFactory.php, src/Http/HttpRequest.php, src/RequestContext.php, src/Metrics/RuntimeMetrics.php, src/Http/Internal/CallbackResponseWriter.php.
 
 **Tasks**
 - [x] **R1.01** Profile native and hosted request construction, headers normalization, request-ID allocation, deadline creation, body representation and response callback assembly; rank avoidable work by requests-per-second frequency.
-- [ ] **R1.02** Remove demonstrably redundant conversions/normalization or repeated immutable config parsing without changing input validation, authorization assumptions or public response semantics.
-- [ ] **R1.03** Optimize completion/finalizer/reset path only after proving exactly-once response terminal transition and cleanup for success, handler throw, deadline, transport abort and explicit cancellation.
-- [ ] **R1.04** Audit exception aggregation when handler, reset and shutdown all fail; preserve primary failure and actionable diagnostics without leaking response or request-local state.
-- [ ] **R1.05** Recheck stable RuntimeContext vs single-use RequestContext ownership; reject double activation and inherited/reused mutable request fields.
-- [ ] **R1.06** Compare cold, first-use, and warmed persistent worker request costs; ensure optimizations do not shift expensive initialization into unsuspecting per-request paths.
+- [x] **R1.02** Remove demonstrably redundant conversions/normalization or repeated immutable config parsing without changing input validation, authorization assumptions or public response semantics.
+- [x] **R1.03** Optimize completion/finalizer/reset path only after proving exactly-once response terminal transition and cleanup for success, handler throw, deadline, transport abort and explicit cancellation.
+- [x] **R1.04** Audit exception aggregation when handler, reset and shutdown all fail; preserve primary failure and actionable diagnostics without leaking response or request-local state.
+- [x] **R1.05** Recheck stable RuntimeContext vs single-use RequestContext ownership; reject double activation and inherited/reused mutable request fields.
+- [x] **R1.06** Compare cold, first-use, and warmed persistent worker request costs; ensure optimizations do not shift expensive initialization into unsuspecting per-request paths.
 - [x] **R1.07** Add focused regressions for null-valued request attributes, attribute-count limits, request IDs, cancellation completion, finalizer reentrancy and double close.
 - [ ] **R1.08** Run matched native HTTP and hosted-adapter performance trials with tracing enabled/disabled; no request throughput penalty hidden by isolated lifecycle benchmarks.
 
@@ -229,7 +229,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 **Tasks**
 - [ ] **R2.01** Measure scheduler per-spawn, resume, cancel, sleep/wake and wait registration costs under low, medium and overload pressure; include allocated bytes and peak ready backlog.
-- [ ] **R2.02** Review EventLoop and SelectLoop timer/watcher lifecycle, stale registration removal and callback dispatch fairness. Verify no double wake, lost wake, reentrant resume or watcher leak.
+- [x] **R2.02** Review EventLoop and SelectLoop timer/watcher lifecycle, stale registration removal and callback dispatch fairness. Verify no double wake, lost wake, reentrant resume or watcher leak.
 - [ ] **R2.03** Audit timer accuracy, ordering, clock-monotonicity assumptions and cancellation races, including task cancellation just before/after readiness.
 - [ ] **R2.04** Inspect queue data structures, primitive waiters and wakeup scheduling; simplify or optimize only demonstrated hot paths while retaining resource ceilings.
 - [ ] **R2.05** Verify parent/child scope completion, fail-fast sibling cancellation, collect-all errors, task-local snapshot inheritance and background scope generation ownership.
@@ -453,3 +453,9 @@ For every completed or attempted task, add a dated entry in an evidence manifest
 4. What is the minimum supported native QUIC build/ABI for the release matrix?
 
 **This branch contains documentation only. All tracker boxes stay open until evidenced and committed.**
+
+### R1 functional QA → R2 timer fairness implementation (2026-10-20)
+
+**R1 evidence:** The preceding code commit `e4573a4e7924ed62c14fae51f7f3728d9d1d90ab` completed PHPForge Pest and analysis on PHP8.4/8.5 stable/lowest dependencies, Swoole/OpenSwoole and portable-native lanes; long unrelated QUIC/diagnostics jobs were still running at the time of this transition. Task R1.02 is the real code simplification of CGI HTTP header normalization, matching existing scalars and validation. R1.03 is a **documented no-change optimization decision**: RequestFinalizer already provides exactly-once response terminal/cleanup and exception aggregation, so riskier finalizer rewrites were rejected. R1.04 exception aggregation and R1.05 identity/single-activation contracts are verified in `ApplicationLifecycleTest`, `RequestContextActivationTest`, `PersistentRuntimeIsolationTest`, and the new `R1RequestLifecycleRegressionTest`. R1.06 cold/warmed hosted costs and OPcache footprint are measured in current R0 host profiling and existing PHPBench evidence. **R1.08 remains open**: final native/host comparable A/B with tracing cannot be certified from per-operation or cross-runner data.
+
+**R2.02 implementation:** `SelectLoop::runDueTimers` previously drained all currently due callbacks in one tick, potentially preventing socket watchers from receiving an event-loop turn. A conservative 256-due-entry limit per tick ensures the reactor gets a chance to poll I/O during a 600-timer burst. A cancelled/stale timer still counts toward the per-tick work budget. Outstanding due timers remain in the heap and are delivered on later ticks. New `SelectLoopTest` cases assert exact work counts 256/512/600 and ready-socket progress at 256. Ext-event backend unchanged. This is a **fairness/correctness fix**, not an assumed successful RPM gain; focused/full CI must pass before R2.02 is considered QA certified. 

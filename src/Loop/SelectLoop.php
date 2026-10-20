@@ -20,6 +20,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 {
     private const int MICROS_PER_SECOND = 1_000_000;
 
+    // Prevent a due-timer storm from starving readable/writable watchers.
+    private const int MAX_TIMERS_PER_TICK = 256;
+
     private readonly int $callbackOverrunNanoseconds;
 
     private readonly TimerQueue $timers;
@@ -431,15 +434,18 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function runDueTimers(): void
     {
-        while ($this->running && ($id = $this->timers->takeNextDue()) !== null) {
+        for ($processed = 0; $this->running && $processed < self::MAX_TIMERS_PER_TICK;) {
+            $id = $this->timers->takeNextDue();
+            if ($id === null) {
+                return;
+            }
+            ++$processed;
+
             $timer = $this->timers->timer($id);
             if ($timer === null) {
                 continue;
             }
             $this->fireTimer($id, $timer);
-            if (!$this->running) {
-                return;
-            }
         }
     }
 
