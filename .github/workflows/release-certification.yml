@@ -139,7 +139,12 @@ jobs:
           ')"
           server_pid=""
           sampler_pid=""
+          telemetry_pid=""
           cleanup() {
+            if [ -n "$telemetry_pid" ] && kill -0 "$telemetry_pid" 2>/dev/null; then
+              kill -TERM "$telemetry_pid" 2>/dev/null || true
+              wait "$telemetry_pid" 2>/dev/null || true
+            fi
             if [ -n "$sampler_pid" ] && kill -0 "$sampler_pid" 2>/dev/null; then
               kill -TERM "$sampler_pid" 2>/dev/null || true
               wait "$sampler_pid" 2>/dev/null || true
@@ -151,7 +156,7 @@ jobs:
           }
           trap cleanup EXIT
 
-          php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port"             > release-certification/soak/server.log 2>&1 &
+          RUNWIRE_SOAK_DIAGNOSTICS=1 php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port"             > release-certification/soak/server.log 2>&1 &
           server_pid=$!
 
           for _ in $(seq 1 300); do
@@ -194,10 +199,21 @@ jobs:
           php benchmarks/soak_resource_profile.php sample "$server_pid" release-certification/soak/resources.csv 15 \
             > release-certification/soak/resource-sampler.log 2>&1 &
           sampler_pid=$!
+          php benchmarks/soak_runtime_telemetry.php sample "$port" "$server_pid" \
+            release-certification/soak/internal-worker.jsonl 15 \
+            > release-certification/soak/internal-telemetry.log 2>&1 &
+          telemetry_pid=$!
           php benchmarks/http1_sustained_bench.php             "$port" 32 30 1800 "$server_pid"             > release-certification/soak/http1-30m.json
           kill -TERM "$sampler_pid" 2>/dev/null || true
           wait "$sampler_pid" 2>/dev/null || true
           sampler_pid=""
+          kill -TERM "$telemetry_pid" 2>/dev/null || true
+          wait "$telemetry_pid" 2>/dev/null || true
+          telemetry_pid=""
+          php benchmarks/soak_runtime_telemetry.php analyze \
+            release-certification/soak/internal-worker.jsonl \
+            release-certification/soak/internal-analysis.json
+          jq -e '.passed == true' release-certification/soak/internal-analysis.json >/dev/null
           php benchmarks/soak_resource_profile.php analyze \
             release-certification/soak/resources.csv release-certification/soak/resource-analysis.json
           jq -e '.passed == true' release-certification/soak/resource-analysis.json >/dev/null
