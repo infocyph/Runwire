@@ -28,6 +28,43 @@ $request = static function (int $port, string $path = '/probe') use ($check): ar
     }
 };
 
+// Keep simultaneous connections open until every request is submitted. The default
+// Swoole-family fixed-FD dispatch may otherwise recycle one descriptor and route
+// a burst of sequential localhost requests to only one of two healthy workers.
+$parallelRequests = static function (int $port, int $count) use ($check): array {
+    $sockets = [];
+    $results = [];
+    $requestBytes = "GET /probe HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+    try {
+        for ($index = 0; $index < $count; ++$index) {
+            $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errorCode, $error, 3.0);
+            $check(is_resource($socket), 'Unable to create concurrent worker probe: ' . $error);
+            stream_set_timeout($socket, 5);
+            $check(fwrite($socket, $requestBytes) === strlen($requestBytes), 'Incomplete concurrent worker probe request.');
+            $sockets[] = $socket;
+        }
+
+        foreach ($sockets as $socket) {
+            $response = stream_get_contents($socket);
+            $check(is_string($response), 'Unable to read concurrent worker probe response.');
+            $boundary = strpos($response, "\r\n\r\n");
+            $check($boundary !== false, 'Concurrent worker probe returned incomplete HTTP headers.');
+            $status = substr($response, 0, $boundary);
+            $check(preg_match('/^HTTP\/\S+ 200\b/', $status) === 1, 'Concurrent worker probe returned a non-200 status.');
+            $body = substr($response, $boundary + 4);
+            $decoded = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+            $check(is_array($decoded), 'Concurrent worker probe returned invalid JSON.');
+            $results[] = $decoded;
+        }
+
+        return $results;
+    } finally {
+        foreach ($sockets as $socket) {
+            fclose($socket);
+        }
+    }
+};
+
 if (($argv[1] ?? '') === 'client') {
     $responses = [];
     for ($i = 0; $i < 8; $i++) {
@@ -90,9 +127,8 @@ try {
             $workers = array_unique(array_column($responses, 'pid'));
             // Reactor scheduling need not distribute the initial burst evenly.
             // Keep a finite probe budget; fail if both workers cannot actually serve traffic.
-            for ($probe = 0; $probe < 64 && count($workers) === 1; ++$probe) {
-                usleep(20_000);
-                $responses[] = $request($port);
+            for ($probe = 0; $probe < 4 && count($workers) === 1; ++$probe) {
+                array_push($responses, ...$parallelRequests($port, 16));
                 $workers = array_unique(array_column($responses, 'pid'));
             }
             $slots = array_unique(array_column($responses, 'worker_slot'));
