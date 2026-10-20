@@ -287,12 +287,14 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R5 — coroutine-aware outbound network I/O (bounded feature slice)
 
+**2.2 scope decision:** New nonblocking TCP/TLS dialer, DNS and HTTP transport are explicitly **DEFERRED to a separately planned extension**, not a 2.2 release gate. R5.01 and R5.09 document the existing `AsyncConnection` contract and its blocking limitations; tasks R5.02–R5.08 remain unchecked as not implemented. [Decision and R6 parity audit](evidence/runwire-2.2/r5-r6-handoff.md).
+
 **Scope rule:** Start with the existing coroutine/network abstraction; do not build a full HTTP client, DNS subsystem or database client just because it might be useful. Large API additions require a reviewed design gate; feature may be explicitly deferred if it cannot meet the 2.2 timeline without weakening guarantees.
 
 **Likely sources:** src/Coroutine/Network/AsyncConnection.php, src/Coroutine/CoroutineScope.php, src/Coroutine/Internal/FiberScheduler.php, src/Network/Connection.php, src/Loop/LoopInterface.php, docs/coroutines.md.
 
 **Tasks**
-- [ ] **R5.01** Review existing AsyncConnection operations and limitations; specify what remains blocking in PHP stream/DNS/TLS integration. Record exact user-visible promises.
+- [x] **R5.01** Review existing AsyncConnection operations and limitations; specify what remains blocking in PHP stream/DNS/TLS integration. Record exact user-visible promises.
 - [ ] **R5.02** Design minimal public contract for nonblocking TCP connect/read/write using loop readiness and bounded memory; prefer extending an existing contract rather than parallel APIs.
 - [ ] **R5.03** Bind connection/socket/waiter lifetime to owning request or worker scope; cancellation and deadline must close or reliably detach stale readiness registrations.
 - [ ] **R5.04** Define partial read/write, EOF, peer hangup, timeouts, backpressure and retry/close semantics; avoid implicit infinite buffering.
@@ -300,7 +302,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [ ] **R5.06** Test real local TCP servers under many concurrent Fiber tasks, late/early cancellation, socket reuse, back-to-back close, full write buffers and slow peer.
 - [ ] **R5.07** Probe Swoole/OpenSwoole host reactor integration and no competing event-loop ownership; do not claim every third-party blocking PHP API is awaitable.
 - [ ] **R5.08** Benchmark I/O overlap and request-level benefit against equivalent sequential I/O; ensure no worse CPU/RSS/latency under overload.
-- [ ] **R5.09** Document interoperability limits, valid host modes and cancellation guarantees. Any deferred HTTP/DNS/DB integration must be listed as future scope, not checked as complete.
+- [x] **R5.09** Document interoperability limits, valid host modes and cancellation guarantees. Any deferred HTTP/DNS/DB integration must be listed as future scope, not checked as complete.
 
 **Existing test candidates:** tests/AsyncConnectionTest.php, BatchORuntimeIntegrationTest.php, BatchPRaceFaultTest.php, BatchPSoakTest.php, CoroutineHardeningTest.php.
 
@@ -308,18 +310,20 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R6 — native supervisor and hosted-runtime lifecycle parity
 
+**R6 audit progress: 6/10 tasks completed** from actual native, hosted, worker/portability suites. Remaining multi-protocol live recycle, worker-generation, exhaustive privilege and full consumer/real-host checks are explicitly still open; see [R5/R6 evidence](evidence/runwire-2.2/r5-r6-handoff.md).
+
 **Likely sources:** src/Runtime.php, src/Runtime/Driver/{FpmDriver,FrankenPhpDriver,RoadRunnerDriver,SwooleDriver}.php, src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/{NativeHttpWorker,PortableNativeRuntime,WorkerRecycleState}.php, src/Supervisor/*.
 
 **Tasks**
-- [ ] **R6.01** Inventory ownership matrix for listener, event loop, worker pool, application instance and request cleanup across every driver; enforce capability-first semantics.
+- [x] **R6.01** Inventory ownership matrix for listener, event loop, worker pool, application instance and request cleanup across every driver; enforce capability-first semantics.
 - [ ] **R6.02** Test native prefork boot/readiness, crashed worker replacement, restart backoff, rolling reload, manual recycle and stop under active HTTP1/H2/H3/TCP/UDP traffic.
-- [ ] **R6.03** Test portable runtime with truly absent PCNTL/POSIX: one process only, no fictitious worker controls, explicit rejection of prefork-only settings.
-- [ ] **R6.04** Confirm Swoole and OpenSwoole real two-worker/worker-replacement factory runs **after fork** and reports child PID, worker slot and fresh context/metrics; run both serve() and serveApplication().
-- [ ] **R6.05** Confirm FPM request-scoped and FrankenPHP classic/worker/RoadRunner hosted boundaries do not attempt to bind a competing listener or drive a second incompatible event loop.
-- [ ] **R6.06** Exercise accepted-but-incomplete HTTP header admission during drain (H1/H2/H3), wait deadlines, keepalive stop, GOAWAY and WebSocket close; never drop already accepted requests incorrectly.
+- [x] **R6.03** Test portable runtime with truly absent PCNTL/POSIX: one process only, no fictitious worker controls, explicit rejection of prefork-only settings.
+- [x] **R6.04** Confirm Swoole and OpenSwoole real two-worker/worker-replacement factory runs **after fork** and reports child PID, worker slot and fresh context/metrics; run both serve() and serveApplication().
+- [x] **R6.05** Confirm FPM request-scoped and FrankenPHP classic/worker/RoadRunner hosted boundaries do not attempt to bind a competing listener or drive a second incompatible event loop.
+- [x] **R6.06** Exercise accepted-but-incomplete HTTP header admission during drain (H1/H2/H3), wait deadlines, keepalive stop, GOAWAY and WebSocket close; never drop already accepted requests incorrectly.
 - [ ] **R6.07** Verify worker-generation invalidation for active coroutine scopes, callback handles, application references, request contexts and timers after replacement.
 - [ ] **R6.08** Verify privilege drop: supplementary groups, GID-before-UID, final identity check, non-root warning and startup rejection on partial transition.
-- [ ] **R6.09** Check host request/body/response fidelity, reset on every exception, and one drain/shutdown per instance including startup failure.
+- [x] **R6.09** Check host request/body/response fidelity, reset on every exception, and one drain/shutdown per instance including startup failure.
 - [ ] **R6.10** Run real host and consumer acceptance on PHP 8.4/8.5, not just fake adapters; document environments unavailable in CI.
 
 **Existing test candidates:** tests/SwooleDriverTest.php, SwooleLoopTest.php, RoadRunnerRuntimeTest.php, GenericRuntimeTest.php, SupervisorLifecycleTest.php, NativeWorkerLifecycleTest.php, SupervisorRecycleTest.php, PrivilegeDropOrderingTest.php, PortableNativeRuntimeTest.php, BatchGDrainTest.php.
