@@ -72,15 +72,36 @@ jobs:
           set -euo pipefail
           workspace="$(mktemp -d)"
           trap 'rm -rf "$workspace"' EXIT
-          unzip -q build/package/runwire-candidate.zip -d "$workspace"
-          test -f "$workspace/composer.json"
-          test -f "$workspace/src/RuntimeOptions.php"
-          if [ -e "$workspace/tests" ] || [ -e "$workspace/vendor" ]; then
+          mkdir -p "$workspace/package" "$workspace/consumer"
+          unzip -q build/package/runwire-candidate.zip -d "$workspace/package"
+          test -f "$workspace/package/composer.json"
+          test -f "$workspace/package/src/RuntimeOptions.php"
+          if [ -e "$workspace/package/tests" ] || [ -e "$workspace/package/vendor" ]; then
             echo "::error::Clean archive unexpectedly contains test or vendor dependencies."
             exit 1
           fi
-          pushd "$workspace"
-          composer install --no-dev --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+          cat > "$workspace/consumer/composer.json" <<'JSON'
+          {
+            "name": "runwire/archive-smoke",
+            "type": "project",
+            "repositories": [
+              {
+                "type": "path",
+                "url": "../package",
+                "options": {
+                  "symlink": false,
+                  "versions": {"infocyph/runwire": "2.2.x-dev"}
+                }
+              }
+            ],
+            "require": {"infocyph/runwire": "2.2.x-dev"},
+            "minimum-stability": "dev",
+            "prefer-stable": true
+          }
+          JSON
+          pushd "$workspace/consumer"
+          composer install --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+          cmp "$workspace/package/src/RuntimeOptions.php" vendor/infocyph/runwire/src/RuntimeOptions.php
           php -r '
           require "vendor/autoload.php";
           $options = new Infocyph\Runwire\RuntimeOptions();
