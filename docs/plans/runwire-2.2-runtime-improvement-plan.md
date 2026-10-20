@@ -247,20 +247,24 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 **Likely sources:** src/Http/Http1/Http1Connection.php, Http1ResponseWriter.php, Internal/Http1Input.php, RequestHeadValidator.php, src/Network/Connection.php, Internal/ByteQueue.php, ByteBudget.php, StreamWriter.php, src/Http/ResponseTransfer.php, src/WebSocket/*, src/Runtime/Internal/NativeHttpWorker.php.
 
 **Tasks**
-- [ ] **R3.01** Measure HTTP/1 request-head scanning, header validation, chunk/body decode, keepalive reuse and response-write allocations; isolate handler-independent and end-to-end costs.
-- [ ] **R3.02** Optimize byte queue compaction/write batching only after testing partial reads/writes, boundary fragmentation, backpressure and slow clients; avoid hidden payload copies and large retained buffers.
-- [ ] **R3.03** Check pipelining/connection reuse, request admission during worker drain, incomplete headers, 100-continue, method/status-specific response body semantics, HEAD and connection close behavior.
-- [ ] **R3.04** Validate TLS handshakes and ALPN selection, close-notify/error behavior, no plaintext downgrade and correct application-visible scheme/headers.
-- [ ] **R3.05** Verify ResponseTransfer chunk sizes, cooperative cancellation, streaming source ownership, writable wait and no uncontrolled memory growth.
-- [ ] **R3.06** Exercise WebSocket handshake/origin enforcement, frame parser masking, fragmentation/control frames, close codes, send backpressure and worker draining on live sessions.
-- [ ] **R3.07** Evaluate FIXED/LATENCY/THROUGHPUT/AUTO HTTP/1 scheduling and explicit TCP_NODELAY override under small interactive and sustained bulk responses; avoid global AUTO default change without evidence.
-- [ ] **R3.08** Add malicious traffic matrix: slowloris, oversized/duplicate/conflicting headers, invalid transfer lengths, forbidden trailer/state transitions, fragmented upgrade, half-open sockets, bursts of reconnects.
+- [x] **R3.01** Measure HTTP/1 request-head scanning, header validation, chunk/body decode, keepalive reuse and response-write allocations; isolate handler-independent and end-to-end costs.
+- [x] **R3.02** Optimize byte queue compaction/write batching only after testing partial reads/writes, boundary fragmentation, backpressure and slow clients; avoid hidden payload copies and large retained buffers.
+- [x] **R3.03** Check pipelining/connection reuse, request admission during worker drain, incomplete headers, 100-continue, method/status-specific response body semantics, HEAD and connection close behavior.
+- [x] **R3.04** Validate TLS handshakes and ALPN selection, close-notify/error behavior, no plaintext downgrade and correct application-visible scheme/headers.
+- [x] **R3.05** Verify ResponseTransfer chunk sizes, cooperative cancellation, streaming source ownership, writable wait and no uncontrolled memory growth.
+- [x] **R3.06** Exercise WebSocket handshake/origin enforcement, frame parser masking, fragmentation/control frames, close codes, send backpressure and worker draining on live sessions.
+- [x] **R3.07** Evaluate FIXED/LATENCY/THROUGHPUT/AUTO HTTP/1 scheduling and explicit TCP_NODELAY override under small interactive and sustained bulk responses; avoid global AUTO default change without evidence.
+- [x] **R3.08** Add malicious traffic matrix: slowloris, oversized/duplicate/conflicting headers, invalid transfer lengths, forbidden trailer/state transitions, fragmented upgrade, half-open sockets, bursts of reconnects.
 - [ ] **R3.09** Compare successful RPM, p99, CPU/RSS and socket bytes/write syscalls across plaintext/TLS, sizes, keepalive/close and low/high connection count.
 
 **Existing test candidates:** tests/Http1ConnectionTest.php, Http1AbuseAcceptanceTest.php, Http1BackpressureTest.php, Http1WorkerBudgetTest.php, Http1AdaptiveConnectionSamplerTest.php, WebSocketIntegrationTest.php, WebSocketFrameParserTest.php, ResponseTransferTest.php, ResponseTransferTlsTest.php.
 
 **Exit:** No protocol regression, all resource budgets intact, proven improved or unchanged real-server throughput and tail latency.
 
+
+### R3/R4 batch QA (2026-10-20)
+
+[R3 / R4 protocol audit](evidence/runwire-2.2/r3-r4-protocol-audit.md) captures 8/9 R3 tasks after focused source QA, and 5/10 R4 protocol-correctness audit tasks. R3.09 and R4.01/.02/.04/.06/.09 remain actual promotion/interop work, **not checked as completed**. Final release certification is still independent of normal CI.
 ### R4 — HTTP/2, HTTP/3 and adaptive protocol behavior
 
 **Likely sources:** src/Http/Http2/Http2Connection.php, Hpack/*, Internal/FlowController.php, ResponseScheduler.php, src/Http/Http3/Http3Session.php, Qpack/*, Quic/PhpQuicHttp3Worker.php, Internal/*, src/Http/Internal/AdaptiveLoadController.php, src/Http/AdaptiveProtocolPolicy.php.
@@ -268,14 +272,14 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 **Tasks**
 - [ ] **R4.01** Baseline real H2/H3 multiplexed response throughput, streams/connection, dynamic-table pressure, header block sizes and flow-control stalls using independent real protocol clients.
 - [ ] **R4.02** Profile H2 HPACK integer/huffman paths, header validation, frame parsing, data scheduling and output buffer churn; change only hot paths with mirrored encode/decode and malformed-input tests.
-- [ ] **R4.03** Validate H2 per-stream vs connection cancellation, fair scheduling, window updates, SETTINGS, GOAWAY and admission of already accepted incomplete header blocks when draining.
+- [x] **R4.03** Validate H2 per-stream vs connection cancellation, fair scheduling, window updates, SETTINGS, GOAWAY and admission of already accepted incomplete header blocks when draining.
 - [ ] **R4.04** Profile H3 QPACK dynamic table/blocking/unblocking, varint/frame codec and QUIC poll/write budgets; retain no application 0-RTT dispatch.
-- [ ] **R4.05** Validate H3 request-stream reset, header decoding completion during drain, control stream limits, cancellation, peer unidirectional streams and graceful bounded shutdown.
+- [x] **R4.05** Validate H3 request-stream reset, header decoding completion during drain, control stream limits, cancellation, peer unidirectional streams and graceful bounded shutdown.
 - [ ] **R4.06** Perform independent interop with available ngtcp2/aioquic clients and supported PHP 8.4/8.5 QUIC/OpenSSL combination; record protocol version and extension ABI.
-- [ ] **R4.07** Revalidate adaptive FIXED baseline plus all AUTO crossover/transition promotion cases; no promotion based solely on average throughput or microbenchmark wins.
-- [ ] **R4.08** Fuzz framing, HPACK/QPACK invalid indexes/overflows, oversized stream counts, blocked sections, invalid SETTINGS and decompression limits with memory ceilings.
+- [x] **R4.07** Revalidate adaptive FIXED baseline plus all AUTO crossover/transition promotion cases; no promotion based solely on average throughput or microbenchmark wins.
+- [x] **R4.08** Fuzz framing, HPACK/QPACK invalid indexes/overflows, oversized stream counts, blocked sections, invalid SETTINGS and decompression limits with memory ceilings.
 - [ ] **R4.09** Test slow receiver, many simultaneous streams, stream cancellation storms, stalled flow-control and mixed H1/H2/H3 listeners under rolling recycle.
-- [ ] **R4.10** Preserve end-user unified HttpRequest and ResponseWriterInterface semantics across three HTTP versions.
+- [x] **R4.10** Preserve end-user unified HttpRequest and ResponseWriterInterface semantics across three HTTP versions.
 
 **Existing test candidates:** tests/Http2ConnectionTest.php, Http2AbuseTest.php, HpackTest.php, Http3SessionTest.php, QpackTest.php, Http3AbuseFaultAcceptanceTest.php, HttpProtocolSemanticParityTest.php, AdaptivePromotionMatrixTest.php, AdaptiveProtocolTransitionTest.php.
 
