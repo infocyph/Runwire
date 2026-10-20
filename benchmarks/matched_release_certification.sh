@@ -41,32 +41,7 @@ fi
 # Select two different physical cores from the actual runner cpuset. Both
 # baseline and candidate servers use the SAME server core, sequentially;
 # the benchmark client uses a separate physical core in every trial.
-affinity_json="$(python3 - <<'PY'
-import json
-import os
-from pathlib import Path
-
-allowed = sorted(os.sched_getaffinity(0))
-physical = {}
-for cpu in allowed:
-    topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
-    core = (topology / "core_id").read_text().strip()
-    package = (topology / "physical_package_id").read_text().strip()
-    physical.setdefault((package, core), cpu)
-if len(physical) < 2:
-    raise SystemExit("Matched certification needs two allowed distinct physical CPU cores.")
-servers = list(physical.values())
-print(json.dumps({
-    "mode": "pinned_distinct_physical_cores",
-    "server_cpu": servers[0],
-    "client_cpu": servers[1],
-    "allowed_logical_cpu_count": len(allowed),
-    "available_physical_core_count": len(physical),
-    "same_server_cpu_for_baseline_and_candidate": True,
-    "client_separate_physical_core": True,
-}, separators=(",", ":")))
-PY
-)"
+affinity_json="$(python3 "$candidate_dir/benchmarks/release_cpu_affinity.py")"
 printf '%s\n' "$affinity_json" | jq -e \
   '.client_separate_physical_core == true and .same_server_cpu_for_baseline_and_candidate == true' >/dev/null
 printf '%s\n' "$affinity_json" > "$output_dir/cpu-affinity.json"

@@ -36,6 +36,23 @@ jobs:
       - name: Validate package metadata
         run: composer validate --strict --no-check-publish
 
+      - name: Verify strict release benchmark CPU affinity preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v taskset >/dev/null
+          mkdir -p build
+          python3 benchmarks/release_cpu_affinity.py > build/release-cpu-affinity.json
+          jq -e 'type == "object"
+            and .mode == "pinned_distinct_physical_cores"
+            and (.server_cpu | type == "number")
+            and (.client_cpu | type == "number")
+            and .server_cpu != .client_cpu
+            and .same_server_cpu_for_baseline_and_candidate == true
+            and .client_separate_physical_core == true' build/release-cpu-affinity.json >/dev/null
+          taskset -c "$(jq -r '.server_cpu' build/release-cpu-affinity.json)" true
+          taskset -c "$(jq -r '.client_cpu' build/release-cpu-affinity.json)" true
+
       - name: Build Composer archive
         shell: bash
         run: |
