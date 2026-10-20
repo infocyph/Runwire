@@ -4,7 +4,7 @@ A high-performance, framework-agnostic process and network runtime for PHP.
 
 Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
 
-Runwire 2.0 is the next major runtime line. Consumers upgrading from 1.x should review the 2.0 migration guide before rollout.
+The current published runtime line is Runwire 2.1.x; Runwire 2.2 is under development. Review the [2.2 draft release notes](docs/release-notes-2.2.md) for the proposed changes and outstanding certification. Consumers upgrading from 1.x should still review the 2.0 migration guide before rollout.
 
 ## Requirements
 

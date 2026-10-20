@@ -1,12 +1,12 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — R0 baseline audited, R1 host request-path optimization underway; remaining R0.06/R0.07 qualification remains visible
+**Status:** ACTIVE — R0–R7 engineering QA/audits advanced; R8 release qualification and R9 handoff are not complete
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
-**Updated:** 2026-10-19
+**Updated:** 2026-10-20
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
-**Implementation:** R0 audit/QA completed with two non-qualifying performance evidence items explicitly retained; R1 implementation active, final matched baseline/consumer certification remains R8 gate
+**Implementation:** Core 2.2 improvements committed (host header normalization, SelectLoop timer fairness, ByteQueue batched read); incomplete performance, interop, and release-certification requirements remain visible
 **Release:** No tag, merge or publish authorized.
 
 ## Release decision
@@ -57,16 +57,16 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 | Batch | Scope | Exit criteria | Status |
 |---|---|---|---|
-| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] Audit/QA complete — 9/11 checked; R0.06/R0.07 end-to-end performance qualification carried into R8 gate |
-| R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [ ] Not started |
-| R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [ ] Not started |
-| R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [ ] Not started |
-| R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [ ] Not started |
-| R5 | Coroutine-aware outbound I/O | Nonblocking networking primitives, real cancellation/deadline/backpressure behavior | [ ] Not started |
-| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [ ] Not started |
-| R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [ ] Not started |
-| R8 | Integration + certification | Foundation/Infbyte/Webrick smoke, 30-min soak, matched 5×180s benchmark, release guard | [ ] Not started |
-| R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [ ] Not started |
+| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] 9/11 — audit complete; end-to-end A/B qualification in R8 |
+| R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [~] 7/8 — host fast path and lifetime QA; A/B trace guard outstanding |
+| R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [~] 7/9 — portable timer fairness; mixed-load perf/soak open |
+| R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [~] 8/9 — HTTP1/ByteQueue regression suite; end-to-end A/B open |
+| R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 5/10 — H2/H3 correctness; performance/independent-client stress open |
+| R5 | Coroutine-aware outbound I/O | Nonblocking networking primitives, real cancellation/deadline/backpressure behavior | [~] 2/9 — reviewed/documented; 7 new-dialer tasks explicitly DEFERRED |
+| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 6/10 — host ownership and real Swoole parity; extended host/cross-transport gates open |
+| R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 8/10 — observability/process safety audit; final soak/CVE signoff open |
+| R8 | Integration + certification | Foundation/Infbyte/Webrick smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 3/10 — baseline/CI audit complete; release certification outstanding |
+| R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 4/9 — documentation ready in draft; final QA/release handoff outstanding |
 
 ### R0 — establish truthful baseline
 
@@ -374,13 +374,15 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R9 — developer-facing documentation, release-quality finalization
 
+**Release-documentation audit complete (R9.01–R9.04):** [Draft 2.2 notes](../release-notes-2.2.md) compare the immutable published 2.1.2 tag, with no unqualified RPM claim; README/API/coroutine/host ownership and scheduling boundaries are current, and no public/protected API surface change was introduced. [Release handoff draft](evidence/runwire-2.2/release-handoff.md) records unresolved final gates. R9.05–R9.09 remain open until final candidate certification and maintainer handoff.
+
 **Likely sources:** README.md, docs/getting-started.md, architecture.md, deployment.md, coroutines.md, benchmarks.md, migration-2.0.md (historical), SECURITY.md, composer.json, new docs/release-notes-2.2.md if chosen.
 
 **Tasks**
-- [ ] **R9.01** Summarize final behavior vs 2.1.2 only (or actual immediately preceding tag if maintainers publish another), with change descriptions backed by commits and tests; do not report draft metrics as certified.
-- [ ] **R9.02** Update API examples and runtime selection, capability table, hosted ownership, coroutine blocking boundary, transport/TLS/QUIC requirements, graceful shutdown and production deployment.
-- [ ] **R9.03** Document opt-in scheduling tuning and measured tradeoffs; retain supported defaults and fail-closed behavior.
-- [ ] **R9.04** Document any intentional 2.2 API changes, exact compatibility/migration and deprecations; keep no-op migrations out of the changelog.
+- [x] **R9.01** Summarize final behavior vs 2.1.2 only (or actual immediately preceding tag if maintainers publish another), with change descriptions backed by commits and tests; do not report draft metrics as certified.
+- [x] **R9.02** Update API examples and runtime selection, capability table, hosted ownership, coroutine blocking boundary, transport/TLS/QUIC requirements, graceful shutdown and production deployment.
+- [x] **R9.03** Document opt-in scheduling tuning and measured tradeoffs; retain supported defaults and fail-closed behavior.
+- [x] **R9.04** Document any intentional 2.2 API changes, exact compatibility/migration and deprecations; keep no-op migrations out of the changelog.
 - [ ] **R9.05** Verify clean Composer archive, excluded development artifacts, reproducible install, supported PHP versions/extensions and safe default configuration.
 - [ ] **R9.06** Re-run final source audit, complete QA and certification when code/docs/workflow changes could affect results; all evidence must match the final release candidate.
 - [ ] **R9.07** Check zero release-blocking QA findings, fuzz/correctness defects, security advisories, unexplained benchmark changes or cross-host integration failures.
@@ -464,7 +466,7 @@ For every completed or attempted task, add a dated entry in an evidence manifest
 3. What measurable regression budgets apply to p99 and RSS, alongside existing 5% sustained-throughput budget?
 4. What is the minimum supported native QUIC build/ABI for the release matrix?
 
-**This branch contains documentation only. All tracker boxes stay open until evidenced and committed.**
+**This branch contains actual runtime, test, workflow and documentation commits. The canonical tracker and summary table reflect completed evidence; outstanding tasks remain unchecked and no merge/tag/publish is authorized.**
 
 ### R1 functional QA → R2 timer fairness implementation (2026-10-20)
 
