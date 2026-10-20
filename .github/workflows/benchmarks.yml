@@ -99,6 +99,18 @@ jobs:
             and .phases.dispatch_and_finalization.p99_us > 0' \
             "benchmark-results/r0-host-profile-php-${{ matrix.php-version }}.json" >/dev/null
 
+      - name: Profile R2 scheduler pressure under bounded tasks and I/O waits
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/r2_scheduler_pressure.php 6 2 \
+            > "benchmark-results/r2-scheduler-php-${{ matrix.php-version }}.json"
+          jq -e '.correctness_passed == true and .schema == 1
+            and .real_network_included == false
+            and (.modes | length) == 15
+            and ([.modes[] | select(.active_after != 0 or .watchers_after != 0 or .timers_after != 0)] | length) == 0' \
+            "benchmark-results/r2-scheduler-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Capture Runwire OPcache footprint
         shell: bash
         run: |
