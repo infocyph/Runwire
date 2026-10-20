@@ -39,3 +39,13 @@ Runwire [certification job `fd78bf9`](https://github.com/infocyph/Runwire/commit
 ## Individual R8.08 standalone acceptance — passed
 
 PHP8.4 and PHP8.5 `Standalone Runwire package / native HTTP` jobs [39426401438](https://github.com/infocyph/Runwire/actions/runs/39426401438) both succeeded on `9940779`, proving live packaged Runwire HTTP/1.1 responses in an independent Composer consumer, plus source archive parity and process cleanup. Broader H1/H2/H3, hosted-driver and recycle acceptance is still tracked under R6/R8.04; paired benchmark CV remains a hard gate. No Foundation or Infbyte changes were made.
+
+## R8.04 accepted independent network matrix, but not release certification
+
+
+### Verified R8.04 — Runwire-only integration matrix (2026-10-20)
+
+All six standard workflows were green on immutable source [1770ba8](https://github.com/infocyph/Runwire/commit/1770ba82cd8be96816d673237cc0e2cac8ccb0ac). [Benchmarks run 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538) exercised native HTTP/1.1, independent Python h2 real TLS multiplexed requests, and native WebSocket upgrades/framing. [Security & Standards 39433340291](https://github.com/infocyph/Runwire/actions/runs/39433340291) passed real QUIC/OpenSSL HTTP3 native server interoperability with independent aioquic on PHP8.4/8.5 and ngtcp2 on PHP8.5. [Portable Native 39433339585](https://github.com/infocyph/Runwire/actions/runs/39433339585) passed PHP8.4/8.5 real HTTP/TCP/Unix/UDP/TLS local-response tests in truly no-PCNTL/POSIX mode. [Swoole/OpenSwoole 39433339597](https://github.com/infocyph/Runwire/actions/runs/39433339597) passed live multiworker lifecycle and identity checks with both extension families.
+
+**R8.04 passed**, as bounded actual network/transport integration—not as release performance certification. H2 comparison JSON is explicitly `diagnostic=true`, `promotion_certified=false`: 1s warmup/5s phases and noisy throughput do not meet the strict 30s warmup, 5×180s, 2.5% CV release threshold. Real FrankenPHP/RoadRunner are not available in current CI and remain **open R6.10**; mixed multi-protocol native prefork rolling replacement remains **open R6.02**. R4.01/.02/.04/.09 and R8.05/.07 stay open. The newer 30-minute soak RSS/FD sampler is implemented but not yet run and accepted; R7.08 remains open, including unavailable external GC/OPcache attribution.
+

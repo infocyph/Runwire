@@ -1,6 +1,6 @@
 # Runwire 2.2 — R7 observability/security and R8 gate audit
 
-## R7 audit completed: 8/10 tasks
+## R7 audit completed: 9/10 tasks
 
 - **R7.01:** `RuntimeMetricsSnapshot`, `LoopDiagnosticsSnapshot`, `CoroutineDiagnosticsSnapshot` already carry bounded cardinality request, pressure, event-loop lag, callback-overrun, queue and cancellation counters. `MetricsDiagnosticsTest` verifies versioned serialization.
 - **R7.02:** Audited `WorkerDiagnosticsSampler` report interval and bounded metric shapes. No new per-request instrumentation required; adding costly dynamic labels is explicitly rejected (valid no-change decision).
@@ -13,13 +13,13 @@
 
 **R7.08 OPEN:** prior actual 30-minute native HTTP soak passed 12,901,151 requests and zero errors, but final exact SHA does not yet have full queue/RSS leak and GC/OPcache soak analysis. **R7.09 OPEN:** security advisories and full dependency CVE provenance on the last candidate remain to be signed off.
 
-## R8 audit completed: 6/10 tasks
+## R8 audit completed: 7/10 tasks
 
 - **R8.01:** Standard PR workflows vs conditional release-certification fully audited. Green normal CI ≠ release certification. The former four release jobs were matched performance, native soak, Infbyte consumer and PHPForge guard. The updated Runwire-only workflow retains performance/soak/guard and substitutes a PHP 8.4/8.5 standalone Composer-installed native HTTP consumer; this new job is not accepted without CI evidence.
 - **R8.06:** Published 2.1.2 annotated tag resolved to immutable `7e9bf20ad0737a187dfed77b723791b141b36378` and is primary matched benchmark baseline in release workflow; historical pre-consolidation SHA removed as the release baseline. Candidate SHA/path install checks added.
 - **R8.09:** Retrieved real workflow/benchmark artifacts, identified nonmatching GitHub CPU models, baseline CV 4.283% > 2.5% ceiling, previous conditional skips and actual Infbyte dependency failure, and corrected loose evidence metadata. Unsupported comparisons never counted as passing.
 
-**R8.04/.05/.07/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
+**R8.05/.07/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
 
 ## Change scope
 
@@ -56,3 +56,9 @@ Both PHP 8.4.26 and PHP 8.5.11 benchmark core jobs [39378520084](https://github.
 ## Opt-in certification CI trigger correction — 2026-10-20
 
 The Release Certification workflow previously dispatched its long 30-minute soak and paired 5 ×180s comparison for every PR update because the release-certification label was already attached, then cancelled in-progress work on the next documentation/tracker push. Runwire-owned CI now triggers these jobs only by explicit Actions workflow_dispatch or a fresh release-certification label event; cancel-in-progress is false. Mandatory thresholds, response correctness and independent release jobs remain unchanged. **No R8.05/R8.07 completion** is inferred; full release verification is still required against one frozen exact SHA. The normal PR standard QA workflows remain automatic.
+
+### Verified R8.04 — Runwire-only integration matrix (2026-10-20)
+
+All six standard workflows were green on immutable source [1770ba8](https://github.com/infocyph/Runwire/commit/1770ba82cd8be96816d673237cc0e2cac8ccb0ac). [Benchmarks run 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538) exercised native HTTP/1.1, independent Python h2 real TLS multiplexed requests, and native WebSocket upgrades/framing. [Security & Standards 39433340291](https://github.com/infocyph/Runwire/actions/runs/39433340291) passed real QUIC/OpenSSL HTTP3 native server interoperability with independent aioquic on PHP8.4/8.5 and ngtcp2 on PHP8.5. [Portable Native 39433339585](https://github.com/infocyph/Runwire/actions/runs/39433339585) passed PHP8.4/8.5 real HTTP/TCP/Unix/UDP/TLS local-response tests in truly no-PCNTL/POSIX mode. [Swoole/OpenSwoole 39433339597](https://github.com/infocyph/Runwire/actions/runs/39433339597) passed live multiworker lifecycle and identity checks with both extension families.
+
+**R8.04 passed**, as bounded actual network/transport integration—not as release performance certification. H2 comparison JSON is explicitly `diagnostic=true`, `promotion_certified=false`: 1s warmup/5s phases and noisy throughput do not meet the strict 30s warmup, 5×180s, 2.5% CV release threshold. Real FrankenPHP/RoadRunner are not available in current CI and remain **open R6.10**; mixed multi-protocol native prefork rolling replacement remains **open R6.02**. R4.01/.02/.04/.09 and R8.05/.07 stay open. The newer 30-minute soak RSS/FD sampler is implemented but not yet run and accepted; R7.08 remains open, including unavailable external GC/OPcache attribution.

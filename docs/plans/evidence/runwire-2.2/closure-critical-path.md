@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 68 checked complete; **20 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 68 complete + 20 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 69 checked complete; **19 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 69 complete + 19 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -20,7 +20,7 @@ Original 95 task IDs: 68 checked complete; **20 active open**; 7 R5 dialer tasks
 | R5 (0 in scope) | R5.02–R5.08 deferred | Deliberately not an R2.2 dialer release |
 | R6 (2) | R6.02, R6.10 | Real live restart/recycle and supported host matrix; generation invalidation QA passed R6.07 |
 | R7 (1) | R7.08 | Final RSS/queue/GC soak and leak attribution |
-| R8 (4) | R8.04, R8.05, R8.07, R8.10 | Full release certification, independent protocol/host completeness and risk signoff (R8.02/.03/.08 passed) |
+| R8 (3) | R8.05, R8.07, R8.10 | Full release certification, independent protocol/host completeness and risk signoff (R8.02/.03/.08 passed) |
 | R9 (4) | R9.06, R9.07, R9.08, R9.09 | Final QA, risk, handoff; maintainer controls release |
 
 ## Active ownership / decision boundaries
@@ -87,3 +87,9 @@ At exact Runwire source [9940779](https://github.com/infocyph/Runwire/commit/994
 - [Security & Standards run 39429653975](https://github.com/infocyph/Runwire/actions/runs/39429653975) at exact code source d9117e7 passed all four PHPForge Pest QA combinations (8.4/8.5 × lowest/stable), PHP8.4/8.5 analysis, PHPCS and Pint. [Portable Native 39429653366](https://github.com/infocyph/Runwire/actions/runs/39429653366), [Swoole/OpenSwoole 39429653245](https://github.com/infocyph/Runwire/actions/runs/39429653245), [Source Audit 39429653353](https://github.com/infocyph/Runwire/actions/runs/39429653353), and [Release Candidate 39429653220](https://github.com/infocyph/Runwire/actions/runs/39429653220) passed. H3 PHP8.5 and full release certification were still running at this evidence checkpoint, so those are not credited.
 - **R6.07 complete for local generation invalidation**. R6.02 remains the live multi-protocol process restart/recycle stress and R6.10 remains the complete real-host environment matrix; neither is implied by these in-process tests. No Foundation or Infbyte work performed.
 
+
+### Verified R8.04 — Runwire-only integration matrix (2026-10-20)
+
+All six standard workflows were green on immutable source [1770ba8](https://github.com/infocyph/Runwire/commit/1770ba82cd8be96816d673237cc0e2cac8ccb0ac). [Benchmarks run 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538) exercised native HTTP/1.1, independent Python h2 real TLS multiplexed requests, and native WebSocket upgrades/framing. [Security & Standards 39433340291](https://github.com/infocyph/Runwire/actions/runs/39433340291) passed real QUIC/OpenSSL HTTP3 native server interoperability with independent aioquic on PHP8.4/8.5 and ngtcp2 on PHP8.5. [Portable Native 39433339585](https://github.com/infocyph/Runwire/actions/runs/39433339585) passed PHP8.4/8.5 real HTTP/TCP/Unix/UDP/TLS local-response tests in truly no-PCNTL/POSIX mode. [Swoole/OpenSwoole 39433339597](https://github.com/infocyph/Runwire/actions/runs/39433339597) passed live multiworker lifecycle and identity checks with both extension families.
+
+**R8.04 passed**, as bounded actual network/transport integration—not as release performance certification. H2 comparison JSON is explicitly `diagnostic=true`, `promotion_certified=false`: 1s warmup/5s phases and noisy throughput do not meet the strict 30s warmup, 5×180s, 2.5% CV release threshold. Real FrankenPHP/RoadRunner are not available in current CI and remain **open R6.10**; mixed multi-protocol native prefork rolling replacement remains **open R6.02**. R4.01/.02/.04/.09 and R8.05/.07 stay open. The newer 30-minute soak RSS/FD sampler is implemented but not yet run and accepted; R7.08 remains open, including unavailable external GC/OPcache attribution.
