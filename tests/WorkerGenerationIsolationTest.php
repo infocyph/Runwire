@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Enum\TaskState;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
+use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
@@ -111,4 +118,63 @@ it('isolates cancelled coroutine and periodic work from a replacement worker gen
     }
 
     expect($newLoop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('rejects retired application references and completed request contexts after replacement', function (): void {
+    $retiredCalls = 0;
+    $newCalls = 0;
+    $retired = new RuntimeApplication(
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$retiredCalls): void {
+            unset($request);
+            ++$retiredCalls;
+            $writer->end('retired');
+        },
+    );
+    $replacement = new RuntimeApplication(
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$newCalls): void {
+            unset($request);
+            ++$newCalls;
+            $writer->end('replacement');
+        },
+    );
+    $request = static fn(): HttpRequest => new HttpRequest(
+        'GET',
+        '/generation',
+        ProtocolVersion::HTTP_1_1,
+        new Headers(),
+        new BufferedRequestBody(''),
+    );
+    $writer = static fn(): CallbackResponseWriter => new CallbackResponseWriter(
+        static function (int $status, Headers $headers): void {
+            unset($headers);
+            expect($status)->toBe(200);
+        },
+        static function (string $body): void {
+            expect($body)->not->toBe('');
+        },
+        static function (): void {},
+        1_024,
+    );
+
+    $retiredRequest = $request();
+    $retired->handle($retiredRequest, $writer());
+    expect($retiredCalls)->toBe(1)
+        ->and($retiredRequest->context->completed())->toBeTrue();
+    $retired->shutdown(ShutdownReason::DEPLOYMENT_RELOAD);
+
+    expect(fn() => $retired->handle($request(), $writer()))
+        ->toThrow(LogicException::class);
+    expect(fn() => $replacement->handle($retiredRequest, $writer()))
+        ->toThrow(LogicException::class);
+
+    $freshRequest = $request();
+    $freshWriter = $writer();
+    $replacement->handle($freshRequest, $freshWriter);
+
+    expect($newCalls)->toBe(1)
+        ->and($retiredCalls)->toBe(1)
+        ->and($replacement->healthy())->toBeTrue()
+        ->and($freshRequest->context->completed())->toBeTrue()
+        ->and($freshWriter->isEnded())->toBeTrue();
+    $replacement->shutdown(ShutdownReason::DEPLOYMENT_RELOAD);
 });
