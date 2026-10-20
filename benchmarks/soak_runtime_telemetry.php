@@ -50,6 +50,7 @@ function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSecon
             || ($sample['gc_enabled'] ?? false) !== true
             || ($sample['opcache_enabled'] ?? false) !== true) {
             $valid = false;
+
             break;
         }
 
