@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Supervisor\Internal\PrivilegeDropper;
-
 use Infocyph\Runwire\Tests\Fixtures\RunwirePrivilegeAuditIdentity;
 
 it('initializes groups then GID before UID and verifies the resulting identity', function (): void {
