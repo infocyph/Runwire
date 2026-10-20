@@ -19,3 +19,12 @@
 ## Release qualification and known constraints
 
 Real request correctness and resource limits must remain mandatory. R3/R4 review-only completion does not mean final R8 release qualification passed. `2.1.2` immutable baseline `7e9bf20ad0737a187dfed77b723791b141b36378`. Infbyte consumer still blocks on unpublished Foundation `^3.0.1`; no cross-repo edits or Composer alias substitution.
+
+## Verified independent HTTP/3 interop qualification — R4.06 DONE (2026-10-20)
+
+At source SHA `f804a5a6f6e7d9844dd18faedc15cba001bbc80f`, [Security & Standards run 39374716440](https://github.com/infocyph/Runwire/actions/runs/39374716440) recorded:
+- PHP 8.4, container-built native `php-quic`, OpenSSL >=3.5: focused HTTP/3 protocol and **aioquic 1.3.0** independent client interoperability and 128-request native HTTP/3 soak passed.
+- PHP 8.5: the same HTTP/3 native and aioquic gates passed, plus **ngtcp2 v1.25.0** `osslclient` built with **nghttp3 v1.18.0** passed an external HTTP/3 client request, validated the response body `runwire-ngtcp2-ok`, and executed the adaptive/soak gates.
+- PHP 8.4 ngtcp2 checkout/build/run was intentionally **skipped** by workflow matrix; no claim that independent ngtcp2 was tested there.
+- The extension source currently tracks `mikepultz/php-quic@main`, which is a remaining reproducibility risk for final R8.04/R8.10 ABI manifest; R4.06 tests itself were actually executed and passed.
+- Exact independent client job IDs: PHP 8.4 `118470344941`; PHP 8.5 `118470345205`. R4.06 is marked DONE on the canonical plan; other R4 stress/throughput tasks remain open.

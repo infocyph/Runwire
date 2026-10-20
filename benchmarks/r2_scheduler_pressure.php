@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
+use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -40,6 +42,7 @@ function r2PressureExercise(string $mode, int $tasks): array
     }
 
     $start = hrtime(true);
+
     try {
         $completed = $runtime->run(function (CoroutineScope $scope) use ($mode, $tasks, $pair): int {
             if ($mode === 'readable_wait') {
@@ -129,6 +132,42 @@ function r2PressureExercise(string $mode, int $tasks): array
     ];
 }
 
+/** @return array{limit: int, overflow_rejected: bool, active_after: int, max_ready: int} */
+function r2PressureOverloadBoundary(): array
+{
+    $limit = 8;
+    $runtime = new CoroutineRuntime(policy: new CoroutinePolicy(
+        maxTasks: $limit,
+        maxReadyBacklog: $limit,
+        maxResumesPerTick: 2,
+    ));
+    $rejected = false;
+
+    try {
+        $runtime->run(static function (CoroutineScope $scope) use ($limit): void {
+            for ($index = 0; $index < $limit; ++$index) {
+                $scope->spawn(static function (): int {
+                    return 1;
+                });
+            }
+        });
+    } catch (CoroutineOverflowException) {
+        $rejected = true;
+    }
+    $metrics = $runtime->diagnostics();
+    if (!$rejected || $metrics->activeTasks !== 0
+        || $metrics->readyQueueMaxDepth > $limit || $metrics->failedTotal !== 1) {
+        throw new RuntimeException('R2 scheduler overload did not reject and safely clean up work.');
+    }
+
+    return [
+        'limit' => $limit,
+        'overflow_rejected' => true,
+        'active_after' => $metrics->activeTasks,
+        'max_ready' => $metrics->readyQueueMaxDepth,
+    ];
+}
+
 /** @return array<string, mixed> */
 function runwireR2SchedulerPressure(int $iterations = 6, int $warmup = 2, array $sizes = [8, 32, 128]): array
 {
@@ -183,6 +222,7 @@ function runwireR2SchedulerPressure(int $iterations = 6, int $warmup = 2, array 
         'warmup' => $warmup,
         'iterations' => $iterations,
         'modes' => $results,
+        'overload_boundary' => r2PressureOverloadBoundary(),
         'peak_php_allocation_bytes' => memory_get_peak_usage(true),
         'correctness_passed' => count($results) === count($sizes) * 5,
         'real_network_included' => false,

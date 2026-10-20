@@ -80,6 +80,14 @@ jobs:
           composer show --locked --format=json > "benchmark-results/dependencies-php-${{ matrix.php-version }}.json"
           jq -e '(.locked // []) | length > 0' "benchmark-results/dependencies-php-${{ matrix.php-version }}.json" >/dev/null
 
+      - name: Audit exact locked dependencies for published security advisories
+        shell: bash
+        run: |
+          composer audit --locked --no-interaction --format=json \
+            > "benchmark-results/composer-security-audit-php-${{ matrix.php-version }}.json"
+          jq -e '.advisories | type == "object" and length == 0' \
+            "benchmark-results/composer-security-audit-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Snapshot public and protected PHP contracts
         shell: bash
         run: |
@@ -107,6 +115,8 @@ jobs:
             > "benchmark-results/r2-scheduler-php-${{ matrix.php-version }}.json"
           jq -e '.correctness_passed == true and .schema == 1
             and .real_network_included == false
+            and .overload_boundary.overflow_rejected == true
+            and .overload_boundary.active_after == 0
             and (.modes | length) == 15
             and ([.modes[] | select(.active_after != 0 or .watchers_after != 0 or .timers_after != 0)] | length) == 0' \
             "benchmark-results/r2-scheduler-php-${{ matrix.php-version }}.json" >/dev/null

@@ -10,6 +10,8 @@ it('profiles bounded scheduler task, cancellation, timer and socket readiness wo
     expect($result['schema'])->toBe(1)
         ->and($result['correctness_passed'])->toBeTrue()
         ->and($result['real_network_included'])->toBeFalse()
+        ->and($result['overload_boundary']['overflow_rejected'])->toBeTrue()
+        ->and($result['overload_boundary']['active_after'])->toBe(0)
         ->and($result['modes'])->toHaveCount(10);
 
     foreach ($result['modes'] as $sample) {

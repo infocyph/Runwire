@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — 59/95 canonical tasks checked; 7 R5 dialer tasks deferred outside 2.2, leaving 29 in-scope open tasks; R8/R9 not complete
+**Status:** ACTIVE — 60/95 canonical tasks checked; 7 R5 dialer tasks deferred outside 2.2, leaving 28 in-scope open tasks; R8/R9 not complete
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-20
@@ -61,7 +61,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [~] 7/8 — host fast path and lifetime QA; A/B trace guard outstanding |
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [~] 7/9 — portable timer fairness; mixed-load perf/soak open |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [~] 8/9 — HTTP1/ByteQueue regression suite; end-to-end A/B open |
-| R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 5/10 — H2/H3 correctness; performance/independent-client stress open |
+| R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 6/10 — aioquic/ngtcp2 confirmed; workload saturation and storm stress open |
 | R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
 | R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 6/10 — host ownership and real Swoole parity; extended host/cross-transport gates open |
 | R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 8/10 — observability/process safety audit; final soak/CVE signoff open |
@@ -77,12 +77,14 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | Accounting | Tasks |
 |---|---:|
 | Canonical original plan | 95 |
-| Checked DONE with evidence | 59 |
+| Checked DONE with evidence | 60 |
 | Explicitly deferred beyond 2.2 | 7 (R5.02–R5.08, still unchecked) |
-| **Active 2.2 remaining** | **29** |
-| **In-scope completion** | **59/88 (67.0%)** |
+| **Active 2.2 remaining** | **28** |
+| **In-scope completion** | **60/88 (68.2%)** |
 
 Do **not** check deferred R5 tasks or silently delete them. Their deferral is recorded in [R5/R6 handoff](evidence/runwire-2.2/r5-r6-handoff.md). R5 can be signed off as a *scope resolution* only; this is not a new nonblocking dialer release.
+
+**R4.06 verified:** [Security & Standards #39374716440](https://github.com/infocyph/Runwire/actions/runs/39374716440) passed live aioquic 1.3.0 interop on PHP 8.4/8.5, independent ngtcp2 v1.25.0 / nghttp3 v1.18.0 client on PHP 8.5, OpenSSL >=3.5, ext-quic API/soak, and response-body validation. PHP 8.4 ngtcp2 job was intentionally skipped; do not present it as passed. See [R4 evidence](evidence/runwire-2.2/r3-r4-protocol-audit.md).
 
 **Unblocked execution sequence (source work → focused QA → evidence, then next package):**
 
@@ -302,7 +304,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R4.03** Validate H2 per-stream vs connection cancellation, fair scheduling, window updates, SETTINGS, GOAWAY and admission of already accepted incomplete header blocks when draining.
 - [ ] **R4.04** Profile H3 QPACK dynamic table/blocking/unblocking, varint/frame codec and QUIC poll/write budgets; retain no application 0-RTT dispatch.
 - [x] **R4.05** Validate H3 request-stream reset, header decoding completion during drain, control stream limits, cancellation, peer unidirectional streams and graceful bounded shutdown.
-- [ ] **R4.06** Perform independent interop with available ngtcp2/aioquic clients and supported PHP 8.4/8.5 QUIC/OpenSSL combination; record protocol version and extension ABI.
+- [x] **R4.06** Perform independent interop with available ngtcp2/aioquic clients and supported PHP 8.4/8.5 QUIC/OpenSSL combination; record protocol version and extension ABI.
 - [x] **R4.07** Revalidate adaptive FIXED baseline plus all AUTO crossover/transition promotion cases; no promotion based solely on average throughput or microbenchmark wins.
 - [x] **R4.08** Fuzz framing, HPACK/QPACK invalid indexes/overflows, oversized stream counts, blocked sections, invalid SETTINGS and decompression limits with memory ceilings.
 - [ ] **R4.09** Test slow receiver, many simultaneous streams, stream cancellation storms, stalled flow-control and mixed H1/H2/H3 listeners under rolling recycle.
