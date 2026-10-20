@@ -28,13 +28,8 @@ use PhpBench\Attributes\Warmup;
 #[Warmup(1)]
 final class ProtocolCoreBench
 {
+
     private HpackDecoder $hpackDecoder;
-
-    private HuffmanCodec $huffmanCodec;
-
-    private string $huffmanWire;
-
-    private string $http2FrameWire;
 
     private HpackEncoder $hpackEncoder;
 
@@ -43,6 +38,8 @@ final class ProtocolCoreBench
     private Headers $http1Headers;
 
     private RequestHeadValidator $http1Validator;
+
+    private string $http2FrameWire;
 
     /** @var list<array{0: string, 1: string}> */
     private array $http2Headers;
@@ -53,6 +50,10 @@ final class ProtocolCoreBench
     private array $http3Headers;
 
     private string $http3Wire;
+
+    private HuffmanCodec $huffmanCodec;
+
+    private string $huffmanWire;
 
     private QpackDecoder $qpackDecoder;
 
@@ -113,6 +114,22 @@ final class ProtocolCoreBench
         )->contentLength;
     }
 
+    public function benchHttp2FragmentedFrameParse(): int
+    {
+        $parser = new Http2FrameParser();
+        $parser->push(substr($this->http2FrameWire, 0, 7));
+        $frames = $parser->push(substr($this->http2FrameWire, 7));
+
+        return strlen($frames[0]->payload);
+    }
+
+    public function benchHttp2FrameParse(): int
+    {
+        $frames = (new Http2FrameParser())->push($this->http2FrameWire);
+
+        return strlen($frames[0]->payload);
+    }
+
     public function benchHttp2HpackDecode(): int
     {
         return count($this->hpackDecoder->decode($this->hpackWire));
@@ -131,30 +148,14 @@ final class ProtocolCoreBench
         return HpackIntegerCodec::decode($encoded, $offset, 5);
     }
 
-    public function benchHttp2HuffmanEncode(): int
-    {
-        return strlen($this->huffmanCodec->encode('https://example.test/benchmark'));
-    }
-
     public function benchHttp2HuffmanDecode(): int
     {
         return strlen($this->huffmanCodec->decode($this->huffmanWire, 256));
     }
 
-    public function benchHttp2FrameParse(): int
+    public function benchHttp2HuffmanEncode(): int
     {
-        $frames = (new Http2FrameParser())->push($this->http2FrameWire);
-
-        return strlen($frames[0]->payload);
-    }
-
-    public function benchHttp2FragmentedFrameParse(): int
-    {
-        $parser = new Http2FrameParser();
-        $parser->push(substr($this->http2FrameWire, 0, 7));
-        $frames = $parser->push(substr($this->http2FrameWire, 7));
-
-        return strlen($frames[0]->payload);
+        return strlen($this->huffmanCodec->encode('https://example.test/benchmark'));
     }
 
     public function benchHttp3FrameDecode(): int
@@ -167,22 +168,6 @@ final class ProtocolCoreBench
     public function benchHttp3FrameEncode(): int
     {
         return strlen($this->http3Frame->encode());
-    }
-
-    public function benchHttp3VarIntRoundTrip(): int
-    {
-        $encoded = VarIntCodec::encode(1_073_741_824);
-        $offset = 0;
-
-        return VarIntCodec::decode($encoded, $offset);
-    }
-
-    public function benchHttp3QpackIntegerRoundTrip(): int
-    {
-        $encoded = QpackIntegerCodec::encode(16_384, 5);
-        $offset = 0;
-
-        return QpackIntegerCodec::decode($encoded, $offset, 5, Http3ErrorCode::QPACK_DECOMPRESSION_FAILED);
     }
 
     public function benchHttp3QpackDynamicRoundTrip(): int
@@ -206,6 +191,14 @@ final class ProtocolCoreBench
         return count($decoded->fields);
     }
 
+    public function benchHttp3QpackIntegerRoundTrip(): int
+    {
+        $encoded = QpackIntegerCodec::encode(16_384, 5);
+        $offset = 0;
+
+        return QpackIntegerCodec::decode($encoded, $offset, 5, Http3ErrorCode::QPACK_DECOMPRESSION_FAILED);
+    }
+
     public function benchHttp3QpackStaticDecode(): int
     {
         return count($this->qpackDecoder->decode($this->qpackWire, 0)?->fields ?? []);
@@ -215,4 +208,13 @@ final class ProtocolCoreBench
     {
         return strlen($this->qpackEncoder->encode($this->http3Headers, 0)->block);
     }
+
+    public function benchHttp3VarIntRoundTrip(): int
+    {
+        $encoded = VarIntCodec::encode(1_073_741_824);
+        $offset = 0;
+
+        return VarIntCodec::decode($encoded, $offset);
+    }
+
 }
