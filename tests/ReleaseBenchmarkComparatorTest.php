@@ -117,11 +117,11 @@ it('rejects a stable throughput regression and cannot certify unstable evidence'
     $candidate['runtime_build'] = 'candidate-test';
     $candidate['rps_cv_percent'] = 6.0;
     [$exit, $output] = runwireCompareReleaseSummaries($baseline, $candidate);
-    $result = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
-    expect($exit)->toBe(0)
-        ->and($result['budget_enforced'])->toBeFalse()
-        ->and($result['passed'])->toBeTrue();
-    // Release-certification.yml requires budget_enforced=true and therefore rejects this result.
+    expect($exit)->toBeGreaterThan(0)
+        ->and($output)->toContain('"budget_enforced": false')
+        ->and($output)->toContain('"passed": false')
+        ->and($output)->toContain('"certification_status": "inconclusive_variance"')
+        ->and($output)->toContain('inconclusive');
 });
 
 it('fails closed on missing or non-finite release benchmark metrics', function (): void {

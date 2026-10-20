@@ -68,8 +68,12 @@ function releaseCompareRun(array $baseline, array $candidate): array
             'stderr' => $stderr,
         ];
     } finally {
-        @unlink($baselinePath);
-        @unlink($candidatePath);
+        if (is_file($baselinePath)) {
+            unlink($baselinePath);
+        }
+        if (is_file($candidatePath)) {
+            unlink($candidatePath);
+        }
     }
 }
 
