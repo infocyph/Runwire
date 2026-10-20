@@ -38,3 +38,7 @@
 ## Qualification and release evidence transparency
 
 The standard six-workflow PR matrix last fully passed at [1770ba8](https://github.com/infocyph/Runwire/commit/1770ba82cd8be96816d673237cc0e2cac8ccb0ac); GitHub PR checks may execute on generated merge-commit code, and only explicit final release-certification source checkout can establish exact candidate acceptance. H2/H3 external client integration passes do not prove qualified performance. The new 15-second sampled native process RSS/FD soak profiling and [PHPForge policy fix d2646e2](https://github.com/infocyph/Runwire/commit/d2646e2919317cc376f19fd1237affb1dbc87679) are release-gate instrumentation only, pending QA and full soak proof. [Full Runwire-only qualification matrix](plans/evidence/runwire-2.2/final-qa-matrix.md). No claim of verified RPM improvement, merge, release tag or publication is made.
+
+## Scheduler mixed-pressure validation
+
+[PHP 8.4/8.5 benchmarks 39441738432](https://github.com/infocyph/Runwire/actions/runs/39441738432) completed an actual socket/4ms timer/CPU load at three 3-second tiers (8/32/96 CPU callbacks). The worst observed socket progress p99 was 0.393ms, peak pending workload one byte and zero residual timers/watchers; four PHPForge QA variants passed. These are scheduler fairness and resource accounting checks, **not an independent published-release successful-RPM speedup claim**.

@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 69 checked complete; **19 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 69 complete + 19 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 70 checked complete; **18 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 70 complete + 18 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -14,7 +14,7 @@ Original 95 task IDs: 69 checked complete; **19 active open**; 7 R5 dialer tasks
 |---|---|---|
 | R0 (2) | R0.06, R0.07 | Actual request-path attribution and stable same-host concurrency A/B |
 | R1 (1) | R1.08 | Native/host trace on/off matched performance |
-| R2 (1) | R2.09 | Sustained mixed timer/network/CPU soak under pressure |
+| R2 (0) | — | Complete: R2.09 mixed real socket/timer/CPU soak passed on PHP8.4/8.5 |
 | R3 (1) | R3.09 | HTTP1/streaming small/bulk matched performance and syscalls |
 | R4 (4) | R4.01, R4.02, R4.04, R4.09 | H2/H3 realistic saturation, HPACK/QPACK hotspots, independent QUIC clients and cancellation storm |
 | R5 (0 in scope) | R5.02–R5.08 deferred | Deliberately not an R2.2 dialer release |
@@ -89,3 +89,18 @@ All six standard workflows were green on immutable source [1770ba8](https://gith
 ## Active QA and release blocker register
 
 [Final QA matrix](final-qa-matrix.md) records 69/95 checked, seven R5.02–R5.08 items deferred, **19 active open**, and all last proven modes. New Runwire-owned [soak-resource sampler](https://github.com/infocyph/Runwire/commit/90477715f93c32feb2c3db188df0983edae61ac1) records 15-second Linux RSS/FD observations and strict trend/coverage checks, but has **not yet passed a final 30-minute run**. The new profiler first failed PHPForge banned `sleep` and `exit` rules; [d2646e2](https://github.com/infocyph/Runwire/commit/d2646e2919317cc376f19fd1237affb1dbc87679) corrected it without modifying the external QA policy; full final-head CI result remains to be recorded. Never mark R7.08 or R8.05 complete from this implementation alone. Missing live prefork multi-protocol recycle and FrankenPHP/RoadRunner remain tracked independently in R6.02/R6.10.
+
+
+### R2.09 sustained mixed-scheduler pressure QA — accepted (2026-10-20)
+
+**Exact source:** [93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37).
+[PHP 8.4 and PHP 8.5 benchmark jobs 39441738432](https://github.com/infocyph/Runwire/actions/runs/39441738432) both passed the same candidate source for three 3-second load tiers with real Unix socket pair I/O, 4ms repeat timers, and CPU burst levels of 8, 32 and 96 callbacks. Each tier wrote 750 and read 749 validated bytes (one last write pending at controlled stop), held at most one queued byte, and cleaned all remaining timers/readable watchers/deferred callbacks. Peak *sampled PHP allocation drift* was zero in these bounded runs; this does not prove no long-run native process leak.
+
+| PHP | CPU callbacks per tick | p99 readable progress | Max pending bytes | Leaked timers/watchers |
+|---|---|---|---|---|
+| 8.4.26 | 8 / 32 / 96 | 0.081 / 0.140 / 0.393 ms | 1 | 0 |
+| 8.5.11 | 8 / 32 / 96 | 0.075 / 0.178 / 0.378 ms | 1 | 0 |
+
+The first [benchmark run 39441425725](https://github.com/infocyph/Runwire/actions/runs/39441425725) failed because the harness itself left the *last* burst's one-shot CPU timer registrations pending when its timeout fired; [fix 93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37) explicitly cancels those handles and emits per-field accounting on failure. This remains a fail-closed test, not a waived assertion. [Security & Standards run 39441739912](https://github.com/infocyph/Runwire/actions/runs/39441739912) passed all four PHPForge Pest/format QA variants (8.4/8.5 stable/lowest) at the exact source; optional QUIC/analysis jobs were not all finished when this task was closed.
+
+**R2.09 completed** as a scheduler-local sustained fairness/p99/queue proof; comparison versus published 2.1.2, traffic at production protocol/network saturation and long-run process RSS drift remain independent R0/R3/R4/R7/R8 gates. Do not infer a successful-RPM speedup from this short 3×3 second micro/mixed benchmark.

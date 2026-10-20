@@ -30,3 +30,18 @@
 | Unix socket readiness (2 tasks) | 80.641 | 72.990 | 2 |
 
 Each runner reported 12,582,912 PHP peak allocation bytes, correct completion counts and zero lingering timers/watchers/active tasks. Overload rejection at the configured eight-task limit left zero active tasks and peaked at ready depth 7. The PHP versions used distinct runners; the results are **not** a PHP version comparison, not real network saturation and not a 2.1.2→2.2 end-to-end throughput claim. R2.09's sustained mixed-load/fairness soak remains outstanding.
+
+
+### R2.09 sustained mixed-scheduler pressure QA — accepted (2026-10-20)
+
+**Exact source:** [93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37).
+[PHP 8.4 and PHP 8.5 benchmark jobs 39441738432](https://github.com/infocyph/Runwire/actions/runs/39441738432) both passed the same candidate source for three 3-second load tiers with real Unix socket pair I/O, 4ms repeat timers, and CPU burst levels of 8, 32 and 96 callbacks. Each tier wrote 750 and read 749 validated bytes (one last write pending at controlled stop), held at most one queued byte, and cleaned all remaining timers/readable watchers/deferred callbacks. Peak *sampled PHP allocation drift* was zero in these bounded runs; this does not prove no long-run native process leak.
+
+| PHP | CPU callbacks per tick | p99 readable progress | Max pending bytes | Leaked timers/watchers |
+|---|---|---|---|---|
+| 8.4.26 | 8 / 32 / 96 | 0.081 / 0.140 / 0.393 ms | 1 | 0 |
+| 8.5.11 | 8 / 32 / 96 | 0.075 / 0.178 / 0.378 ms | 1 | 0 |
+
+The first [benchmark run 39441425725](https://github.com/infocyph/Runwire/actions/runs/39441425725) failed because the harness itself left the *last* burst's one-shot CPU timer registrations pending when its timeout fired; [fix 93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37) explicitly cancels those handles and emits per-field accounting on failure. This remains a fail-closed test, not a waived assertion. [Security & Standards run 39441739912](https://github.com/infocyph/Runwire/actions/runs/39441739912) passed all four PHPForge Pest/format QA variants (8.4/8.5 stable/lowest) at the exact source; optional QUIC/analysis jobs were not all finished when this task was closed.
+
+**R2.09 completed** as a scheduler-local sustained fairness/p99/queue proof; comparison versus published 2.1.2, traffic at production protocol/network saturation and long-run process RSS drift remain independent R0/R3/R4/R7/R8 gates. Do not infer a successful-RPM speedup from this short 3×3 second micro/mixed benchmark.

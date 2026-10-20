@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — 69/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 19 in-scope open tasks; R8.04 network integration passed, full R6/R7/R8/R9 release certification still open
+**Status:** ACTIVE — 70/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 18 in-scope open tasks; R2 scheduler batch complete, full R0/R1/R3/R4/R6/R7/R8/R9 release certification still open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-20
@@ -68,7 +68,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 |---|---|---|---|
 | R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] 9/11 — audit complete; end-to-end A/B qualification in R8 |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [~] 7/8 — host fast path and lifetime QA; A/B trace guard outstanding |
-| R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [~] 8/9 — scheduler profiler/boundary verified; mixed-load soak open |
+| R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [x] 9/9 — mixed real socket/timer/CPU p99 and cleanup bench verified PHP8.4/8.5 |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [~] 8/9 — HTTP1/ByteQueue regression suite; end-to-end A/B open |
 | R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 6/10 — aioquic/ngtcp2 confirmed; workload saturation and storm stress open |
 | R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
@@ -276,7 +276,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R2.06** Validate bounded channels including capacity 0, full/empty/close contention, rejected send, multiple waiting senders/receivers; test synchronization owner rules and barrier break behavior.
 - [x] **R2.07** Verify ext-event backend at high descriptor counts, SelectLoop ceiling of 256 Runwire-owned connections and native portable fallback without PCNTL/POSIX. No platform downgrade or misleading capability advertisement.
 - [x] **R2.08** Exercise I/O wait under repeated socket close, invalid descriptor, canceled task, slow peer and nested coroutine group; ensure no deadlock or busy-spin.
-- [ ] **R2.09** Run sustained mixed timer/network/CPU tests with fairness and p99, proving stable queues and bounded memory as throughput increases.
+- [x] **R2.09** Run sustained mixed timer/network/CPU tests with fairness and p99, proving stable queues and bounded memory as throughput increases. **Passed** [PHP8.4/8.5 benchmark run 39441738432](https://github.com/infocyph/Runwire/actions/runs/39441738432) exact `93416ea`, 3×3s tiers with actual socket I/O/CPU/timer load (8/32/96), p99 ≤0.393ms, pending ≤1, zero leaked timers/watchers/deferred, zero sampled PHP memory drift; [PHPForge Pest QA 39441739912](https://github.com/infocyph/Runwire/actions/runs/39441739912) passed four modes.
 
 **Existing test candidates:** tests/EventLoopTest.php, SelectLoopTest.php, BatchLCoroutineSchedulerTest.php, BatchMStructuredConcurrencyTest.php, BatchNSynchronizationTest.php, CoroutineHardeningTest.php, AsyncConnectionTest.php, MonotonicTimeTest.php.
 
@@ -573,3 +573,17 @@ All six standard workflows were green on immutable source [1770ba8](https://gith
 ### Frozen-source QA matrix and finalization checkpoint — 2026-10-20
 
 The [single Runwire 2.2 final QA matrix](evidence/runwire-2.2/final-qa-matrix.md) tracks the current 69/95 completed, seven deferred R5 items, **19 still-open release-scoped tasks**, exact workflow sources, remaining host/performance requirements and the deliberate `NOT READY` state. The latest complete six-workflow standard PR check is [1770ba8](https://github.com/infocyph/Runwire/commit/1770ba82cd8be96816d673237cc0e2cac8ccb0ac), but GitHub pull-request checks may run a synthetic merge commit; they are not interchangeable with the exact candidate source. New helper [d2646e2](https://github.com/infocyph/Runwire/commit/d2646e2919317cc376f19fd1237affb1dbc87679) replaces disallowed blocking/exit constructs detected by PHPForge in initial QA. Its complete new-head standard QA is still being evaluated; new code and documentation do **not** convert old soak or noisy paired benchmark evidence to passing certification. Foundation/Infbyte stay independent and unmodified.
+
+### R2.09 sustained mixed-scheduler pressure QA — accepted (2026-10-20)
+
+**Exact source:** [93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37).
+[PHP 8.4 and PHP 8.5 benchmark jobs 39441738432](https://github.com/infocyph/Runwire/actions/runs/39441738432) both passed the same candidate source for three 3-second load tiers with real Unix socket pair I/O, 4ms repeat timers, and CPU burst levels of 8, 32 and 96 callbacks. Each tier wrote 750 and read 749 validated bytes (one last write pending at controlled stop), held at most one queued byte, and cleaned all remaining timers/readable watchers/deferred callbacks. Peak *sampled PHP allocation drift* was zero in these bounded runs; this does not prove no long-run native process leak.
+
+| PHP | CPU callbacks per tick | p99 readable progress | Max pending bytes | Leaked timers/watchers |
+|---|---|---|---|---|
+| 8.4.26 | 8 / 32 / 96 | 0.081 / 0.140 / 0.393 ms | 1 | 0 |
+| 8.5.11 | 8 / 32 / 96 | 0.075 / 0.178 / 0.378 ms | 1 | 0 |
+
+The first [benchmark run 39441425725](https://github.com/infocyph/Runwire/actions/runs/39441425725) failed because the harness itself left the *last* burst's one-shot CPU timer registrations pending when its timeout fired; [fix 93416ea](https://github.com/infocyph/Runwire/commit/93416eaabd367146e565d3e0752ed7cf1f992a37) explicitly cancels those handles and emits per-field accounting on failure. This remains a fail-closed test, not a waived assertion. [Security & Standards run 39441739912](https://github.com/infocyph/Runwire/actions/runs/39441739912) passed all four PHPForge Pest/format QA variants (8.4/8.5 stable/lowest) at the exact source; optional QUIC/analysis jobs were not all finished when this task was closed.
+
+**R2.09 completed** as a scheduler-local sustained fairness/p99/queue proof; comparison versus published 2.1.2, traffic at production protocol/network saturation and long-run process RSS drift remain independent R0/R3/R4/R7/R8 gates. Do not infer a successful-RPM speedup from this short 3×3 second micro/mixed benchmark.
