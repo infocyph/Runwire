@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — R0 baseline/calibration with 7 of 11 tasks verified; certification remains open
+**Status:** ACTIVE — R0 baseline/calibration, 8/11 tasks verified; source profiling and sustained certification remain open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-19
@@ -57,7 +57,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 | Batch | Scope | Exit criteria | Status |
 |---|---|---|---|
-| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 7/11 tasks complete; exact-SHA PHPForge/real-host QA green; release-stable profiling/budgets pending |
+| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 8/11 tasks complete; quantified safety gates recorded; profiling and qualified concurrency baseline pending |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [ ] Not started |
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [ ] Not started |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [ ] Not started |
@@ -178,6 +178,8 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R0 — baseline, correctness inventory, toolchain audit
 
+**Current measured evidence:** [R0 source provenance, relative microbenchmark candidates, H1/H2 concurrency curves and release safety policy](evidence/runwire-2.2/r0-profile-and-manifest.md). R0.01 (complete environment freeze), R0.06 (end-to-end hotspot attribution), and R0.07 (stable, warmed matched concurrency curves) are explicitly open. R0.10 is complete for acceptance-policy **definition and focused tests**, not a release pass. QA at commit `82698e55`: four PHPForge Pest/analysis lanes passed; real HTTP/3 PHP8.4 and OpenSwoole8.4 checks produced intermittent failures (OpenSwoole passed on authorized job rerun). Any QA failure keeps the release blocked.
+
 **R0.03 CI equivalence:** This development environment has PHP 8.4 but lacks a Composer-installed vendor tree and direct repository network access. The existing four PHPForge Pest/Pint/analysis lanes, PHP 8.4/8.5 protocol benchmarks, portable native, accelerated ext-event, QUIC and the four Swoole-family real-host suites all **passed at the same source commit `d4bfad4f96d003ae753ad1c3e5512bd70e71e1ff`** (workflow IDs and skip matrix in [R0 evidence](evidence/runwire-2.2/r0-preflight.md)). This is a verified full **CI** QA execution, not a fabricated local run. Developer-local QA remains optional as an extra check for this batch; final cert must execute in actual CI.
 
 **Goal:** Make later changes measurable and prevent improvements that win on an irrelevant microbenchmark while losing real successful RPM.
@@ -194,7 +196,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [ ] **R0.07** Establish repeated, warmed concurrency curves and compare **successful RPM**, p50/p95/p99, errors, CPU, PHP allocator, process RSS, queues, FD count and cancellation/response failures. Confirm the load generator is not saturated.
 - [x] **R0.08** Validate benchmark correctness accounting and baseline equivalence: response shape, TLS, worker count, OPcache, CPU limits, payload sizes, active extensions, client reuse and trial timing. Keep raw evidence and hashes.
 - [x] **R0.09** Inspect release-certification.yml baseline currently pinned to pre-consolidation commit dc78bdc9.... For 2.2, define **published 2.1.2** as the primary immediate predecessor comparison; retain the historical baseline as a separately labeled optional trend only. Do not rewrite this until its reproduction data and workflow effects are known.
-- [ ] **R0.10** Record all baseline risks and acceptance budgets (minimum: no invalid responses or protocol violations, zero uncontrolled queue/memory growth; existing 5% throughput budget where applicable; explicit p99/RSS budgets chosen based on baseline variance). Do not invent absolute target numbers before measurements.
+- [x] **R0.10** Record all baseline risks and acceptance budgets (minimum: no invalid responses or protocol violations, zero uncontrolled queue/memory growth; existing 5% throughput budget where applicable; explicit p99/RSS budgets chosen based on baseline variance). Do not invent absolute target numbers before measurements.
 - [x] **R0.11** Create evidence manifest and tracker update showing exact baseline status. Commit it before initiating R1.
 
 **Tests/evidence:** Full PHPForge matrix; tests/RuntimeTest.php, RuntimeSelectorTest.php, RuntimeCapabilityResolverTest.php, HttpProtocolSemanticParityTest.php, BatchPSoakTest.php; existing benchmarks and optional-host suites as available.
