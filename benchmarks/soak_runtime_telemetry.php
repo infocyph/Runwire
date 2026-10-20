@@ -116,6 +116,7 @@ function soakReadRuntimeSnapshots(string $path): array
     }
 
     $records = [];
+
     try {
         while (($line = fgets($file)) !== false) {
             $record = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
