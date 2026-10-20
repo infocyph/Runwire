@@ -130,13 +130,6 @@ final class ProtocolCoreBench
         return strlen($frames[0]->payload);
     }
 
-    public function benchHttp2RequestHeaderValidation(): int
-    {
-        $head = (new RequestHeaderValidator('HTTP/2'))->request($this->http2Headers);
-
-        return strlen($head->target);
-    }
-
     public function benchHttp2HpackDecode(): int
     {
         return count($this->hpackDecoder->decode($this->hpackWire));
@@ -165,11 +158,23 @@ final class ProtocolCoreBench
         return strlen($this->huffmanCodec->encode('https://example.test/benchmark'));
     }
 
-    public function benchHttp3RequestHeaderValidation(): int
+    public function benchHttp2RequestHeaderValidation(): int
     {
-        $head = (new RequestHeaderValidator('HTTP/3'))->request($this->http3Headers);
+        $head = (new RequestHeaderValidator('HTTP/2'))->request($this->http2Headers);
 
         return strlen($head->target);
+    }
+
+    public function benchHttp3FrameDecode(): int
+    {
+        $frames = (new FrameParser())->push($this->http3Wire);
+
+        return strlen($frames[0]->payload);
+    }
+
+    public function benchHttp3FrameEncode(): int
+    {
+        return strlen($this->http3Frame->encode());
     }
 
     public function benchHttp3QpackBlockedUnblock(): int
@@ -201,18 +206,6 @@ final class ProtocolCoreBench
         }
 
         return count($unblocked[0]->section->fields);
-    }
-
-    public function benchHttp3FrameDecode(): int
-    {
-        $frames = (new FrameParser())->push($this->http3Wire);
-
-        return strlen($frames[0]->payload);
-    }
-
-    public function benchHttp3FrameEncode(): int
-    {
-        return strlen($this->http3Frame->encode());
     }
 
     public function benchHttp3QpackDynamicRoundTrip(): int
@@ -252,6 +245,13 @@ final class ProtocolCoreBench
     public function benchHttp3QpackStaticEncode(): int
     {
         return strlen($this->qpackEncoder->encode($this->http3Headers, 0)->block);
+    }
+
+    public function benchHttp3RequestHeaderValidation(): int
+    {
+        $head = (new RequestHeaderValidator('HTTP/3'))->request($this->http3Headers);
+
+        return strlen($head->target);
     }
 
     public function benchHttp3VarIntRoundTrip(): int
