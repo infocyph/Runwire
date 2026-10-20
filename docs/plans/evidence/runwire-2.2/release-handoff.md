@@ -49,3 +49,7 @@ All six standard workflows were green on immutable source [1770ba8](https://gith
 
 **R8.04 passed**, as bounded actual network/transport integration—not as release performance certification. H2 comparison JSON is explicitly `diagnostic=true`, `promotion_certified=false`: 1s warmup/5s phases and noisy throughput do not meet the strict 30s warmup, 5×180s, 2.5% CV release threshold. Real FrankenPHP/RoadRunner are not available in current CI and remain **open R6.10**; mixed multi-protocol native prefork rolling replacement remains **open R6.02**. R4.01/.02/.04/.09 and R8.05/.07 stay open. The newer 30-minute soak RSS/FD sampler is implemented but not yet run and accepted; R7.08 remains open, including unavailable external GC/OPcache attribution.
 
+
+## Final QA matrix / exact-source release gate
+
+See [the Runwire-only final qualification matrix](final-qa-matrix.md) for all accepted CI modes, 19 still-open tasks, R5 deferrals, archival consumer dependency note and exact-source guard. Source [d2646e2](https://github.com/infocyph/Runwire/commit/d2646e2919317cc376f19fd1237affb1dbc87679) fixes the new resource profiler's PHPForge lint policy issues; do not mark its final CI as green until checks conclude. Live 30-minute RSS/FD sampling and paired stable CV <2.5% performance gate remain unverified on one frozen candidate. This remains **NOT READY FOR MAINTAINER RELEASE**.

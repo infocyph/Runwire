@@ -10,7 +10,7 @@
 
 **R3.09 remains OPEN:** distinct H1 plaintext/TLS, low/high concurrency, small/1MiB payloads, per-send syscalls plus stable full-server RPM/p99/RSS head-to-head on the final SHA have not been produced. No certified throughput-gain headline.
 
-## R4 audit: 5/10 complete, focused interoperability pending
+## R4 audit: 6/10 complete; independent QUIC interoperability passed, deeper profiling/load acceptance remains open
 
 **R4.03:** `Http2ConnectionTest`, `Http2AbuseTest` verify fragmented/accepted header blocks across drain, per-stream cancellation, control-frame caps, GOAWAY, bounded response buffers and independent sibling flow-control. **R4.05:** `Http3SessionTest`, `Http3AbuseFaultAcceptanceTest` validate QPACK-blocked streams, cancellation, max buffered bytes, lost critical stream, churn and idle drain. **R4.07:** `AdaptivePromotionMatrixTest`, `AdaptiveProtocolTransitionTest` and existing adaptive H1/H2/H3 CI enforce FIXED baseline and refuse unstable/noisy AUTO promotion. **R4.08:** `HpackTest`, `QpackTest`, abuse suites include malformed header representation, Huffman/dynamic table bounds, index/Base overflow and decompression ceilings. **R4.10:** `HttpProtocolSemanticParityTest` checks the unified HttpRequest/ResponseWriter application-visible contract across H1/H2/H3.
 
@@ -44,3 +44,7 @@ At source SHA `f804a5a6f6e7d9844dd18faedc15cba001bbc80f`, [Security & Standards 
 | H3 frame decode | 1.015 | 0.678 |
 
 These represent **different algorithms and workload shapes**, not an apples-to-apples HPACK-vs-QPACK speed comparison; distinct runner versions/conditions are also not evidence of a production-version gain. No rewrite or performance improvement claim is authorized by this profile alone. **R4.02 and R4.04 remain OPEN** pending integer/Huffman, frame/scheduling, QUIC poll/write and representative end-to-end attribution. The release primary metric remains sustained successful RPM.
+
+## Profiling work and certification boundary — 2026-10-20
+
+[Protocol profiler code `afa381f`](https://github.com/infocyph/Runwire/commit/afa381fa82dcc266043e4a6b1e2747ee89e88786) and [Benchmarks run 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538) add direct HPACK Huffman/prefixed integer, H2 complete/split frame parse, QPACK prefixed integer and H3 QUIC varint cost subjects alongside existing codecs. PHPBench 1,000-rev/5-iteration mode values compare local isolated operations only. HTTP2 adaptive real client diagnostics are NOT statistically qualified and cannot certify end-to-end throughput, header-heavy flow-control or poll/write buffer gains. R4.01/.02/.04/.09 stay unchecked until the missing workload, polling/scheduling, cancellation-storm and stable evidence exists. Current tracker is 6/10 for R4; R8.04 real transport integration is separately complete.

@@ -1,7 +1,7 @@
 # Runwire 2.2 — critical-path closure register
 
 **Status:** Active engineering, not release-ready. Updated 2026-10-20.
-**Last pre-isolation fully green standard QA source:** `5b88cff2f40824526ffcd91b56e5a310a60d692f`. **Certification-isolation implementation checkpoint:** `87cfca5a40e9bf9a9792a1d975a408cadc1e582c` (PR [#9](https://github.com/infocyph/Runwire/pull/9)); final all-job QA still pending.
+**Last fully green six-workflow standard PR QA head:** `1770ba82cd8be96816d673237cc0e2cac8ccb0ac` (PR [#9](https://github.com/infocyph/Runwire/pull/9)); PR QA may check out a synthetic merge commit, so raw benchmark build stamps must be inspected. **New soak profiler source:** `d2646e2919317cc376f19fd1237affb1dbc87679` with current post-fix standard QA pending; exact-source release certification remains open.
 **Release predecessor:** `2.1.2` at `7e9bf20ad0737a187dfed77b723791b141b36378`.
 
 ## Exact accounting
@@ -29,21 +29,13 @@ Original 95 task IDs: 69 checked complete; **19 active open**; 7 R5 dialer tasks
 
 **Shared performance bench:** R0.06/.07, R1.08, R2.09, R3.09, R4.01/.09 and R7.08 should reuse a single pinned runner and production-equivalent workload matrix. The 2.1.2 comparison produced zero-invalid-response paired trials but baseline coefficient of variation 4.283%, above the strict 2.5% threshold. Do not mark these tasks complete until new stable reproducible data exists.
 
-**External dependencies:** R4.06 independent ngtcp2/aioquic interoperability passed at `f804a5a6` (PHP8.4/8.5 aioquic, PHP8.5 ngtcp2); R8.04 immutable php-quic extension ABI and R6.10 real supported hosts still need release proof, as does the R8.05 **standalone Runwire-only** exact-SHA certification. The earlier external Infbyte Composer failure is historical evidence only, not a release gate or authorization to change another repository.
+**External dependencies:** R4.06 independent ngtcp2/aioquic interoperability passed at `f804a5a6` (PHP8.4/8.5 aioquic, PHP8.5 ngtcp2); R8.04 real php-quic/OpenSSL/independent H3 integration passed at `1770ba8`; R6.10 real non-CI supported hosts still need release proof, as does the R8.05 **standalone Runwire-only** exact-SHA certification. The earlier external Infbyte Composer failure is historical evidence only, not a release gate or authorization to change another repository.
 
 **Release-only tasks:** R8/R9 are *not* prerequisites to develop safe R1–R7 code; they are mandatory before merging/tagging/publishing. The full 30-minute soak need not rerun for a documentation-only commit, but must pass on final exact source SHA.
 
-## Latest proven standard QA
+## Latest complete standard QA (not final release certification)
 
-All six [source head `f804a5a6`](https://github.com/infocyph/Runwire/commit/f804a5a6f6e7d9844dd18faedc15cba001bbc80f) workflows succeeded:
-- [Security & Standards](https://github.com/infocyph/Runwire/actions/runs/39374716440)
-- [Benchmarks](https://github.com/infocyph/Runwire/actions/runs/39374716128)
-- [Portable Native](https://github.com/infocyph/Runwire/actions/runs/39374715960)
-- [Swoole/OpenSwoole](https://github.com/infocyph/Runwire/actions/runs/39374715907)
-- [Release Candidate](https://github.com/infocyph/Runwire/actions/runs/39374716170)
-- [Source Audit](https://github.com/infocyph/Runwire/actions/runs/39374716040)
-
-[Release Certification](https://github.com/infocyph/Runwire/actions/runs/39374715989) was conditionally **SKIPPED** and is **NOT PASSING CERTIFICATION EVIDENCE**.
+All six PR workflow runs reported success for branch head [1770ba8](https://github.com/infocyph/Runwire/commit/1770ba82cd8be96816d673237cc0e2cac8ccb0ac): [Security & Standards 39433340291](https://github.com/infocyph/Runwire/actions/runs/39433340291), [Benchmarks 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538), [Portable Native 39433339585](https://github.com/infocyph/Runwire/actions/runs/39433339585), [Swoole/OpenSwoole 39433339597](https://github.com/infocyph/Runwire/actions/runs/39433339597), [Release Candidate 39433339556](https://github.com/infocyph/Runwire/actions/runs/39433339556) and [Source Audit 39433339545](https://github.com/infocyph/Runwire/actions/runs/39433339545). These are PR-standard checks, not a frozen-head 30-minute soak or statistically accepted 5×180s baseline/candidate comparison. See [final QA matrix](final-qa-matrix.md).
 
 ## Immediate engineering sequence
 
@@ -93,3 +85,7 @@ At exact Runwire source [9940779](https://github.com/infocyph/Runwire/commit/994
 All six standard workflows were green on immutable source [1770ba8](https://github.com/infocyph/Runwire/commit/1770ba82cd8be96816d673237cc0e2cac8ccb0ac). [Benchmarks run 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538) exercised native HTTP/1.1, independent Python h2 real TLS multiplexed requests, and native WebSocket upgrades/framing. [Security & Standards 39433340291](https://github.com/infocyph/Runwire/actions/runs/39433340291) passed real QUIC/OpenSSL HTTP3 native server interoperability with independent aioquic on PHP8.4/8.5 and ngtcp2 on PHP8.5. [Portable Native 39433339585](https://github.com/infocyph/Runwire/actions/runs/39433339585) passed PHP8.4/8.5 real HTTP/TCP/Unix/UDP/TLS local-response tests in truly no-PCNTL/POSIX mode. [Swoole/OpenSwoole 39433339597](https://github.com/infocyph/Runwire/actions/runs/39433339597) passed live multiworker lifecycle and identity checks with both extension families.
 
 **R8.04 passed**, as bounded actual network/transport integration—not as release performance certification. H2 comparison JSON is explicitly `diagnostic=true`, `promotion_certified=false`: 1s warmup/5s phases and noisy throughput do not meet the strict 30s warmup, 5×180s, 2.5% CV release threshold. Real FrankenPHP/RoadRunner are not available in current CI and remain **open R6.10**; mixed multi-protocol native prefork rolling replacement remains **open R6.02**. R4.01/.02/.04/.09 and R8.05/.07 stay open. The newer 30-minute soak RSS/FD sampler is implemented but not yet run and accepted; R7.08 remains open, including unavailable external GC/OPcache attribution.
+
+## Active QA and release blocker register
+
+[Final QA matrix](final-qa-matrix.md) records 69/95 checked, seven R5.02–R5.08 items deferred, **19 active open**, and all last proven modes. New Runwire-owned [soak-resource sampler](https://github.com/infocyph/Runwire/commit/90477715f93c32feb2c3db188df0983edae61ac1) records 15-second Linux RSS/FD observations and strict trend/coverage checks, but has **not yet passed a final 30-minute run**. The new profiler first failed PHPForge banned `sleep` and `exit` rules; [d2646e2](https://github.com/infocyph/Runwire/commit/d2646e2919317cc376f19fd1237affb1dbc87679) corrected it without modifying the external QA policy; full final-head CI result remains to be recorded. Never mark R7.08 or R8.05 complete from this implementation alone. Missing live prefork multi-protocol recycle and FrankenPHP/RoadRunner remain tracked independently in R6.02/R6.10.
