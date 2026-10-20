@@ -1,13 +1,18 @@
 name: "Release Certification"
 
+# Intentionally opt-in: a 30-minute soak and 5 x 180-second paired comparison
+# are run for a selected final candidate, never on routine PR synchronize.
+# A new commit does not silently cancel an earlier manual certification run.
+
 on:
   workflow_dispatch:
   pull_request:
+    types: [labeled]
     branches: [ "main", "master", "develop", "development" ]
 
 concurrency:
   group: release-certification-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -18,7 +23,7 @@ env:
 jobs:
   matched-performance:
     name: "Matched baseline/candidate - PHP 8.5"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     runs-on: ubuntu-latest
     timeout-minutes: 55
 
@@ -95,7 +100,7 @@ jobs:
 
   candidate-soak:
     name: "Candidate 30-minute HTTP soak - PHP 8.5"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -206,7 +211,7 @@ jobs:
 
   consumer-app:
     name: "Standalone Runwire package / native HTTP - PHP ${{ matrix.php-version }}"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -363,7 +368,7 @@ jobs:
 
   release-guard:
     name: "PHPForge release guard with ext-event"
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/next-edition' || contains(github.event.pull_request.labels.*.name, 'release-certification')
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
