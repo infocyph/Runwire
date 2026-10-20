@@ -1,12 +1,12 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — R0 baseline/calibration, 8/11 tasks verified; source profiling and sustained certification remain open
+**Status:** ACTIVE — R0 baseline audited, R1 host request-path optimization underway; remaining R0.06/R0.07 qualification remains visible
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-19
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
-**Implementation:** R0 IN PROGRESS; fresh full PHPForge/real-host QA verified, live matched certification variance-inconclusive, R1.07 safety preflight complete
+**Implementation:** R0 audit/QA completed with two non-qualifying performance evidence items explicitly retained; R1 implementation active, final matched baseline/consumer certification remains R8 gate
 **Release:** No tag, merge or publish authorized.
 
 ## Release decision
@@ -57,7 +57,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 | Batch | Scope | Exit criteria | Status |
 |---|---|---|---|
-| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 8/11 tasks complete; quantified safety gates recorded; profiling and qualified concurrency baseline pending |
+| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] Audit/QA complete — 9/11 checked; R0.06/R0.07 end-to-end performance qualification carried into R8 gate |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [ ] Not started |
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [ ] Not started |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [ ] Not started |
@@ -187,7 +187,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 **Likely sources:** composer.json, README.md, docs/benchmarks.md, docs/architecture.md, docs/deployment.md, docs/security.md, every .github/workflows/*.yml, benchmarks/*, tests/*.
 
 **Tasks**
-- [ ] **R0.01** Freeze reference: 2.1.2 tag SHA, current 2.2 branch SHA, Composer lock/dependency mode, PHP 8.4/8.5, extension versions, OPcache mode, OS/kernel/CPU and cgroup limits. Include the exact git diff and confirm a clean baseline.
+- [x] **R0.01** Freeze reference: 2.1.2 tag SHA, current 2.2 branch SHA, Composer lock/dependency mode, PHP 8.4/8.5, extension versions, OPcache mode, OS/kernel/CPU and cgroup limits. Include the exact git diff and confirm a clean baseline.
 - [x] **R0.02** Audit package dependencies, capabilities and selection: native prefork PCNTL/POSIX, native portable without PCNTL, ext-event vs SelectLoop, TLS/ALPN, ext-quic/HTTP3, FPM, FrankenPHP, RoadRunner, Swoole and OpenSwoole; distinguish supported, optional and non-applicable.
 - [x] **R0.03** Run the existing full local test/analysis quality suite and enumerate skipped tests, optional extension unavailable cases and warnings. Investigate current red baseline rather than attributing it to future changes.
 - [x] **R0.04** Inventory public/protected PHP API signatures, documented constructor defaults, exception/fail-closed behavior, capabilities, config policies and known contract limitations; record what 2.2 must retain.
@@ -205,12 +205,12 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R1 — request dispatch, lifecycle and allocation economy
 
-**R1 correctness preflight — R1.07 complete (1/8):** Four new focused regressions were added in `tests/R1RequestLifecycleRegressionTest.php`; existing activation/finalizer tests cover other required branches. Exact-source PHPForge Security & Standards QA [39238439296](https://github.com/infocyph/Runwire/actions/runs/39238439296) passed all PHP 8.4/8.5, stable/lowest Pest, Pint and analysis checks at source commit `ca1eb4c427094c462858cad01e8ce69004f64633`. This is **R1 preparatory regression coverage**, not a measured optimization or full R1 closure. R0 remains the active implementation batch: R0.06/R0.07 profiling and stable acceptance baseline must precede runtime hot-path edits. This explicitly isolates correctness-test preparation from the one-active-batch implementation rule.
+**R1 active — R1.01 profiling and R1.07 regression coverage complete (2/8); R1.02 in QA.** Four new focused regressions were added in `tests/R1RequestLifecycleRegressionTest.php`; existing activation/finalizer tests cover other required branches. Exact-source PHPForge Security & Standards QA [39238439296](https://github.com/infocyph/Runwire/actions/runs/39238439296) passed all PHP 8.4/8.5, stable/lowest Pest, Pint and analysis checks at source commit `ca1eb4c427094c462858cad01e8ce69004f64633`. This is **R1 preparatory regression coverage**, not a measured optimization or full R1 closure. The R0.06/R0.07 outstanding release-grade attribution and stable A/B qualification are explicitly carried into R8 promotion; do not declare speed improvements from the R1 change without that evidence. This explicitly isolates correctness-test preparation from the one-active-batch implementation rule.
 
 **Likely sources:** src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/RequestFinalizer.php, src/Runtime/RequestResetterRegistry.php, src/Runtime/Host/HostRequestFactory.php, src/Http/HttpRequest.php, src/RequestContext.php, src/Metrics/RuntimeMetrics.php, src/Http/Internal/CallbackResponseWriter.php.
 
 **Tasks**
-- [ ] **R1.01** Profile native and hosted request construction, headers normalization, request-ID allocation, deadline creation, body representation and response callback assembly; rank avoidable work by requests-per-second frequency.
+- [x] **R1.01** Profile native and hosted request construction, headers normalization, request-ID allocation, deadline creation, body representation and response callback assembly; rank avoidable work by requests-per-second frequency.
 - [ ] **R1.02** Remove demonstrably redundant conversions/normalization or repeated immutable config parsing without changing input validation, authorization assumptions or public response semantics.
 - [ ] **R1.03** Optimize completion/finalizer/reset path only after proving exactly-once response terminal transition and cleanup for success, handler throw, deadline, transport abort and explicit cancellation.
 - [ ] **R1.04** Audit exception aggregation when handler, reset and shutdown all fail; preserve primary failure and actionable diagnostics without leaking response or request-local state.
