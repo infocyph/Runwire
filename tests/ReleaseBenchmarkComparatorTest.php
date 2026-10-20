@@ -69,7 +69,7 @@ it('compares a stable, identical release topology and reports p99/RSS deltas', f
     $candidate['runtime_build'] = 'candidate-test';
     $candidate['median_successful_rps'] = 1020.0;
     $candidate['median_successful_rpm'] = 61200.0;
-    $candidate['median_p99_ms'] = 6.0;
+    $candidate['median_p99_ms'] = 5.7;
     $candidate['peak_rss_bytes'] = 13_200_000;
 
     [$exit, $json] = runwireCompareReleaseSummaries($baseline, $candidate);
@@ -78,7 +78,9 @@ it('compares a stable, identical release topology and reports p99/RSS deltas', f
         ->and($result['passed'])->toBeTrue()
         ->and($result['budget_enforced'])->toBeTrue()
         ->and($result['delta_percent'])->toBe(2)
-        ->and($result['p99_delta_percent'])->toBe(20)
+        ->and($result['p99_delta_percent'])->toBe(14)
+        ->and($result['p99_passed'])->toBeTrue()
+        ->and($result['rss_passed'])->toBeTrue()
         ->and($result['rss_delta_percent'])->toBe(10);
 });
 
@@ -109,7 +111,7 @@ it('rejects a stable throughput regression and cannot certify unstable evidence'
     $candidate['median_successful_rps'] = 900.0;
     [$exit, $output] = runwireCompareReleaseSummaries($baseline, $candidate);
     expect($exit)->toBeGreaterThan(0)
-        ->and($output)->toContain('exceeds the permitted regression budget');
+        ->and($output)->toContain('exceeds the permitted throughput, p99 latency, or RSS regression budget');
 
     $candidate = $baseline;
     $candidate['runtime_build'] = 'candidate-test';
@@ -130,4 +132,49 @@ it('fails closed on missing or non-finite release benchmark metrics', function (
         [$exit] = runwireCompareReleaseSummaries($baseline, $candidate);
         expect($exit)->toBeGreaterThan(0);
     }
+});
+
+it('rejects p99 and RSS regressions even when successful throughput is unchanged', function (): void {
+    $baseline = runwireReleaseSummaryFixture();
+
+    $slow = $baseline;
+    $slow['runtime_build'] = 'slow-candidate';
+    $slow['median_p99_ms'] = 6.0; // +20%, +1ms exceeds both latency tolerances.
+    [$exit, $output] = runwireCompareReleaseSummaries($baseline, $slow);
+    expect($exit)->toBeGreaterThan(0)
+        ->and($output)->toContain('"p99_passed": false')
+        ->and($output)->toContain('"throughput_passed": true');
+
+    $large = $baseline;
+    $large['runtime_build'] = 'large-candidate';
+    $large['peak_rss_bytes'] = 18_000_000; // Exceeds 110% of 12MB plus 4MiB.
+    [$exit, $output] = runwireCompareReleaseSummaries($baseline, $large);
+    expect($exit)->toBeGreaterThan(0)
+        ->and($output)->toContain('"rss_passed": false')
+        ->and($output)->toContain('"throughput_passed": true');
+});
+
+it('keeps the p99 absolute tolerance for fast workloads without dropping the RSS guard', function (): void {
+    $baseline = runwireReleaseSummaryFixture();
+    $baseline['median_p99_ms'] = 0.5;
+    $candidate = $baseline;
+    $candidate['runtime_build'] = 'small-latency-delta';
+    $candidate['median_p99_ms'] = 0.9; // +80%, but only +0.4ms.
+    [$exit, $output] = runwireCompareReleaseSummaries($baseline, $candidate);
+    $result = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+    expect($exit)->toBe(0)
+        ->and($result['p99_passed'])->toBeTrue()
+        ->and($result['rss_passed'])->toBeTrue();
+});
+
+it('rejects tail-latency breaches even when throughput noise prevents a rate verdict', function (): void {
+    $baseline = runwireReleaseSummaryFixture();
+    $candidate = $baseline;
+    $candidate['runtime_build'] = 'noisy-tail';
+    $candidate['rps_cv_percent'] = 10.0;
+    $candidate['median_p99_ms'] = 10.0;
+    [$exit, $output] = runwireCompareReleaseSummaries($baseline, $candidate);
+    expect($exit)->toBeGreaterThan(0)
+        ->and($output)->toContain('"budget_enforced": false')
+        ->and($output)->toContain('"p99_passed": false');
 });

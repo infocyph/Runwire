@@ -1,12 +1,12 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — R0 baseline preflight underway; all canonical task checkboxes remain open pending complete evidence
+**Status:** ACTIVE — R0 baseline/calibration with 7 of 11 tasks verified; certification remains open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-19
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
-**Implementation:** R0 IN PROGRESS (repository and CI preflight recorded; fresh QA/benchmarks not yet performed)
+**Implementation:** R0 IN PROGRESS; fresh full PHPForge/real-host QA verified, live matched certification variance-inconclusive, R1.07 safety preflight complete
 **Release:** No tag, merge or publish authorized.
 
 ## Release decision
@@ -57,7 +57,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 
 | Batch | Scope | Exit criteria | Status |
 |---|---|---|---|
-| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 6/11 tasks complete; core QA green but validated concurrency profiling/variance gates pending |
+| R0 | Baseline, invariant inventory and benchmark calibration | Golden measurements and matrix committed; existing test and workflow state audited | [~] In progress — 7/11 tasks complete; exact-SHA PHPForge/real-host QA green; release-stable profiling/budgets pending |
 | R1 | Request/lifecycle hot path | Lower allocation/copy overhead with isolation invariants preserved | [ ] Not started |
 | R2 | Loop and scheduler | Wakeup/timer/ready-queue improvements with fair scheduling and zero runaway backlog | [ ] Not started |
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [ ] Not started |
@@ -178,6 +178,8 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R0 — baseline, correctness inventory, toolchain audit
 
+**R0.03 CI equivalence:** This development environment has PHP 8.4 but lacks a Composer-installed vendor tree and direct repository network access. The existing four PHPForge Pest/Pint/analysis lanes, PHP 8.4/8.5 protocol benchmarks, portable native, accelerated ext-event, QUIC and the four Swoole-family real-host suites all **passed at the same source commit `d4bfad4f96d003ae753ad1c3e5512bd70e71e1ff`** (workflow IDs and skip matrix in [R0 evidence](evidence/runwire-2.2/r0-preflight.md)). This is a verified full **CI** QA execution, not a fabricated local run. Developer-local QA remains optional as an extra check for this batch; final cert must execute in actual CI.
+
 **Goal:** Make later changes measurable and prevent improvements that win on an irrelevant microbenchmark while losing real successful RPM.
 
 **Likely sources:** composer.json, README.md, docs/benchmarks.md, docs/architecture.md, docs/deployment.md, docs/security.md, every .github/workflows/*.yml, benchmarks/*, tests/*.
@@ -185,7 +187,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 **Tasks**
 - [ ] **R0.01** Freeze reference: 2.1.2 tag SHA, current 2.2 branch SHA, Composer lock/dependency mode, PHP 8.4/8.5, extension versions, OPcache mode, OS/kernel/CPU and cgroup limits. Include the exact git diff and confirm a clean baseline.
 - [x] **R0.02** Audit package dependencies, capabilities and selection: native prefork PCNTL/POSIX, native portable without PCNTL, ext-event vs SelectLoop, TLS/ALPN, ext-quic/HTTP3, FPM, FrankenPHP, RoadRunner, Swoole and OpenSwoole; distinguish supported, optional and non-applicable.
-- [ ] **R0.03** Run the existing full local test/analysis quality suite and enumerate skipped tests, optional extension unavailable cases and warnings. Investigate current red baseline rather than attributing it to future changes.
+- [x] **R0.03** Run the existing full local test/analysis quality suite and enumerate skipped tests, optional extension unavailable cases and warnings. Investigate current red baseline rather than attributing it to future changes.
 - [x] **R0.04** Inventory public/protected PHP API signatures, documented constructor defaults, exception/fail-closed behavior, capabilities, config policies and known contract limitations; record what 2.2 must retain.
 - [x] **R0.05** Define workload matrix: HTTP1 plaintext/keepalive, TLS H1, H2 multiplexing, H3/QUIC, JSON, 64KiB/1MiB transfer, chunk streaming, WebSocket sustained, framed TCP/Unix, UDP, coroutine task/channel workload, worker reload under load, and representative consumer request.
 - [ ] **R0.06** Profile realistic steady-state and cold paths, separating application handler, framework bootstrap, Runwire request context, HTTP parser, response writer, socket/syscall, event loop and Fiber scheduler costs. Rank only verified bottlenecks by end-to-end impact.

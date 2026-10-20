@@ -122,3 +122,18 @@ This deliberate test invocation does not imply permission to merge, tag or publi
 - [Security & Standards 39238884689](https://github.com/infocyph/Runwire/actions/runs/39238884689): only PHP 8.5 prefer-stable QA failed, in `Http1SustainedBenchTest.php:149` with `Invalid sustained benchmark arguments`. The test fixture used non-atomic publication of the listening port, allowing its parent to see an empty `.ready` file. The child now validates a real port and publishes readiness via atomic same-directory rename. Production benchmark argument validation is unchanged.
 - [Swoole/OpenSwoole 39238884390](https://github.com/infocyph/Runwire/actions/runs/39238884390): PHP 8.4 OpenSwoole live worker-acceptance failed the exactly-two-worker traffic assertion after both workers booted. Initial 64 responses can be distributed unevenly by host reactor scheduling. Test now permits 64 bounded additional validated probes (at most 128 total), retains two distinct worker PIDs and slots, globally unique request IDs, worker-local lifecycle and exact shutdown assertions, and reports observed PIDs on failure. A single-worker runtime still fails certification.
 - Both require exact-SHA CI before being considered fixed. No production `src/` code changed.
+
+## R0 reproducible QA gate and latency/RSS budget implementation (2026-10-20)
+
+**Source `d4bfad4f96d003ae753ad1c3e5512bd70e71e1ff`:**
+- [Security & Standards](https://github.com/infocyph/Runwire/actions/runs/39364888548) **PASS**: PHP8.4/8.5 stable and lowest QA, analysis, benchmark checks, real QUIC; conditional release and Security Report SKIPPED by design.
+- [Swoole/OpenSwoole](https://github.com/infocyph/Runwire/actions/runs/39364888028) **PASS** all four PHP × Swoole-family real-host combinations.
+- [Portable Native](https://github.com/infocyph/Runwire/actions/runs/39364888254) **PASS** PHP8.4/8.5 portable and accelerated ext-event.
+- [Benchmarks](https://github.com/infocyph/Runwire/actions/runs/39364887846) **PASS** PHP 8.4/8.5 source and adaptive diagnostics (diagnostic measurements NOT release qualified).
+- [Release Candidate](https://github.com/infocyph/Runwire/actions/runs/39364887972), [Source Audit](https://github.com/infocyph/Runwire/actions/runs/39364887873) **PASS**.
+- [Release Certification](https://github.com/infocyph/Runwire/actions/runs/39364887882) **SKIPPED**, not passing evidence; prior real paired trial CV above ceiling.
+- No freshly executed local Composer QA in this analysis environment (Composer and dependencies unavailable locally). R0.03 closed on full QA **CI** equivalence, not a local claim.
+
+**Latency/RSS policy source:** The pre-existing adaptive H1/H2 promotion comparator uses p99 policy relative ceiling 1.15 together with an absolute 0.5ms tolerance, and RSS ceiling baseline×1.10 + 4 MiB. First release paired trial baseline p99 values [5.55, 5.54, 5.51, 5.61, 4.86]ms (spread ~13.54% of median), candidate [5.69, 5.69, 5.67, 5.69, 5.70]ms; baseline RSS 130,142,208–130,146,304 bytes (spread <0.004%). This supports keeping the already established guardrails rather than inventing stricter absolute limits. Release comparator now enforces p99/RSS gates even when throughput CV is inconclusive. These changes are **new** and must pass CI before R0.10 can be marked complete.
+
+**Remaining:** R0.01 environment/commit freeze, R0.06 end-to-end ranked profiles and R0.07 calibrated concurrency acceptance. Infbyte published Foundation consumer remains a separate R8 publication-order blocker.

@@ -81,12 +81,24 @@ $regressionPercent = (($candidateRps - $baselineRps) / $baselineRps) * 100.0;
 $budgetPercent = 5.0;
 $varianceCeilingPercent = 2.5;
 $enforced = $maxCv < $varianceCeilingPercent;
-$passed = !$enforced || $regressionPercent >= -$budgetPercent;
-
 $baselineP99 = (float) $baseline['median_p99_ms'];
 $candidateP99 = (float) $candidate['median_p99_ms'];
 $baselineRss = (float) $baseline['peak_rss_bytes'];
 $candidateRss = (float) $candidate['peak_rss_bytes'];
+
+// Reuse Runwire's already-established adaptive-promotion safety margins:
+// a p99 regression must exceed BOTH 15% and 0.5 ms; RSS must exceed 110% + 4 MiB.
+// Throughput variance remains a separate hard release-certification gate.
+$p99RelativeCeiling = 1.15;
+$p99AbsoluteToleranceMs = 0.5;
+$rssRelativeCeiling = 1.10;
+$rssAbsoluteToleranceBytes = 4_194_304;
+$p99Passed = $candidateP99 <= $baselineP99 * $p99RelativeCeiling
+    || $candidateP99 - $baselineP99 <= $p99AbsoluteToleranceMs;
+$rssLimitBytes = $baselineRss * $rssRelativeCeiling + $rssAbsoluteToleranceBytes;
+$rssPassed = $candidateRss <= $rssLimitBytes;
+$throughputPassed = $regressionPercent >= -$budgetPercent;
+$passed = (!$enforced || $throughputPassed) && $p99Passed && $rssPassed;
 
 $result = [
     'baseline_build' => $baseline['runtime_build'],
@@ -103,6 +115,14 @@ $result = [
     'baseline_peak_rss_bytes' => (int) $baselineRss,
     'candidate_peak_rss_bytes' => (int) $candidateRss,
     'rss_delta_percent' => $baselineRss > 0 ? round(($candidateRss - $baselineRss) / $baselineRss * 100.0, 3) : null,
+    'p99_relative_ceiling_ratio' => $p99RelativeCeiling,
+    'p99_absolute_tolerance_ms' => $p99AbsoluteToleranceMs,
+    'p99_passed' => $p99Passed,
+    'rss_relative_ceiling_ratio' => $rssRelativeCeiling,
+    'rss_absolute_tolerance_bytes' => $rssAbsoluteToleranceBytes,
+    'rss_ceiling_bytes' => (int) ceil($rssLimitBytes),
+    'rss_passed' => $rssPassed,
+    'throughput_passed' => $throughputPassed,
     'regression_budget_percent' => $budgetPercent,
     'variance_ceiling_percent' => $varianceCeilingPercent,
     'budget_enforced' => $enforced,
@@ -112,5 +132,5 @@ $result = [
 fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 
 if (!$passed) {
-    throw new RuntimeException('Stable benchmark evidence exceeds the permitted regression budget.');
+    throw new RuntimeException('Benchmark evidence exceeds the permitted throughput, p99 latency, or RSS regression budget.');
 }
