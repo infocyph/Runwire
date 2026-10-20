@@ -98,7 +98,8 @@ $p99Passed = $candidateP99 <= $baselineP99 * $p99RelativeCeiling
 $rssLimitBytes = $baselineRss * $rssRelativeCeiling + $rssAbsoluteToleranceBytes;
 $rssPassed = $candidateRss <= $rssLimitBytes;
 $throughputPassed = $regressionPercent >= -$budgetPercent;
-$passed = (!$enforced || $throughputPassed) && $p99Passed && $rssPassed;
+$passed = $enforced && $throughputPassed && $p99Passed && $rssPassed;
+$certificationStatus = !$enforced ? 'inconclusive_variance' : ($passed ? 'passed' : 'failed');
 
 $result = [
     'baseline_build' => $baseline['runtime_build'],
@@ -126,11 +127,16 @@ $result = [
     'regression_budget_percent' => $budgetPercent,
     'variance_ceiling_percent' => $varianceCeilingPercent,
     'budget_enforced' => $enforced,
+    'certification_status' => $certificationStatus,
     'passed' => $passed,
 ];
 
 fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 
 if (!$passed) {
-    throw new RuntimeException('Benchmark evidence exceeds the permitted throughput, p99 latency, or RSS regression budget.');
+    throw new RuntimeException(
+        !$enforced
+            ? 'Benchmark evidence is inconclusive: measured variance exceeds the 2.5% certification ceiling.'
+            : 'Benchmark evidence exceeds the permitted throughput, p99 latency, or RSS regression budget.',
+    );
 }
