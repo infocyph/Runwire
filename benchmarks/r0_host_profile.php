@@ -62,6 +62,9 @@ function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): arr
         $endCalls = 0;
         $writer = new CallbackResponseWriter(
             static function (int $responseStatus, Headers $headers) use (&$status): void {
+                if ($headers->first('content-type') !== 'text/plain') {
+                    throw new RuntimeException('R0 host profile received unexpected response content type.');
+                }
                 $status = $responseStatus;
             },
             static function (string $chunk) use (&$body): void {
