@@ -13,13 +13,13 @@
 
 **R7.08 OPEN:** prior actual 30-minute native HTTP soak passed 12,901,151 requests and zero errors, but final exact SHA does not yet have full queue/RSS leak and GC/OPcache soak analysis. **R7.09 OPEN:** security advisories and full dependency CVE provenance on the last candidate remain to be signed off.
 
-## R8 audit completed: 3/10 tasks
+## R8 audit completed: 4/10 tasks
 
 - **R8.01:** Standard PR workflows vs conditional release-certification fully audited. Green normal CI ≠ release certification. The former four release jobs were matched performance, native soak, Infbyte consumer and PHPForge guard. The updated Runwire-only workflow retains performance/soak/guard and substitutes a PHP 8.4/8.5 standalone Composer-installed native HTTP consumer; this new job is not accepted without CI evidence.
 - **R8.06:** Published 2.1.2 annotated tag resolved to immutable `7e9bf20ad0737a187dfed77b723791b141b36378` and is primary matched benchmark baseline in release workflow; historical pre-consolidation SHA removed as the release baseline. Candidate SHA/path install checks added.
 - **R8.09:** Retrieved real workflow/benchmark artifacts, identified nonmatching GitHub CPU models, baseline CV 4.283% > 2.5% ceiling, previous conditional skips and actual Infbyte dependency failure, and corrected loose evidence metadata. Unsupported comparisons never counted as passing.
 
-**R8.02/.03/.04/.05/.07/.08/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
+**R8.02/.03/.04/.05/.07/.10 OPEN:** final candidate exact-SHA full matrix, five stable warmed 180s paired trials, 30-minute soak, independent protocol/host acceptance, standalone Runwire package/host smoke and release signoff. The historical Infbyte failure is outside the Runwire 2.2 release gate; no aliases or consumer-repository edits are allowed.
 
 ## Change scope
 
@@ -40,3 +40,7 @@ Both PHP 8.4.26 and PHP 8.5.11 benchmark core jobs [39378520084](https://github.
 - The revised [release-certification workflow](https://github.com/infocyph/Runwire/commit/fd78bf9481e45dae0dfc0712760b2f6fa2724ae4) exercises a real Runwire-native HTTP fixture from a clean Composer ZIP, on both supported PHP versions, recording HTTP 200 and 400 response correctness. It never checks out Foundation or Infbyte.
 - [Comparator `09817e8`](https://github.com/infocyph/Runwire/commit/09817e878fd6003ed1f8c288a040396a191fe23c) now rejects CV >=2.5% as inconclusive rather than a success, and emits `certification_status`. [Three Pest tests](https://github.com/infocyph/Runwire/commit/87cfca5a40e9bf9a9792a1d975a408cadc1e582c) cover the verdicts.
 - [Source Audit `39425802729`](https://github.com/infocyph/Runwire/actions/runs/39425802729) and [Release Candidate archive PHP8.4/8.5 `39425802479`](https://github.com/infocyph/Runwire/actions/runs/39425802479) succeeded on `87cfca5`; full release-certification run `39425802472` and other lanes were not yet complete at the time of this evidence record. R8.05/R8.08 remain unchecked.
+
+## R8.08 completion — isolated PHP 8.4/8.5 Runwire consumer
+
+[Exact-SHA source 9940779 certification jobs 39426401438](https://github.com/infocyph/Runwire/actions/runs/39426401438) successfully installed the clean candidate archive as a copied Composer dependency, verified package/source identity, class loading and AUTO defaults, then ran real native H1 200/`ok` and 400/`bad` requests on both PHP 8.4 and 8.5. Process termination and temporary workspace cleanup are built into the test; this is not a rolling-recycle/QUIC/consumer-framework suite. Runwire-owned [PHPForge QA 39426401968](https://github.com/infocyph/Runwire/actions/runs/39426401968) ran the corrected comparator tests successfully in PHP8.4/8.5 stable/lowest modes. **R8.08 checked; R8.05 and R8.04 still open.**

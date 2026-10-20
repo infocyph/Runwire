@@ -29,7 +29,7 @@
 
 - No defensible **successful-RPM improvement** over 2.1.2 is established: previous actual five ×180s paired benchmark was variance-inconclusive, because baseline RPS CV exceeded the established 2.5% gate.
 - One previous 30-minute native HTTP soak passed with 12,901,151 valid responses and zero errors, but that is not a soak of the final candidate.
-- Final H1/H2/H3/tail/RSS, multi-protocol drain and fault tests, PHP8.4/8.5 full QA, five ×180s matched performance, 30-minute soak and **Runwire-only** standalone Composer/native-host smoke certification remain required.
+- Standalone Runwire Composer native HTTP/1.1 acceptance **passed on PHP8.4/8.5** at source `9940779` ([certification job results](https://github.com/infocyph/Runwire/actions/runs/39426401438)). Final H1/H2/H3/tail/RSS, multi-protocol drain and fault tests, complete PHP8.4/8.5 QA, five ×180s matched performance, 30-minute soak and full exact-SHA release certification remain required.
 - Foundation and Infbyte are independent. Their dependency resolution is not a Runwire release gate and neither repository may be modified as part of this work. The replacement standalone Runwire consumer CI still needs to pass on the final candidate.
 
 **Release authority:** Only the maintainer may merge, tag or publish once the [handoff checklist](plans/evidence/runwire-2.2/release-handoff.md) has all required gates verified.

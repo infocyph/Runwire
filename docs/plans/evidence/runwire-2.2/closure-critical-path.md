@@ -6,7 +6,7 @@
 
 ## Exact accounting
 
-Original 95 task IDs: 64 checked complete; **24 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 64 complete + 24 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
+Original 95 task IDs: 65 checked complete; **23 active open**; 7 R5 dialer tasks (R5.02–R5.08) deliberately deferred outside 2.2 and left unchecked. The 2.2 in-scope total is 88: 65 complete + 23 open. These counts are computed from the canonical plan tracker, not estimates. No PR/QA badge alone certifies release readiness.
 
 ## Unchecked active tasks, grouped by batch
 
@@ -20,7 +20,7 @@ Original 95 task IDs: 64 checked complete; **24 active open**; 7 R5 dialer tasks
 | R5 (0 in scope) | R5.02–R5.08 deferred | Deliberately not an R2.2 dialer release |
 | R6 (3) | R6.02, R6.07, R6.10 | Real restart/recycle, generation invalidation and real hosts |
 | R7 (1) | R7.08 | Final RSS/queue/GC soak and leak attribution |
-| R8 (7) | R8.02, R8.03, R8.04, R8.05, R8.07, R8.08, R8.10 | Full exact-SHA certification, independent clients/consumer and risk signoff |
+| R8 (6) | R8.02, R8.03, R8.04, R8.05, R8.07, R8.10 | Full exact-SHA certification, independent protocols/hosts and risk signoff (standalone R8.08 passed) |
 | R9 (4) | R9.06, R9.07, R9.08, R9.09 | Final QA, risk, handoff; maintainer controls release |
 
 ## Active ownership / decision boundaries
@@ -67,3 +67,7 @@ All six [source head `f804a5a6`](https://github.com/infocyph/Runwire/commit/f804
 - Old dependent Infbyte acceptance replaced in Runwire's own [certification workflow](https://github.com/infocyph/Runwire/commit/fd78bf9481e45dae0dfc0712760b2f6fa2724ae4) with PHP8.4/8.5 clean ZIP + Composer install + native HTTP 200/400 fixture proof. Existing Runwire-contained [Release Candidate source install](https://github.com/infocyph/Runwire/actions/runs/39425802479) passed on both PHP versions at `87cfca5`.
 - [Comparator fix](https://github.com/infocyph/Runwire/commit/09817e878fd6003ed1f8c288a040396a191fe23c) removes false-positive `passed=true` for noisy paired release results. [Three regression cases](https://github.com/infocyph/Runwire/commit/87cfca5a40e9bf9a9792a1d975a408cadc1e582c) added; test-suite CI outcome is pending at this checkpoint.
 - R8.05/R8.08 checkboxes remain open until Runwire's *new* release jobs and isolated native runtime prove correctness on an exact final candidate. The separately failing external dependency is not a Runwire blocker. R8 performance CV threshold is unchanged at 2.5%; prior 5 ×180s matched data failed certification.
+
+## R8.08 accepted (2026-10-20)
+
+At exact Runwire source [9940779](https://github.com/infocyph/Runwire/commit/99407799fdee964bc50c64ef918d8f30d05ef432), both [isolated Composer-installed native HTTP consumer jobs](https://github.com/infocyph/Runwire/actions/runs/39426401438) **passed** for PHP 8.4 and 8.5. Checks cover archive integrity, source equivalence, defaults, live H1 200/400 response correctness and process cleanup; no independent repositories are involved. PHPForge's PHP8.4/8.5 lowest/stable QA and both analysis jobs passed on [39426401968](https://github.com/infocyph/Runwire/actions/runs/39426401968). This closes standalone R8.08 only; broader runtime generation/host matrix, stable matched performance and final release certification remain open. **Live ledger: 65/95, 23 active in-scope tasks; R8 4/10.**
