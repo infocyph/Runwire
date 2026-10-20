@@ -67,8 +67,9 @@ print(json.dumps({
 }, separators=(",", ":")))
 PY
 )"
-printf '%s\n' "$affinity_json" | jq -e '.client_separate_physical_core == true and .same_server_cpu_for_baseline_and_candidate == true' \
-  > "$output_dir/cpu-affinity.json"
+printf '%s\n' "$affinity_json" | jq -e \
+  '.client_separate_physical_core == true and .same_server_cpu_for_baseline_and_candidate == true' >/dev/null
+printf '%s\n' "$affinity_json" > "$output_dir/cpu-affinity.json"
 server_cpu="$(jq -r '.server_cpu' "$output_dir/cpu-affinity.json")"
 client_cpu="$(jq -r '.client_cpu' "$output_dir/cpu-affinity.json")"
 
