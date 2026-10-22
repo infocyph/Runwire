@@ -103,6 +103,8 @@ jobs:
           for number in 1 2 3; do
             curl -fsS --max-time 4 "http://127.0.0.1:$port/index.php?case=$number" >"$out/request-$number.json"
           done
+          echo 'Actual isolated FrankenPHP worker HTTP responses:'
+          jq -s . "$out/request-1.json" "$out/request-2.json" "$out/request-3.json"
           jq -se '
             length == 3
             and .[0].method == "GET"
