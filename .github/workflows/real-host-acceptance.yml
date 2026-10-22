@@ -64,6 +64,7 @@ jobs:
           echo substr(strrchr($addr, ":"), 1);
           ')"
 
+          docker image inspect "$image" --format 'entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
           docker run -d --name "$container" \
             -p "127.0.0.1:$port:80" \
             -e "SERVER_NAME=:80" \
@@ -79,7 +80,8 @@ jobs:
               break
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != true ]; then
-              docker logs "$container"
+              docker inspect "$container" --format 'state={{.State.Status}} exit={{.State.ExitCode}} failure={{.State.Error}}'
+              docker logs "$container" >&2 || true
               exit 1
             fi
             sleep 0.25
