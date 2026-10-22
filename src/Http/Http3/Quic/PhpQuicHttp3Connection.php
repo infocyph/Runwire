@@ -454,6 +454,15 @@ final class PhpQuicHttp3Connection
     private function expireRequestStreams(): void
     {
         foreach (array_keys($this->requestStreams) as $streamId) {
+            // Native getResetCode() also observes peer STOP_SENDING on the
+            // write side. Do not wait for another readable event before
+            // discarding a cancelled response on a still-live connection.
+            if (($this->peerStreams[$streamId] ?? null)?->resetCode() !== null) {
+                $this->cancelRequestStream($streamId);
+
+                continue;
+            }
+
             $request = $this->state->requestStream($streamId);
             if ($request === null || $request->timeoutReason() === null) {
                 continue;

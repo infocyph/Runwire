@@ -264,6 +264,48 @@ it('cancels request state when the peer resets a QUIC request stream', function 
         ->and($connection->closed())->toBeFalse();
 });
 
+it('discards STOP_SENDING responses before native writes and preserves healthy siblings', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $encoder = new Encoder(0, 0);
+    $header = new Frame(FrameType::HEADERS->value, $encoder->encode([
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', 'example.com'],
+        [':path', '/cancelled'],
+    ], 0)->block);
+    $cancelled = fakeHttp3ConnectionStream(0, true, [$header->encode(), null], 0);
+    $healthy = fakeHttp3ConnectionStream(4, true, [$header->encode(), null]);
+    $raw = fakeHttp3ConnectionRaw([
+        fakeHttp3ConnectionStream(3, false),
+        fakeHttp3ConnectionStream(7, false),
+        fakeHttp3ConnectionStream(11, false),
+    ], [$cancelled, $healthy]);
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($raw),
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            $writer->end('healthy-response');
+        },
+    );
+
+    $connection->handleReady([spl_object_id($raw) => $events->acceptStream], $events);
+    $connection->handleReady([
+        spl_object_id($cancelled) => $events->read,
+        spl_object_id($healthy) => $events->read,
+    ], $events);
+    expect($connection->activeRequestStreams())->toBe(1)
+        ->and($healthy->written)->toContain('healthy-response');
+
+    $cancelled->peerResetCode = ErrorCode::REQUEST_CANCELLED->value;
+    $cancelled->writeFails = true;
+    // An outbound-only tick must not attempt a native write to STOP_SENDING.
+    $connection->handleReady([spl_object_id($cancelled) => $events->write], $events);
+
+    expect($connection->activeRequestStreams())->toBe(0)
+        ->and($connection->closed())->toBeFalse()
+        ->and($raw->closed)->toBe([])
+        ->and($healthy->ended)->toBeTrue();
+});
+
 it('treats connection poll errors as transport closure without sending a second close', function (): void {
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $connectionRaw = fakeHttp3ConnectionRaw(
