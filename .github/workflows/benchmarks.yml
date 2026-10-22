@@ -530,6 +530,11 @@ jobs:
         run: |
           bash benchmarks/adaptive_http12_certify.sh 5 benchmark-results/adaptive-http12
 
+      - name: Real h2 cancellation, stalled-flow and sibling progress acceptance
+        shell: bash
+        run: |
+          RUNWIRE_H2_PYTHON=/tmp/runwire-h2/bin/python bash benchmarks/h2_fault_acceptance.sh
+
       - name: Upload adaptive H1/H2 evidence
         if: always()
         uses: actions/upload-artifact@v7
