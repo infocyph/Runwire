@@ -300,6 +300,11 @@ jobs:
         run: |
           bash benchmarks/adaptive_http3_certify.sh 5 benchmark-results/adaptive-http3
 
+      - name: Real aioquic HTTP/3 stream cancellations and sibling progress
+        shell: bash
+        run: |
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/http3_fault_acceptance.sh
+
       - name: Upload adaptive HTTP/3 evidence
         if: always() && matrix.php-version == '8.5'
         uses: actions/upload-artifact@v7
