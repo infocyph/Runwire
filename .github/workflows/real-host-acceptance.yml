@@ -30,6 +30,7 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           tools: composer:v2
+          extensions: pcntl, posix, event, opcache
           coverage: none
 
       - name: Install Runwire
