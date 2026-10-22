@@ -48,7 +48,6 @@ jobs:
           container="runwire-frankenphp-${{ matrix.php-version }}-$GITHUB_RUN_ID"
           out="$(mktemp -d)"
           cleanup() {
-            docker logs "$container" >"$out/container.log" 2>&1 || true
             docker rm -f "$container" >/dev/null 2>&1 || true
             rm -rf "$out"
           }
@@ -65,7 +64,7 @@ jobs:
           echo substr(strrchr($addr, ":"), 1);
           ')"
 
-          docker run -d --name "$container" --rm \
+          docker run -d --name "$container" \
             -p "127.0.0.1:$port:80" \
             -e "SERVER_NAME=:80" \
             -e "FRANKENPHP_CONFIG=worker /app/public/index.php 1" \
