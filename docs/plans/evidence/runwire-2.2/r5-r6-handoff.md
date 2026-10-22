@@ -17,7 +17,7 @@ Source/test review on Runwire 2.2 branch, with previous standard green workflow 
 - **R6.06 completed:** `Http1ConnectionTest`, `Http2ConnectionTest`, `Http3SessionTest` and native accepted-incomplete header recycle tests cover drain-admission semantics across protocols; no new production behavior introduced.
 - **R6.09 completed:** `ApplicationLifecycleTest`, `PersistentRuntimeIsolationTest` exercise handler/reset/shutdown exception aggregation, terminal response accounting, one shutdown and per-request state clearing.
 
-**R6.02 and R6.10 remain OPEN** for full live multi-protocol worker replacement/reload and exact standalone Runwire real-host acceptance. R6.07 generation invalidation and R6.08 controlled privilege-transition tests are completed with focused QA. R8 provides final real-host release certification; no Foundation or Infbyte acceptance is required.
+**R6.10 DONE** with six passing native host jobs (FrankenPHP, RoadRunner and PHP-FPM × PHP8.4/8.5) under Runwire-owned CI. **R6.02 remains OPEN** for full live H1/H2/H3/TCP/UDP simultaneous rolling replacement/reload. R6.07 generation invalidation and R6.08 controlled privilege-transition tests are completed with focused QA. R8 provides final real-host release certification; no Foundation or Infbyte acceptance is required.
 
 ## Batch handoff integrity
 
@@ -57,3 +57,18 @@ These are audit/doc updates only; no runtime code changes after the ByteQueue R3
 - **Native worker life-cycle expansion: not yet QA accepted.** Runwire's prefork fixture now checks distinct generations and live H1/TCP/UDP responses through crash/automatic restart/manual recycle and a subsequent `Supervisor::reload()`. The earlier new test [Security & Standards #39747439727](https://github.com/infocyph/Runwire/actions/runs/39747439727) showed four successful live response generations, but failed an unsupported `WORKER_RECYCLE_COMPLETED` event sequencing assumption; that redundant expectation was removed at `6c88a514`, preserving actual network correctness and `RELOAD_STARTED`/`RELOAD_COMPLETED` checks. Current exact-head standard QA is required; **R6.02 still open** until real H2/H3 rolling-recycle traffic and completion evidence are present.
 - **H3 real fault harness: unresolved and not waived.** Independent aioquic exercises 18 QUIC stream cancellations across three rounds, requires 30 complete healthy siblings and one successful same-connection fresh request. Early 64 KiB versions intermittently failed with sibling `TimeoutError()` on a 5-second client read limit. A subsequent 16 KiB variant initially failed `response exceeded expected body size` because the server still returned 64 KiB; **`34d59116` fixes server/client response-size parity**, preserving strict body verification. PHP 8.4+8.5 exact-head fault acceptance and full H3 stress/saturation/transport attribution are **not yet confirmed passing**. Keep R4.01/.02/.04/.09 open. Never substitute a short fault test for sustained successful RPM.
 - **Release state:** Canonical **73/95 checked**, 7 R5 dialer tasks deferred, **73/88 in scope DONE (83.0%), 15 active open**. The 2026-10-20 five-job H1 matched release certification #39462685239 remains valid historical source evidence on `145b52b6`, **not** a new exact-final-head certification following the native QUIC source modification. Still no complete H2/H3 saturation/performance, all supported host modes, long live reload across transports, frozen exact-source release gate, risk signoff or maintainer publication permission. No merges/tags/releases; no Foundation/Infbyte/Rust sibling activity.
+
+
+### R6.10 accepted — verified six-host real process matrix (2026-10-22)
+
+**Immutable source/CI:** Runwire PR #9 source `f9ffedbc2c9ac6ef4e54e0a0d7daec86c29bb556`, [Real Hosted Runtime Acceptance #39828337713](https://github.com/infocyph/Runwire/actions/runs/39828337713), all six real jobs **SUCCESS** across PHP 8.4 and 8.5:
+
+| Runwire-only real host | PHP 8.4 | PHP 8.5 | Verified ownership |
+| --- | --- | --- | --- |
+| FrankenPHP | PASS | PASS | Real Caddy/FrankenPHP worker HTTP, same process PID, increasing worker-local request sequence, fresh metadata |
+| RoadRunner 3.0.1 with Composer-installed `roadrunner/http` 4.x | PASS | PASS | Real Go RoadRunner host HTTP, same PHP worker PID and increasing sequence, correct URL/method |
+| PHP-FPM through Docker + independent FastCGI client | PASS | PASS | Real FPM SAPI `fpm-fcgi`, correct request metadata/HTTP response, PHP request-local counter resets on each request |
+
+All fixtures live under `tests/fixtures/*-live/` in Runwire only; PHPForge, Foundation and Infbyte are **not** release consumers or dependencies of host acceptance. The current [Release Candidate workflow](https://github.com/infocyph/Runwire/actions/runs/39828337707) independently checked package contents / standalone Composer package installation under PHP 8.4 and 8.5. Previous RoadRunner startup failures were test harness relative-command resolution (fixed by absolute worker script path), not grounds for relaxing assertions. No simulated production host stands in for these rows.
+
+**Decision:** **R6.10 DONE** (9/10 R6 tasks), 74/95 canonical checked, seven R5 deferred; **74/88 in scope (84.1%), 14 active open**. This **does not** satisfy R6.02 concurrent multi-protocol rolling recycle, R4 sustained stress or R8.05/R9 final-source certification. Current source QA still requires a fully green final exact-head run; older H1 release certification `145b52b6` is not final-head proof. No merge/tag/publish or other repository writes.

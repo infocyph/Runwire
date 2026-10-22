@@ -3,7 +3,7 @@
 **State:** NOT READY — immutable source qualification not yet complete; no merge, tag, or publication.
 **Repository:** infocyph/Runwire only — [PR #9](https://github.com/infocyph/Runwire/pull/9), branch plan/runwire-independent-ecosystem-roadmaps.
 **Baseline:** published 2.1.2 at 7e9bf20ad0737a187dfed77b723791b141b36378.
-**Tracker:** 73/95 checked, seven R5.02–R5.08 intentionally deferred beyond 2.2; **73/88 in-scope checked (83.0%), 15 active remaining**. R8.07 verifies that the benchmark gate correctly rejects inconclusive evidence; it does NOT certify the release. See [canonical task tracker](../../runwire-2.2-runtime-improvement-plan.md).
+**Tracker:** 74/95 checked, seven R5.02–R5.08 intentionally deferred beyond 2.2; **74/88 in-scope checked (84.1%), 14 active remaining**. R8.07 verifies that the benchmark gate correctly rejects inconclusive evidence; it does NOT certify the release. See [canonical task tracker](../../runwire-2.2-runtime-improvement-plan.md).
 **Latest fully-green six-standard-workflow PR head before current sampler change:** 7025e4e8d207b299a96eb0e10b5c0dbd2a9c18ac. Current corrected sampler source 7609bed requires a fresh final-source QA. Later resource sampler PHPForge fix: d2646e2919317cc376f19fd1237affb1dbc87679. The final docs commit is not a release acceptance stamp.
 
 ## Accepted integration / development QA evidence
@@ -23,7 +23,7 @@
 
 Standard PR jobs may check out a synthetic merge commit; the benchmark artifact runtime_build stamp can therefore differ from the PR branch head. Do **not** interchange ordinary CI completion, workload microbenchmarks and exact-source release certification. The opt-in workflow explicitly checks out candidate head SHA; its run ID, source identity, full artifacts and conclusions must all be recorded.
 
-## Remaining 15 in-scope canonical task IDs
+## Remaining 14 in-scope canonical task IDs
 
 | Batch | IDs | Evidence still required |
 |---|---|---|
@@ -32,7 +32,7 @@ Standard PR jobs may check out a synthetic merge commit; the benchmark artifact 
 | R2 | — | R2.09 accepted with 3-tier PHP8.4/8.5 real socket/CPU/timer p99 and cleanup evidence |
 | R3 | R3.09 | H1/TLS streaming write bytes/syscalls and size/keepalive performance matrix |
 | R4 | R4.01, R4.02, R4.04, R4.09 | Qualified multiplex H2/H3, HPACK/QPACK hotspots and QUIC poll/write, slow-peer/cancel-storm stress |
-| R6 | R6.02, R6.10 | Live native prefork crash/reload/mixed transport plus actual FrankenPHP/RoadRunner in isolated Runwire host fixtures |
+| R6 | R6.02 | Live native prefork crash/reload/mixed transport; R6.10 real FrankenPHP/RoadRunner/FPM matrix complete |
 | R7 | — | R7.08 accepted at `145b52b6` for one-worker native H1 process-tree/worker GC/OPcache 30-minute monitoring; other protocols still require independent workload tests |
 | R8 | R8.05, R8.10 | 5×180s gate is enforced (R8.07); still need passing frozen-head CV <2.5%, full sampled 30m soak and risk signoff |
 | R9 | R9.06, R9.07, R9.09 | Final exact-head QA/security/risk reconciliation; release handoff prepared as R9.08, no automatic release |
@@ -145,3 +145,18 @@ The two QPACK full-state subjects have much larger *per-operation work* than int
 - **Native worker life-cycle expansion: not yet QA accepted.** Runwire's prefork fixture now checks distinct generations and live H1/TCP/UDP responses through crash/automatic restart/manual recycle and a subsequent `Supervisor::reload()`. The earlier new test [Security & Standards #39747439727](https://github.com/infocyph/Runwire/actions/runs/39747439727) showed four successful live response generations, but failed an unsupported `WORKER_RECYCLE_COMPLETED` event sequencing assumption; that redundant expectation was removed at `6c88a514`, preserving actual network correctness and `RELOAD_STARTED`/`RELOAD_COMPLETED` checks. Current exact-head standard QA is required; **R6.02 still open** until real H2/H3 rolling-recycle traffic and completion evidence are present.
 - **H3 real fault harness: unresolved and not waived.** Independent aioquic exercises 18 QUIC stream cancellations across three rounds, requires 30 complete healthy siblings and one successful same-connection fresh request. Early 64 KiB versions intermittently failed with sibling `TimeoutError()` on a 5-second client read limit. A subsequent 16 KiB variant initially failed `response exceeded expected body size` because the server still returned 64 KiB; **`34d59116` fixes server/client response-size parity**, preserving strict body verification. PHP 8.4+8.5 exact-head fault acceptance and full H3 stress/saturation/transport attribution are **not yet confirmed passing**. Keep R4.01/.02/.04/.09 open. Never substitute a short fault test for sustained successful RPM.
 - **Release state:** Canonical **73/95 checked**, 7 R5 dialer tasks deferred, **73/88 in scope DONE (83.0%), 15 active open**. The 2026-10-20 five-job H1 matched release certification #39462685239 remains valid historical source evidence on `145b52b6`, **not** a new exact-final-head certification following the native QUIC source modification. Still no complete H2/H3 saturation/performance, all supported host modes, long live reload across transports, frozen exact-source release gate, risk signoff or maintainer publication permission. No merges/tags/releases; no Foundation/Infbyte/Rust sibling activity.
+
+
+### R6.10 accepted — verified six-host real process matrix (2026-10-22)
+
+**Immutable source/CI:** Runwire PR #9 source `f9ffedbc2c9ac6ef4e54e0a0d7daec86c29bb556`, [Real Hosted Runtime Acceptance #39828337713](https://github.com/infocyph/Runwire/actions/runs/39828337713), all six real jobs **SUCCESS** across PHP 8.4 and 8.5:
+
+| Runwire-only real host | PHP 8.4 | PHP 8.5 | Verified ownership |
+| --- | --- | --- | --- |
+| FrankenPHP | PASS | PASS | Real Caddy/FrankenPHP worker HTTP, same process PID, increasing worker-local request sequence, fresh metadata |
+| RoadRunner 3.0.1 with Composer-installed `roadrunner/http` 4.x | PASS | PASS | Real Go RoadRunner host HTTP, same PHP worker PID and increasing sequence, correct URL/method |
+| PHP-FPM through Docker + independent FastCGI client | PASS | PASS | Real FPM SAPI `fpm-fcgi`, correct request metadata/HTTP response, PHP request-local counter resets on each request |
+
+All fixtures live under `tests/fixtures/*-live/` in Runwire only; PHPForge, Foundation and Infbyte are **not** release consumers or dependencies of host acceptance. The current [Release Candidate workflow](https://github.com/infocyph/Runwire/actions/runs/39828337707) independently checked package contents / standalone Composer package installation under PHP 8.4 and 8.5. Previous RoadRunner startup failures were test harness relative-command resolution (fixed by absolute worker script path), not grounds for relaxing assertions. No simulated production host stands in for these rows.
+
+**Decision:** **R6.10 DONE** (9/10 R6 tasks), 74/95 canonical checked, seven R5 deferred; **74/88 in scope (84.1%), 14 active open**. This **does not** satisfy R6.02 concurrent multi-protocol rolling recycle, R4 sustained stress or R8.05/R9 final-source certification. Current source QA still requires a fully green final exact-head run; older H1 release certification `145b52b6` is not final-head proof. No merge/tag/publish or other repository writes.

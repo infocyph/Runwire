@@ -1,6 +1,6 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — 73/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 15 in-scope open tasks. R7.08 full instrumented H1 soak accepted on tested source; matched 2.1.2 comparison passed on prior exact candidate, but current final-head release and independent H2/H3/host qualification remain open
+**Status:** ACTIVE — 74/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 14 in-scope open tasks. Verified real FrankenPHP, RoadRunner and PHP-FPM host acceptance across PHP 8.4/8.5 closes R6.10; R6.02 and final H2/H3 performance/release certification remain open.
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
 **Updated:** 2026-10-22
@@ -89,7 +89,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | Checked DONE with evidence | 73 |
 | Explicitly deferred beyond 2.2 | 7 (R5.02–R5.08, still unchecked) |
 | **Active 2.2 remaining** | **15** |
-| **In-scope completion** | **73/88 (83.0%)** |
+| **In-scope completion** | **74/88 (84.1%)** |
 
 Do **not** check deferred R5 tasks or silently delete them. Their deferral is recorded in [R5/R6 handoff](evidence/runwire-2.2/r5-r6-handoff.md). R5 can be signed off as a *scope resolution* only; this is not a new nonblocking dialer release.
 
@@ -350,7 +350,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 
 ### R6 — native supervisor and hosted-runtime lifecycle parity
 
-**R6 audit progress: 8/10 tasks completed** from native, hosted, worker/portability and verified worker-generation QA. Only multi-protocol live recycle and complete standalone Runwire real-host matrix remain open (R6.02 and R6.10); see [R5/R6 evidence](evidence/runwire-2.2/r5-r6-handoff.md).
+**R6 audit progress: 9/10 tasks completed**. Real FrankenPHP worker, RoadRunner worker and PHP-FPM request-scope acceptance are now all green on PHP 8.4/8.5; only complete mixed-protocol native rolling reload/recycle remains open (R6.02); see [R5/R6 evidence](evidence/runwire-2.2/r5-r6-handoff.md).
 
 **Likely sources:** src/Runtime.php, src/Runtime/Driver/{FpmDriver,FrankenPhpDriver,RoadRunnerDriver,SwooleDriver}.php, src/Runtime/Host/RuntimeApplication.php, src/Runtime/Internal/{NativeHttpWorker,PortableNativeRuntime,WorkerRecycleState}.php, src/Supervisor/*.
 
@@ -364,7 +364,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R6.07** Verify worker-generation invalidation for active coroutine scopes, callback handles, application references, request contexts and timers after replacement. **Verified:** [WorkerGenerationIsolationTest](https://github.com/infocyph/Runwire/blob/plan/runwire-independent-ecosystem-roadmaps/tests/WorkerGenerationIsolationTest.php), [code d9117e7](https://github.com/infocyph/Runwire/commit/d9117e732e2f8a17602fed17273528330eb15d22), [PHPForge PHP8.4/8.5 QA 39429653975](https://github.com/infocyph/Runwire/actions/runs/39429653975); real multi-transport process reload still R6.02.
 - [x] **R6.08** Verify privilege drop: supplementary groups, GID-before-UID, final identity check, non-root warning and startup rejection on partial transition.
 - [x] **R6.09** Check host request/body/response fidelity, reset on every exception, and one drain/shutdown per instance including startup failure.
-- [ ] **R6.10** Run real Runwire-host acceptance on PHP 8.4/8.5, including standalone Composer-installed Runwire fixtures; verify supported worker/process boundaries rather than fake adapters alone. Document unavailable infrastructure. No Foundation or Infbyte repository dependency.
+- [x] **R6.10** Run real Runwire-host acceptance on PHP 8.4/8.5, including standalone Composer-installed Runwire fixtures; verify supported worker/process boundaries rather than fake adapters alone. Document unavailable infrastructure. No Foundation or Infbyte repository dependency.
 
 **Existing test candidates:** tests/SwooleDriverTest.php, SwooleLoopTest.php, RoadRunnerRuntimeTest.php, GenericRuntimeTest.php, SupervisorLifecycleTest.php, NativeWorkerLifecycleTest.php, SupervisorRecycleTest.php, PrivilegeDropOrderingTest.php, PortableNativeRuntimeTest.php, BatchGDrainTest.php.
 
@@ -682,3 +682,18 @@ The two QPACK full-state subjects have much larger *per-operation work* than int
 - **Native worker life-cycle expansion: not yet QA accepted.** Runwire's prefork fixture now checks distinct generations and live H1/TCP/UDP responses through crash/automatic restart/manual recycle and a subsequent `Supervisor::reload()`. The earlier new test [Security & Standards #39747439727](https://github.com/infocyph/Runwire/actions/runs/39747439727) showed four successful live response generations, but failed an unsupported `WORKER_RECYCLE_COMPLETED` event sequencing assumption; that redundant expectation was removed at `6c88a514`, preserving actual network correctness and `RELOAD_STARTED`/`RELOAD_COMPLETED` checks. Current exact-head standard QA is required; **R6.02 still open** until real H2/H3 rolling-recycle traffic and completion evidence are present.
 - **H3 real fault harness: unresolved and not waived.** Independent aioquic exercises 18 QUIC stream cancellations across three rounds, requires 30 complete healthy siblings and one successful same-connection fresh request. Early 64 KiB versions intermittently failed with sibling `TimeoutError()` on a 5-second client read limit. A subsequent 16 KiB variant initially failed `response exceeded expected body size` because the server still returned 64 KiB; **`34d59116` fixes server/client response-size parity**, preserving strict body verification. PHP 8.4+8.5 exact-head fault acceptance and full H3 stress/saturation/transport attribution are **not yet confirmed passing**. Keep R4.01/.02/.04/.09 open. Never substitute a short fault test for sustained successful RPM.
 - **Release state:** Canonical **73/95 checked**, 7 R5 dialer tasks deferred, **73/88 in scope DONE (83.0%), 15 active open**. The 2026-10-20 five-job H1 matched release certification #39462685239 remains valid historical source evidence on `145b52b6`, **not** a new exact-final-head certification following the native QUIC source modification. Still no complete H2/H3 saturation/performance, all supported host modes, long live reload across transports, frozen exact-source release gate, risk signoff or maintainer publication permission. No merges/tags/releases; no Foundation/Infbyte/Rust sibling activity.
+
+
+### R6.10 accepted — verified six-host real process matrix (2026-10-22)
+
+**Immutable source/CI:** Runwire PR #9 source `f9ffedbc2c9ac6ef4e54e0a0d7daec86c29bb556`, [Real Hosted Runtime Acceptance #39828337713](https://github.com/infocyph/Runwire/actions/runs/39828337713), all six real jobs **SUCCESS** across PHP 8.4 and 8.5:
+
+| Runwire-only real host | PHP 8.4 | PHP 8.5 | Verified ownership |
+| --- | --- | --- | --- |
+| FrankenPHP | PASS | PASS | Real Caddy/FrankenPHP worker HTTP, same process PID, increasing worker-local request sequence, fresh metadata |
+| RoadRunner 3.0.1 with Composer-installed `roadrunner/http` 4.x | PASS | PASS | Real Go RoadRunner host HTTP, same PHP worker PID and increasing sequence, correct URL/method |
+| PHP-FPM through Docker + independent FastCGI client | PASS | PASS | Real FPM SAPI `fpm-fcgi`, correct request metadata/HTTP response, PHP request-local counter resets on each request |
+
+All fixtures live under `tests/fixtures/*-live/` in Runwire only; PHPForge, Foundation and Infbyte are **not** release consumers or dependencies of host acceptance. The current [Release Candidate workflow](https://github.com/infocyph/Runwire/actions/runs/39828337707) independently checked package contents / standalone Composer package installation under PHP 8.4 and 8.5. Previous RoadRunner startup failures were test harness relative-command resolution (fixed by absolute worker script path), not grounds for relaxing assertions. No simulated production host stands in for these rows.
+
+**Decision:** **R6.10 DONE** (9/10 R6 tasks), 74/95 canonical checked, seven R5 deferred; **74/88 in scope (84.1%), 14 active open**. This **does not** satisfy R6.02 concurrent multi-protocol rolling recycle, R4 sustained stress or R8.05/R9 final-source certification. Current source QA still requires a fully green final exact-head run; older H1 release certification `145b52b6` is not final-head proof. No merge/tag/publish or other repository writes.
