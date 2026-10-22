@@ -108,7 +108,7 @@ it('validates recycle targets without affecting running workers', function (): v
 });
 
 
-it('keeps native HTTP1 TCP and UDP listeners responsive across worker crash and manual recycle', function (): void {
+it('keeps live HTTP1 TCP and UDP responsive across crash recycle and rolling reload', function (): void {
     $http = stream_socket_server('tcp://127.0.0.1:0', $httpCode, $httpError);
     $tcp = stream_socket_server('tcp://127.0.0.1:0', $tcpCode, $tcpError);
     $udp = stream_socket_server('udp://127.0.0.1:0', $udpCode, $udpError, STREAM_SERVER_BIND);
@@ -217,6 +217,16 @@ it('keeps native HTTP1 TCP and UDP listeners responsive across worker crash and 
         &$events,
     ): void {
         $events[] = $event->type;
+        if ($event->type === SupervisorEventType::WORKER_RECYCLE_COMPLETED && count($readyPids) === 3) {
+            $supervisor->reload();
+
+            return;
+        }
+        if ($event->type === SupervisorEventType::RELOAD_COMPLETED && count($readyPids) === 4) {
+            $supervisor->stop();
+
+            return;
+        }
         if ($event->type !== SupervisorEventType::WORKER_READY || $event->pid === null) {
             return;
         }
@@ -251,21 +261,22 @@ it('keeps native HTTP1 TCP and UDP listeners responsive across worker crash and 
             if (!$supervisor->recycle('live-network', 0)) {
                 throw new RuntimeException('Manual native worker recycle was rejected.');
             }
-        } elseif (count($readyPids) === 3) {
-            $supervisor->stop();
         }
     });
 
-    $loop->delay(2.0, static function () use ($supervisor): void {
+    $loop->delay(4.0, static function () use ($supervisor): void {
         $supervisor->stop(true);
     });
 
     try {
         $supervisor->run();
-        expect($replies)->toBe([true, true, true])
-            ->and(count(array_unique($readyPids)))->toBe(3)
+        expect($replies)->toBe([true, true, true, true])
+            ->and(count(array_unique($readyPids)))->toBe(4)
             ->and($events)->toContain(SupervisorEventType::WORKER_RESTART_SCHEDULED)
             ->toContain(SupervisorEventType::WORKER_RECYCLE_STARTED)
+            ->toContain(SupervisorEventType::WORKER_RECYCLE_COMPLETED)
+            ->toContain(SupervisorEventType::RELOAD_STARTED)
+            ->toContain(SupervisorEventType::RELOAD_COMPLETED)
             ->and($supervisor->status()->workers)->toBe([]);
 
         $status = 0;
