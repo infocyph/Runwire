@@ -212,16 +212,12 @@ it('keeps live HTTP1 TCP and UDP responsive across crash recycle and rolling rel
         $tcpAddress,
         $udpAddress,
         $exchange,
+        $loop,
         &$readyPids,
         &$replies,
         &$events,
     ): void {
         $events[] = $event->type;
-        if ($event->type === SupervisorEventType::WORKER_RECYCLE_COMPLETED && count($readyPids) === 3) {
-            $supervisor->reload();
-
-            return;
-        }
         if ($event->type === SupervisorEventType::RELOAD_COMPLETED && count($readyPids) === 4) {
             $supervisor->stop();
 
@@ -261,6 +257,13 @@ it('keeps live HTTP1 TCP and UDP responsive across crash recycle and rolling rel
             if (!$supervisor->recycle('live-network', 0)) {
                 throw new RuntimeException('Manual native worker recycle was rejected.');
             }
+        } elseif (count($readyPids) === 3) {
+            // A ready replacement may predate the retired generation's
+            // recycle-completed signal. Request reload after the event loop
+            // has processed the prior transition instead of losing the trigger.
+            $loop->delay(0.05, static function () use ($supervisor): void {
+                $supervisor->reload();
+            });
         }
     });
 
