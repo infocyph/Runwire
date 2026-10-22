@@ -65,13 +65,21 @@ jobs:
           ')"
 
           docker image inspect "$image" --format 'entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
-          docker run -d --name "$container" --entrypoint /usr/local/bin/frankenphp \
+          if ! docker run -d --name "$container" --entrypoint /usr/local/bin/frankenphp \
             -p "127.0.0.1:$port:80" \
             -e "SERVER_NAME=:80" \
             -e "FRANKENPHP_CONFIG=worker /app/public/index.php 1" \
             -v "$PWD/tests/fixtures/frankenphp-live:/app/public:ro" \
             -v "$PWD:/runwire:ro" \
-            "$image" run --config /etc/frankenphp/Caddyfile --adapter caddyfile >/dev/null
+            "$image" run --config /etc/frankenphp/Caddyfile --adapter caddyfile \
+            >"$out/start.stdout" 2>"$out/start.stderr"; then
+            echo "Docker failed to create the FrankenPHP container." >&2
+            cat "$out/start.stdout" "$out/start.stderr" >&2
+            exit 1
+          fi
+          echo "FrankenPHP container created: $(cat "$out/start.stdout")"
+          docker inspect "$container" --format 'state={{.State.Status}} exit={{.State.ExitCode}} failure={{.State.Error}}' || true
+          docker logs "$container" >&2 || true
 
           ready=0
           for attempt in $(seq 1 120); do
