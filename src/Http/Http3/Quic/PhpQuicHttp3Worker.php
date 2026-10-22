@@ -29,11 +29,11 @@ final class PhpQuicHttp3Worker
 
     private readonly int $connectionLimit;
 
-    /** @var Closure(HttpRequest, ResponseWriterInterface): void */
-    private readonly Closure $handler;
-
     /** @var ?Closure(Throwable): void */
     private readonly ?Closure $connectionFailureObserver;
+
+    /** @var Closure(HttpRequest, ResponseWriterInterface): void */
+    private readonly Closure $handler;
 
     private readonly PhpQuicHttp3Poller $poller;
 

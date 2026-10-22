@@ -119,3 +119,125 @@ jobs:
           ' "$out/request-1.json" "$out/request-2.json" "$out/request-3.json"
 
           echo "Real FrankenPHP worker: persistent PID, sequential generation, fresh HTTP request context PASS"
+
+  roadrunner-worker:
+    name: "Real RoadRunner worker - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: event, pcntl, posix, opcache
+          coverage: none
+
+      - name: Install standalone Runwire and RoadRunner host client
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          composer require 'roadrunner/http:^4.0' --no-interaction --prefer-dist --no-progress --with-all-dependencies
+
+      - name: Exercise real RoadRunner process and worker ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tests/fixtures/roadrunner-live/index.php
+          tmp="$(mktemp -d)"
+          rr_pid=""
+          cleanup() {
+            if [ -n "$rr_pid" ]; then
+              kill -TERM "$rr_pid" 2>/dev/null || true
+              wait "$rr_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+
+          curl -fsSL --retry 3 \
+            'https://github.com/roadrunner-server/roadrunner/releases/download/v3.0.1/roadrunner-3.0.1-linux-amd64.tar.gz' \
+            -o "$tmp/rr.tar.gz"
+          tar -xzf "$tmp/rr.tar.gz" -C "$tmp"
+          rr="$(find "$tmp" -type f -name rr -print -quit)"
+          if [ -z "$rr" ]; then
+            echo "Pinned RoadRunner 3.0.1 executable not found in archive." >&2
+            exit 1
+          fi
+          chmod +x "$rr"
+          "$rr" --version
+          port="$(php -r '
+          $listener = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($listener)) { throw new RuntimeException($error); }
+          $address = stream_socket_get_name($listener, false);
+          fclose($listener);
+          if (!is_string($address) || !str_contains($address, ":")) {
+              throw new RuntimeException("Failed to allocate RoadRunner port.");
+          }
+          echo substr(strrchr($address, ":"), 1);
+          ')"
+          cat > "$tmp/.rr.yaml" <<YAML
+          version: '3'
+          server:
+            command: "php tests/fixtures/roadrunner-live/index.php"
+            relay: pipes
+            env:
+              RR_MODE: "http"
+          http:
+            address: 127.0.0.1:$port
+            pool:
+              num_workers: 1
+              max_jobs: 0
+          logs:
+            level: error
+          YAML
+
+          "$rr" serve -c "$tmp/.rr.yaml" >"$tmp/rr.log" 2>&1 &
+          rr_pid=$!
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 2 "http://127.0.0.1:$port/rr?case=ready" >"$tmp/ready.json" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$rr_pid" 2>/dev/null; then
+              cat "$tmp/rr.log" >&2
+              exit 1
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != 1 ]; then
+            cat "$tmp/rr.log" >&2
+            echo 'Real RoadRunner host did not respond.' >&2
+            exit 1
+          fi
+
+          for number in 1 2 3; do
+            curl -fsS --max-time 4 "http://127.0.0.1:$port/rr?case=$number" >"$tmp/request-$number.json"
+          done
+          jq -s . "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
+          if ! jq -se '
+            length == 3
+            and .[0].method == "GET"
+            and .[0].target == "/rr?case=1"
+            and .[1].target == "/rr?case=2"
+            and .[2].target == "/rr?case=3"
+            and .[0].pid >= 1
+            and .[0].pid == .[1].pid and .[1].pid == .[2].pid
+            and .[0].sequence >= 2
+            and .[1].sequence == .[0].sequence + 1
+            and .[2].sequence == .[1].sequence + 1
+          ' "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"; then
+            cat "$tmp/rr.log" >&2
+            exit 1
+          fi
+          echo "Real RoadRunner persistent PHP ${{ matrix.php-version }} worker PASS"
+
