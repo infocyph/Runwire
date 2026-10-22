@@ -245,3 +245,119 @@ jobs:
           fi
           echo "Real RoadRunner persistent PHP ${{ matrix.php-version }} worker PASS"
 
+  fpm-request:
+    name: "Real PHP-FPM request scope - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: event, pcntl, posix, opcache
+          coverage: none
+
+      - name: Install standalone Runwire and FastCGI client
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libfcgi-bin
+          php -l tests/fixtures/fpm-live/index.php
+
+      - name: Validate real PHP-FPM isolated request globals
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="php:${{ matrix.php-version }}-fpm-bookworm"
+          docker pull "$image"
+          tmp="$(mktemp -d)"
+          container="runwire-fpm-${{ matrix.php-version }}-$GITHUB_RUN_ID"
+          cleanup() {
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) { throw new RuntimeException($error); }
+          $addr = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($addr) || !str_contains($addr, ":")) {
+              throw new RuntimeException("No free FastCGI port.");
+          }
+          echo substr(strrchr($addr, ":"), 1);
+          ')"
+          docker run -d --name "$container" \
+            -p "127.0.0.1:$port:9000" \
+            -v "$PWD:/runwire:ro" \
+            "$image" >/dev/null
+
+          ready=0
+          for attempt in $(seq 1 120); do
+            if php -r '
+              $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $error, $message, 0.1);
+              if (!is_resource($socket)) { exit(1); }
+              fclose($socket);
+            ' "$port" >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != true ]; then
+              docker logs "$container" >&2
+              exit 1
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != 1 ]; then
+            docker logs "$container" >&2
+            echo "Real PHP-FPM transport not ready." >&2
+            exit 1
+          fi
+
+          for number in 1 2 3; do
+            env -i \
+              PATH="$PATH" \
+              REQUEST_METHOD=GET \
+              REQUEST_URI="/index.php?case=$number" \
+              QUERY_STRING="case=$number" \
+              SCRIPT_FILENAME="/runwire/tests/fixtures/fpm-live/index.php" \
+              SCRIPT_NAME="/index.php" \
+              DOCUMENT_ROOT="/runwire/tests/fixtures/fpm-live" \
+              SERVER_PROTOCOL="HTTP/1.1" \
+              SERVER_NAME=localhost \
+              SERVER_PORT=80 \
+              REMOTE_ADDR=127.0.0.1 \
+              CONTENT_LENGTH=0 \
+              cgi-fcgi -bind -connect "127.0.0.1:$port" \
+              </dev/null >"$tmp/response-$number.raw"
+            php -r '
+            $text = file_get_contents($argv[1]);
+            if ($text === false) { throw new RuntimeException("No FastCGI response."); }
+            $parts = preg_split("/\r?\n\r?\n/", $text, 2);
+            if (!is_array($parts) || count($parts) !== 2) {
+                throw new RuntimeException("Malformed FastCGI HTTP header boundary.");
+            }
+            $data = json_decode(trim($parts[1]), true, 512, JSON_THROW_ON_ERROR);
+            file_put_contents($argv[2], json_encode($data, JSON_THROW_ON_ERROR));
+            ' "$tmp/response-$number.raw" "$tmp/request-$number.json"
+          done
+          jq -s . "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
+          jq -se '
+            length == 3
+            and all(.[]; .method == "GET" and .sapi == "fpm-fcgi" and .pid >= 1 and .sequence == 1)
+            and .[0].target == "/index.php?case=1"
+            and .[1].target == "/index.php?case=2"
+            and .[2].target == "/index.php?case=3"
+          ' "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
+          echo "Real PHP-FPM request-scope isolation PASS"
+
