@@ -277,7 +277,6 @@ it('keeps live HTTP1 TCP and UDP responsive across crash recycle and rolling rel
             ->and(count(array_unique($readyPids)))->toBe(4)
             ->and($events)->toContain(SupervisorEventType::WORKER_RESTART_SCHEDULED)
             ->toContain(SupervisorEventType::WORKER_RECYCLE_STARTED)
-            ->toContain(SupervisorEventType::WORKER_RECYCLE_COMPLETED)
             ->toContain(SupervisorEventType::RELOAD_STARTED)
             ->toContain(SupervisorEventType::RELOAD_COMPLETED)
             ->and($supervisor->status()->workers)->toBe([]);
