@@ -187,7 +187,7 @@ jobs:
           cat > "$tmp/.rr.yaml" <<YAML
           version: '3'
           server:
-            command: "php tests/fixtures/roadrunner-live/index.php"
+            command: "php $PWD/tests/fixtures/roadrunner-live/index.php"
             relay: pipes
             env:
               RR_MODE: "http"

@@ -38,6 +38,7 @@ final class PhpQuicTransport implements Http3TransportInterface
     public function finishRequestStream(int $streamId): void
     {
         $stream = $this->requestStream($streamId);
+
         try {
             $stream->end();
         } catch (Throwable $exception) {
@@ -132,6 +133,7 @@ final class PhpQuicTransport implements Http3TransportInterface
     public function writeRequestStream(int $streamId, string $bytes): int
     {
         $stream = $this->requestStream($streamId);
+
         try {
             return $stream->write($bytes);
         } catch (Throwable $exception) {

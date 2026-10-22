@@ -27,10 +27,10 @@ final class PhpQuicHttp3Worker
 
     private const float DEFAULT_POLL_TIMEOUT_SECONDS = 0.05;
 
-    private readonly int $connectionLimit;
-
     /** @var ?Closure(Throwable): void */
     private readonly ?Closure $connectionFailureObserver;
+
+    private readonly int $connectionLimit;
 
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
     private readonly Closure $handler;
