@@ -12,10 +12,11 @@
 |---|---|---|
 | PHP8.4/8.5 PHPForge QA, lowest/stable, analysis/security | [Standard QA 39433340291](https://github.com/infocyph/Runwire/actions/runs/39433340291) | PASS at previous code; final-source rerun still required |
 | Source audit, package, API/source identity | [Audit 39433339545](https://github.com/infocyph/Runwire/actions/runs/39433339545), [Package 39433339556](https://github.com/infocyph/Runwire/actions/runs/39433339556) | PASS at previous code |
-| Native portable PHP8.4/8.5, TCP/Unix/UDP/TLS and missing process extension | [Portable 39433339585](https://github.com/infocyph/Runwire/actions/runs/39433339585) | PASS, no real external FrankenPHP/RoadRunner here |
-| Actual Swoole/OpenSwoole two-worker lifecycle | [Swoole 39433339597](https://github.com/infocyph/Runwire/actions/runs/39433339597) | PASS PHP8.4/8.5 |
+| Native portable PHP8.4/8.5, TCP/Unix/UDP/TLS and missing process extension | [Portable 39828760475](https://github.com/infocyph/Runwire/actions/runs/39828760475) | PASS, current PR source |
+| Actual Swoole/OpenSwoole two-worker lifecycle | [Swoole 39828760309](https://github.com/infocyph/Runwire/actions/runs/39828760309) | PASS PHP8.4/8.5, current PR source |
 | H1/H2 native real requests + WebSocket independent protocol clients | [Benchmarks 39433339538](https://github.com/infocyph/Runwire/actions/runs/39433339538) | PASS transport correctness; H2 short-run performance diagnostic only |
-| H3 native php-quic and aioquic/ngtcp2 clients | [QUIC jobs 39433340291](https://github.com/infocyph/Runwire/actions/runs/39433340291) | PASS; real supported OpenSSL ABI |
+| H3 native php-quic, aioquic/ngtcp2 and reset-storm client | [Security & Standards 39828761049](https://github.com/infocyph/Runwire/actions/runs/39828761049) | PASS PHP8.4/8.5 live cancellation (18 STOP_SENDING + RESET_STREAM, 31 healthy siblings, fresh connection reuse); diagnostic not RPM certification |
+| Actual FrankenPHP / RoadRunner / FPM, PHP8.4/8.5 | [Full real hosted matrix 39828337713](https://github.com/infocyph/Runwire/actions/runs/39828337713) | PASS all six jobs; persistent workers vs request-scope host semantics verified |
 | Isolated copied Composer ZIP consumer native H1 200/400 | [Release certification 39426401438](https://github.com/infocyph/Runwire/actions/runs/39426401438) | PASS PHP8.4/8.5 at prior SHA |
 | Comparative baseline 2.1.2 vs candidate | [Prior full certification 39379880727](https://github.com/infocyph/Runwire/actions/runs/39379880727) | NOT CERTIFIED: matched throughput CV exceeded 2.5% |
 | 30-minute successful H1 soak | [Prior 39379880727](https://github.com/infocyph/Runwire/actions/runs/39379880727) | PASS prior response correctness; insufficient process RSS/FD/GC trend proof |

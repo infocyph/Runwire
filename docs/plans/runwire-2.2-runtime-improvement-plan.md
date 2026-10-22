@@ -72,7 +72,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R3 | HTTP/1.1 and response throughput | Parser/write/buffering reductions with RFC and abuse regressions | [~] 8/9 — HTTP1/ByteQueue regression suite; end-to-end A/B open |
 | R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 6/10 — aioquic/ngtcp2 confirmed; workload saturation and storm stress open |
 | R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
-| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 8/10 — worker-generation invalidation and privilege ordering verified; real cross-transport recycle/host gates open |
+| R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 9/10 — full real host matrix across PHP8.4/8.5 passed; mixed-protocol native rolling recycle remains open |
 | R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [x] 10/10 — full H1 process-tree/worker GC/OPcache 30-minute soak passed at `145b52b6` |
 | R8 | Runwire-only integration + certification | Standalone package/host smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 8/10 — fail-closed 5×180s CV gate verified; actual stable performance + final certification still open |
 | R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 6/9 — full handoff/checklists assembled; final exact-head QA and release signoff open |
@@ -86,9 +86,9 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | Accounting | Tasks |
 |---|---:|
 | Canonical original plan | 95 |
-| Checked DONE with evidence | 73 |
+| Checked DONE with evidence | 74 |
 | Explicitly deferred beyond 2.2 | 7 (R5.02–R5.08, still unchecked) |
-| **Active 2.2 remaining** | **15** |
+| **Active 2.2 remaining** | **14** |
 | **In-scope completion** | **74/88 (84.1%)** |
 
 Do **not** check deferred R5 tasks or silently delete them. Their deferral is recorded in [R5/R6 handoff](evidence/runwire-2.2/r5-r6-handoff.md). R5 can be signed off as a *scope resolution* only; this is not a new nonblocking dialer release.
