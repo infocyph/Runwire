@@ -1,12 +1,12 @@
 # Runwire 2.2 — runtime improvement and release plan
 
-**Status:** ACTIVE — 72/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 16 in-scope open tasks; R8.07 comparison-gate enforcement verified (trial inconclusive), full release qualification and maintainer approval still open
+**Status:** ACTIVE — 73/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 15 in-scope open tasks. R7.08 full instrumented H1 soak accepted on tested source; matched 2.1.2 comparison passed on prior exact candidate, but current final-head release and independent H2/H3/host qualification remain open
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
-**Updated:** 2026-10-20
+**Updated:** 2026-10-22
 **Base:** `main` @ `7e9bf20ad0737a187dfed77b723791b141b36378`
 **Branch:** `plan/runwire-independent-ecosystem-roadmaps`
-**Implementation:** Core 2.2 improvements committed (host header normalization, SelectLoop timer fairness, ByteQueue batched read); all six standard workflows passed on `1770ba82cd8b` (PR merge-checkout context; not final candidate head acceptance); exact-SHA 30-minute soak and PHPForge release guard passed, but paired throughput variance failed the certification limit. The historical Infbyte Composer failure is external, not a Runwire-owned release gate; Runwire-only release-certification workflow replacement committed; exact-SHA QA and independent release acceptance remain outstanding.
+**Implementation:** Four focused production runtime fixes are implemented and normal CI is green at `cd7108c4`. Full five-job release certification #39462685239 passed at immutable `145b52b6` (matched +2.519% successful RPS; CV 1.133%/1.519%; updated 30-minute H1 worker/process-tree/GC/OPcache soak passed). Later commits are benchmark/test/docs only. Remaining H2/H3 saturation, real hosted lifecycle, complete performance attribution and exact-final-head signoff are NOT yet certified.
 **Release:** No tag, merge or publish authorized.
 
 ## Release decision
@@ -73,7 +73,7 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | R4 | HTTP/2 and HTTP/3 protocol optimization | Flow-control/fairness/cancellation parity, external interoperability | [~] 6/10 — aioquic/ngtcp2 confirmed; workload saturation and storm stress open |
 | R5 | Coroutine-aware outbound I/O | New TCP/TLS dialer is outside 2.2; existing `AsyncConnection` contracts documented | [↷] 2/9 recorded; R5.02–R5.08 deferred outside this release, not blockers |
 | R6 | Hosted adapters and process lifecycle | Swoole fork ownership, FrankenPHP/RoadRunner/FPM parity, reload and drain safety | [~] 8/10 — worker-generation invalidation and privilege ordering verified; real cross-transport recycle/host gates open |
-| R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [~] 9/10 — dependency advisories audited; final leak/soak measurements open |
+| R7 | Observability and security | Attribution of blocking/lag, accurate memory bounds, protocol fuzzing | [x] 10/10 — full H1 process-tree/worker GC/OPcache 30-minute soak passed at `145b52b6` |
 | R8 | Runwire-only integration + certification | Standalone package/host smoke, 30-min soak, matched 5×180s benchmark, release guard | [~] 8/10 — fail-closed 5×180s CV gate verified; actual stable performance + final certification still open |
 | R9 | Release preparation | Changelog from previous tag, migration notes, pinned QA evidence, no blockers | [~] 6/9 — full handoff/checklists assembled; final exact-head QA and release signoff open |
 
@@ -86,10 +86,10 @@ Retain native and hosted runtime support: PHP CLI prefork and portable, FPM, Fra
 | Accounting | Tasks |
 |---|---:|
 | Canonical original plan | 95 |
-| Checked DONE with evidence | 64 |
+| Checked DONE with evidence | 73 |
 | Explicitly deferred beyond 2.2 | 7 (R5.02–R5.08, still unchecked) |
-| **Active 2.2 remaining** | **24** |
-| **In-scope completion** | **64/88 (72.7%)** |
+| **Active 2.2 remaining** | **15** |
+| **In-scope completion** | **73/88 (83.0%)** |
 
 Do **not** check deferred R5 tasks or silently delete them. Their deferral is recorded in [R5/R6 handoff](evidence/runwire-2.2/r5-r6-handoff.md). R5 can be signed off as a *scope resolution* only; this is not a new nonblocking dialer release.
 
@@ -384,7 +384,7 @@ Preflight examples (not substitutes for their workflow-specific configurations):
 - [x] **R7.05** Review control endpoint access, socket/file permissions, privilege changes and shutdown capabilities; document safe default deployment.
 - [x] **R7.06** Add fuzz/property/abuse tests for all HTTP versions, WebSocket frame validation, line/length-framed codecs, UDP oversized datagrams and TLS failure paths.
 - [x] **R7.07** Fault-inject slow peers, connection floods, half-open streams, callbacks throwing during dispatch, cancelled request scopes, worker kill -9 and malformed protocol sequences.
-- [ ] **R7.08** Run long soak against persistent application resets, PHP garbage collector/OPcache behavior, RSS drift and retained references; distinguish leak from deliberate cache growth.
+- [x] **R7.08** Run long soak against persistent application resets, PHP garbage collector/OPcache behavior, RSS drift and retained references; distinguish leak from deliberate cache growth. **Verified:** full real 30-minute native HTTP/1.1 process-tree RSS/FD and internal worker heap, GC roots and OPcache drift/coverage gates passed in [Release Certification #39462685239](https://github.com/infocyph/Runwire/actions/runs/39462685239). This does not qualify H2/H3 or other hosts.
 - [x] **R7.09** Security audit of exposed surfaces and third-party packages, plus dependency advisories; record vulnerabilities explicitly without weakening requirements to get green CI.
 - [x] **R7.10** Update runbook with exact gauges for event-loop lag, blocked callbacks, queue pressure, overload behavior and required platform limits.
 
@@ -660,3 +660,14 @@ The two QPACK full-state subjects have much larger *per-operation work* than int
 **QA:** [four PHPForge stable/lowest PHP8.4/8.5 Pest jobs 39464104137](https://github.com/infocyph/Runwire/actions/runs/39464104137) passed tests and static analysis, but **all failed Pint `ordered_class_elements`** because new benchmark methods were inserted out of alphabetical order. The order-only [fix `db9bfe7`](https://github.com/infocyph/Runwire/commit/db9bfe767f8b893348d2fcd7b1a7c16267db0e4d) preserves benchmark semantics. [New QA run 39464797304](https://github.com/infocyph/Runwire/actions/runs/39464797304) on the fixed source was still pending at the latest evidence read; do not call it green prematurely.
 
 **Canonical tracker stays at 72/95 checked, seven R5 tasks deferred, 72/88 in 2.2 scope complete (81.8%), 16 open.** R4.02 remains OPEN for H2 response scheduling/output allocation hot-path attribution and production-equivalent workload/malformed-input validation; R4.04 remains OPEN for **actual QUIC poll/write budgets and blocked-stream pressure under live H3 clients**, not just local QPACK codec cost. R4.01/R4.09 and R8 matched release certification remain open. Only Runwire was modified; Foundation, Infbyte, Rust library siblings, merge, tag and publication are untouched.
+
+### Verified Runwire-only certification recovery — reconciled 2026-10-22
+
+**Evidence source:** [Release Certification #39462685239](https://github.com/infocyph/Runwire/actions/runs/39462685239) completed **SUCCESS** with all five jobs on immutable candidate `145b52b6f01fa6fc6f1677737fbccaaf1e30695c`, compared with published `2.1.2` at `7e9bf20ad0737a187dfed77b723791b141b36378`. These results were pending when earlier 2026-10-20 entries were written; preserve earlier failed/noisy runs as chronological historical evidence rather than overwriting them.
+
+- **Matched throughput:** same pinned physical server core (separate load-generator core), PHP 8.5.11, 1 worker/16 keepalive clients, 30-second warmups and 5×180-second alternating measurements per population. Baseline median **16,290.225 successful RPS** (CV **1.133%**); candidate median **16,700.610 successful RPS** (CV **1.519%**), **+2.519%**, both CV values **<2.5%**. Median p99 **1.85 → 1.79 ms**. Peak process-tree RSS **121,507,840 → 130,060,288 bytes** (**+7.039%**, within the established relative limit). The comparator emitted `budget_enforced=true`, `certification_status=passed`, and `passed=true`. Artifact: [matched comparison #12287705023](https://github.com/infocyph/Runwire/actions/runs/39462685239/artifacts/12287705023).
+- **Correct native soak:** full **1,800-second** PHP 8.5.11 H1 plaintext persistent worker with 32 keepalive clients: **34,861,940 / 34,861,940** valid requests, **zero errors, zero timeouts, zero validation failures**, p99 **3.95 ms**, benchmark RSS peak **121,118,720 bytes**. The updated external **root + worker process-tree RSS/FD/process-count sampler** and independent **worker heap/GC roots/collection/OPcache telemetry** each ran their complete-duration drift/coverage analysis and both passed fail-closed `.passed == true` checks. Artifact: [30-minute soak #12287575401](https://github.com/infocyph/Runwire/actions/runs/39462685239/artifacts/12287575401). Process-tree summed VmRSS is not PSS.
+- **Additional jobs:** real standalone Composer archive/native HTTP 200/400 checks on PHP 8.4 and 8.5 and the PHPForge ext-event release guard each succeeded; a passing workflow does not replace separate real H2/H3 load and FrankenPHP/RoadRunner evidence.
+- **Current PR head at reconciliation:** `cd7108c4b98f8a9283d53b4254b18f39acbc7b6e`; GitHub's **six standard PR workflows all passed** on that head ([Security & Standards #39465035309](https://github.com/infocyph/Runwire/actions/runs/39465035309), [Benchmarks #39465034812](https://github.com/infocyph/Runwire/actions/runs/39465034812), [Portable #39465034776](https://github.com/infocyph/Runwire/actions/runs/39465034776), [Swoole #39465034801](https://github.com/infocyph/Runwire/actions/runs/39465034801), [Release Candidate #39465034835](https://github.com/infocyph/Runwire/actions/runs/39465034835), [Audit #39465034921](https://github.com/infocyph/Runwire/actions/runs/39465034921)). The three commits from certified `145b52b6` to `cd7108c4` changed **only benchmarks, profiling tests and plan/evidence documentation**, not production `src/`. The certification is **valid evidence of the tested code paths**, but **not** a certificate for the eventual final documentation/workflow/branch head.
+- **Canonical completion change:** mark **R7.08 DONE** for the measured 30-minute H1 process tree + worker PHP GC/OPcache retention/drift gates only. **Do not close** R0.06/.07, R1.08, R3.09, R4.01/.02/.04/.09, R6.02/.10, R8.05/.10 or R9.06/.07/.09 based on this HTTP1-only run. One final frozen exact-SHA release signoff is still required. No Foundation/Infbyte/Rust sibling changes; no merge, tag or publication.
+
