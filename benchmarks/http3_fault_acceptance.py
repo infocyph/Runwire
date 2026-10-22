@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded real aioquic HTTP/3 STOP_SENDING storm with sibling progress proof.
+"""Bounded real aioquic HTTP/3 bidirectional cancellation storm with sibling progress.
 
 No assertion here is a release throughput or full multi-protocol recycle claim.
 """
@@ -49,6 +49,9 @@ async def exercise(port: int) -> dict:
             for stream_id, state in active[:6]:
                 # Real QUIC transport STOP_SENDING, not just an asyncio task cancel.
                 protocol._quic.stop_stream(stream_id, error_code=0x010C)
+                # Terminate the sending half as well. A canceled request must
+                # not leave an abandoned request-body/FIN waiter on the server.
+                protocol._quic.reset_stream(stream_id, error_code=0x010C)
                 state["future"].cancel()
                 stopped += 1
             protocol.transmit()
@@ -76,6 +79,7 @@ async def exercise(port: int) -> dict:
         "protocol": "h3",
         "independent_aioquic_client": True,
         "quic_stop_sending_sent": stopped,
+        "quic_reset_stream_sent": stopped,
         "successful_siblings": successful,
         "fresh_session_request_completed": True,
         "correctness_passed": stopped >= 18 and successful >= 31,
