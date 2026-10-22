@@ -10,6 +10,10 @@ function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT
     return new class($id, $bidirectional, $maxWrite) {
         public bool $ended = false;
 
+        public bool $failEnd = false;
+
+        public bool $failWrite = false;
+
         public ?int $resetCode = null;
 
         public string $written = '';
@@ -22,6 +26,9 @@ function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT
 
         public function end(): void
         {
+            if ($this->failEnd) {
+                throw new RuntimeException('Native QUIC stream reset while concluding.');
+            }
             $this->ended = true;
         }
 
@@ -52,6 +59,10 @@ function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT
 
         public function write(string $data, bool $fin = false): int
         {
+            if ($this->failWrite) {
+                throw new RuntimeException('Native QUIC stream reset while writing.');
+            }
+
             $written = min(strlen($data), $this->maxWrite);
             $this->written .= substr($data, 0, $written);
             if ($fin) {
@@ -129,4 +140,34 @@ it('rejects invalid stream direction and origin at the QUIC transport boundary',
         ->toThrow(InvalidArgumentException::class)
         ->and(fn() => $transport->registerRequestStream(new PhpQuicStream(fakePhpQuicStream(1, true))))
         ->toThrow(InvalidArgumentException::class);
+});
+
+it('isolates peer STOP_SENDING during native FIN and write without hiding other QUIC faults', function (): void {
+    $resetRaw = fakePhpQuicStream(0, true);
+    $healthyRaw = fakePhpQuicStream(4, true);
+    $transport = new PhpQuicTransport(new PhpQuicStream(fakePhpQuicStream(3, false)));
+    $transport->registerRequestStream(new PhpQuicStream($resetRaw));
+    $transport->registerRequestStream(new PhpQuicStream($healthyRaw));
+
+    $resetRaw->resetCode = 0x10c;
+    $resetRaw->failEnd = true;
+    $transport->finishRequestStream(0);
+
+    expect($transport->responseFinished(0))->toBeTrue()
+        ->and($resetRaw->ended)->toBeFalse()
+        ->and($transport->writeRequestStream(4, 'healthy'))->toBe(7);
+
+    $resetRaw->failWrite = true;
+    expect($transport->writeRequestStream(0, 'discard'))->toBe(0);
+
+    $transport->finishRequestStream(4);
+    expect($transport->responseFinished(4))->toBeTrue()
+        ->and($healthyRaw->ended)->toBeTrue()
+        ->and($healthyRaw->written)->toBe('healthy');
+
+    $resetRaw->resetCode = null;
+    expect(fn() => $transport->writeRequestStream(0, 'fail'))
+        ->toThrow(RuntimeException::class)
+        ->and(fn() => $transport->finishRequestStream(0))
+        ->toThrow(RuntimeException::class);
 });
