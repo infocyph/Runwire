@@ -1,0 +1,109 @@
+name: "Real Hosted Runtime Acceptance"
+
+on:
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frankenphp-worker:
+    name: "Real FrankenPHP worker - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Install Runwire
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Validate the native host fixture
+        run: php -l tests/fixtures/frankenphp-live/index.php
+
+      - name: Exercise actual FrankenPHP persistent worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="dunglas/frankenphp:1-php${{ matrix.php-version }}-bookworm"
+          docker pull "$image"
+          container="runwire-frankenphp-${{ matrix.php-version }}-$GITHUB_RUN_ID"
+          out="$(mktemp -d)"
+          cleanup() {
+            docker logs "$container" >"$out/container.log" 2>&1 || true
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            rm -rf "$out"
+          }
+          trap cleanup EXIT
+
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $code, $error);
+          if (!is_resource($server)) { throw new RuntimeException($error); }
+          $addr = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($addr) || !str_contains($addr, ":")) {
+              throw new RuntimeException("No ephemeral host port.");
+          }
+          echo substr(strrchr($addr, ":"), 1);
+          ')"
+
+          docker run -d --name "$container" --rm \
+            -p "127.0.0.1:$port:80" \
+            -e "SERVER_NAME=:80" \
+            -e "FRANKENPHP_CONFIG=worker /app/public/index.php 1" \
+            -v "$PWD/tests/fixtures/frankenphp-live:/app/public:ro" \
+            -v "$PWD:/runwire:ro" \
+            "$image" >/dev/null
+
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 2 "http://127.0.0.1:$port/index.php?case=ready" >"$out/ready.json" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != true ]; then
+              docker logs "$container"
+              exit 1
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != 1 ]; then
+            docker logs "$container"
+            echo "FrankenPHP real worker did not start." >&2
+            exit 1
+          fi
+
+          for number in 1 2 3; do
+            curl -fsS --max-time 4 "http://127.0.0.1:$port/index.php?case=$number" >"$out/request-$number.json"
+          done
+          jq -se '
+            length == 3
+            and .[0].method == "GET"
+            and .[0].target == "/index.php?case=1"
+            and .[1].target == "/index.php?case=2"
+            and .[2].target == "/index.php?case=3"
+            and .[0].pid > 1
+            and .[0].pid == .[1].pid and .[1].pid == .[2].pid
+            and .[0].sequence >= 2
+            and .[1].sequence == .[0].sequence + 1
+            and .[2].sequence == .[1].sequence + 1
+          ' "$out/request-1.json" "$out/request-2.json" "$out/request-3.json"
+
+          echo "Real FrankenPHP worker: persistent PID, sequential generation, fresh HTTP request context PASS"
