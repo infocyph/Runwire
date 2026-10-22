@@ -191,6 +191,7 @@ jobs:
             relay: pipes
             env:
               RR_MODE: "http"
+              RR_RELAY: "pipes"
           http:
             address: 127.0.0.1:$port
             pool:
@@ -200,6 +201,7 @@ jobs:
             level: error
           YAML
 
+          rm -f /tmp/runwire-road-runner-worker-error.log
           "$rr" serve -c "$tmp/.rr.yaml" >"$tmp/rr.log" 2>&1 &
           rr_pid=$!
           ready=0
@@ -210,12 +212,14 @@ jobs:
             fi
             if ! kill -0 "$rr_pid" 2>/dev/null; then
               cat "$tmp/rr.log" >&2
+              cat /tmp/runwire-road-runner-worker-error.log >&2 || true
               exit 1
             fi
             sleep 0.25
           done
           if [ "$ready" != 1 ]; then
             cat "$tmp/rr.log" >&2
+            cat /tmp/runwire-road-runner-worker-error.log >&2 || true
             echo 'Real RoadRunner host did not respond.' >&2
             exit 1
           fi
