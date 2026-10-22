@@ -87,6 +87,13 @@ $worker = new PhpQuicHttp3Worker(
     handshakeTimeoutSeconds: $options->handshakeTimeoutSeconds,
     inboundAdaptive: $options->inboundAdaptive,
     outboundAdaptive: $options->outboundAdaptive,
+    connectionFailureObserver: static function (Throwable $exception): void {
+        fwrite(STDERR, sprintf(
+            "HTTP3_NATIVE_CONNECTION_FAILURE %s: %s\\n",
+            $exception::class,
+            $exception->getMessage(),
+        ));
+    },
 );
 
 if (!function_exists('pcntl_async_signals')) {

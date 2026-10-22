@@ -63,8 +63,16 @@ async def exercise(port: int) -> dict:
                 if result is None:
                     successful += 1
                 elif not isinstance(result, asyncio.CancelledError):
+                    remaining = {
+                        stream: {"status": state["status"],
+                                 "received_bytes": len(state["body"]),
+                                 "expected_bytes": state["payload"]}
+                        for stream, state in protocol.responses.items()
+                        if not state["future"].done()
+                    }
                     raise RuntimeError(
-                        f"H3 sibling request failed after cancellation: {result!r}"
+                        f"H3 sibling request failed after cancellation: {result!r}; "
+                        f"pending={remaining!r}"
                     )
             if successful < (_round + 1) * 10:
                 raise RuntimeError("H3 healthy siblings failed to make progress.")
