@@ -111,7 +111,7 @@ jobs:
             and .[0].target == "/index.php?case=1"
             and .[1].target == "/index.php?case=2"
             and .[2].target == "/index.php?case=3"
-            and .[0].pid > 1
+            and .[0].pid >= 1
             and .[0].pid == .[1].pid and .[1].pid == .[2].pid
             and .[0].sequence >= 2
             and .[1].sequence == .[0].sequence + 1

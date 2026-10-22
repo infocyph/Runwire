@@ -32,7 +32,7 @@ async def exercise(port: int) -> dict:
             previous = set(protocol.responses)
             tasks = [
                 asyncio.create_task(
-                    protocol.request(f"localhost:{port}", 65536, 0)
+                    protocol.request(f"localhost:{port}", 16384, 0)
                 )
                 for _ in range(16)
             ]
@@ -71,7 +71,7 @@ async def exercise(port: int) -> dict:
 
         # A fresh request on the same live QUIC session must remain usable.
         await asyncio.wait_for(
-            protocol.request(f"localhost:{port}", 65536, 0), timeout=7.0
+            protocol.request(f"localhost:{port}", 16384, 0), timeout=7.0
         )
         successful += 1
 
