@@ -31,7 +31,7 @@ echo substr(strrchr($address, ":"), 1);
 
 ready="$workspace/ready"
 php -d opcache.enable_cli=1 benchmarks/adaptive_http3_server.php \
-  "$port" "$workspace/cert.pem" "$workspace/key.pem" "$ready" fixed 65536 \
+  "$port" "$workspace/cert.pem" "$workspace/key.pem" "$ready" fixed 16384 \
   >"$workspace/server.log" 2>&1 &
 server_pid=$!
 
