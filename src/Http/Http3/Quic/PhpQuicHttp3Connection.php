@@ -433,12 +433,6 @@ final class PhpQuicHttp3Connection
                 return;
             }
             $this->readCursorOffset = $nextOffset;
-            if ($ready !== null && isset($this->requestStreams[$streamId])
-                && ($this->peerStreams[$streamId] ?? null)?->resetCode() !== null) {
-                $this->cancelRequestStream($streamId);
-
-                continue;
-            }
             [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
                 $streamId,
                 $readLimit - $reads,

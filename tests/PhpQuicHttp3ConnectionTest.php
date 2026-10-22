@@ -283,6 +283,10 @@ it('discards STOP_SENDING responses before native writes and preserves healthy s
     $connection = new PhpQuicHttp3Connection(
         new PhpQuicConnection($raw),
         static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            if ($request->target !== '/cancelled') {
+                throw new RuntimeException('Unexpected fault fixture request target.');
+            }
+
             $writer->end('healthy-response');
         },
     );
