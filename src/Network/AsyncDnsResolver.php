@@ -48,34 +48,54 @@ final readonly class AsyncDnsResolver
             'dns',
             ['host' => $hostname],
             static function (mixed $result, ?Throwable $error) use ($completion): void {
-                if ($error !== null) {
-                    $completion([], $error);
-
-                    return;
-                }
-                if (!is_array($result)) {
-                    $completion([], new RuntimeException('DNS executor returned an invalid response.'));
-
-                    return;
-                }
-                $addresses = [];
-                foreach ($result as $address) {
-                    if (!is_string($address) || filter_var($address, FILTER_VALIDATE_IP) === false) {
-                        $completion([], new RuntimeException('DNS executor returned an invalid address.'));
-
-                        return;
-                    }
-                    $addresses[$address] = $address;
-                }
-                if ($addresses === []) {
-                    $completion([], new RuntimeException('DNS returned no A or AAAA addresses.'));
-
-                    return;
-                }
-                $completion(array_values($addresses), null);
+                self::handleResponse($result, $error, $completion);
             },
             $token,
             $deadline,
         );
     }
+    /**
+     * @param callable(list<string>, ?Throwable):void $completion
+     */
+    private static function handleResponse(mixed $result, ?Throwable $error, callable $completion): void
+    {
+        if ($error !== null) {
+            $completion([], $error);
+
+            return;
+        }
+        if (!is_array($result)) {
+            $completion([], new RuntimeException('DNS executor returned an invalid response.'));
+
+            return;
+        }
+
+        try {
+            $addresses = self::validatedAddresses($result);
+            $completion($addresses, null);
+        } catch (RuntimeException $failure) {
+            $completion([], $failure);
+        }
+    }
+
+    /**
+     * @param array<mixed> $result
+     * @return list<string>
+     */
+    private static function validatedAddresses(array $result): array
+    {
+        $addresses = [];
+        foreach ($result as $address) {
+            if (!is_string($address) || filter_var($address, FILTER_VALIDATE_IP) === false) {
+                throw new RuntimeException('DNS executor returned an invalid address.');
+            }
+            $addresses[$address] = $address;
+        }
+        if ($addresses === []) {
+            throw new RuntimeException('DNS returned no A or AAAA addresses.');
+        }
+
+        return array_values($addresses);
+    }
+
 }
