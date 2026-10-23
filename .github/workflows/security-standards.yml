@@ -310,6 +310,7 @@ jobs:
         if: matrix.php-version == '8.5'
         shell: bash
         run: |
+          mkdir -p benchmark-results
           /tmp/runwire-aioquic/bin/python benchmarks/mixed_native_lifecycle.py | tee benchmark-results/mixed-native-lifecycle.json
           jq -e '.correctness_passed == true and .events.reload_completed > 0 and .events.manual_recycle_requested > 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
 
