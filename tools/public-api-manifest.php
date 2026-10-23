@@ -10,17 +10,17 @@ declare(strict_types=1);
  * php tools/public-api-manifest.php <source-dir> <destination.json> <source-commit>
  */
 
-if ($argc !== 4 || !is_dir($argv[1])) {
-    fwrite(STDERR, "Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit>\n");
-    exit(2);
+/** @var list<string> $arguments */
+$arguments = $_SERVER['argv'] ?? [];
+if (count($arguments) !== 4 || !is_dir($arguments[1])) {
+    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit>');
 }
 
-[$command, $root, $output, $revision] = $argv;
+[$command, $inputRoot, $output, $revision] = $arguments;
 unset($command);
-$root = realpath($root);
-if (!is_string($root) || !preg_match('/^[0-9a-f]{40}$/D', $revision)) {
-    fwrite(STDERR, "Expected an existing source directory and immutable 40-character source SHA.\n");
-    exit(2);
+$root = realpath($inputRoot);
+if ($root === false || !preg_match('/^[0-9a-f]{40}$/D', $revision)) {
+    throw new InvalidArgumentException('Expected an existing source directory and immutable 40-character source SHA.');
 }
 
 $files = [];
@@ -38,7 +38,7 @@ $unrecognized = [];
 foreach ($files as $path) {
     $source = file_get_contents($path);
     if (!is_string($source)) {
-        throw new RuntimeException("Cannot read PHP source: $path");
+        throw new RuntimeException(sprintf('Cannot read PHP source: %s', $path));
     }
     $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
 
@@ -106,7 +106,7 @@ foreach ($files as $path) {
             }
         }
         if ($i === $length || $round !== 0 || $square !== 0) {
-            throw new RuntimeException("Could not parse method $fqcn::{$match[0]} in $relative");
+            throw new RuntimeException(sprintf('Could not parse method %s::%s in %s', $fqcn, $match[0], $relative));
         }
         $signature = trim(substr($source, $start, $i - $start));
         $signature = (string) preg_replace('/\s+/', ' ', $signature);
@@ -150,15 +150,17 @@ $manifest = [
     'symbols' => $symbols,
 ];
 $encoded = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-if (!is_string($encoded)) {
-    throw new RuntimeException('Failed to serialize the API manifest.');
-}
 if (file_put_contents($output, $encoded . "\n") === false) {
-    throw new RuntimeException("Cannot write API manifest: $output");
+    throw new RuntimeException(sprintf('Cannot write API manifest: %s', $output));
 }
 if ($unrecognized !== []) {
-    fwrite(STDERR, "Unrecognized source declarations: " . implode(', ', $unrecognized) . "\n");
-    exit(1);
+    throw new RuntimeException('Unrecognized source declarations: ' . implode(', ', $unrecognized));
 }
-fprintf(STDERR, "API manifest: source=%s files=%d symbols=%d sha256=%s\n",
-    $revision, count($files), count($symbols), hash('sha256', $encoded . "\n"));
+fprintf(
+    STDERR,
+    'API manifest: source=%s files=%d symbols=%d sha256=%s' . PHP_EOL,
+    $revision,
+    count($files),
+    count($symbols),
+    hash('sha256', $encoded . PHP_EOL),
+);
