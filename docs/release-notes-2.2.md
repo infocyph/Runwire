@@ -1,5 +1,8 @@
 # Runwire 2.2 — draft release notes (not published)
 
+> **Archived historical draft (2026-10-23).** The release target has changed to **3.0.0**. The [new 3.0 roadmap](plans/runwire-3.0-unified-runtime-roadmap.md) and [canonical detailed tracker](plans/runwire-3.0-unified-runtime-development-plan.md) supersede this unpublished draft. Previous successes and failures remain recorded without being treated as 3.0 release proof. Later 2.2 [release-certification #39891900634](https://github.com/infocyph/Runwire/actions/runs/39891900634) failed overall because matched throughput measurement variance exceeded the strict 2.5% ceiling; its soak and other individual jobs passed.
+
+
 **Status:** DEVELOPMENT CANDIDATE — previous five-job H1 certification passed on `145b52b6`; current full real hosted PHP 8.4/8.5 matrix and independent H3 cancellation acceptance passed. Final-head H2/H3 sustained performance, complete native mixed-protocol reload, release certification and maintainer signoff remain incomplete. No merge, tag or version publication.
 
 **Comparison:** Immediate preceding published tag [2.1.2](https://github.com/infocyph/Runwire/releases/tag/2.1.2) at immutable commit `7e9bf20ad0737a187dfed77b723791b141b36378`. [Current development comparison](https://github.com/infocyph/Runwire/compare/2.1.2...plan/runwire-independent-ecosystem-roadmaps).

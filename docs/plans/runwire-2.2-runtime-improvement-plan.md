@@ -1,5 +1,8 @@
 # Runwire 2.2 — runtime improvement and release plan
 
+> **HISTORICAL TRACKER, superseded 2026-10-23.** The next intended stable release is **Runwire 3.0.0**, not 2.2. This 2.2 tracker preserves **75 checked historical tasks and 20 unfinished tasks** (including seven old R5 dialer deferrals) without retroactively changing evidence. The [new unified roadmap](runwire-3.0-unified-runtime-roadmap.md) maps all 20 unfinished IDs into the [canonical 3.0 detailed tracker](runwire-3.0-unified-runtime-development-plan.md). Historical checked tasks do not count as completed 3.0 tasks. No merge, tag or 2.2 publication.
+
+
 **Status:** ACTIVE — 75/95 canonical tasks checked; 7 R5 dialer tasks deferred beyond 2.2, leaving 13 in-scope open tasks. Verified real FrankenPHP, RoadRunner and PHP-FPM host acceptance across PHP 8.4/8.5 closes R6.10; R6.02 and final H2/H3 performance/release certification remain open.
 **Target release:** `2.2` (confirmed 2026-10-19)
 **Previous published release:** `2.1.2`; the 2.2 release notes will compare directly against this tag unless another tag is published beforehand.
