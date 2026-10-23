@@ -253,6 +253,7 @@ final class HappyEyeballsAttempt
                     ),
                 );
                 $this->children[$childId] = true;
+
                 break;
             } catch (Throwable $error) {
                 $this->lastError = $error;
