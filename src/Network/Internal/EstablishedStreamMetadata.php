@@ -60,7 +60,8 @@ final class EstablishedStreamMetadata
         }
 
         $options = stream_context_get_options($stream);
-        $certificate = $options['ssl']['peer_certificate'] ?? null;
+        $ssl = $options['ssl'] ?? null;
+        $certificate = is_array($ssl) ? ($ssl['peer_certificate'] ?? null) : null;
         if (!$certificate instanceof OpenSSLCertificate) {
             return null;
         }

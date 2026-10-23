@@ -455,16 +455,16 @@ final class Connection
         $this->syncReadWatcher();
     }
 
-    /** Return captured SHA-256 identity of a verified TLS peer certificate, when present. */
-    public function tlsPeerFingerprint(): ?string
-    {
-        return $this->tlsPeerFingerprint;
-    }
-
     /** Return the current connection lifecycle state. */
     public function state(): ConnectionState
     {
         return $this->state;
+    }
+
+    /** Return captured SHA-256 identity of a verified TLS peer certificate, when present. */
+    public function tlsPeerFingerprint(): ?string
+    {
+        return $this->tlsPeerFingerprint;
     }
 
     /**
