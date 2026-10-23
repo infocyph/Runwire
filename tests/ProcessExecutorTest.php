@@ -178,3 +178,29 @@ it('unsubscribes a cancelled job and does not call its completion twice', functi
         ->and($source->token()->subscriptionCount())->toBe(0);
     $source->dispose();
 });
+
+it('honors the earliest inherited token deadline instead of extending the operation', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $source = new CancellationSource(RequestDeadline::afterSeconds(0.04, hrtime(true)));
+    $errors = [];
+    $executor->submit(
+        'sleep',
+        ['milliseconds' => 300],
+        function ($value, $error) use (&$errors): void {
+            expect($value)->toBeNull();
+            $errors[] = $error;
+        },
+        token: $source->token(),
+        deadline: RequestDeadline::afterSeconds(1.0, hrtime(true)),
+    );
+    $executor->onDrained(function () use ($executor): void {
+        $executor->close();
+    });
+    $loop->run();
+    expect($errors)->toHaveCount(1)
+        ->and($errors[0])->toBeInstanceOf(CancelledException::class)
+        ->and($errors[0]->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
+        ->and($executor->diagnostics()['active'])->toBe(0);
+    $source->dispose();
+});

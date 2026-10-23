@@ -196,7 +196,7 @@ final class ProcessExecutor
         $this->peakPending = max($this->peakPending, $this->queuedCount());
 
         $this->attachCancellation($id, $token);
-        $this->attachDeadline($id, $deadline);
+        $this->attachDeadline($id, $deadline, $token);
 
         $this->schedulePump();
 
@@ -218,12 +218,18 @@ final class ProcessExecutor
         }
     }
 
-    private function attachDeadline(int $id, ?RequestDeadline $deadline): void
+    private function attachDeadline(int $id, ?RequestDeadline $deadline, ?CancellationToken $token): void
     {
-        if ($deadline === null || !array_key_exists($id, $this->jobs)) {
+        if (!array_key_exists($id, $this->jobs)) {
             return;
         }
-        $remaining = $deadline->remainingSeconds();
+        $inherited = $token?->deadline();
+        if ($inherited?->monotonicNanoseconds !== null
+            && ($deadline?->monotonicNanoseconds === null
+                || $inherited->monotonicNanoseconds < $deadline->monotonicNanoseconds)) {
+            $deadline = $inherited;
+        }
+        $remaining = $deadline?->remainingSeconds();
         if ($remaining !== null) {
             $this->jobs[$id]['timer'] = $this->loop->delay($remaining, function () use ($id): void {
                 $this->expire($id);
@@ -249,7 +255,7 @@ final class ProcessExecutor
         if (!array_key_exists($id, $this->jobs)) {
             return;
         }
-        $error = new RuntimeException('Executor operation deadline exceeded.');
+        $error = new CancelledException(CancellationReason::DEADLINE_EXCEEDED);
         $worker = $this->jobs[$id]['worker'];
         if ($worker !== null) {
             $this->retire($worker, $error);
