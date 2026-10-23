@@ -3,6 +3,7 @@ name: Source Audit
 on:
   workflow_dispatch:
   push:
+    branches: [ "main", "master" ]
     paths:
       - src/**
       - tools/public-api-manifest.php
