@@ -46,7 +46,13 @@ function runwireRemoveClientTlsIdentity(array $identity): void
  * @param array{string, string, string} $identity
  * @return array{?Connection, ?Throwable, bool}
  */
-function runwireClientTlsAttempt(array $identity, string $peer, ?string $caFile): array
+function runwireClientTlsAttempt(
+    array $identity,
+    string $peer,
+    ?string $caFile,
+    ?int $serverCryptoMethod = null,
+    ?array $serverAlpn = null,
+): array
 {
     [, $certificate, $private] = $identity;
     $loop = new SelectLoop();
@@ -54,7 +60,13 @@ function runwireClientTlsAttempt(array $identity, string $peer, ?string $caFile)
         '127.0.0.1:0',
         new ListenerOptions(maxConnections: 4),
         new ConnectionLimits(),
-        new TlsOptions($certificate, $private, handshakeTimeoutSeconds: 1.0),
+        new TlsOptions(
+            $certificate,
+            $private,
+            alpnProtocols: $serverAlpn ?? ['h2', 'http/1.1'],
+            handshakeTimeoutSeconds: 1.0,
+            cryptoMethod: $serverCryptoMethod,
+        ),
     );
     $accepted = false;
     $clientResolved = false;
@@ -87,6 +99,7 @@ function runwireClientTlsAttempt(array $identity, string $peer, ?string $caFile)
     $loop->run();
     $loop->cancel($timeout);
     $connection?->abort();
+    $listener->abortConnections();
     $listener->close();
     $dialer->close();
     expect($dialer->pendingCount())->toBe(0)
@@ -142,4 +155,63 @@ it('rejects TLS policy on Unix sockets before opening any outgoing socket', func
         new DialOptions(tls: new TlsClientOptions('localhost')),
     ))->toThrow(InvalidArgumentException::class)
         ->and($dialer->pendingCount())->toBe(0);
+});
+
+
+it('negotiates both TLS 1.2 and TLS 1.3 with explicit client verification and ALPN', function (): void {
+    $identity = runwireClientTlsIdentity();
+    try {
+        foreach ([STREAM_CRYPTO_METHOD_TLSv1_2_SERVER, STREAM_CRYPTO_METHOD_TLSv1_3_SERVER] as $version) {
+            [$connection, $error, $accepted] = runwireClientTlsAttempt(
+                $identity,
+                'localhost',
+                $identity[1],
+                $version,
+                ['h2', 'http/1.1'],
+            );
+            expect($error)->toBeNull()
+                ->and($connection)->toBeInstanceOf(Connection::class)
+                ->and($connection->isEncrypted())->toBeTrue()
+                ->and($connection->negotiatedProtocol())->toBe('h2')
+                ->and($accepted)->toBeTrue();
+            $connection->abort();
+        }
+    } finally {
+        runwireRemoveClientTlsIdentity($identity);
+    }
+});
+
+it('times out a silent TCP peer during client TLS negotiation and releases every watcher', function (): void {
+    $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+    expect($server)->toBeResource();
+    $address = stream_socket_get_name($server, false);
+    expect($address)->toBeString();
+    $loop = new SelectLoop();
+    $dialer = new Dialer($loop);
+    $accepted = null;
+    $serverWatcher = $loop->onReadable($server, function () use (&$accepted, $server, $loop, &$serverWatcher): void {
+        $accepted = stream_socket_accept($server, 0.0);
+        $loop->cancel($serverWatcher);
+    });
+    $failures = [];
+    $dialer->connect('tcp://' . $address, function ($connection, $failure) use (&$failures, $loop): void {
+        expect($connection)->toBeNull();
+        $failures[] = $failure;
+        $loop->stop();
+    }, new DialOptions(
+        connectTimeoutSeconds: 0.08,
+        tls: new TlsClientOptions('localhost', handshakeTimeoutSeconds: 0.04),
+    ));
+    $loop->run();
+    expect($failures)->toHaveCount(1)
+        ->and($failures[0])->toBeInstanceOf(Throwable::class)
+        ->and($dialer->pendingCount())->toBe(0);
+    $dialer->close();
+    if (is_resource($accepted)) {
+        fclose($accepted);
+    }
+    fclose($server);
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
