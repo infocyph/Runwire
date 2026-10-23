@@ -34,6 +34,28 @@ final class TcpSocketTuner
         }
     }
 
+    /** Apply an explicit outbound TCP_NODELAY policy, failing when unavailable. */
+    public static function applyExplicitNoDelay(mixed $stream, bool $tcpTransport, ?bool $override): void
+    {
+        if (!$tcpTransport || $override === null) {
+            return;
+        }
+        if (!is_resource($stream) || !self::supported()) {
+            throw new \RuntimeException('Explicit TCP_NODELAY requires an available native TCP socket.');
+        }
+
+        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+
+        try {
+            $socket = socket_import_stream($stream);
+            if ($socket === false || !socket_set_option($socket, SOL_TCP, TCP_NODELAY, $override ? 1 : 0)) {
+                throw new \RuntimeException('Explicit TCP_NODELAY could not be applied.');
+            }
+        } finally {
+            restore_error_handler();
+        }
+    }
+
     private static function supported(): bool
     {
         return function_exists('socket_import_stream')

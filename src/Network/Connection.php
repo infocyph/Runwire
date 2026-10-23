@@ -14,6 +14,7 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionLifecycleOperationsTrait;
+use Infocyph\Runwire\Network\Internal\ConnectionScopeOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
@@ -67,6 +68,8 @@ final class Connection
     private ?int $readWatcher = null;
 
     private int $rejectedWrites = 0;
+
+    private ?ConnectionScopeOwnership $scopeOwnership = null;
 
     private ConnectionState $state = ConnectionState::OPEN;
 

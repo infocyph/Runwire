@@ -73,6 +73,7 @@ final class AsyncConnection
                 $adapter->handleClose($connection, $reason);
             }
         });
+        $this->connection->bindOwner($scope->cancellation());
     }
 
     /**

@@ -9,6 +9,7 @@ use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\DialAttemptLifecycle;
 use Infocyph\Runwire\Network\Internal\EstablishedStreamMetadata;
+use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use LogicException;
 use Throwable;
 
@@ -82,6 +83,7 @@ final class ConnectionFactory
         }
 
         try {
+            TcpSocketTuner::applyExplicitNoDelay($stream, $tcpTransport, $tcpNoDelayOverride);
             $connection = self::accepted(
                 $loop,
                 $stream,

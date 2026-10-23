@@ -4,14 +4,27 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network\Internal;
 
+use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
+use Infocyph\Runwire\RequestDeadline;
+use LogicException;
 
 /** @internal State transition and resource cleanup mechanics for established streams. */
 trait ConnectionLifecycleOperationsTrait
 {
+    /** Bind this established stream to one owner token and its earliest deadline. */
+    public function bindOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
+    {
+        if ($this->state === ConnectionState::CLOSED || $this->scopeOwnership !== null) {
+            throw new LogicException('Only one live owner may bind an established connection.');
+        }
+
+        $this->scopeOwnership = ConnectionScopeOwnership::attach($this, $this->loop, $token, $deadline);
+    }
+
     /**
      * Half-close the local write direction while keeping inbound reads active.
      *
