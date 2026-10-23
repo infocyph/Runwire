@@ -43,7 +43,23 @@ cleanup_server() {
   fi
   server_pid=""
 }
-cleanup() { cleanup_server; rm -rf "$workdir"; }
+cleanup() {
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "Pressure acceptance failed: protocol=$protocol, case=${id:-unassigned}, exit=$status" >&2
+    if [ -n "${id:-}" ] && [ -f "$workdir/$id.log" ]; then
+      echo '--- Runwire protocol server diagnostics ---' >&2
+      tail -n 120 "$workdir/$id.log" >&2
+    fi
+    if [ -n "${result:-}" ] && [ -f "$result" ]; then
+      echo '--- Last benchmark result (if generated) ---' >&2
+      tail -n 90 "$result" >&2
+    fi
+  fi
+  cleanup_server
+  rm -rf "$workdir"
+  exit "$status"
+}
 trap cleanup EXIT
 
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=localhost' \

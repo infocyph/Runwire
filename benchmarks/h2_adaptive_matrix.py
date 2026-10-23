@@ -60,7 +60,13 @@ class H2Bench:
             self.conn.close_connection()
             data = self.conn.data_to_send()
             if data:
-                self.sock.sendall(data)
+                try:
+                    self.sock.sendall(data)
+                except (OSError, ssl.SSLError):
+                    # A peer which has already closed cannot receive GOAWAY.
+                    # This is only cleanup; the original workload error still
+                    # propagates unchanged from run_phase.
+                    pass
         finally:
             self.sock.close()
 
@@ -111,7 +117,16 @@ class H2Bench:
             outbound = self.conn.data_to_send()
             if outbound:
                 outbound_wire_bytes += len(outbound)
-                self.sock.sendall(outbound)
+                try:
+                    self.sock.sendall(outbound)
+                except (OSError, ssl.SSLError) as exc:
+                    raise RuntimeError(
+                        "H2 peer closed while transmitting active requests: "
+                        f"scenario={self.case.get('scenario')} "
+                        f"stream_count={len(self.active)} "
+                        f"issued_on_connection={self.issued} "
+                        f"pending_bytes={sum(len(s['expected']) - len(s['body']) for s in self.active.values())}"
+                    ) from exc
             measurement.sample()
             if self.case.get("scenario") == "pressure":
                 time.sleep(0.002)
