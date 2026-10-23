@@ -65,6 +65,7 @@ jobs:
             build-essential \
             ca-certificates \
             git \
+            jq \
             libev-dev \
             libssl-dev \
             libtool \
