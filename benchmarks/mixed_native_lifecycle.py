@@ -76,8 +76,8 @@ async def request_http1(port):
         await writer.wait_closed()
 
 
-def request_http2(port):
-    client = H2Bench(port, os.getpid(), 16384)
+def request_http2(port, server_pid):
+    client = H2Bench(port, server_pid, 16384)
     try:
         result = client.run_phase(2, 1.0)
         if not result["correctness_passed"] or result["errors"]:
@@ -118,11 +118,11 @@ def request_udp(port):
             raise RuntimeError("Raw UDP reply invalid")
 
 
-async def complete_wave(tls_port, tcp_port, udp_port):
+async def complete_wave(tls_port, tcp_port, udp_port, server_pid):
     results = await asyncio.wait_for(
         asyncio.gather(
             request_http1(tls_port),
-            asyncio.to_thread(request_http2, tls_port),
+            asyncio.to_thread(request_http2, tls_port, server_pid),
             request_http3(tls_port),
             request_tcp(tcp_port),
             asyncio.to_thread(request_udp, udp_port),
@@ -155,7 +155,7 @@ async def exercise():
                 lambda ev: required <= {e["group"] for e in ev if e.get("type") == "worker_ready"},
                 process, events_file, "all four genuine native workers", 20,
             )
-            observed["initial"] = await complete_wave(tls_port, tcp_port, udp_port)
+            observed["initial"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
 
             records = event_log(events_file)
             target_pids = [
@@ -170,17 +170,23 @@ async def exercise():
                                 and e.get("group") == "http:mixed-http"]) >= 2,
                 process, events_file, "replacement after SIGKILL", 20,
             )
-            observed["after_crash_restart"] = await complete_wave(tls_port, tcp_port, udp_port)
+            observed["after_crash_restart"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
             if not any(e.get("type") == "worker_restart_scheduled" for e in event_log(events_file)):
                 raise RuntimeError("No native restart/backoff event after SIGKILL")
 
-            # SIGHUP is handled through the actual supervisor signal bridge.
+            # A real H2 workload is in flight when the signal bridge starts
+            # the rolling reload; other four protocols run concurrently.
+            during_reload = asyncio.create_task(
+                complete_wave(tls_port, tcp_port, udp_port, process.pid)
+            )
+            await asyncio.sleep(0.1)
             os.kill(process.pid, signal.SIGHUP)
+            observed["during_reload"] = await during_reload
             await wait_until(
                 lambda ev: any(e.get("type") == "reload_completed" for e in ev),
                 process, events_file, "native supervisor rolling reload", 25,
             )
-            observed["after_reload"] = await complete_wave(tls_port, tcp_port, udp_port)
+            observed["after_reload"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
             events = await wait_until(
                 lambda ev: any(e.get("type") == "manual_recycle_requested" for e in ev),
                 process, events_file, "manual coordinated H1/H2/H3 recycle", 10,
@@ -194,7 +200,7 @@ async def exercise():
                                     and e.get("group") == "http3:mixed-http"]) >= 3,
                 process, events_file, "manual recycle replacement generations", 25,
             )
-            observed["after_manual_recycle"] = await complete_wave(tls_port, tcp_port, udp_port)
+            observed["after_manual_recycle"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
             return {
                 "correctness_passed": True,
                 "independent_live_clients": ["tls-http1", "tls-h2", "quic-h3", "framed-tcp", "udp"],
