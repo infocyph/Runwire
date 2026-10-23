@@ -306,6 +306,27 @@ jobs:
         run: |
           RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/http3_fault_acceptance.sh
 
+      - name: Install independent HTTP/2 client in aioquic environment
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0'
+
+      - name: Real simultaneous H1/H2/H3/TCP/UDP native crash and rolling recycle
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          /tmp/runwire-aioquic/bin/python benchmarks/mixed_native_lifecycle.py | tee benchmark-results/mixed-native-lifecycle.json
+          jq -e '.correctness_passed == true and .events.reload_completed > 0 and .events.manual_recycle_requested > 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
+
+      - name: Upload mixed native listener lifecycle evidence
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-mixed-native-lifecycle
+          path: benchmark-results/mixed-native-lifecycle.json
+          retention-days: 90
+
       - name: Real independent H3 QPACK, upload and connection-churn pressure
         if: matrix.php-version == '8.5'
         shell: bash
