@@ -16,12 +16,10 @@ final class TlsHandshake
 {
     private bool $finished = false;
 
-    private ?int $readWatcher = null;
+    private ?TlsHandshakeReadiness $readiness = null;
 
     /** @var resource|null */
     private mixed $stream;
-
-    private ?int $timeoutTimer = null;
 
     /**
      * @param resource $stream
@@ -124,13 +122,14 @@ final class TlsHandshake
 
             return;
         }
-        $this->timeoutTimer = $this->loop->delay($this->options->handshakeTimeoutSeconds, function (): void {
-            $this->timeoutTimer = null;
-            $this->fail();
-        });
-        $this->readWatcher = $this->loop->onReadable($stream, function (): void {
-            $this->attempt();
-        });
+        $this->readiness = new TlsHandshakeReadiness($this->loop);
+        $this->readiness->start(
+            $stream,
+            $this->options->handshakeTimeoutSeconds,
+            fn () => $this->attempt(),
+            fn () => $this->fail(),
+            false,
+        );
     }
 
     private function fail(): void
@@ -149,12 +148,8 @@ final class TlsHandshake
     private function finish(): void
     {
         $this->finished = true;
-        foreach ([$this->readWatcher, $this->timeoutTimer] as $handle) {
-            if ($handle !== null) {
-                $this->loop->cancel($handle);
-            }
-        }
-        $this->readWatcher = $this->timeoutTimer = null;
+        $this->readiness?->close();
+        $this->readiness = null;
         $this->stream = null;
     }
 }

@@ -16,14 +16,10 @@ final class ClientTlsHandshake
 {
     private bool $finished = false;
 
-    private ?int $readWatcher = null;
+    private ?TlsHandshakeReadiness $readiness = null;
 
     /** @var resource|null */
     private mixed $stream;
-
-    private ?int $timeoutTimer = null;
-
-    private ?int $writeWatcher = null;
 
     /**
      * @param resource $stream
@@ -136,16 +132,14 @@ final class ClientTlsHandshake
             if (!stream_set_blocking($stream, false)) {
                 throw new RuntimeException('TLS requires nonblocking stream mode.');
             }
-            $this->timeoutTimer = $this->loop->delay($this->policy->handshakeTimeoutSeconds, function (): void {
-                $this->timeoutTimer = null;
-                $this->fail(new RuntimeException('Outbound TLS handshake timeout.'));
-            });
-            $this->readWatcher = $this->loop->onReadable($stream, function (): void {
-                $this->attempt();
-            });
-            $this->writeWatcher = $this->loop->onWritable($stream, function (): void {
-                $this->attempt();
-            });
+            $this->readiness = new TlsHandshakeReadiness($this->loop);
+            $this->readiness->start(
+                $stream,
+                $this->policy->handshakeTimeoutSeconds,
+                fn () => $this->attempt(),
+                fn () => $this->fail(new RuntimeException('Outbound TLS handshake timeout.')),
+                true,
+            );
             $this->attempt();
         } catch (Throwable $error) {
             $this->fail($error);
@@ -169,12 +163,8 @@ final class ClientTlsHandshake
         }
 
         $this->finished = true;
-        foreach ([$this->readWatcher, $this->writeWatcher, $this->timeoutTimer] as $handle) {
-            if ($handle !== null) {
-                $this->loop->cancel($handle);
-            }
-        }
-        $this->readWatcher = $this->writeWatcher = $this->timeoutTimer = null;
+        $this->readiness?->close();
+        $this->readiness = null;
         $this->stream = null;
     }
 }

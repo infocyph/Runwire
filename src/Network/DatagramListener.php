@@ -80,7 +80,6 @@ final class DatagramListener
         return new self($stream, is_string($bound) ? $bound : $address, $options);
     }
 
-
     /**
      * Open a nonblocking connected UDP socket using the same listener I/O engine.
      *
@@ -95,7 +94,7 @@ final class DatagramListener
         $numericHost = is_string($host) ? trim($host, '[]') : '';
         if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'udp'
             || filter_var($numericHost, FILTER_VALIDATE_IP) === false
-            || !isset($parts['port']) || ($parts['port'] < 1 || $parts['port'] > 65_535)
+            || !isset($parts['port'])
             || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
             throw new ListenerException('Connected UDP requires a numeric IPv4/IPv6 udp://host:port endpoint.');
         }
@@ -103,7 +102,8 @@ final class DatagramListener
         $context = stream_context_create(['socket' => $options->socketContext]);
         $errorCode = 0;
         $error = '';
-        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+        set_error_handler(static fn (int $severity): bool => $severity === E_WARNING);
+
         try {
             $stream = stream_socket_client($uri, $errorCode, $error, 0.0, STREAM_CLIENT_CONNECT, $context);
         } finally {
@@ -230,7 +230,7 @@ final class DatagramListener
             throw new LogicException('Unconnected UDP sockets require sendTo().');
         }
 
-        return $this->sendTo($payload, $this->connectedPeer);
+        return $this->sendTo($payload, substr($this->connectedPeer, 6));
     }
 
     /**

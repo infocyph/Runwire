@@ -13,7 +13,12 @@ use Infocyph\Runwire\Loop\LoopInterface;
  */
 final readonly class DatagramClient
 {
-    private function __construct(private DatagramListener $socket) {}
+    private DatagramListener $socket;
+
+    private function __construct(DatagramListener $socket)
+    {
+        $this->socket = $socket;
+    }
 
     /** Bind an unconnected UDP client, accepting any remote peer via sendTo(). */
     public static function bind(string $address, ?DatagramOptions $options = null): self
@@ -45,12 +50,16 @@ final readonly class DatagramClient
         return $this->socket->connectedPeer();
     }
 
-    /** Register one bounded receive callback on the shared datagram engine. */
-    public function start(LoopInterface $loop, callable $completion): void
+    /** Return accepted datagrams, excluding truncated payloads. */
+    public function receivedDatagrams(): int
     {
-        $this->socket->start($loop, function (Datagram $datagram) use ($completion): void {
-            $completion($datagram, $this);
-        });
+        return $this->socket->receivedDatagrams();
+    }
+
+    /** Return datagrams rejected by invalid metadata or size limits. */
+    public function rejectedDatagrams(): int
+    {
+        return $this->socket->rejectedDatagrams();
     }
 
     /** Send one datagram to the connected destination. */
@@ -65,15 +74,11 @@ final readonly class DatagramClient
         return $this->socket->sendTo($payload, $peer);
     }
 
-    /** Return accepted datagrams, excluding truncated payloads. */
-    public function receivedDatagrams(): int
+    /** Register one bounded receive callback on the shared datagram engine. */
+    public function start(LoopInterface $loop, callable $completion): void
     {
-        return $this->socket->receivedDatagrams();
-    }
-
-    /** Return datagrams rejected by invalid metadata or size limits. */
-    public function rejectedDatagrams(): int
-    {
-        return $this->socket->rejectedDatagrams();
+        $this->socket->start($loop, function (Datagram $datagram) use ($completion): void {
+            $completion($datagram, $this);
+        });
     }
 }
