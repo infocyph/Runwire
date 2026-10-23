@@ -81,11 +81,13 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Read the Docs and Sphinx: first-class 3.0 release requirement
 
-**Do not defer documentation or ship a partial feature list.** Implement a maintained documentation site using Sphinx, MyST Markdown and/or reStructuredText, a pinned documentation environment, docs/sphinx/conf.py, repository-root .readthedocs.yaml **configuration version 2**, structured toctree, readable theme, search and versioned migration content.
+**Do not defer documentation or ship a partial feature list.** Implement a maintained documentation site using Sphinx using only native reStructuredText (.rst), a pinned documentation environment, docs/conf.py, repository-root .readthedocs.yaml **configuration version 2**, structured toctree, readable theme, search and versioned migration content.
 
 **Required full feature catalog:** for every user-facing 3.0 capability record its category, public PHP API, client/server applicability, optional extension/OS/runtime requirements, timeouts, cancellation and resource ownership, defaults, security considerations, errors and real tested examples. Cross-link every entry to the generated public PHP API reference. Include the old 2.1.2 behavior, all intentional breaking changes and before/after migration snippets.
 
 **Required sections:** getting started, installation, feature catalog, API, TCP/TLS/Unix/UDP/QUIC, DNS/dialer/racing, H1/H2/H3 client-server, WebSocket/WebTransport, pooling/HTTP CONNECT/SOCKS5/relay, Fiber/scheduler/scopes, async filesystem, worker lifecycle/autoscaling, host capabilities, production deployment, security, profiling/metrics/performance, troubleshooting, recipes and release QA.
+
+**RST-only policy:** Publish only `.rst` pages through Sphinx. Convert existing user-facing `.md` guides before release; never load internal `.md` plans/evidence into Sphinx. No MyST parser. Follow InterMix's `docs/conf.py`, `docs/index.rst` and `.readthedocs.yaml` convention.
 
 **Docs acceptance:** warning-as-error and strict-reference Sphinx HTML build with --keep-going, local snippet tests, stable internal/external links, Read the Docs preview deployment and 100% public feature documentation coverage. Documentation tasks U16.01–U16.16 and final docs signoff U17.04 are mandatory.
 

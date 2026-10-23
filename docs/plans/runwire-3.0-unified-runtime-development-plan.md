@@ -15,7 +15,7 @@
 - 64-bit PHP 8.4+ and Composer remain the baseline. No new dependency or release gate on unrelated Infocyph repositories.
 - Implement one batch, run focused tests and PHPForge QA, inspect exact run IDs, then commit code, accepted evidence and updated tracker together. Only checked tasks may count as complete.
 - Keep 2.1.2 as immutable baseline. Final matched throughput requires five 180-second pairs, warmup, successful RPS, both CV below 2.5%, strict p99/RSS/correctness budgets, generator headroom, and 1800-second process-tree soak. A passing mock or microbenchmark cannot replace real protocol QA.
-- **Sphinx documentation is mandatory:** create Read the Docs-compatible Sphinx with configuration v2, complete detailed feature list, generated PHP API reference, migration guides and strict docs CI. All U16 tasks are required for 3.0.
+- **Sphinx documentation is mandatory:** use **exclusively native reStructuredText (.rst)** for all published documentation pages, with an InterMix-style `docs/conf.py`, `docs/index.rst`, Read the Docs configuration v2, and no MyST or `.md` Sphinx pages. Convert legacy end-user Markdown guides to RST before release. Internal trackers/evidence are outside the published Sphinx source graph. Require, complete detailed feature list, generated PHP API reference, migration guides and strict docs CI. All U16 tasks are required for 3.0.
 - **Task proof convention:** change [ ] to [x] only after Acceptance is verified and update Proof from PENDING to immutable commit, real test and Actions/artifact link. No plan-only task completion.
 
 ## Canonical batch summary
@@ -312,9 +312,9 @@
 
 **Prerequisite:** U00-U15. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U16.01** Set up docs/sphinx with Sphinx conf.py and pinned documentation dependencies. **Acceptance:** Reproducible warning-free HTML build. **Proof:** PENDING.
+- [ ] **U16.01** Set up docs with Sphinx conf.py and pinned documentation dependencies. **Acceptance:** Reproducible warning-free HTML build. **Proof:** PENDING.
 - [ ] **U16.02** Add repository root .readthedocs.yaml v2 and hosted docs build config. **Acceptance:** Read the Docs preview builds correctly. **Proof:** PENDING.
-- [ ] **U16.03** Choose MyST Markdown and RST navigation strategy to reuse appropriate existing docs. **Acceptance:** No duplicate or broken pages. **Proof:** PENDING.
+- [ ] **U16.03** Convert existing user-facing Markdown guides to native RST, with RST-only Sphinx navigation. **Acceptance:** No duplicate or broken pages. **Proof:** PENDING.
 - [ ] **U16.04** Create complete versioned public feature catalog. **Acceptance:** Every feature annotated by supported host, transport and extension. **Proof:** PENDING.
 - [ ] **U16.05** Document TCP/TLS/Unix/UDP/QUIC inbound/outbound and DNS/Happy Eyeballs. **Acceptance:** Runnable client/server examples and errors. **Proof:** PENDING.
 - [ ] **U16.06** Document HTTP1/2/3 client/server and WebSocket/WebTransport. **Acceptance:** Streaming, header limits, cancellation and conformance examples. **Proof:** PENDING.
@@ -376,25 +376,25 @@ The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e
 
 ## Sphinx / Read the Docs complete feature documentation index
 
-All of these pages are **required deliverables** inside the proposed docs/sphinx documentation tree, not existing published documentation.
+All of these pages are **required deliverables** inside the proposed docs documentation tree, not existing published documentation.
 
 | Feature division | Docs page hierarchy | Mandatory content |
 | --- | --- | --- |
 | Installation/requirements | getting-started/, reference/capabilities/ | PHP, OS, extension, host and fallback matrix |
 | All public APIs and errors | api/, reference/errors/ | Generated PHP source signatures and typed errors |
-| Breaking migration | migration/2.1-to-3.0.md | Before/after API, removal, behavior changes |
+| Breaking migration | migration/2.1-to-3.0.rst | Before/after API, removal, behavior changes |
 | Loops, Fiber and scope | concurrency/ | Task, watcher, cancellation, lifetime, limits |
 | TCP/TLS/Unix/UDP/QUIC | network/ | Bidirectional examples, deadlines and security |
-| DNS and dialer | network/dialer.md, network/dns.md | Racing, IPv4/6, connect and failures |
+| DNS and dialer | network/dialer.rst, network/dns.rst | Racing, IPv4/6, connect and failures |
 | HTTP/1.1, 2, 3 | protocols/http/ | Full client/server streaming, headers and flow control |
-| WebSocket / WebTransport | protocols/websocket.md, protocols/webtransport.md | Sessions, frames, streams, datagrams |
-| Pools/proxies/relay | network/pool.md, network/proxy.md, network/relay.md | CONNECT/SOCKS5, credentials, backpressure |
-| Filesystem and executor | io/filesystem.md | Genuine async, quotas, cancellation, platform limits |
+| WebSocket / WebTransport | protocols/websocket.rst, protocols/webtransport.rst | Sessions, frames, streams, datagrams |
+| Pools/proxies/relay | network/pool.rst, network/proxy.rst, network/relay.rst | CONNECT/SOCKS5, credentials, backpressure |
+| Filesystem and executor | io/filesystem.rst | Genuine async, quotas, cancellation, platform limits |
 | Runtime and autoscaling | runtime/, deployment/ | Native prefork/portable and hosted runtimes |
 | Security and performance | security/, operations/ | TLS, SSRF, observability, p99/RSS, threat models |
 | Guides/tutorials/recipes | tutorials/, examples/, troubleshooting/ | Runnable real application examples |
 
-**Docs technical gate:** docs/sphinx/conf.py, pinned doc requirements, .readthedocs.yaml v2, MyST Markdown and RST support, API extraction from PHP, Sphinx warning-as-error HTML build with strict refs, link checks, runnable snippets, hosted Read the Docs preview, versioned navigation and **100% shipped feature documentation coverage**. Update documentation with each implemented feature batch; U16 verifies full completeness.
+**Docs technical gate:** docs/conf.py, docs/index.rst, RST-only toctrees and pages, conversion of existing user guides, pinned doc requirements, .readthedocs.yaml v2, strict reStructuredText-only (.rst) Sphinx source pages, API extraction from PHP, Sphinx warning-as-error HTML build with strict refs, link checks, runnable snippets, hosted Read the Docs preview, versioned navigation and **100% shipped feature documentation coverage**. Update documentation with each implemented feature batch; U16 verifies full completeness.
 
 ## Required QA matrix and final release rules
 
