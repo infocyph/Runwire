@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 32/175 complete; 143 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 36/175 complete; 139 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -25,7 +25,7 @@
 | U00 | Baseline, architecture and 2.1-to-3.0 migration | 10/10 | 0 | DONE | published 2.1.2; historical 2.2 tracker |
 | U01 | Event-loop, watchers and asynchronous executor | 9/9 | 0 | DONE | U00 |
 | U02 | Unified established connection and transport ownership | 9/9 | 0 | DONE | U01 |
-| U03 | Async DNS and outbound TCP/Unix dialer | 4/10 | 6 | In progress | U01,U02 |
+| U03 | Async DNS and outbound TCP/Unix dialer | 8/10 | 2 | In progress | U01,U02 |
 | U04 | Unified TLS security and client/server handshakes | 0/8 | 8 | Not started | U02,U03 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 0/10 | 10 | Not started | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0/8 | 8 | Not started | U01,U02,U03 |
@@ -40,9 +40,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **32/175** | **143** | **U00–U02 done; U03 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **36/175** | **139** | **U00–U02 done; U03 in progress** | U00-U17 |
 
-**Progress counter:** 32/175 (18.3% complete), 143 open.
+**Progress counter:** 36/175 (20.6% complete), 139 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -103,14 +103,14 @@
 - [x] **U03.02** Implement nonblocking TCP connect with write readiness and error verification. **Acceptance:** Real IPv4/IPv6 TCP peer acceptance. **Proof:** `src/Network/Dialer.php` launches nonblocking numeric TCP connects with `STREAM_CLIENT_ASYNC_CONNECT`, watches writable readiness and verifies `SO_ERROR` before factory handoff, rejecting synchronous hostname DNS. `tests/DialerTest.php` checks a real IPv4 loopback accepted peer, and a bracketed IPv6 loopback peer when the host supports it; absent host IPv6 capability is explicitly detected. [Source 50fe962](https://github.com/infocyph/Runwire/commit/50fe962257b2de6050b22a6f004dfb41faaf4e69); [QA/analysis #39929786108](https://github.com/infocyph/Runwire/actions/runs/39929786108) four PHPForge and both analyzers PASS. No real DNS or address race is claimed.
 - [x] **U03.03** Implement Unix-domain outgoing connections. **Acceptance:** Real Unix peers and permission errors verified. **Proof:** The same `Dialer` and `ConnectionFactory::dialed()` support nonblocking Unix-domain outgoing streams, with direct endpoint parsing, real peer acceptance and missing-socket error tests in `tests/DialerTest.php`. [Source 50fe962](https://github.com/infocyph/Runwire/commit/50fe962257b2de6050b22a6f004dfb41faaf4e69); [all QA/analyzer jobs #39929786108](https://github.com/infocyph/Runwire/actions/runs/39929786108) PASS; watchers, timers and pending sockets return to zero.
 - [x] **U03.04** Implement genuinely off-loop A/AAAA DNS with bounded work. **Acceptance:** DNS delay cannot stall event-loop heartbeat. **Proof:** `src/Network/AsyncDnsResolver.php` delegates A/AAAA lookups to the existing bounded real `ProcessExecutor` worker IPC without blocking the loop; `tools/executor-worker.php` now falls back to OS hosts-based IPv4 resolution if DNS records are unavailable (e.g., localhost), deduplicates valid addresses and never runs worker I/O in the parent loop. `tests/AsyncDnsResolverTest.php` verifies DNS behind a 60ms blocking-worker fixture while a 3ms loop heartbeat progresses, exact-once cancellation, no dangling watchers or subscriptions. [Source 3232cfd](https://github.com/infocyph/Runwire/commit/3232cfde3683d16849381a1085d141e5cd1561e5); [Security & Standards #39967719050](https://github.com/infocyph/Runwire/actions/runs/39967719050) four PHP8.4/8.5 stable/lowest PHPForge suites and both analyzers passed.
-- [ ] **U03.05** Implement Happy Eyeballs address selection and staggered racing. **Acceptance:** Slow/failing address fallback without leaked sockets. **Proof:** PENDING.
-- [ ] **U03.06** Support per-stage and overall deadlines, cancellation and cleanup. **Acceptance:** Late DNS/connect events ignored. **Proof:** PENDING.
-- [ ] **U03.07** Limit concurrent pending dials and queued endpoints per scope/worker. **Acceptance:** Dial storm bounded RSS/FD. **Proof:** PENDING.
-- [ ] **U03.08** Integrate with Fiber scope and callback style without duplication. **Acceptance:** Direct and coroutine clients use same connector. **Proof:** PENDING.
+- [x] **U03.05** Implement Happy Eyeballs address selection and staggered racing. **Acceptance:** Slow/failing address fallback without leaked sockets. **Proof:** `HappyEyeballsDialer` and `Internal/HappyEyeballsAttempt` stagger and interleave validated IPv4/IPv6 candidates over the single `Dialer`, cancelling unselected attempts on winner handoff; `tests/HappyEyeballsDialerTest.php` verifies live failing IPv6 → successful IPv4 fallback and DNS-to-dialer hostname connection without leaked watchers. [Source 3942b0e](https://github.com/infocyph/Runwire/commit/3942b0e276cce6883689a88a29a98482aa8e42b7); [all PHPForge QA and analyzers #39975849650](https://github.com/infocyph/Runwire/actions/runs/39975849650) PASS.
+- [x] **U03.06** Support per-stage and overall deadlines, cancellation and cleanup. **Acceptance:** Late DNS/connect events ignored. **Proof:** An overall monotonic deadline and per-candidate remaining time control DNS resolution and staggered sockets; cancellations invalidate DNS jobs, timers and losing sockets before late callbacks. `tests/AsyncDialerAndDialLimitsTest.php` tests already-queued DNS cancellation, 15ms deadline behind a 80ms worker and no late completion or handles. [Source 3942b0e](https://github.com/infocyph/Runwire/commit/3942b0e276cce6883689a88a29a98482aa8e42b7); [PHPForge four QA lanes and both analyzers #39975849650](https://github.com/infocyph/Runwire/actions/runs/39975849650) PASS.
+- [x] **U03.07** Limit concurrent pending dials and queued endpoints per scope/worker. **Acceptance:** Dial storm bounded RSS/FD. **Proof:** `HappyEyeballsDialer` bounds host races per instance, the shared `Dialer` caps pending sockets, `ProcessExecutor` caps worker/queue jobs, and DNS/address candidate lists are limited to sixteen. `tests/AsyncDialerAndDialLimitsTest.php` verifies rejection at two pending host races and 17 candidate addresses, exactly-once teardown and zero watcher leaks. [Source 3942b0e](https://github.com/infocyph/Runwire/commit/3942b0e276cce6883689a88a29a98482aa8e42b7); [four PHPForge QA lanes and both analyzers #39975849650](https://github.com/infocyph/Runwire/actions/runs/39975849650) PASS. Broader sustained FD/RSS certification remains U15.
+- [x] **U03.08** Integrate with Fiber scope and callback style without duplication. **Acceptance:** Direct and coroutine clients use same connector. **Proof:** `Coroutine\\Network\\AsyncDialer` adapts the same shared callback-style Happy Eyeballs and established `Connection` to a scope-owned Future and `AsyncConnection`, inheriting the scope cancellation token and retaining single ownership. `tests/AsyncDialerAndDialLimitsTest.php` exercises real TCP Fiber-await handoff through `CoroutineRuntime` and clean closure; direct callback tests exercise the same connector. [Source 3942b0e](https://github.com/infocyph/Runwire/commit/3942b0e276cce6883689a88a29a98482aa8e42b7); [PHPForge QA and static analyzers #39975849650](https://github.com/infocyph/Runwire/actions/runs/39975849650) PASS.
 - [ ] **U03.09** Validate Swoole/OpenSwoole reactor support and no blocking fallback. **Acceptance:** Both host modes pass or report clear limits. **Proof:** PENDING.
 - [ ] **U03.10** Benchmark successful overlap and contention versus sequential connects. **Acceptance:** Throughput, p99, CPU, RSS, errors recorded. **Proof:** PENDING.
 
-**Batch tracker:** 4/10 accepted; 6 open — typed endpoint/option contracts, real nonblocking numeric TCP connect and Unix-domain dialing passed all PHP8.4/8.5 stable/lowest PHPForge QA and both analyzers on source `50fe962` ([run #39929786108](https://github.com/infocyph/Runwire/actions/runs/39929786108)). IPv6 real-peer test is host-capability conditional. **Remaining:** U03.05–U03.10 staggered address racing, DNS-to-dialer lifecycle deadlines/cancel staging, worker/scope capacity, Fiber integration, Swoole host behavior and matched benchmarks. U03.04 off-loop DNS is accepted via [QA #39967719050](https://github.com/infocyph/Runwire/actions/runs/39967719050); direct hostname dialing awaits these later gates. Extended H3/adaptive H2 diagnostic jobs are separate from these focused QA results. **Exit:** all U03 evidence linked, full required QA green, no unresolved critical regression.
+**Batch tracker:** 8/10 accepted; 2 open — typed endpoint/option contracts, real nonblocking numeric TCP connect and Unix-domain dialing passed all PHP8.4/8.5 stable/lowest PHPForge QA and both analyzers on source `50fe962` ([run #39929786108](https://github.com/infocyph/Runwire/actions/runs/39929786108)). IPv6 real-peer test is host-capability conditional. **Remaining:** U03.09 and U03.10 hosted reactor/extension verification and reproducible sequential-vs-overlapped dial benchmark. Those two items are being implemented in the subsequent commit and remain unchecked until CI evidence. U03.04 off-loop DNS is accepted via [QA #39967719050](https://github.com/infocyph/Runwire/actions/runs/39967719050); direct hostname dialing awaits these later gates. Extended H3/adaptive H2 diagnostic jobs are separate from these focused QA results. **Exit:** all U03 evidence linked, full required QA green, no unresolved critical regression.
 
 ### U04 — Unified TLS security and client/server handshakes
 
@@ -364,7 +364,7 @@ The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e
 | R5.03 | U02.06 + U06.03 | OPEN; retest against 3.0 |
 | R5.04 | U02.04 | OPEN; retest against 3.0 |
 | R5.05 | U04.02 + U04.06 | OPEN; retest against 3.0 |
-| R5.06 | U03.08 | OPEN; retest against 3.0 |
+| R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
 | R5.07 | U03.09 + U13.03 | OPEN; retest against 3.0 |
 | R5.08 | U03.10 + U15.06 | OPEN; retest against 3.0 |
 | R6.02 | U12.05 | OPEN; retest against 3.0 |

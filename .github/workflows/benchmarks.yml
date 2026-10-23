@@ -136,6 +136,24 @@ jobs:
             and .memory.parent_peak_allocated_bytes > 0' \
             "benchmark-results/u01-executor-profile-php-${{ matrix.php-version }}.json" >/dev/null
 
+      - name: Profile U03 sequential versus overlapping real outbound connects
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/u03_dial_profile.php \
+            > "benchmark-results/u03-outbound-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .real_socket_io == true
+            and .sequential.submitted == 24 and .sequential.completed == 24
+            and .overlap.submitted == 24 and .overlap.completed == 24
+            and .sequential.failed == 0 and .overlap.failed == 0
+            and .sequential.accepted == 24 and .overlap.accepted == 24
+            and .sequential.p99_ms >= 0 and .overlap.p99_ms >= 0
+            and .sequential.cpu_parent_ms >= 0 and .overlap.cpu_parent_ms >= 0
+            and .sequential.rss_estimate_bytes > 0 and .overlap.rss_estimate_bytes > 0
+            and .sequential.watchers_after == 0 and .overlap.watchers_after == 0' \
+            "benchmark-results/u03-outbound-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Soak mixed real socket, CPU and timer pressure across three levels
         shell: bash
         run: |
