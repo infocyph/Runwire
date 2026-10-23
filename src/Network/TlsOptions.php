@@ -34,18 +34,8 @@ final readonly class TlsOptions
         if (!is_finite($handshakeTimeoutSeconds) || $handshakeTimeoutSeconds <= 0) {
             throw new InvalidArgumentException('TLS handshake timeout must be finite and positive.');
         }
-        foreach ($alpnProtocols as $protocol) {
-            if ($protocol === '' || strlen($protocol) > 255 || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
-                throw new InvalidArgumentException('Every ALPN protocol must be a non-empty string of at most 255 bytes.');
-            }
-        }
-        if (count(array_unique($alpnProtocols)) !== count($alpnProtocols)) {
-            throw new InvalidArgumentException('ALPN protocols must be unique.');
-        }
-        if ($requireClientCertificate && !is_file($extraContext['cafile'] ?? '')
-            && !is_dir($extraContext['capath'] ?? '')) {
-            throw new InvalidArgumentException('Required mutual TLS needs a configured trusted CA file or directory.');
-        }
+        self::validateAlpn($alpnProtocols);
+        self::validateTrust($extraContext, $requireClientCertificate);
     }
 
     /** @return array<string, mixed> */
@@ -67,7 +57,8 @@ final readonly class TlsOptions
             $context['verify_peer_name'] = false;
             $context['allow_self_signed'] = false;
             $context['capture_peer_cert'] = true;
-            $context['verify_depth'] = max(1, min(8, (int) ($context['verify_depth'] ?? 8)));
+            $depth = $context['verify_depth'] ?? 8;
+            $context['verify_depth'] = max(1, min(8, is_int($depth) ? $depth : 8));
         }
         $context['disable_compression'] = true;
         if ($this->alpnProtocols !== []) {
@@ -83,5 +74,30 @@ final readonly class TlsOptions
     public function method(): int
     {
         return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);
+    }
+    /** @param list<string> $protocols */
+    private static function validateAlpn(array $protocols): void
+    {
+        foreach ($protocols as $protocol) {
+            if ($protocol === '' || strlen($protocol) > 255 || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
+                throw new InvalidArgumentException('Every ALPN protocol must be a non-empty string of at most 255 bytes.');
+            }
+        }
+        if (count(array_unique($protocols)) !== count($protocols)) {
+            throw new InvalidArgumentException('ALPN protocols must be unique.');
+        }
+    }
+
+    /** @param array<string, mixed> $context */
+    private static function validateTrust(array $context, bool $required): void
+    {
+        if (!$required) {
+            return;
+        }
+        $caFile = $context['cafile'] ?? null;
+        $caPath = $context['capath'] ?? null;
+        if ((!is_string($caFile) || !is_file($caFile)) && (!is_string($caPath) || !is_dir($caPath))) {
+            throw new InvalidArgumentException('Required mutual TLS needs a configured trusted CA file or directory.');
+        }
     }
 }

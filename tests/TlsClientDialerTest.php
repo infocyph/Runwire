@@ -44,6 +44,8 @@ function runwireRemoveClientTlsIdentity(array $identity): void
 
 /**
  * @param array{string, string, string} $identity
+ * @param list<string>|null $serverAlpn
+ * @param array<string, mixed>|null $serverExtraContext
  * @return array{?Connection, ?Throwable, bool}
  */
 function runwireClientTlsAttempt(
@@ -52,6 +54,9 @@ function runwireClientTlsAttempt(
     ?string $caFile,
     ?int $serverCryptoMethod = null,
     ?array $serverAlpn = null,
+    ?array $serverExtraContext = null,
+    ?TlsClientOptions $clientOptions = null,
+    bool $serverRequiresClientCertificate = false,
 ): array
 {
     [, $certificate, $private] = $identity;

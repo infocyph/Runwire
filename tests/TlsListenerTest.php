@@ -146,3 +146,27 @@ it('preserves explicitly requested peer verification in the TLS context', functi
         cleanupRunwireTlsFiles($directory, $certificateFile, $keyFile);
     }
 });
+
+
+it('rejects mandatory inbound mTLS without a trusted CA and enforces peer chain checks', function (): void {
+    [$directory, $certificate, $key] = runwireTlsFiles();
+
+    try {
+        expect(fn() => new TlsOptions($certificate, $key, requireClientCertificate: true))
+            ->toThrow(InvalidArgumentException::class);
+        $options = new TlsOptions(
+            $certificate,
+            $key,
+            extraContext: ['cafile' => $certificate, 'verify_depth' => 999],
+            requireClientCertificate: true,
+        );
+        $context = $options->context();
+        expect($context['verify_peer'])->toBeTrue()
+            ->and($context['verify_peer_name'])->toBeFalse()
+            ->and($context['allow_self_signed'])->toBeFalse()
+            ->and($context['capture_peer_cert'])->toBeTrue()
+            ->and($context['verify_depth'])->toBe(8);
+    } finally {
+        cleanupRunwireTlsFiles($directory, $certificate, $key);
+    }
+});
