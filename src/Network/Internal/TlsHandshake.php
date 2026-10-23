@@ -126,8 +126,8 @@ final class TlsHandshake
         $this->readiness->start(
             $stream,
             $this->options->handshakeTimeoutSeconds,
-            fn () => $this->attempt(),
-            fn () => $this->fail(),
+            fn() => $this->attempt(),
+            fn() => $this->fail(),
             false,
         );
     }

@@ -16,6 +16,7 @@ final class TlsHandshakeReadiness
 
     private ?int $writeWatcher = null;
 
+    /** Create a shared watch owner for a single event-loop lifetime. */
     public function __construct(private readonly LoopInterface $loop) {}
 
     /** Cancel all registered watches and timeout handles exactly once. */

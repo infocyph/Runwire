@@ -136,8 +136,8 @@ final class ClientTlsHandshake
             $this->readiness->start(
                 $stream,
                 $this->policy->handshakeTimeoutSeconds,
-                fn () => $this->attempt(),
-                fn () => $this->fail(new RuntimeException('Outbound TLS handshake timeout.')),
+                fn() => $this->attempt(),
+                fn() => $this->fail(new RuntimeException('Outbound TLS handshake timeout.')),
                 true,
             );
             $this->attempt();

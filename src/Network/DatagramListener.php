@@ -102,7 +102,7 @@ final class DatagramListener
         $context = stream_context_create(['socket' => $options->socketContext]);
         $errorCode = 0;
         $error = '';
-        set_error_handler(static fn (int $severity): bool => $severity === E_WARNING);
+        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
 
         try {
             $stream = stream_socket_client($uri, $errorCode, $error, 0.0, STREAM_CLIENT_CONNECT, $context);
