@@ -28,13 +28,7 @@ it('adopts real connected TCP streams through the one established connection eng
     }
 
     $loop = new SelectLoop();
-    $connection = ConnectionFactory::accepted(
-        $loop,
-        $accepted,
-        peerAddress: stream_socket_get_name($accepted, true) ?: null,
-        localAddress: stream_socket_get_name($accepted, false) ?: null,
-        tcpTransport: true,
-    );
+    $connection = ConnectionFactory::accepted($loop, $accepted, tcpTransport: true);
     expect($connection->state())->toBe(ConnectionState::OPEN);
     fwrite($client, 'factory');
     $loop->delay(0.02, function () use ($loop): void {
@@ -43,7 +37,9 @@ it('adopts real connected TCP streams through the one established connection eng
     $loop->run();
     expect($connection->read())->toBe('factory')
         ->and($connection->peerAddress())->toBeString()
-        ->and($connection->localAddress())->toBeString();
+        ->and($connection->localAddress())->toBeString()
+        ->and($connection->isEncrypted())->toBeFalse()
+        ->and($connection->tlsPeerFingerprint())->toBeNull();
     $connection->abort();
     fclose($client);
     fclose($listener);
@@ -74,4 +70,26 @@ it('requires a verified dial attempt and transfers established stream ownership 
     expect($connection->read())->toBe('reuse');
     $connection->abort();
     fclose($peer);
+});
+
+
+it('preserves verified metadata overrides and rejects invalid established resources', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray();
+    [$connected, $peer] = $pair;
+    $loop = new SelectLoop();
+    $connection = ConnectionFactory::accepted(
+        $loop,
+        $connected,
+        peerAddress: 'unix-peer',
+        localAddress: '/tmp/runwire-metadata.sock',
+        negotiatedProtocol: 'app-test',
+    );
+    expect($connection->peerAddress())->toBe('unix-peer')
+        ->and($connection->localAddress())->toBe('/tmp/runwire-metadata.sock')
+        ->and($connection->negotiatedProtocol())->toBe('app-test')
+        ->and($connection->tlsPeerFingerprint())->toBeNull();
+    $connection->abort();
+    fclose($peer);
+    expect(fn() => ConnectionFactory::accepted($loop, null))->toThrow(InvalidArgumentException::class);
 });

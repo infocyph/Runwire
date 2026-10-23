@@ -8,6 +8,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\DialAttemptLifecycle;
+use Infocyph\Runwire\Network\Internal\EstablishedStreamMetadata;
 use LogicException;
 use Throwable;
 
@@ -35,17 +36,26 @@ final class ConnectionFactory
         bool $tcpTransport = false,
         ?bool $tcpNoDelayOverride = null,
     ): Connection {
-        return new Connection(
-            $loop,
+        $metadata = EstablishedStreamMetadata::capture(
             $stream,
-            $limits,
             $peerAddress,
             $localAddress,
             $negotiatedProtocol,
             $encrypted,
+        );
+
+        return new Connection(
+            $loop,
+            $stream,
+            $limits,
+            $metadata['peer'],
+            $metadata['local'],
+            $metadata['protocol'],
+            $metadata['encrypted'],
             $bufferBudget,
             $tcpTransport,
             $tcpNoDelayOverride,
+            $metadata['fingerprint'],
         );
     }
 

@@ -86,6 +86,7 @@ final class Connection
         private readonly ?ByteBudget $bufferBudget = null,
         private readonly bool $tcpTransport = false,
         private readonly ?bool $tcpNoDelayOverride = null,
+        private readonly ?string $tlsPeerFingerprint = null,
     ) {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('Connection requires a live stream resource.');
@@ -454,9 +455,13 @@ final class Connection
         $this->syncReadWatcher();
     }
 
-    /**
-     * Return the current connection lifecycle state.
-     */
+    /** Return captured SHA-256 identity of a verified TLS peer certificate, when present. */
+    public function tlsPeerFingerprint(): ?string
+    {
+        return $this->tlsPeerFingerprint;
+    }
+
+    /** Return the current connection lifecycle state. */
     public function state(): ConnectionState
     {
         return $this->state;
