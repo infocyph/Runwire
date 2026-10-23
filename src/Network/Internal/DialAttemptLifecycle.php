@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network\Internal;
 
+use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
 use LogicException;
 
 /**
@@ -16,16 +17,19 @@ final class DialAttemptLifecycle
 {
     private DialAttemptPhase $phase = DialAttemptPhase::NEW;
 
+    /** Return the current dial-attempt lifecycle phase. */
     public function phase(): DialAttemptPhase
     {
         return $this->phase;
     }
 
+    /** Whether the transport has been verified and is eligible for ownership transfer. */
     public function readyForHandoff(): bool
     {
         return $this->phase === DialAttemptPhase::READY;
     }
 
+    /** Advance to a valid phase, rejecting duplicate completion or resurrection. */
     public function transition(DialAttemptPhase $next): void
     {
         $allowed = match ($this->phase) {

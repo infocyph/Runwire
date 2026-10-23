@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Network\Internal\DialAttemptLifecycle;
-use Infocyph\Runwire\Network\Internal\DialAttemptPhase;
+use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
 
 it('requires connection verification before ownership transfer', function (): void {
     $plain = new DialAttemptLifecycle();
