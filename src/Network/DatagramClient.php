@@ -11,14 +11,13 @@ use Infocyph\Runwire\Loop\LoopInterface;
  *
  * Reuses the exact DatagramListener nonblocking watcher and boundary engine.
  */
-final readonly class DatagramClient
+final class DatagramClient
 {
-    private DatagramListener $socket;
+    private ?LoopInterface $deadlineLoop = null;
 
-    private function __construct(DatagramListener $socket)
-    {
-        $this->socket = $socket;
-    }
+    private ?int $deadlineTimer = null;
+
+    private function __construct(private readonly DatagramListener $socket) {}
 
     /** Bind an unconnected UDP client, accepting any remote peer via sendTo(). */
     public static function bind(string $address, ?DatagramOptions $options = null): self
@@ -41,6 +40,11 @@ final readonly class DatagramClient
     /** Release the underlying socket and any loop watchers idempotently. */
     public function close(): void
     {
+        if ($this->deadlineLoop !== null && $this->deadlineTimer !== null) {
+            $this->deadlineLoop->cancel($this->deadlineTimer);
+        }
+        $this->deadlineTimer = null;
+        $this->deadlineLoop = null;
         $this->socket->close();
     }
 
@@ -50,10 +54,42 @@ final readonly class DatagramClient
         return $this->socket->connectedPeer();
     }
 
+    /** Return whether this client has released its single owned UDP socket. */
+    public function isClosed(): bool
+    {
+        return $this->socket->isClosed();
+    }
+
     /** Return accepted datagrams, excluding truncated payloads. */
     public function receivedDatagrams(): int
     {
         return $this->socket->receivedDatagrams();
+    }
+
+    /**
+     * Await one bounded UDP response or a deadline, then close owned watchers.
+     *
+     * @param callable(Datagram,self):void $onDatagram
+     * @param callable(self):void $onTimeout
+     */
+    public function receiveOnce(
+        LoopInterface $loop,
+        float $seconds,
+        callable $onDatagram,
+        callable $onTimeout,
+    ): void {
+        if (!is_finite($seconds) || $seconds <= 0) {
+            throw new \InvalidArgumentException('UDP receive deadline must be finite and positive.');
+        }
+        $this->start($loop, function (Datagram $packet) use ($onDatagram): void {
+            $this->close();
+            $onDatagram($packet, $this);
+        });
+        $this->deadlineLoop = $loop;
+        $this->deadlineTimer = $loop->delay($seconds, function () use ($onTimeout): void {
+            $this->close();
+            $onTimeout($this);
+        });
     }
 
     /** Return datagrams rejected by invalid metadata or size limits. */

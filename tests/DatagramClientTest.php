@@ -125,3 +125,59 @@ it('round trips connected UDP over IPv6 when the local kernel supports it', func
         ->and($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
+
+
+it('enforces a one-shot connected UDP receive deadline without leaked watchers', function (): void {
+    $server = DatagramListener::bind('127.0.0.1:0');
+    $client = DatagramClient::connect('udp://' . $server->address());
+    $loop = new SelectLoop();
+    $timeoutCount = 0;
+    $client->receiveOnce(
+        $loop,
+        0.025,
+        static function (): void {
+            throw new RuntimeException('A silent UDP peer must not deliver packets.');
+        },
+        function () use (&$timeoutCount, $loop): void {
+            ++$timeoutCount;
+            $loop->stop();
+        },
+    );
+    $loop->run();
+    expect($timeoutCount)->toBe(1)
+        ->and($client->isClosed())->toBeTrue()
+        ->and($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+    $client->close();
+    $server->close();
+});
+
+it('cancels its UDP deadline after the first real response without duplicate completion', function (): void {
+    $server = DatagramListener::bind('127.0.0.1:0');
+    $client = DatagramClient::connect('udp://' . $server->address());
+    $loop = new SelectLoop();
+    $responses = [];
+    $timeoutCount = 0;
+    $server->start($loop, static function (Datagram $packet, DatagramListener $server): void {
+        $server->sendTo('ok', $packet->peerAddress);
+    });
+    $client->receiveOnce(
+        $loop,
+        0.5,
+        function (Datagram $packet) use (&$responses, $loop): void {
+            $responses[] = $packet->payload;
+            $loop->stop();
+        },
+        function () use (&$timeoutCount): void {
+            ++$timeoutCount;
+        },
+    );
+    expect($client->send('hi')->sent())->toBeTrue();
+    $loop->run();
+    $client->close();
+    $server->close();
+    expect($responses)->toBe(['ok'])
+        ->and($timeoutCount)->toBe(0)
+        ->and($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
