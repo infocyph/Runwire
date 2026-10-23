@@ -1,6 +1,6 @@
-==============================
+===============================
 Complete feature-status catalog
-==============================
+===============================
 
 This document distinguishes published **2.1.2 features** from proposed
 **3.0.0 targets**. A 3.0 target is not yet an implemented public API.

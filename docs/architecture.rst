@@ -1,6 +1,6 @@
-==========================
+============================
 Unified runtime architecture
-==========================
+============================
 
 The future 3.0 architecture will use one established-connection owner for
 both accepted and dialed byte streams. DNS resolution, pending TCP connects,

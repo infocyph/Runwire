@@ -1,6 +1,6 @@
-=======================
+==========================
 Installing current Runwire
-=======================
+==========================
 
 The current stable release supports 64-bit PHP 8.4+.
 
