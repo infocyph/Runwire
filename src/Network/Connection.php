@@ -211,7 +211,7 @@ final class Connection
      */
     public function closeGracefully(): void
     {
-        if ($this->state !== ConnectionState::OPEN) {
+        if ($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED) {
             return;
         }
 
@@ -247,6 +247,13 @@ final class Connection
         $this->dataCallback = Closure::fromCallable($onData);
         $this->drainCallback = Closure::fromCallable($onDrain);
         $this->eofCallback = Closure::fromCallable($onEof);
+
+        if ($this->state !== ConnectionState::CLOSED && $this->receiveBuffer->bytes() > 0) {
+            $this->invoke($this->dataCallback);
+        }
+        if ($this->state !== ConnectionState::CLOSED && $this->peerReadClosed) {
+            $this->invoke($this->eofCallback);
+        }
     }
 
     /**
@@ -455,6 +462,28 @@ final class Connection
         $this->syncReadWatcher();
     }
 
+    /**
+     * Half-close the local write direction while keeping inbound reads active.
+     *
+     * Pending writes must be drained explicitly before half-closing.
+     */
+    public function shutdownWrite(): void
+    {
+        if ($this->state !== ConnectionState::OPEN) {
+            throw new \LogicException('Only open connections can half-close the local write direction.');
+        }
+        if (!$this->sendBuffer->isEmpty()) {
+            throw new \LogicException('Pending writes must drain before half-closing the local write direction.');
+        }
+        if (!is_resource($this->stream) || !stream_socket_shutdown($this->stream, STREAM_SHUT_WR)) {
+            $this->finalize(CloseReason::WRITE_ERROR);
+
+            return;
+        }
+
+        $this->state = ConnectionState::HALF_CLOSED;
+    }
+
     /** Return the current connection lifecycle state. */
     public function state(): ConnectionState
     {
@@ -520,7 +549,7 @@ final class Connection
 
     private function beginDrain(CloseReason $reason): void
     {
-        if ($this->state !== ConnectionState::OPEN) {
+        if ($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED) {
             return;
         }
 
@@ -569,7 +598,8 @@ final class Connection
 
     private function handleReadable(): void
     {
-        if ($this->state !== ConnectionState::OPEN || $this->isReadPaused() || $this->peerReadClosed) {
+        if (($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED)
+            || $this->isReadPaused() || $this->peerReadClosed) {
             return;
         }
 
@@ -584,7 +614,7 @@ final class Connection
         $sawEof = false;
         $this->readAvailable($stream, $received, $sawEof);
 
-        if ($received && $this->state === ConnectionState::OPEN) {
+        if ($received && $this->state !== ConnectionState::CLOSED) {
             $this->invoke($this->dataCallback);
         }
         if ($sawEof && $this->state !== ConnectionState::CLOSED) {
@@ -655,6 +685,8 @@ final class Connection
         $this->invoke($this->eofCallback);
         if ($this->state === ConnectionState::OPEN) {
             $this->beginDrain(CloseReason::PEER_CLOSED);
+        } elseif ($this->state === ConnectionState::HALF_CLOSED) {
+            $this->finalize(CloseReason::PEER_CLOSED);
         }
     }
 
@@ -719,7 +751,7 @@ final class Connection
     private function syncReadWatcher(): void
     {
         $stream = $this->stream;
-        $shouldWatch = $this->state === ConnectionState::OPEN
+        $shouldWatch = ($this->state === ConnectionState::OPEN || $this->state === ConnectionState::HALF_CLOSED)
             && !$this->manualReadPause
             && !$this->pressureReadPause
             && !$this->peerReadClosed
