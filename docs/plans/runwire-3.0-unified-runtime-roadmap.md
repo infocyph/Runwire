@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9)**. **36/175 accepted tasks, 139 open across 18 batches** (20.6%). The shared accepted/verified stream factory now exists, but complete 3.0 transport and outbound dialer are not implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9)**. **37/175 accepted tasks, 138 open across 18 batches** (21.1%). The shared accepted/verified stream factory now exists, but complete 3.0 transport and outbound dialer are not implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -60,7 +60,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U00 | Baseline, architecture and 2.1-to-3.0 migration | 0 | 10/10 |
 | U01 | Event-loop, watchers and asynchronous executor | 0 | 9/9 |
 | U02 | Unified established connection and transport ownership | 0 | 9/9 |
-| U03 | Async DNS and outbound TCP/Unix dialer | 2 | 8/10 |
+| U03 | Async DNS and outbound TCP/Unix dialer | 1 | 9/10 |
 | U04 | Unified TLS security and client/server handshakes | 8 | 0/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 10 | 0/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 16 | 0/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **139** | **36/175 (20.6%)** |
+| **TOTAL** | **Full unified-runtime release program** | **138** | **37/175 (21.1%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -132,3 +132,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **U03.04 accepted — bounded off-loop DNS:** `AsyncDnsResolver` uses Runwire's existing persistent PHP subprocess executor for A/AAAA, hosts-file IPv4 fallback, deduplicated/validated addresses and exact-once cancellation. `AsyncDnsResolverTest` proves a 3ms event-loop heartbeat continues while a 60ms blocking-worker fixture queues the DNS result. [Source 3232cfd](https://github.com/infocyph/Runwire/commit/3232cfde3683d16849381a1085d141e5cd1561e5); [PHPForge QA and both analyzers #39967719050](https://github.com/infocyph/Runwire/actions/runs/39967719050) passed. **U03.05–U03.08 accepted:** hostname dial and staggered address fallback are implemented and verified; U03.09/10 remain open pending hosted compatibility and benchmark evidence.
 
 **U03.05–U03.08 accepted:** [source 3942b0e](https://github.com/infocyph/Runwire/commit/3942b0e276cce6883689a88a29a98482aa8e42b7) implements staggered IPv6/IPv4 fallback, one overall monotonic deadline across DNS/attempts, bounded scope/worker/socket queues and the same callback/Fiber `AsyncDialer` transport. [All four PHPForge QA lanes and both analyzers #39975849650](https://github.com/infocyph/Runwire/actions/runs/39975849650) PASS. Hosted Swoole/OpenSwoole family verification and recorded sequential/overlapped dial benchmarks are implemented in the next code slice but **not accepted** until the new workflow evidence is green.
+
+**U03.09 hosted reactor ACCEPTED:** actual localhost DNS + outbound Fiber dial through the host-owned Swoole loop is now exercised in the existing [Swoole/OpenSwoole workflow #39976909971](https://github.com/infocyph/Runwire/actions/runs/39976909971). Four independent extension × PHP version acceptances passed (Swoole/OpenSwoole × 8.4/8.5). U03.10 sequential/overlap benchmark remains open pending strict QA and metric archive.

@@ -27,7 +27,7 @@ function u03CpuMilliseconds(array $usage): float
 function u03ResidentBytes(): int
 {
     $status = file_get_contents('/proc/self/status');
-    if (!is_string($status) || preg_match('/^VmRSS:\\s+(\\d+)\\s+kB/m', $status, $matches) !== 1) {
+    if (!is_string($status) || preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $matches) !== 1) {
         throw new RuntimeException('U03 benchmark requires Linux /proc/self/status RSS evidence.');
     }
 
