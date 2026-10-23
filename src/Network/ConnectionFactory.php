@@ -37,6 +37,7 @@ final class ConnectionFactory
         bool $tcpTransport = false,
         ?bool $tcpNoDelayOverride = null,
     ): Connection {
+        TcpSocketTuner::applyExplicitNoDelay($stream, $tcpTransport, $tcpNoDelayOverride);
         $metadata = EstablishedStreamMetadata::capture(
             $stream,
             $peerAddress,
@@ -83,7 +84,6 @@ final class ConnectionFactory
         }
 
         try {
-            TcpSocketTuner::applyExplicitNoDelay($stream, $tcpTransport, $tcpNoDelayOverride);
             $connection = self::accepted(
                 $loop,
                 $stream,
