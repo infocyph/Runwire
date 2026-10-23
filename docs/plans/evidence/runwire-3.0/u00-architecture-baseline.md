@@ -6,7 +6,7 @@
 
 ## A. Source-root and public API audit checkpoints (U00.01 in progress)
 
-**No complete machine-generated public signature manifest has yet been accepted**; U00.01 stays OPEN until a reproducible, comprehensive export from published `2.1.2` is committed with QA evidence.
+**U00.01 ACCEPTED:** published `2.1.2` public signatures exported from **350 PHP source files / 350 types** by the repeatable source-only exporter. Permanent [checksum lock](public-api-2.1.2.lock.json) pins sha256 `a2348788547bb8e3c89a49db399862afc6a13f18fb0aa5470d27f89780871dd1`, enforced by [Source Audit #39904006992](https://github.com/infocyph/Runwire/actions/runs/39904006992); [full signature artifact](https://github.com/infocyph/Runwire/actions/runs/39904006992/artifacts/12479892848) preserves declarations. The source tag, exporter source and checksum are immutable/reconstructable.
 
 | Published 2.1.2 public API file | Immutable Git blob | Existing contract and required 3.0 audit |
 | --- | --- | --- |
@@ -98,7 +98,7 @@ $connection = $scope->dial('tls://example.org:443', $options);
 - Client TLS: hostname and certificate verification default on, even if server-side TLS validation policy differs.
 - Hosted execution: no silently blocking fallback for DNS/disk and no Runwire-created competing Swoole reactor.
 
-**U00.05/.06/.07 remain OPEN until audited API proposal, migration examples, and executable contracts are reviewed/accepted.**
+**U00.06/.07 design contracts ACCEPTED** by source-backed [migration draft](u00-public-api-migration-draft.md) and [resource contract](u00-resource-state-contract.md). Runtime behavior and executable contract implementation remain subject to later U02–U06 work. **U00.04/.05 remain OPEN** pending real illegal-transition tests and verified single factory ownership.
 
 ## E. Baseline performance, gate provenance and unfinished U00
 
@@ -113,14 +113,10 @@ Previous matched certification:
 
 The maintainer selected **Runwire 3.0** with the full agreed client/server/QUIC/WebTransport/filesystem/autoscale scope, and explicitly required the **existing branch and draft PR #9**, one canonical task tracker, and no changes to Foundation/Infbyte or independent Rust siblings. Sphinx/Read the Docs full feature/API reference is mandatory. The PR and README now reference [3.0 roadmap](../../runwire-3.0-unified-runtime-roadmap.md) and [175-task detailed plan](../../runwire-3.0-unified-runtime-development-plan.md). Release remains draft/unmerged/unpublished.
 
-## F. U00 engineering execution order
+## F. U00 acceptance audit (2026-10-23)
 
-- **U00.01 OPEN:** automate complete published API/signature manifest export, pin digest and verify tool repeatability.
-- **U00.02 source inventory + historical classification:** evidence in section B; requires full U00 audit QA before checkoff.
-- **U00.03 20/20 crosswalk:** canonical roadmap plus `tests/Plan3TrackerSynchronizationTest.php` regression assertions; requires same-source QA.
-- **U00.04–U00.07:** contracts above are proposals; implement executable state/ownership tests and record approved before/after API manifest.
-- **U00.08 source capability inventory:** section C; verify in PHP8.4/8.5 native and host CI before checkoff.
-- **U00.09 OPEN:** final benchmark runner inventory still needed.
-- **U00.10 scope signed and PR aligned:** section E; requires final QA and tracker synchronization before checkoff.
+**Accepted with proof:** **U00.01** pinned 350-type manifest and source-only exporter, **U00.02** 10-group historical disposition, **U00.03** complete 20/20 old-ID task mapping, **U00.06** migration draft, **U00.07** normative transport/termination contract, **U00.08** exact existing mode/capability matrix, and **U00.10** maintainer-approved scope/PR. See [Source Audit #39904006992](https://github.com/infocyph/Runwire/actions/runs/39904006992), [all PHPForge QA/analysis lanes in Security #39904007423](https://github.com/infocyph/Runwire/actions/runs/39904007423), [real-host #39904006975](https://github.com/infocyph/Runwire/actions/runs/39904006975), and source-linked documents.
 
-**Batch U00 remains in progress. No planned 3.0 feature is claimed implemented.**
+**Still OPEN:** U00.04 illegal-transition executable tests, U00.05 production single-factory ownership verification, U00.09 physical runner/core and load-generator headroom inventory. These cannot be checked from diagrams, a draft, or historical throughput data alone.
+
+**Canonical U00 tracker: 7/10; overall 3.0: 7/175 (4.0%).** Source and audited designs are accepted as scope/baseline work, **not** as completion of any future networking client, QUIC, filesystem or autoscaling implementation.

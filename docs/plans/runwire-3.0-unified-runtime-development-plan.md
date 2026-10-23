@@ -2,8 +2,8 @@
 
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
-**Date:** 2026-10-23. **State:** PLANNING, not implemented; 3.0 acceptance tasks start unchecked.
-**Canonical tracker:** 0/175 complete; 175 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
+**Date:** 2026-10-23. **State:** U00 IN PROGRESS. Seven source-audit, historical reconciliation, API-migration and contract-design tasks accepted; no unified 3.0 transport functionality has been implemented.
+**Canonical tracker:** 7/175 complete; 168 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -22,7 +22,7 @@
 
 | Batch | Division | Done / total | Open | Status | Dependencies |
 | --- | --- | ---: | ---: | --- | --- |
-| U00 | Baseline, architecture and 2.1-to-3.0 migration | 0/10 | 10 | Not started | published 2.1.2; historical 2.2 tracker |
+| U00 | Baseline, architecture and 2.1-to-3.0 migration | 7/10 | 3 | In progress | published 2.1.2; historical 2.2 tracker |
 | U01 | Event-loop, watchers and asynchronous executor | 0/9 | 9 | Not started | U00 |
 | U02 | Unified established connection and transport ownership | 0/9 | 9 | Not started | U01 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 0/10 | 10 | Not started | U01,U02 |
@@ -40,9 +40,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **0/175** | **175** | **PLANNING** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **7/175** | **168** | **U00 in progress** | U00-U17 |
 
-**Progress counter:** 0/175 (0.0% complete), 175 open.
+**Progress counter:** 7/175 (4.0% complete), 168 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -50,18 +50,18 @@
 
 **Prerequisite:** published 2.1.2; historical 2.2 tracker. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U00.01** Audit published 2.1.2 public classes, constructors, interfaces and errors. **Acceptance:** Store immutable API/signature baseline. **Proof:** PENDING.
-- [ ] **U00.02** Classify historical 2.2 completed work as preserved, reworked or requiring requalification. **Acceptance:** All prior completed task groups have a disposition. **Proof:** PENDING.
-- [ ] **U00.03** Reconcile exactly 20 unfinished 2.2 IDs into the 3.0 program. **Acceptance:** All 20 IDs have one or more mapped U tasks. **Proof:** PENDING.
+- [x] **U00.01** Audit published 2.1.2 public classes, constructors, interfaces and errors. **Acceptance:** Store immutable API/signature baseline. **Proof:** [Source Audit #39904006992](https://github.com/infocyph/Runwire/actions/runs/39904006992) PASS; published 2.1.2 350 types, pinned checksum `a2348788547bb8e3c89a49db399862afc6a13f18fb0aa5470d27f89780871dd1`, committed [lock](evidence/runwire-3.0/public-api-2.1.2.lock.json), [full signature artifact](https://github.com/infocyph/Runwire/actions/runs/39904006992/artifacts/12479892848).
+- [x] **U00.02** Classify historical 2.2 completed work as preserved, reworked or requiring requalification. **Acceptance:** All prior completed task groups have a disposition. **Proof:** [source-backed U00 audit](evidence/runwire-3.0/u00-architecture-baseline.md) section B classifies all 75 historical checked items by R0–R9 group, with 20 open crosswalk; [PHPForge QA #39904007423](https://github.com/infocyph/Runwire/actions/runs/39904007423) four QA lanes passed.
+- [x] **U00.03** Reconcile exactly 20 unfinished 2.2 IDs into the 3.0 program. **Acceptance:** All 20 IDs have one or more mapped U tasks. **Proof:** [3.0 crosswalk](runwire-3.0-unified-runtime-roadmap.md) maps all 20/20 historical unchecked R task IDs; `tests/Plan3TrackerSynchronizationTest.php` verifies exact mapping; [PHPForge QA #39904007423](https://github.com/infocyph/Runwire/actions/runs/39904007423) passed.
 - [ ] **U00.04** Specify pending-connect versus established-connection state machines. **Acceptance:** Signed diagrams and illegal-transition tests. **Proof:** PENDING.
 - [ ] **U00.05** Design factory-owned connection creation and explicit socket ownership. **Acceptance:** No duplicate outbound and inbound I/O engine. **Proof:** PENDING.
-- [ ] **U00.06** Define intended breaks in LoopInterface, RuntimeContext, Connection, TLS and CoroutineScope. **Acceptance:** Before-and-after API migration guide. **Proof:** PENDING.
-- [ ] **U00.07** Define normal EOF, half-close, cancellation, timeouts, shutdown and resource budgets. **Acceptance:** Single contract per transport type. **Proof:** PENDING.
-- [ ] **U00.08** Inventory native/portable and all host-owned execution modes. **Acceptance:** Exact capability and unsupported-mode matrix. **Proof:** PENDING.
+- [x] **U00.06** Define intended breaks in LoopInterface, RuntimeContext, Connection, TLS and CoroutineScope. **Acceptance:** Before-and-after API migration guide. **Proof:** [before/after PHP migration draft](evidence/runwire-3.0/u00-public-api-migration-draft.md) records planned Connection, AsyncConnection, LoopInterface, TLS, RuntimeContext, CoroutineScope, RuntimeOptions behavior breaks; implementation remains U02+.
+- [x] **U00.07** Define normal EOF, half-close, cancellation, timeouts, shutdown and resource budgets. **Acceptance:** Single contract per transport type. **Proof:** [unified resource contract](evidence/runwire-3.0/u00-resource-state-contract.md) specifies lifecycle, half-close, deadline/cancel, error and resource budgets for TCP/Unix/TLS/UDP/QUIC/DNS/filesystem; executable implementation remains U02+.
+- [x] **U00.08** Inventory native/portable and all host-owned execution modes. **Acceptance:** Exact capability and unsupported-mode matrix. **Proof:** [source-backed runtime capability matrix](evidence/runwire-3.0/u00-architecture-baseline.md) section C plus [real host QA #39904006975](https://github.com/infocyph/Runwire/actions/runs/39904006975) PASS and [Swoole #39904007017](https://github.com/infocyph/Runwire/actions/runs/39904007017) PASS.
 - [ ] **U00.09** Pin 2.1.2 benchmark comparator with matched topology. **Acceptance:** Reproducible hardware and load-generator inventory. **Proof:** PENDING.
-- [ ] **U00.10** Approve exact 3.0 target/scope and Runwire-only development boundary. **Acceptance:** PR scope and architecture decisions recorded. **Proof:** PENDING.
+- [x] **U00.10** Approve exact 3.0 target/scope and Runwire-only development boundary. **Acceptance:** PR scope and architecture decisions recorded. **Proof:** maintainer-approved 3.0 scope reflected in [draft PR #9](https://github.com/infocyph/Runwire/pull/9), [roadmap](runwire-3.0-unified-runtime-roadmap.md), archived 2.2 history and unchanged Runwire-only branch.
 
-**Batch tracker:** 0/10 accepted; 10 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 7/10 accepted; 3 open. Remaining U00.04 (illegal state-transition tests), U00.05 (single factory/owner verified without duplicate engines), U00.09 (current exact runner topology and generator headroom). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U01 — Event-loop, watchers and asynchronous executor
 
@@ -418,5 +418,6 @@ All of these pages are **required deliverables** inside the proposed docs/sphinx
 | Date | Batch | Commit/CI | Accepted tasks | Failed checks | Tracker | Next |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-10-23 | Scope initialization | Planning only | None | 3.0 QA not run; historical 2.2 certification inconclusive | 0/175 | U00 API and architecture |
+| 2026-10-23 | U00 source/API audit, historical reconciliation and architecture contracts | [Source Audit #39904006992](https://github.com/infocyph/Runwire/actions/runs/39904006992), [PHPForge #39904007423](https://github.com/infocyph/Runwire/actions/runs/39904007423) | U00.01/.02/.03/.06/.07/.08/.10 | Three U00 engineering/benchmark gates open; H3 and extended benchmark workflow conclusions checked separately | 7/175 | U00.04/.05/.09 |
 
 **Release verdict:** NOT READY. Keep PR #9 draft, branch unchanged, no merge/tag/publish without explicit maintainer authorization.
