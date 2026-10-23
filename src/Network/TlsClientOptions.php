@@ -24,8 +24,12 @@ final readonly class TlsClientOptions
         public ?string $caPath = null,
         public array $alpnProtocols = ['h2', 'http/1.1'],
         public float $handshakeTimeoutSeconds = 10.0,
+        public ?string $clientCertificate = null,
+        public ?string $clientPrivateKey = null,
+        public ?string $clientPassphrase = null,
     ) {
         self::validateIdentity($peerName, $caFile, $caPath);
+        self::validateClientIdentity($clientCertificate, $clientPrivateKey, $clientPassphrase);
         self::validateProtocols($alpnProtocols);
         if (!is_finite($handshakeTimeoutSeconds) || $handshakeTimeoutSeconds <= 0) {
             throw new InvalidArgumentException('Client TLS handshake timeout must be finite and positive.');
@@ -64,6 +68,15 @@ final readonly class TlsClientOptions
         if ($this->alpnProtocols !== []) {
             $options['alpn_protocols'] = implode(',', $this->alpnProtocols);
         }
+        if ($this->clientCertificate !== null) {
+            $options['local_cert'] = realpath($this->clientCertificate) ?: $this->clientCertificate;
+        }
+        if ($this->clientPrivateKey !== null) {
+            $options['local_pk'] = realpath($this->clientPrivateKey) ?: $this->clientPrivateKey;
+        }
+        if ($this->clientPassphrase !== null) {
+            $options['passphrase'] = $this->clientPassphrase;
+        }
 
         return $options;
     }
@@ -77,6 +90,22 @@ final readonly class TlsClientOptions
         }
 
         return STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
+    }
+
+    private static function validateClientIdentity(
+        ?string $certificate,
+        ?string $privateKey,
+        ?string $passphrase,
+    ): void {
+        if ($certificate === null && ($privateKey !== null || $passphrase !== null)) {
+            throw new InvalidArgumentException('Client TLS identity must include a certificate.');
+        }
+        if ($certificate !== null && ($certificate === '' || !is_file($certificate))) {
+            throw new InvalidArgumentException('Client TLS certificate must exist.');
+        }
+        if ($privateKey !== null && ($privateKey === '' || !is_file($privateKey))) {
+            throw new InvalidArgumentException('Client TLS private key must exist.');
+        }
     }
 
     private static function validateIdentity(string $peerName, ?string $caFile, ?string $caPath): void

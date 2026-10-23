@@ -48,3 +48,37 @@ it('rejects empty identities, invalid trust roots and unsafe TLS timeout/ALPN se
         ->and(fn() => new TlsClientOptions('example.com', alpnProtocols: ['h2', 'h2']))
         ->toThrow(InvalidArgumentException::class);
 });
+
+
+it('configures optional outbound client certificate and private-key identity without weakening peer verification', function (): void {
+    $certificate = tempnam(sys_get_temp_dir(), 'runwire-mtls-cert-');
+    $key = tempnam(sys_get_temp_dir(), 'runwire-mtls-key-');
+    expect($certificate)->toBeString()->and($key)->toBeString();
+    try {
+        $policy = new TlsClientOptions(
+            'localhost',
+            clientCertificate: $certificate,
+            clientPrivateKey: $key,
+            clientPassphrase: 'test-secret',
+        );
+        $options = $policy->context();
+        expect($options['local_cert'])->toBe($certificate)
+            ->and($options['local_pk'])->toBe($key)
+            ->and($options['passphrase'])->toBe('test-secret')
+            ->and($options['verify_peer'])->toBeTrue()
+            ->and($options['verify_peer_name'])->toBeTrue()
+            ->and($options['verify_depth'])->toBe(8);
+    } finally {
+        unlink($certificate);
+        unlink($key);
+    }
+});
+
+it('rejects incomplete outbound mutual TLS identities before creating SSL contexts', function (): void {
+    expect(fn() => new TlsClientOptions('localhost', clientPrivateKey: '/missing/key.pem'))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new TlsClientOptions('localhost', clientPassphrase: 'secret'))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new TlsClientOptions('localhost', clientCertificate: '/missing/cert.pem'))
+        ->toThrow(InvalidArgumentException::class);
+});
