@@ -53,6 +53,7 @@ foreach ($files as $path) {
     );
     if (count($decls) !== 1 || !isset($ns[1])) {
         $unrecognized[] = $relative;
+
         continue;
     }
     $namespace = trim($ns[1]);
@@ -82,15 +83,18 @@ foreach ($files as $path) {
             if ($quote !== null) {
                 if ($char === '\\') {
                     ++$i;
+
                     continue;
                 }
                 if ($char === $quote) {
                     $quote = null;
                 }
+
                 continue;
             }
             if ($char === "'" || $char === '"') {
                 $quote = $char;
+
                 continue;
             }
             if ($char === '(') {
@@ -102,6 +106,7 @@ foreach ($files as $path) {
             } elseif ($char === ']') {
                 --$square;
             } elseif (($char === '{' || $char === ';') && $round === 0 && $square === 0) {
+
                 break;
             }
         }
@@ -156,6 +161,7 @@ if (file_put_contents($output, $encoded . "\n") === false) {
 if ($unrecognized !== []) {
     throw new RuntimeException('Unrecognized source declarations: ' . implode(', ', $unrecognized));
 }
+
 fprintf(
     STDERR,
     'API manifest: source=%s files=%d symbols=%d sha256=%s' . PHP_EOL,
