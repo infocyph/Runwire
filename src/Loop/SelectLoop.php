@@ -20,6 +20,8 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 {
     private const int MAX_TIMERS_PER_TICK = 256;
 
+    private const int MAX_DEFERRED_PER_TICK = 256;
+
     private const int MICROS_PER_SECOND = 1_000_000;
 
     private readonly int $callbackOverrunNanoseconds;
@@ -418,7 +420,11 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return;
         }
 
+        $processed = 0;
         foreach (array_keys($this->deferred) as $id) {
+            if ($processed++ >= self::MAX_DEFERRED_PER_TICK) {
+                break;
+            }
             $callback = $this->takeDeferred($id);
             if ($callback === null) {
                 continue;
