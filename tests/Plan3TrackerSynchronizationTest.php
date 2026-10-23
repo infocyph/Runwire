@@ -6,10 +6,8 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
     $root = dirname(__DIR__);
     $plan = file_get_contents($root . '/docs/plans/runwire-3.0-unified-runtime-development-plan.md');
     $roadmap = file_get_contents($root . '/docs/plans/runwire-3.0-unified-runtime-roadmap.md');
-    $old = file_get_contents($root . '/docs/plans/runwire-2.2-runtime-improvement-plan.md');
     expect($plan)->toBeString();
     expect($roadmap)->toBeString();
-    expect($old)->toBeString();
 
     preg_match_all('/^- \[([ x])\] \*\*(U[0-9]{2}\.[0-9]{2})\*\* (.+)$/m', $plan, $tasks, PREG_SET_ORDER);
     expect($tasks)->toHaveCount(175);
@@ -46,13 +44,17 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
         '**Progress counter:** ' . $done . '/' . $total . ' (' . $pct . '% complete), ' . $open . ' open.',
     );
 
-    preg_match_all('/^- \[([ x])\] \*\*(R[0-9]\.[0-9]{2})\*\*/m', $old, $oldTasks, PREG_SET_ORDER);
-    expect($oldTasks)->toHaveCount(95);
-    $unfinished = array_values(array_map(
-        static fn(array $row): string => $row[2],
-        array_filter($oldTasks, static fn(array $row): bool => $row[1] === ' '),
-    ));
+    // The deleted 2.2 plan remains immutable at commit 7afd11e.
+    // Pin all 20 unfinished IDs to reject incomplete 3.0 carry-forward.
+    $unfinished = [
+        'R0.06', 'R0.07', 'R1.08', 'R3.09',
+        'R4.02', 'R4.04', 'R4.09',
+        'R5.02', 'R5.03', 'R5.04', 'R5.05', 'R5.06', 'R5.07', 'R5.08',
+        'R6.02', 'R8.05', 'R8.10', 'R9.06', 'R9.07', 'R9.09',
+    ];
     expect($unfinished)->toHaveCount(20);
+    $evidence = file_get_contents($root . '/docs/plans/evidence/runwire-2.2/closure-critical-path.md');
+    expect($evidence)->toBeString()->toContain('Original 95 task IDs: 75 checked complete');
 
     preg_match_all('/^\| (R[0-9]\.[0-9]{2}) \| ([^|]+) \| OPEN, fresh 3\.0 QA required \|/m', $roadmap, $mappings, PREG_SET_ORDER);
     expect($mappings)->toHaveCount(20);

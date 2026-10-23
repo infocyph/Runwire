@@ -349,7 +349,7 @@
 
 ## Complete leftover carry-forward (20 / 20)
 
-The 2.2 plan has **95 historical IDs, 75 previously checked, 20 unchecked**. The 20 unchecked include seven R5.02-R5.08 dialer items that were deferred under 2.2, but **are mandatory in 3.0**. Prior checked work is regression coverage only; 3.0 starts at zero accepted tasks.
+The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/plans/runwire-2.2-runtime-improvement-plan.md) has **95 historical IDs, 75 previously checked, 20 unchecked**. It remains accessible at its immutable Git commit but is not in the active working tree. The 20 unchecked include seven R5.02-R5.08 dialer items that were deferred under 2.2, but **are mandatory in 3.0**. Prior checked work is regression coverage only; 3.0 starts at zero accepted tasks.
 
 | Old unfinished 2.2 ID | 3.0 acceptance task(s) | Status |
 | --- | --- | --- |

@@ -21,7 +21,7 @@ Deliver one **complete, bidirectional asynchronous network and I/O runtime for P
 
 ## Existing 2.2 work: consolidated rather than discarded
 
-The [2.2 historical tracker](runwire-2.2-runtime-improvement-plan.md) has **95 original tasks: 75 previously checked, 20 unfinished**. Those previous 75 items provide existing code, regression fixtures, benchmark infrastructure and evidence, **not 75 newly completed 3.0 tasks**.
+The [2.2 historical tracker in immutable Git history](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/plans/runwire-2.2-runtime-improvement-plan.md) has **95 original tasks: 75 previously checked, 20 unfinished**. Those previous 75 items provide existing code, regression fixtures, benchmark infrastructure and evidence, **not 75 newly completed 3.0 tasks**.
 
 - **Retain and requalify:** event-loop timer fairness, ByteQueue batching, host request normalization, worker generation/cancellation isolation, H1/H2/H3 hardening, QUIC peer-reset/QPACK fixes, real host acceptance and resource telemetry.
 - **Consolidate unfinished:** 13 previously active performance, protocol, lifecycle and release-qualification tasks; seven dialer items R5.02–R5.08 previously deferred under 2.2. **All 20 are now required** and individually mapped into 3.0.
@@ -104,4 +104,4 @@ The seven regular standard 2.2 workflows passed on source 8b125bab00b89af669234b
 
 ## Governance
 
-Only Runwire code/docs/QA. Preserve the historic 2.2 files with a clear supersession banner, never erase old failing evidence. This branch and PR stay in place, **draft/unmerged**. No tag, release or publish. The canonical task tracker reaches **READY FOR MAINTAINER RELEASE** only after every 3.0 task, security, QA, documentation and exact-source certification gate is verified.
+Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes were removed from the working tree; preserve their immutable Git history and historical QA artifacts under [evidence/runwire-2.2](evidence/runwire-2.2/README.md). Never erase failing CI evidence. This branch and PR stay in place, **draft/unmerged**. No tag, release or publish. The canonical task tracker reaches **READY FOR MAINTAINER RELEASE** only after every 3.0 task, security, QA, documentation and exact-source certification gate is verified.
