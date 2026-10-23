@@ -22,13 +22,13 @@ use Throwable;
  */
 final class HappyEyeballsAttempt
 {
+    /** @var list<string> */
+    private array $candidates = [];
+
     /** @var array<int, true> */
     private array $children = [];
 
     private bool $completed = false;
-
-    /** @var list<string> */
-    private array $candidates = [];
 
     private ?int $dnsJob = null;
 
@@ -38,13 +38,13 @@ final class HappyEyeballsAttempt
 
     private int $nextCandidate = 0;
 
-    private ?CancellationSubscription $subscription = null;
-
-    private ?int $timeoutTimer = null;
-
     private int $port = 0;
 
     private float $remaining = 0;
+
+    private ?CancellationSubscription $subscription = null;
+
+    private ?int $timeoutTimer = null;
 
     /**
      * @param Closure(?Connection, ?Throwable):void $completion
