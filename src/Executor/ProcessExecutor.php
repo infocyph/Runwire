@@ -310,7 +310,7 @@ final class ProcessExecutor
 
     private function startWorker(): int
     {
-        $script = __DIR__ . '/Internal/worker.php';
+        $script = dirname(__DIR__, 2) . '/tools/executor-worker.php';
         $pipes = [];
         $nullDevice = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
         $process = proc_open(
