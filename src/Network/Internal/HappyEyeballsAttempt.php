@@ -124,6 +124,33 @@ final class HappyEyeballsAttempt
         throw new InvalidArgumentException('Resolved candidate must be a numeric IP address.');
     }
 
+    /**
+     * @param list<string> $addresses
+     * @return list<string>
+     */
+    private static function orderAddresses(array $addresses, int $port): array
+    {
+        $families = [4 => [], 6 => []];
+        $first = null;
+        foreach (array_unique($addresses) as $address) {
+            $family = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false ? 6 : 4;
+            $first ??= $family;
+            $families[$family][] = self::addressUri($address, $port);
+        }
+
+        $ordered = [];
+        $other = $first === 6 ? 4 : 6;
+        while ($families[$first ?? 4] !== [] || $families[$other] !== []) {
+            foreach ([$first ?? 4, $other] as $family) {
+                if ($families[$family] !== []) {
+                    $ordered[] = array_shift($families[$family]);
+                }
+            }
+        }
+
+        return $ordered;
+    }
+
     private function begin(): void
     {
         $this->remaining = $this->options->connectTimeoutSeconds;
@@ -225,33 +252,6 @@ final class HappyEyeballsAttempt
             $this->launchTimer = null;
         }
         $this->launchCandidate();
-    }
-
-    /**
-     * @param list<string> $addresses
-     * @return list<string>
-     */
-    private static function orderAddresses(array $addresses, int $port): array
-    {
-        $families = [4 => [], 6 => []];
-        $first = null;
-        foreach (array_unique($addresses) as $address) {
-            $family = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false ? 6 : 4;
-            $first ??= $family;
-            $families[$family][] = self::addressUri($address, $port);
-        }
-
-        $ordered = [];
-        $other = $first === 6 ? 4 : 6;
-        while ($families[$first ?? 4] !== [] || $families[$other] !== []) {
-            foreach ([$first ?? 4, $other] as $family) {
-                if ($families[$family] !== []) {
-                    $ordered[] = array_shift($families[$family]);
-                }
-            }
-        }
-
-        return $ordered;
     }
 
     private function scheduleNext(): void
