@@ -97,3 +97,59 @@ it('rejects over-capacity dials and releases watchers and socket timers on cance
     $dialer->close();
     fclose($server);
 });
+
+
+it('validates outgoing nonblocking TCP connectivity on a live IPv6 loopback peer', function (): void {
+    $listener = stream_socket_server('tcp://[::1]:0', $errorCode, $errorMessage);
+    if (!is_resource($listener)) {
+        expect(DialEndpoint::parse('tcp://[::1]:443')->isIpLiteral)->toBeTrue();
+
+        return;
+    }
+    $address = stream_socket_get_name($listener, false);
+    expect($address)->toBeString();
+    $loop = new SelectLoop();
+    $dialer = new Dialer($loop);
+    $connection = null;
+    $error = null;
+    $dialer->connect('tcp://' . $address, function ($established, $failure) use (&$connection, &$error, $loop): void {
+        $connection = $established;
+        $error = $failure;
+        $loop->stop();
+    });
+    $loop->run();
+    expect($error)->toBeNull()
+        ->and($connection)->toBeInstanceOf(Connection::class)
+        ->and($connection->state())->toBe(ConnectionState::OPEN)
+        ->and($dialer->pendingCount())->toBe(0);
+    $peer = stream_socket_accept($listener, 1.0);
+    expect($peer)->toBeResource();
+    $connection->abort();
+    fclose($peer);
+    fclose($listener);
+    expect($loop->diagnostics()->writeWatchers)->toBe(0);
+});
+
+it('reports a missing Unix peer without a blocking fallback or leaked watcher', function (): void {
+    $loop = new SelectLoop();
+    $dialer = new Dialer($loop);
+    $endpoint = 'unix://' . sys_get_temp_dir() . '/runwire-missing-' . bin2hex(random_bytes(8)) . '/socket.sock';
+    $error = null;
+    $failedAtCreation = false;
+    try {
+        $dialer->connect($endpoint, function ($connection, $failure) use (&$error, $loop): void {
+            expect($connection)->toBeNull();
+            $error = $failure;
+            $loop->stop();
+        });
+    } catch (RuntimeException) {
+        $failedAtCreation = true;
+    }
+    if (!$failedAtCreation) {
+        $loop->run();
+        expect($error)->toBeInstanceOf(RuntimeException::class);
+    }
+    expect($dialer->pendingCount())->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});

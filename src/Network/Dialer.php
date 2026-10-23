@@ -189,7 +189,7 @@ final class Dialer
         if ($job === null) {
             return;
         }
-        $this->release($id, $connection !== null);
+        $this->release($id, $connection !== null, $error instanceof CancelledException);
         if ($error !== null) {
             ($job['callback'])(null, $error);
 
@@ -254,7 +254,7 @@ final class Dialer
         $this->finish($id, $connection, null);
     }
 
-    private function release(int $id, bool $handedOff = false): void
+    private function release(int $id, bool $handedOff = false, bool $cancelled = false): void
     {
         $job = $this->pending[$id] ?? null;
         if ($job === null) {
@@ -269,7 +269,7 @@ final class Dialer
         $job['subscription']?->unsubscribe();
         if (!$handedOff) {
             if ($job['state']->phase() === DialAttemptPhase::CONNECTING) {
-                $job['state']->transition(DialAttemptPhase::FAILED);
+                $job['state']->transition($cancelled ? DialAttemptPhase::CANCELLED : DialAttemptPhase::FAILED);
             }
             if (is_resource($job['stream'])) {
                 fclose($job['stream']);
