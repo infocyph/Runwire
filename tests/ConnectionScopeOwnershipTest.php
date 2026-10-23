@@ -32,7 +32,7 @@ it('cancels an owned stream exactly once and releases observers and watchers', f
         ->and($closeCount)->toBe(1)
         ->and($source->token()->subscriptionCount())->toBe(0)
         ->and($loop->diagnostics()->readWatchers)->toBe(0)
-        ->and($loop->diagnostics()->timers)->toBe(0);
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
     $source->dispose();
     fclose($peer);
 });
@@ -49,7 +49,7 @@ it('closes on the earliest inherited monotonic owner deadline', function (): voi
     expect($connection->state())->toBe(ConnectionState::CLOSED)
         ->and($connection->closeReason())->toBe(CloseReason::LIFETIME_TIMEOUT)
         ->and($loop->diagnostics()->readWatchers)->toBe(0)
-        ->and($loop->diagnostics()->timers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0)
         ->and($source->token()->subscriptionCount())->toBe(0);
     $source->dispose();
     fclose($peer);

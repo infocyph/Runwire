@@ -38,5 +38,5 @@ it('does not leak watchers or queued bytes across 96 simultaneous established st
         ->and($budget->used())->toBe(0)
         ->and($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
-        ->and($loop->diagnostics()->timers)->toBe(0);
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });

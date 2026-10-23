@@ -65,11 +65,7 @@ final class ConnectionScopeOwnership
                 $active->abort(CloseReason::LIFETIME_TIMEOUT);
             }
         });
-        if ($binding->disposed) {
-            $loop->cancel($timer);
-        } else {
-            $binding->deadlineTimer = $timer;
-        }
+        $binding->deadlineTimer = $timer;
 
         return $binding;
     }
