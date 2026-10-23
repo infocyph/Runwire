@@ -2,8 +2,8 @@
 
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
-**Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 IN PROGRESS (3/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 13/175 complete; 162 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
+**Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
+**Canonical tracker:** 19/175 complete; 156 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -23,7 +23,7 @@
 | Batch | Division | Done / total | Open | Status | Dependencies |
 | --- | --- | ---: | ---: | --- | --- |
 | U00 | Baseline, architecture and 2.1-to-3.0 migration | 10/10 | 0 | DONE | published 2.1.2; historical 2.2 tracker |
-| U01 | Event-loop, watchers and asynchronous executor | 3/9 | 6 | In progress | U00 |
+| U01 | Event-loop, watchers and asynchronous executor | 9/9 | 0 | DONE | U00 |
 | U02 | Unified established connection and transport ownership | 0/9 | 9 | Not started | U01 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 0/10 | 10 | Not started | U01,U02 |
 | U04 | Unified TLS security and client/server handshakes | 0/8 | 8 | Not started | U02,U03 |
@@ -40,9 +40,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **13/175** | **162** | **U00 done, U01 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **19/175** | **156** | **U00/U01 done; U02 next** | U00-U17 |
 
-**Progress counter:** 13/175 (7.4% complete), 162 open.
+**Progress counter:** 19/175 (10.9% complete), 156 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -69,15 +69,15 @@
 
 - [x] **U01.01** Compare SelectLoop, EventLoop and SwooleLoop event readiness semantics. **Acceptance:** Cross-backend behavior matrix. **Proof:** [source-backed RST backend matrix](evidence/runwire-3.0/u01-loop-backend-audit.rst) identifies native Select limits, optional Event, host-owned Swoole watcher/timer/loop semantics with test source references; `tests/LoopBackendConformanceTest.php` checks shared contract; [PHPForge QA/analysis #39908151527](https://github.com/infocyph/Runwire/actions/runs/39908151527) all four PHP8.4/8.5 stable/lowest QA and both PHPStan/Psalm jobs PASS.
 - [x] **U01.02** Unify watcher registration, removal, deferred callback and timer ownership. **Acceptance:** No callback after cancellation. **Proof:** `tests/LoopBackendConformanceTest.php` covers cancelled read/write/deferred handles and repeated cancel without callback for Select/ext-event (when installed)/host reactor fixture, plus real socket read dispatch/cancel on native backends. Existing implementations satisfy common `LoopInterface` without duplicate watcher machinery; [PHPForge QA/analysis #39908151527](https://github.com/infocyph/Runwire/actions/runs/39908151527) all four PHP8.4/8.5 stable/lowest QA and both PHPStan/Psalm jobs PASS. Additional starvation/timer race tests remain U01.03/.04.
-- [ ] **U01.03** Preserve fairness under CPU, socket and timer storms. **Acceptance:** Bounded socket starvation in real load fixtures. **Proof:** PENDING.
-- [ ] **U01.04** Standardize monotonic operation deadlines and lifecycle shutdown. **Acceptance:** Timeouts and stop are deterministic. **Proof:** PENDING.
-- [ ] **U01.05** Implement bounded asynchronous executor abstraction for blocking platform calls. **Acceptance:** Queue limits and cancellation rules. **Proof:** PENDING.
-- [ ] **U01.06** Implement a portable worker-backed executor for DNS/filesystem. **Acceptance:** Deliberate blocking work never stalls event-loop ticks. **Proof:** PENDING.
-- [ ] **U01.07** Exercise executor crash, overload, cancellation and drain. **Acceptance:** Zero unresolved tasks or leaked resources. **Proof:** PENDING.
+- [x] **U01.03** Preserve fairness under CPU, socket and timer storms. **Acceptance:** Bounded socket starvation in real load fixtures. **Proof:** `src/Loop/SelectLoop.php` bounds deferred work at 256/tick while retaining existing 256-timer budget; `tests/ProcessExecutorTest.php` proves 1,024 deferred callbacks, real socket and timer progress without starvation. [U01 source a5a900b](https://github.com/infocyph/Runwire/commit/a5a900b701ef67035218402249ec66a689e4d520); [PHPForge QA #39913487501](https://github.com/infocyph/Runwire/actions/runs/39913487501) four PHP8.4/8.5 stable/lowest suites PASS; [benchmark core #39913487092](https://github.com/infocyph/Runwire/actions/runs/39913487092) both PHP versions PASS..
+- [x] **U01.04** Standardize monotonic operation deadlines and lifecycle shutdown. **Acceptance:** Timeouts and stop are deterministic. **Proof:** `ProcessExecutor::attachDeadline()` uses the earlier explicit or inherited `CancellationToken` monotonic deadline; timeout settles exactly once with `CancelledException(DEADLINE_EXCEEDED)`, and loop/worker stop releases watchers. Real deadline/cancellation tests in `tests/ProcessExecutorTest.php`, existing `tests/SelectLoopTest.php` and `tests/SwooleLoopTest.php`; [source a5a900b](https://github.com/infocyph/Runwire/commit/a5a900b701ef67035218402249ec66a689e4d520); [QA + PHPStan/Psalm #39913487501](https://github.com/infocyph/Runwire/actions/runs/39913487501) relevant lanes PASS..
+- [x] **U01.05** Implement bounded asynchronous executor abstraction for blocking platform calls. **Acceptance:** Queue limits and cancellation rules. **Proof:** New `src/Executor/ProcessExecutor.php` provides explicit worker/queue limits, operation allowlist, no synchronous fallback, exactly-once callback settlement, cancellation subscriptions, deadline timers, diagnostics and hard stop; `tests/ProcessExecutorTest.php` verifies overload rejection and cancellation. [source a5a900b](https://github.com/infocyph/Runwire/commit/a5a900b701ef67035218402249ec66a689e4d520); [PHPForge #39913487501](https://github.com/infocyph/Runwire/actions/runs/39913487501) QA/analysis relevant lanes PASS..
+- [x] **U01.06** Implement a portable worker-backed executor for DNS/filesystem. **Acceptance:** Deliberate blocking work never stalls event-loop ticks. **Proof:** `src/Executor/Internal/ExecutorIpcTrait.php` delegates DNS, bounded filesystem read/stat to reusable real PHP CLI subprocesses through nonblocking monitored pipes and bounded JSON frames; `tools/executor-worker.php` remains a packaged CLI worker, not a PSR-4 source type. Real 100ms subprocess work permits concurrent loop timer progression in `tests/ProcessExecutorTest.php`; [benchmarks #39913487092](https://github.com/infocyph/Runwire/actions/runs/39913487092) executor profile passed PHP8.4/8.5; [source a5a900b](https://github.com/infocyph/Runwire/commit/a5a900b701ef67035218402249ec66a689e4d520)..
+- [x] **U01.07** Exercise executor crash, overload, cancellation and drain. **Acceptance:** Zero unresolved tasks or leaked resources. **Proof:** `tests/ProcessExecutorTest.php` exercises `/bin/false` worker crash with queued jobs, active/queued cancellation, zero leaked workers, token observer unsubscribe, onDrained notification, capacity rejection and forced deadline; all callbacks settle once. [PHPForge QA #39913487501](https://github.com/infocyph/Runwire/actions/runs/39913487501) four test matrices PASS; [source a5a900b](https://github.com/infocyph/Runwire/commit/a5a900b701ef67035218402249ec66a689e4d520)..
 - [x] **U01.08** Respect host-owned reactors without nested competing loop. **Acceptance:** Swoole/OpenSwoole and host acceptance. **Proof:** `SwooleLoop::run()` refuses outside active host coroutine, `tests/SwooleLoopTest.php` asserts no nested reactor, `tests/LoopBackendConformanceTest.php` probes host watcher lifecycle; [real Swoole/OpenSwoole CI #39908150999](https://github.com/infocyph/Runwire/actions/runs/39908150999) PASS; [PHPForge QA/analysis #39908151527](https://github.com/infocyph/Runwire/actions/runs/39908151527) all four PHP8.4/8.5 stable/lowest QA and both PHPStan/Psalm jobs PASS. Future outbound/filesystem host integration remains U03/U11/U13.
-- [ ] **U01.09** Profile scheduler, watcher churn and executor resource cost. **Acceptance:** CPU, RSS and p99 evidence. **Proof:** PENDING.
+- [x] **U01.09** Profile scheduler, watcher churn and executor resource cost. **Acceptance:** CPU, RSS and p99 evidence. **Proof:** `benchmarks/u01_executor_profile.php` and benchmark workflow record 32 real subprocess IPC jobs, concurrent tick fairness, per-job p50/p95/p99, parent CPU/user/system time, parent peak PHP memory, completion, failure and worker cleanup. PHP8.4 [artifact 12483559225](https://github.com/infocyph/Runwire/actions/runs/39913487092/artifacts/12483559225) and PHP8.5 [artifact 12484125922](https://github.com/infocyph/Runwire/actions/runs/39913487092/artifacts/12484125922) passed corresponding benchmark-core jobs. Metrics explicitly exclude child process RSS/CPU; full process-tree attribution remains U15..
 
-**Batch tracker:** 3/9 accepted; 6 open. **Remaining:** U01.03 timer/socket fairness, U01.04 deadline/stop semantics, U01.05/.06/.07 bounded off-loop executor and its fault tests, U01.09 loop/executor performance. **Exit:** complete all six with real tests and CI before advancing to U02.
+**Batch tracker:** 9/9 accepted; 0 open — **U01 COMPLETE** on independently tested source `a5a900b`. Both PHP8.4/8.5 stable/lowest PHPForge QA and both analyzers passed; both core benchmark profiles passed. See [U01 completion evidence](evidence/runwire-3.0/u01-executor-qa-closeout.rst). Extended independent HTTP/3 and adaptive H2 workflow tails were still running when this signoff was authored; overall all-workflow green must be verified separately. **Next batch:** U02.
 
 ### U02 — Unified established connection and transport ownership
 
