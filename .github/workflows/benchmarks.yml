@@ -525,11 +525,6 @@ jobs:
           /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h1_client.py' -v
           /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h2_client.py' -v
 
-      - name: Run diagnostic AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
-        shell: bash
-        run: |
-          bash benchmarks/adaptive_http12_certify.sh 5 benchmark-results/adaptive-http12
-
       - name: Real h2 cancellation, stalled-flow and sibling progress acceptance
         shell: bash
         run: |
@@ -547,6 +542,11 @@ jobs:
           name: runwire-real-h2-pressure
           path: benchmark-results/real-h2-pressure/
           retention-days: 90
+
+      - name: Run diagnostic AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
+        shell: bash
+        run: |
+          bash benchmarks/adaptive_http12_certify.sh 5 benchmark-results/adaptive-http12
 
       - name: Upload adaptive H1/H2 evidence
         if: always()
