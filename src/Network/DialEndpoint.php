@@ -43,7 +43,7 @@ final readonly class DialEndpoint
         if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'tcp'
             || !is_string($parts['host'] ?? null) || !is_int($parts['port'] ?? null)
             || $parts['port'] < 1 || $parts['port'] > 65_535
-            || isset($parts['user'], $parts['pass'])
+            || isset($parts['user']) || isset($parts['pass'])
             || isset($parts['query']) || isset($parts['fragment'])
             || isset($parts['path'])) {
             throw new InvalidArgumentException('TCP endpoints require tcp://host:port without URL credentials or suffixes.');
