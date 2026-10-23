@@ -10,6 +10,7 @@ use Throwable;
 /** @internal Nonblocking subprocess pipe and worker lifecycle mechanics. */
 trait ExecutorIpcTrait
 {
+
     /** @return array{mixed, ?Throwable} */
     private function decodeResponse(int $jobId, string $payload): array
     {
@@ -38,89 +39,12 @@ trait ExecutorIpcTrait
     private function readPipe(mixed $pipe): string|false
     {
         set_error_handler(static fn(): bool => true, E_WARNING);
+
         try {
             return fread($pipe, self::IO_CHUNK_BYTES);
         } finally {
             restore_error_handler();
         }
-    }
-
-    /** @param resource $pipe */
-    private function writePipe(mixed $pipe, string $payload): int|false
-    {
-        set_error_handler(static fn(): bool => true, E_WARNING);
-        try {
-            return fwrite($pipe, $payload);
-        } finally {
-            restore_error_handler();
-        }
-    }
-
-    private function startWorker(): int
-    {
-        $script = dirname(__DIR__, 3) . '/tools/executor-worker.php';
-        $pipes = [];
-        $nullDevice = '/dev/null';
-        $process = proc_open(
-            [$this->phpBinary, '-d', 'display_errors=stderr', $script],
-            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', $nullDevice, 'a']],
-            $pipes,
-            null,
-            null,
-            ['bypass_shell' => true],
-        );
-        if (!is_resource($process)) {
-            throw new RuntimeException('Unable to start executor subprocess.');
-        }
-        stream_set_blocking($pipes[0], false);
-        stream_set_blocking($pipes[1], false);
-
-        $id = $this->nextWorkerId++;
-        try {
-            $readWatcher = $this->loop->onReadable($pipes[1], function () use ($id): void {
-                $this->readWorker($id);
-            });
-        } catch (Throwable $error) {
-            fclose($pipes[0]);
-            fclose($pipes[1]);
-            proc_terminate($process, 9);
-            proc_close($process);
-
-            throw $error;
-        }
-        $this->workers[$id] = [
-            'process' => $process,
-            'input' => $pipes[0],
-            'output' => $pipes[1],
-            'readWatcher' => $readWatcher,
-            'writeWatcher' => null,
-            'inputBuffer' => '',
-            'outputBuffer' => '',
-            'job' => null,
-        ];
-
-        return $id;
-    }
-
-    private function writeWorker(int $id): void
-    {
-        if (!isset($this->workers[$id])) {
-            return;
-        }
-        $worker = &$this->workers[$id];
-        $sent = $this->writePipe($worker['input'], substr($worker['inputBuffer'], 0, self::IO_CHUNK_BYTES));
-        if ($sent === false || ($sent === 0 && feof($worker['input']))) {
-            unset($worker);
-            $this->retire($id, new RuntimeException('Executor subprocess input closed.'));
-
-            return;
-        }
-        $worker['inputBuffer'] = substr($worker['inputBuffer'], $sent);
-        if ($worker['inputBuffer'] === '' && $worker['writeWatcher'] !== null) {
-            $this->loop->cancel($worker['writeWatcher']);
-            $worker['writeWatcher'] = null;
-        }
-        unset($worker);
     }
 
     private function readWorker(int $id): void
@@ -191,4 +115,85 @@ trait ExecutorIpcTrait
         }
         $this->schedulePump();
     }
+
+    private function startWorker(): int
+    {
+        $script = dirname(__DIR__, 3) . '/tools/executor-worker.php';
+        $pipes = [];
+        $nullDevice = '/dev/null';
+        $process = proc_open(
+            [$this->phpBinary, '-d', 'display_errors=stderr', $script],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', $nullDevice, 'a']],
+            $pipes,
+            null,
+            null,
+            ['bypass_shell' => true],
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('Unable to start executor subprocess.');
+        }
+        stream_set_blocking($pipes[0], false);
+        stream_set_blocking($pipes[1], false);
+
+        $id = $this->nextWorkerId++;
+
+        try {
+            $readWatcher = $this->loop->onReadable($pipes[1], function () use ($id): void {
+                $this->readWorker($id);
+            });
+        } catch (Throwable $error) {
+            fclose($pipes[0]);
+            fclose($pipes[1]);
+            proc_terminate($process, 9);
+            proc_close($process);
+
+            throw $error;
+        }
+        $this->workers[$id] = [
+            'process' => $process,
+            'input' => $pipes[0],
+            'output' => $pipes[1],
+            'readWatcher' => $readWatcher,
+            'writeWatcher' => null,
+            'inputBuffer' => '',
+            'outputBuffer' => '',
+            'job' => null,
+        ];
+
+        return $id;
+    }
+
+    /** @param resource $pipe */
+    private function writePipe(mixed $pipe, string $payload): int|false
+    {
+        set_error_handler(static fn(): bool => true, E_WARNING);
+
+        try {
+            return fwrite($pipe, $payload);
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    private function writeWorker(int $id): void
+    {
+        if (!isset($this->workers[$id])) {
+            return;
+        }
+        $worker = &$this->workers[$id];
+        $sent = $this->writePipe($worker['input'], substr($worker['inputBuffer'], 0, self::IO_CHUNK_BYTES));
+        if ($sent === false || ($sent === 0 && feof($worker['input']))) {
+            unset($worker);
+            $this->retire($id, new RuntimeException('Executor subprocess input closed.'));
+
+            return;
+        }
+        $worker['inputBuffer'] = substr($worker['inputBuffer'], $sent);
+        if ($worker['inputBuffer'] === '' && $worker['writeWatcher'] !== null) {
+            $this->loop->cancel($worker['writeWatcher']);
+            $worker['writeWatcher'] = null;
+        }
+        unset($worker);
+    }
+
 }

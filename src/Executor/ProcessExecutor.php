@@ -7,9 +7,9 @@ namespace Infocyph\Runwire\Executor;
 use Closure;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\CancellationToken;
+use Infocyph\Runwire\Executor\Internal\ExecutorIpcTrait;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Executor\Internal\ExecutorIpcTrait;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
@@ -29,14 +29,25 @@ final class ProcessExecutor
 {
     use ExecutorIpcTrait;
 
+    private const int IO_CHUNK_BYTES = 8192;
+
     private const int MAX_PACKET_BYTES = 1_600_000;
 
-    private const int IO_CHUNK_BYTES = 8192;
+    /** @var SplQueue<int> */
+    private readonly SplQueue $pending;
+
+    private readonly string $phpBinary;
+
+    private int $cancelled = 0;
 
     private bool $closed = false;
 
+    private int $completed = 0;
+
     /** @var list<Closure> */
     private array $drainCallbacks = [];
+
+    private int $failed = 0;
 
     /** @var array<int, array{packet:string, callback:Closure, worker:?int, timer:?int, subscription:?CancellationSubscription}> */
     private array $jobs = [];
@@ -45,25 +56,14 @@ final class ProcessExecutor
 
     private int $nextWorkerId = 1;
 
-    private bool $pumpScheduled = false;
+    private int $peakPending = 0;
 
-    /** @var SplQueue<int> */
-    private readonly SplQueue $pending;
+    private bool $pumpScheduled = false;
 
     private int $submitted = 0;
 
-    private int $completed = 0;
-
-    private int $failed = 0;
-
-    private int $cancelled = 0;
-
-    private int $peakPending = 0;
-
     /** @var array<int, array{process:resource, input:resource, output:resource, readWatcher:int, writeWatcher:?int, outputBuffer:string, inputBuffer:string, job:?int}> */
     private array $workers = [];
-
-    private readonly string $phpBinary;
 
     /** Create an executor with bounded workers and pending jobs. */
     public function __construct(
@@ -82,6 +82,73 @@ final class ProcessExecutor
             throw new RuntimeException('A usable PHP CLI binary and nonblocking process pipes are required for the executor.');
         }
         $this->pending = new SplQueue();
+    }
+
+    /** Cancel queued or active work and complete the callback exactly once. */
+    public function cancel(
+        int $id,
+        CancellationReason $reason = CancellationReason::HOST_CANCELLED,
+    ): bool {
+        $job = $this->jobs[$id] ?? null;
+        if ($job === null) {
+            return false;
+        }
+
+        $error = new CancelledException($reason);
+        if ($job['worker'] !== null) {
+            $this->retire($job['worker'], $error);
+        } else {
+            $this->settle($id, null, $error);
+        }
+
+        return true;
+    }
+
+    /**
+     * Stop all work, release watchers/pipes/processes and reject outstanding jobs.
+     */
+    public function close(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        $this->closed = true;
+        foreach (array_keys($this->workers) as $workerId) {
+            $this->retire($workerId, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
+        }
+        foreach (array_keys($this->jobs) as $id) {
+            $this->settle($id, null, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
+        }
+        $this->notifyDrained();
+    }
+
+    /** @return array{submitted:int, completed:int, failed:int, cancelled:int, active:int, queued:int, workers:int, peakQueued:int} */
+    public function diagnostics(): array
+    {
+        $active = 0;
+        foreach ($this->workers as $worker) {
+            $active += (int) ($worker['job'] !== null);
+        }
+
+        return [
+            'submitted' => $this->submitted,
+            'completed' => $this->completed,
+            'failed' => $this->failed,
+            'cancelled' => $this->cancelled,
+            'active' => $active,
+            'queued' => count($this->jobs) - $active,
+            'workers' => count($this->workers),
+            'peakQueued' => $this->peakPending,
+        ];
+    }
+
+    /**
+     * @param callable():void $callback
+     */
+    public function onDrained(callable $callback): void
+    {
+        $this->drainCallbacks[] = Closure::fromCallable($callback);
+        $this->notifyDrained();
     }
 
     /**
@@ -136,73 +203,6 @@ final class ProcessExecutor
         return $id;
     }
 
-    /** Cancel queued or active work and complete the callback exactly once. */
-    public function cancel(
-        int $id,
-        CancellationReason $reason = CancellationReason::HOST_CANCELLED,
-    ): bool {
-        $job = $this->jobs[$id] ?? null;
-        if ($job === null) {
-            return false;
-        }
-
-        $error = new CancelledException($reason);
-        if ($job['worker'] !== null) {
-            $this->retire($job['worker'], $error);
-        } else {
-            $this->settle($id, null, $error);
-        }
-
-        return true;
-    }
-
-    /**
-     * Stop all work, release watchers/pipes/processes and reject outstanding jobs.
-     */
-    public function close(): void
-    {
-        if ($this->closed) {
-            return;
-        }
-        $this->closed = true;
-        foreach (array_keys($this->workers) as $workerId) {
-            $this->retire($workerId, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
-        }
-        foreach (array_keys($this->jobs) as $id) {
-            $this->settle($id, null, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
-        }
-        $this->notifyDrained();
-    }
-
-    /**
-     * @param callable():void $callback
-     */
-    public function onDrained(callable $callback): void
-    {
-        $this->drainCallbacks[] = Closure::fromCallable($callback);
-        $this->notifyDrained();
-    }
-
-    /** @return array{submitted:int, completed:int, failed:int, cancelled:int, active:int, queued:int, workers:int, peakQueued:int} */
-    public function diagnostics(): array
-    {
-        $active = 0;
-        foreach ($this->workers as $worker) {
-            $active += (int) ($worker['job'] !== null);
-        }
-
-        return [
-            'submitted' => $this->submitted,
-            'completed' => $this->completed,
-            'failed' => $this->failed,
-            'cancelled' => $this->cancelled,
-            'active' => $active,
-            'queued' => count($this->jobs) - $active,
-            'workers' => count($this->workers),
-            'peakQueued' => $this->peakPending,
-        ];
-    }
-
     private function attachCancellation(int $id, ?CancellationToken $token): void
     {
         if ($token === null) {
@@ -231,6 +231,19 @@ final class ProcessExecutor
         }
     }
 
+    private function availableWorker(): ?int
+    {
+        $available = array_find_key($this->workers, static fn(array $worker): bool => $worker['job'] === null);
+        if ($available !== null) {
+            return $available;
+        }
+        if (count($this->workers) >= $this->maxWorkers) {
+            return null;
+        }
+
+        return $this->startWorker();
+    }
+
     private function expire(int $id): void
     {
         if (!array_key_exists($id, $this->jobs)) {
@@ -245,29 +258,30 @@ final class ProcessExecutor
         }
     }
 
-    private function schedulePump(): void
+    private function nextQueuedJob(): ?int
     {
-        if ($this->closed || $this->pumpScheduled) {
-            return;
+        while (!$this->pending->isEmpty()) {
+            $id = $this->pending->dequeue();
+            if (array_key_exists($id, $this->jobs) && $this->jobs[$id]['worker'] === null) {
+                return $id;
+            }
         }
-        $this->pumpScheduled = true;
-        $this->loop->defer(function (): void {
-            $this->pumpScheduled = false;
-            $this->pump();
-        });
+
+        return null;
     }
 
-    private function availableWorker(): ?int
+    private function notifyDrained(): void
     {
-        $available = array_find_key($this->workers, static fn(array $worker): bool => $worker['job'] === null);
-        if ($available !== null) {
-            return $available;
+        if ($this->jobs !== [] || $this->drainCallbacks === []) {
+            return;
         }
-        if (count($this->workers) >= $this->maxWorkers) {
-            return null;
+        $callbacks = $this->drainCallbacks;
+        $this->drainCallbacks = [];
+        foreach ($callbacks as $callback) {
+            $this->loop->defer(static function () use ($callback): void {
+                $callback();
+            });
         }
-
-        return $this->startWorker();
     }
 
     private function pump(): void
@@ -311,18 +325,6 @@ final class ProcessExecutor
         }
     }
 
-    private function nextQueuedJob(): ?int
-    {
-        while (!$this->pending->isEmpty()) {
-            $id = $this->pending->dequeue();
-            if (array_key_exists($id, $this->jobs) && $this->jobs[$id]['worker'] === null) {
-                return $id;
-            }
-        }
-
-        return null;
-    }
-
     private function queuedCount(): int
     {
         $queued = 0;
@@ -331,6 +333,18 @@ final class ProcessExecutor
         }
 
         return $queued;
+    }
+
+    private function schedulePump(): void
+    {
+        if ($this->closed || $this->pumpScheduled) {
+            return;
+        }
+        $this->pumpScheduled = true;
+        $this->loop->defer(function (): void {
+            $this->pumpScheduled = false;
+            $this->pump();
+        });
     }
 
     private function settle(int $id, mixed $value, ?Throwable $error): void
@@ -351,6 +365,7 @@ final class ProcessExecutor
         } else {
             ++$this->completed;
         }
+
         try {
             ($job['callback'])($value, $error);
         } finally {
@@ -359,17 +374,4 @@ final class ProcessExecutor
         }
     }
 
-    private function notifyDrained(): void
-    {
-        if ($this->jobs !== [] || $this->drainCallbacks === []) {
-            return;
-        }
-        $callbacks = $this->drainCallbacks;
-        $this->drainCallbacks = [];
-        foreach ($callbacks as $callback) {
-            $this->loop->defer(static function () use ($callback): void {
-                $callback();
-            });
-        }
-    }
 }

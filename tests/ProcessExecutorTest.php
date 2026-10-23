@@ -92,6 +92,7 @@ it('does bounded file reads and stat in a subprocess and enforces deadlines', fu
         'sleep',
         ['milliseconds' => 400],
         function ($value, $failure) use (&$error, $executor): void {
+            unset($value);
             $error = $failure;
             $executor->close();
         },
