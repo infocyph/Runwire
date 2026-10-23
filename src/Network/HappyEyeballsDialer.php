@@ -101,8 +101,8 @@ final class HappyEyeballsDialer
         callable $completion,
         ?DialOptions $options = null,
     ): int {
-        if ($port < 1 || $port > 65_535 || $addresses === []) {
-            throw new InvalidArgumentException('A nonempty address list and valid TCP port are required.');
+        if ($port < 1 || $port > 65_535 || $addresses === [] || count($addresses) > 16) {
+            throw new InvalidArgumentException('An address list of 1–16 entries and a valid TCP port are required.');
         }
         foreach ($addresses as $address) {
             if (filter_var($address, FILTER_VALIDATE_IP) === false) {

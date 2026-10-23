@@ -91,6 +91,9 @@ final readonly class AsyncDnsResolver
                 throw new RuntimeException('DNS executor returned an invalid address.');
             }
             $addresses[$address] = $address;
+            if (count($addresses) >= 16) {
+                break;
+            }
         }
         if ($addresses === []) {
             throw new RuntimeException('DNS returned no A or AAAA addresses.');

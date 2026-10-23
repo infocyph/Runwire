@@ -28,6 +28,8 @@ final class HappyEyeballsAttempt
     /** @var array<int, true> */
     private array $children = [];
 
+    private const int MAX_CANDIDATES = 16;
+
     private bool $completed = false;
 
     private ?int $dnsJob = null;
@@ -39,6 +41,8 @@ final class HappyEyeballsAttempt
     private int $nextCandidate = 0;
 
     private int $port = 0;
+
+    private ?int $overallDeadlineNs = null;
 
     private float $remaining = 0;
 
@@ -75,6 +79,7 @@ final class HappyEyeballsAttempt
     {
         $this->port = $port;
         $this->begin();
+
         if ($this->completed) {
             return;
         }
@@ -84,9 +89,11 @@ final class HappyEyeballsAttempt
                 $hostname,
                 function (array $addresses, ?Throwable $error): void {
                     $this->dnsJob = null;
+
                     if ($this->completed) {
                         return;
                     }
+
                     if ($error !== null) {
                         $this->finish(null, $error);
 
@@ -111,6 +118,7 @@ final class HappyEyeballsAttempt
     {
         $this->port = $port;
         $this->begin();
+
         if (!$this->completed) {
             $this->setCandidates($addresses);
         }
@@ -121,6 +129,7 @@ final class HappyEyeballsAttempt
         if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
             return sprintf('tcp://[%s]:%d', $address, $port);
         }
+
         if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
             return sprintf('tcp://%s:%d', $address, $port);
         }
@@ -136,7 +145,8 @@ final class HappyEyeballsAttempt
     {
         $families = [4 => [], 6 => []];
         $first = null;
-        foreach (array_unique($addresses) as $address) {
+
+        foreach (array_slice(array_unique($addresses), 0, self::MAX_CANDIDATES) as $address) {
             $family = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false ? 6 : 4;
             $first ??= $family;
             $families[$family][] = self::addressUri($address, $port);
@@ -144,6 +154,7 @@ final class HappyEyeballsAttempt
 
         $ordered = [];
         $other = $first === 6 ? 4 : 6;
+
         while ($families[$first ?? 4] !== [] || $families[$other] !== []) {
             foreach ([$first ?? 4, $other] as $family) {
                 if ($families[$family] !== []) {
@@ -158,23 +169,28 @@ final class HappyEyeballsAttempt
     private function begin(): void
     {
         $this->remaining = $this->options->connectTimeoutSeconds;
+
         foreach ([$this->options->deadline, $this->options->cancellation?->deadline()] as $deadline) {
             $limit = $deadline?->remainingSeconds();
+
             if ($limit !== null) {
                 $this->remaining = min($this->remaining, $limit);
             }
         }
 
+        $this->overallDeadlineNs = hrtime(true) + (int) ($this->remaining * 1_000_000_000);
         $this->timeoutTimer = $this->loop->delay(max(0, $this->remaining), function (): void {
             $this->finish(null, new RuntimeException('Overall hostname connection deadline exceeded.'));
         });
         $token = $this->options->cancellation;
+
         if ($token === null) {
             return;
         }
         $subscription = $token->onCancel(function (): void {
             $this->cancel();
         });
+
         if ($this->completed) {
             $subscription->unsubscribe();
         } else {
@@ -189,6 +205,7 @@ final class HappyEyeballsAttempt
         }
         $this->completed = true;
         ($this->onSettled)();
+
         foreach ([$this->launchTimer, $this->timeoutTimer] as $timer) {
             if ($timer !== null) {
                 $this->loop->cancel($timer);
@@ -197,10 +214,12 @@ final class HappyEyeballsAttempt
         $this->launchTimer = $this->timeoutTimer = null;
         $this->subscription?->unsubscribe();
         $this->subscription = null;
+
         if ($this->dnsJob !== null) {
             $this->resolver->cancel($this->dnsJob);
             $this->dnsJob = null;
         }
+
         foreach (array_keys($this->children) as $child) {
             $this->dialer->cancel($child);
         }
@@ -213,8 +232,10 @@ final class HappyEyeballsAttempt
         if ($this->completed) {
             return;
         }
+
         while ($this->nextCandidate < count($this->candidates) && count($this->children) < 2) {
             $uri = $this->candidates[$this->nextCandidate++];
+
             try {
                 $childId = 0;
                 $childId = $this->dialer->connect(
@@ -223,7 +244,10 @@ final class HappyEyeballsAttempt
                         $this->onCandidate($childId, $connection, $error);
                     },
                     new DialOptions(
-                        connectTimeoutSeconds: max(0.001, $this->remaining),
+                        connectTimeoutSeconds: max(
+                            0.001,
+                            ($this->overallDeadlineNs - hrtime(true)) / 1_000_000_000,
+                        ),
                         connectionLimits: $this->options->connectionLimits,
                         tcpNoDelay: $this->options->tcpNoDelay,
                     ),
@@ -240,17 +264,20 @@ final class HappyEyeballsAttempt
     private function onCandidate(int $childId, ?Connection $connection, ?Throwable $error): void
     {
         unset($this->children[$childId]);
+
         if ($this->completed) {
             $connection?->abort();
 
             return;
         }
+
         if ($connection !== null) {
             $this->finish($connection, null);
 
             return;
         }
         $this->lastError = $error;
+
         if ($this->launchTimer !== null) {
             $this->loop->cancel($this->launchTimer);
             $this->launchTimer = null;
@@ -263,6 +290,7 @@ final class HappyEyeballsAttempt
         if ($this->completed) {
             return;
         }
+
         if ($this->nextCandidate >= count($this->candidates)) {
             if ($this->children === []) {
                 $this->finish(null, $this->lastError ?? new RuntimeException('Every dial candidate failed.'));
@@ -270,6 +298,7 @@ final class HappyEyeballsAttempt
 
             return;
         }
+
         if ($this->launchTimer === null && count($this->children) < 2) {
             $this->launchTimer = $this->loop->delay($this->staggerSeconds, function (): void {
                 $this->launchTimer = null;
@@ -282,6 +311,7 @@ final class HappyEyeballsAttempt
     private function setCandidates(array $addresses): void
     {
         $this->candidates = self::orderAddresses($addresses, $this->port);
+
         if ($this->candidates === []) {
             $this->finish(null, new RuntimeException('No resolved addresses to dial.'));
 
