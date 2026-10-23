@@ -43,8 +43,8 @@ final readonly class TlsClientOptions
      */
     public function context(): array
     {
-        if (!extension_loaded('openssl')) {
-            throw new RuntimeException('Client TLS requires ext-openssl; no plaintext downgrade is allowed.');
+        if (!extension_loaded('openssl') || !function_exists('stream_socket_enable_crypto')) {
+            throw new RuntimeException('Client TLS requires ext-openssl and available crypto primitives; no plaintext downgrade is allowed.');
         }
 
         $options = [

@@ -66,6 +66,7 @@ function runwireClientTlsAttempt(
             alpnProtocols: $serverAlpn ?? ['h2', 'http/1.1'],
             handshakeTimeoutSeconds: 1.0,
             cryptoMethod: $serverCryptoMethod,
+            extraContext: $serverExtraContext ?? [],
         ),
     );
     $accepted = false;
@@ -95,7 +96,7 @@ function runwireClientTlsAttempt(
         if ($error !== null || $accepted) {
             $loop->stop();
         }
-    }, new DialOptions(tls: new TlsClientOptions($peer, caFile: $caFile)));
+    }, new DialOptions(tls: $clientOptions ?? new TlsClientOptions($peer, caFile: $caFile)));
     $loop->run();
     $loop->cancel($timeout);
     $connection?->abort();
@@ -214,4 +215,63 @@ it('times out a silent TCP peer during client TLS negotiation and releases every
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+
+it('accepts a trusted mutual TLS client identity using the server trust configuration', function (): void {
+    $identity = runwireClientTlsIdentity();
+    try {
+        $serverContext = [
+            'verify_peer' => true,
+            'verify_peer_name' => false,
+            'allow_self_signed' => false,
+            'cafile' => $identity[1],
+            'verify_depth' => 8,
+        ];
+        [$connection, $error, $accepted] = runwireClientTlsAttempt(
+            $identity,
+            'localhost',
+            $identity[1],
+            null,
+            null,
+            $serverContext,
+            new TlsClientOptions(
+                'localhost',
+                caFile: $identity[1],
+                clientCertificate: $identity[1],
+                clientPrivateKey: $identity[2],
+            ),
+        );
+        expect($error)->toBeNull()
+            ->and($connection)->toBeInstanceOf(Connection::class)
+            ->and($connection->isEncrypted())->toBeTrue()
+            ->and($accepted)->toBeTrue();
+        $connection->abort();
+    } finally {
+        runwireRemoveClientTlsIdentity($identity);
+    }
+});
+
+it('fails a mutual TLS handshake when the server requires an absent client identity', function (): void {
+    $identity = runwireClientTlsIdentity();
+    try {
+        [$connection, $error] = runwireClientTlsAttempt(
+            $identity,
+            'localhost',
+            $identity[1],
+            null,
+            null,
+            [
+                'verify_peer' => true,
+                'verify_peer_name' => false,
+                'allow_self_signed' => false,
+                'cafile' => $identity[1],
+                'verify_depth' => 8,
+            ],
+        );
+        expect($connection)->toBeNull()
+            ->and($error)->toBeInstanceOf(Throwable::class);
+    } finally {
+        runwireRemoveClientTlsIdentity($identity);
+    }
 });

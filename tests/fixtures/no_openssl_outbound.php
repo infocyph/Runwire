@@ -8,7 +8,7 @@ use Infocyph\Runwire\Network\TlsClientOptions;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-if (extension_loaded('openssl')) {
+if (extension_loaded('openssl') && function_exists('stream_socket_enable_crypto')) {
     throw new RuntimeException('TLS-unavailable fixture must run with OpenSSL disabled.');
 }
 try {

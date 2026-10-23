@@ -100,7 +100,7 @@ jobs:
 
       - name: Verify ext-openssl unavailable fails closed while plaintext remains usable
         shell: bash
-        run: php -n tests/fixtures/no_openssl_outbound.php
+        run: php -d disable_functions=stream_socket_enable_crypto tests/fixtures/no_openssl_outbound.php
 
       - name: Run portable-native TLS unavailable acceptance
         shell: bash
