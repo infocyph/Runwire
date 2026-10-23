@@ -20,8 +20,7 @@ final readonly class DialEndpoint
         public ?int $port,
         public ?string $path,
         public bool $isIpLiteral,
-    ) {
-    }
+    ) {}
 
     /** Parse an outbound endpoint without resolving hostname addresses. */
     public static function parse(string $uri): self
