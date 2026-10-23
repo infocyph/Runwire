@@ -20,7 +20,9 @@ import time
 from aioquic.asyncio.client import connect
 from aioquic.h3.connection import H3_ALPN
 from aioquic.quic.configuration import QuicConfiguration
-from h2_adaptive_matrix import H2Bench
+from h2.config import H2Configuration
+from h2.connection import H2Connection
+from h2.events import ConnectionTerminated, DataReceived, ResponseReceived, StreamEnded, StreamReset
 from http3_adaptive_matrix import H3BenchClient
 
 
@@ -76,15 +78,81 @@ async def request_http1(port):
         await writer.wait_closed()
 
 
-def request_http2(port, server_pid):
-    client = H2Bench(port, server_pid, 16384)
-    try:
-        result = client.run_phase(2, 1.0)
-        if not result["correctness_passed"] or result["errors"]:
-            raise RuntimeError(f"H2 native request correctness failed: {result!r}")
-        return result["requests"]
-    finally:
-        client.close()
+async def request_http2(port, _server_pid):
+    # Two actual independent H2 requests are admitted together. Do not keep
+    # opening new streams on a retiring connection after server GOAWAY.
+    expected = {1: b"x" * 1024, 3: b"x" * 16384}
+    tls = ssl.create_default_context()
+    tls.check_hostname = False
+    tls.verify_mode = ssl.CERT_NONE
+    tls.set_alpn_protocols(["h2"])
+    for attempt in range(3):
+        headers_seen = set()
+        completed = set()
+        response_bodies = {stream: bytearray() for stream in expected}
+        writer = None
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection("127.0.0.1", port, ssl=tls,
+                                        server_hostname="localhost"), timeout=3
+            )
+            if writer.get_extra_info("ssl_object").selected_alpn_protocol() != "h2":
+                raise RuntimeError("Native TLS worker did not negotiate h2 ALPN")
+            h2 = H2Connection(H2Configuration(client_side=True, header_encoding="utf-8"))
+            h2.initiate_connection()
+            for stream, body in expected.items():
+                h2.send_headers(stream, [
+                    (":method", "GET"),
+                    (":scheme", "https"),
+                    (":authority", "localhost"),
+                    (":path", f"/benchmark/{len(body)}"),
+                ], end_stream=True)
+            writer.write(h2.data_to_send())
+            await writer.drain()
+            while len(completed) < len(expected):
+                data = await asyncio.wait_for(reader.read(65535), 4)
+                if not data:
+                    raise ConnectionError("H2 transport retired before response completion")
+                for event in h2.receive_data(data):
+                    if isinstance(event, ResponseReceived):
+                        if event.stream_id not in expected or int(dict(event.headers).get(":status", "0")) != 200:
+                            raise RuntimeError("H2 status/header corruption during native recycle")
+                        headers_seen.add(event.stream_id)
+                    elif isinstance(event, DataReceived):
+                        if event.stream_id not in expected:
+                            raise RuntimeError("Unexpected H2 response stream")
+                        response_bodies[event.stream_id].extend(event.data)
+                        if len(response_bodies[event.stream_id]) > len(expected[event.stream_id]):
+                            raise RuntimeError("H2 body exceeded advertised length")
+                        h2.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
+                    elif isinstance(event, StreamEnded):
+                        if event.stream_id not in headers_seen or response_bodies[event.stream_id] != expected[event.stream_id]:
+                            raise RuntimeError("H2 accepted response lost or corrupted on native reload")
+                        completed.add(event.stream_id)
+                    elif isinstance(event, StreamReset):
+                        raise ConnectionError(f"H2 request reset during native reload: {event.stream_id}")
+                    elif isinstance(event, ConnectionTerminated) and len(completed) < len(expected):
+                        raise ConnectionError("Native H2 connection closed before all responses completed")
+                outgoing = h2.data_to_send()
+                if outgoing:
+                    writer.write(outgoing)
+                    await writer.drain()
+            return len(completed)
+        except (ConnectionError, OSError, ssl.SSLError):
+            # A supervisor may retire a TLS session before any response is
+            # admitted. Reconnect idempotent GETs, but NEVER retry partially
+            # received bodies: that would hide lost accepted requests.
+            if headers_seen or attempt >= 2:
+                raise
+            await asyncio.sleep(0.05)
+        finally:
+            if writer is not None:
+                writer.close()
+                try:
+                    await asyncio.wait_for(writer.wait_closed(), 2)
+                except (OSError, ssl.SSLError, asyncio.TimeoutError):
+                    pass
+    raise RuntimeError("H2 replacement never became ready")
 
 
 async def request_http3(port):
@@ -122,7 +190,7 @@ async def complete_wave(tls_port, tcp_port, udp_port, server_pid):
     results = await asyncio.wait_for(
         asyncio.gather(
             request_http1(tls_port),
-            asyncio.to_thread(request_http2, tls_port, server_pid),
+            request_http2(tls_port, server_pid),
             request_http3(tls_port),
             request_tcp(tcp_port),
             asyncio.to_thread(request_udp, udp_port),
