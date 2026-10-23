@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 47/175 complete; 128 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 48/175 complete; 127 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -26,7 +26,7 @@
 | U01 | Event-loop, watchers and asynchronous executor | 9/9 | 0 | DONE | U00 |
 | U02 | Unified established connection and transport ownership | 9/9 | 0 | DONE | U01 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 10/10 | 0 | Complete | U01,U02 |
-| U04 | Unified TLS security and client/server handshakes | 6/8 | 2 | In progress | U02,U03 |
+| U04 | Unified TLS security and client/server handshakes | 7/8 | 1 | In progress | U02,U03 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 3/10 | 7 | In progress | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0/8 | 8 | Not started | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 0/11 | 11 | Not started | U03,U04,U05,U06 |
@@ -40,9 +40,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **47/175** | **128** | **U00–U03 complete; U04 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **48/175** | **127** | **U00–U03 complete; U04 in progress** | U00-U17 |
 
-**Progress counter:** 47/175 (26.9% complete), 128 open.
+**Progress counter:** 48/175 (27.4% complete), 127 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -121,11 +121,11 @@
 - [x] **U04.03** Share correct TLS state machinery between inbound and outbound. **Acceptance:** Existing server ALPN tests preserved. **Proof:** `Internal/TlsHandshakeReadiness.php` owns deadline, readable and optional writable watches for both `TlsHandshake` inbound and `ClientTlsHandshake` outbound. Exact-once `close()` frees all watches and timers on success, failure and cancellation; `tests/TlsHandshakeReadinessTest.php` covers cancellation and server deadline, and the real server/client TLS ALPN tests remain green. [Source 4663567](https://github.com/infocyph/Runwire/commit/4663567331ea2ec2af693d81fc63c72887dc8b36); [full PHP 8.4/8.5 stable/lowest PHPForge and both analyzers #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462) PASS.
 - [x] **U04.04** Implement SNI, ALPN, trust roots and hostname/SAN checks. **Acceptance:** Wrong/untrusted peer rejected. **Proof:** Outbound TLS options supply explicit peer_name/SNI_server_name, native OpenSSL verify_peer and verify_peer_name (including hostname/SAN when supplied by the peer), ALPN and optional CA file/path; peer checking cannot be disabled in this policy. Real `TlsClientDialerTest.php` verifies an explicitly trusted peer succeeds, wrong host and untrusted self-signed peer are rejected, and h2 ALPN negotiates for TLS 1.2 and 1.3. [Source 84feb5a](https://github.com/infocyph/Runwire/commit/84feb5ae46b2cee7ced3c2d0882717e414850391); [PHPForge #39982999768](https://github.com/infocyph/Runwire/actions/runs/39982999768) PASS. Dedicated SAN-only fixture coverage belongs to the later expanded security/fuzzing gates.
 - [x] **U04.05** Support mutual TLS identities with bounded chain validation. **Acceptance:** Positive and negative mTLS tests. **Proof:** `TlsClientOptions` exposes optional outbound client certificate/private-key/passphrase without disabling trust/hostname verification; `TlsOptions` on the server enforces trusted CA configuration and verifies a presented client peer certificate. Real loopback positive (trusted client identity) and negative (missing client identity), policy rejections and server trust-depth tests are in `tests/TlsClientDialerTest.php`, `tests/TlsClientOptionsTest.php`, `tests/TlsListenerTest.php`. [Source bc837b8](https://github.com/infocyph/Runwire/commit/bc837b88aaf10a5e32e84da7e62c269da0954a73); [PHP 8.4/8.5 stable/lowest QA and both analyzers #39989750473](https://github.com/infocyph/Runwire/actions/runs/39989750473) PASS.
-- [ ] **U04.06** Implement handshake timeout, cancel, close-notify and truncation handling. **Acceptance:** Zero orphan TLS watchers or insecure downgrade. **Proof:** PENDING.
+- [x] **U04.06** Implement handshake timeout, cancel, close-notify and truncation handling. **Acceptance:** Zero orphan TLS watchers or insecure downgrade. **Proof:** `Connection` now rejects raw encrypted TCP half-close (which cannot send TLS close_notify) and classifies outbound TLS EOF without an exposed authenticated notify state as `TLS_UNVERIFIED_EOF`, never a normal application EOF. Existing graceful `fclose` shutdown uses OpenSSL shutdown; `tests/TlsUnverifiedEofTest.php` verifies retained delivered bytes, no false EOF callback, terminal error and zero orphan watchers, while real TLS timeout/mTLS and no-downgrade paths remain green. [Source c25fd06](https://github.com/infocyph/Runwire/commit/c25fd0681e98fd95962f061d37bf7fa09577b4ab); [four PHPForge QA and two analyzers #39995711371](https://github.com/infocyph/Runwire/actions/runs/39995711371) and all eight source workflows PASS. **Limitation:** PHP streams do not reveal trustworthy peer close_notify state: a legitimate TLS peer EOF may be conservatively rejected. See `docs/plans/evidence/runwire-3.0/u04-tls-eof-policy.rst`. Full interoperability/replay robustness remains U14/U17.
 - [x] **U04.07** Maintain optional OpenSSL and explicit TLS unavailable failure. **Acceptance:** Plain TCP still usable without ext-openssl. **Proof:** Plain `Connection` and TCP sockets remain available without an OpenSSL extension, while client `TlsClientOptions::context()` throws an explicit unavailable error, never downgrades and is covered by `tests/fixtures/no_openssl_outbound.php` under `php -n` in the `Portable Native` workflow. [Source b0edf1d](https://github.com/infocyph/Runwire/commit/b0edf1d334ba98f3bf97a288bc3a35fdde3f3cf7); [PHP 8.4/8.5 portable-native #39989750415](https://github.com/infocyph/Runwire/actions/runs/39989750415) PASS, [four PHPForge QA and two analyzers #39989750473](https://github.com/infocyph/Runwire/actions/runs/39989750473) PASS.
 - [ ] **U04.08** Profile TLS latency and steady-state RPS/RSS versus 2.1.2. **Acceptance:** Matched result within strict performance limits. **Proof:** PENDING.
 
-**Batch tracker:** 6/8 accepted; 2 open. Secure outbound verification policy, nonblocking client TLS 1.2/1.3 and SNI/ALPN/native chain+hostname checking verified by real loopback tests and [all four PHPForge QA lanes and both analyzers #39982999768](https://github.com/infocyph/Runwire/actions/runs/39982999768). **Remaining:** U04.06 TLS close-notify/truncation semantics and U04.08 matched TLS performance certification. U04.03 shared nonblocking TLS readiness/deadline owner passed [all six task-specific QA/analyzer lanes #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462). Positive/negative server-client mTLS and no-OpenSSL failure are accepted by [four QA lanes and both analyzers #39989750473](https://github.com/infocyph/Runwire/actions/runs/39989750473). **Exit:** all evidence linked, full required QA green, no unresolved critical regression.
+**Batch tracker:** 7/8 accepted; 1 open. Secure outbound verification policy, nonblocking client TLS 1.2/1.3 and SNI/ALPN/native chain+hostname checking verified by real loopback tests and [all four PHPForge QA lanes and both analyzers #39982999768](https://github.com/infocyph/Runwire/actions/runs/39982999768). **Remaining:** U04.08 matched TLS performance certification only; U04.06 fail-closed unverified TLS EOF and encrypted close semantics accepted by [QA #39995711371](https://github.com/infocyph/Runwire/actions/runs/39995711371), with the documented PHP peer-close-notify observability limitation. U04.03 shared nonblocking TLS readiness/deadline owner passed [all six task-specific QA/analyzer lanes #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462). Positive/negative server-client mTLS and no-OpenSSL failure are accepted by [four QA lanes and both analyzers #39989750473](https://github.com/infocyph/Runwire/actions/runs/39989750473). **Exit:** all evidence linked, full required QA green, no unresolved critical regression.
 
 ### U05 — UDP, outbound QUIC and unified datagram transport
 
@@ -363,7 +363,7 @@ The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e
 | R5.02 | U03.01 | OPEN; retest against 3.0 |
 | R5.03 | U02.06 + U06.03 | OPEN; retest against 3.0 |
 | R5.04 | U02.04 | OPEN; retest against 3.0 |
-| R5.05 | U04.02 + U04.06 | OPEN; retest against 3.0 |
+| R5.05 | U04.02 + U04.06 | ACCEPTED; both tasks passed QA #39995711371 |
 | R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
 | R5.07 | U03.09 + U13.03 | OPEN; retest against 3.0 |
 | R5.08 | U03.10 + U15.06 | OPEN; retest against 3.0 |

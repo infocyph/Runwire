@@ -48,10 +48,24 @@ printf '%s\n' "$affinity_json" > "$output_dir/cpu-affinity.json"
 server_cpu="$(jq -r '.server_cpu' "$output_dir/cpu-affinity.json")"
 client_cpu="$(jq -r '.client_cpu' "$output_dir/cpu-affinity.json")"
 
+tls_dir=""
+if [ "${RUNWIRE_BENCH_TLS:-0}" = "1" ]; then
+  command -v openssl >/dev/null 2>&1 || { echo "OpenSSL CLI required for TLS certification." >&2; exit 1; }
+  tls_dir="$(mktemp -d)"
+  chmod 700 "$tls_dir"
+  openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+    -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost' \
+    -keyout "$tls_dir/server.key" -out "$tls_dir/ca.pem" >/dev/null 2>&1
+  export RUNWIRE_BENCH_TLS_CA="$tls_dir/ca.pem"
+fi
+
 baseline_pid=""
 candidate_pid=""
 
 cleanup() {
+  if [ -n "$tls_dir" ]; then
+    rm -rf "$tls_dir"
+  fi
   for pid in "$baseline_pid" "$candidate_pid"; do
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
       kill -TERM "$pid" 2>/dev/null || true
@@ -117,7 +131,13 @@ start_server() {
   local log="$3"
   (
     cd "$root"
-    exec taskset -c "$server_cpu" php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port"
+    if [ "${RUNWIRE_BENCH_TLS:-0}" = "1" ]; then
+      exec taskset -c "$server_cpu" php -d opcache.enable_cli=1 \
+        "$candidate_dir/benchmarks/http1_tls_server.php" "$root" "$port" \
+        "$tls_dir/ca.pem" "$tls_dir/server.key"
+    else
+      exec taskset -c "$server_cpu" php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port"
+    fi
   ) >"$log" 2>&1 &
   LAST_PID=$!
 }
@@ -131,6 +151,8 @@ run_evidence() {
   local duration="$6"
   local result="$7"
 
+  RUNWIRE_BENCH_TLS="${RUNWIRE_BENCH_TLS:-0}" \
+  RUNWIRE_BENCH_TLS_CA="${RUNWIRE_BENCH_TLS_CA:-}" \
   RUNWIRE_RUNTIME_VERSION="$label" \
   RUNWIRE_RUNTIME_BUILD="$build" \
   RUNWIRE_PHP_VERSION="$php_version" \
@@ -160,7 +182,7 @@ wait_ready "$candidate_port" "$candidate_pid" "$output_dir/candidate-server.log"
 
 # One explicit 30-second warm-up per server before the five measured trials.
 run_evidence "2.1.2-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 30 0.1 "$output_dir/baseline-warmup.json"
-run_evidence "2.2-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 0.1 "$output_dir/candidate-warmup.json"
+run_evidence "3.0-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 0.1 "$output_dir/candidate-warmup.json"
 
 baseline_trials=()
 candidate_trials=()
@@ -170,9 +192,9 @@ for trial in 1 2 3 4 5; do
 
   if [ $((trial % 2)) -eq 1 ]; then
     run_evidence "2.1.2-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 0 180 "$baseline_result"
-    run_evidence "2.2-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
+    run_evidence "3.0-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
   else
-    run_evidence "2.2-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
+    run_evidence "3.0-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
     run_evidence "2.1.2-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 0 180 "$baseline_result"
   fi
 

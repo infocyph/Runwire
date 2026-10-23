@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 6/8; U05 3/10**. **47/175 accepted tasks, 128 open across 18 batches** (26.9%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 3/10**. **48/175 accepted tasks, 127 open across 18 batches** (27.4%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -42,7 +42,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R5.02 | U03.01 | OPEN, fresh 3.0 QA required |
 | R5.03 | U02.06 + U06.03 | OPEN, fresh 3.0 QA required |
 | R5.04 | U02.04 | OPEN, fresh 3.0 QA required |
-| R5.05 | U04.02 + U04.06 | OPEN, fresh 3.0 QA required |
+| R5.05 | U04.02 + U04.06 | ACCEPTED; QA #39995711371 |
 | R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
 | R5.07 | U03.09 + U13.03 | OPEN, fresh 3.0 QA required |
 | R5.08 | U03.10 + U15.06 | OPEN, fresh 3.0 QA required |
@@ -61,7 +61,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U01 | Event-loop, watchers and asynchronous executor | 0 | 9/9 |
 | U02 | Unified established connection and transport ownership | 0 | 9/9 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 0 | 10/10 |
-| U04 | Unified TLS security and client/server handshakes | 2 | 6/8 |
+| U04 | Unified TLS security and client/server handshakes | 1 | 7/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 7 | 3/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 11 | 0/11 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 16 | 0/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **128** | **47/175 (26.9%)** |
+| **TOTAL** | **Full unified-runtime release program** | **127** | **48/175 (27.4%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -140,3 +140,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **U04 5/8 accepted:** dedicated client/server mutual TLS verification with positive and missing-identity rejection, plus portable explicit no-OpenSSL fail-closed semantics; [four PHPForge QA and two analyzers #39989750473](https://github.com/infocyph/Runwire/actions/runs/39989750473) and [portable native #39989750415](https://github.com/infocyph/Runwire/actions/runs/39989750415) PASS. U04.03 shared state, U04.06 TLS close/truncation semantics and U04.08 matched TLS performance remain open. **U05 initial outbound UDP client code has been added for later QA; U05 acceptance remains 0/10 until dependencies and evidence are met.**
 
 **U04 6/8, U05 3/10 accepted at [#39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462):** `TlsHandshakeReadiness` now provides a shared inbound/outbound TLS timer/read-write watcher owner, preserving real ALPN and mTLS tests; client UDP delegates to the *same existing datagram engine* and passes real IPv4/IPv6, connected/unconnected, timeout, empty/oversize and truncation tests. [Source 20e7f42](https://github.com/infocyph/Runwire/commit/20e7f42ffa95e63b02e93c84bcea0f43dfc81af3). **Outstanding:** U04.06 close-notify/truncation, U04.08 baseline TLS benchmarks, U05.04–U05.10 real QUIC protocol/security/performance; no 3.0 release claims.
+
+**U04.06 accepted, U04 now 7/8:** outgoing verified TLS closes with an explicit fail-closed `TLS_UNVERIFIED_EOF` rather than trusting peer EOF, and encrypted TCP half-close is prohibited. Real TLS timeout/mTLS and synthetic EOF exact-once watcher-cleanup tests passed [all PHPForge and analyzer lanes #39995711371](https://github.com/infocyph/Runwire/actions/runs/39995711371). PHP cannot directly expose authenticated close_notify: clean peer EOF may be rejected, as documented in `evidence/runwire-3.0/u04-tls-eof-policy.rst`. New **opt-in** matched TLS certification tooling requires full 2.1.2-versus-3.0 measurements before U04.08 acceptance; U04.08 remains OPEN. `QuicClientOptions` rejects unsupported ext-quic datagrams/migration/0-RTT and is preparatory until client transport QA; U05 remains 3/10 accepted.

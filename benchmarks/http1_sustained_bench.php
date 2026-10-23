@@ -171,7 +171,28 @@ function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
     $error = '';
-    $socket = stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
+    $tls = getenv('RUNWIRE_BENCH_TLS') === '1';
+    $caFile = getenv('RUNWIRE_BENCH_TLS_CA');
+    if ($tls && (!is_string($caFile) || $caFile === '' || !is_file($caFile))) {
+        throw new RuntimeException('TLS certification requires an existing trusted CA file.');
+    }
+    $context = $tls ? stream_context_create(['ssl' => [
+        'verify_peer' => true,
+        'verify_peer_name' => true,
+        'peer_name' => 'localhost',
+        'SNI_enabled' => true,
+        'allow_self_signed' => false,
+        'cafile' => $caFile,
+        'crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+    ]]) : stream_context_create();
+    $socket = stream_socket_client(
+        sprintf('%s://%s:%d', $tls ? 'tls' : 'tcp', $host, $port),
+        $errno,
+        $error,
+        2.0,
+        STREAM_CLIENT_CONNECT,
+        $context,
+    );
     if (!is_resource($socket)) {
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
@@ -627,7 +648,7 @@ function http1SustainedMain(array $argv): array
         'host_cpu' => http1SustainedCpuModel(),
         'php_version' => getenv('RUNWIRE_PHP_VERSION') ?: PHP_VERSION,
         'instrumentation' => getenv('RUNWIRE_INSTRUMENTATION') ?: 'ci-smoke',
-        'tls' => 'off',
+        'tls' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'on-verified' : 'off',
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
         'connection_reuse' => 'keep-alive',
         'extension_versions' => http1SustainedExtensionVersions(),
