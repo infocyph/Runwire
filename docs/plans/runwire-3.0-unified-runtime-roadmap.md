@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9)**. **19/175 accepted tasks, 156 open across 18 batches** (10.9%). No 3.0 unified transport is yet implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9)**. **20/175 accepted tasks, 155 open across 18 batches** (11.4%). The shared accepted/verified stream factory now exists, but complete 3.0 transport and outbound dialer are not implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -59,7 +59,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | --- | --- | ---: | --- |
 | U00 | Baseline, architecture and 2.1-to-3.0 migration | 0 | 10/10 |
 | U01 | Event-loop, watchers and asynchronous executor | 0 | 9/9 |
-| U02 | Unified established connection and transport ownership | 9 | 0/9 |
+| U02 | Unified established connection and transport ownership | 8 | 1/9 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 10 | 0/10 |
 | U04 | Unified TLS security and client/server handshakes | 8 | 0/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 10 | 0/10 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 16 | 0/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **156** | **19/175 (10.9%)** |
+| **TOTAL** | **Full unified-runtime release program** | **155** | **20/175 (11.4%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -118,3 +118,5 @@ The seven regular standard 2.2 workflows passed on source 8b125bab00b89af669234b
 Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes were removed from the working tree; preserve their immutable Git history and historical QA artifacts under [evidence/runwire-2.2](evidence/runwire-2.2/README.md). Never erase failing CI evidence. This branch and PR stay in place, **draft/unmerged**. No tag, release or publish. The canonical task tracker reaches **READY FOR MAINTAINER RELEASE** only after every 3.0 task, security, QA, documentation and exact-source certification gate is verified.
 
 **U01 completion (2026-10-23):** 9/9 accepted; [source commit a5a900b](https://github.com/infocyph/Runwire/commit/a5a900b701ef67035218402249ec66a689e4d520), [full U01 evidence](evidence/runwire-3.0/u01-executor-qa-closeout.rst), [PHPForge QA/analysis #39913487501](https://github.com/infocyph/Runwire/actions/runs/39913487501) all four PHP8.4/8.5 stable/lowest suites and both analyzers PASS, [core benchmark jobs #39913487092](https://github.com/infocyph/Runwire/actions/runs/39913487092) PHP8.4/8.5 PASS with CPU, memory, p99 and real subprocess fairness. U02 is next. Extended H3 and adaptive H2 workflow conclusions require separate review before declaring *all* standard CI green.
+
+**U02.01 verified starting implementation:** One `Network\\Connection` instance is produced for accepted TCP/Unix or verified dialed streams through `ConnectionFactory`; illegal/double handoff rejected, real socket regression tested. [Source](https://github.com/infocyph/Runwire/commit/8ab16398e6de6ff211cc5b03d9dbbcf3ab8f8b43), [PHPForge QA/analysis](https://github.com/infocyph/Runwire/actions/runs/39914604756) and [PHP8.4/8.5 core benchmarks](https://github.com/infocyph/Runwire/actions/runs/39914604214) passed relevant jobs. U02.02–U02.09 remain mandatory; do not infer whole-workflow PASS while extended jobs run.
