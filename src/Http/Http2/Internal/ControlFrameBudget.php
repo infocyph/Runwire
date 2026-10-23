@@ -30,25 +30,6 @@ final class ControlFrameBudget
     }
 
     /**
-     * Credit inbound WINDOW_UPDATE work only after actually accepting outbound
-     * DATA. A high-rate legitimate peer can replenish flow windows without
-     * weakening the independent SETTINGS/PING/RST_STREAM flood ceiling.
-     */
-    public function creditOutboundData(int $bytes): void
-    {
-        if ($bytes <= 0) {
-            return;
-        }
-
-        $this->resetWindowIfNeeded();
-        $limit = min($this->maxPerSecond, 100_000) * 8;
-        $this->earnedWindowUpdates = min(
-            $limit,
-            $this->earnedWindowUpdates + intdiv($bytes + 8_191, 8_192),
-        );
-    }
-
-    /**
      * Consume budget for a recognized control frame.
      */
     public function consume(?FrameType $type): void
@@ -73,6 +54,25 @@ final class ControlFrameBudget
         }
 
         throw new ConnectionError(ErrorCode::ENHANCE_YOUR_CALM, 'HTTP/2 control-frame work budget exceeded.');
+    }
+
+    /**
+     * Credit inbound WINDOW_UPDATE work only after actually accepting outbound
+     * DATA. A high-rate legitimate peer can replenish flow windows without
+     * weakening the independent SETTINGS/PING/RST_STREAM flood ceiling.
+     */
+    public function creditOutboundData(int $bytes): void
+    {
+        if ($bytes <= 0) {
+            return;
+        }
+
+        $this->resetWindowIfNeeded();
+        $limit = min($this->maxPerSecond, 100_000) * 8;
+        $this->earnedWindowUpdates = min(
+            $limit,
+            $this->earnedWindowUpdates + intdiv($bytes + 8_191, 8_192),
+        );
     }
 
     private function resetWindowIfNeeded(): void
