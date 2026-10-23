@@ -642,7 +642,7 @@ function http1SustainedMain(array $argv): array
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
         'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'protocol' => 'http/1.1',
-        'workload' => 'plaintext-keepalive',
+        'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'verified-tls-keepalive' : 'plaintext-keepalive',
         'hardware_id' => php_uname('m') . '::' . http1SustainedCpuModel(),
         'host_os' => php_uname('a'),
         'host_cpu' => http1SustainedCpuModel(),

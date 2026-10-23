@@ -61,12 +61,16 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
     $evidence = file_get_contents($root . '/docs/plans/evidence/runwire-2.2/closure-critical-path.md');
     expect($evidence)->toBeString()->toContain('Original 95 task IDs: 75 checked complete');
 
-    preg_match_all('/^\| (R[0-9]\.[0-9]{2}) \| ([^|]+) \| (OPEN, fresh 3\.0 QA required|ACCEPTED in 3\.0 (U[0-9]{2}\.[0-9]{2}); QA #[0-9]+) \|/m', $roadmap, $mappings, PREG_SET_ORDER);
+    preg_match_all('/^\| (R[0-9]\.[0-9]{2}) \| ([^|]+) \| (OPEN, fresh 3\.0 QA required|ACCEPTED in 3\.0 (U[0-9]{2}\.[0-9]{2}); QA #[0-9]+|ACCEPTED; both tasks passed QA #[0-9]+) \|/m', $roadmap, $mappings, PREG_SET_ORDER);
     expect($mappings)->toHaveCount(20);
     $mappedIds = [];
     foreach ($mappings as $row) {
         if (($row[4] ?? '') !== '') {
             expect($plan)->toContain('- [x] **' . $row[4] . '**');
+        }
+        if (str_starts_with($row[3], 'ACCEPTED; both tasks')) {
+            expect($plan)->toContain('- [x] **U04.02**')
+                ->and($plan)->toContain('- [x] **U04.06**');
         }
         $mappedIds[] = $row[1];
         foreach (explode(' + ', trim($row[2])) as $target) {

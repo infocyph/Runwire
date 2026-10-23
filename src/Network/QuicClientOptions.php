@@ -40,6 +40,20 @@ final readonly class QuicClientOptions
         }
     }
 
+    /** Refuse unsupported native QUIC features instead of silently ignoring them. */
+    public function assertNativeCapabilities(): void
+    {
+        if ($this->allowEarlyData) {
+            throw new RuntimeUnavailableException('Native QUIC 0-RTT is unsupported and must not dispatch early application data.');
+        }
+        if ($this->allowMigration) {
+            throw new RuntimeUnavailableException('Native QUIC connection migration is unsupported; rebinding is rejected.');
+        }
+        if ($this->requireDatagrams) {
+            throw new RuntimeUnavailableException('Native QUIC RFC9221 unreliable datagrams are unsupported.');
+        }
+    }
+
     /**
      * Return a verified TLS 1.3 client policy for the ext-quic backend.
      *
@@ -66,20 +80,6 @@ final readonly class QuicClientOptions
         }
 
         return $options;
-    }
-
-    /** Refuse unsupported native QUIC features instead of silently ignoring them. */
-    public function assertNativeCapabilities(): void
-    {
-        if ($this->allowEarlyData) {
-            throw new RuntimeUnavailableException('Native QUIC 0-RTT is unsupported and must not dispatch early application data.');
-        }
-        if ($this->allowMigration) {
-            throw new RuntimeUnavailableException('Native QUIC connection migration is unsupported; rebinding is rejected.');
-        }
-        if ($this->requireDatagrams) {
-            throw new RuntimeUnavailableException('Native QUIC RFC9221 unreliable datagrams are unsupported.');
-        }
     }
 
     /**
