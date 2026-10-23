@@ -107,6 +107,7 @@ for case_json in "${cases[@]}"; do
 
   result="$output_dir/$id.json"
   export RUNWIRE_ADAPTIVE_CASE="$case_json"
+  export RUNWIRE_ADAPTIVE_TRIAL=1
   export RUNWIRE_ADAPTIVE_BUILD="${RUNWIRE_RUNTIME_BUILD:-${GITHUB_SHA:-unrecorded}}"
   export RUNWIRE_ADAPTIVE_ENVIRONMENT="real-protocol-pressure:$(uname -sr):$(php -r 'echo PHP_VERSION;')"
   if [ "$protocol" = h2 ]; then
