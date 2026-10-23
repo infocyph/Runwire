@@ -49,7 +49,7 @@ final class Dialer
     /** Cancel one pending dial without invoking its completion twice. */
     public function cancel(int $id): bool
     {
-        if (!isset($this->pending[$id])) {
+        if (!array_key_exists($id, $this->pending)) {
             return false;
         }
         $this->finish($id, null, new CancelledException(CancellationReason::HOST_CANCELLED));
@@ -98,6 +98,7 @@ final class Dialer
         $state->transition(DialAttemptPhase::CONNECTING);
         if ($this->nextId === PHP_INT_MAX) {
             fclose($stream);
+
             throw new OverflowException('Dial identifiers exhausted.');
         }
 
@@ -112,6 +113,7 @@ final class Dialer
             'timer' => null,
             'subscription' => null,
         ];
+
         try {
             $this->pending[$id]['watcher'] = $this->loop->onWritable($stream, function () use ($id): void {
                 $this->ready($id);
@@ -120,6 +122,7 @@ final class Dialer
             $this->attachCancellation($id, $options);
         } catch (Throwable $error) {
             $this->release($id);
+
             throw $error;
         }
 
@@ -135,13 +138,13 @@ final class Dialer
     private function attachCancellation(int $id, DialOptions $options): void
     {
         $token = $options->cancellation;
-        if ($token === null || !isset($this->pending[$id])) {
+        if ($token === null || !array_key_exists($id, $this->pending)) {
             return;
         }
         $subscription = $token->onCancel(function () use ($id): void {
             $this->cancel($id);
         });
-        if (isset($this->pending[$id])) {
+        if (array_key_exists($id, $this->pending)) {
             $this->pending[$id]['subscription'] = $subscription;
         } else {
             $subscription->unsubscribe();
@@ -201,6 +204,7 @@ final class Dialer
         $errorCode = 0;
         $error = '';
         set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+
         try {
             $stream = stream_socket_client(
                 $endpoint->uri,
@@ -217,6 +221,7 @@ final class Dialer
         }
         if (!stream_set_blocking($stream, false)) {
             fclose($stream);
+
             throw new RuntimeException('Cannot make outgoing socket nonblocking.');
         }
 
@@ -229,6 +234,7 @@ final class Dialer
         if ($job === null) {
             return;
         }
+
         try {
             $this->checkConnected($job['stream']);
             $job['state']->transition(DialAttemptPhase::READY);
