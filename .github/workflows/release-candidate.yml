@@ -53,6 +53,29 @@ jobs:
           taskset -c "$(jq -r '.server_cpu' build/release-cpu-affinity.json)" true
           taskset -c "$(jq -r '.client_cpu' build/release-cpu-affinity.json)" true
 
+      - name: Capture reproducible 2.1.2 benchmark runner topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 benchmarks/release_topology_inventory.py > build/release-topology-inventory.json
+          jq -e '.schema == "runwire-comparator-topology-v1"
+            and .published_baseline == "7e9bf20ad0737a187dfed77b723791b141b36378"
+            and .candidate_source == env.GITHUB_SHA
+            and .experiment.paired_trials == 5
+            and .experiment.trial_seconds == 180
+            and .experiment.warmup_seconds == 30
+            and .experiment.soak_seconds == 1800
+            and .isolation.client_separate_physical_core == true
+            and (.runner.allowed_logical_cores | length >= 2)' build/release-topology-inventory.json >/dev/null
+
+      - name: Upload benchmark topology inventory
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-benchmark-topology-php-${{ matrix.php-version }}
+          path: build/release-topology-inventory.json
+          retention-days: 90
+
       - name: Build Composer archive
         shell: bash
         run: |
