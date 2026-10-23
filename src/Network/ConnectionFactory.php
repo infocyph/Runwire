@@ -36,6 +36,7 @@ final class ConnectionFactory
         ?ByteBudget $bufferBudget = null,
         bool $tcpTransport = false,
         ?bool $tcpNoDelayOverride = null,
+        bool $strictTlsPeerEof = false,
     ): Connection {
         TcpSocketTuner::applyExplicitNoDelay($stream, $tcpTransport, $tcpNoDelayOverride);
         $metadata = EstablishedStreamMetadata::capture(
@@ -58,6 +59,7 @@ final class ConnectionFactory
             $tcpTransport,
             $tcpNoDelayOverride,
             $metadata['fingerprint'],
+            $strictTlsPeerEof,
         );
     }
 
@@ -78,6 +80,7 @@ final class ConnectionFactory
         ?ByteBudget $bufferBudget = null,
         bool $tcpTransport = false,
         ?bool $tcpNoDelayOverride = null,
+        bool $strictTlsPeerEof = false,
     ): Connection {
         if (!$attempt->readyForHandoff()) {
             throw new LogicException('Only a verified, ready dial attempt can transfer socket ownership.');
@@ -95,6 +98,7 @@ final class ConnectionFactory
                 $bufferBudget,
                 $tcpTransport,
                 $tcpNoDelayOverride,
+                $strictTlsPeerEof,
             );
         } catch (Throwable $error) {
             $attempt->transition(DialAttemptPhase::FAILED);

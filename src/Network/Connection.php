@@ -93,6 +93,7 @@ final class Connection
         private readonly bool $tcpTransport = false,
         private readonly ?bool $tcpNoDelayOverride = null,
         private readonly ?string $tlsPeerFingerprint = null,
+        private readonly bool $strictTlsPeerEof = false,
     ) {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('Connection requires a live stream resource.');
@@ -549,7 +550,12 @@ final class Connection
             $this->invoke($this->dataCallback);
         }
         if ($sawEof && $this->state !== ConnectionState::CLOSED) {
-            $this->markPeerEof();
+            if ($this->encrypted && $this->strictTlsPeerEof) {
+                // The PHP stream API cannot authenticate close_notify on bare EOF.
+                $this->finalize(CloseReason::TLS_UNVERIFIED_EOF);
+            } else {
+                $this->markPeerEof();
+            }
         }
     }
 

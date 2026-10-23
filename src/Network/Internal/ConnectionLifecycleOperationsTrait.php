@@ -35,6 +35,9 @@ trait ConnectionLifecycleOperationsTrait
         if ($this->state !== ConnectionState::OPEN) {
             throw new \LogicException('Only open connections can half-close the local write direction.');
         }
+        if ($this->encrypted) {
+            throw new LogicException('Raw TCP half-close cannot represent an authenticated TLS close_notify.');
+        }
         if (!$this->sendBuffer->isEmpty()) {
             throw new \LogicException('Pending writes must drain before half-closing the local write direction.');
         }

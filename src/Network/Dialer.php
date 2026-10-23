@@ -222,6 +222,7 @@ final class Dialer
                 encrypted: $job['options']->tls !== null,
                 tcpTransport: $job['tcp'],
                 tcpNoDelayOverride: $job['options']->tcpNoDelay,
+                strictTlsPeerEof: $job['options']->tls !== null,
             );
         } catch (Throwable $error) {
             $this->finish($id, null, $error);
