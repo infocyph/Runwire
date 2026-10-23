@@ -78,6 +78,7 @@ final readonly class TlsClientOptions
 
         return STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
     }
+
     private static function validateIdentity(string $peerName, ?string $caFile, ?string $caPath): void
     {
         if ($peerName === '' || strlen($peerName) > 253

@@ -93,6 +93,7 @@ final class ClientTlsHandshake
 
             return false;
         });
+
         try {
             $result = stream_socket_enable_crypto($stream, true, $this->policy->method());
         } catch (Throwable $error) {
@@ -124,6 +125,7 @@ final class ClientTlsHandshake
         if ($this->finished || !is_resource($stream)) {
             return;
         }
+
         try {
             $options = $this->policy->context();
             foreach ($options as $key => $value) {

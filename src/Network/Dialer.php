@@ -204,6 +204,33 @@ final class Dialer
         ($job['callback'])($connection, null);
     }
 
+    private function handoff(int $id, ?string $protocol): void
+    {
+        $job = $this->pending[$id] ?? null;
+        if ($job === null) {
+            return;
+        }
+
+        try {
+            $job['state']->transition(DialAttemptPhase::READY);
+            $connection = ConnectionFactory::dialed(
+                $job['state'],
+                $this->loop,
+                $job['stream'],
+                limits: $job['options']->connectionLimits ?? new ConnectionLimits(),
+                negotiatedProtocol: $protocol,
+                encrypted: $job['options']->tls !== null,
+                tcpTransport: $job['tcp'],
+                tcpNoDelayOverride: $job['options']->tcpNoDelay,
+            );
+        } catch (Throwable $error) {
+            $this->finish($id, null, $error);
+
+            return;
+        }
+        $this->finish($id, $connection, null);
+    }
+
     /** @return resource */
     private function open(DialEndpoint $endpoint): mixed
     {
@@ -244,10 +271,11 @@ final class Dialer
         try {
             $this->checkConnected($job['stream']);
             if ($job['options']->tls !== null) {
-                $this->loop->cancel($job['watcher']);
-                $this->pending[$id]['watcher'] = null;
+                if ($job['watcher'] !== null) {
+                    $this->loop->cancel($job['watcher']);
+                }
                 $job['state']->transition(DialAttemptPhase::HANDSHAKING);
-                $this->pending[$id]['tls'] = ClientTlsHandshake::start(
+                $tls = ClientTlsHandshake::start(
                     $this->loop,
                     $job['stream'],
                     $job['options']->tls,
@@ -258,41 +286,17 @@ final class Dialer
                         $this->finish($id, null, $error);
                     },
                 );
+                $this->pending[$id] = [...$job, 'watcher' => null, 'tls' => $tls];
 
                 return;
             }
+
             $this->handoff($id, null);
         } catch (Throwable $error) {
             $this->finish($id, null, $error);
 
             return;
         }
-    }
-
-    private function handoff(int $id, ?string $protocol): void
-    {
-        $job = $this->pending[$id] ?? null;
-        if ($job === null) {
-            return;
-        }
-        try {
-            $job['state']->transition(DialAttemptPhase::READY);
-            $connection = ConnectionFactory::dialed(
-                $job['state'],
-                $this->loop,
-                $job['stream'],
-                limits: $job['options']->connectionLimits ?? new ConnectionLimits(),
-                negotiatedProtocol: $protocol,
-                encrypted: $job['options']->tls !== null,
-                tcpTransport: $job['tcp'],
-                tcpNoDelayOverride: $job['options']->tcpNoDelay,
-            );
-        } catch (Throwable $error) {
-            $this->finish($id, null, $error);
-
-            return;
-        }
-        $this->finish($id, $connection, null);
     }
 
     private function release(int $id, bool $handedOff = false, bool $cancelled = false): void
@@ -310,7 +314,11 @@ final class Dialer
         $job['subscription']?->unsubscribe();
         $job['tls']?->cancel();
         if (!$handedOff) {
-            if ($job['state']->phase() === DialAttemptPhase::CONNECTING) {
+            if (in_array($job['state']->phase(), [
+                DialAttemptPhase::CONNECTING,
+                DialAttemptPhase::HANDSHAKING,
+                DialAttemptPhase::READY,
+            ], true)) {
                 $job['state']->transition($cancelled ? DialAttemptPhase::CANCELLED : DialAttemptPhase::FAILED);
             }
             if (is_resource($job['stream'])) {

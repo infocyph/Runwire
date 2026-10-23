@@ -77,6 +77,7 @@ function runwireClientTlsAttempt(array $identity, string $peer, ?string $caFile)
     }, new DialOptions(tls: new TlsClientOptions($peer, caFile: $caFile)));
     $loop->run();
     $loop->cancel($timeout);
+    $connection?->abort();
     $listener->close();
     $dialer->close();
     expect($dialer->pendingCount())->toBe(0)
