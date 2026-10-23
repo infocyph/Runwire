@@ -18,6 +18,9 @@ it('runs blocking worker jobs outside the event loop and returns correct values'
     $executor->submit('sleep', ['milliseconds' => 100], function ($value, $error) use (&$seen): void {
         expect($error)->toBeNull();
         $seen[] = $value;
+        if (count($seen) === 2) {
+            $executor->close();
+        }
     });
     $executor->submit('sleep', ['milliseconds' => 100], function ($value, $error) use (&$seen, $executor): void {
         expect($error)->toBeNull();
@@ -25,9 +28,6 @@ it('runs blocking worker jobs outside the event loop and returns correct values'
         if (count($seen) === 2) {
             $executor->close();
         }
-    });
-    $loop->delay(1.0, function () use ($executor): void {
-        $executor->close();
     });
     $loop->run();
     expect($seen)->toBe([100, 100])
