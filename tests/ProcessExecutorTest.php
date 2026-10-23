@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\CancellationSource;
+use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestDeadline;
@@ -15,7 +17,7 @@ it('runs blocking worker jobs outside the event loop and returns correct values'
     $loop->delay(0.015, function () use (&$ticks): void {
         ++$ticks;
     });
-    $executor->submit('sleep', ['milliseconds' => 100], function ($value, $error) use (&$seen): void {
+    $executor->submit('sleep', ['milliseconds' => 100], function ($value, $error) use (&$seen, $executor): void {
         expect($error)->toBeNull();
         $seen[] = $value;
         if (count($seen) === 2) {
@@ -128,4 +130,50 @@ it('bounds deferred callbacks while maintaining timer and socket progress', func
     expect($events)->toHaveCount(1026)
         ->and(array_search('read', $events, true))->toBeLessThan(1025)
         ->and(array_search('timer', $events, true))->toBeLessThan(1025);
+});
+
+it('terminates failed subprocesses and delivers exactly one failure for every queued job', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1, '/bin/false');
+    $results = [];
+    for ($i = 0; $i < 2; ++$i) {
+        $executor->submit('stat', ['path' => '/tmp'], function ($value, $error) use (&$results): void {
+            $results[] = $error;
+            expect($value)->toBeNull();
+        });
+    }
+    $executor->onDrained(function () use ($executor): void {
+        $executor->close();
+    });
+    $loop->run();
+    expect($results)->toHaveCount(2)
+        ->and($results[0])->toBeInstanceOf(RuntimeException::class)
+        ->and($results[1])->toBeInstanceOf(RuntimeException::class)
+        ->and($executor->diagnostics()['workers'])->toBe(0)
+        ->and($executor->diagnostics()['failed'])->toBe(2);
+});
+
+it('unsubscribes a cancelled job and does not call its completion twice', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $source = new CancellationSource();
+    $seen = [];
+    $id = $executor->submit(
+        'sleep',
+        ['milliseconds' => 300],
+        function ($value, $error) use (&$seen): void {
+            $seen[] = $error;
+            expect($value)->toBeNull();
+        },
+        token: $source->token(),
+    );
+    expect($source->token()->subscriptionCount())->toBe(1);
+    expect($source->cancel(CancellationReason::HOST_CANCELLED))->toBeTrue();
+    expect($executor->cancel($id))->toBeFalse();
+    $executor->close();
+    $loop->run();
+    expect($seen)->toHaveCount(1)
+        ->and($seen[0])->toBeInstanceOf(CancelledException::class)
+        ->and($source->token()->subscriptionCount())->toBe(0);
+    $source->dispose();
 });
