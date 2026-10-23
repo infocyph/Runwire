@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** U00 IN PROGRESS. **7/175 newly accepted tasks, 168 open across 18 batches** (4.0%). No 3.0 unified transport is yet implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10)**. **10/175 accepted tasks, 165 open across 18 batches** (5.7%). No 3.0 unified transport is yet implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -57,7 +57,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 | Batch | Division | Open acceptance tasks | Progress |
 | --- | --- | ---: | --- |
-| U00 | Baseline, architecture and 2.1-to-3.0 migration | 3 | 7/10 |
+| U00 | Baseline, architecture and 2.1-to-3.0 migration | 0 | 10/10 |
 | U01 | Event-loop, watchers and asynchronous executor | 9 | 0/9 |
 | U02 | Unified established connection and transport ownership | 9 | 0/9 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 10 | 0/10 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 16 | 0/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **168** | **7/175 (4.0%)** |
+| **TOTAL** | **Full unified-runtime release program** | **165** | **10/175 (5.7%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -111,7 +111,7 @@ The seven regular standard 2.2 workflows passed on source 8b125bab00b89af669234b
 - U00.06/.07 accepted as **design specifications**, not implemented API: [breaking migration](evidence/runwire-3.0/u00-public-api-migration-draft.md), [transport error/ownership/deadline contract](evidence/runwire-3.0/u00-resource-state-contract.md).
 - U00.08/.10 accepted: [exact current native/host capability inventory](evidence/runwire-3.0/u00-architecture-baseline.md) with [real-host QA](https://github.com/infocyph/Runwire/actions/runs/39904006975) and maintainer-authorized release scope/branch in draft PR #9.
 - Relevant PHPForge QA: **all four PHP8.4/8.5 stable/lowest QA jobs and both PHPStan/Psalm analysis jobs succeeded** in [Security & Standards #39904007423](https://github.com/infocyph/Runwire/actions/runs/39904007423). That statement covers the finished PHPForge jobs, not the whole workflow while long HTTP/3 jobs run.
-- **U00 remains 7/10**, three items open: executable connection-transition testing (U00.04), verified shared factory ownership (U00.05), and current reproducible benchmark runner/core/generator headroom inventory (U00.09). 3.0 remains NOT READY.
+- **U00 COMPLETE 10/10:** [RST pending-dial and factory decision](evidence/runwire-3.0/u00-dial-attempt-decision.rst) plus executable 64-pair transitions, [two PHP runner hardware/affinity inventory artifacts](https://github.com/infocyph/Runwire/actions/runs/39907036881), and PHP8.4/8.5 QA. This accepts **design and baseline**, not a factory/dialer implementation; U02/U03/U15 remain open. U01 is next. **3.0 remains NOT READY.**
 
 ## Governance
 

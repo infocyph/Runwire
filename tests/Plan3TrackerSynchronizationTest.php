@@ -44,6 +44,11 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
         '**Progress counter:** ' . $done . '/' . $total . ' (' . $pct . '% complete), ' . $open . ' open.',
     );
 
+    expect($roadmap)->toContain(
+        '**' . $done . '/175 accepted tasks, ' . $open . ' open across 18 batches**',
+        '| **TOTAL** | **Full unified-runtime release program** | **' . $open . '** | **' . $done . '/175',
+    );
+
     // The deleted 2.2 plan remains immutable at commit 7afd11e.
     // Pin all 20 unfinished IDs to reject incomplete 3.0 carry-forward.
     $unfinished = [
