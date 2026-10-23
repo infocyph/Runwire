@@ -52,7 +52,38 @@ $parallelRequests = static function (int $port, int $count) use ($check): array 
             $status = substr($response, 0, $boundary);
             $check(preg_match('/^HTTP\/\S+ 200\b/', $status) === 1, 'Concurrent worker probe returned a non-200 status.');
             $body = substr($response, $boundary + 4);
-            $decoded = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+            if (preg_match('/(?:^|\r\n)transfer-encoding:\s*chunked(?:\r\n|$)/i', $status) === 1) {
+                $cursor = 0;
+                $decodedChunks = [];
+                while (true) {
+                    $lineEnd = strpos($body, "\r\n", $cursor);
+                    $check($lineEnd !== false, 'Truncated chunked worker response header.');
+                    $sizeLine = explode(';', substr($body, $cursor, $lineEnd - $cursor), 2)[0];
+                    $check($sizeLine !== '' && ctype_xdigit($sizeLine), 'Invalid chunk size from worker.');
+                    $size = hexdec($sizeLine);
+                    $cursor = $lineEnd + 2;
+                    if ($size === 0) {
+                        break;
+                    }
+                    $check(
+                        $cursor + $size + 2 <= strlen($body)
+                            && substr($body, $cursor + $size, 2) === "\r\n",
+                        'Truncated chunked worker response payload.',
+                    );
+                    $decodedChunks[] = substr($body, $cursor, $size);
+                    $cursor += $size + 2;
+                }
+                $body = implode('', $decodedChunks);
+            }
+            try {
+                $decoded = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+            } catch (JsonException $error) {
+                throw new RuntimeException(
+                    'Invalid multiworker response JSON (headers=' . bin2hex(substr($status, 0, 192))
+                    . ', body=' . bin2hex(substr($body, 0, 192)) . ').',
+                    previous: $error,
+                );
+            }
             $check(is_array($decoded), 'Concurrent worker probe returned invalid JSON.');
             $results[] = $decoded;
         }
