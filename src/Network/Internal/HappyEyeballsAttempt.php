@@ -22,13 +22,13 @@ use Throwable;
  */
 final class HappyEyeballsAttempt
 {
+    private const int MAX_CANDIDATES = 16;
+
     /** @var list<string> */
     private array $candidates = [];
 
     /** @var array<int, true> */
     private array $children = [];
-
-    private const int MAX_CANDIDATES = 16;
 
     private bool $completed = false;
 
@@ -40,9 +40,9 @@ final class HappyEyeballsAttempt
 
     private int $nextCandidate = 0;
 
-    private int $port = 0;
-
     private ?int $overallDeadlineNs = null;
+
+    private int $port = 0;
 
     private float $remaining = 0;
 
