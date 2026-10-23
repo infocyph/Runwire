@@ -31,15 +31,30 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 if (!is_string($host) || strlen($host) > 253 || $host === '' || str_contains($host, "\0")) {
                     throw new InvalidArgumentException('Invalid DNS host.');
                 }
-                $records = dns_get_record($host, DNS_A | DNS_AAAA);
-                if ($records === false) {
-                    throw new RuntimeException('DNS resolution failed.');
+                set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+
+                try {
+                    $records = dns_get_record($host, DNS_A | DNS_AAAA);
+                    $fallback = $records === false || $records === []
+                        ? gethostbynamel($host)
+                        : false;
+                } finally {
+                    restore_error_handler();
                 }
                 $addresses = [];
-                foreach ($records as $record) {
-                    $address = $record['ip'] ?? $record['ipv6'] ?? null;
-                    if (is_string($address)) {
-                        $addresses[] = $address;
+                if (is_array($records)) {
+                    foreach ($records as $record) {
+                        $address = $record['ip'] ?? $record['ipv6'] ?? null;
+                        if (is_string($address) && filter_var($address, FILTER_VALIDATE_IP) !== false) {
+                            $addresses[] = $address;
+                        }
+                    }
+                }
+                if (is_array($fallback)) {
+                    foreach ($fallback as $address) {
+                        if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                            $addresses[] = $address;
+                        }
                     }
                 }
 
