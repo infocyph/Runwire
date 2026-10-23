@@ -11,7 +11,7 @@ const MAX_FILE_BYTES = 1_048_576;
 
 while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
     if (strlen($line) > MAX_MESSAGE_BYTES || !str_ends_with($line, "\n")) {
-        exit(2);
+        throw new RuntimeException('Executor received an oversized or unterminated request.');
     }
 
     try {
@@ -97,10 +97,10 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
 
     $encoded = json_encode($response, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     if (strlen($encoded) > MAX_MESSAGE_BYTES) {
-        exit(3);
+        throw new RuntimeException('Executor response exceeds IPC limit.');
     }
     if (fwrite(STDOUT, $encoded . "\n") === false) {
-        exit(4);
+        throw new RuntimeException('Executor output closed.');
     }
     fflush(STDOUT);
 }

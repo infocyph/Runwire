@@ -9,6 +9,7 @@ use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
+use Infocyph\Runwire\Executor\Internal\ExecutorIpcTrait;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
@@ -26,6 +27,8 @@ use Throwable;
  */
 final class ProcessExecutor
 {
+    use ExecutorIpcTrait;
+
     private const int MAX_PACKET_BYTES = 1_600_000;
 
     private const int IO_CHUNK_BYTES = 8192;
@@ -45,7 +48,7 @@ final class ProcessExecutor
     private bool $pumpScheduled = false;
 
     /** @var SplQueue<int> */
-    private SplQueue $pending;
+    private readonly SplQueue $pending;
 
     private int $submitted = 0;
 
@@ -62,6 +65,7 @@ final class ProcessExecutor
 
     private readonly string $phpBinary;
 
+    /** Create an executor with bounded workers and pending jobs. */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly int $maxWorkers = 2,
@@ -124,31 +128,15 @@ final class ProcessExecutor
         ++$this->submitted;
         $this->peakPending = max($this->peakPending, $this->queuedCount());
 
-        if ($token !== null) {
-            $subscription = $token->onCancel(function (CancellationToken $cancelled) use ($id): void {
-                $this->cancel($id, $cancelled->reason() ?? CancellationReason::HOST_CANCELLED);
-            });
-            if (isset($this->jobs[$id])) {
-                $this->jobs[$id]['subscription'] = $subscription;
-            } else {
-                $subscription->unsubscribe();
-            }
-        }
-
-        if ($deadline !== null && isset($this->jobs[$id])) {
-            $remaining = $deadline->remainingSeconds();
-            if ($remaining !== null) {
-                $this->jobs[$id]['timer'] = $this->loop->delay($remaining, function () use ($id): void {
-                    $this->expire($id);
-                });
-            }
-        }
+        $this->attachCancellation($id, $token);
+        $this->attachDeadline($id, $deadline);
 
         $this->schedulePump();
 
         return $id;
     }
 
+    /** Cancel queued or active work and complete the callback exactly once. */
     public function cancel(
         int $id,
         CancellationReason $reason = CancellationReason::HOST_CANCELLED,
@@ -215,9 +203,37 @@ final class ProcessExecutor
         ];
     }
 
+    private function attachCancellation(int $id, ?CancellationToken $token): void
+    {
+        if ($token === null) {
+            return;
+        }
+        $subscription = $token->onCancel(function (CancellationToken $cancelled) use ($id): void {
+            $this->cancel($id, $cancelled->reason() ?? CancellationReason::HOST_CANCELLED);
+        });
+        if (array_key_exists($id, $this->jobs)) {
+            $this->jobs[$id]['subscription'] = $subscription;
+        } else {
+            $subscription->unsubscribe();
+        }
+    }
+
+    private function attachDeadline(int $id, ?RequestDeadline $deadline): void
+    {
+        if ($deadline === null || !array_key_exists($id, $this->jobs)) {
+            return;
+        }
+        $remaining = $deadline->remainingSeconds();
+        if ($remaining !== null) {
+            $this->jobs[$id]['timer'] = $this->loop->delay($remaining, function () use ($id): void {
+                $this->expire($id);
+            });
+        }
+    }
+
     private function expire(int $id): void
     {
-        if (!isset($this->jobs[$id])) {
+        if (!array_key_exists($id, $this->jobs)) {
             return;
         }
         $error = new RuntimeException('Executor operation deadline exceeded.');
@@ -241,48 +257,57 @@ final class ProcessExecutor
         });
     }
 
+    private function availableWorker(): ?int
+    {
+        $available = array_find_key($this->workers, static fn(array $worker): bool => $worker['job'] === null);
+        if ($available !== null) {
+            return $available;
+        }
+        if (count($this->workers) >= $this->maxWorkers) {
+            return null;
+        }
+
+        return $this->startWorker();
+    }
+
     private function pump(): void
     {
         if ($this->closed) {
             return;
         }
         while (!$this->pending->isEmpty()) {
-            $available = null;
-            foreach ($this->workers as $id => $worker) {
-                if ($worker['job'] === null) {
-                    $available = $id;
-                    break;
+            try {
+                $available = $this->availableWorker();
+            } catch (Throwable $error) {
+                $jobId = $this->nextQueuedJob();
+                if ($jobId !== null) {
+                    $this->settle($jobId, null, $error);
                 }
+
+                return;
             }
             if ($available === null) {
-                if (count($this->workers) >= $this->maxWorkers) {
-                    return;
-                }
-                try {
-                    $available = $this->startWorker();
-                } catch (Throwable $error) {
-                    $jobId = $this->nextQueuedJob();
-                    if ($jobId !== null) {
-                        $this->settle($jobId, null, $error);
-                    }
-
-                    return;
-                }
+                return;
             }
             $jobId = $this->nextQueuedJob();
             if ($jobId === null) {
                 return;
             }
-            $this->jobs[$jobId]['worker'] = $available;
-            $this->workers[$available]['job'] = $jobId;
-            $this->workers[$available]['inputBuffer'] = $this->jobs[$jobId]['packet'];
-            $this->workers[$available]['outputBuffer'] = '';
-            $this->workers[$available]['writeWatcher'] = $this->loop->onWritable(
-                $this->workers[$available]['input'],
+
+            $job = $this->jobs[$jobId];
+            $job['worker'] = $available;
+            $this->jobs[$jobId] = $job;
+            $worker = $this->workers[$available];
+            $worker['job'] = $jobId;
+            $worker['inputBuffer'] = $job['packet'];
+            $worker['outputBuffer'] = '';
+            $worker['writeWatcher'] = $this->loop->onWritable(
+                $worker['input'],
                 function () use ($available): void {
                     $this->writeWorker($available);
                 },
             );
+            $this->workers[$available] = $worker;
         }
     }
 
@@ -290,7 +315,7 @@ final class ProcessExecutor
     {
         while (!$this->pending->isEmpty()) {
             $id = $this->pending->dequeue();
-            if (isset($this->jobs[$id]) && $this->jobs[$id]['worker'] === null) {
+            if (array_key_exists($id, $this->jobs) && $this->jobs[$id]['worker'] === null) {
                 return $id;
             }
         }
@@ -306,159 +331,6 @@ final class ProcessExecutor
         }
 
         return $queued;
-    }
-
-    private function startWorker(): int
-    {
-        $script = dirname(__DIR__, 2) . '/tools/executor-worker.php';
-        $pipes = [];
-        $nullDevice = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
-        $process = proc_open(
-            [$this->phpBinary, '-d', 'display_errors=stderr', $script],
-            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', $nullDevice, 'a']],
-            $pipes,
-            null,
-            null,
-            ['bypass_shell' => true],
-        );
-        if (!is_resource($process)) {
-            throw new RuntimeException('Unable to start executor subprocess.');
-        }
-        stream_set_blocking($pipes[0], false);
-        stream_set_blocking($pipes[1], false);
-
-        $id = $this->nextWorkerId++;
-        try {
-            $readWatcher = $this->loop->onReadable($pipes[1], function () use ($id): void {
-                $this->readWorker($id);
-            });
-        } catch (Throwable $error) {
-            fclose($pipes[0]);
-            fclose($pipes[1]);
-            proc_terminate($process, 9);
-            proc_close($process);
-
-            throw $error;
-        }
-        $this->workers[$id] = [
-            'process' => $process,
-            'input' => $pipes[0],
-            'output' => $pipes[1],
-            'readWatcher' => $readWatcher,
-            'writeWatcher' => null,
-            'inputBuffer' => '',
-            'outputBuffer' => '',
-            'job' => null,
-        ];
-
-        return $id;
-    }
-
-    private function writeWorker(int $id): void
-    {
-        if (!isset($this->workers[$id])) {
-            return;
-        }
-        $worker = &$this->workers[$id];
-        $sent = @fwrite($worker['input'], substr($worker['inputBuffer'], 0, self::IO_CHUNK_BYTES));
-        if ($sent === false || ($sent === 0 && feof($worker['input']))) {
-            unset($worker);
-            $this->retire($id, new RuntimeException('Executor subprocess input closed.'));
-
-            return;
-        }
-        $worker['inputBuffer'] = substr($worker['inputBuffer'], $sent);
-        if ($worker['inputBuffer'] === '' && $worker['writeWatcher'] !== null) {
-            $this->loop->cancel($worker['writeWatcher']);
-            $worker['writeWatcher'] = null;
-        }
-        unset($worker);
-    }
-
-    private function readWorker(int $id): void
-    {
-        if (!isset($this->workers[$id])) {
-            return;
-        }
-        $chunk = @fread($this->workers[$id]['output'], self::IO_CHUNK_BYTES);
-        if ($chunk === false || ($chunk === '' && feof($this->workers[$id]['output']))) {
-            $this->retire($id, new RuntimeException('Executor subprocess exited or closed its output.'));
-
-            return;
-        }
-        if ($chunk === '') {
-            return;
-        }
-        $this->workers[$id]['outputBuffer'] .= $chunk;
-        $buffer = $this->workers[$id]['outputBuffer'];
-        if (strlen($buffer) > self::MAX_PACKET_BYTES) {
-            $this->retire($id, new RuntimeException('Executor subprocess exceeded response limits.'));
-
-            return;
-        }
-        $newline = strpos($buffer, "\n");
-        if ($newline === false) {
-            return;
-        }
-        $jobId = $this->workers[$id]['job'];
-        if ($jobId === null || $newline !== strlen($buffer) - 1) {
-            $this->retire($id, new RuntimeException('Unexpected executor response frame.'));
-
-            return;
-        }
-
-        try {
-            $response = json_decode(substr($buffer, 0, $newline), true, 16, JSON_THROW_ON_ERROR);
-            if (!is_array($response) || ($response['id'] ?? null) !== $jobId || !is_bool($response['ok'] ?? null)) {
-                throw new RuntimeException('Executor returned an invalid response.');
-            }
-            if ($response['ok']) {
-                $value = $response['value'] ?? null;
-                if (($this->jobs[$jobId]['packet'] ?? '') !== ''
-                    && str_contains($this->jobs[$jobId]['packet'], '"op":"read"')) {
-                    $value = is_string($value) ? base64_decode($value, true) : false;
-                    if ($value === false) {
-                        throw new RuntimeException('Executor returned invalid file data.');
-                    }
-                }
-                $error = null;
-            } else {
-                $value = null;
-                $error = new RuntimeException((string) ($response['error'] ?? 'Executor operation failed.'));
-            }
-        } catch (Throwable $error) {
-            $this->retire($id, $error);
-
-            return;
-        }
-
-        $this->workers[$id]['outputBuffer'] = '';
-        $this->workers[$id]['job'] = null;
-        $this->settle($jobId, $value, $error);
-    }
-
-    private function retire(int $id, Throwable $reason): void
-    {
-        $worker = $this->workers[$id] ?? null;
-        if ($worker === null) {
-            return;
-        }
-        unset($this->workers[$id]);
-        $this->loop->cancel($worker['readWatcher']);
-        if ($worker['writeWatcher'] !== null) {
-            $this->loop->cancel($worker['writeWatcher']);
-        }
-        fclose($worker['input']);
-        fclose($worker['output']);
-        $status = proc_get_status($worker['process']);
-        if ($status['running']) {
-            proc_terminate($worker['process'], 9);
-        }
-        proc_close($worker['process']);
-        if ($worker['job'] !== null) {
-            $this->settle($worker['job'], null, $reason);
-        }
-        $this->schedulePump();
     }
 
     private function settle(int $id, mixed $value, ?Throwable $error): void

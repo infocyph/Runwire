@@ -420,11 +420,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return;
         }
 
-        $processed = 0;
-        foreach (array_keys($this->deferred) as $id) {
-            if ($processed++ >= self::MAX_DEFERRED_PER_TICK) {
-                break;
-            }
+        foreach (array_slice(array_keys($this->deferred), 0, self::MAX_DEFERRED_PER_TICK) as $id) {
             $callback = $this->takeDeferred($id);
             if ($callback === null) {
                 continue;
