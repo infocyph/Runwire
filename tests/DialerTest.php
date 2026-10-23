@@ -20,9 +20,10 @@ it('establishes a real numeric IPv4 TCP connection without blocking on stream ac
     $dialer = new Dialer($loop);
     $resolved = null;
     $failed = null;
-    $dialer->connect('tcp://' . $address, function ($connection, $error) use (&$resolved, &$failed): void {
+    $dialer->connect('tcp://' . $address, function ($connection, $error) use (&$resolved, &$failed, $loop): void {
         $resolved = $connection;
         $failed = $error;
+        $loop->stop();
     });
     $loop->run();
     expect($failed)->toBeNull()
@@ -51,9 +52,10 @@ it('connects a real Unix-domain socket and rejects synchronous DNS fallback', fu
         expect(fn() => $dialer->connect('tcp://example.com:80', static function (): void {}))
             ->toThrow(InvalidArgumentException::class);
         $resolved = null;
-        $dialer->connect(DialEndpoint::parse('unix://' . $path), function ($connection, $error) use (&$resolved): void {
+        $dialer->connect(DialEndpoint::parse('unix://' . $path), function ($connection, $error) use (&$resolved, $loop): void {
             expect($error)->toBeNull();
             $resolved = $connection;
+            $loop->stop();
         });
         $loop->run();
         expect($resolved)->toBeInstanceOf(Connection::class)
