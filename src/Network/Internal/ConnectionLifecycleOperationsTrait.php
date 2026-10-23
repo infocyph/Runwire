@@ -6,6 +6,8 @@ namespace Infocyph\Runwire\Network\Internal;
 
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
+use Infocyph\Runwire\Network\Enum\WriteState;
+use Infocyph\Runwire\Network\WriteResult;
 
 /** @internal State transition and resource cleanup mechanics for established streams. */
 trait ConnectionLifecycleOperationsTrait
@@ -32,6 +34,45 @@ trait ConnectionLifecycleOperationsTrait
         $this->state = ConnectionState::HALF_CLOSED;
     }
 
+    /**
+     * Write bytes immediately when possible or queue them within configured bounds.
+     */
+    public function write(string $data): WriteResult
+    {
+        if ($this->state !== ConnectionState::OPEN) {
+            return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
+        }
+        if ($data === '') {
+            return $this->writeResult();
+        }
+
+        $length = strlen($data);
+        if ($length > $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes()) {
+            ++$this->rejectedWrites;
+
+            return new WriteResult(WriteState::REJECTED_LIMIT, $this->sendBuffer->bytes());
+        }
+
+        if ($this->sendBuffer->isEmpty()) {
+            $result = $this->writeImmediately($data, $length);
+            if ($result !== null) {
+                return $result;
+            }
+        }
+
+        if (strlen($data) > $this->sendBuffer->budgetAvailable()) {
+            $this->finalize(CloseReason::WRITE_ERROR);
+
+            return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
+        }
+
+        $this->sendBuffer->append($data);
+        $this->syncWriteWatcher();
+        $this->updateWritePressure();
+
+        return $this->writeResult();
+    }
+
     private function beginDrain(CloseReason $reason): void
     {
         if ($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED) {
@@ -45,33 +86,6 @@ trait ConnectionLifecycleOperationsTrait
         if ($this->sendBuffer->isEmpty()) {
             $this->finalize($reason);
         }
-    }
-
-    private function finalize(CloseReason $reason): void
-    {
-        if ($this->state === ConnectionState::CLOSED) {
-            return;
-        }
-
-        $this->state = ConnectionState::CLOSED;
-        $this->closeReason = $reason;
-        $readWatcher = $this->readWatcher;
-        $writeWatcher = $this->writeWatcher;
-        $this->cancelWatcher($readWatcher);
-        $this->cancelWatcher($writeWatcher);
-        $this->readWatcher = $this->writeWatcher = null;
-        $this->timeouts->cancel();
-
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
-        $this->stream = null;
-        $this->receiveBuffer->clear();
-        $this->sendBuffer->clear();
-
-        $callbacks = $this->closeCallbacks;
-        $this->closeCallbacks = [];
-        ConnectionCallbackDispatcher::dispatch($callbacks, $this, $reason);
     }
 
     private function markPeerEof(): void

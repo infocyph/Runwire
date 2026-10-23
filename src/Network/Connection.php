@@ -13,8 +13,8 @@ use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
-use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\ConnectionLifecycleOperationsTrait;
+use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use InvalidArgumentException;
@@ -478,45 +478,6 @@ final class Connection
         return $this->tlsPeerFingerprint;
     }
 
-    /**
-     * Write bytes immediately when possible or queue them within configured bounds.
-     */
-    public function write(string $data): WriteResult
-    {
-        if ($this->state !== ConnectionState::OPEN) {
-            return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
-        }
-        if ($data === '') {
-            return $this->writeResult();
-        }
-
-        $length = strlen($data);
-        if ($length > $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes()) {
-            ++$this->rejectedWrites;
-
-            return new WriteResult(WriteState::REJECTED_LIMIT, $this->sendBuffer->bytes());
-        }
-
-        if ($this->sendBuffer->isEmpty()) {
-            $result = $this->writeImmediately($data, $length);
-            if ($result !== null) {
-                return $result;
-            }
-        }
-
-        if (strlen($data) > $this->sendBuffer->budgetAvailable()) {
-            $this->finalize(CloseReason::WRITE_ERROR);
-
-            return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
-        }
-
-        $this->sendBuffer->append($data);
-        $this->syncWriteWatcher();
-        $this->updateWritePressure();
-
-        return $this->writeResult();
-    }
-
     private static function nowNanoseconds(): int
     {
         $now = hrtime(true);
@@ -534,6 +495,33 @@ final class Connection
         if ($id !== null) {
             $this->loop->cancel($id);
         }
+    }
+
+    private function finalize(CloseReason $reason): void
+    {
+        if ($this->state === ConnectionState::CLOSED) {
+            return;
+        }
+
+        $this->state = ConnectionState::CLOSED;
+        $this->closeReason = $reason;
+        $readWatcher = $this->readWatcher;
+        $writeWatcher = $this->writeWatcher;
+        $this->cancelWatcher($readWatcher);
+        $this->cancelWatcher($writeWatcher);
+        $this->readWatcher = $this->writeWatcher = null;
+        $this->timeouts->cancel();
+
+        if (is_resource($this->stream)) {
+            fclose($this->stream);
+        }
+        $this->stream = null;
+        $this->receiveBuffer->clear();
+        $this->sendBuffer->clear();
+
+        $callbacks = $this->closeCallbacks;
+        $this->closeCallbacks = [];
+        ConnectionCallbackDispatcher::dispatch($callbacks, $this, $reason);
     }
 
     private function handleReadable(): void
