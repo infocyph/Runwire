@@ -9,6 +9,8 @@ use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
+use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicConnection;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicEventMasks;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Connection;
@@ -648,4 +650,58 @@ it('keeps accepted HTTP3 headers admissible through application draining', funct
         $handle->close();
         $context->close();
     }
+});
+
+it('does not replay QUIC FIN on a QPACK-blocked request before encoder instructions arrive', function (): void {
+    $encoder = new Encoder(220, 1, dynamicTableCapacity: 220);
+    $initialInstructions = $encoder->takeEncoderInstructions();
+    $block = $encoder->encode([
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', 'example.com'],
+        [':path', '/qpack-delayed'],
+        ['x-dynamic', 'delayed-insert'],
+    ], 0)->block;
+    $instructions = $initialInstructions . $encoder->takeEncoderInstructions();
+
+    $request = fakeHttp3ConnectionStream(0, true, [
+        (new Frame(FrameType::HEADERS->value, $block))->encode(),
+        null,
+    ]);
+    $raw = fakeHttp3ConnectionRaw([
+        fakeHttp3ConnectionStream(3, false),
+        fakeHttp3ConnectionStream(7, false),
+        fakeHttp3ConnectionStream(11, false),
+    ], [$request]);
+    $accepted = [];
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($raw),
+        static function (HttpRequest $incoming, ResponseWriterInterface $writer) use (&$accepted): void {
+            $accepted[] = $incoming->target;
+            $writer->end('ready');
+        },
+    );
+
+    $connection->pump();
+    expect($accepted)->toBe([])
+        ->and($connection->activeRequestStreams())->toBe(1)
+        ->and($connection->closed())->toBeFalse();
+
+    // A second readiness cycle must not deliver the same transport FIN.
+    $connection->pump();
+    expect($accepted)->toBe([])
+        ->and($connection->closed())->toBeFalse();
+
+    $peerEncoder = fakeHttp3ConnectionStream(2, false, [
+        VarIntCodec::encode(StreamType::QPACK_ENCODER->value) . $instructions,
+        '',
+    ]);
+    $raw->acceptedStreams[] = $peerEncoder;
+    $connection->pump();
+
+    expect($accepted)->toBe(['/qpack-delayed'])
+        ->and($request->written)->toContain('ready')
+        ->and($request->ended)->toBeTrue()
+        ->and($connection->closed())->toBeFalse()
+        ->and($connection->activeRequestStreams())->toBe(0);
 });
