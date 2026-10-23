@@ -1,5 +1,7 @@
 # Runwire 2.2 — R3 HTTP/1/WebSocket and R4 H2/H3 batch QA
 
+**Canonical ledger (2026-10-23, audited from 95 task IDs):** **74/95 checked**; seven unchecked R5.02–R5.08 explicitly deferred beyond 2.2; **74/88 active-scope done (84.1%), 14 in-scope remaining**. Completed batch totals: R0 9/11; R1 7/8; R2 9/9; R3 8/9; R4 6/10; R5 2/9 (7 deferred); R6 9/10; R7 10/10; R8 8/10; R9 6/9. **NOT READY FOR RELEASE:** H2/H3 sustained qualification, native multi-protocol rolling recycle, frozen-candidate certification, final QA/risk approval remain open.
+
 ## R3 functional batch: 8/9 complete, R3.09 promotion gate open
 
 **R3.01** Performance evidence: `benchmarks/http1_sustained_bench.php`, existing benchmark PHP 8.4/8.5 provenance, HTTP1 validation PHPBench subject, real keepalive and concurrency sweep from R0. These establish relative cost categories but not a candidate RPM win.

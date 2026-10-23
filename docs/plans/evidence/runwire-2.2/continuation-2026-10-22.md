@@ -1,4 +1,10 @@
-# Runwire 2.2 — 2026-10-22 continuation QA
+# Runwire 2.2 — 2026-10-22 continuation QA (historical checkpoint)
+
+> **Historical snapshot, superseded by the current status below:** older counts, incomplete H3 reset-storm tests, and the earlier R6.10 host gap were accurate at that checkpoint but are **not current**.
+>
+> **Canonical ledger (2026-10-23, audited from 95 task IDs):** **74/95 checked**; seven unchecked R5.02–R5.08 explicitly deferred beyond 2.2; **74/88 active-scope done (84.1%), 14 in-scope remaining**. Completed batch totals: R0 9/11; R1 7/8; R2 9/9; R3 8/9; R4 6/10; R5 2/9 (7 deferred); R6 9/10; R7 10/10; R8 8/10; R9 6/9. **NOT READY FOR RELEASE:** H2/H3 sustained qualification, native multi-protocol rolling recycle, frozen-candidate certification, final QA/risk approval remain open.
+>
+> **Latest verified full standard CI on source `94b6aa45` (2026-10-22):** all **seven** regular Runwire workflows completed **successfully**: [Security & Standards #39830027216](https://github.com/infocyph/Runwire/actions/runs/39830027216), [Benchmarks #39830026281](https://github.com/infocyph/Runwire/actions/runs/39830026281), [Portable Native #39830026366](https://github.com/infocyph/Runwire/actions/runs/39830026366), [Swoole/OpenSwoole #39830026132](https://github.com/infocyph/Runwire/actions/runs/39830026132), [Real Hosted Runtime Acceptance #39830026152](https://github.com/infocyph/Runwire/actions/runs/39830026152), [Release Candidate #39830026113](https://github.com/infocyph/Runwire/actions/runs/39830026113), [Source Audit #39830026175](https://github.com/infocyph/Runwire/actions/runs/39830026175). This covers the actual PHP 8.4/8.5 QUIC cancellation regression and all six real-host jobs. **The separate opt-in full Release Certification is not a current-head pass.** Documentation/tracker updates after this source require ordinary CI revalidation, not a claim that the older certified H1 soak ran on the new head.
 
 
 ### 2026-10-22 — Runwire-only continuation: live H2/host evidence; H3/R6 gates remain open

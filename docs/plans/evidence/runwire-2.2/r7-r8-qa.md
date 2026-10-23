@@ -1,6 +1,8 @@
 # Runwire 2.2 — R7 observability/security and R8 gate audit
 
-## R7 audit completed: 9/10 tasks
+**Canonical ledger (2026-10-23, audited from 95 task IDs):** **74/95 checked**; seven unchecked R5.02–R5.08 explicitly deferred beyond 2.2; **74/88 active-scope done (84.1%), 14 in-scope remaining**. Completed batch totals: R0 9/11; R1 7/8; R2 9/9; R3 8/9; R4 6/10; R5 2/9 (7 deferred); R6 9/10; R7 10/10; R8 8/10; R9 6/9. **NOT READY FOR RELEASE:** H2/H3 sustained qualification, native multi-protocol rolling recycle, frozen-candidate certification, final QA/risk approval remain open.
+
+## R7 audit completed: 10/10 tasks (R7.08 accepted for earlier H1 soak only)
 
 - **R7.01:** `RuntimeMetricsSnapshot`, `LoopDiagnosticsSnapshot`, `CoroutineDiagnosticsSnapshot` already carry bounded cardinality request, pressure, event-loop lag, callback-overrun, queue and cancellation counters. `MetricsDiagnosticsTest` verifies versioned serialization.
 - **R7.02:** Audited `WorkerDiagnosticsSampler` report interval and bounded metric shapes. No new per-request instrumentation required; adding costly dynamic labels is explicitly rejected (valid no-change decision).
@@ -11,7 +13,7 @@
 - **R7.07:** `BatchPRaceFaultTest`, `BatchISoakFaultTest`, `NativeWorkerLifecycleTest` include scheduler cancellation storms, failed callback/reset, accepted-but-incomplete admission, rolling recycle and child recovery.
 - **R7.10:** Runbook now maps exact runtime and coroutine metric names to symptoms and response procedure.
 
-**R7.08 OPEN:** prior actual 30-minute native HTTP soak passed 12,901,151 requests and zero errors, but final exact SHA does not yet have full queue/RSS leak and GC/OPcache soak analysis. **R7.09 OPEN:** security advisories and full dependency CVE provenance on the last candidate remain to be signed off.
+**R7.08 DONE:** [full 30-minute H1 source-specific certification #39462685239](https://github.com/infocyph/Runwire/actions/runs/39462685239) checked 34,861,940 correct requests with complete process-tree RSS/FD and worker PHP GC/OPcache drift/coverage; other transports and exact final candidate are R8.05 gates. **R7.09 DONE:** prior dependency and security advisory inventory passed; recheck fresh advisories at final R9.07 signoff.
 
 ## R8 audit completed: 8/10 tasks
 
