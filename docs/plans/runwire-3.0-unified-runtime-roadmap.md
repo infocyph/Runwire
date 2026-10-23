@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9)**. **31/175 accepted tasks, 144 open across 18 batches** (17.7%). The shared accepted/verified stream factory now exists, but complete 3.0 transport and outbound dialer are not implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9)**. **32/175 accepted tasks, 143 open across 18 batches** (18.3%). The shared accepted/verified stream factory now exists, but complete 3.0 transport and outbound dialer are not implemented. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -60,7 +60,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U00 | Baseline, architecture and 2.1-to-3.0 migration | 0 | 10/10 |
 | U01 | Event-loop, watchers and asynchronous executor | 0 | 9/9 |
 | U02 | Unified established connection and transport ownership | 0 | 9/9 |
-| U03 | Async DNS and outbound TCP/Unix dialer | 7 | 3/10 |
+| U03 | Async DNS and outbound TCP/Unix dialer | 6 | 4/10 |
 | U04 | Unified TLS security and client/server handshakes | 8 | 0/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 10 | 0/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 16 | 0/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **144** | **31/175 (17.7%)** |
+| **TOTAL** | **Full unified-runtime release program** | **143** | **32/175 (18.3%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -128,3 +128,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **U02 closeout:** 9/9 accepted at source [a356384](https://github.com/infocyph/Runwire/commit/a35638472361995396980e6aa1065326bed92ccd). [Four PHPForge QA lanes and two analyzers](https://github.com/infocyph/Runwire/actions/runs/39926291446) passed; new tests cover owner cancellation/deadlines, native TCP_NODELAY policy, 128 concurrent stream pairs and shutdown of a 24-connection TCP listener. Extended H3 and adaptive H2 workflow tails were still running when evidence was written; do not claim whole-workflow success before conclusion. **U03 in progress: 3/10 accepted for typed endpoints, numeric TCP and Unix dialing; DNS and Happy Eyeballs remain open.**
 
 **U03 first accepted slice:** typed `DialEndpoint` and `DialOptions`, nonblocking numeric TCP writable/SO_ERROR verification, and Unix-domain connects are tested against real peers with missing-socket and cancellation cleanup. [Source 50fe962](https://github.com/infocyph/Runwire/commit/50fe962257b2de6050b22a6f004dfb41faaf4e69), [four QA lanes and both analyzers #39929786108](https://github.com/infocyph/Runwire/actions/runs/39929786108) passed. IPv6 live loopback test is conditional on host IPv6 capability. DNS, address racing, full scope/worker integration and benchmark claims await U03.04–U03.10.
+
+**U03.04 accepted — bounded off-loop DNS:** `AsyncDnsResolver` uses Runwire's existing persistent PHP subprocess executor for A/AAAA, hosts-file IPv4 fallback, deduplicated/validated addresses and exact-once cancellation. `AsyncDnsResolverTest` proves a 3ms event-loop heartbeat continues while a 60ms blocking-worker fixture queues the DNS result. [Source 3232cfd](https://github.com/infocyph/Runwire/commit/3232cfde3683d16849381a1085d141e5cd1561e5); [PHPForge QA and both analyzers #39967719050](https://github.com/infocyph/Runwire/actions/runs/39967719050) passed. **U03.05–U03.10 remain open; no full hostname dial or address racing is claimed.**
