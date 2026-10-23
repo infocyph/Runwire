@@ -535,6 +535,19 @@ jobs:
         run: |
           RUNWIRE_H2_PYTHON=/tmp/runwire-h2/bin/python bash benchmarks/h2_fault_acceptance.sh
 
+      - name: Real independent H2 HPACK, flow-control and slow-peer pressure
+        shell: bash
+        run: |
+          RUNWIRE_H2_PYTHON=/tmp/runwire-h2/bin/python bash benchmarks/real_protocol_pressure.sh h2 benchmark-results/real-h2-pressure
+
+      - name: Upload independent H2 pressure artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-real-h2-pressure
+          path: benchmark-results/real-h2-pressure/
+          retention-days: 90
+
       - name: Upload adaptive H1/H2 evidence
         if: always()
         uses: actions/upload-artifact@v7

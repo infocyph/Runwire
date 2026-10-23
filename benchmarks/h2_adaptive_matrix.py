@@ -30,6 +30,7 @@ class H2Bench:
         self.case = workload()
         self.active: dict[int, dict[str, Any]] = {}
         self.request_index = 0
+        self.request_header_payload_bytes = 0
         self.issued = 0
         self.connect()
 
@@ -69,10 +70,16 @@ class H2Bench:
         size = sizes[self.request_index % len(sizes)]
         self.request_index += 1
         self.issued += 1
-        self.conn.send_headers(stream_id, [
+        headers = [
             (":method", "GET"), (":scheme", "https"), (":authority", "localhost"),
             (":path", f"/benchmark/{size}" if self.case else "/benchmark"),
-        ], end_stream=True)
+        ]
+        if self.case.get("scenario") == "hpack":
+            # Repeat values across streams but rotate them frequently enough to
+            # pressure the real HPACK dynamic table on this independent client.
+            headers.append(("x-hpack-pressure", f"bucket-{self.request_index // 4}-" + "h" * 128))
+        self.request_header_payload_bytes += sum(len(k) + len(v) for k, v in headers)
+        self.conn.send_headers(stream_id, headers, end_stream=True)
         self.active[stream_id] = {
             "slot": slot, "started": time.perf_counter(), "status": None,
             "body": bytearray(), "expected": b"x" * size,
@@ -85,6 +92,8 @@ class H2Bench:
         deadline = time.monotonic() + duration
         delayed_reads = 0
         constrained_flow_bytes = 0
+        outbound_wire_bytes = 0
+        initial_headers = self.request_header_payload_bytes
         rotations = 0
         waiting = list(range(concurrency))
         while self.active or waiting:
@@ -101,6 +110,7 @@ class H2Bench:
                 waiting = []
             outbound = self.conn.data_to_send()
             if outbound:
+                outbound_wire_bytes += len(outbound)
                 self.sock.sendall(outbound)
             measurement.sample()
             if self.case.get("scenario") == "pressure":
@@ -136,7 +146,15 @@ class H2Bench:
             if time.monotonic() >= deadline:
                 waiting = []
         result = measurement.result()
-        result["observed"] = {"delayed_reads": delayed_reads, "constrained_flow_bytes": constrained_flow_bytes, "connection_rotations": rotations}
+        dynamic_table = getattr(self.conn.encoder, "header_table", None)
+        result["observed"] = {
+            "delayed_reads": delayed_reads,
+            "constrained_flow_bytes": constrained_flow_bytes,
+            "connection_rotations": rotations,
+            "request_header_payload_bytes": self.request_header_payload_bytes - initial_headers,
+            "outbound_wire_bytes": outbound_wire_bytes,
+            "hpack_dynamic_table_entries": len(getattr(dynamic_table, "dynamic_entries", ())),
+        }
         return result
 
 

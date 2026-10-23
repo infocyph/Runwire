@@ -29,12 +29,18 @@ class DelayedEncoder(H3Connection):
         self.pending = bytearray()
         self.timer = None
         self.delayed_headers = 0
+        self.header_block_bytes = 0
+        self.encoder_instruction_bytes = 0
         super().__init__(quic)
 
     def _encode_headers(self, stream_id, headers):
         if not self.delayed:
-            return super()._encode_headers(stream_id, headers)
+            frame = super()._encode_headers(stream_id, headers)
+            self.header_block_bytes += len(frame)
+            return frame
         encoder, frame = self._encoder.encode(stream_id, headers)
+        self.header_block_bytes += len(frame)
+        self.encoder_instruction_bytes += len(encoder)
         self._encoder_bytes_sent += len(encoder)
         self.pending.extend(encoder)
         if len(self.pending) > 65536:
@@ -141,11 +147,19 @@ async def run_phase(session: H3Session, pid: int, concurrency: int, duration: fl
     deadline = time.monotonic() + duration
     case = workload()
     upload = case.get("upload_bytes", 0)
-    observed = {"connections": 0, "qpack_delayed_headers": 0, "upload_bytes": 0}
+    observed = {
+        "connections": 0,
+        "qpack_delayed_headers": 0,
+        "upload_bytes": 0,
+        "header_block_bytes": 0,
+        "encoder_instruction_bytes": 0,
+    }
 
     async def drive(protocol, slots: list[int], request_limit: int) -> int:
         issued = 0
         previous_delays = protocol.http.delayed_headers
+        previous_header_bytes = protocol.http.header_block_bytes
+        previous_encoder_bytes = protocol.http.encoder_instruction_bytes
 
         async def slot_work(slot: int) -> None:
             nonlocal issued
@@ -161,6 +175,8 @@ async def run_phase(session: H3Session, pid: int, concurrency: int, duration: fl
             for slot in slots:
                 group.create_task(slot_work(slot))
         observed["qpack_delayed_headers"] += protocol.http.delayed_headers - previous_delays
+        observed["header_block_bytes"] += protocol.http.header_block_bytes - previous_header_bytes
+        observed["encoder_instruction_bytes"] += protocol.http.encoder_instruction_bytes - previous_encoder_bytes
         return issued
 
     async def churn(slot: int) -> None:

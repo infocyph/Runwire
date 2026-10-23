@@ -305,6 +305,20 @@ jobs:
         run: |
           RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/http3_fault_acceptance.sh
 
+      - name: Real independent H3 QPACK, upload and connection-churn pressure
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/real_protocol_pressure.sh h3 benchmark-results/real-h3-pressure
+
+      - name: Upload independent H3 pressure artifacts
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-real-h3-pressure
+          path: benchmark-results/real-h3-pressure/
+          retention-days: 90
+
       - name: Upload adaptive HTTP/3 evidence
         if: always() && matrix.php-version == '8.5'
         uses: actions/upload-artifact@v7
