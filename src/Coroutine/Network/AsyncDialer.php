@@ -52,6 +52,7 @@ final readonly class AsyncDialer
                 cancellation: $token,
                 connectionLimits: $options->connectionLimits,
                 tcpNoDelay: $options->tcpNoDelay,
+                tls: $options->tls,
             ),
         );
 

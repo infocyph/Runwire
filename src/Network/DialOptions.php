@@ -18,6 +18,7 @@ final readonly class DialOptions
         public ?CancellationToken $cancellation = null,
         public ?ConnectionLimits $connectionLimits = null,
         public ?bool $tcpNoDelay = null,
+        public ?TlsClientOptions $tls = null,
     ) {
         if (!is_finite($connectTimeoutSeconds) || $connectTimeoutSeconds <= 0) {
             throw new InvalidArgumentException('Connect timeout must be finite and positive.');

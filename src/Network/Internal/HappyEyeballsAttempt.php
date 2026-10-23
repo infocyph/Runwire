@@ -250,6 +250,7 @@ final class HappyEyeballsAttempt
                         ),
                         connectionLimits: $this->options->connectionLimits,
                         tcpNoDelay: $this->options->tcpNoDelay,
+                        tls: $this->options->tls,
                     ),
                 );
                 $this->children[$childId] = true;
