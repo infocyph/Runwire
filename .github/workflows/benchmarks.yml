@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      tls_certification:
+        description: "Run full matched 2.1.2-versus-3.0 verified TLS certification"
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ "main", "master" ]
   pull_request:
@@ -18,6 +23,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  matched-tls:
+    name: "U04 matched verified TLS - PHP 8.4"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.tls_certification }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout immutable Runwire 2.1.2 baseline
+        uses: actions/checkout@v7
+        with:
+          ref: "2.1.2"
+          path: baseline
+      - name: Checkout Runwire 3.0 candidate
+        uses: actions/checkout@v7
+        with:
+          path: candidate
+      - name: Setup pinned PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache, openssl
+          coverage: none
+      - name: Install independently locked dependencies
+        shell: bash
+        run: |
+          (cd baseline && composer install --no-interaction --prefer-dist --no-progress)
+          (cd candidate && composer install --no-interaction --prefer-dist --no-progress)
+      - name: Run 5 matched 180s TLS populations on pinned physical cores
+        shell: bash
+        run: |
+          mkdir -p candidate/benchmark-results/u04-matched-tls
+          RUNWIRE_BENCH_TLS=1 \
+            RUNWIRE_BASELINE_BUILD="$(cd baseline && git rev-parse HEAD)" \
+            RUNWIRE_CANDIDATE_BUILD="$(cd candidate && git rev-parse HEAD)" \
+            bash candidate/benchmarks/matched_release_certification.sh \
+            baseline candidate candidate/benchmark-results/u04-matched-tls
+          jq -e '.budget_enforced == true and .passed == true' \
+            candidate/benchmark-results/u04-matched-tls/comparison.json >/dev/null
+      - name: Upload matched TLS evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-u04-matched-tls-php-8.4
+          path: candidate/benchmark-results/u04-matched-tls/
+          retention-days: 61
   protocol-core:
     name: "Protocol + host core - PHP ${{ matrix.php-version }}"
     runs-on: ubuntu-latest

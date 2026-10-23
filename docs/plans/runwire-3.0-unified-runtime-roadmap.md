@@ -42,7 +42,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R5.02 | U03.01 | OPEN, fresh 3.0 QA required |
 | R5.03 | U02.06 + U06.03 | OPEN, fresh 3.0 QA required |
 | R5.04 | U02.04 | OPEN, fresh 3.0 QA required |
-| R5.05 | U04.02 + U04.06 | ACCEPTED; QA #39995711371 |
+| R5.05 | U04.02 + U04.06 | ACCEPTED; both tasks passed QA #39995711371 |
 | R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
 | R5.07 | U03.09 + U13.03 | OPEN, fresh 3.0 QA required |
 | R5.08 | U03.10 + U15.06 | OPEN, fresh 3.0 QA required |
