@@ -104,6 +104,12 @@ final class HappyEyeballsDialer
         if ($port < 1 || $port > 65_535 || $addresses === []) {
             throw new InvalidArgumentException('A nonempty address list and valid TCP port are required.');
         }
+        foreach ($addresses as $address) {
+            if (filter_var($address, FILTER_VALIDATE_IP) === false) {
+                throw new InvalidArgumentException('Only validated numeric IP candidates may be raced.');
+            }
+        }
+
         $id = $this->register($completion, $options ?? new DialOptions());
         $this->pending[$id]->runResolved($addresses, $port);
 

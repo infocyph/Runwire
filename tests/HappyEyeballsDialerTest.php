@@ -73,3 +73,15 @@ it('resolves localhost off-loop and hands the winner to the same numeric connect
     $executor->close();
     expect($loop->diagnostics()->readWatchers)->toBe(0);
 });
+
+
+it('rejects invalid pre-resolved candidates before reserving race capacity', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $racer = new HappyEyeballsDialer($loop, new Dialer($loop), new AsyncDnsResolver($executor));
+    expect(fn() => $racer->connectResolved(['not-an-ip'], 443, static function (): void {}))
+        ->toThrow(InvalidArgumentException::class)
+        ->and($racer->pendingCount())->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+    $executor->close();
+});

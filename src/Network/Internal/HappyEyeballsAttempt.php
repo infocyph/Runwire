@@ -66,20 +66,6 @@ final class HappyEyeballsAttempt
         $this->finish(null, new CancelledException(CancellationReason::HOST_CANCELLED));
     }
 
-    /**
-     * Start an already resolved address race using the shared numeric connector.
-     *
-     * @param list<string> $addresses
-     */
-    public function runResolved(array $addresses, int $port): void
-    {
-        $this->port = $port;
-        $this->begin();
-        if (!$this->completed) {
-            $this->setCandidates($addresses);
-        }
-    }
-
     /** Resolve A/AAAA using worker processes before starting candidate sockets. */
     public function runHostname(string $hostname, int $port): void
     {
@@ -110,6 +96,32 @@ final class HappyEyeballsAttempt
         } catch (Throwable $error) {
             $this->finish(null, $error);
         }
+    }
+
+    /**
+     * Start an already resolved address race using the shared numeric connector.
+     *
+     * @param list<string> $addresses
+     */
+    public function runResolved(array $addresses, int $port): void
+    {
+        $this->port = $port;
+        $this->begin();
+        if (!$this->completed) {
+            $this->setCandidates($addresses);
+        }
+    }
+
+    private static function addressUri(string $address, int $port): string
+    {
+        if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            return sprintf('tcp://[%s]:%d', $address, $port);
+        }
+        if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            return sprintf('tcp://%s:%d', $address, $port);
+        }
+
+        throw new InvalidArgumentException('Resolved candidate must be a numeric IP address.');
     }
 
     private function begin(): void
@@ -173,6 +185,7 @@ final class HappyEyeballsAttempt
         while ($this->nextCandidate < count($this->candidates) && count($this->children) < 2) {
             $uri = $this->candidates[$this->nextCandidate++];
             try {
+                $childId = 0;
                 $childId = $this->dialer->connect(
                     $uri,
                     function (?Connection $connection, ?Throwable $error) use (&$childId): void {
@@ -214,6 +227,33 @@ final class HappyEyeballsAttempt
         $this->launchCandidate();
     }
 
+    /**
+     * @param list<string> $addresses
+     * @return list<string>
+     */
+    private static function orderAddresses(array $addresses, int $port): array
+    {
+        $families = [4 => [], 6 => []];
+        $first = null;
+        foreach (array_unique($addresses) as $address) {
+            $family = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false ? 6 : 4;
+            $first ??= $family;
+            $families[$family][] = self::addressUri($address, $port);
+        }
+
+        $ordered = [];
+        $other = $first === 6 ? 4 : 6;
+        while ($families[$first ?? 4] !== [] || $families[$other] !== []) {
+            foreach ([$first ?? 4, $other] as $family) {
+                if ($families[$family] !== []) {
+                    $ordered[] = array_shift($families[$family]);
+                }
+            }
+        }
+
+        return $ordered;
+    }
+
     private function scheduleNext(): void
     {
         if ($this->completed) {
@@ -237,36 +277,13 @@ final class HappyEyeballsAttempt
     /** @param list<string> $addresses */
     private function setCandidates(array $addresses): void
     {
-        $families = [4 => [], 6 => []];
-        $first = null;
-        foreach (array_unique($addresses) as $address) {
-            if (!is_string($address)) {
-                throw new InvalidArgumentException('Resolved candidate must be an IP address.');
-            }
-            $family = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false ? 6 : 4;
-            if (filter_var($address, FILTER_VALIDATE_IP) === false) {
-                throw new InvalidArgumentException('Resolved candidate must be a numeric IP address.');
-            }
-            $first ??= $family;
-            $families[$family][] = sprintf(
-                $family === 6 ? 'tcp://[%s]:%d' : 'tcp://%s:%d',
-                $address,
-                $this->port,
-            );
-        }
-        if ($first === null) {
+        $this->candidates = self::orderAddresses($addresses, $this->port);
+        if ($this->candidates === []) {
             $this->finish(null, new RuntimeException('No resolved addresses to dial.'));
 
             return;
         }
-        $other = $first === 6 ? 4 : 6;
-        while ($families[$first] !== [] || $families[$other] !== []) {
-            foreach ([$first, $other] as $family) {
-                if ($families[$family] !== []) {
-                    $this->candidates[] = array_shift($families[$family]);
-                }
-            }
-        }
+
         $this->launchCandidate();
     }
 }
