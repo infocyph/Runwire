@@ -390,12 +390,6 @@ final class PhpQuicHttp3Connection
         }
 
         $requestStream = isset($this->requestStreams[$streamId]);
-        if ($requestStream && isset($this->peerFinishedRequests[$streamId])) {
-            // QUIC read() may return the already-consumed FIN on successive
-            // ticks while QPACK blocks header admission. FIN is transport
-            // state, not a new protocol event each time the stream is polled.
-            return [0, 0, 0];
-        }
         if (!$requestStream && $controlBudget <= 0) {
             return [0, 0, 0];
         }
@@ -484,9 +478,6 @@ final class PhpQuicHttp3Connection
         if ($stream->resetCode() !== null) {
             $this->cancelRequestStream($streamId);
 
-            return;
-        }
-        if (isset($this->peerFinishedRequests[$streamId])) {
             return;
         }
         $this->session->finishRequestStream($streamId);
@@ -586,7 +577,11 @@ final class PhpQuicHttp3Connection
     /** @return list<array{0: int, 1: int}> */
     private function peerStreamOrder(): array
     {
-        $streamIds = array_keys($this->peerStreams);
+        // QPACK-blocked requests remain registered after their transport FIN,
+        // but must not be read again until decoder instructions unblock them.
+        // Filtering the iteration set avoids repeated FIN delivery without
+        // introducing another branch in the hot per-stream drain path.
+        $streamIds = array_keys(array_diff_key($this->peerStreams, $this->peerFinishedRequests));
         $streamCount = count($streamIds);
         if ($streamCount === 0) {
             $this->readCursorOffset = 0;
