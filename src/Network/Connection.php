@@ -14,6 +14,7 @@ use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
+use Infocyph\Runwire\Network\Internal\ConnectionLifecycleOperationsTrait;
 use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use InvalidArgumentException;
@@ -24,6 +25,8 @@ use RuntimeException;
  */
 final class Connection
 {
+    use ConnectionLifecycleOperationsTrait;
+
     private readonly ConnectionCallbackOwnership $callbackOwnership;
 
     private readonly int $id;
@@ -462,28 +465,6 @@ final class Connection
         $this->syncReadWatcher();
     }
 
-    /**
-     * Half-close the local write direction while keeping inbound reads active.
-     *
-     * Pending writes must be drained explicitly before half-closing.
-     */
-    public function shutdownWrite(): void
-    {
-        if ($this->state !== ConnectionState::OPEN) {
-            throw new \LogicException('Only open connections can half-close the local write direction.');
-        }
-        if (!$this->sendBuffer->isEmpty()) {
-            throw new \LogicException('Pending writes must drain before half-closing the local write direction.');
-        }
-        if (!is_resource($this->stream) || !stream_socket_shutdown($this->stream, STREAM_SHUT_WR)) {
-            $this->finalize(CloseReason::WRITE_ERROR);
-
-            return;
-        }
-
-        $this->state = ConnectionState::HALF_CLOSED;
-    }
-
     /** Return the current connection lifecycle state. */
     public function state(): ConnectionState
     {
@@ -547,53 +528,11 @@ final class Connection
         $this->callbackOwnership->assertUnclaimed();
     }
 
-    private function beginDrain(CloseReason $reason): void
-    {
-        if ($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED) {
-            return;
-        }
-
-        $this->state = ConnectionState::DRAINING;
-        $this->drainReason = $reason;
-        $this->manualReadPause = true;
-        $this->syncReadWatcher();
-        if ($this->sendBuffer->isEmpty()) {
-            $this->finalize($reason);
-        }
-    }
-
     private function cancelWatcher(?int $id): void
     {
         if ($id !== null) {
             $this->loop->cancel($id);
         }
-    }
-
-    private function finalize(CloseReason $reason): void
-    {
-        if ($this->state === ConnectionState::CLOSED) {
-            return;
-        }
-
-        $this->state = ConnectionState::CLOSED;
-        $this->closeReason = $reason;
-        $readWatcher = $this->readWatcher;
-        $writeWatcher = $this->writeWatcher;
-        $this->cancelWatcher($readWatcher);
-        $this->cancelWatcher($writeWatcher);
-        $this->readWatcher = $this->writeWatcher = null;
-        $this->timeouts->cancel();
-
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
-        $this->stream = null;
-        $this->receiveBuffer->clear();
-        $this->sendBuffer->clear();
-
-        $callbacks = $this->closeCallbacks;
-        $this->closeCallbacks = [];
-        ConnectionCallbackDispatcher::dispatch($callbacks, $this, $reason);
     }
 
     private function handleReadable(): void
@@ -672,22 +611,6 @@ final class Connection
             $this,
             fn() => $this->abort(),
         );
-    }
-
-    private function markPeerEof(): void
-    {
-        if ($this->state === ConnectionState::CLOSED || $this->peerReadClosed) {
-            return;
-        }
-
-        $this->peerReadClosed = true;
-        $this->syncReadWatcher();
-        $this->invoke($this->eofCallback);
-        if ($this->state === ConnectionState::OPEN) {
-            $this->beginDrain(CloseReason::PEER_CLOSED);
-        } elseif ($this->state === ConnectionState::HALF_CLOSED) {
-            $this->finalize(CloseReason::PEER_CLOSED);
-        }
     }
 
     private function pauseForPressure(): void

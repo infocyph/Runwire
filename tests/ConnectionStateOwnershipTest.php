@@ -21,6 +21,7 @@ it('supports a real local half-close while still accepting inbound data', functi
         $stream->closeGracefully();
     });
     $connection->onClose(function ($stream, CloseReason $reason) use (&$closes): void {
+        unset($stream);
         $closes[] = $reason;
     });
     $connection->shutdownWrite();
