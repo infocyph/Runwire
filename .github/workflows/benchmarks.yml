@@ -513,6 +513,10 @@ jobs:
           wait "$server_pid"
           server_pid=""
 
+      - name: Smoke-test verified TLS benchmark transport
+        shell: bash
+        run: bash benchmarks/u04_tls_smoke.sh "benchmark-results/u04-tls-php-${{ matrix.php-version }}.json"
+
       - name: Upload benchmark evidence
         if: always()
         uses: actions/upload-artifact@v7
