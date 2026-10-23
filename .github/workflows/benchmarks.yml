@@ -150,7 +150,7 @@ jobs:
             and .sequential.accepted == 24 and .overlap.accepted == 24
             and .sequential.p99_ms >= 0 and .overlap.p99_ms >= 0
             and .sequential.cpu_parent_ms >= 0 and .overlap.cpu_parent_ms >= 0
-            and .sequential.rss_estimate_bytes > 0 and .overlap.rss_estimate_bytes > 0
+            and .sequential.rss_bytes > 0 and .overlap.rss_bytes > 0
             and .sequential.watchers_after == 0 and .overlap.watchers_after == 0' \
             "benchmark-results/u03-outbound-php-${{ matrix.php-version }}.json" >/dev/null
 

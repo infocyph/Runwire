@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Loop\SelectLoop;
-use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Dialer;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -23,6 +23,17 @@ function u03CpuMilliseconds(array $usage): float
         + ($usage['ru_stime.tv_usec'] ?? 0) / 1_000);
 }
 
+/** Read the Linux process resident set from the kernel, in bytes. */
+function u03ResidentBytes(): int
+{
+    $status = file_get_contents('/proc/self/status');
+    if (!is_string($status) || preg_match('/^VmRSS:\\s+(\\d+)\\s+kB/m', $status, $matches) !== 1) {
+        throw new RuntimeException('U03 benchmark requires Linux /proc/self/status RSS evidence.');
+    }
+
+    return (int) $matches[1] * 1_024;
+}
+
 /** @return array<string, float|int|bool> */
 function u03DialTrial(bool $overlap, int $count): array
 {
@@ -33,6 +44,7 @@ function u03DialTrial(bool $overlap, int $count): array
     $address = stream_socket_get_name($listener, false);
     if (!is_string($address)) {
         fclose($listener);
+
         throw new RuntimeException('TCP dial profile has no listener address.');
     }
 
@@ -110,7 +122,7 @@ function u03DialTrial(bool $overlap, int $count): array
         'successful_connects_per_s' => round(($finished - $failed) / max(0.000001, $seconds), 2),
         'p99_ms' => $elapsed !== [] ? u03Percentile($elapsed, 0.99) : 0.0,
         'cpu_parent_ms' => round(max(0, u03CpuMilliseconds($endCpu) - u03CpuMilliseconds($startCpu)), 3),
-        'rss_estimate_bytes' => memory_get_peak_usage(true),
+        'rss_bytes' => u03ResidentBytes(),
         'watchers_after' => $diagnostics->readWatchers + $diagnostics->writeWatchers,
         'timers_after' => $diagnostics->timersActive,
         'pending_after' => $dialer->pendingCount(),
@@ -128,12 +140,14 @@ $profile = [
     'php' => PHP_VERSION,
     'method' => 'real local TCP verified connection handoff on a single machine',
     'real_socket_io' => true,
-    'rss_is_process_allocated_memory_estimate' => true,
+    'rss_source' => '/proc/self/status VmRSS (resident set, not peak)',
     'sequential' => $sequential,
     'overlap' => $overlap,
     'correctness_passed' => $sequential['correctness_passed'] && $overlap['correctness_passed'],
 ];
-echo json_encode($profile, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT), "\n";
+if (fwrite(STDOUT, json_encode($profile, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n") === false) {
+    throw new RuntimeException('Unable to record U03 benchmark evidence.');
+}
 if (!$profile['correctness_passed']) {
     throw new RuntimeException('U03 dial profiling reported a failed connection or leaked resource.');
 }
