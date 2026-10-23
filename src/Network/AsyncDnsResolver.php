@@ -54,6 +54,7 @@ final readonly class AsyncDnsResolver
             $deadline,
         );
     }
+
     /**
      * @param callable(list<string>, ?Throwable):void $completion
      */
@@ -97,5 +98,4 @@ final readonly class AsyncDnsResolver
 
         return array_values($addresses);
     }
-
 }
