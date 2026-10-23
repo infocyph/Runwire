@@ -20,7 +20,8 @@ final readonly class DialEndpoint
         public ?int $port,
         public ?string $path,
         public bool $isIpLiteral,
-    ) {}
+    ) {
+    }
 
     /** Parse an outbound endpoint without resolving hostname addresses. */
     public static function parse(string $uri): self
@@ -48,6 +49,7 @@ final readonly class DialEndpoint
         if ($isIpv6) {
             $host = substr($host, 1, -1);
         }
+
         $literal = filter_var($host, FILTER_VALIDATE_IP) !== false;
         self::validateHost($host, $isIpv6, $literal);
 
@@ -75,5 +77,4 @@ final readonly class DialEndpoint
             throw new InvalidArgumentException('Invalid TCP hostname.');
         }
     }
-
 }
