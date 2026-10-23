@@ -42,6 +42,7 @@ final class DatagramListener
         mixed $stream,
         private readonly string $address,
         private readonly DatagramOptions $options,
+        private readonly ?string $connectedPeer = null,
     ) {
         $this->stream = $stream;
     }
@@ -77,6 +78,48 @@ final class DatagramListener
         $bound = stream_socket_get_name($stream, false);
 
         return new self($stream, is_string($bound) ? $bound : $address, $options);
+    }
+
+
+    /**
+     * Open a nonblocking connected UDP socket using the same listener I/O engine.
+     *
+     * Hostnames must be resolved upstream; this method never performs blocking DNS.
+     */
+    public static function connect(string $address, ?DatagramOptions $options = null): self
+    {
+        $options ??= new DatagramOptions();
+        $uri = str_contains($address, '://') ? $address : 'udp://' . $address;
+        $parts = parse_url($uri);
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+        $numericHost = is_string($host) ? trim($host, '[]') : '';
+        if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'udp'
+            || filter_var($numericHost, FILTER_VALIDATE_IP) === false
+            || !isset($parts['port']) || ($parts['port'] < 1 || $parts['port'] > 65_535)
+            || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+            throw new ListenerException('Connected UDP requires a numeric IPv4/IPv6 udp://host:port endpoint.');
+        }
+
+        $context = stream_context_create(['socket' => $options->socketContext]);
+        $errorCode = 0;
+        $error = '';
+        set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+        try {
+            $stream = stream_socket_client($uri, $errorCode, $error, 0.0, STREAM_CLIENT_CONNECT, $context);
+        } finally {
+            restore_error_handler();
+        }
+        if (!is_resource($stream)) {
+            throw new ListenerException(sprintf('Cannot open connected UDP socket: %s (%d).', $error, $errorCode));
+        }
+        if (!stream_set_blocking($stream, false)) {
+            fclose($stream);
+
+            throw new ListenerException('Connected UDP socket must be nonblocking.');
+        }
+        $local = stream_socket_get_name($stream, false);
+
+        return new self($stream, is_string($local) ? $local : '', $options, $uri);
     }
 
     /**
@@ -119,6 +162,12 @@ final class DatagramListener
         $this->stream = null;
         $this->callback = null;
         $this->loop = null;
+    }
+
+    /** Return the connected peer, or null for bound unconnected sockets. */
+    public function connectedPeer(): ?string
+    {
+        return $this->connectedPeer;
     }
 
     /**
@@ -172,6 +221,16 @@ final class DatagramListener
         }
         $this->paused = false;
         $this->syncWatcher();
+    }
+
+    /** Send one bounded datagram to the connected remote peer. */
+    public function send(string $payload): DatagramWriteResult
+    {
+        if ($this->connectedPeer === null) {
+            throw new LogicException('Unconnected UDP sockets require sendTo().');
+        }
+
+        return $this->sendTo($payload, $this->connectedPeer);
     }
 
     /**
