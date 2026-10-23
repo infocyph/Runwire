@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 20/175 complete; 155 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 21/175 complete; 154 open; 18 batches. Prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -24,7 +24,7 @@
 | --- | --- | ---: | ---: | --- | --- |
 | U00 | Baseline, architecture and 2.1-to-3.0 migration | 10/10 | 0 | DONE | published 2.1.2; historical 2.2 tracker |
 | U01 | Event-loop, watchers and asynchronous executor | 9/9 | 0 | DONE | U00 |
-| U02 | Unified established connection and transport ownership | 1/9 | 8 | In progress | U01 |
+| U02 | Unified established connection and transport ownership | 2/9 | 7 | In progress | U01 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 0/10 | 10 | Not started | U01,U02 |
 | U04 | Unified TLS security and client/server handshakes | 0/8 | 8 | Not started | U02,U03 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 0/10 | 10 | Not started | U02,U03,U04 |
@@ -40,9 +40,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **20/175** | **155** | **U00/U01 done; U02 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **21/175** | **154** | **U00/U01 done; U02 in progress** | U00-U17 |
 
-**Progress counter:** 20/175 (11.4% complete), 155 open.
+**Progress counter:** 21/175 (12.0% complete), 154 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -84,7 +84,7 @@
 **Prerequisite:** U01. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
 - [x] **U02.01** Introduce factory-controlled creation of established stream connections. **Acceptance:** Shared inbound/outbound Connection implementation. **Proof:** `src/Network/ConnectionFactory.php` now owns construction for accepted inbound TCP/Unix and verified READY outbound streams, both using the unchanged `Network\\Connection` engine. `TcpListener.php` and `UnixListener.php` route through the factory; `tests/ConnectionFactoryTest.php` verifies a real loopback TCP accept/read/address lifecycle, UNIX stream reuse, illegal premature/double handoff, and cleanup. [Source 8ab1639](https://github.com/infocyph/Runwire/commit/8ab16398e6de6ff211cc5b03d9dbbcf3ab8f8b43); [PHPForge QA+static analysis #39914604756](https://github.com/infocyph/Runwire/actions/runs/39914604756) all four PHP8.4/8.5 stable/lowest and both analyzer jobs PASSED; [core benchmark #39914604214](https://github.com/infocyph/Runwire/actions/runs/39914604214) both versions PASSED. Other U02 ownership/metadata gates remain OPEN.
-- [ ] **U02.02** Unify local/peer address, TLS identity and negotiated protocol metadata. **Acceptance:** Real TCP/TLS/Unix metadata verified. **Proof:** PENDING.
+- [x] **U02.02** Unify local/peer address, TLS identity and negotiated protocol metadata. **Acceptance:** Real TCP/TLS/Unix metadata verified. **Proof:** `ConnectionFactory::accepted()` and `dialed()` use `EstablishedStreamMetadata::capture()` to resolve actual peer/local socket addresses, negotiated ALPN, encryption evidence and captured TLS peer SHA-256 certificate fingerprint; explicit endpoint/protocol overrides are retained. `tests/ConnectionFactoryTest.php` verifies real TCP endpoint introspection, Unix override and invalid-resource behavior; existing `tests/TlsListenerTest.php` exercises native TLS/ALPN. [Implementation 4cc06dd](https://github.com/infocyph/Runwire/commit/4cc06dda9eddc03cde57a715cd311d355ba80d98), [Security & Standards #39921145750](https://github.com/infocyph/Runwire/actions/runs/39921145750) all 4 PHPForge QA lanes and both analyzers PASS. Extended OpenSwoole PHP8.4 fixture on this SHA failed in a multiworker JSON probe; do not claim full green across all workflows..
 - [ ] **U02.03** Define OPEN, HALF_CLOSED, DRAINING and CLOSED state contracts. **Acceptance:** Forbidden transition and double-close tests. **Proof:** PENDING.
 - [ ] **U02.04** Unify buffered send/receive, watermarks and partial-write handling. **Acceptance:** Bounded memory under slow peers. **Proof:** PENDING.
 - [ ] **U02.05** Define callback-to-Fiber ownership transfer and read watchers. **Acceptance:** No duplicate frames or stale callbacks. **Proof:** PENDING.
@@ -93,7 +93,7 @@
 - [ ] **U02.08** Preserve inbound hot paths and raw/line/length-prefix framed behavior. **Acceptance:** Existing server tests and benchmarks pass. **Proof:** PENDING.
 - [ ] **U02.09** Exercise many simultaneous opens/closes, EOF and worker shutdown. **Acceptance:** No FD, timer or buffer leak. **Proof:** PENDING.
 
-**Batch tracker:** 1/9 accepted; 8 open. U02.01 factory adoption is code/QA accepted at `8ab1639`, but metadata, half-close, backpressure, ownership/cancellation and lifecycle stress U02.02–U02.09 remain unverified. Extended H3 and adaptive H2 long CI jobs are separate from accepted focused factory QA. **Exit:** all U02 evidence linked, full required QA green, no unresolved critical regression.
+**Batch tracker:** 2/9 accepted; 7 open. U02.01 factory adoption is code/QA accepted at `8ab1639`, but metadata, half-close, backpressure, ownership/cancellation and lifecycle stress U02.03–U02.09 remain unverified. Extended H3 and adaptive H2 long CI jobs are separate from accepted focused factory QA. **Exit:** all U02 evidence linked, full required QA green, no unresolved critical regression.
 
 ### U03 — Async DNS and outbound TCP/Unix dialer
 
