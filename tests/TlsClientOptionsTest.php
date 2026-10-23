@@ -82,3 +82,26 @@ it('rejects incomplete outbound mutual TLS identities before creating SSL contex
         ->and(fn() => new TlsClientOptions('localhost', clientCertificate: '/missing/cert.pem'))
         ->toThrow(InvalidArgumentException::class);
 });
+
+
+it('requires an explicit CA and bounded verification for mandatory client certificates', function (): void {
+    expect(fn() => new \Infocyph\Runwire\Network\TlsOptions(
+        localCertificate: __FILE__,
+        requireClientCertificate: true,
+    ))->toThrow(InvalidArgumentException::class);
+    $policy = new \Infocyph\Runwire\Network\TlsOptions(
+        localCertificate: __FILE__,
+        extraContext: [
+            'cafile' => __FILE__,
+            'verify_peer' => false,
+            'allow_self_signed' => true,
+            'verify_depth' => 128,
+        ],
+        requireClientCertificate: true,
+    );
+    $context = $policy->context();
+    expect($context['verify_peer'])->toBeTrue()
+        ->and($context['allow_self_signed'])->toBeFalse()
+        ->and($context['capture_peer_cert'])->toBeTrue()
+        ->and($context['verify_depth'])->toBe(8);
+});

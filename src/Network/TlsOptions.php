@@ -23,6 +23,7 @@ final readonly class TlsOptions
         public float $handshakeTimeoutSeconds = 10.0,
         public ?int $cryptoMethod = null,
         public array $extraContext = [],
+        public bool $requireClientCertificate = false,
     ) {
         if ($localCertificate === '' || !is_file($localCertificate)) {
             throw new InvalidArgumentException('TLS local certificate must reference an existing file.');
@@ -41,6 +42,10 @@ final readonly class TlsOptions
         if (count(array_unique($alpnProtocols)) !== count($alpnProtocols)) {
             throw new InvalidArgumentException('ALPN protocols must be unique.');
         }
+        if ($requireClientCertificate && !is_file($extraContext['cafile'] ?? '')
+            && !is_dir($extraContext['capath'] ?? '')) {
+            throw new InvalidArgumentException('Required mutual TLS needs a configured trusted CA file or directory.');
+        }
     }
 
     /** @return array<string, mixed> */
@@ -57,6 +62,13 @@ final readonly class TlsOptions
         $context['crypto_method'] = $this->method();
         $context['verify_peer'] ??= false;
         $context['verify_peer_name'] ??= false;
+        if ($this->requireClientCertificate) {
+            $context['verify_peer'] = true;
+            $context['verify_peer_name'] = false;
+            $context['allow_self_signed'] = false;
+            $context['capture_peer_cert'] = true;
+            $context['verify_depth'] = max(1, min(8, (int) ($context['verify_depth'] ?? 8)));
+        }
         $context['disable_compression'] = true;
         if ($this->alpnProtocols !== []) {
             $context['alpn_protocols'] = implode(',', $this->alpnProtocols);

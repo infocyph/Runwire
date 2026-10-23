@@ -97,6 +97,16 @@ final class TlsHandshake
             return;
         }
 
+        if ($this->options->requireClientCertificate) {
+            $ssl = stream_context_get_options($stream)['ssl'] ?? null;
+            $certificate = is_array($ssl) ? ($ssl['peer_certificate'] ?? null) : null;
+            if (!$certificate instanceof \OpenSSLCertificate) {
+                $this->fail();
+
+                return;
+            }
+        }
+
         $meta = stream_get_meta_data($stream);
         $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
         $this->finish();

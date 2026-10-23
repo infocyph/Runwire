@@ -67,6 +67,7 @@ function runwireClientTlsAttempt(
             handshakeTimeoutSeconds: 1.0,
             cryptoMethod: $serverCryptoMethod,
             extraContext: $serverExtraContext ?? [],
+            requireClientCertificate: $serverRequiresClientCertificate,
         ),
     );
     $accepted = false;
@@ -241,6 +242,7 @@ it('accepts a trusted mutual TLS client identity using the server trust configur
                 clientCertificate: $identity[1],
                 clientPrivateKey: $identity[2],
             ),
+            true,
         );
         expect($error)->toBeNull()
             ->and($connection)->toBeInstanceOf(Connection::class)
@@ -268,6 +270,8 @@ it('fails a mutual TLS handshake when the server requires an absent client ident
                 'cafile' => $identity[1],
                 'verify_depth' => 8,
             ],
+            null,
+            true,
         );
         expect($connection)->toBeNull()
             ->and($error)->toBeInstanceOf(Throwable::class);
