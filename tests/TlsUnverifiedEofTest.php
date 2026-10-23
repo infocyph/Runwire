@@ -22,6 +22,7 @@ it('never treats an unverified outbound TLS EOF as a clean application EOF', fun
         ++$eofs;
     });
     $connection->onClose(function (Connection $conn, CloseReason $reason) use (&$closed, $loop): void {
+        expect($conn->state())->toBe(ConnectionState::CLOSED);
         $closed[] = $reason;
         $loop->stop();
     });
@@ -55,6 +56,7 @@ it('retains plain TCP EOF and prohibits raw TLS write half-close', function (): 
     $connection = new Connection($loop, $plain[0]);
     $reasons = [];
     $connection->onClose(function (Connection $conn, CloseReason $reason) use (&$reasons, $loop): void {
+        expect($conn->state())->toBe(ConnectionState::CLOSED);
         $reasons[] = $reason;
         $loop->stop();
     });
