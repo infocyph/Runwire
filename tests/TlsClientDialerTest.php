@@ -57,8 +57,12 @@ function runwireClientTlsAttempt(array $identity, string $peer, ?string $caFile)
         new TlsOptions($certificate, $private, handshakeTimeoutSeconds: 1.0),
     );
     $accepted = false;
-    $listener->start($loop, static function (Connection $connection) use (&$accepted): void {
+    $clientResolved = false;
+    $listener->start($loop, static function (Connection $connection) use (&$accepted, &$clientResolved, $loop): void {
         $accepted = $connection->isEncrypted();
+        if ($clientResolved) {
+            $loop->stop();
+        }
     });
     $dialer = new Dialer($loop);
     $connection = null;
@@ -69,11 +73,16 @@ function runwireClientTlsAttempt(array $identity, string $peer, ?string $caFile)
     $dialer->connect('tcp://' . $listener->address(), function (?Connection $ready, ?Throwable $error) use (
         &$connection,
         &$failure,
+        &$clientResolved,
+        &$accepted,
         $loop,
     ): void {
         $connection = $ready;
         $failure = $error;
-        $loop->stop();
+        $clientResolved = true;
+        if ($error !== null || $accepted) {
+            $loop->stop();
+        }
     }, new DialOptions(tls: new TlsClientOptions($peer, caFile: $caFile)));
     $loop->run();
     $loop->cancel($timeout);
