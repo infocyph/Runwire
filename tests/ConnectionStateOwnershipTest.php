@@ -25,6 +25,10 @@ it('supports a real local half-close while still accepting inbound data', functi
         $closes[] = $reason;
     });
     $connection->shutdownWrite();
+    $connection->pauseReads();
+    expect($connection->isReadPaused())->toBeTrue();
+    $connection->resumeReads();
+    expect($connection->isReadPaused())->toBeFalse();
     expect($connection->state())->toBe(ConnectionState::HALF_CLOSED)
         ->and($connection->write('prohibited')->state)->toBe(WriteState::CLOSED)
         ->and(fn() => $connection->shutdownWrite())->toThrow(LogicException::class);

@@ -457,7 +457,8 @@ final class Connection
      */
     public function resumeReads(): void
     {
-        if ($this->state !== ConnectionState::OPEN || !$this->manualReadPause) {
+        if (($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED)
+            || !$this->manualReadPause) {
             return;
         }
 
@@ -471,7 +472,7 @@ final class Connection
         return $this->state;
     }
 
-    /** Return captured SHA-256 identity of a verified TLS peer certificate, when present. */
+    /** Return captured TLS peer certificate SHA-256, not a peer verification result. */
     public function tlsPeerFingerprint(): ?string
     {
         return $this->tlsPeerFingerprint;
