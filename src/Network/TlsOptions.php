@@ -75,6 +75,7 @@ final readonly class TlsOptions
     {
         return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);
     }
+
     /** @param list<string> $protocols */
     private static function validateAlpn(array $protocols): void
     {
