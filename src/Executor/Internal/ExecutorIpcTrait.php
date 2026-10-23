@@ -10,7 +10,6 @@ use Throwable;
 /** @internal Nonblocking subprocess pipe and worker lifecycle mechanics. */
 trait ExecutorIpcTrait
 {
-
     /** @return array{mixed, ?Throwable} */
     private function decodeResponse(int $jobId, string $payload): array
     {
@@ -52,7 +51,7 @@ trait ExecutorIpcTrait
         if (!isset($this->workers[$id])) {
             return;
         }
-        $chunk = $this->readPipe($this->workers[$id]['output'], self::IO_CHUNK_BYTES);
+        $chunk = $this->readPipe($this->workers[$id]['output']);
         if ($chunk === false || ($chunk === '' && feof($this->workers[$id]['output']))) {
             $this->retire($id, new RuntimeException('Executor subprocess exited or closed its output.'));
 
@@ -195,5 +194,4 @@ trait ExecutorIpcTrait
         }
         unset($worker);
     }
-
 }
