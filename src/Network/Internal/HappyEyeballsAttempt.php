@@ -58,7 +58,11 @@ final class HappyEyeballsAttempt
         private readonly float $staggerSeconds,
         private readonly Closure $completion,
         private readonly Closure $onSettled,
-    ) {}
+    ) {
+        if (!is_finite($staggerSeconds) || $staggerSeconds <= 0) {
+            throw new InvalidArgumentException('A positive finite stagger interval is required.');
+        }
+    }
 
     /** Cancel this logical attempt and all candidates exactly once. */
     public function cancel(): void
