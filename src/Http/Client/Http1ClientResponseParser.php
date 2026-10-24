@@ -51,6 +51,18 @@ final class Http1ClientResponseParser
         return $this->done;
     }
 
+    /** End a connection-close-delimited response, or reject a premature EOF. */
+    public function finish(callable $onEnd): void
+    {
+        if ($this->done) {
+            return;
+        }
+        if ($this->state !== 'until_eof' || $this->buffer !== '') {
+            throw new RuntimeException('HTTP/1.1 peer closed before a complete framed response.');
+        }
+        $this->complete($onEnd);
+    }
+
     /** Whether this completed response is eligible for HTTP/1.1 reuse. */
     public function keepAlive(): bool
     {
@@ -112,18 +124,6 @@ final class Http1ClientResponseParser
         throw new RuntimeException('HTTP/1.1 response parser exceeded its per-call step budget.');
     }
 
-    /** End a connection-close-delimited response, or reject a premature EOF. */
-    public function finish(callable $onEnd): void
-    {
-        if ($this->done) {
-            return;
-        }
-        if ($this->state !== 'until_eof' || $this->buffer !== '') {
-            throw new RuntimeException('HTTP/1.1 peer closed before a complete framed response.');
-        }
-        $this->complete($onEnd);
-    }
-
     /** Final HTTP status code, if a complete noninformational head exists. */
     public function status(): ?int
     {
@@ -156,6 +156,20 @@ final class Http1ClientResponseParser
         }
         $this->bodyBytes += strlen($bytes);
         $onBody($bytes);
+    }
+
+    /** Parse one response header or trailer, rejecting obsolete folded lines. */
+    private function parseField(string $line): HeaderField
+    {
+        if ($line === '' || str_starts_with($line, ' ') || str_starts_with($line, "\t")) {
+            throw new RuntimeException('Malformed or folded HTTP/1.1 header.');
+        }
+        $colon = strpos($line, ':');
+        if ($colon === false || $colon === 0) {
+            throw new RuntimeException('Malformed HTTP/1.1 header field.');
+        }
+
+        return new HeaderField(substr($line, 0, $colon), trim(substr($line, $colon + 1), " \t"));
     }
 
     private function readBody(callable $onBody, callable $onEnd): void
@@ -207,7 +221,7 @@ final class Http1ClientResponseParser
         }
         $value = 0;
         foreach (str_split($sizeText) as $digit) {
-            $hex = hexdec($digit);
+            $hex = (int) hexdec($digit);
             if ($value > intdiv($this->maxBodyBytes - $this->bodyBytes - $hex, 16)) {
                 throw new RuntimeException('HTTP/1.1 chunk exceeds response byte budget.');
             }
@@ -285,20 +299,6 @@ final class Http1ClientResponseParser
             $this->keepAlive = false;
             $this->state = 'until_eof';
         }
-    }
-
-    /** Parse one response header or trailer, rejecting obsolete folded lines. */
-    private function parseField(string $line): HeaderField
-    {
-        if ($line === '' || str_starts_with($line, ' ') || str_starts_with($line, "\t")) {
-            throw new RuntimeException('Malformed or folded HTTP/1.1 header.');
-        }
-        $colon = strpos($line, ':');
-        if ($colon === false || $colon === 0) {
-            throw new RuntimeException('Malformed HTTP/1.1 header field.');
-        }
-
-        return new HeaderField(substr($line, 0, $colon), trim(substr($line, $colon + 1), " \t"));
     }
 
     private function readTrailers(callable $onEnd): void
