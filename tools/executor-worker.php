@@ -17,8 +17,8 @@ $quicSessionWorker = null;
  * Worker-side opt-in path boundary. Rejects lexical traversal, symlinked
  * ancestors/leaf and off-root parents without filesystem syscalls on the loop.
  * The check is intentionally NOT an openat2/dirfd race-free sandbox.
+ * @param array<mixed> $args
  */
-/** @param array<string, mixed> $args */
 function guardFilePath(array $args, string $name): void
 {
     $root = $args['root'] ?? null;
@@ -45,7 +45,6 @@ function guardFilePath(array $args, string $name): void
         throw new RuntimeException('Filesystem parent is outside the configured root.');
     }
 }
-
 
 /** @internal Validate components without a path mutation or symlink hop. */
 function guardFilePathSegments(string $relative, string $canonicalRoot): void

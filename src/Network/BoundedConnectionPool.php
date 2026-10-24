@@ -156,9 +156,6 @@ final class BoundedConnectionPool
     {
         while (!$this->closed && count($this->active) < $this->maxActive && $this->waiting !== []) {
             $id = array_key_first($this->waiting);
-            if ($id === null) {
-                return;
-            }
             $entry = $this->waiting[$id];
             unset($this->waiting[$id]);
             $this->loop->cancel($entry['timer']);
@@ -170,6 +167,7 @@ final class BoundedConnectionPool
     {
         $connection = $this->idle->take($key);
         $this->active[$id] = $key;
+
         try {
             $callback($id, $connection, null);
         } catch (Throwable $error) {

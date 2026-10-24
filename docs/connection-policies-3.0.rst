@@ -148,3 +148,15 @@ management, a generalized proxy connector or safe retry of visible replies.
 
 These are new QA-pending 3.0 development contracts. No U07.09 or U14.05
 acceptance is implied until independent HTTP peer and PHPForge tests pass.
+
+Direct origin proxy-secret boundary
+-----------------------------------
+
+The direct-origin ``Http1ClientRequestWriter`` now explicitly rejects
+``Proxy-Authorization`` and ``Proxy-Connection`` both in outbound
+request headers and chunk trailers, before serializing a wire request.
+A future authenticated CONNECT tunnel must manage proxy-only credentials
+separately and never reuse those fields in an origin request. Tests prove
+that cross-origin redirects also strip Authorization, Cookie, arbitrary
+private headers and proxy-only secrets. This does **not** certify a
+proxy connector or proxy credential encryption implementation.

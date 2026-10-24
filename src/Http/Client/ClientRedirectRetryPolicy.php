@@ -17,6 +17,7 @@ use Throwable;
  */
 final readonly class ClientRedirectRetryPolicy
 {
+    /** Set finite HTTP redirect/retry bounds with cross-origin rejection by default. */
     public function __construct(
         public int $maxRedirects = 4,
         public int $maxRetries = 1,
@@ -25,6 +26,22 @@ final readonly class ClientRedirectRetryPolicy
         if ($maxRedirects < 0 || $maxRedirects > 10 || $maxRetries < 0 || $maxRetries > 3) {
             throw new InvalidArgumentException('HTTP redirect and retry limits must be finite and bounded.');
         }
+    }
+
+    /** @return array{string,string,int} */
+    public static function origin(string $uri): array
+    {
+        $parts = parse_url($uri);
+        if (!is_array($parts) || !is_string($parts['scheme'] ?? null)
+            || !is_string($parts['host'] ?? null)) {
+            throw new InvalidArgumentException('HTTP redirect origin is invalid.');
+        }
+        $scheme = strtolower($parts['scheme']);
+        if (!in_array($scheme, ['https', 'http'], true)) {
+            throw new InvalidArgumentException('HTTP redirect scheme is unsupported.');
+        }
+
+        return [$scheme, strtolower($parts['host']), $parts['port'] ?? ($scheme === 'https' ? 443 : 80)];
     }
 
     /** Whether a status can initiate one explicitly bounded redirect. */
@@ -56,21 +73,12 @@ final readonly class ClientRedirectRetryPolicy
             throw new RuntimeException('Cross-origin redirects require explicit opt-in.');
         }
 
-        $allowedCrossOrigin = ['accept', 'accept-encoding', 'accept-language', 'user-agent'];
-        $drop = ['host', 'content-length', 'transfer-encoding', 'connection', 'proxy-authorization'];
-        $fields = [];
-        foreach ($request->headers->fields() as $field) {
-            if (in_array($field->name, $drop, true)
-                || (!$sameOrigin && !in_array($field->name, $allowedCrossOrigin, true))) {
-                continue;
-            }
-            $fields[] = $field;
-        }
+        $headers = self::headersForRedirect($request->headers, $sameOrigin);
 
         return new ClientRequest(
             method: $request->method,
             uri: $uri,
-            headers: new Headers($fields),
+            headers: $headers,
             protocol: $request->protocol,
             cancellation: $request->cancellation,
             deadline: $request->deadline,
@@ -94,20 +102,20 @@ final readonly class ClientRedirectRetryPolicy
             && !($request->deadline?->expired() ?? false);
     }
 
-    /** @return array{string,string,int} */
-    public static function origin(string $uri): array
+    private static function headersForRedirect(Headers $headers, bool $sameOrigin): Headers
     {
-        $parts = parse_url($uri);
-        if (!is_array($parts) || !is_string($parts['scheme'] ?? null)
-            || !is_string($parts['host'] ?? null)) {
-            throw new InvalidArgumentException('HTTP redirect origin is invalid.');
-        }
-        $scheme = strtolower($parts['scheme']);
-        if (!in_array($scheme, ['https', 'http'], true)) {
-            throw new InvalidArgumentException('HTTP redirect scheme is unsupported.');
+        $allowedCrossOrigin = ['accept', 'accept-encoding', 'accept-language', 'user-agent'];
+        $drop = ['host', 'content-length', 'transfer-encoding', 'connection', 'proxy-authorization'];
+        $fields = [];
+        foreach ($headers->fields() as $field) {
+            if (in_array($field->name, $drop, true)
+                || (!$sameOrigin && !in_array($field->name, $allowedCrossOrigin, true))) {
+                continue;
+            }
+            $fields[] = $field;
         }
 
-        return [$scheme, strtolower($parts['host']), $parts['port'] ?? ($scheme === 'https' ? 443 : 80)];
+        return new Headers($fields);
     }
 
     private static function resolve(string $origin, string $location): string

@@ -74,3 +74,22 @@ it('rejects unauthorized HTTP downgrade, mismatched Host and ambiguous request f
             protocol: runwireHttp1ClientPolicy(),
         )))->toThrow(InvalidArgumentException::class, 'framing');
 });
+
+
+it('refuses proxy credentials on a direct origin HTTP/1.1 request before any bytes can be emitted', function (): void {
+    $policy = new \Infocyph\Runwire\Http\Client\ClientProtocolPolicy(
+        \Infocyph\Runwire\Http\Enum\ProtocolVersion::HTTP_1_1,
+        [\Infocyph\Runwire\Http\Enum\ProtocolVersion::HTTP_1_1],
+        allowPlaintext: true,
+    );
+    foreach (['proxy-authorization', 'proxy-connection'] as $name) {
+        $request = new \Infocyph\Runwire\Http\Client\ClientRequest(
+            'GET',
+            'http://127.0.0.1:8080/sensitive',
+            headers: \Infocyph\Runwire\Http\Headers::fromArray([$name => 'Basic never-to-origin']),
+            protocol: $policy,
+        );
+        expect(fn() => new \Infocyph\Runwire\Http\Client\Http1ClientRequestWriter($request))
+            ->toThrow(InvalidArgumentException::class, 'Proxy credentials');
+    }
+});

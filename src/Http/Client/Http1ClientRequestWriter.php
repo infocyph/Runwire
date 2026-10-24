@@ -138,7 +138,7 @@ final class Http1ClientRequestWriter
     {
         $frame = "0\r\n";
         foreach ($trailers?->fields() ?? [] as $field) {
-            if (in_array($field->name, ['content-length', 'transfer-encoding', 'host', 'trailer', 'connection'], true)) {
+            if (in_array($field->name, ['content-length', 'transfer-encoding', 'host', 'trailer', 'connection', 'proxy-authorization', 'proxy-connection'], true)) {
 
                 throw new RuntimeException('HTTP/1.1 upload trailer contains a prohibited framing or routing field.');
             }
@@ -176,6 +176,9 @@ final class Http1ClientRequestWriter
 
     private function serializeField(HeaderField $field, string $authority): ?string
     {
+        if (in_array($field->name, ['proxy-authorization', 'proxy-connection'], true)) {
+            throw new InvalidArgumentException('Proxy credentials and hop-by-hop proxy headers are forbidden on origin requests.');
+        }
         if ($field->name === 'host') {
             if (strtolower(trim($field->value)) !== strtolower($authority)) {
 
