@@ -452,3 +452,9 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W81 Batch X (2026-10-25; QA PENDING):** H2 future client multiplexer primitive: monotonic odd stream issuance, connection-wide HPACK encoding and GOAWAY gating while preserving one-shot public outbound behavior. U07.05 OPEN; 117/175 unchanged pending certification.
 
 **W82 source QA recovery (2026-10-25; QA PENDING):** Remove malformed duplicate tail in API-diff script after its first complete output statement; W78 source audit passed but PHPForge failed parse. Combine with W79–W81 H2 groundwork, keep 117/175 pending new full QA.
+
+**W83 Batch Y (2026-10-25; QA PENDING):** H2 per-stream RST_STREAM, WINDOW_UPDATE, PRIORITY and extension-frame shape handling with isolated decoder tests; no multiplex certification or task acceptance claimed. 117/175 remains authoritative.
+
+**W84 Batch Z (2026-10-25; QA PENDING):** Internal outbound H2 GOAWAY last stream/error metadata and fail-closed handshake state; real concurrent drain remains U07.05 OPEN. Tracker 117/175.
+
+**W85 formatting recovery (2026-10-25; QA PENDING):** W82 PHPForge Pint failures on H2 handshake class order and source-manifest whitespace corrected with W83–W84. No task accepted without successful exact-source evidence.

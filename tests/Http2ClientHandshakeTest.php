@@ -126,3 +126,21 @@ it('maintains connection-level HPACK and monotonic odd stream admission for futu
     expect(fn() => $h2->requestOnStream(5, 'GET', 'https', 'example.test', '/'))
         ->toThrow(RuntimeException::class, 'verified');
 });
+
+it('records peer GOAWAY last-stream and error-code metadata without leaking debug text', function (): void {
+    $h2 = new Http2ClientHandshake();
+    expect($h2->peerGoAwayLastStreamId())->toBeNull()
+        ->and($h2->peerGoAwayErrorCode())->toBeNull();
+    $h2->start();
+    $h2->receive(FrameWriter::settings());
+    $h2->receive(new Frame(FrameType::GOAWAY->value, 0, 0, pack('NN', 3, 11) . 'diagnostic-secret'));
+    expect($h2->peerGoAwayLastStreamId())->toBe(3)
+        ->and($h2->peerGoAwayErrorCode())->toBe(11)
+        ->and($h2->ready())->toBeFalse();
+
+    $hostile = new Http2ClientHandshake();
+    $hostile->start();
+    $hostile->receive(FrameWriter::settings());
+    expect(fn() => $hostile->receive(new Frame(FrameType::GOAWAY->value, 0, 0, 'short')))
+        ->toThrow(RuntimeException::class, 'last stream');
+});

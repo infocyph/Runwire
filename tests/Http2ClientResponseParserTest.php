@@ -182,3 +182,39 @@ it('reuses one connection HPACK decoding table across separately bounded H2 resp
         ->and($first->done())->toBeTrue()
         ->and($second->done())->toBeTrue();
 });
+
+it('isolates valid H2 RST_STREAM and rejects malformed peer stream-control frames', function (): void {
+    $headers = static function (): void {};
+    $body = static function (): void {};
+    $first = new Http2ClientResponseParser(streamId: 1);
+    $third = new Http2ClientResponseParser(streamId: 3);
+    $first->push(new Frame(0xFA, 0, 1, 'bounded-extension'), $headers, $body);
+    $first->push(new Frame(FrameType::PRIORITY->value, 0, 1, pack('NC', 0, 15)), $headers, $body);
+    $first->push(new Frame(FrameType::WINDOW_UPDATE->value, 0, 1, pack('N', 16)), $headers, $body);
+    expect(fn() => $first->push(new Frame(FrameType::RST_STREAM->value, 0, 1, pack('N', 8)), $headers, $body))
+        ->toThrow(RuntimeException::class, 'RST_STREAM');
+    expect($first->done())->toBeTrue()->and($third->done())->toBeFalse();
+
+    $block = (new Encoder())->encode([[':status', '204']]);
+    $third->push(new Frame(FrameType::HEADERS->value, 0x5, 3, $block), $headers, $body);
+    expect($third->done())->toBeTrue();
+
+    foreach ([
+        new Frame(FrameType::WINDOW_UPDATE->value, 0, 5, pack('N', 0)),
+        new Frame(FrameType::WINDOW_UPDATE->value, 0x1, 5, pack('N', 1)),
+        new Frame(FrameType::PRIORITY->value, 0, 5, pack('NC', 5, 1)),
+        new Frame(FrameType::RST_STREAM->value, 0, 5, "x"),
+    ] as $hostile) {
+        $parser = new Http2ClientResponseParser(streamId: 5);
+        expect(fn() => $parser->push($hostile, $headers, $body))->toThrow(RuntimeException::class);
+    }
+});
+
+it('forbids unknown extension frame interleaving while awaiting H2 CONTINUATION', function (): void {
+    $parser = new Http2ClientResponseParser();
+    $onHeaders = static function (): void {};
+    $onBody = static function (): void {};
+    $parser->push(new Frame(FrameType::HEADERS->value, 0, 1), $onHeaders, $onBody);
+    expect(fn() => $parser->push(new Frame(0xFB, 0, 1, 'unrecognized'), $onHeaders, $onBody))
+        ->toThrow(RuntimeException::class, 'interleaved');
+});

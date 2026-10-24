@@ -27,11 +27,15 @@ final class Http2ClientHandshake
 
     private bool $closed = false;
 
+    private int $lastIssuedStreamId = 0;
+
+    private ?int $peerGoAwayErrorCode = null;
+
+    private ?int $peerGoAwayLastStreamId = null;
+
     private bool $receivedSettings = false;
 
     private bool $requestSent = false;
-
-    private int $lastIssuedStreamId = 0;
 
     private bool $started = false;
 
@@ -52,6 +56,44 @@ final class Http2ClientHandshake
         $this->requestSent = true;
 
         return $wire;
+    }
+
+    /** Return the peer's terminal GOAWAY error code without exposing debug bytes. */
+    public function peerGoAwayErrorCode(): ?int
+    {
+        return $this->peerGoAwayErrorCode;
+    }
+
+    /** Expose the last stream ID reported by the peer's terminal GOAWAY. */
+    public function peerGoAwayLastStreamId(): ?int
+    {
+        return $this->peerGoAwayLastStreamId;
+    }
+
+    /** Report whether peer SETTINGS were validated before request dispatch. */
+    public function ready(): bool
+    {
+        return $this->receivedSettings && !$this->closed;
+    }
+
+    /** Accept only bounded connection control frames and return wire ACK, if any. */
+    public function receive(Frame $frame): string
+    {
+        if (!$this->started || $this->closed) {
+            throw new RuntimeException('HTTP/2 client handshake is not active.');
+        }
+        if (!$this->receivedSettings && ($frame->knownType() !== FrameType::SETTINGS || $frame->hasFlag(0x1))) {
+            throw new RuntimeException('HTTP/2 server must send SETTINGS as its first frame.');
+        }
+
+        return match ($frame->knownType()) {
+            FrameType::SETTINGS => $this->settings($frame),
+            FrameType::PING => $this->ping($frame),
+            FrameType::GOAWAY => $this->goaway($frame),
+            FrameType::WINDOW_UPDATE => $this->windowUpdate($frame),
+            null => '', // RFC 9113: ignore unrecognized extension frame types.
+            default => throw new RuntimeException('HTTP/2 bootstrap accepts connection control frames only.'),
+        };
     }
 
     /**
@@ -86,32 +128,6 @@ final class Http2ClientHandshake
         return FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x5, $streamId, $block));
     }
 
-    /** Report whether peer SETTINGS were validated before request dispatch. */
-    public function ready(): bool
-    {
-        return $this->receivedSettings && !$this->closed;
-    }
-
-    /** Accept only bounded connection control frames and return wire ACK, if any. */
-    public function receive(Frame $frame): string
-    {
-        if (!$this->started || $this->closed) {
-            throw new RuntimeException('HTTP/2 client handshake is not active.');
-        }
-        if (!$this->receivedSettings && ($frame->knownType() !== FrameType::SETTINGS || $frame->hasFlag(0x1))) {
-            throw new RuntimeException('HTTP/2 server must send SETTINGS as its first frame.');
-        }
-
-        return match ($frame->knownType()) {
-            FrameType::SETTINGS => $this->settings($frame),
-            FrameType::PING => $this->ping($frame),
-            FrameType::GOAWAY => $this->goaway($frame),
-            FrameType::WINDOW_UPDATE => $this->windowUpdate($frame),
-            null => '', // RFC 9113: ignore unrecognized extension frame types.
-            default => throw new RuntimeException('HTTP/2 bootstrap accepts connection control frames only.'),
-        };
-    }
-
     /** Return the exact H2 client connection preface and first SETTINGS. */
     public function start(): string
     {
@@ -129,6 +145,13 @@ final class Http2ClientHandshake
         if ($frame->streamId !== 0 || $frame->flags !== 0 || strlen($frame->payload) < 8) {
             throw new RuntimeException('HTTP/2 GOAWAY must contain the last stream and error.');
         }
+        $last = unpack('Nlast', substr($frame->payload, 0, 4));
+        $error = unpack('Nerror', substr($frame->payload, 4, 4));
+        if (!is_int($last['last'] ?? null) || !is_int($error['error'] ?? null)) {
+            throw new RuntimeException('HTTP/2 GOAWAY has invalid stream or error fields.');
+        }
+        $this->peerGoAwayLastStreamId = $last['last'] & 0x7FFF_FFFF;
+        $this->peerGoAwayErrorCode = $error['error'];
         $this->closed = true;
 
         return '';

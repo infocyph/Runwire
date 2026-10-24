@@ -136,7 +136,6 @@ foreach ($files as $path) {
         sort($cases, SORT_STRING);
     }
 
-
     if ($withProperties) {
         // Track declared public fields and constructor-promoted public properties.
         // The property manifest is additive to historical schema-v1 archives.
@@ -162,7 +161,6 @@ foreach ($files as $path) {
             }
         }
         ksort($properties, SORT_STRING);
-    
     }
 
     $symbol = [
