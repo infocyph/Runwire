@@ -288,3 +288,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **D5 source-linked runbooks and performance/security guide staged (2026-10-24):** Real runnable portable/host/file examples and no fabricated throughput results, benchmark provenance + threat model. U16.13/U16.14 QA pending. **98/175, 77 open.**
 
 **W3 WebSocket QA correction staged (2026-10-24):** Correct e5c4a302 Pest/Pint/PHPCS/PHPStan issues on WebSocket framing while preserving strict direction masking, with extra role regression. U09 pending exact-head QA. **98/175, 77 open; 34 to 75%.**
+
+**W4 RFC6455 adversarial matrix staged (2026-10-24):** Binary frame boundary, masking-direction, fragmented read, error-code, worker-memory budget fuzz-style fixtures. U09.01/U14.04 remain open pending QA. **98/175 accepted, 77 open**.
