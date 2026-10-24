@@ -23,7 +23,7 @@ trait ConnectionLifecycleOperationsTrait
         }
 
         $this->scopeOwnership = ConnectionScopeOwnership::attach($this, $this->loop, $token, $deadline);
-        if ($this->state === ConnectionState::CLOSED) {
+        if ($this->state() === ConnectionState::CLOSED) {
             $this->scopeOwnership->dispose();
             $this->scopeOwnership = null;
         }

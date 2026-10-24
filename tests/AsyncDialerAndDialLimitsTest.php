@@ -339,3 +339,37 @@ it('rejects excess hostname races without enqueuing another DNS job', function (
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
+
+
+it('cancels pending child DNS dialing when its structured parent fails', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 8);
+    $dialer = new Dialer($loop);
+    $racer = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
+    $runtime = new CoroutineRuntime($loop);
+    $executor->submit('sleep', ['milliseconds' => 90], static function (): void {});
+    $stopWorker = $loop->delay(0.06, static function () use ($executor): void {
+        $executor->close();
+    });
+
+    try {
+        expect(fn() => $runtime->run(static function (CoroutineScope $scope) use ($racer): void {
+            $scope->spawn(static function () use ($racer, $scope): void {
+                (new AsyncDialer($racer, $scope))->connect('tcp://localhost:44444');
+            });
+            $scope->yieldNow();
+            throw new RuntimeException('synthetic scope failure');
+        }))->toThrow(RuntimeException::class, 'synthetic scope failure');
+
+        expect($runtime->activeTaskCount())->toBe(0)
+            ->and($racer->pendingCount())->toBe(0)
+            ->and($dialer->pendingCount())->toBe(0);
+    } finally {
+        $loop->cancel($stopWorker);
+        $executor->close();
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0)
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});
