@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Network;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Loop\LoopInterface;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\RequestDeadline;
 use InvalidArgumentException;
 use Throwable;
@@ -16,8 +17,8 @@ use Throwable;
  *
  * Each direction forwards at most one tick budget without copying the whole
  * inbound buffer. Downstream write pressure suspends upstream transport reads.
- * EOF currently terminates both sides; half-close and graceful drain belong
- * to the separate U10.08 lifecycle acceptance gate.
+ * Cleartext TCP/Unix peers independently propagate write FIN once their
+ * forwarded data drains; TLS cannot use raw TCP half-close.
  */
 final class StreamRelay
 {
@@ -28,6 +29,10 @@ final class StreamRelay
     private bool $forwardingLeft = false;
 
     private bool $forwardingRight = false;
+
+    private bool $leftEofForwarded = false;
+
+    private bool $rightEofForwarded = false;
 
     private bool $started = false;
 
@@ -88,6 +93,10 @@ final class StreamRelay
         }
 
         try {
+            if (!$this->left->isEncrypted() && !$this->right->isEncrypted()) {
+                $this->left->preservePeerEof();
+                $this->right->preservePeerEof();
+            }
             $this->left->handoffCallbacks(
                 $this,
                 function (): void {
@@ -97,7 +106,7 @@ final class StreamRelay
                     $this->resume(false);
                 },
                 function (): void {
-                    $this->close();
+                    $this->onEof(true);
                 },
             );
             $this->right->handoffCallbacks(
@@ -109,7 +118,7 @@ final class StreamRelay
                     $this->resume(true);
                 },
                 function (): void {
-                    $this->close();
+                    $this->onEof(false);
                 },
             );
             $this->left->onClose(function (): void {
@@ -167,6 +176,36 @@ final class StreamRelay
         return true;
     }
 
+    private function completeDirection(bool $fromLeft): void
+    {
+        if ($this->closed || ($fromLeft ? $this->leftEofForwarded : $this->rightEofForwarded)) {
+            return;
+        }
+        $source = $fromLeft ? $this->left : $this->right;
+        if (!$source->peerReadClosed() || $source->receivedBytes() > 0) {
+            return;
+        }
+        if ($fromLeft) {
+            $this->leftEofForwarded = true;
+        } else {
+            $this->rightEofForwarded = true;
+        }
+        $destination = $fromLeft ? $this->right : $this->left;
+        $destination->shutdownWriteAfterDrain(function (): void {
+            $this->finishIfFullyDrained();
+        });
+        $this->finishIfFullyDrained();
+    }
+
+    private function finishIfFullyDrained(): void
+    {
+        if ($this->left->peerReadClosed() && $this->right->peerReadClosed()
+            && $this->left->state() === ConnectionState::HALF_CLOSED
+            && $this->right->state() === ConnectionState::HALF_CLOSED) {
+            $this->close();
+        }
+    }
+
     private function forward(bool $fromLeft): void
     {
         if ($this->closed || ($fromLeft ? $this->forwardingLeft : $this->forwardingRight)) {
@@ -191,6 +230,11 @@ final class StreamRelay
 
     private function manageReadPressure(Connection $source, Connection $destination, bool $fromLeft): void
     {
+        if ($source->peerReadClosed() && $source->receivedBytes() === 0) {
+            $this->completeDirection($fromLeft);
+
+            return;
+        }
         if ($destination->isWritePressured() || $destination->availableWriteBytes() === 0) {
             $source->pauseReads();
 
@@ -226,6 +270,21 @@ final class StreamRelay
         }
 
         return $length;
+    }
+
+    private function onEof(bool $fromLeft): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        if ($this->left->isEncrypted() || $this->right->isEncrypted()) {
+            // Encrypted peers require authenticated close_notify, not raw FIN.
+            $this->close();
+
+            return;
+        }
+        $this->forward($fromLeft);
+        $this->completeDirection($fromLeft);
     }
 
     private function resume(bool $fromLeft): void

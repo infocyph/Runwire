@@ -10,6 +10,7 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use Infocyph\Runwire\RequestDeadline;
+use Closure;
 use LogicException;
 
 /** @internal State transition and resource cleanup mechanics for established streams. */
@@ -33,6 +34,19 @@ trait ConnectionLifecycleOperationsTrait
     public function boundTo(CancellationToken $token): bool
     {
         return $this->scopeOwnership?->matches($token) ?? false;
+    }
+
+    /**
+     * @internal Preserve the incoming EOF until a duplex relay drains the opposite direction.
+     * This is permitted only for cleartext streams with no prior protocol owner.
+     */
+    public function preservePeerEof(): void
+    {
+        if ($this->state !== ConnectionState::OPEN || $this->peerReadClosed || $this->encrypted) {
+            throw new LogicException('Only live cleartext streams can retain peer EOF for duplex forwarding.');
+        }
+
+        $this->preservePeerEof = true;
     }
 
     /**
@@ -61,6 +75,22 @@ trait ConnectionLifecycleOperationsTrait
     }
 
     /**
+     * Queue a local half-close after all accepted bytes have reached the socket.
+     * Future application writes are rejected while the pending FIN drains.
+     * @param null|callable():void $onHalfClosed
+     */
+    public function shutdownWriteAfterDrain(?callable $onHalfClosed = null): void
+    {
+        if ($this->state !== ConnectionState::OPEN || $this->encrypted || $this->writeShutdownPending) {
+            throw new LogicException('Only one pending cleartext stream half-close is allowed.');
+        }
+
+        $this->writeShutdownPending = true;
+        $this->writeShutdownCallback = $onHalfClosed === null ? null : Closure::fromCallable($onHalfClosed);
+        $this->finishPendingWriteShutdown();
+    }
+
+    /**
      * Explicitly rebind a live connection to a different cancellation owner.
      * Existing ownership is preserved if the new token is already cancelled.
      */
@@ -81,7 +111,7 @@ trait ConnectionLifecycleOperationsTrait
      */
     public function write(string $data): WriteResult
     {
-        if ($this->state !== ConnectionState::OPEN) {
+        if ($this->state !== ConnectionState::OPEN || $this->writeShutdownPending) {
             return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
         }
         if ($data === '') {
@@ -130,6 +160,22 @@ trait ConnectionLifecycleOperationsTrait
         }
     }
 
+    private function finishPendingWriteShutdown(): void
+    {
+        if (!$this->writeShutdownPending || !$this->sendBuffer->isEmpty()
+            || $this->state !== ConnectionState::OPEN) {
+            return;
+        }
+
+        $callback = $this->writeShutdownCallback;
+        $this->writeShutdownCallback = null;
+        $this->writeShutdownPending = false;
+        $this->shutdownWrite();
+        if ($this->state === ConnectionState::HALF_CLOSED) {
+            $callback?->__invoke();
+        }
+    }
+
     private function markPeerEof(): void
     {
         if ($this->state === ConnectionState::CLOSED || $this->peerReadClosed) {
@@ -139,6 +185,9 @@ trait ConnectionLifecycleOperationsTrait
         $this->peerReadClosed = true;
         $this->syncReadWatcher();
         $this->invoke($this->eofCallback);
+        if ($this->state === ConnectionState::CLOSED || $this->preservePeerEof) {
+            return;
+        }
         if ($this->state === ConnectionState::OPEN) {
             $this->beginDrain(CloseReason::PEER_CLOSED);
         } elseif ($this->state === ConnectionState::HALF_CLOSED) {

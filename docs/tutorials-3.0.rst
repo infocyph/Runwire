@@ -59,8 +59,10 @@ The development-only ``Network\\StreamRelay`` transfers bounded
 chunks between two already-established TCP or Unix connections,
 using shared send/receive queues, read pressure suspension and
 drain-driven resumption. A cancellation token or monotonic deadline
-can abort both sides. **Half-close is not implemented**: when either
-peer reaches EOF, the current relay closes both connections.
+can abort both sides. For cleartext TCP/Unix relay, remote EOF propagates a local write FIN
+only after accepted output drains, while the opposite direction
+continues independently. TLS relays still abort on transport EOF:
+a bare TCP FIN cannot replace a TLS close_notify handshake.
 Do not present this as a production-ready generic CONNECT tunnel.
 
 .. code-block:: console

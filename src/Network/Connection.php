@@ -62,6 +62,8 @@ final class Connection
 
     private bool $peerReadClosed = false;
 
+    private bool $preservePeerEof = false;
+
     private bool $pressureReadPause = false;
 
     private ?int $readWatcher = null;
@@ -76,6 +78,10 @@ final class Connection
     private mixed $stream;
 
     private bool $writePressured = false;
+
+    private ?Closure $writeShutdownCallback = null;
+
+    private bool $writeShutdownPending = false;
 
     private ?int $writeWatcher = null;
 
@@ -521,6 +527,8 @@ final class Connection
         $this->stream = null;
         $this->receiveBuffer->clear();
         $this->sendBuffer->clear();
+        $this->writeShutdownCallback = null;
+        $this->writeShutdownPending = false;
 
         $callbacks = $this->closeCallbacks;
         $this->closeCallbacks = [];
@@ -596,6 +604,7 @@ final class Connection
 
         $this->updateWritePressure();
         $this->syncWriteWatcher();
+        $this->finishPendingWriteShutdown();
         if ($this->state === ConnectionState::DRAINING && $this->sendBuffer->isEmpty()) {
             $this->finalize($this->drainReason ?? CloseReason::LOCAL_GRACEFUL);
         }
@@ -622,6 +631,7 @@ final class Connection
     private function poolBuffersQuiescent(): bool
     {
         return !$this->manualReadPause
+            && !$this->writeShutdownPending
             && !$this->pressureReadPause
             && !$this->writePressured
             && $this->sendBuffer->bytes() === 0
