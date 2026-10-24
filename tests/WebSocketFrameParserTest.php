@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketFrameParser;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 
 function maskedWebSocketFrame(int $opcode, string $payload, bool $fin = true): string
@@ -114,4 +115,21 @@ it('charges parser bytes to the shared worker budget', function (): void {
     $parser->append(str_repeat('x', 32));
     expect(static fn() => $parser->append('y'))
         ->toThrow(WebSocketProtocolException::class, 'byte budget');
+});
+
+it('enforces client and server masking directions without admitting invalid frames', function (): void {
+    $options = new WebSocketOptions();
+    $serverParser = new WebSocketFrameParser($options);
+    $serverParser->append("\\x81\\x01x");
+    expect(static fn() => $serverParser->parse(1))
+        ->toThrow(WebSocketProtocolException::class, 'must be masked');
+
+    $clientParser = new WebSocketFrameParser($options, expectMasked: false);
+    $clientParser->append(maskedWebSocketFrame(0x1, 'masked-from-server'));
+    expect(static fn() => $clientParser->parse(1))
+        ->toThrow(WebSocketProtocolException::class, 'must not be masked');
+
+    $valid = new WebSocketFrameParser($options, expectMasked: false);
+    $valid->append(WebSocketWireCodec::frame(0x1, 'clear-from-server'));
+    expect($valid->parse(1)[0]->payload)->toBe('clear-from-server');
 });

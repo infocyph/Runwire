@@ -37,27 +37,6 @@ final readonly class WebSocketWireCodec
         }
     }
 
-    /**
-     * Encode one unmasked server-to-client frame.
-     */
-    public static function frame(int $opcode, string $payload): string
-    {
-        if ($opcode < 0 || $opcode > 15) {
-            throw new InvalidArgumentException('WebSocket opcode must be between 0 and 15.');
-        }
-
-        $length = strlen($payload);
-        $first = chr(0x80 | $opcode);
-        if ($length < 126) {
-            return $first . chr($length) . $payload;
-        }
-        if ($length <= 65_535) {
-            return $first . chr(126) . pack('n', $length) . $payload;
-        }
-
-        return $first . chr(127) . pack('NN', 0, $length) . $payload;
-    }
-
     /** Encode a client-to-server frame with a fresh cryptographic masking key. */
     public static function clientFrame(int $opcode, string $payload, bool $fin = true): string
     {
@@ -85,6 +64,27 @@ final readonly class WebSocketWireCodec
     }
 
     /**
+     * Encode one unmasked server-to-client frame.
+     */
+    public static function frame(int $opcode, string $payload): string
+    {
+        if ($opcode < 0 || $opcode > 15) {
+            throw new InvalidArgumentException('WebSocket opcode must be between 0 and 15.');
+        }
+
+        $length = strlen($payload);
+        $first = chr(0x80 | $opcode);
+        if ($length < 126) {
+            return $first . chr($length) . $payload;
+        }
+        if ($length <= 65_535) {
+            return $first . chr(126) . pack('n', $length) . $payload;
+        }
+
+        return $first . chr(127) . pack('NN', 0, $length) . $payload;
+    }
+
+    /**
      * Decode and validate a peer close payload.
      *
      * @return array{0: int, 1: string}
@@ -104,7 +104,6 @@ final readonly class WebSocketWireCodec
         try {
             self::assertCloseCode($code);
         } catch (InvalidArgumentException) {
-
             throw new WebSocketProtocolException(1002, 'Peer sent an invalid WebSocket close code.');
         }
 

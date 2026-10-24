@@ -189,20 +189,10 @@ final class WebSocketFrameParser
         $first = ord($this->buffer[0]);
         $second = ord($this->buffer[1]);
         $fin = ($first & 0x80) !== 0;
-        $rsv = $first & 0x70;
+        $this->validateFrameHeader($first, $second);
         $opcode = $first & 0x0f;
         $masked = ($second & 0x80) !== 0;
         $indicator = $second & 0x7f;
-
-        if ($rsv !== 0) {
-            throw new WebSocketProtocolException(1002, 'WebSocket RSV bits require a negotiated extension.');
-        }
-        if (!in_array($opcode, [0x0, 0x1, 0x2, 0x8, 0x9, 0xA], true)) {
-            throw new WebSocketProtocolException(1002, 'WebSocket frame opcode is reserved or unsupported.');
-        }
-        if ($masked !== $this->expectMasked) {
-            throw new WebSocketProtocolException(1002, 'WebSocket peer frame masking does not match its direction.');
-        }
 
         $offset = 2;
         $length = $this->decodeLength($indicator, $offset);
@@ -235,5 +225,25 @@ final class WebSocketFrameParser
         }
 
         $this->workerBudget?->release($bytes);
+    }
+
+    private function validateFrameHeader(int $first, int $second): void
+    {
+        if (($first & 0x70) !== 0) {
+            throw new WebSocketProtocolException(1002, 'WebSocket RSV bits require a negotiated extension.');
+        }
+        if (!in_array($first & 0x0f, [0x0, 0x1, 0x2, 0x8, 0x9, 0xA], true)) {
+            throw new WebSocketProtocolException(1002, 'WebSocket frame opcode is reserved or unsupported.');
+        }
+
+        $masked = ($second & 0x80) !== 0;
+        if ($masked !== $this->expectMasked) {
+            throw new WebSocketProtocolException(
+                1002,
+                $this->expectMasked
+                    ? 'WebSocket frames from clients must be masked.'
+                    : 'WebSocket frames from servers must not be masked.',
+            );
+        }
     }
 }

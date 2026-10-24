@@ -27,6 +27,7 @@ it('reuses one session lifecycle with correct masking when a verified client rol
     $received = [];
     $wire = '';
     $session->onMessage(static function (WebSocketSession $session, $message) use (&$received): void {
+        expect($session)->toBeInstanceOf(WebSocketSession::class);
         $received[] = $message->data;
     });
     $watcher = $loop->onReadable($peer, static function ($stream) use (&$wire): void {
