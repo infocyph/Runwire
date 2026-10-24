@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 2/11; U08 6/10; U09 2/10; U10 1/9; U11 6/10; U12 3/9; U13 8/9; U14 2/8; U16 8/16**. **98/175 accepted tasks, 77 open across 18 batches** (56.0%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 2/11; U08 6/10; U09 3/10; U10 1/9; U11 6/10; U12 3/9; U13 8/9; U14 2/8; U16 9/16**. **100/175 accepted tasks, 75 open across 18 batches** (57.1%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -66,16 +66,16 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 9 | 2/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 4 | 6/10 |
-| U09 | WebSocket and WebTransport client/server | 8 | 2/10 |
+| U09 | WebSocket and WebTransport client/server | 7 | 3/10 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 8 | 1/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 4 | 6/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
 | U13 | Real host and optional extension compatibility | 1 | 8/9 |
 | U14 | Security, fuzzing and adversarial resilience | 6 | 2/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 8 | 8/16 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 7 | 9/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **77** | **98/175 (56.0%)** |
+| **TOTAL** | **Full unified-runtime release program** | **75** | **100/175 (57.1%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -296,3 +296,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W6 WebSocket multi-connection regression staged (2026-10-24):** 64 concurrent paired sockets, interleaved ping/fragmentation, exact delivery and owner cleanup, QA pending. U09.03 remains open. **98/175 accepted, 77 open.**
 
 **H13 RoadRunner live FD lifecycle regression staged (2026-10-24):** PHP8.4/8.5 real worker now records `/proc/self/fd` before/after, rejects growth per request or cumulative across repeated requests, alongside socket and file cleanup. Real pooled outgoing clients are still unimplemented, so U13.04 stays open. **98/175 accepted.**
+
+**W7 docs + WebSocket real QA accepted (2026-10-24):** PHPForge 8.4/8.5 four test/analysis configurations #40076825500 and strict Sphinx #40076825279 passed on immutable a0812bc. Accept U09.01 shared RFC6455 frame/close masking and U16.15 PHP/RST runnable reference syntax plus Sphinx links. No claims for incomplete WebTransport, hosted docs or new 64-socket W6 fixture. **100/175 accepted (57.1%), 75 open, 32 to milestone.**

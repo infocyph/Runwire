@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 98/175 accepted (56.0%); 77 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 100/175 accepted (57.1%); 75 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -50,18 +50,18 @@
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 2/11 | 9 | In progress | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 6/10 | 4 | In progress | U02,U04,U05,U06 |
-| U09 | WebSocket and WebTransport client/server | 2/10 | 8 | In progress | U05,U07,U08 |
+| U09 | WebSocket and WebTransport client/server | 3/10 | 7 | In progress | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 1/9 | 8 | In progress | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 6/10 | 4 | In progress | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 3/9 | 6 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 8/9 | 1 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 2/8 | 6 | In progress | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 8/16 | 8 | In progress | U00-U15 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 9/16 | 7 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **98/175** | **77** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **100/175** | **75** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 98/175 (56.0% complete), 77 open.
+**Progress counter:** 100/175 (57.1% complete), 75 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -225,7 +225,7 @@
 
 **Prerequisite:** U05,U07,U08. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U09.01** Share WebSocket framing, masking, control frames and close semantics. **Acceptance:** RFC6455 fuzz and interoperability. **Proof:** PENDING.
+- [x] **U09.01** Share WebSocket framing, masking, control frames and close semantics. **Acceptance:** RFC6455 fuzz and interoperability. **Proof:** One shared `WebSocketFrameParser` and `WebSocketWireCodec` now enforce RFC6455 client/server masking direction, reserved opcode/RSV rejection, minimal 7/16/64-bit payload encodings, control/close/UTF-8 rules and full shared-worker byte reclamation. `tests/WebSocketAdversarialFrameTest.php` exercises binary payloads at 0/125/126/127/65535/65536 boundaries with 97-byte fragments, invalid bitfields, close codes and role masking; `tests/WebSocketClientRoleTest.php`, `tests/WebSocketFrameParserTest.php` and real socket-peer `tests/WebSocketIntegrationTest.php` verify client/server roles and H1 upgrade/fragment/ping/close interoperability. Exactly source [a0812bc](https://github.com/infocyph/Runwire/commit/a0812bc12da4445b244aa44ba6d87c78fe01191e), [Security #40076825500](https://github.com/infocyph/Runwire/actions/runs/40076825500): four PHP8.4/8.5 stable/lowest PHPForge QA jobs and both PHPStan/Psalm jobs PASS. No WebTransport/client handshake or large-scale performance certification claimed.
 - [ ] **U09.02** Implement outbound WebSocket client with TLS and subprotocols. **Acceptance:** Independent server connects and closes safely. **Proof:** PENDING.
 - [ ] **U09.03** Unify WS heartbeat, fragmentation, backpressure and message limits. **Acceptance:** High connection counts bounded. **Proof:** PENDING.
 - [x] **U09.04** Validate H2/H3 extended CONNECT only if implemented and qualified. **Acceptance:** No unsupported version advertised. **Proof:** Shared H2/H3 RequestHeaderValidator rejects :protocol pseudo-header for websocket/webtransport while retaining ordinary CONNECT authority. tests/ExtendedConnectRejectionTest.php covers both versions and variants. All PHP8.4/8.5 stable/lowest Pest/PHPForge and PHPStan/Psalm passed [Security #40073762272](https://github.com/infocyph/Runwire/actions/runs/40073762272) at 8ea14d1; unsupported H2/H3 extended CONNECT not advertised.
@@ -236,7 +236,7 @@
 - [ ] **U09.09** Support session idle timeout, graceful drain and overload policy. **Acceptance:** No orphan QUIC streams on shutdown. **Proof:** PENDING.
 - [ ] **U09.10** Run WT/WS hostile frame, slow-peer and throughput suites. **Acceptance:** Fuzz, RPS/p99, RSS and fairness gates. **Proof:** PENDING.
 
-**Batch tracker:** 2/10 accepted; 8 open — U09.04 explicit H2/H3 extended CONNECT rejection QA — U09.05 accurate WT authority/session/stream design strict Sphinx #40073761998. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 3/10 accepted; 7 open — U09.01 shared RFC6455 direction/framing/close adversarial fixtures and real H1 peer #40076825500 — U09.04 explicit H2/H3 extended CONNECT rejection QA — U09.05 accurate WT authority/session/stream design strict Sphinx #40073761998. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U10 — Connection pooling, proxy negotiation and stream relay
 
@@ -353,10 +353,10 @@
 - [ ] **U16.12** Write full 2.1.2 to 3.0 breaking migration guide and before/after snippets. **Acceptance:** All intentional API removals/migrations covered. **Proof:** PENDING.
 - [ ] **U16.13** Write end-to-end tutorials, recipes, deployment and troubleshooting guides. **Acceptance:** Examples execute in CI. **Proof:** PENDING.
 - [ ] **U16.14** Document performance tuning, benchmarks, metrics, threat model and QA provenance. **Acceptance:** All quantitative claims link to reproducible source. **Proof:** PENDING.
-- [ ] **U16.15** Enforce sphinx-build -n -W --keep-going -b html plus links and code snippet validation. **Acceptance:** CI fails on unresolved refs or invalid examples. **Proof:** PENDING.
+- [x] **U16.15** Enforce sphinx-build -n -W --keep-going -b html plus links and code snippet validation. **Acceptance:** CI fails on unresolved refs or invalid examples. **Proof:** `.github/workflows/documentation.yml` enforces native-RST-only Sphinx `sphinx-build -n -W --keep-going -b html` and toctree/cross-reference validation, [strict Sphinx #40076825279](https://github.com/infocyph/Runwire/actions/runs/40076825279) PASS at a0812bc. The source `tests/Plan3DocumentationSnippetsTest.php` traverses all public `.rst` files, parses every PHP code block with PHP native `token_get_all(..., TOKEN_PARSE)` and rejects missing `tests/`, `tools/`, `benchmarks/` executable PHP/Python source references; all four PHPForge QA lanes and both analyzers PASS [Security #40076825500](https://github.com/infocyph/Runwire/actions/runs/40076825500). Hosted Read the Docs preview/external website link-check remains separate U16.16, not claimed.
 - [ ] **U16.16** Verify Read the Docs navigation, search, versioning and complete feature index. **Acceptance:** Hosted preview passes and 100 percent feature coverage. **Proof:** PENDING.
 
-**Batch tracker:** 8/16 accepted; 8 open — U16.07 source-backed proxy/pool security RST QA — U16.06 H1/H2/H3/WS/WT RST runnable source-guide #40073761998 — transport/DNS RST U16.05 #40072262989 — U16.04 29-family version/host/extension coverage #40071567489 / #40071567309 — U16.08 coroutine scopes and U16.09 async file RST/CI #40068643157 — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 9/16 accepted; 7 open — U16.15 strict Sphinx + native PHP snippet/fixture source validation #40076825279/#40076825500 — U16.07 source-backed proxy/pool security RST QA — U16.06 H1/H2/H3/WS/WT RST runnable source-guide #40073761998 — transport/DNS RST U16.05 #40072262989 — U16.04 29-family version/host/extension coverage #40071567489 / #40071567309 — U16.08 coroutine scopes and U16.09 async file RST/CI #40068643157 — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U17 — Final certification, risk signoff and maintainer handoff
 
@@ -693,3 +693,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **W6 multi-session WebSocket fairness/ownership regression (2026-10-24; staged):** Add `tests/WebSocketConcurrentSessionsTest.php` with 64 simultaneous real Unix socket-pair sessions in one `SelectLoop`, one bounded WebSocket parser per connection, fragmented masked text+interleaved ping control and individual message handlers. Assert exact 64 deliveries, correct message/data role and zero watcher/write/timer handles after aborting all sessions; 500ms watchdog avoids indefinite hangs. Supports U09.03 real high-concurrency heartbeat/fragmentation resource ownership, while independent slow-peer/RSS/p99/WebTransport tasks remain open; U09.03 stays unchecked until QA + sustained scale/pressure evidence. **98/175 accepted, 77 open.**
 
 **H13 real RoadRunner persistent worker FD stability (2026-10-24; staged):** Extend the PHP8.4/8.5 live RoadRunner worker fixture with Linux `/proc/self/fd` counts before/after every real request; require no descriptor growth during real temp-file + Unix socket round trips and no cumulative growth across three distinct requests in the same PID. The existing per-request file deletion, closed socket handles, fresh request identity and persistent-worker sequence checks remain mandatory. These are worker-local resource hygiene checks, not proof of an implemented outgoing HTTP connection pool; U13.04 remains unchecked until real pooled sockets/files and QA are verified. **98/175 accepted; target 132/175.**
+
+**W7/D4 QA-backed acceptances toward 75% (2026-10-24):** Source a0812bc [Security #40076825500](https://github.com/infocyph/Runwire/actions/runs/40076825500) passed all four PHP8.4/8.5 prefer-stable/lowest Pest/Pint/PHPCS/Rector and both PHPStan/Psalm analysis lanes including RFC6455 boundary/role fuzz and doc snippets; [strict Sphinx #40076825279](https://github.com/infocyph/Runwire/actions/runs/40076825279) passed. Accept **U09.01** unified WebSocket framing/masking and **U16.15** strict docs/internal link/PHP example gates. QUIC PHP8.5 extended job remains independent of these scopes. Staged next W6 multi-socket/ H13 RoadRunner-FD tests are still QA-unaccepted. **100/175 (57.1%), 75 open; 32 additional tasks to 132/175.**
