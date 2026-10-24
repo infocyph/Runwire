@@ -120,7 +120,7 @@ it('charges parser bytes to the shared worker budget', function (): void {
 it('enforces client and server masking directions without admitting invalid frames', function (): void {
     $options = new WebSocketOptions();
     $serverParser = new WebSocketFrameParser($options);
-    $serverParser->append("\\x81\\x01x");
+    $serverParser->append("\x81\x01x");
     expect(static fn() => $serverParser->parse(1))
         ->toThrow(WebSocketProtocolException::class, 'must be masked');
 
