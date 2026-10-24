@@ -16,8 +16,15 @@ authentication policy revision. Separate origin, protocol, credential
 or authority contexts must never share a pooled connection. Its
 opaque digest is not a secret and does not authorize reuse.
 
-There is currently NO active bounded pool, waiter queue, eviction,
+There is currently NO active connection-dialing pool, waiter queue,
 HTTP/2 or HTTP/3 multiplex slot manager or GOAWAY-aware reuse.
+An experimental ``IdleConnectionPool`` can retain a finite number of
+already verified, fully quiescent streams for a finite TTL, in separate
+``PoolIsolationKey`` identity buckets. It installs its own exclusive
+callback owner to evict any unsolicited inbound bytes, peer EOF or closed
+socket and never hands such sockets back to a caller. Global capacity
+pressure evicts the oldest idle socket. It does not establish connections,
+queue waiters, certify HTTP response framing or offer an HTTP client.
 The development stream provides ``Connection::isPoolIdleSafe()`` as a
 fail-closed reuse preflight: it rejects unread response bytes, queued writes,
 peer EOF, outstanding scope ownership, protocol callback claims and close
