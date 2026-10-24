@@ -204,3 +204,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **F4 file-network bridge staging (2026-10-24):** Single bounded coroutine file/network transfer facade with real binary paired-socket hash fixtures, 16 KiB chunks and connection-pressure handling. U11.05 stays OPEN until slow-peer and full QA pass. **68/175 accepted, 107 open.**
 
 **F5 slow receiver acceptance staged (2026-10-24):** A 2 MiB wire/file SHA-256 fixture now withholds receiver reads long enough to require real bounded network backpressure, then resumes without blocking event-loop heartbeat. U11.05 still QA-gated. **68/175 accepted, 107 open.**
+
+**E3 grouped QA correction (2026-10-24):** A 1 MiB binary IPC packet exceeded fixed limits due to escaped base64 slashes. Use JSON_UNESCAPED_SLASHES end-to-end, preserving caps. Fix ScopedFiles return shape and API docs, head-parser redundant coalescing, and PHPForge statement spacing. Alongside F4/F5 real wire transfer and slow-peer regression, queue next CI; accept nothing until evidence is green. **68/175 accepted, 107 open.**
