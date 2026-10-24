@@ -269,20 +269,20 @@ it('never accepts an unauthenticated client into the mutual TLS server applicati
 
         try {
             [$connection, $error, $accepted] = runwireClientTlsAttempt(
-            $identity,
-            'localhost',
-            $identity[1],
-            null,
-            null,
-            [
-                'verify_peer' => true,
-                'verify_peer_name' => false,
-                'allow_self_signed' => false,
-                'cafile' => $identity[1],
-                'verify_depth' => 8,
-            ],
-            null,
-            true,
+                $identity,
+                'localhost',
+                $identity[1],
+                null,
+                null,
+                [
+                    'verify_peer' => true,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => false,
+                    'cafile' => $identity[1],
+                    'verify_depth' => 8,
+                ],
+                null,
+                true,
             );
         } finally {
             restore_error_handler();
