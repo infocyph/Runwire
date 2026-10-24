@@ -142,7 +142,7 @@ final readonly class WebSocketClientHandshake
     }
 
     /**
-     * @param array<string,mixed> $parts
+     * @param array{path?:string,query?:string} $parts
      */
     private static function requestTarget(array $parts): string
     {
