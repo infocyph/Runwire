@@ -113,6 +113,20 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
         );
         $loop->run();
 
+        if (!$serverEncrypted) {
+            $reasons = array_map(
+                static fn(?Throwable $error): string => $error?->getMessage() ?? 'no connection callback',
+                $errors,
+            );
+            throw new RuntimeException(sprintf(
+                'Independent WSS fixture TLS handshake failed: attempts=%d rejected=%d pending=%d; client=%s',
+                $listener->acceptedConnections(),
+                $listener->rejectedConnections(),
+                $listener->pendingHandshakes(),
+                implode('; ', $reasons),
+            ));
+        }
+
         expect($serverEncrypted)->toBeTrue()
             ->and($errors)->toBe([null])
             ->and($received)->toBe(['tls-message'])

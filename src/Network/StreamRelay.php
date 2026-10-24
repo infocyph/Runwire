@@ -71,18 +71,34 @@ final class StreamRelay
         try {
             $this->left->handoffCallbacks(
                 $this,
-                function (): void { $this->forward(true); },
-                function (): void { $this->resume(false); },
-                function (): void { $this->close(); },
+                function (): void {
+                    $this->forward(true);
+                },
+                function (): void {
+                    $this->resume(false);
+                },
+                function (): void {
+                    $this->close();
+                },
             );
             $this->right->handoffCallbacks(
                 $this,
-                function (): void { $this->forward(false); },
-                function (): void { $this->resume(true); },
-                function (): void { $this->close(); },
+                function (): void {
+                    $this->forward(false);
+                },
+                function (): void {
+                    $this->resume(true);
+                },
+                function (): void {
+                    $this->close();
+                },
             );
-            $this->left->onClose(function (): void { $this->close(); });
-            $this->right->onClose(function (): void { $this->close(); });
+            $this->left->onClose(function (): void {
+                $this->close();
+            });
+            $this->right->onClose(function (): void {
+                $this->close();
+            });
         } catch (Throwable $error) {
             $this->close();
 
@@ -117,6 +133,45 @@ final class StreamRelay
         }
     }
 
+    private function manageReadPressure(Connection $source, Connection $destination, bool $fromLeft): void
+    {
+        if ($destination->isWritePressured() || $destination->availableWriteBytes() === 0) {
+            $source->pauseReads();
+
+            return;
+        }
+        if ($source->receivedBytes() > 0) {
+            $this->loop->defer(function () use ($fromLeft): void {
+                $this->forward($fromLeft);
+            });
+        }
+    }
+
+    private function moveChunk(Connection $source, Connection $destination, bool $fromLeft, int $remaining): int
+    {
+        $available = min($destination->availableWriteBytes(), $remaining, $this->chunkBytes);
+        if ($available === 0) {
+            return 0;
+        }
+        $bytes = $source->read($available);
+        if ($bytes === '') {
+            return 0;
+        }
+        if (!$destination->write($bytes)->accepted()) {
+            $this->close();
+
+            return 0;
+        }
+        $length = strlen($bytes);
+        if ($fromLeft) {
+            $this->toRightBytes += $length;
+        } else {
+            $this->toLeftBytes += $length;
+        }
+
+        return $length;
+    }
+
     private function resume(bool $fromLeft): void
     {
         if ($this->closed) {
@@ -134,33 +189,14 @@ final class StreamRelay
         $remaining = $this->maxBytesPerTick;
 
         while (!$this->closed && $source->receivedBytes() > 0 && $remaining > 0) {
-            $available = $destination->availableWriteBytes();
-            if ($available === 0) {
+            $moved = $this->moveChunk($source, $destination, $fromLeft, $remaining);
+            if ($moved === 0) {
                 break;
             }
-            $bytes = $source->read(min($available, $remaining, $this->chunkBytes));
-            if ($bytes === '') {
-                break;
-            }
-            if (!$destination->write($bytes)->accepted()) {
-                $this->close();
-
-                return;
-            }
-            $length = strlen($bytes);
-            $remaining -= $length;
-            if ($fromLeft) {
-                $this->toRightBytes += $length;
-            } else {
-                $this->toLeftBytes += $length;
-            }
+            $remaining -= $moved;
         }
-        if ($destination->isWritePressured() || $destination->availableWriteBytes() === 0) {
-            $source->pauseReads();
-        } elseif ($source->receivedBytes() > 0) {
-            $this->loop->defer(function () use ($fromLeft): void {
-                $this->forward($fromLeft);
-            });
+        if (!$this->closed) {
+            $this->manageReadPressure($source, $destination, $fromLeft);
         }
     }
 }
