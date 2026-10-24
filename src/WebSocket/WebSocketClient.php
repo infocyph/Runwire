@@ -62,7 +62,7 @@ final readonly class WebSocketClient
                     return;
                 }
 
-                (new WebSocketClientUpgrade(
+                new WebSocketClientUpgrade(
                     $loop,
                     $connection,
                     $request,
@@ -70,7 +70,7 @@ final readonly class WebSocketClient
                     $options ?? new WebSocketOptions(),
                     $dialOptions,
                     $completion,
-                ))->start();
+                )->start();
             },
             $dialOptions,
         );

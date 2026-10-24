@@ -97,28 +97,6 @@ final class WebSocketClientUpgrade
         }
     }
 
-    private function finish(?WebSocketSession $session, ?Throwable $error): void
-    {
-        if ($this->settled) {
-            return;
-        }
-        $this->settled = true;
-        if ($this->timer !== null) {
-            $this->loop->cancel($this->timer);
-            $this->timer = null;
-        }
-        if ($this->closeObserver !== null) {
-            $this->connection->unregisterCloseObserver($this->closeObserver);
-            $this->closeObserver = null;
-        }
-        $this->subscription?->unsubscribe();
-        $this->subscription = null;
-        $this->head = '';
-        if ($error !== null) {
-            $this->connection->abort();
-        }
-        ($this->completion)($session, $error);
-    }
     private function consume(): void
     {
         if ($this->settled) {
@@ -170,4 +148,26 @@ final class WebSocketClientUpgrade
         $this->finish(null, $error);
     }
 
+    private function finish(?WebSocketSession $session, ?Throwable $error): void
+    {
+        if ($this->settled) {
+            return;
+        }
+        $this->settled = true;
+        if ($this->timer !== null) {
+            $this->loop->cancel($this->timer);
+            $this->timer = null;
+        }
+        if ($this->closeObserver !== null) {
+            $this->connection->unregisterCloseObserver($this->closeObserver);
+            $this->closeObserver = null;
+        }
+        $this->subscription?->unsubscribe();
+        $this->subscription = null;
+        $this->head = '';
+        if ($error !== null) {
+            $this->connection->abort();
+        }
+        ($this->completion)($session, $error);
+    }
 }
