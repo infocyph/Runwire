@@ -28,7 +28,7 @@
 | U03 | Async DNS and outbound TCP/Unix dialer | 10/10 | 0 | Complete | U01,U02 |
 | U04 | Unified TLS security and client/server handshakes | 7/8 | 1 | In progress | U02,U03 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 3/10 | 7 | In progress | U02,U03,U04 |
-| U06 | Structured concurrency, tasks, deadlines and scopes | 0/8 | 8 | In progress; awaiting QA acceptance | U01,U02,U03 |
+| U06 | Structured concurrency, tasks, deadlines and scopes | 4/8 | 4 | In progress | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 0/11 | 11 | Not started | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 0/10 | 10 | Not started | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
@@ -40,9 +40,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **48/175** | **127** | **U00–U03 complete; U04/U05/U06 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **52/175** | **123** | **U00–U03 complete; U04/U05/U06 in progress** | U00-U17 |
 
-**Progress counter:** 48/175 (27.4% complete), 127 open.
+**Progress counter:** 52/175 (29.7% complete), 123 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -148,16 +148,16 @@
 
 **Prerequisite:** U01,U02,U03. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U06.01** Unify Fiber tasks and network I/O under one owner scope. **Acceptance:** Pending dials cancelled at scope shutdown. **Proof:** PENDING.
+- [x] **U06.01** Unify Fiber tasks and network I/O under one owner scope. **Acceptance:** Pending dials cancelled at scope shutdown. **Proof:** `tests/AsyncDialerAndDialLimitsTest.php` parent-failure child dial cancellation, pending-race and zero-watcher assertions; [PHPForge QA and PHPStan/Psalm #40050545361](https://github.com/infocyph/Runwire/actions/runs/40050545361), [Swoole/OpenSwoole #40050545190](https://github.com/infocyph/Runwire/actions/runs/40050545190).
 - [ ] **U06.02** Propagate parent and child deadlines to DNS/TCP/TLS/protocol/files. **Acceptance:** No child outlives forbidden deadline. **Proof:** PENDING.
-- [ ] **U06.03** Implement explicit transfer of pooled or worker-owned resources. **Acceptance:** No accidental request-to-request retention. **Proof:** PENDING.
-- [ ] **U06.04** Resolve task completion versus cancellation races exactly once. **Acceptance:** No double-future completion or late callback. **Proof:** PENDING.
-- [ ] **U06.05** Preserve TaskGroup, Channel, Mutex, Barrier and TaskLocal semantics. **Acceptance:** Existing concurrency correctness tests retained. **Proof:** PENDING.
+- [x] **U06.03** Implement explicit transfer of pooled or worker-owned resources. **Acceptance:** No accidental request-to-request retention. **Proof:** `tests/AsyncConnectionTest.php` twelve live pool adoption/handoff cycles, failed adoption, plus `tests/ConnectionScopeOwnershipTest.php` repeated-owner resource cleanup; [PHPForge QA and PHPStan/Psalm #40050545361](https://github.com/infocyph/Runwire/actions/runs/40050545361), [Swoole/OpenSwoole #40050545190](https://github.com/infocyph/Runwire/actions/runs/40050545190).
+- [x] **U06.04** Resolve task completion versus cancellation races exactly once. **Acceptance:** No double-future completion or late callback. **Proof:** `tests/CoroutineHardeningTest.php` 64 cancellation/future settlement races and `tests/BatchLCoroutineSchedulerTest.php` observer isolation; [PHPForge QA and PHPStan/Psalm #40050545361](https://github.com/infocyph/Runwire/actions/runs/40050545361), [Swoole/OpenSwoole #40050545190](https://github.com/infocyph/Runwire/actions/runs/40050545190).
+- [x] **U06.05** Preserve TaskGroup, Channel, Mutex, Barrier and TaskLocal semantics. **Acceptance:** Existing concurrency correctness tests retained. **Proof:** `tests/CoroutineHardeningTest.php` task-local/channel/mutex/barrier cooperation, plus existing `tests/BatchMStructuredConcurrencyTest.php` TaskGroup coverage; [PHPForge QA and PHPStan/Psalm #40050545361](https://github.com/infocyph/Runwire/actions/runs/40050545361), [Swoole/OpenSwoole #40050545190](https://github.com/infocyph/Runwire/actions/runs/40050545190).
 - [ ] **U06.06** Bound scope tasks, waiters and queued network/filesystem operations. **Acceptance:** Hard quota and overload policy. **Proof:** PENDING.
 - [ ] **U06.07** Support callback and coroutine paths through identical connection primitives. **Acceptance:** No duplicate I/O state machine. **Proof:** PENDING.
 - [ ] **U06.08** Run live mixed coroutine, socket and timer endurance tests. **Acceptance:** Bounded scheduler lag and no FD/RSS leak. **Proof:** PENDING.
 
-**Batch tracker:** 0/8 accepted; 8 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 4/8 accepted; 4 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U07 — HTTP/1.1, HTTP/2 and HTTP/3 clients
 
@@ -486,3 +486,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **QA response to 729dbbe (2026-10-24):** [Security & Standards #40050168489](https://github.com/infocyph/Runwire/actions/runs/40050168489) passed PHP 8.4/8.5 analyzers, Pest, Rector, PHPCS and Deptrac in all stable/lowest dependency lanes. Pint alone failed on an extra empty line preceding the closing brace of `ConnectionCloseObserverTrait`; the following commit fixes this strictly within Runwire, without weakening style rules. The PHP 8.5 HTTP/3 acceptance and independent sustained benchmark remain separate gates and were pending at this checkpoint.
 
 **U16 draft coroutine-network documentation (2026-10-24; QA pending):** Added a native reStructuredText manual page linked from the Sphinx index documenting the current 3.0 scope-owned network primitives, dial cancellation, bidirectional pool adoption/transfer, and strict TLS EOF handling. The page is explicitly labeled 3.0 development-only rather than released, and does not count toward U16's full-feature API/manual acceptance until the remaining catalog and extension/host coverage are complete.
+
+**U06 QA-backed acceptance sync (2026-10-24; exact source `32ad83d`):** U06.01 (scope-owned pending DNS/dial cleanup), U06.03 (bidirectional connection/pool ownership, no stale observers), U06.04 (single terminal settlement under cancellation races), and U06.05 (TaskGroup and bounded synchronization primitives retained) have passed the four PHPForge PHP 8.4/8.5 stable/lowest suites and both analyzers [#40050545361](https://github.com/infocyph/Runwire/actions/runs/40050545361), Swoole/OpenSwoole [#40050545190](https://github.com/infocyph/Runwire/actions/runs/40050545190), H3 acceptance and ordinary hosted/portable/source/docs/release QA on the same head. U06.02 remains OPEN for complete TLS/protocol/file deadline propagation; U06.06 for cross-domain queue overload policy certification; U06.07 for complete callback/coroutine protocol path parity; U06.08 for sustained mixed-I/O FD/RSS/p99 certification. The extended adaptive H1/H2 diagnostic on [Benchmarks #40050545094](https://github.com/infocyph/Runwire/actions/runs/40050545094) was still executing at this checkpoint; it does not count as passed and must be resolved independently. Matched U04 TLS certification remains skipped. No release or merge performed.
