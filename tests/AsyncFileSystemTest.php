@@ -166,3 +166,80 @@ it('preserves a full 1 MiB binary file with SHA-256 parity through bounded offse
     }
 });
 
+it('retires a genuinely blocked active FIFO file reader on cancellation exactly once', function (): void {
+    if (!function_exists('posix_mkfifo') || DIRECTORY_SEPARATOR === '\\') {
+        test()->markTestSkipped('This active-file-cancel test requires Unix FIFO support.');
+    }
+
+    $path = tempnam(sys_get_temp_dir(), 'runwire-fifo-job-');
+    expect($path)->toBeString();
+    unlink($path);
+    expect(posix_mkfifo($path, 0600))->toBeTrue();
+
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $filesystem = new AsyncFileSystem($executor);
+    $callbacks = [];
+    $activeObserved = false;
+    $cancelSucceeded = false;
+
+    try {
+        $id = $filesystem->read(
+            $path,
+            1,
+            static function (string $bytes, ?Throwable $error) use (&$callbacks): void {
+                $callbacks[] = [$bytes, $error];
+            },
+        );
+        $check = null;
+        $check = $loop->repeat(0.01, static function () use (
+            $loop,
+            $executor,
+            $filesystem,
+            $id,
+            &$check,
+            &$activeObserved,
+            &$cancelSucceeded,
+        ): void {
+            if ($executor->diagnostics()['active'] !== 1) {
+                return;
+            }
+            $activeObserved = true;
+            if (is_int($check)) {
+                $loop->cancel($check);
+            }
+            $loop->delay(0.02, static function () use ($filesystem, $id, &$cancelSucceeded): void {
+                $cancelSucceeded = $filesystem->cancel($id);
+            });
+        });
+        $watchdog = $loop->delay(1.5, static function () use ($executor): void {
+            $executor->close();
+        });
+        $executor->onDrained(static function () use ($executor, $loop, &$check, $watchdog): void {
+            if (is_int($check)) {
+                $loop->cancel($check);
+            }
+            $loop->cancel($watchdog);
+            $executor->close();
+        });
+
+        $loop->run();
+
+        expect($activeObserved)->toBeTrue()
+            ->and($cancelSucceeded)->toBeTrue()
+            ->and($callbacks)->toHaveCount(1)
+            ->and($callbacks[0][0])->toBe('')
+            ->and($callbacks[0][1])->toBeInstanceOf(CancelledException::class)
+            ->and($executor->diagnostics()['workers'])->toBe(0)
+            ->and($executor->diagnostics()['active'])->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $executor->close();
+        if (is_file($path) || file_exists($path)) {
+            unlink($path);
+        }
+    }
+});
+

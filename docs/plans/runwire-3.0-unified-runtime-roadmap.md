@@ -226,3 +226,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **H6 verified docs/host (2026-10-24):** Native host capabilities and supervised lifecycle pages from source 96979be pass [strict Sphinx #40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157); U13.09 and U16.10 accepted only as accurate documentation, not automatic feature implementation. **73/175 accepted, 102 open; 15 to 50.3%.**
 
 **H8 FPM resource cleanup staged (2026-10-24):** Real PHP8.4/8.5 FastCGI fixture gains per-request temporary file and paired Unix-socket round trips, followed by verified cleanup, while retaining fresh-sequence assertions across three requests. U13.06 remains QA pending. **73/175 accepted, 102 open.**
+
+**F9 active-file-job cancellation staged (2026-10-24):** Real FIFO-blocked file read cancellation with one terminal callback and worker/watch cleanup added alongside queued deadline tests, skipped on systems without POSIX FIFO support. No U11.06 acceptance until CI. **73/175, 102 open.**
