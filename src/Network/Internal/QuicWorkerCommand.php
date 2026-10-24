@@ -18,8 +18,6 @@ final class QuicWorkerCommand
 {
     public const int MAX_DATA_BYTES = 65_536;
 
-    private const int MAX_WIRE_BYTES = 90_000;
-
     private const array COMMANDS = [
         'open_bidi',
         'open_uni',
@@ -29,26 +27,7 @@ final class QuicWorkerCommand
         'close',
     ];
 
-    /**
-     * Encode exactly one bounded stream command, never a native resource.
-     */
-    public static function encode(
-        int $requestId,
-        string $operation,
-        int $streamId = 0,
-        string $body = '',
-        bool $fin = false,
-    ): string {
-        self::assertCommand($requestId, $operation, $streamId, $body, $fin);
-
-        return json_encode([
-            'id' => $requestId,
-            'op' => $operation,
-            'stream' => $streamId,
-            'data' => base64_encode($body),
-            'fin' => $fin,
-        ], JSON_THROW_ON_ERROR) . "\n";
-    }
+    private const int MAX_WIRE_BYTES = 90_000;
 
     /**
      * Decode and revalidate an untrusted command received over worker IPC.
@@ -85,6 +64,27 @@ final class QuicWorkerCommand
             'data' => $data,
             'fin' => $message['fin'],
         ];
+    }
+
+    /**
+     * Encode exactly one bounded stream command, never a native resource.
+     */
+    public static function encode(
+        int $requestId,
+        string $operation,
+        int $streamId = 0,
+        string $body = '',
+        bool $fin = false,
+    ): string {
+        self::assertCommand($requestId, $operation, $streamId, $body, $fin);
+
+        return json_encode([
+            'id' => $requestId,
+            'op' => $operation,
+            'stream' => $streamId,
+            'data' => base64_encode($body),
+            'fin' => $fin,
+        ], JSON_THROW_ON_ERROR) . "\n";
     }
 
     private static function assertCommand(

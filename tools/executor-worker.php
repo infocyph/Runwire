@@ -9,6 +9,10 @@ declare(strict_types=1);
 const MAX_MESSAGE_BYTES = 1_600_000;
 const MAX_FILE_BYTES = 1_048_576;
 
+// This state belongs to this one long-lived subprocess and can never escape
+// through the host's nonblocking IPC transport.
+$quicSessionWorker = null;
+
 while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
     if (strlen($line) > MAX_MESSAGE_BYTES || !str_ends_with($line, "\n")) {
         throw new RuntimeException('Executor received an oversized or unterminated request.');
@@ -59,6 +63,15 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 }
 
                 return array_values(array_unique($addresses));
+            })($arguments),
+            'quic_session' => (static function (array $args) use (&$quicSessionWorker): array {
+                if ($quicSessionWorker === null) {
+                    require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerCommand.php';
+                    require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerSession.php';
+                    $quicSessionWorker = new \Infocyph\Runwire\Network\Internal\QuicWorkerSession();
+                }
+
+                return $quicSessionWorker->execute($args);
             })($arguments),
             'quic_probe' => (static function (array $args): array {
                 $host = $args['host'] ?? null;

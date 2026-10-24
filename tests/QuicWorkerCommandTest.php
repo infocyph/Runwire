@@ -42,7 +42,13 @@ it('fails closed on malformed, untrusted or oversized worker frames', function (
         "{\"id\":5,\"op\":\"read\",\"stream\":1,\"data\":\"YQ==\",\"fin\":false}\n",
     ];
     foreach ($invalid as $packet) {
-        expect(fn() => QuicWorkerCommand::decode($packet))->toThrow(Throwable::class);
+        $rejected = false;
+        try {
+            QuicWorkerCommand::decode($packet);
+        } catch (Throwable) {
+            $rejected = true;
+        }
+        expect($rejected)->toBeTrue();
     }
 });
 
