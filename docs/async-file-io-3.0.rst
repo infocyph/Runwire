@@ -80,3 +80,22 @@ fallback to a copy/delete that could falsely imply atomicity. This is an
 explicit unsupported capability, not an invitation to assume that
 ``fflush``/``rename`` alone guarantee persistence. Path/symlink/TOCTOU
 and sandbox authorization require separate U11.09/U14.06 verification.
+
+Portable open-file API contract (development)
+----------------------------------------------
+
+The unreleased 3.0 source declares a future ``AsyncFileOperationsInterface``
+for open, read, write, stat, rename, unlink and cancellation. An asynchronous
+open must deliver a worker-owned ``AsyncFileHandleInterface`` through a
+completion callback. ``FileAccessMode`` defines separate read/write roles.
+No blocking native stream resource may escape to the reactor.
+
+These interfaces specify an API, **not** a working open-file backend.
+The existing ``AsyncFileSystem`` handles only short-lived worker-local
+read/write/stat/rename/unlink and does not currently implement open.
+Operation callbacks must be exactly once, error-aware, bounded by caller
+quotas, and subject to inherited cancellation/deadlines.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/AsyncFileApiContractTest.php
