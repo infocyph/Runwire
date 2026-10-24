@@ -248,3 +248,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **H10 optional extensions negative matrix staged (2026-10-24):** Two lightweight checks in existing portable workflow: php -n must still run Unix streams without ext-sockets; disabled POSIX API must reject prefork but allow native single-process. Existing TLS/PCNTL/QUIC test lanes untouched. U13.07 awaits green. **83/175 accepted, 92 open.**
 
 **D2 feature catalog QA fixture staged (2026-10-24):** Parser asserts all native-RST five-column per-feature status/host/extension cells across 29 required capabilities with no duplicates; stable vs dev is explicit. U16.04 remains unchecked until exact-head PHPForge. **83/175 accepted, 92 open.**
+
+**E6 (2026-10-24):** One PHPStan proxy host nullsafe fix after 7f84bea, pending next QA. **83/175 accepted, 92 open.**

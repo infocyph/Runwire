@@ -66,7 +66,7 @@ final readonly class PoolIsolationKey
             $tlsPolicyIdentity,
             $negotiatedAlpn,
             $proxy?->scheme,
-            strtolower($proxy?->host ?? ''),
+            strtolower($proxy->host ?? ''),
             $proxy?->port,
             $proxy?->path,
             $proxyPolicyIdentity,
