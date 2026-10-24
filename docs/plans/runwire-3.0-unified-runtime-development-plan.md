@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 73/175 accepted (41.7%); 102 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 79/175 accepted (45.1%); 96 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -48,20 +48,20 @@
 | U04 | Unified TLS security and client/server handshakes | 7/8 | 1 | In progress | U02,U03 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 7/10 | 3 | In progress | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
-| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 1/11 | 10 | In progress | U03,U04,U05,U06 |
+| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 2/11 | 9 | In progress | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 4/10 | 6 | In progress | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
-| U11 | Truly asynchronous filesystem and file streaming | 0/10 | 10 | Not started | U01,U02,U06 |
+| U11 | Truly asynchronous filesystem and file streaming | 3/10 | 7 | In progress | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 1/9 | 8 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 5/9 | 4 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 2/16 | 14 | In progress | U00-U15 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 4/16 | 12 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **73/175** | **102** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **79/175** | **96** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 73/175 (41.7% complete), 102 open.
+**Progress counter:** 79/175 (45.1% complete), 96 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -191,7 +191,7 @@
 **Prerequisite:** U03,U04,U05,U06. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
 - [x] **U07.01** Define one streaming HTTP client request/response interface. **Acceptance:** Explicit H1/H2/H3 version and policy negotiation. **Proof:** src/Http/Client/{ClientExchangeInterface,ClientRequest,ClientResponseInterface,ClientBodySourceInterface,ClientProtocolPolicy}.php and tests/HttpClientContractTest.php validate streaming request/response signatures and explicit H1/H2/H3 negotiation, Security & Standards [#40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388) at source 80120be (PHPForge 8.4/8.5 stable/lowest + analyzers PASS). Interface acceptance does not claim client implementations.
-- [ ] **U07.02** Implement HTTP/1.1 request writer and response parser. **Acceptance:** Chunked, keepalive, trailers and malformed-message acceptance. **Proof:** PENDING.
+- [x] **U07.02** Implement HTTP/1.1 request writer and response parser. **Acceptance:** Chunked, keepalive, trailers and malformed-message acceptance. **Proof:** Streaming H1 request writer and incremental response parser with strict Host/CL/TE, version fallback, keepalive, trailers, bounded chunks and malformed HTTP rejection, with real peer socket fixture tests/Http1ClientWireTest.php; all four PHPForge QA and both analyzers PASS at immutable 96979be [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399). Not a connected reusable HTTP client or H2/H3 transport.
 - [ ] **U07.03** Implement safe H1 connection reuse and streaming upload/download. **Acceptance:** No response bleed or unbounded buffering. **Proof:** PENDING.
 - [ ] **U07.04** Implement HTTP/2 client preface, SETTINGS and HPACK. **Acceptance:** Independent H2 reference-server conformance. **Proof:** PENDING.
 - [ ] **U07.05** Implement H2 multiplex, flow control, RST_STREAM and GOAWAY. **Acceptance:** Slow-peer and cancellation isolation. **Proof:** PENDING.
@@ -202,7 +202,7 @@
 - [ ] **U07.10** Test malformed HTTP servers and large bidirectional streams. **Acceptance:** Fuzz plus hash-correct responses and resource budgets. **Proof:** PENDING.
 - [ ] **U07.11** Benchmark native H1/H2/H3 outbound clients against peers. **Acceptance:** Matched RPS, p99, CPU and RSS. **Proof:** PENDING.
 
-**Batch tracker:** 1/11 accepted; 10 open — U07.01 streaming HTTP client contract and version-policy tests accepted via [QA #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388); transport implementations remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 2/11 accepted; 9 open — U07.02 real H1 request/response parser and peer QA #40068643399 — U07.01 streaming HTTP client contract and version-policy tests accepted via [QA #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388); transport implementations remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U08 — Existing H1/H2/H3 server consolidation
 
@@ -259,17 +259,17 @@
 **Prerequisite:** U01,U02,U06. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
 - [ ] **U11.01** Define async file API for open, read, write, stat, rename and unlink. **Acceptance:** Portable contract and errors. **Proof:** PENDING.
-- [ ] **U11.02** Implement bounded executor backend for blocking filesystem calls. **Acceptance:** Slow disk operation never freezes event loop. **Proof:** PENDING.
+- [x] **U11.02** Implement bounded executor backend for blocking filesystem calls. **Acceptance:** Slow disk operation never freezes event loop. **Proof:** AsyncFileSystem uses the bounded off-loop ProcessExecutor worker queue, nonblocking reactor IPC and exact-once callback completion; tests/AsyncFileSystemTest.php proves loop heartbeat while a 60ms worker operation is busy and resource watchers return to zero. Real worker/QA at immutable 96979be [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) PASS; no kernel async or sandbox claim.
 - [ ] **U11.03** Use native accelerated backend only when available and proven. **Acceptance:** No mandatory extension or fake async. **Proof:** PENDING.
-- [ ] **U11.04** Implement partial/offest writes and large binary file reads. **Acceptance:** Correct hash and offset semantics. **Proof:** PENDING.
-- [ ] **U11.05** Stream file to/from network with low-memory backpressure. **Acceptance:** Slow network peer cannot buffer entire file. **Proof:** PENDING.
+- [x] **U11.04** Implement partial/offest writes and large binary file reads. **Acceptance:** Correct hash and offset semantics. **Proof:** Real worker absolute-offset writes loop on partial fwrite; bounded binary 7-byte offset fixture and exact full 1 MiB NUL/0xFF worker write/read compare SHA-256, byte length and zero worker leak. Fixed 1.6 MiB IPC packet limit preserved; all PHPForge 8.4/8.5 QA and PHPStan/Psalm PASS [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) at 96979be.
+- [x] **U11.05** Stream file to/from network with low-memory backpressure. **Acceptance:** Slow network peer cannot buffer entire file. **Proof:** ScopedFileTransfer uses 16 KiB file-to-network and network-to-file slices with 64 MiB call limit on one AsyncConnection and one off-loop executor; tests/ScopedFileTransferTest.php proves 128 KiB/2 MiB real Unix socket SHA parity, delayed slow peer and positive backpressure count, live timer heartbeat and zero worker/watchers; all four PHPForge QA and analyzers PASS [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) on 96979be. Atomic filesystem and HTTP transport guarantees not claimed.
 - [ ] **U11.06** Implement cancellation and deadlines for queued/active file jobs. **Acceptance:** Exactly-once terminal file result. **Proof:** PENDING.
 - [ ] **U11.07** Close file handles on scope, request and worker shutdown. **Acceptance:** No FD leak after cancellation. **Proof:** PENDING.
 - [ ] **U11.08** Define atomic replace/fsync guarantees and OS limitations. **Acceptance:** Crash-safety assumptions documented and tested. **Proof:** PENDING.
 - [ ] **U11.09** Check symlink traversal, permissions and path policy. **Acceptance:** Hostile filesystem operations rejected. **Proof:** PENDING.
 - [ ] **U11.10** Benchmark disk throughput, loop ticks, worker load and memory. **Acceptance:** Measured improvement with bounded overhead. **Proof:** PENDING.
 
-**Batch tracker:** 0/10 accepted; 10 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 3/10 accepted; 7 open — U11.02 real off-loop worker, U11.04 full binary offset/SHA, U11.05 slow-peer network backpressure #40068643399. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U12 — Native supervisor and adaptive worker autoscaling
 
@@ -346,8 +346,8 @@
 - [ ] **U16.05** Document TCP/TLS/Unix/UDP/QUIC inbound/outbound and DNS/Happy Eyeballs. **Acceptance:** Runnable client/server examples and errors. **Proof:** PENDING.
 - [ ] **U16.06** Document HTTP1/2/3 client/server and WebSocket/WebTransport. **Acceptance:** Streaming, header limits, cancellation and conformance examples. **Proof:** PENDING.
 - [ ] **U16.07** Document pooling, CONNECT/SOCKS5, relay, TLS and authentication policies. **Acceptance:** Security, credentials, transport lifecycle cases. **Proof:** PENDING.
-- [ ] **U16.08** Document Fiber tasks, event loops, deadlines and ownership. **Acceptance:** Scope and async resource lifecycle diagrams/examples. **Proof:** PENDING.
-- [ ] **U16.09** Document async filesystem executor, safe file I/O and streaming. **Acceptance:** No-hidden-blocking details, quotas and portability. **Proof:** PENDING.
+- [x] **U16.08** Document Fiber tasks, event loops, deadlines and ownership. **Acceptance:** Scope and async resource lifecycle diagrams/examples. **Proof:** Native RST docs/coroutine-network-3.0.rst describes Fibers, task scopes, Select/ext-event/Swoole ownership, deadline/cancellation inheritance, dialer off-loop DNS, owner transfer/adoption and resource lifecycle diagrams/code examples. Strict Sphinx source 96979be [#40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) and full coroutine regression [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) PASS.
+- [x] **U16.09** Document async filesystem executor, safe file I/O and streaming. **Acceptance:** No-hidden-blocking details, quotas and portability. **Proof:** Native RST docs/async-file-io-3.0.rst documents off-loop executor queues, 1 MiB binary read/write, stream transfer 16 KiB/64 MiB and cleanup limits, platform sandbox/symlink/TOCTOU/fsync/atomic caveats and usage. Strict Sphinx [#40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) and corresponding worker/wire tests [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) PASS at source 96979be.
 - [x] **U16.10** Document native/portable supervision, autoscaling, FPM/FrankenPHP/RoadRunner/Swoole. **Acceptance:** Accurate per-host features and constraints. **Proof:** The Sphinx-native `docs/host-compatibility-3.0.rst` includes accurate native `Supervisor`/`WorkerGroup`, `RestartPolicy` crash budgets/backoff, `ReloadPolicy` readiness/surge/drain, `WorkerRecyclePolicy` request/lifetime/memory limits, host-owned process/reactor portability and a lifecycle diagram; source 96979be passed strict [Sphinx #40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157). Explicitly states that CPU/queue/p99 autoscale remains uncertified, not implemented.
 - [ ] **U16.11** Generate complete source-linked PHP API reference and error catalog. **Acceptance:** Every shipped public symbol documented. **Proof:** PENDING.
 - [ ] **U16.12** Write full 2.1.2 to 3.0 breaking migration guide and before/after snippets. **Acceptance:** All intentional API removals/migrations covered. **Proof:** PENDING.
@@ -356,7 +356,7 @@
 - [ ] **U16.15** Enforce sphinx-build -n -W --keep-going -b html plus links and code snippet validation. **Acceptance:** CI fails on unresolved refs or invalid examples. **Proof:** PENDING.
 - [ ] **U16.16** Verify Read the Docs navigation, search, versioning and complete feature index. **Acceptance:** Hosted preview passes and 100 percent feature coverage. **Proof:** PENDING.
 
-**Batch tracker:** 2/16 accepted; 14 open — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 4/16 accepted; 12 open — U16.08 coroutine scopes and U16.09 async file RST/CI #40068643157 — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U17 — Final certification, risk signoff and maintainer handoff
 
@@ -625,3 +625,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **H8 real PHP-FPM file/socket request cleanup (2026-10-24; staged):** Upgrade the real Linux PHP8.4/8.5 FastCGI host fixture to open one transient file and Unix stream socket pair inside each FPM request, perform actual binary round trips, close both descriptors and unlink the file in a finally block, then return explicit file/socket pass and post-cleanup resource flags. The existing three-request sequential PHP-FPM CI now enforces those flags and always checks request sequence resets to 1; no imaginary persistent worker ownership. U13.06 remains OPEN until exact-head real-FPM hosted QA is green. **73/175 accepted, 102 open.**
 
 **F9 active blocked FIFO file job cancellation (2026-10-24; QA pending):** In addition to already-green queued inherited token deadline/CancelSource and generic active ProcessExecutor retire semantics, add a real Unix FIFO-backed file read that cannot finish without a peer, wait until the bounded executor assigns a worker, cancel the active job, assert exactly one `CancelledException` callback and zero active workers/watchers/timers; a capped watchdog prevents indefinite hangs. FIFO creation is an explicit conditional POSIX fixture, not a new production dependency. **U11.06 stays OPEN until exact-head QA proves both queued and active file operations.** Current accepted 73/175, 102 open.
+
+**F10 independently QA-proven H1/filesystem and docs (2026-10-24):** Exact source 96979be [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) passed all four PHPForge Pest/Pint/PHPCS/Rector/Deptrac combinations, both analyzers and both real H3/QUIC suites; [Sphinx #40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) strict HTML passed. Accept U07.02 H1 serializer/parser only; U11.02 true off-loop executor, U11.04 offset/full 1MiB binary SHA parity, U11.05 2MiB slow peer file/network streaming; U16.08 scope/loop ownership docs and U16.09 file I/O docs. **Still OPEN**: U07.03 connected client and pools, U11.01 file-open contract, U11.06 active file cancellation, U11.07 lifecycle file-handle tests, U11.08 durability, U11.09 sandbox, U11.10 benchmarks. No release-performance claim while independent Benchmarks workflow is running. **79/175 accepted (45.1%); 96 open; 9 to 88/175.**
