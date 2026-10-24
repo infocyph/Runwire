@@ -18,6 +18,7 @@ from h2.events import (
     ResponseReceived,
     StreamEnded,
     StreamReset,
+    SettingsAcknowledged,
 )
 
 
@@ -50,9 +51,37 @@ class H2Bench:
             raise RuntimeError("Runwire adaptive H2 benchmark did not negotiate h2.")
         self.conn = H2Connection(config=H2Configuration(client_side=True, header_encoding="utf-8"))
         self.conn.initiate_connection()
+        expected_settings_acks = 1
         if self.case.get("scenario") == "flow":
             self.conn.update_settings({SettingCodes.INITIAL_WINDOW_SIZE: 16384})
+            expected_settings_acks += 1
         self.sock.sendall(self.conn.data_to_send())
+
+        # Wait for the peer to apply the advertised receive window before
+        # submitting measured streams. Otherwise a race between a response
+        # and the initial SETTINGS delta changes flow-control behavior.
+        settings_acks = 0
+        settings_deadline = time.monotonic() + 5.0
+        while settings_acks < expected_settings_acks:
+            if time.monotonic() >= settings_deadline:
+                raise RuntimeError(
+                    f"H2 peer did not acknowledge all initial SETTINGS: "
+                    f"received={settings_acks} expected={expected_settings_acks}"
+                )
+            try:
+                data = self.sock.recv(65535)
+            except socket.timeout:
+                continue
+            if not data:
+                raise RuntimeError("H2 peer closed before acknowledging initial SETTINGS.")
+            for event in self.conn.receive_data(data):
+                if isinstance(event, SettingsAcknowledged):
+                    settings_acks += 1
+                elif isinstance(event, ConnectionTerminated):
+                    raise RuntimeError(f"H2 peer rejected initial SETTINGS: {event!r}")
+            outbound = self.conn.data_to_send()
+            if outbound:
+                self.sock.sendall(outbound)
         self.issued = 0
 
     def close(self) -> None:

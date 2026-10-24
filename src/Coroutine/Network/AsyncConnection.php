@@ -28,6 +28,8 @@ final class AsyncConnection
 
     private ?Deferred $closeDeferred = null;
 
+    private ?int $closeObserverId = null;
+
     private bool $closing = false;
 
     private bool $disposed = false;
@@ -74,12 +76,14 @@ final class AsyncConnection
             },
         );
         $this->attached = true;
-        $this->connection->onClose(static function (Connection $connection, CloseReason $reason) use ($weakSelf): void {
-            $adapter = $weakSelf->get();
-            if ($adapter instanceof self) {
-                $adapter->handleClose($connection, $reason);
-            }
-        });
+        $this->closeObserverId = $this->connection->registerCloseObserver(
+            static function (Connection $connection, CloseReason $reason) use ($weakSelf): void {
+                $adapter = $weakSelf->get();
+                if ($adapter instanceof self) {
+                    $adapter->handleClose($connection, $reason);
+                }
+            },
+        );
         $this->connection->bindOwner($scope->cancellation());
         if ($this->connection->state() !== ConnectionState::CLOSED) {
             $this->scopeShutdownId = $scope->registerShutdown(
@@ -151,6 +155,7 @@ final class AsyncConnection
         }
 
         $this->disposed = true;
+        $this->releaseCloseObserver();
         $this->releaseScopeShutdown();
         $error = new LogicException('Async connection adapter was disposed.');
         $receive = $this->receiveDeferred;
@@ -282,6 +287,7 @@ final class AsyncConnection
 
         $this->connection->transferOwner($owner, $deadline);
         $this->disposed = true;
+        $this->releaseCloseObserver();
         $this->releaseScopeShutdown();
         $this->detachCallbacks();
 
@@ -317,6 +323,7 @@ final class AsyncConnection
 
     private function handleClose(Connection $connection, CloseReason $reason): void
     {
+        $this->releaseCloseObserver();
         $this->releaseScopeShutdown();
         if ($reason === CloseReason::TLS_UNVERIFIED_EOF) {
             $pending = $this->receiveDeferred;
@@ -377,6 +384,16 @@ final class AsyncConnection
         $this->eofBuffer = $rest;
 
         return $data;
+    }
+
+    private function releaseCloseObserver(): void
+    {
+        if ($this->closeObserverId === null) {
+            return;
+        }
+
+        $this->connection->unregisterCloseObserver($this->closeObserverId);
+        $this->closeObserverId = null;
     }
 
     private function releaseScopeShutdown(): void

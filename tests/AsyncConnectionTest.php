@@ -397,3 +397,89 @@ it('rejects a same-scope handoff without detaching the original stream lifetime'
         fclose($peer);
     }
 });
+
+
+it('releases socket watchers, timers and coroutine scopes through repeated live request turns', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $responses = [];
+
+    for ($iteration = 0; $iteration < 48; ++$iteration) {
+        [$server, $peer] = runwireAsyncConnectionPair();
+        $connection = new Connection($loop, $server);
+        try {
+            $payload = 'tick-' . $iteration;
+            $loop->defer(static function (int $id) use ($peer, $payload): void {
+                unset($id);
+                fwrite($peer, $payload);
+            });
+
+            $responses[] = $runtime->run(static function (CoroutineScope $scope) use ($connection, $payload): string {
+                $task = $scope->spawn(static function () use ($scope): void {
+                    $scope->sleep(0.0005);
+                });
+                $adapter = new AsyncConnection($connection, $scope);
+                $data = '';
+                while (strlen($data) < strlen($payload)) {
+                    $chunk = $adapter->receive(strlen($payload) - strlen($data));
+                    if ($chunk === '') {
+                        throw new RuntimeException('Mixed-I/O response ended before the expected payload.');
+                    }
+                    $data .= $chunk;
+                }
+                $task->await();
+
+                return $data;
+            });
+
+            expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+                ->and($runtime->activeTaskCount())->toBe(0)
+                ->and($loop->diagnostics()->readWatchers)->toBe(0)
+                ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+                ->and($loop->diagnostics()->timersActive)->toBe(0)
+                ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+        } finally {
+            $connection->abort();
+            fclose($peer);
+        }
+    }
+
+    expect($responses)->toHaveCount(48);
+    foreach ($responses as $iteration => $data) {
+        expect($data)->toBe('tick-' . $iteration);
+    }
+});
+
+
+it('does not retain the coroutine close observer after transferring to a pool', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $core = new Connection($loop, $stream);
+    $pool = new \Infocyph\Runwire\CancellationSource();
+    $observers = new ReflectionProperty($core, 'closeCallbacks');
+
+    try {
+        $connection = $runtime->run(static function (CoroutineScope $scope) use ($core, $pool, $loop): Connection {
+            $adapter = new AsyncConnection($core, $scope);
+            expect($adapter->transferTo($pool->token()))->toBe($core);
+            $loop->stop();
+
+            return $core;
+        });
+
+        expect($connection)->toBe($core)
+            ->and($connection->state())->toBe(ConnectionState::OPEN)
+            ->and($observers->getValue($connection))->toBe([])
+            ->and($pool->token()->subscriptionCount())->toBe(1);
+
+        $pool->cancel(CancellationReason::HOST_CANCELLED);
+        expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+            ->and($observers->getValue($connection))->toBe([])
+            ->and($loop->diagnostics()->readWatchers)->toBe(0);
+    } finally {
+        $core->abort();
+        $pool->dispose();
+        fclose($peer);
+    }
+});

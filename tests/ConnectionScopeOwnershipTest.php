@@ -222,3 +222,39 @@ it('does not accumulate close observers across repeated pooled-owner transfers',
         fclose($peer);
     }
 });
+
+
+it('unregisters close observers without losing remaining listeners or terminal delivery', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray();
+    [$stream, $peer] = $pair;
+    $loop = new SelectLoop();
+    $connection = ConnectionFactory::accepted($loop, $stream);
+    $seen = [];
+    try {
+        $remove = $connection->registerCloseObserver(static function () use (&$seen): void {
+            $seen[] = 'removed';
+        });
+        $keep = $connection->registerCloseObserver(static function () use (&$seen): void {
+            $seen[] = 'kept';
+        });
+        expect($remove)->toBeInt()
+            ->and($keep)->toBeInt()
+            ->and($connection->unregisterCloseObserver($remove))->toBeTrue()
+            ->and($connection->unregisterCloseObserver($remove))->toBeFalse();
+
+        $connection->abort();
+        expect($seen)->toBe(['kept'])
+            ->and($connection->unregisterCloseObserver($keep))->toBeFalse();
+
+        $late = $connection->registerCloseObserver(static function () use (&$seen): void {
+            $seen[] = 'terminal';
+        });
+        expect($late)->toBeNull()
+            ->and($seen)->toBe(['kept', 'terminal'])
+            ->and($loop->diagnostics()->readWatchers)->toBe(0);
+    } finally {
+        $connection->abort();
+        fclose($peer);
+    }
+});
