@@ -8,6 +8,10 @@ it('keeps indexed reStructuredText PHP examples syntactically valid', function (
 
     $examples = 0;
     foreach ($files as $file) {
+        // Historical Runwire 2.0 examples are archival, not runnable 3.0 samples.
+        if (preg_match('/(?:-2\.0|-2\.1\.2)\.rst$/', $file) === 1) {
+            continue;
+        }
         $lines = file($file, FILE_IGNORE_NEW_LINES);
         expect($lines)->toBeArray();
 
@@ -53,6 +57,10 @@ it('keeps runnable test and fixture references in the native docs resolvable', f
     $root = dirname(__DIR__);
     $checked = 0;
     foreach ($docs as $doc) {
+        // Legacy 2.0 fixture paths are validated as archival sources separately.
+        if (preg_match('/(?:-2\.0|-2\.1\.2)\.rst$/', $doc) === 1) {
+            continue;
+        }
         $text = file_get_contents($doc);
         expect($text)->toBeString();
         preg_match_all('~\b(?:tests|benchmarks)/[A-Za-z0-9_./-]+\.(?:php|py|sh)\b~', $text, $matches);

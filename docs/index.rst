@@ -29,5 +29,18 @@ Those proposed capabilities have **not** yet been released.
    migration-3.0
    webtransport-design-3.0
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Historical Runwire 2.0 and 2.1.x guides
+
+   getting-started-2.0
+   architecture-2.0
+   coroutines-2.0
+   deployment-2.0
+   security-2.0
+   benchmarks-2.0
+   migration-history-2.0
+   release-notes-2.1.2
+
 All pages in this Sphinx manual are native reStructuredText (``.rst``).
 The internal development tracker is not part of the published manual.

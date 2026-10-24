@@ -51,7 +51,7 @@ it('rejects 256 deterministic mask, opcode, control, RSV and oversized frame fau
         $kind = $index % 5;
         $wire = match ($kind) {
             0 => WebSocketWireCodec::frame(0x1, 'unmasked'),
-            1 => WebSocketWireCodec::clientFrame(0x3, 'reserved'),
+            1 => "\x83\x80\x00\x00\x00\x00",
             2 => "\xC2\x80\x00\x00\x00\x00",
             3 => "\x09\x80\x00\x00\x00\x00",
             default => "\x82\xFE\x00\x81\x01\x02\x03\x04",
