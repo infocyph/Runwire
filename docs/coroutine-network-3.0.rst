@@ -32,6 +32,11 @@ A normal scope exit aborts any connection still owned by that scope.
 A transferred connection is not closed merely because the previous
 request finishes. The new owner must eventually close or transfer it.
 
+Calling ``AsyncConnection::dispose()`` removes the Fiber-facing adapter's
+callbacks, **not** the established socket's scope ownership. The socket
+continues to belong to its request and closes on scope exit. Use
+``transferTo()`` before disposal when transferring it into a pool.
+
 Dialing and cancellation
 ========================
 
@@ -87,6 +92,22 @@ Do not transfer while a coroutine is awaiting receive, drain or close,
 or while an EOF fragment remains buffered. Reuse must not retain the
 previous request's cancellation observer or callback registry entries.
 A different active owner token is required for every explicit handoff.
+
+Admission and deadline budgets
+==============================
+
+The event loop does not create unbounded work when an executor or
+connection queue is full. ``CoroutinePolicy`` independently limits task
+count, runnable backlog, future waiters, and waiters per primitive.
+``ProcessExecutor`` has bounded worker and queue capacity for
+DNS/filesystem jobs. ``HappyEyeballsDialer`` applies a separate maximum
+to outstanding logical hostname races. At saturation, new work fails
+with an overload error without displacing previously admitted work.
+
+Child scope deadlines also apply while waiting for a socket read.
+Caller DNS/dial options and off-loop filesystem work must honor the
+earliest inherited/requested deadline; they must not restart the clock
+at each stage of a multi-step request.
 
 TLS close safety
 ================

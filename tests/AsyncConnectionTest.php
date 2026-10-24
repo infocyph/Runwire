@@ -13,6 +13,7 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\RequestContext;
+use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 function runwireAsyncConnectionPair(): array
@@ -193,14 +194,14 @@ it('prevents callback-core consumers from overwriting adapter-owned callback slo
     }
 });
 
-it('detaches callback ownership without closing the underlying connection', function (): void {
+it('detaches callback ownership without prematurely closing its scope-owned connection', function (): void {
     [$server, $peer] = runwireAsyncConnectionPair();
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
     $connection = new Connection($loop, $server);
 
     try {
-        $runtime->run(function (CoroutineScope $scope) use ($connection, $loop): void {
+        $runtime->run(function (CoroutineScope $scope) use ($connection): void {
             $async = new AsyncConnection($connection, $scope);
             $async->dispose();
 
@@ -208,14 +209,15 @@ it('detaches callback ownership without closing the underlying connection', func
                 ->toThrow(LogicException::class, 'Async connection adapter is disposed.');
 
             $connection->onData(static function (): void {});
-            $loop->stop();
+            expect($connection->state())->toBe(ConnectionState::OPEN);
         });
 
-        expect($connection->state())->toBe(ConnectionState::OPEN);
+        expect($connection->state())->toBe(ConnectionState::CLOSED)
+            ->and($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0);
     } finally {
-        if ($connection->state() !== ConnectionState::CLOSED) {
-            $connection->abort();
-        }
+        $connection->abort();
         fclose($peer);
     }
 });
@@ -403,10 +405,11 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
     $responses = [];
+    $latencies = [];
     $baselineBytes = memory_get_usage(true);
     $fdBaseline = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd') ?: []) : null;
 
-    for ($iteration = 0; $iteration < 48; ++$iteration) {
+    for ($iteration = 0; $iteration < 128; ++$iteration) {
         [$server, $peer] = runwireAsyncConnectionPair();
         $connection = new Connection($loop, $server);
         try {
@@ -416,6 +419,7 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
                 fwrite($peer, $payload);
             });
 
+            $startedAt = hrtime(true);
             $responses[] = $runtime->run(static function (CoroutineScope $scope) use ($connection, $payload): string {
                 $task = $scope->spawn(static function () use ($scope): void {
                     $scope->sleep(0.0005);
@@ -434,6 +438,7 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
                 return $data;
             });
 
+            $latencies[] = (hrtime(true) - $startedAt) / 1_000_000;
             expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
                 ->and($runtime->activeTaskCount())->toBe(0)
                 ->and($loop->diagnostics()->readWatchers)->toBe(0)
@@ -446,10 +451,13 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
         }
     }
 
-    expect($responses)->toHaveCount(48);
+    expect($responses)->toHaveCount(128);
     foreach ($responses as $iteration => $data) {
         expect($data)->toBe('tick-' . $iteration);
     }
+    sort($latencies, SORT_NUMERIC);
+    $p99Milliseconds = $latencies[(int) ceil(count($latencies) * 0.99) - 1];
+    expect($p99Milliseconds)->toBeLessThan(750.0);
     gc_collect_cycles();
     expect(memory_get_usage(true))->toBeLessThanOrEqual($baselineBytes + 16 * 1_048_576)
         ->and($loop->diagnostics()->maxLagNanoseconds)->toBeLessThan(1_000_000_000);
@@ -596,6 +604,36 @@ it('preserves scope ownership after disposing only a coroutine socket adapter', 
             ->and($loop->diagnostics()->readWatchers)->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0)
             ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $connection->abort();
+        fclose($peer);
+    }
+});
+
+
+it('cancels a suspended socket receive at its nested coroutine deadline', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $connection = new Connection($loop, $stream);
+
+    try {
+        expect(fn() => $runtime->run(
+            static fn(CoroutineScope $scope) => $scope->withDeadline(
+                RequestDeadline::afterSeconds(0.08, hrtime(true)),
+                static function (CoroutineScope $child) use ($connection): void {
+                    $adapter = new AsyncConnection($connection, $child);
+                    $adapter->receive();
+                },
+            ),
+        ))->toThrow(CancelledException::class);
+
+        expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0)
+            ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
     } finally {
         $connection->abort();
         fclose($peer);
