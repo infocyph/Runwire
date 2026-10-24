@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 3/10; U06 6/8**. **54/175 accepted tasks, 121 open across 18 batches** (30.9%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 3/10; U06 COMPLETE (8/8)**. **56/175 accepted tasks, 119 open across 18 batches** (32.0%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 16 | 0/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **121** | **54/175 (30.9%)** |
+| **TOTAL** | **Full unified-runtime release program** | **119** | **56/175 (32.0%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -144,3 +144,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **U04.06 accepted, U04 now 7/8:** outgoing verified TLS closes with an explicit fail-closed `TLS_UNVERIFIED_EOF` rather than trusting peer EOF, and encrypted TCP half-close is prohibited. Real TLS timeout/mTLS and synthetic EOF exact-once watcher-cleanup tests passed [all PHPForge and analyzer lanes #39995711371](https://github.com/infocyph/Runwire/actions/runs/39995711371). PHP cannot directly expose authenticated close_notify: clean peer EOF may be rejected, as documented in `evidence/runwire-3.0/u04-tls-eof-policy.rst`. New **opt-in** matched TLS certification tooling requires full 2.1.2-versus-3.0 measurements before U04.08 acceptance; U04.08 remains OPEN. `QuicClientOptions` rejects unsupported ext-quic datagrams/migration/0-RTT and is preparatory until client transport QA; U05 remains 3/10 accepted.
 
 **QA exception (2026-10-24):** U06.06/U06.07 accepted against task-scoped [PHPForge #40053268784](https://github.com/infocyph/Runwire/actions/runs/40053268784) and [Swoole #40053268453](https://github.com/infocyph/Runwire/actions/runs/40053268453). Extended [H1/H2 Benchmarks #40053268411](https://github.com/infocyph/Runwire/actions/runs/40053268411) remains **FAILED** in HTTP/1.1 sustained phase; this is an independent hard gate for U15/U17 and has not been marked passed or waived. U06.02 and U06.08 remain open.
+
+**U06 closed, 2026-10-24:** U06.02/U06.08 accepted by the exact-head [PHPForge QA #40055732464](https://github.com/infocyph/Runwire/actions/runs/40055732464) and [Swoole/OpenSwoole #40055732298](https://github.com/infocyph/Runwire/actions/runs/40055732298). This is coroutine correctness and resource endurance acceptance, not matched production throughput promotion. The opt-in U04 TLS and U15/U17 benchmark release gates remain OPEN; independent extended H1/H2 run #40055732279 must be evaluated independently of U06 task counters.
