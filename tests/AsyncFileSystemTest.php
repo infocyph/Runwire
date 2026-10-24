@@ -122,3 +122,47 @@ it('rejects unbounded and malformed file operations before any worker dispatch',
         $executor->close();
     }
 });
+
+it('preserves a full 1 MiB binary file with SHA-256 parity through bounded offset worker writes and reads', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'runwire-async-binary-');
+    expect($path)->toBeString();
+    $binary = str_repeat("A\0\xff", 349_525) . 'A';
+    expect(strlen($binary))->toBe(AsyncFileSystem::MAX_OPERATION_BYTES);
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 3);
+    $filesystem = new AsyncFileSystem($executor);
+    $checksums = [];
+
+    try {
+        $filesystem->write(
+            $path,
+            $binary,
+            static function (int $written, ?Throwable $error) use (&$checksums, $binary, $filesystem, $path): void {
+                $checksums['write'] = [$written, $error];
+                $filesystem->read(
+                    $path,
+                    strlen($binary),
+                    static function (string $bytes, ?Throwable $error) use (&$checksums): void {
+                        $checksums['read'] = [hash('sha256', $bytes), strlen($bytes), $error];
+                    },
+                );
+            },
+        );
+        $executor->onDrained(static function () use ($executor): void {
+            $executor->close();
+        });
+        $loop->run();
+
+        expect($checksums['write'])->toBe([strlen($binary), null])
+            ->and($checksums['read'])->toBe([hash('sha256', $binary), strlen($binary), null])
+            ->and($executor->diagnostics()['workers'])->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        $executor->close();
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
+});
+
