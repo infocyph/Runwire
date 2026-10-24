@@ -259,10 +259,10 @@ it('accepts a trusted mutual TLS client identity using the server trust configur
     }
 });
 
-it('fails a mutual TLS handshake when the server requires an absent client identity', function (): void {
+it('never accepts an unauthenticated client into the mutual TLS server application', function (): void {
     $identity = runwireClientTlsIdentity();
     try {
-        [$connection, $error] = runwireClientTlsAttempt(
+        [$connection, $error, $accepted] = runwireClientTlsAttempt(
             $identity,
             'localhost',
             $identity[1],
@@ -278,8 +278,16 @@ it('fails a mutual TLS handshake when the server requires an absent client ident
             null,
             true,
         );
-        expect($connection)->toBeNull()
-            ->and($error)->toBeInstanceOf(Throwable::class);
+        // In TLS 1.3 a client may transiently report a negotiated channel
+        // before it observes a server alert for its missing client identity.
+        // The security boundary is server-side verified application admission.
+        expect($accepted)->toBeFalse();
+        if ($connection === null) {
+            expect($error)->toBeInstanceOf(Throwable::class);
+        } else {
+            expect($error)->toBeNull()
+                ->and($connection->isEncrypted())->toBeTrue();
+        }
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
