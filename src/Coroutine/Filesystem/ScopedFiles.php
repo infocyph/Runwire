@@ -43,20 +43,16 @@ final readonly class ScopedFiles
         return $result;
     }
 
-    /** Await a bounded binary file write at the supplied absolute offset. */
-    public function write(
-        string $path,
-        string $bytes,
-        int $offset = 0,
-        ?RequestDeadline $deadline = null,
-    ): int {
+    /** Await a rename with explicit filesystem semantics and no atomicity claim. */
+    public function rename(string $from, string $to, ?RequestDeadline $deadline = null): bool
+    {
         $result = $this->await(
-            fn(callable $complete): int => $this->files->write(
-                $path, $bytes, $complete, $offset, $this->scope->cancellation(), $deadline,
+            fn(callable $complete): int => $this->files->rename(
+                $from, $to, $complete, $this->scope->cancellation(), $deadline,
             ),
         );
-        if (!is_int($result)) {
-            throw new LogicException('Scoped file write returned an invalid response.');
+        if (!is_bool($result)) {
+            throw new LogicException('Scoped file rename returned an invalid result.');
         }
 
         return $result;
@@ -77,21 +73,6 @@ final readonly class ScopedFiles
         return $result;
     }
 
-    /** Await a rename with explicit filesystem semantics and no atomicity claim. */
-    public function rename(string $from, string $to, ?RequestDeadline $deadline = null): bool
-    {
-        $result = $this->await(
-            fn(callable $complete): int => $this->files->rename(
-                $from, $to, $complete, $this->scope->cancellation(), $deadline,
-            ),
-        );
-        if (!is_bool($result)) {
-            throw new LogicException('Scoped file rename returned an invalid result.');
-        }
-
-        return $result;
-    }
-
     /** Await a bounded worker-local unlink. */
     public function unlink(string $path, ?RequestDeadline $deadline = null): bool
     {
@@ -102,6 +83,25 @@ final readonly class ScopedFiles
         );
         if (!is_bool($result)) {
             throw new LogicException('Scoped file unlink returned an invalid result.');
+        }
+
+        return $result;
+    }
+
+    /** Await a bounded binary file write at the supplied absolute offset. */
+    public function write(
+        string $path,
+        string $bytes,
+        int $offset = 0,
+        ?RequestDeadline $deadline = null,
+    ): int {
+        $result = $this->await(
+            fn(callable $complete): int => $this->files->write(
+                $path, $bytes, $complete, $offset, $this->scope->cancellation(), $deadline,
+            ),
+        );
+        if (!is_int($result)) {
+            throw new LogicException('Scoped file write returned an invalid response.');
         }
 
         return $result;
