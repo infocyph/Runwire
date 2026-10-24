@@ -177,6 +177,7 @@ final class StreamRelay
         } else {
             $this->forwardingRight = true;
         }
+
         try {
             $this->transfer($fromLeft);
         } finally {

@@ -261,6 +261,9 @@ final class Dialer
                 $error,
                 0.0,
                 STREAM_CLIENT_CONNECT | STREAM_CLIENT_ASYNC_CONNECT,
+                // Never inherit process-global TLS options from another request,
+                // test, or connection (including a stale client certificate).
+                stream_context_create(),
             );
         } finally {
             restore_error_handler();
