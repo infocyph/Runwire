@@ -79,6 +79,9 @@ final readonly class AsyncDialer
             );
 
             $connection = $deferred->future()->await();
+            // A per-call token can be cancelled after socket success but before
+            // this Fiber resumes. Never hand off a connection in that race.
+            $token->throwIfCancelled();
             if (!$connection instanceof Connection) {
                 throw new LogicException('Dialer produced an invalid connection value.');
             }

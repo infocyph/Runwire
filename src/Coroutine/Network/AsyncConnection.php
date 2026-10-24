@@ -30,6 +30,8 @@ final class AsyncConnection
 
     private bool $disposed = false;
 
+    private ?int $scopeShutdownId = null;
+
     private ?Deferred $drainDeferred = null;
 
     private bool $draining = false;
@@ -77,6 +79,13 @@ final class AsyncConnection
             }
         });
         $this->connection->bindOwner($scope->cancellation());
+        if ($this->connection->state() !== ConnectionState::CLOSED) {
+            $this->scopeShutdownId = $scope->registerShutdown(
+                static function () use ($connection): void {
+                    $connection->abort();
+                },
+            );
+        }
     }
 
     /**
@@ -140,6 +149,7 @@ final class AsyncConnection
         }
 
         $this->disposed = true;
+        $this->releaseScopeShutdown();
         $error = new LogicException('Async connection adapter was disposed.');
         $receive = $this->receiveDeferred;
         $drain = $this->drainDeferred;
@@ -280,6 +290,7 @@ final class AsyncConnection
 
     private function handleClose(Connection $connection, CloseReason $reason): void
     {
+        $this->releaseScopeShutdown();
         if ($reason === CloseReason::TLS_UNVERIFIED_EOF) {
             $pending = $this->receiveDeferred;
             $this->receiveDeferred = null;
@@ -331,6 +342,16 @@ final class AsyncConnection
         }
 
         $this->resolveReceive('');
+    }
+
+    private function releaseScopeShutdown(): void
+    {
+        if ($this->scopeShutdownId === null) {
+            return;
+        }
+
+        $this->scope->unregisterShutdown($this->scopeShutdownId);
+        $this->scopeShutdownId = null;
     }
 
     private function readEofBuffer(int $maxBytes): string

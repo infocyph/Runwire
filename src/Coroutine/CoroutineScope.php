@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Coroutine;
 
+use Closure;
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Coroutine\Enum\TaskGroupFailureMode;
@@ -14,6 +15,7 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use LogicException;
+use OverflowException;
 use Throwable;
 
 /**
@@ -25,6 +27,11 @@ final class CoroutineScope
     private array $children = [];
 
     private bool $closed = false;
+
+    /** @var array<int, Closure():void> */
+    private array $shutdownCallbacks = [];
+
+    private int $nextShutdownId = 1;
 
     /** @var array<int, Throwable> */
     private array $collectedFailures = [];
@@ -91,8 +98,24 @@ final class CoroutineScope
 
         $this->closed = true;
         $this->cancelFailureChecks();
-        $this->children = [];
-        $this->source->dispose();
+        $callbacks = $this->shutdownCallbacks;
+        $this->shutdownCallbacks = [];
+        $firstError = null;
+        try {
+            foreach ($callbacks as $callback) {
+                try {
+                    $callback();
+                } catch (Throwable $error) {
+                    $firstError ??= $error;
+                }
+            }
+        } finally {
+            $this->children = [];
+            $this->source->dispose();
+        }
+        if ($firstError !== null) {
+            throw $firstError;
+        }
     }
 
     /**
@@ -124,6 +147,10 @@ final class CoroutineScope
             $this->join(false, true);
 
             throw $error;
+        } finally {
+            // Settle owned network resources while the scheduler still owns
+            // the event loop, or idle stream watchers could keep it alive.
+            $this->close();
         }
     }
 
@@ -221,6 +248,32 @@ final class CoroutineScope
         $this->assertOpen();
 
         return new Mutex($this->scheduler, $this->scheduler->maxWaitersPerPrimitive());
+    }
+
+    /**
+     * Register an owned-resource cleanup that runs when this scope closes.
+     * The returned handle can be released only after an explicit ownership handoff.
+     *
+     * @internal
+     * @param Closure():void $callback
+     */
+    public function registerShutdown(Closure $callback): int
+    {
+        $this->assertOpen();
+        if ($this->nextShutdownId === PHP_INT_MAX) {
+            throw new OverflowException('Coroutine scope shutdown handle space is exhausted.');
+        }
+
+        $id = $this->nextShutdownId++;
+        $this->shutdownCallbacks[$id] = $callback;
+
+        return $id;
+    }
+
+    /** @internal */
+    public function unregisterShutdown(int $id): void
+    {
+        unset($this->shutdownCallbacks[$id]);
     }
 
     /**

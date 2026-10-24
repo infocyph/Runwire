@@ -306,3 +306,26 @@ it('delivers observed TLS bytes but refuses to represent truncated ciphertext as
         }
     }
 });
+
+
+it('releases scope-owned established connections on normal coroutine completion', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $core = new Connection($loop, $stream);
+    $runtime = new CoroutineRuntime($loop);
+
+    try {
+        $adapter = $runtime->run(static function (CoroutineScope $scope) use ($core): AsyncConnection {
+            return new AsyncConnection($core, $scope);
+        });
+        expect($adapter)->toBeInstanceOf(AsyncConnection::class)
+            ->and($core->state())->toBe(ConnectionState::CLOSED)
+            ->and($core->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        $core->abort();
+        fclose($peer);
+    }
+});

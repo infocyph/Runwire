@@ -149,8 +149,11 @@ it('cancels an in-flight scoped hostname dial on caller cancellation without lea
     $runtime = new CoroutineRuntime($loop);
     // Hold the worker so the hostname request is still pending at cancellation.
     $executor->submit('sleep', ['milliseconds' => 90], static function (): void {});
-    $cancelTimer = $loop->delay(0.01, static function () use ($caller): void {
+    $cancelTimer = $loop->delay(0.01, static function () use ($caller, $executor): void {
         $caller->cancel(CancellationReason::HOST_CANCELLED);
+        // Persistent worker readiness remains registered until the executor is
+        // closed; release it before a standalone CoroutineRuntime can finish.
+        $executor->close();
     });
 
     try {
@@ -184,8 +187,9 @@ it('keeps an external cancellation subscription while honoring request scope shu
     $context = \Infocyph\Runwire\RequestContext::standalone();
     $runtime = new CoroutineRuntime($loop);
     $executor->submit('sleep', ['milliseconds' => 90], static function (): void {});
-    $cancelTimer = $loop->delay(0.01, static function () use ($context): void {
+    $cancelTimer = $loop->delay(0.01, static function () use ($context, $executor): void {
         $context->cancel(CancellationReason::HOST_CANCELLED);
+        $executor->close();
     });
 
     try {
@@ -205,6 +209,40 @@ it('keeps an external cancellation subscription while honoring request scope shu
         $caller->dispose();
     }
 
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+
+it('closes a successfully dialed connection when its coroutine owner exits normally', function (): void {
+    $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $message);
+    if (!is_resource($server)) {
+        throw new RuntimeException($message);
+    }
+    $address = stream_socket_get_name($server, false);
+    expect($address)->toBeString();
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 4);
+    $dialer = new Dialer($loop);
+    $racer = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
+    $runtime = new CoroutineRuntime($loop);
+
+    try {
+        $adapter = $runtime->run(static function (CoroutineScope $scope) use ($racer, $address) {
+            return (new AsyncDialer($racer, $scope))->connect('tcp://' . $address);
+        });
+        expect($adapter->state())->toBe(\Infocyph\Runwire\Network\Enum\ConnectionState::CLOSED)
+            ->and($adapter->closeReason())->toBe(\Infocyph\Runwire\Network\Enum\CloseReason::LOCAL_ABORT)
+            ->and($racer->pendingCount())->toBe(0)
+            ->and($dialer->pendingCount())->toBe(0);
+        $peer = stream_socket_accept($server, 1.0);
+        expect($peer)->toBeResource();
+        fclose($peer);
+    } finally {
+        $executor->close();
+        fclose($server);
+    }
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
