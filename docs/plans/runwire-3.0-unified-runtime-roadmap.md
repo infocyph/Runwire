@@ -278,3 +278,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **P8 H3 shared owner and trust test acceptance (2026-10-24):** U08.03 H3 native peer-reset/sibling ownership, U14.02 TLS/mTLS/ALPN and proxy-key negatives accepted on 00291e1 all green #40072263291. Full H3 client/proxy tunnel not claimed. **95/175 (54.3%), 80 open.**
 
 **W1 shared WebSocket parser/encoder staged (2026-10-24):** Masked client writer and same bounded parser in role-dependent mask mode, binary/control negatives. U09.01 QA gated, U09.02 client still open. **95/175 accepted, 80 open.**
+
+**W2 shared session role staged (2026-10-24):** One WebSocketSession lifecycle can now use client mask direction with real loopback duplex test; no H1 upgrade client. U09.01 QA pending. **95/175, 80 open.**
