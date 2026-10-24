@@ -83,7 +83,7 @@ The negative test cases reject unavailable TLS while retaining ordinary
 TCP. They do not certify outgoing HTTP/2 or HTTP/3 client behavior.
 
 Off-loop DNS and IPv4/IPv6 Happy Eyeballs
-----------------------------------------
+------------------------------------------
 
 AsyncDnsResolver delegates A/AAAA lookup to bounded ProcessExecutor PHP
 subprocesses so the reactor never falls back to blocking name resolution.
