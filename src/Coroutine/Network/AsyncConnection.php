@@ -176,7 +176,9 @@ final class AsyncConnection
 
         $this->disposed = true;
         $this->releaseCloseObserver();
-        $this->releaseScopeShutdown();
+        // Disposing a Fiber adapter is not a resource ownership transfer.
+        // Keep the established connection registered with its scope so
+        // normal scope exit still closes the socket and releases its watchers.
         $error = new LogicException('Async connection adapter was disposed.');
         $receive = $this->receiveDeferred;
         $drain = $this->drainDeferred;

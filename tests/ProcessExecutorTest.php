@@ -246,3 +246,47 @@ it('cancels a queued filesystem read at the inherited token deadline before its 
         unlink($file);
     }
 });
+
+
+it('keeps a saturated executor queue bounded while accepted off-loop filesystem work completes', function (): void {
+    $file = tempnam(sys_get_temp_dir(), 'runwire-quota-');
+    if (!is_string($file)) {
+        throw new RuntimeException('Cannot allocate the bounded executor file fixture.');
+    }
+    file_put_contents($file, 'queued-file');
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $values = [];
+
+    try {
+        $executor->submit('sleep', ['milliseconds' => 30], static function ($value, ?Throwable $error) use (&$values): void {
+            expect($error)->toBeNull();
+            $values[] = $value;
+        });
+        $executor->submit('read', ['path' => $file, 'offset' => 0, 'length' => 11],
+            static function ($value, ?Throwable $error) use (&$values): void {
+                expect($error)->toBeNull();
+                $values[] = $value;
+            },
+        );
+        expect(fn() => $executor->submit('stat', ['path' => $file], static function (): void {}))
+            ->toThrow(OverflowException::class);
+
+        $executor->onDrained(static function () use ($executor): void {
+            $executor->close();
+        });
+        $loop->run();
+
+        expect($values)->toBe([30, 'queued-file'])
+            ->and($executor->diagnostics()['submitted'])->toBe(2)
+            ->and($executor->diagnostics()['completed'])->toBe(2)
+            ->and($executor->diagnostics()['queued'])->toBe(0)
+            ->and($executor->diagnostics()['active'])->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $executor->close();
+        unlink($file);
+    }
+});

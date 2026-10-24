@@ -157,6 +157,8 @@
 - [ ] **U06.07** Support callback and coroutine paths through identical connection primitives. **Acceptance:** No duplicate I/O state machine. **Proof:** PENDING.
 - [ ] **U06.08** Run live mixed coroutine, socket and timer endurance tests. **Acceptance:** Bounded scheduler lag and no FD/RSS leak. **Proof:** PENDING.
 
+**Rolling batch U06-A (2026-10-24; pending QA):** Fixed `AsyncConnection::dispose()` detaching scope shutdown ownership: disposing the adapter must release its callback observer without orphaning the underlying connection when the scope finishes; explicit `transferTo()` alone may hand ownership to a pool. A real socket-pair regression verifies normal scope-exit abort, zero callback/watch leaks, and no premature close at disposal. A separate bounded `ProcessExecutor` admission test rejects the third job at worker+queue capacity while previously admitted sleep and filesystem read finish intact, with no worker/watch leaks. Targets U06.07 and U06.06. No additional task is accepted until the new exact commit passes the full task-specific QA and remaining criteria.
+
 **Batch tracker:** 4/8 accepted; 4 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U07 — HTTP/1.1, HTTP/2 and HTTP/3 clients

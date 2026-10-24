@@ -571,3 +571,33 @@ it('aborts a pooled connection when coroutine adoption cannot claim its callback
         fclose($peer);
     }
 });
+
+
+it('preserves scope ownership after disposing only a coroutine socket adapter', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $stream);
+    $runtime = new CoroutineRuntime($loop);
+    $closeObservers = new ReflectionProperty($connection, 'closeCallbacks');
+
+    try {
+        $runtime->run(static function (CoroutineScope $scope) use ($connection, $closeObservers): void {
+            $adapter = new AsyncConnection($connection, $scope);
+            $adapter->dispose();
+
+            expect($connection->state())->toBe(ConnectionState::OPEN)
+                ->and($closeObservers->getValue($connection))->toBe([])
+                ->and(fn() => $adapter->receive())->toThrow(LogicException::class, 'disposed');
+        });
+
+        expect($connection->state())->toBe(ConnectionState::CLOSED)
+            ->and($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $connection->abort();
+        fclose($peer);
+    }
+});
