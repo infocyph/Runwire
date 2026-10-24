@@ -224,3 +224,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **E4 source QA remediation staged (2026-10-24):** Fix 3f66c72 Pest 300-second root-coroutine hang by retiring external peer watcher/heartbeat before Fiber completion and last PHPForge ScopedFiles constructor/brace style problem. Sphinx heading fix already staged. U11 filesystem transfer remains QA-unaccepted. **71/175 accepted, 104 open.**
 
 **H6 verified docs/host (2026-10-24):** Native host capabilities and supervised lifecycle pages from source 96979be pass [strict Sphinx #40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157); U13.09 and U16.10 accepted only as accurate documentation, not automatic feature implementation. **73/175 accepted, 102 open; 15 to 50.3%.**
+
+**H8 FPM resource cleanup staged (2026-10-24):** Real PHP8.4/8.5 FastCGI fixture gains per-request temporary file and paired Unix-socket round trips, followed by verified cleanup, while retaining fresh-sequence assertions across three requests. U13.06 remains QA pending. **73/175 accepted, 102 open.**

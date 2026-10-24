@@ -354,7 +354,9 @@ jobs:
           jq -s . "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
           jq -se '
             length == 3
-            and all(.[]; .method == "GET" and .sapi == "fpm-fcgi" and .pid >= 1 and .sequence == 1)
+            and all(.[]; .method == "GET" and .sapi == "fpm-fcgi" and .pid >= 1 and .sequence == 1
+              and .file_roundtrip == true and .file_closed == true
+              and .socket_roundtrip == true and .socket_closed == true)
             and .[0].target == "/index.php?case=1"
             and .[1].target == "/index.php?case=2"
             and .[2].target == "/index.php?case=3"
