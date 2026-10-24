@@ -162,6 +162,14 @@ final class CoroutineRuntime
             $root = $this->scheduler->spawn(
                 static fn(): mixed => $scope->execute($closure),
                 $source,
+                function (Task $task): void {
+                    // A standalone run owns the driving loop, but not every
+                    // watcher on it (for example persistent executor workers).
+                    // Scope children have settled before the root completes.
+                    if ($task->isComplete()) {
+                        $this->scheduler->loop()->stop();
+                    }
+                },
             );
             $this->scheduler->drive();
 

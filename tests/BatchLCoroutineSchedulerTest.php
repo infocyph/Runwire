@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
+use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Enum\TaskState;
 use Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException;
@@ -555,4 +556,25 @@ it('records attached coroutine failure after response output before final cleanu
     expect($request->context->completed())->toBeTrue()
         ->and($state['resets'])->toBe(1)
         ->and($request->context->ownedWorkFailure())->toBeNull();
+});
+
+
+it('returns a standalone scope when its root is complete even with an external persistent executor', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 4);
+    $executor->submit('sleep', ['milliseconds' => 450], static function (): void {});
+    $runtime = new CoroutineRuntime($loop);
+
+    try {
+        $result = $runtime->run(static fn(CoroutineScope $scope): string => 'completed');
+        expect($result)->toBe('completed')
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($executor->diagnostics()['workers'])->toBeGreaterThan(0);
+    } finally {
+        $executor->close();
+    }
+
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });

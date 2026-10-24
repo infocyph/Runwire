@@ -28,21 +28,21 @@ final class CoroutineScope
 
     private bool $closed = false;
 
-    /** @var array<int, Closure():void> */
-    private array $shutdownCallbacks = [];
-
-    private int $nextShutdownId = 1;
-
     /** @var array<int, Throwable> */
     private array $collectedFailures = [];
 
     /** @var array<int, int> */
     private array $failureChecks = [];
 
+    private int $nextShutdownId = 1;
+
     private ?Throwable $primaryFailure = null;
 
     /** @var list<Throwable> */
     private array $secondaryFailures = [];
+
+    /** @var array<int, Closure(): void> */
+    private array $shutdownCallbacks = [];
 
     /** @internal */
     public function __construct(
@@ -101,6 +101,7 @@ final class CoroutineScope
         $callbacks = $this->shutdownCallbacks;
         $this->shutdownCallbacks = [];
         $firstError = null;
+
         try {
             foreach ($callbacks as $callback) {
                 try {
@@ -113,6 +114,7 @@ final class CoroutineScope
             $this->children = [];
             $this->source->dispose();
         }
+
         if ($firstError !== null) {
             throw $firstError;
         }
@@ -270,12 +272,6 @@ final class CoroutineScope
         return $id;
     }
 
-    /** @internal */
-    public function unregisterShutdown(int $id): void
-    {
-        unset($this->shutdownCallbacks[$id]);
-    }
-
     /**
      * Removes the current task-local value for the given key.
      */
@@ -326,6 +322,12 @@ final class CoroutineScope
         $this->assertOpen();
 
         return $this->spawnOwned($callback, $this->source->child());
+    }
+
+    /** @internal */
+    public function unregisterShutdown(int $id): void
+    {
+        unset($this->shutdownCallbacks[$id]);
     }
 
     /** @param resource $stream */

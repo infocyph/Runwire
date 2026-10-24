@@ -30,8 +30,6 @@ final class AsyncConnection
 
     private bool $disposed = false;
 
-    private ?int $scopeShutdownId = null;
-
     private ?Deferred $drainDeferred = null;
 
     private bool $draining = false;
@@ -43,6 +41,8 @@ final class AsyncConnection
     private int $receiveLimit = PHP_INT_MAX;
 
     private bool $receiving = false;
+
+    private ?int $scopeShutdownId = null;
 
     /**
      * Bind coroutine waits to the supplied connection.
@@ -344,6 +344,14 @@ final class AsyncConnection
         $this->resolveReceive('');
     }
 
+    private function readEofBuffer(int $maxBytes): string
+    {
+        [$data, $rest] = $this->splitReceive($this->eofBuffer, $maxBytes);
+        $this->eofBuffer = $rest;
+
+        return $data;
+    }
+
     private function releaseScopeShutdown(): void
     {
         if ($this->scopeShutdownId === null) {
@@ -352,14 +360,6 @@ final class AsyncConnection
 
         $this->scope->unregisterShutdown($this->scopeShutdownId);
         $this->scopeShutdownId = null;
-    }
-
-    private function readEofBuffer(int $maxBytes): string
-    {
-        [$data, $rest] = $this->splitReceive($this->eofBuffer, $maxBytes);
-        $this->eofBuffer = $rest;
-
-        return $data;
     }
 
     private function resolveDrain(?CloseReason $reason): void
