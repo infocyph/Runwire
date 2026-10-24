@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Filesystem\AsyncFileHandleInterface;
 use Infocyph\Runwire\Filesystem\AsyncFileOperationsInterface;
-use Infocyph\Runwire\Filesystem\FileAccessMode;
+use Infocyph\Runwire\Filesystem\Enum\FileAccessMode;
 
 it('declares portable asynchronous file operations and explicit open mode permissions', function (): void {
     expect(FileAccessMode::READ->canRead())->toBeTrue()

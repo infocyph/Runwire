@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Filesystem;
 
+use Infocyph\Runwire\Filesystem\Enum\FileAccessMode;
+
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\RequestDeadline;
 use Throwable;

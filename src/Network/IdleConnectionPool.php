@@ -85,6 +85,7 @@ final class IdleConnectionPool
             'observer' => null,
             'timer' => null,
         ];
+
         try {
             $connection->handoffCallbacks(
                 $this,

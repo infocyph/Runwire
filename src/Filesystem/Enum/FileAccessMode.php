@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Filesystem;
+namespace Infocyph\Runwire\Filesystem\Enum;
 
 /** Explicit access capabilities for an asynchronous worker-owned file session. */
 enum FileAccessMode: string
@@ -13,11 +13,13 @@ enum FileAccessMode: string
 
     case WRITE = 'write';
 
+    /** Whether this access mode permits reading. */
     public function canRead(): bool
     {
         return $this === self::READ || $this === self::READ_WRITE;
     }
 
+    /** Whether this access mode permits writing. */
     public function canWrite(): bool
     {
         return $this === self::WRITE || $this === self::READ_WRITE;
