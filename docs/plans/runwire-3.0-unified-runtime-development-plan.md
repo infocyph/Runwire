@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 69/175 accepted (39.4%); 106 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 70/175 accepted (40.0%); 105 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -54,14 +54,14 @@
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 0/10 | 10 | Not started | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 1/9 | 8 | In progress | U01,U02,U06 |
-| U13 | Real host and optional extension compatibility | 3/9 | 6 | In progress | U01,U03,U04,U06,U12 |
+| U13 | Real host and optional extension compatibility | 4/9 | 5 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 1/16 | 15 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **69/175** | **106** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **70/175** | **105** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 69/175 (39.4% complete), 106 open.
+**Progress counter:** 70/175 (40.0% complete), 105 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -298,10 +298,10 @@
 - [x] **U13.05** Verify real FrankenPHP worker and host-mode differences. **Acceptance:** Repeated request scope isolation. **Proof:** Real FrankenPHP persistent-worker container with actual HTTP requests on PHP 8.4/8.5 retains one PID and increasing worker sequence, while each request has distinct path/response context; strict live checks in [Real Hosted Runtime Acceptance #40064842432](https://github.com/infocyph/Runwire/actions/runs/40064842432) at immutable source 3a9d9a7. Worker-mode declaration and host scope behavior tested alongside native FPM semantics; this acceptance is real worker-mode lifecycle, not pooled file or socket reuse.
 - [ ] **U13.06** Verify real PHP-FPM request-scoped operations and cleanup. **Acceptance:** No unsupported persistent resource assumptions. **Proof:** PENDING.
 - [ ] **U13.07** Test optional TLS, sockets, QUIC, PCNTL/POSIX absent/present. **Acceptance:** Explicit capability failure without Composer break. **Proof:** PENDING.
-- [ ] **U13.08** Test standalone Composer archives PHP8.4/8.5 stable/lowest. **Acceptance:** Package works without external Infocyph projects. **Proof:** PENDING.
+- [x] **U13.08** Test standalone Composer archives PHP8.4/8.5 stable/lowest. **Acceptance:** Package works without external Infocyph projects. **Proof:** `composer.json` runtime requires only php:^8.4 and php-64bit:^8.4 (no versioned runtime package dependencies), so prefer-stable and prefer-lowest have an identical production dependency graph. The candidate archive was independently extracted, copied into a fresh isolated Composer path repository, production-autoloaded and served correct native HTTP/1.1 200 and 400 replies on both PHP8.4/8.5 in green [Release Candidate #40064842484](https://github.com/infocyph/Runwire/actions/runs/40064842484) and [#40067446052](https://github.com/infocyph/Runwire/actions/runs/40067446052); four PHPForge PHP8.4/8.5 stable/lowest install/test lanes passed at immutable [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). This is standalone package acceptance, not a 3.0 publication or a claim that optional extensions are present.
 - [ ] **U13.09** Publish truthful per-host features and limitations matrix. **Acceptance:** No false universal asynchronous guarantees. **Proof:** PENDING.
 
-**Batch tracker:** 3/9 accepted; 6 open — U13.01 native Select/prefork vs PCNTL-free portable PHP 8.4/8.5 in green #40064842606 and #40064842530, U13.03 Swoole and U13.05 FrankenPHP — real Swoole/OpenSwoole + real FrankenPHP PHP 8.4/8.5 host lifecycle accepted — U13.03 real Swoole/OpenSwoole host-owned reactor and outgoing dial on PHP 8.4/8.5 PASS [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 4/9 accepted; 5 open — U13.08 isolated PHP8.4/8.5 Composer archive/zero-runtime-dependency parity accepted alongside native/portable, Swoole and FrankenPHP — U13.01 native Select/prefork vs PCNTL-free portable PHP 8.4/8.5 in green #40064842606 and #40064842530, U13.03 Swoole and U13.05 FrankenPHP — real Swoole/OpenSwoole + real FrankenPHP PHP 8.4/8.5 host lifecycle accepted — U13.03 real Swoole/OpenSwoole host-owned reactor and outgoing dial on PHP 8.4/8.5 PASS [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U14 — Security, fuzzing and adversarial resilience
 
@@ -607,3 +607,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **H4 truthful host capability matrix (2026-10-24; staged):** Add native RST docs/host-compatibility-3.0.rst to Sphinx navigation. Distinguish real FPM/FrankenPHP/RoadRunner/Swoole hosts, native Select and optional ext-event, required/optional PCNTL/OpenSSL/QUIC, server vs incomplete clients/WT, and worker-owned vs request-owned sockets/files without implying release certification. Verify strict Sphinx HTML and links before accepting U13.09; all other host parity tasks remain independently gated. Tracker **68/175 accepted, 107 open** pending source-linked strict docs QA.
 
 **P1 verified portable/native execution accepted (2026-10-24):** [Portable Native #40064842530](https://github.com/infocyph/Runwire/actions/runs/40064842530) proves real PHP8.4/8.5 PCNTL-free Select with explicit process/TLS capability enforcement and PHP8.4 optional ext-event; [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606) proves PHP8.4/8.5 PCNTL-enabled real native networking, supervisor/process tests, off-loop file executor and real HTTP3/QUIC peer protocol jobs. Together accept U13.01. U13.02 separate full loop equivalence and U13.08 stable/lowest **archive consumer** packaging remain open. **Canonical 69/175 (39.4%), 106 open; 19 more for 88/175**. Pending F3/F4/F5 and H4 code/docs still require exact-head QA.
+
+**P2 standalone archive acceptance with no artificial CI matrix duplication (2026-10-24):** `composer.json` only has PHP8.4+ 64-bit runtime requirements, so lowest/stable do not select differing runtime dependency packages. Existing [Release Candidate #40064842484](https://github.com/infocyph/Runwire/actions/runs/40064842484) and [#40067446052](https://github.com/infocyph/Runwire/actions/runs/40067446052) independently archive and install in clean Composer consumer directories, then serve correct native HTTP 200/400 on PHP8.4/8.5; [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606) passed every PHPForge stable/lowest pair. Accept U13.08 with explicit dependency parity rather than rerunning redundant release CI. **70/175 accepted (40.0%); 105 open, 18 to 88/175.** U13.07 optional extension permutation and U13.09 new matrix remain open.
