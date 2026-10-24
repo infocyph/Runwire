@@ -43,9 +43,9 @@ Network, protocols and worker capabilities
      - ext-quic / compatible OpenSSL
    * - HTTP/1.1 outbound
      - No complete client
-     - Request writer and response parser in development
+     - Verified H1 exchange, bounded upload and opt-in safe redirect/retry
      - Outgoing TCP/TLS
-     - Connected exchange OPEN
+     - No general-purpose H2/H3 fallback
    * - HTTP/2 outbound
      - No complete client
      - Not yet implemented
@@ -65,7 +65,7 @@ Network, protocols and worker capabilities
      - No built-in client
      - Experimental verified ws/wss HTTP/1.1 dial/upgrade and masked session
      - Outbound TCP/TLS, Select loop
-     - Independent WSS/close and cancellation QA pending, not released
+     - Real WSS/close, cancellation and multi-peer QA; unreleased
    * - H2/H3 extended CONNECT
      - Not advertised
      - Not qualified
@@ -98,9 +98,9 @@ Network, protocols and worker capabilities
      - proc_open/process pipes
    * - Pooled connections
      - Not unified
-     - Scope/TLS/ALPN/proxy key and owner transfer only; no active pool
+     - Scoped bounded active leases, FIFO waiters, idle TTL and owner transfer
      - Outbound streams
-     - Lifecycle QA gated
+     - No integrated high-level HTTP dial pool
    * - CONNECT/SOCKS5 proxy
      - Not unified
      - Proxy tunnel development
@@ -108,9 +108,9 @@ Network, protocols and worker capabilities
      - Credential policy gated
    * - Bidirectional relay
      - Not unified
-     - Experimental bounded duplex relay, pressure-aware and cancellable
+     - Bounded duplex relay with drained cleartext half-close and cancellation
      - TCP/Unix streams
-     - Half-close/drain and release throughput OPEN
+     - TLS close-notify and release throughput remain OPEN
    * - Fiber tasks and cancellation
      - Supported
      - Structured scope/channel/deadline ownership
@@ -118,9 +118,9 @@ Network, protocols and worker capabilities
      - Exactly one resource owner
    * - Async disk jobs
      - Not built in
-     - Bounded subprocess-backed read/write/stat
+     - Bounded subprocess-backed read/write/stat with opt-in root policy
      - Scope or worker-owned executor
-     - No native disk AIO
+     - No native disk AIO or race-free sandbox
    * - File/network transfer
      - Not built in
      - Experimental bounded chunk bridge

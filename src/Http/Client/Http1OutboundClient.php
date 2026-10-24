@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Client;
 
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialOptions;
@@ -43,6 +44,13 @@ final readonly class Http1OutboundClient
         }
         $host = $parts['host'];
         $secure = strtolower($parts['scheme'] ?? '') === 'https';
+        // Validate the exact intended H1 transport before doing DNS, socket
+        // admission or TLS handshakes. H2/H3-only policy must never silently
+        // become H1 merely because this particular client is H1-only.
+        if ($request->protocol->negotiate($secure ? 'http/1.1' : null, $secure)
+            !== ProtocolVersion::HTTP_1_1) {
+            throw new InvalidArgumentException('HTTP/1.1 outbound policy must explicitly allow HTTP/1.1.');
+        }
         $port = $parts['port'] ?? ($secure ? 443 : 80);
         $dialOptions = self::verifiedOptions($host, $secure, $dialOptions ?? new DialOptions());
         $endpoint = 'tcp://' . $host . ':' . $port;
