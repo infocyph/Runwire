@@ -220,23 +220,16 @@ final class Http1ConnectedExchange
         if ($this->settled || $this->writer->done()) {
             return;
         }
+
         try {
-            $frames = 0;
-            while ($frames++ < 8 && !$this->writer->done() && !$this->settled) {
-                // Avoid reactor spin when a small socket queue is full;
-                // the drain callback resumes production once writable.
-                if ($this->connection->availableWriteBytes() < 4_096) {
+            for ($frames = 0; $frames < 8; ++$frames) {
+                if (!$this->sendFrame()) {
                     return;
-                }
-                $bytes = $this->writer->next(4_096);
-                if ($bytes === '') {
-                    return;
-                }
-                if (!$this->connection->write($bytes)->accepted()) {
-                    throw new RuntimeException('HTTP/1.1 request write exceeded the bounded socket capacity.');
                 }
             }
-            if (!$this->settled && !$this->writer->done() && !$this->connection->isWritePressured()) {
+            // Yield after eight bounded chunks. Pressure-driven writes
+            // resume from Connection::onDrain instead of spinning.
+            if (!$this->connection->isWritePressured()) {
                 $this->loop->defer(function (): void {
                     $this->pump();
                 });
@@ -244,5 +237,22 @@ final class Http1ConnectedExchange
         } catch (Throwable $error) {
             $this->finish($error);
         }
+    }
+
+    private function sendFrame(): bool
+    {
+        if ($this->settled || $this->writer->done() || $this->connection->availableWriteBytes() < 4_096) {
+            return false;
+        }
+
+        $bytes = $this->writer->next(4_096);
+        if ($bytes === '') {
+            return false;
+        }
+        if (!$this->connection->write($bytes)->accepted()) {
+            throw new RuntimeException('HTTP/1.1 request write exceeded the bounded socket capacity.');
+        }
+
+        return !$this->writer->done() && !$this->connection->isWritePressured();
     }
 }
