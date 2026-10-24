@@ -40,8 +40,10 @@ jobs:
           .ci/h2-reference-venv/bin/python -m pip install --disable-pip-version-check 'h2==4.2.0'
           echo "$PWD/.ci/h2-reference-venv/bin" >> "$GITHUB_PATH"
 
-      - name: Install Runwire dev test dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Install Runwire dev test dependencies (no native event backend)
+        # H2 uses the portable SelectLoop, not ext-event; do not make the
+        # optional native reactor a dependency of independent interop tests.
+        run: composer install --prefer-dist --no-interaction --no-progress --ignore-platform-req=ext-event
 
       - name: Verify real TLS, ALPN, and independent H2 headers/body
         run: |
