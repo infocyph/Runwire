@@ -101,7 +101,11 @@ final class WebSocketClientUpgrade
         if ($this->settled) {
             return;
         }
-        $this->head .= $this->connection->read();
+        // Bound each read to the remaining header allowance plus a small
+        // probe. Leave any coalesced WebSocket frames in the connection buffer
+        // for the session after the upgrade ownership handoff.
+        $remaining = 8_192 - strlen($this->head);
+        $this->head .= $this->connection->read(max(1, $remaining + 1));
         $end = strpos($this->head, "\r\n\r\n");
         if ($end === false) {
             if (strlen($this->head) > 8_192) {

@@ -100,6 +100,35 @@ it('upgrades a real outbound TCP socket against an independent peer and delivers
     }
 });
 
+it('rejects oversized upgrade response headers without unbounded buffering', function (): void {
+    $loop = new SelectLoop();
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray()->toHaveCount(2);
+    [$socket, $peer] = $pair;
+    stream_set_blocking($peer, false);
+    $connection = new \Infocyph\Runwire\Network\Connection($loop, $socket);
+    $request = \Infocyph\Runwire\WebSocket\Internal\WebSocketClientHandshake::build('ws://localhost/');
+    $errors = [];
+    $upgrade = new \Infocyph\Runwire\WebSocket\Internal\WebSocketClientUpgrade(
+        $loop, $connection, $request, [], new \Infocyph\Runwire\WebSocket\WebSocketOptions(),
+        new DialOptions(), static function ($session, $error) use (&$errors): void {
+            $errors[] = $error;
+        },
+    );
+    $stop = $loop->delay(0.5, static function () use ($loop): void { $loop->stop(); });
+    try {
+        $upgrade->start();
+        fwrite($peer, "HTTP/1.1 101 Switching Protocols\\r\\nX-Fill: " . str_repeat('a', 9_000));
+        $loop->run();
+        expect($errors)->toHaveCount(1);
+        expect($errors[0])->toBeInstanceOf(RuntimeException::class);
+    } finally {
+        $loop->cancel($stop);
+        $connection->abort();
+        fclose($peer);
+    }
+});
+
 it('refuses TLS downgrade and mismatched TLS or ALPN before opening a socket', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
