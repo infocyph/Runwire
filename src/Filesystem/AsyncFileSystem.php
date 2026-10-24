@@ -68,34 +68,26 @@ final readonly class AsyncFileSystem
     }
 
     /**
-     * Write a bounded binary chunk at an absolute offset; no implicit truncate.
+     * Rename a file using host filesystem semantics; no cross-device promise.
      *
-     * @param callable(int, ?Throwable):void $completion
+     * @param callable(bool, ?Throwable):void $completion
      */
-    public function write(
-        string $path,
-        string $bytes,
+    public function rename(
+        string $from,
+        string $to,
         callable $completion,
-        int $offset = 0,
         ?CancellationToken $token = null,
         ?RequestDeadline $deadline = null,
     ): int {
-        self::validatePath($path);
-        if (strlen($bytes) > self::MAX_OPERATION_BYTES || $offset < 0) {
-            throw new InvalidArgumentException('Invalid async file write range.');
-        }
+        self::validatePath($from);
+        self::validatePath($to);
 
         return $this->executor->submit(
-            'write',
-            ['path' => $path, 'data' => base64_encode($bytes), 'offset' => $offset],
+            'rename',
+            ['from' => $from, 'to' => $to],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
-                if ($error !== null || !is_int($value)) {
-                    $completion(0, $error ?? new RuntimeException('File write worker returned invalid byte count.'));
-
-                    return;
-                }
-
-                $completion($value, null);
+                $completion($error === null && $value === true,
+                    $error ?? ($value === true ? null : new RuntimeException('File rename worker returned an invalid result.')));
             },
             $token,
             $deadline,
@@ -136,33 +128,6 @@ final readonly class AsyncFileSystem
     }
 
     /**
-     * Rename a file using host filesystem semantics; no cross-device promise.
-     *
-     * @param callable(bool, ?Throwable):void $completion
-     */
-    public function rename(
-        string $from,
-        string $to,
-        callable $completion,
-        ?CancellationToken $token = null,
-        ?RequestDeadline $deadline = null,
-    ): int {
-        self::validatePath($from);
-        self::validatePath($to);
-
-        return $this->executor->submit(
-            'rename',
-            ['from' => $from, 'to' => $to],
-            static function (mixed $value, ?Throwable $error) use ($completion): void {
-                $completion($error === null && $value === true,
-                    $error ?? ($value === true ? null : new RuntimeException('File rename worker returned an invalid result.')));
-            },
-            $token,
-            $deadline,
-        );
-    }
-
-    /**
      * Remove a file through the worker without following its contents.
      *
      * @param callable(bool, ?Throwable):void $completion
@@ -181,6 +146,41 @@ final readonly class AsyncFileSystem
             static function (mixed $value, ?Throwable $error) use ($completion): void {
                 $completion($error === null && $value === true,
                     $error ?? ($value === true ? null : new RuntimeException('File unlink worker returned an invalid result.')));
+            },
+            $token,
+            $deadline,
+        );
+    }
+
+    /**
+     * Write a bounded binary chunk at an absolute offset; no implicit truncate.
+     *
+     * @param callable(int, ?Throwable):void $completion
+     */
+    public function write(
+        string $path,
+        string $bytes,
+        callable $completion,
+        int $offset = 0,
+        ?CancellationToken $token = null,
+        ?RequestDeadline $deadline = null,
+    ): int {
+        self::validatePath($path);
+        if (strlen($bytes) > self::MAX_OPERATION_BYTES || $offset < 0) {
+            throw new InvalidArgumentException('Invalid async file write range.');
+        }
+
+        return $this->executor->submit(
+            'write',
+            ['path' => $path, 'data' => base64_encode($bytes), 'offset' => $offset],
+            static function (mixed $value, ?Throwable $error) use ($completion): void {
+                if ($error !== null || !is_int($value)) {
+                    $completion(0, $error ?? new RuntimeException('File write worker returned invalid byte count.'));
+
+                    return;
+                }
+
+                $completion($value, null);
             },
             $token,
             $deadline,

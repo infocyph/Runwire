@@ -5,8 +5,8 @@ Runwire 3.0 development: async file I/O
 This document describes **unreleased development APIs**, not the published
 Runwire 2.1.2 package. Production support is conditional on full U11 QA.
 
-The preliminary ``Filesystem\\AsyncFileSystem`` delegates each bounded
-operation to a reusable ``Executor\\ProcessExecutor`` running blocking PHP
+The preliminary ``Filesystem\AsyncFileSystem`` delegates each bounded
+operation to a reusable ``Executor\ProcessExecutor`` running blocking PHP
 filesystem calls inside separate worker processes. The event loop only
 reads and writes nonblocking IPC pipes, never calling ``file_get_contents``
 or ``fwrite`` directly in the reactor thread. Worker count and queue length
@@ -22,9 +22,9 @@ scope/worker shutdown.
 .. code-block:: php
 
    <?php
-   use Infocyph\\Runwire\\Executor\\ProcessExecutor;
-   use Infocyph\\Runwire\\Filesystem\\AsyncFileSystem;
-   use Infocyph\\Runwire\\Loop\\SelectLoop;
+   use Infocyph\Runwire\Executor\ProcessExecutor;
+   use Infocyph\Runwire\Filesystem\AsyncFileSystem;
+   use Infocyph\Runwire\Loop\SelectLoop;
 
    $loop = new SelectLoop();
    $executor = new ProcessExecutor($loop, 2, 32);
