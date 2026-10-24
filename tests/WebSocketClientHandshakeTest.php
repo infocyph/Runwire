@@ -65,3 +65,28 @@ it('rejects credentials, injected request target, wrong response, extensions and
             $key,
         ))->toThrow(RuntimeException::class);
 });
+
+it('round-trips the upgrade challenge with an independent real Unix socket peer', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray()->toHaveCount(2);
+    [$client, $peer] = $pair;
+
+    try {
+        $request = WebSocketClientHandshake::build('ws://example.test/chat', ['chat']);
+        expect(fwrite($client, $request['wire']))->toBe(strlen($request['wire']));
+        $wire = fread($peer, 4_096);
+        expect($wire)->toContain("Upgrade: websocket\r\n", 'Sec-WebSocket-Key: ' . $request['key']);
+
+        $accept = base64_encode(sha1($request['key'] . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
+        $response = "HTTP/1.1 101 Switching Protocols\r\n"
+            . "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+            . "Sec-WebSocket-Accept: $accept\r\nSec-WebSocket-Protocol: chat\r\n\r\n";
+        expect(fwrite($peer, $response))->toBe(strlen($response));
+        $reply = fread($client, 4_096);
+        expect(WebSocketClientHandshake::verify($reply, $request['key'], ['chat']))->toBe('chat');
+    } finally {
+        fclose($client);
+        fclose($peer);
+    }
+});
+

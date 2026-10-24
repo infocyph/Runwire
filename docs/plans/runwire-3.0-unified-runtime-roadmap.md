@@ -300,3 +300,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W7 docs + WebSocket real QA accepted (2026-10-24):** PHPForge 8.4/8.5 four test/analysis configurations #40076825500 and strict Sphinx #40076825279 passed on immutable a0812bc. Accept U09.01 shared RFC6455 frame/close masking and U16.15 PHP/RST runnable reference syntax plus Sphinx links. No claims for incomplete WebTransport, hosted docs or new 64-socket W6 fixture. **100/175 accepted (57.1%), 75 open, 32 to milestone.**
 
 **W8 outbound WebSocket handshake staged (2026-10-24):** Stateless request nonce and 101 accept/subprotocol validation with negative tests; no connected client yet. U09.02 QA pending/open. **100/175 accepted, 75 open.**
+
+**W9 real socket RFC6455 header peer staged (2026-10-24):** Actual socket pair sends client upgrade and independently computes 101 acceptance; no connected WS client claim. U09.02 OPEN. **100/175, 75 open.**
