@@ -55,15 +55,10 @@ final class Http2ClientSession
         $this->response = new Http2ClientResponseParser();
     }
 
-    /** Emit the one-shot H2 client connection preface and SETTINGS. */
-    public function start(): string
+    /** Observe complete response ownership after validated END_STREAM. */
+    public function done(): bool
     {
-        if ($this->started) {
-            throw new RuntimeException('HTTP/2 client session has already started.');
-        }
-        $this->started = true;
-
-        return $this->handshake->start();
+        return $this->response->done();
     }
 
     /** Deliver a fully parsed H2 frame and return bounded control/flow-credit bytes. */
@@ -89,10 +84,15 @@ final class Http2ClientSession
             : '';
     }
 
-    /** Observe complete response ownership after validated END_STREAM. */
-    public function done(): bool
+    /** Emit the one-shot H2 client connection preface and SETTINGS. */
+    public function start(): string
     {
-        return $this->response->done();
+        if ($this->started) {
+            throw new RuntimeException('HTTP/2 client session has already started.');
+        }
+        $this->started = true;
+
+        return $this->handshake->start();
     }
 
     private function control(Frame $frame): string
