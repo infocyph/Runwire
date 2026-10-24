@@ -107,7 +107,6 @@ try {
     rmdir($directory);
 }
 if (!$success) {
-    fwrite(STDERR, $message . PHP_EOL);
-    exit(1);
+    throw new RuntimeException($message);
 }
-echo "isolated_tls_ok\n";
+fwrite(STDOUT, "isolated_tls_ok\n");

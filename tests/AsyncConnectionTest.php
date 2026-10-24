@@ -661,7 +661,13 @@ it('cancels a suspended socket receive at its nested coroutine deadline', functi
             ),
         ))->toThrow(CancelledException::class);
 
-        expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+        // The scope token and connection lifetime timer carry the same
+        // inherited monotonic deadline. Either cancellation callback can
+        // win the event-loop tick; both must leave zero live resources.
+        expect(in_array($connection->closeReason(), [
+            CloseReason::LOCAL_ABORT,
+            CloseReason::LIFETIME_TIMEOUT,
+        ], true))->toBeTrue()
             ->and($runtime->activeTaskCount())->toBe(0)
             ->and($loop->diagnostics()->readWatchers)->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0)

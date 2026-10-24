@@ -262,7 +262,13 @@ it('accepts a trusted mutual TLS client identity using the server trust configur
 it('never accepts an unauthenticated client into the mutual TLS server application', function (): void {
     $identity = runwireClientTlsIdentity();
     try {
-        [$connection, $error, $accepted] = runwireClientTlsAttempt(
+        // A missing client identity produces this expected OpenSSL warning.
+        // Do not mask unrelated TLS warnings or relax server verification.
+        set_error_handler(static fn(int $severity, string $message): bool => $severity === E_WARNING
+            && str_contains($message, 'stream_socket_enable_crypto(): Could not get peer certificate'));
+
+        try {
+            [$connection, $error, $accepted] = runwireClientTlsAttempt(
             $identity,
             'localhost',
             $identity[1],
@@ -277,7 +283,10 @@ it('never accepts an unauthenticated client into the mutual TLS server applicati
             ],
             null,
             true,
-        );
+            );
+        } finally {
+            restore_error_handler();
+        }
         // In TLS 1.3 a client may transiently report a negotiated channel
         // before it observes a server alert for its missing client identity.
         // The security boundary is server-side verified application admission.
