@@ -1,5 +1,5 @@
 Pool, proxy, relay and credential boundaries (Runwire 3.0)
-=========================================================
+==========================================================
 
 This is unreleased development documentation, not a feature list
 of connected HTTP client pools, proxy clients or relays. At present,
