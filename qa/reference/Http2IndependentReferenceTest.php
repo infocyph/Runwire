@@ -38,17 +38,27 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
     $watchdog = null;
     $process = null;
     $pipes = [];
+
     try {
         $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        if (!$key instanceof OpenSSLAsymmetricKey) {
+            throw new RuntimeException('Independent H2 TLS fixture private key generation failed.');
+        }
+
         $csr = openssl_csr_new(['commonName' => 'localhost'], $key, [
             'config' => $cfg, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256',
         ]);
+        if (!$csr instanceof OpenSSLCertificateSigningRequest) {
+            throw new RuntimeException('Independent H2 TLS fixture CSR generation failed.');
+        }
+
         $signed = openssl_csr_sign($csr, null, $key, 1, [
             'config' => $cfg, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
         ]);
-        expect($key)->not->toBeFalse()
-            ->and($csr)->not->toBeFalse()
-            ->and($signed)->not->toBeFalse();
+        if (!$signed instanceof OpenSSLCertificate) {
+            throw new RuntimeException('Independent H2 TLS fixture certificate signing failed.');
+        }
+
         openssl_x509_export($signed, $certificate);
         openssl_pkey_export($key, $private);
         file_put_contents($cert, $certificate);
@@ -136,7 +146,7 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
         }
         rmdir($dir);
     }
-    expect($loop?->diagnostics()->readWatchers)->toBe(0)
-        ->and($loop?->diagnostics()->writeWatchers)->toBe(0)
-        ->and($loop?->diagnostics()->timersActive)->toBe(0);
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
