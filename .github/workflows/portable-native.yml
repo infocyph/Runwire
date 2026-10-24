@@ -116,9 +116,13 @@ jobs:
 
 
   accelerated-event:
-    name: "Accelerated Event Loop - PHP 8.4"
+    name: "Accelerated Event Loop - PHP ${{ matrix.php-version }}"
     runs-on: ubuntu-latest
-    container: "php:8.4-cli"
+    container: "php:${{ matrix.php-version }}-cli"
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
     permissions:
       contents: read
 
