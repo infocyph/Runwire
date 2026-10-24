@@ -64,7 +64,7 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
 
     // Validate each roadmap batch, not just the aggregate total. This catches
     // stale divisions when the canonical plan accepts a new task.
-    preg_match_all('/^\\| (U[0-9]{2}) \\| [^\\n]*? \\| (\\d+) \\| (\\d+)\\/(\\d+) \\|$/m', $roadmap, $roadmapRows, PREG_SET_ORDER);
+    preg_match_all('/^\| (U[0-9]{2}) \| [^\n]*? \| (\d+) \| (\d+)\/(\d+) \|$/m', $roadmap, $roadmapRows, PREG_SET_ORDER);
     expect($roadmapRows)->toHaveCount(18);
     foreach ($roadmapRows as $row) {
         [, $batch, $remaining, $completed, $planned] = $row;
