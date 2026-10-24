@@ -156,3 +156,19 @@ peer close, worker/connection quota exhaustion, cancellation/deadline
 and unsupported QUIC feature are separate terminal outcomes.
 See the coroutine-network-3.0 and host-compatibility-3.0 guides for
 ownership transfers, host matrices and remaining QA limits.
+
+Optional public-address SSRF restrictions (3.0 development)
+-----------------------------------------------------------
+
+OutboundAddressPolicy is opt-in on DialOptions(addressPolicy: ...).
+It rejects private, reserved, loopback, link-local and mapped loopback IPs
+**before** opening a numeric outgoing TCP socket, and compares the
+kernel-reported remote IP against the exact validated DNS candidate
+**after connect but before TLS and ownership handoff**. HappyEyeballsDialer
+passes the same policy through all A/AAAA candidate attempts. An IP-based
+policy rejects Unix-domain endpoints rather than pretending to validate
+filesystem paths. Applications reaching trusted internal systems must not
+enable this public-only policy and should use a separate explicit allowlist.
+
+No implicit SSRF protection is asserted for dial calls without a policy;
+HTTP redirect and cross-origin credential policies remain independent.

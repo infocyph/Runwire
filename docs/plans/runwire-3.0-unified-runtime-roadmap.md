@@ -266,3 +266,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **P4 toward 75% (2026-10-24):** Green 00291e1 source accepts U08.07 fixed adaptive defaults and U16.05 real transport/DNS guide, with pinned Sphinx/PHPForge evidence. **91/175 (52.0%), 84 open, 41 to 75.4%.**
 
 **P5 protocol + WT docs staged (2026-10-24):** Source-backed H1/H2/H3/WS docs and unimplemented WebTransport ownership design, pending strict QA. **91/175 accepted, 84 open.**
+
+**S7 SSRF candidate+peer rebinding guard staged (2026-10-24):** Opt-in pre-socket post-connect address checks and negative tests, no silent default; U14.01 QA pending. **91/175, 84 open.**

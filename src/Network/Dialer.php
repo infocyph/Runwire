@@ -33,7 +33,7 @@ final class Dialer
     /**
      * @var array<int, array{
      *   stream:resource, state:DialAttemptLifecycle,
-     *   callback:Closure, options:DialOptions, tcp:bool,
+     *   callback:Closure, options:DialOptions, tcp:bool, candidateIp:?string,
      *   watcher:?int, timer:?int, subscription:?CancellationSubscription,
      *   tls:?ClientTlsHandshake
      * }>
@@ -98,6 +98,12 @@ final class Dialer
         if ($options->tls !== null && $endpoint->scheme !== 'tcp') {
             throw new InvalidArgumentException('Client TLS is supported only over TCP, not Unix-domain sockets.');
         }
+        if ($options->addressPolicy !== null) {
+            if ($endpoint->scheme !== 'tcp') {
+                throw new InvalidArgumentException('IP-based outbound address policy requires TCP.');
+            }
+            $options->addressPolicy->assertCandidate($endpoint->host ?? '');
+        }
         $stream = $this->open($endpoint);
         $state = new DialAttemptLifecycle();
         $state->transition(DialAttemptPhase::CONNECTING);
@@ -114,6 +120,7 @@ final class Dialer
             'callback' => Closure::fromCallable($completion),
             'options' => $options,
             'tcp' => $endpoint->scheme === 'tcp',
+            'candidateIp' => $endpoint->host,
             'watcher' => null,
             'timer' => null,
             'subscription' => null,
@@ -271,6 +278,13 @@ final class Dialer
 
         try {
             $this->checkConnected($job['stream']);
+            if ($job['options']->addressPolicy !== null) {
+                $peer = stream_socket_get_name($job['stream'], true);
+                if (!is_string($peer)) {
+                    throw new RuntimeException('Cannot verify connected peer for outbound address policy.');
+                }
+                $job['options']->addressPolicy->assertConnected($job['candidateIp'] ?? '', $peer);
+            }
             if ($job['options']->tls !== null) {
                 if ($job['watcher'] !== null) {
                     $this->loop->cancel($job['watcher']);
