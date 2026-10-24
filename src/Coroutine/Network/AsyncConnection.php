@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Coroutine\Network;
 
+use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Deferred;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\WriteResult;
+use Infocyph\Runwire\RequestDeadline;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
@@ -259,6 +261,31 @@ final class AsyncConnection
     public function state(): ConnectionState
     {
         return $this->connection->state();
+    }
+
+    /**
+     * Transfer an idle connection to a new owner and detach this coroutine adapter.
+     * Only the returned core connection may be used after handoff.
+     */
+    public function transferTo(CancellationToken $owner, ?RequestDeadline $deadline = null): Connection
+    {
+        $this->assertUsable();
+        if ($this->connection->state() === ConnectionState::CLOSED) {
+            throw new LogicException('A closed connection cannot be transferred.');
+        }
+        if ($this->receiving || $this->draining || $this->closing || $this->eofBuffer !== '') {
+            throw new LogicException('Cannot transfer a connection with active coroutine waits or buffered EOF.');
+        }
+        if ($owner === $this->scope->cancellation()) {
+            throw new LogicException('Connection transfer requires a different owner token.');
+        }
+
+        $this->connection->transferOwner($owner, $deadline);
+        $this->disposed = true;
+        $this->releaseScopeShutdown();
+        $this->detachCallbacks();
+
+        return $this->connection;
     }
 
     /**

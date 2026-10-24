@@ -329,3 +329,71 @@ it('releases scope-owned established connections on normal coroutine completion'
         fclose($peer);
     }
 });
+
+it('hands off a coroutine connection to a pool token without retaining its request owner', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $core = new Connection($loop, $stream);
+    $pool = new \Infocyph\Runwire\CancellationSource();
+
+    try {
+        $handedOff = $runtime->run(static function (CoroutineScope $scope) use ($core, $pool, $loop): Connection {
+            $async = new AsyncConnection($core, $scope);
+            $connection = $async->transferTo($pool->token());
+            expect(fn() => $async->receive())->toThrow(LogicException::class, 'disposed');
+            $loop->stop();
+
+            return $connection;
+        });
+        expect($handedOff)->toBe($core)
+            ->and($core->state())->toBe(ConnectionState::OPEN)
+            ->and($pool->token()->subscriptionCount())->toBe(1);
+
+        $received = '';
+        $handedOff->onData(static function (Connection $connection) use (&$received): void {
+            $received .= $connection->read();
+        });
+        fwrite($peer, 'pooled-payload');
+        $loop->delay(0.02, static function () use ($pool): void {
+            $pool->cancel(CancellationReason::HOST_CANCELLED);
+        });
+        $loop->run();
+
+        expect($received)->toBe('pooled-payload')
+            ->and($core->state())->toBe(ConnectionState::CLOSED)
+            ->and($pool->token()->subscriptionCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $core->abort();
+        $pool->dispose();
+        fclose($peer);
+    }
+});
+
+
+it('rejects a same-scope handoff without detaching the original stream lifetime', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $core = new Connection($loop, $stream);
+
+    try {
+        $runtime->run(static function (CoroutineScope $scope) use ($core): void {
+            $async = new AsyncConnection($core, $scope);
+            expect(fn() => $async->transferTo($scope->cancellation()))->toThrow(
+                LogicException::class,
+                'different owner token',
+            );
+            expect($core->state())->toBe(ConnectionState::OPEN);
+            $async->abort();
+        });
+
+        expect($core->state())->toBe(ConnectionState::CLOSED)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0);
+    } finally {
+        $core->abort();
+        fclose($peer);
+    }
+});

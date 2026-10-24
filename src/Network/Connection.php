@@ -509,6 +509,8 @@ final class Connection
 
         $this->state = ConnectionState::CLOSED;
         $this->closeReason = $reason;
+        $this->scopeOwnership?->dispose();
+        $this->scopeOwnership = null;
         $readWatcher = $this->readWatcher;
         $writeWatcher = $this->writeWatcher;
         $this->cancelWatcher($readWatcher);

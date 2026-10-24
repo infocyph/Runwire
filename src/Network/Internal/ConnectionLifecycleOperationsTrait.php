@@ -23,6 +23,10 @@ trait ConnectionLifecycleOperationsTrait
         }
 
         $this->scopeOwnership = ConnectionScopeOwnership::attach($this, $this->loop, $token, $deadline);
+        if ($this->state === ConnectionState::CLOSED) {
+            $this->scopeOwnership->dispose();
+            $this->scopeOwnership = null;
+        }
     }
 
     /**
@@ -48,6 +52,22 @@ trait ConnectionLifecycleOperationsTrait
         }
 
         $this->state = ConnectionState::HALF_CLOSED;
+    }
+
+    /**
+     * Explicitly rebind a live connection to a different cancellation owner.
+     * Existing ownership is preserved if the new token is already cancelled.
+     */
+    public function transferOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
+    {
+        if ($this->state === ConnectionState::CLOSED || $this->scopeOwnership === null) {
+            throw new LogicException('Only a live, previously owned connection can be transferred.');
+        }
+
+        $token->throwIfCancelled();
+        $this->scopeOwnership->dispose();
+        $this->scopeOwnership = null;
+        $this->bindOwner($token, $deadline);
     }
 
     /**

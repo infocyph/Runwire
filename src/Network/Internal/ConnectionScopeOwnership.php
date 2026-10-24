@@ -9,6 +9,7 @@ use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\RequestDeadline;
 use WeakReference;
 
@@ -32,18 +33,17 @@ final class ConnectionScopeOwnership
     ): self {
         $binding = new self($loop);
         $weak = WeakReference::create($connection);
-        $connection->onClose(static function () use ($binding): void {
-            $binding->dispose();
-        });
-
         $subscription = $token->onCancel(static function () use ($weak): void {
             $active = $weak->get();
             if ($active instanceof Connection) {
                 $active->abort(CloseReason::LOCAL_ABORT);
             }
         });
-        if ($binding->disposed) {
+        if ($connection->state() === ConnectionState::CLOSED) {
+            // An already-cancelled token can close the connection synchronously
+            // before bindOwner assigns its returned scope binding.
             $subscription->unsubscribe();
+            $binding->dispose();
 
             return $binding;
         }
@@ -56,6 +56,7 @@ final class ConnectionScopeOwnership
         }
         if ($remaining <= 0) {
             $connection->abort(CloseReason::LIFETIME_TIMEOUT);
+            $binding->dispose();
 
             return $binding;
         }

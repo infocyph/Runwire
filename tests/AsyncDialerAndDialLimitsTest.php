@@ -247,3 +247,95 @@ it('closes a successfully dialed connection when its coroutine owner exits norma
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
+
+
+it('enforces the inner scope deadline while DNS is queued behind an external worker', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 8);
+    $dialer = new Dialer($loop);
+    $racer = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
+    $runtime = new CoroutineRuntime($loop);
+    $executor->submit('sleep', ['milliseconds' => 90], static function (): void {});
+    // The process executor is an external loop owner. Retire it after the
+    // nested deadline so standalone runtime driving can become idle.
+    $workerStopTimer = $loop->delay(0.06, static function () use ($executor): void {
+        $executor->close();
+    });
+
+    try {
+        $failure = null;
+
+        try {
+            $runtime->run(
+                static fn(CoroutineScope $scope) => $scope->withDeadline(
+                    \Infocyph\Runwire\RequestDeadline::afterSeconds(0.02, hrtime(true)),
+                    static fn(CoroutineScope $inner) => (new AsyncDialer($racer, $inner))->connect(
+                        'tcp://localhost:44444',
+                        new DialOptions(connectTimeoutSeconds: 1.0),
+                    ),
+                ),
+            );
+        } catch (Throwable $caught) {
+            $failure = $caught;
+        }
+
+        expect($failure)->toBeInstanceOf(Throwable::class);
+        if ($failure instanceof \Infocyph\Runwire\Exception\CancelledException) {
+            expect($failure->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED);
+        } else {
+            expect($failure)->toBeInstanceOf(RuntimeException::class)
+                ->and($failure->getMessage())->toContain('deadline');
+        }
+        expect($racer->pendingCount())->toBe(0)
+            ->and($dialer->pendingCount())->toBe(0)
+            ->and($runtime->activeTaskCount())->toBe(0);
+    } finally {
+        $loop->cancel($workerStopTimer);
+        $executor->close();
+    }
+
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0)
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});
+
+
+it('rejects excess hostname races without enqueuing another DNS job', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 4);
+    $dialer = new Dialer($loop);
+    $racer = new HappyEyeballsDialer(
+        $loop,
+        $dialer,
+        new AsyncDnsResolver($executor),
+        maxPending: 1,
+    );
+    $events = [];
+    $executor->submit('sleep', ['milliseconds' => 90], static function (): void {});
+    $first = $racer->connect('tcp://localhost:44444', static function ($connection, $error) use (&$events): void {
+        $events[] = [$connection, $error];
+    });
+
+    try {
+        expect(fn() => $racer->connect(
+            'tcp://localhost:44444',
+            static function (): void {},
+        ))->toThrow(OverflowException::class);
+        expect($racer->pendingCount())->toBe(1);
+        $racer->cancel($first);
+        expect($racer->pendingCount())->toBe(0)
+            ->and($dialer->pendingCount())->toBe(0)
+            ->and($events)->toHaveCount(1)
+            ->and($events[0][0])->toBeNull()
+            ->and($events[0][1])->toBeInstanceOf(
+                \Infocyph\Runwire\Exception\CancelledException::class,
+            );
+    } finally {
+        $executor->close();
+    }
+
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
