@@ -19,6 +19,7 @@ METHOD = re.compile(r"(?m)^\s*(?:(?:final|abstract)\s+)?public\s+(?:static\s+)?f
 PROPERTY = re.compile(r"(?m)^\s*public\s+(?:(?:readonly|static)\s+)*(?:[?\w\\|&]+\s+)?\$(\w+)\b")
 CONSTANT = re.compile(r"(?m)^\s*public\s+const\s+(?:\w+\s+)?([A-Za-z_]\w*)\s*=")
 CASE = re.compile(r"(?m)^\s*case\s+([A-Za-z_]\w*)\s*(?:[;=])")
+PROMOTED = re.compile(r"(?m)(?:^|[,(])\s*public\s+(?:readonly\s+)?(?:[?\\w\\|&]+\s+)?\\$(\\w+)\\b")
 THROWN = re.compile(r"\bthrow\s+new\s+(\\?[A-Za-z_][\w\\]*)\s*\(")
 
 
@@ -95,7 +96,12 @@ def build():
             entries.append("  - Public method signatures: " + ", ".join(
                 literal(signature) + " (" + link(file, number) + ")" for _, number, signature in methods
             ))
-        properties = sorted([(m.group(1), line(source, m.start())) for m in PROPERTY.finditer(source)])
+        properties = [(m.group(1), line(source, m.start())) for m in PROPERTY.finditer(source)]
+        for constructor in METHOD.finditer(source):
+            if constructor.group(1) == "__construct":
+                signature = method_signature(source, constructor.start())
+                properties.extend((m.group(1), line(source, constructor.start())) for m in PROMOTED.finditer(signature))
+        properties = sorted(set(properties))
         public_properties += len(properties)
         if properties:
             entries.append("  - Public properties: " + ", ".join(literal(m) + " (" + link(file, n) + ")" for m, n in properties))

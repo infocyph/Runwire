@@ -14,7 +14,7 @@ it('generates a complete source-linked public PHP symbol and exception index wit
 
     $reference = file_get_contents($root . '/docs/_generated/public-api.inc');
     expect($reference)->toBeString()
-        ->toContain('Source-linked PHP API and error reference', 'Exception catalog', 'Public method signatures:', 'public function __construct(');
+        ->toContain('Source-linked PHP API and error reference', 'Exception catalog', 'Public method signatures:', 'public function __construct(', 'peerName');
 
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root . '/src', FilesystemIterator::SKIP_DOTS),
@@ -45,8 +45,15 @@ it('generates a complete source-linked public PHP symbol and exception index wit
         preg_match_all('/^\s*public\s+(?:(?:readonly|static)\s+)*(?:[?\w\\\\|&]+\s+)?\$(\w+)\b/m', $source, $fields);
         $properties += count($fields[1]);
     }
+    preg_match('/\\*\\*(\\d+) public properties\\*\\*/', $reference, $propertySummary);
     expect($files)->toBeGreaterThan(350)
         ->and($reference)->toContain('**' . $files . ' PHP types**')
         ->and($reference)->toContain('**' . $methods . ' public methods**')
-        ->and($reference)->toContain('**' . $properties . ' public properties**');
+        ->and($propertySummary)->toHaveKey(1)
+        ->and((int) $propertySummary[1])->toBeGreaterThan($properties);
+    // Constructor promotion is a public PHP property declaration too.
+    // Its indexing is independently checked rather than merely counted.
+    $tls = file_get_contents($root . '/src/Network/TlsClientOptions.php');
+    expect($tls)->toContain('public string $peerName')
+        ->and($reference)->toContain('TlsClientOptions', 'peerName');
 });
