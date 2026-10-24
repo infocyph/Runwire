@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 2/11; U08 6/10; U09 3/10; U10 1/9; U11 6/10; U12 3/9; U13 8/9; U14 2/8; U16 9/16**. **100/175 accepted tasks, 75 open across 18 batches** (57.1%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 3/11; U08 6/10; U09 4/10; U10 2/9; U11 7/10; U12 3/9; U13 8/9; U14 2/8; U16 9/16**. **104/175 accepted tasks, 71 open across 18 batches** (59.4%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -64,18 +64,18 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U04 | Unified TLS security and client/server handshakes | 1 | 7/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 3 | 7/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0 | 8/8 |
-| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 9 | 2/11 |
+| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 8 | 3/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 4 | 6/10 |
-| U09 | WebSocket and WebTransport client/server | 7 | 3/10 |
-| U10 | Connection pooling, proxy negotiation and stream relay | 8 | 1/9 |
-| U11 | Truly asynchronous filesystem and file streaming | 4 | 6/10 |
+| U09 | WebSocket and WebTransport client/server | 6 | 4/10 |
+| U10 | Connection pooling, proxy negotiation and stream relay | 7 | 2/9 |
+| U11 | Truly asynchronous filesystem and file streaming | 3 | 7/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
 | U13 | Real host and optional extension compatibility | 1 | 8/9 |
 | U14 | Security, fuzzing and adversarial resilience | 6 | 2/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 7 | 9/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **75** | **100/175 (57.1%)** |
+| **TOTAL** | **Full unified-runtime release program** | **71** | **104/175 (59.4%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -384,3 +384,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W47 H1 PHPForge QA recovery (2026-10-24; staged):** [Security & Standards #40101104256](https://github.com/infocyph/Runwire/actions/runs/40101104256) on `3f696480` reports PHPForge Pint ordered-class-elements/blank-line issues in the new `Http1ConnectedExchange`, and PHPStan flagged its `pump()` cognitive complexity 13 (>12) plus statically redundant negated checks. Reorder readonly callback fields (W44), split per-chunk `sendFrame()` from bounded 8-frame scheduler, yield to reactor after eight chunks, stop on producer starvation and resume on write-pressure drain. Fix blank line before `try`; preserve explicit error/ownership cleanup and no HTTP fallback. Combine W44–W47 with next push; **100/175, 75 open** pending exact-head QA.
 
 **W48 grouped H1 TLS/stream budget remediation (2026-10-24; QA pending):** Fix case-insensitive HTTPS classification and tight send-queue framing; add strict no-network trust-negative and constrained 128-KiB real-peer fixture. The W39–W48 HTTP clients remain experimental pending exact-head PHPForge and source-independent protocol QA. Native prefork grace period is increased but its exit-code and reap assertions remain mandatory. Canonical **100/175, 75 open**; no acceptance promoted.
+
+**W49 focused QA acceptance and W50 grouped test expansion (2026-10-24):** PHP8.4/8.5 stable/lowest PHPForge and both analyzers passed on exact 3426f3c [Security #40103162591](https://github.com/infocyph/Runwire/actions/runs/40103162591). Accept U07.03 H1 reuse/streaming, U09.02 real WSS outbound, U10.07 bounded duplex relay, and U11.01 typed file API interface only. New starved-upload resume and 128-peer pong assertions remain QA pending; no H2/H3 client, active pool, native file open-handle or RoadRunner cross-request pooled socket claim. **104/175 accepted (59.4%), 71 open; interim milestone 115/175 requires 11 verified acceptances.**

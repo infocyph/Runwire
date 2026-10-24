@@ -65,6 +65,13 @@ it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners iso
         foreach ($seen as $healthy) {
             expect($healthy)->toBeTrue();
         }
+        // Every independent socket sent a ping between fragmented frames.
+        // Verify that all 128 independent peers received its own pong.
+        foreach ($peers as $peer) {
+            $wire = stream_get_contents($peer);
+            expect($wire)->toBeString()
+                ->toContain(WebSocketWireCodec::frame(0xA, 'heartbeat'));
+        }
     } finally {
         $loop->cancel($watchdog);
         foreach ($connections as $connection) {
