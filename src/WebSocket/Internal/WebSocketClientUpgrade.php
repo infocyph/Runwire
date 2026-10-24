@@ -22,15 +22,15 @@ final class WebSocketClientUpgrade
 {
     private readonly Closure $completion;
 
+    private ?int $closeObserver = null;
+
     private string $head = '';
 
     private bool $settled = false;
 
-    private ?int $timer = null;
-
-    private ?int $closeObserver = null;
-
     private ?CancellationSubscription $subscription = null;
+
+    private ?int $timer = null;
 
     /**
      * @param array{wire:string,key:string,secure:bool,host:string,port:int} $request

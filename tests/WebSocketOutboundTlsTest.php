@@ -24,8 +24,20 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
     $certFile = $directory . '/cert.pem';
     $keyFile = $directory . '/key.pem';
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
+    $configFile = $directory . '/openssl.cnf';
+    file_put_contents($configFile, "[req]\ndistinguished_name=req_dn\nreq_extensions=v3_req\n[req_dn]\n[v3_req]\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n");
+    $csr = openssl_csr_new(
+        ['commonName' => 'localhost'],
+        $key,
+        ['config' => $configFile, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
+    );
+    $cert = openssl_csr_sign(
+        $csr,
+        null,
+        $key,
+        1,
+        ['config' => $configFile, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
+    );
     expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($cert)->not->toBeFalse();
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
@@ -77,7 +89,7 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
         WebSocketClient::connect(
             $loop,
             $race,
-            'wss://localhost:' . $port . '/chat',
+            'wss://127.0.0.1:' . $port . '/chat',
             static function (?WebSocketSession $session, ?Throwable $error) use (&$sessions, &$received, &$closed, &$errors, $loop): void {
                 $errors[] = $error;
                 if ($session === null) {
@@ -97,7 +109,7 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
                 });
             },
             ['chat'],
-            new DialOptions(connectTimeoutSeconds: 1.0, tls: new TlsClientOptions('localhost', caFile: $certFile, alpnProtocols: ['http/1.1'])),
+            new DialOptions(connectTimeoutSeconds: 1.0, tls: new TlsClientOptions('127.0.0.1', caFile: $certFile, alpnProtocols: ['http/1.1'])),
         );
         $loop->run();
 
@@ -122,6 +134,7 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
         $loop->cancel($watchdog);
         unlink($certFile);
         unlink($keyFile);
+        unlink($configFile);
         rmdir($directory);
     }
 });
