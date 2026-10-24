@@ -10,14 +10,14 @@ use Infocyph\Runwire\WebSocket\WebSocketMessage;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
 
-it('keeps 64 simultaneous fragmented WebSocket streams and heartbeat owners isolated', function (): void {
+it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners isolated', function (): void {
     $loop = new SelectLoop();
     $connections = [];
     $peers = [];
     $sessions = [];
     $seen = [];
     $delivered = 0;
-    $count = 64;
+    $count = 128;
     $options = new WebSocketOptions(
         maxFramePayloadBytes: 256,
         maxMessageBytes: 512,
@@ -25,7 +25,7 @@ it('keeps 64 simultaneous fragmented WebSocket streams and heartbeat owners isol
         heartbeatIntervalSeconds: 1.0,
         idleTimeoutSeconds: 2.0,
     );
-    $watchdog = $loop->delay(0.5, static function () use ($loop): void {
+    $watchdog = $loop->delay(1.0, static function () use ($loop): void {
         $loop->stop();
     });
 
