@@ -173,3 +173,39 @@ it('cancels an in-flight scoped hostname dial on caller cancellation without lea
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
+
+
+it('keeps an external cancellation subscription while honoring request scope shutdown', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 8);
+    $dialer = new Dialer($loop);
+    $racer = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
+    $caller = new CancellationSource();
+    $context = \Infocyph\Runwire\RequestContext::standalone();
+    $runtime = new CoroutineRuntime($loop);
+    $executor->submit('sleep', ['milliseconds' => 90], static function (): void {});
+    $cancelTimer = $loop->delay(0.01, static function () use ($context): void {
+        $context->cancel(CancellationReason::HOST_CANCELLED);
+    });
+
+    try {
+        expect(fn() => $runtime->runRequest(
+            $context,
+            static fn(CoroutineScope $scope) => (new AsyncDialer($racer, $scope))->connect(
+                'tcp://localhost:44444',
+                new DialOptions(cancellation: $caller->token()),
+            ),
+        ))->toThrow(\Infocyph\Runwire\Exception\CancelledException::class);
+        expect($racer->pendingCount())->toBe(0)
+            ->and($dialer->pendingCount())->toBe(0)
+            ->and($caller->token()->subscriptionCount())->toBe(0);
+    } finally {
+        $loop->cancel($cancelTimer);
+        $executor->close();
+        $caller->dispose();
+    }
+
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});

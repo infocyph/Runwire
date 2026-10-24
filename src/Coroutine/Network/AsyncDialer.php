@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Coroutine\Network;
 
 use Infocyph\Runwire\CancellationSource;
-use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Network\Connection;

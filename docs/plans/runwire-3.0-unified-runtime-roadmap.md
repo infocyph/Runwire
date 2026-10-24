@@ -39,13 +39,13 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R4.02 | U08.04 + U15.04 | OPEN, fresh 3.0 QA required |
 | R4.04 | U08.05 + U15.04 | OPEN, fresh 3.0 QA required |
 | R4.09 | U08.08 + U15.05 | OPEN, fresh 3.0 QA required |
-| R5.02 | U03.01 | OPEN, fresh 3.0 QA required |
-| R5.03 | U02.06 + U06.03 | OPEN, fresh 3.0 QA required |
-| R5.04 | U02.04 | OPEN, fresh 3.0 QA required |
+| R5.02 | U03.01 | ACCEPTED; U03.01 verified in QA #39929786108 |
+| R5.03 | U02.06 + U06.03 | PARTIAL; U02.06 accepted in QA #39926291446, U06.03 OPEN |
+| R5.04 | U02.04 | ACCEPTED; U02.04 verified in QA #39923215737 |
 | R5.05 | U04.02 + U04.06 | ACCEPTED; both tasks passed QA #39995711371 |
 | R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
-| R5.07 | U03.09 + U13.03 | OPEN, fresh 3.0 QA required |
-| R5.08 | U03.10 + U15.06 | OPEN, fresh 3.0 QA required |
+| R5.07 | U03.09 + U13.03 | PARTIAL; U03.09 accepted in QA #39976909971, U13.03 OPEN |
+| R5.08 | U03.10 + U15.06 | PARTIAL; U03.10 accepted in QA #39977854249, U15.06 OPEN |
 | R6.02 | U12.05 | OPEN, fresh 3.0 QA required |
 | R8.05 | U17.06 | OPEN, fresh 3.0 QA required |
 | R8.10 | U17.07 | OPEN, fresh 3.0 QA required |

@@ -12,6 +12,7 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\WriteResult;
 use InvalidArgumentException;
 use LogicException;
+use RuntimeException;
 use WeakReference;
 
 /**
@@ -19,6 +20,8 @@ use WeakReference;
  */
 final class AsyncConnection
 {
+    private const string UNVERIFIED_TLS_EOF_MESSAGE = 'TLS peer EOF was not authenticated by close_notify.';
+
     private bool $attached;
 
     private ?Deferred $closeDeferred = null;
@@ -209,6 +212,10 @@ final class AsyncConnection
             return $this->connection->read($maxBytes);
         }
         if ($this->connection->peerReadClosed() || $this->connection->state() === ConnectionState::CLOSED) {
+            if ($this->connection->closeReason() === CloseReason::TLS_UNVERIFIED_EOF) {
+                throw new RuntimeException(self::UNVERIFIED_TLS_EOF_MESSAGE);
+            }
+
             return '';
         }
         if ($this->receiving) {
@@ -273,7 +280,13 @@ final class AsyncConnection
 
     private function handleClose(Connection $connection, CloseReason $reason): void
     {
-        $this->resolveReceive('');
+        if ($reason === CloseReason::TLS_UNVERIFIED_EOF) {
+            $pending = $this->receiveDeferred;
+            $this->receiveDeferred = null;
+            $pending?->reject(new RuntimeException(self::UNVERIFIED_TLS_EOF_MESSAGE));
+        } else {
+            $this->resolveReceive('');
+        }
         $this->resolveDrain($reason);
 
         $deferred = $this->closeDeferred;

@@ -242,3 +242,67 @@ it('completes graceful close synchronously through the coroutine adapter', funct
         fclose($peer);
     }
 });
+
+
+it('rejects a pending coroutine receive on unverified TLS EOF instead of returning empty data', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $core = new Connection($loop, $stream, encrypted: true, strictTlsPeerEof: true);
+
+    try {
+        expect(fn() => $runtime->run(function (CoroutineScope $scope) use ($core, $loop, $peer): string {
+            $async = new AsyncConnection($core, $scope);
+            $loop->defer(static function (int $id) use ($peer): void {
+                unset($id);
+                fclose($peer);
+            });
+
+            return $async->receive();
+        }))->toThrow(RuntimeException::class, 'TLS peer EOF was not authenticated by close_notify.');
+
+        expect($core->closeReason())->toBe(CloseReason::TLS_UNVERIFIED_EOF)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        $core->abort();
+        if (is_resource($peer)) {
+            fclose($peer);
+        }
+    }
+});
+
+it('delivers observed TLS bytes but refuses to represent truncated ciphertext as clean EOF', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $core = new Connection($loop, $stream, encrypted: true, strictTlsPeerEof: true);
+
+    try {
+        $reason = $runtime->run(function (CoroutineScope $scope) use ($core, $loop, $peer): ?CloseReason {
+            $async = new AsyncConnection($core, $scope);
+            $loop->defer(static function (int $id) use ($peer): void {
+                unset($id);
+                fwrite($peer, 'fragment');
+                fclose($peer);
+            });
+
+            expect($async->receive())->toBe('fragment');
+            expect(fn() => $async->receive())->toThrow(
+                RuntimeException::class,
+                'TLS peer EOF was not authenticated by close_notify.',
+            );
+
+            return $async->closeReason();
+        });
+
+        expect($reason)->toBe(CloseReason::TLS_UNVERIFIED_EOF)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        $core->abort();
+        if (is_resource($peer)) {
+            fclose($peer);
+        }
+    }
+});
