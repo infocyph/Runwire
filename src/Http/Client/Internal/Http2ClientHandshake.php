@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Client\Internal;
 
+use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
@@ -40,7 +41,7 @@ final class Http2ClientHandshake
     }
 
     /** Encode one conservative bodyless GET/HEAD header block for stream one. */
-    public function firstRequest(string $method, string $scheme, string $authority, string $path): string
+    public function firstRequest(string $method, string $scheme, string $authority, string $path, ?Headers $headers = null): string
     {
         if (!$this->receivedSettings || $this->closed || $this->requestSent
             || !in_array($method, ['GET', 'HEAD'], true)
@@ -51,12 +52,7 @@ final class Http2ClientHandshake
             throw new RuntimeException('HTTP/2 request must be a valid bodyless HTTPS request on a verified connection.');
         }
 
-        $block = $this->encoder->encode([
-            [':method', $method],
-            [':scheme', $scheme],
-            [':authority', $authority],
-            [':path', $path],
-        ]);
+        $block = $this->encoder->encode($this->requestHeaders($method, $scheme, $authority, $path, $headers));
         if (strlen($block) > min($this->peerSettings->maxFrameSize, 16_384)) {
             throw new RuntimeException('HTTP/2 request HEADERS exceeds the supported single-frame bound.');
         }
@@ -102,9 +98,33 @@ final class Http2ClientHandshake
             . FrameWriter::encode(FrameWriter::settings([PeerSettings::ENABLE_PUSH => 0]));
     }
 
+    /**
+     * @return list<array{0:string,1:string}>
+     */
+    private function requestHeaders(string $method, string $scheme, string $authority, string $path, ?Headers $headers): array
+    {
+        $fields = [
+            [':method', $method],
+            [':scheme', $scheme],
+            [':authority', $authority],
+            [':path', $path],
+        ];
+        foreach ($headers?->fields() ?? [] as $field) {
+            if (in_array($field->name, [
+                'host', 'connection', 'keep-alive', 'proxy-connection',
+                'transfer-encoding', 'upgrade', 'te',
+            ], true)) {
+                throw new RuntimeException('HTTP/2 request has forbidden connection-specific headers.');
+            }
+            $fields[] = [$field->name, $field->value];
+        }
+
+        return $fields;
+    }
+
     private function goaway(Frame $frame): string
     {
-        if ($frame->streamId !== 0 || strlen($frame->payload) < 8) {
+        if ($frame->streamId !== 0 || $frame->flags !== 0 || strlen($frame->payload) < 8) {
             throw new RuntimeException('HTTP/2 GOAWAY must contain the last stream and error.');
         }
         $this->closed = true;
@@ -114,7 +134,7 @@ final class Http2ClientHandshake
 
     private function ping(Frame $frame): string
     {
-        if ($frame->streamId !== 0 || strlen($frame->payload) !== 8) {
+        if ($frame->streamId !== 0 || ($frame->flags & ~0x1) !== 0 || strlen($frame->payload) !== 8) {
             throw new RuntimeException('HTTP/2 PING must carry exactly eight bytes on stream zero.');
         }
 
@@ -125,7 +145,8 @@ final class Http2ClientHandshake
 
     private function settings(Frame $frame): string
     {
-        if ($frame->streamId !== 0 || ($frame->hasFlag(0x1) && $frame->payload !== '')) {
+        if ($frame->streamId !== 0 || ($frame->flags & ~0x1) !== 0
+            || ($frame->hasFlag(0x1) && $frame->payload !== '')) {
             throw new RuntimeException('HTTP/2 SETTINGS ACK must be empty on stream zero.');
         }
         if ($frame->hasFlag(0x1)) {

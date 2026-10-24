@@ -31,6 +31,7 @@ final class Http2ClientResponseParser
 
     private bool $headersSeen = false;
 
+    /** Create an independently bounded response-stream decoder and callback gate. */
     public function __construct(
         private readonly int $maxHeaderBlockBytes = 65_536,
         private readonly int $maxBodyBytes = 1_048_576,

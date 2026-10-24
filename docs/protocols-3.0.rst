@@ -26,12 +26,17 @@ RST_STREAM and GOAWAY. The experimental internal
 client preface, bounded bodyless HPACK request HEADERS and connection
 PING/GOAWAY responses. This is **not** an established H2 client:
 real TLS ALPN, multiplexed stream lifecycles, flow-control credit and
-CONTINUATION remain open, as does H2 extended CONNECT WebSocket.
+CONTINUATION remain open, as does H2 extended CONNECT WebSocket. The new
+internal ``Http2ClientSession`` composes bounded single-stream response
+HEADERS/CONTINUATION/HPACK and DATA callbacks with control-frame validation
+and receive-window credit; it does **not** establish sockets, support server
+push, or represent a certified H2 HTTP client.
 
 .. code-block:: console
 
    vendor/bin/pest tests/Http2ConnectionTest.php tests/Http2AbuseTest.php
-   vendor/bin/pest tests/Http2ClientHandshakeTest.php
+   vendor/bin/pest tests/Http2ClientHandshakeTest.php tests/Http2ClientResponseParserTest.php
+   vendor/bin/pest tests/Http2ClientSessionTest.php
 
 HTTP/3 and QUIC server
 ----------------------
