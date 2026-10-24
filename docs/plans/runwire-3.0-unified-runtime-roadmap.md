@@ -302,3 +302,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W8 outbound WebSocket handshake staged (2026-10-24):** Stateless request nonce and 101 accept/subprotocol validation with negative tests; no connected client yet. U09.02 QA pending/open. **100/175 accepted, 75 open.**
 
 **W9 real socket RFC6455 header peer staged (2026-10-24):** Actual socket pair sends client upgrade and independently computes 101 acceptance; no connected WS client claim. U09.02 OPEN. **100/175, 75 open.**
+
+**W10 backpressure and bounded WebSocket send staged (2026-10-24):** Real initially stalled stream with 4KiB send hard cap, PRESSURED/reject assertion, then peer-drain callback and zero watcher/timer cleanup; W6 64 connections previously staged. U09.03 QA pending. **100/175, 75 open.**
