@@ -86,6 +86,7 @@ final readonly class ScopedFileTransfer
     private static function validate(int $maxBytes, int $offset, int $chunkBytes): void
     {
         if ($maxBytes < 0 || $maxBytes > self::MAX_TRANSFER_BYTES || $offset < 0
+            || $offset > PHP_INT_MAX - $maxBytes
             || $chunkBytes < 1 || $chunkBytes > self::DEFAULT_CHUNK_BYTES) {
             throw new InvalidArgumentException('File transfer size, offset or chunk budget is invalid.');
         }

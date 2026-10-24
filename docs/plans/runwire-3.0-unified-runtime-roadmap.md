@@ -218,3 +218,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **S3 H1/H2/H3 unchanged safety caps accepted (2026-10-24):** Published 2.1.2 versus green 3.0 source shows identical H1/H2/H3 request/body/frame limit classes, shared connection/worker budgets and original abuse fixtures; new H2 earned control-frame credit test also passes [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). U08.06 accepted for server-side preservation only. **71/175 accepted, 104 open, 17 more to 50.3%.**
 
 **H5 documented supervisor policy and honest autoscale limitations (2026-10-24):** A native RST lifecycle diagram now distinguishes restart budget, readiness and drain, recycle triggers and host-owned vs native processes without advertising unimplemented autoscale. U16.10 still QA-gated. **71/175, 104 open.**
+
+**F6 file stream offset validation (2026-10-24):** Fail closed on offset+transfer integer overflow with a regression assertion before socket/file I/O; no new accepted tasks until CI. **71/175, 104 open.**

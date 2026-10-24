@@ -46,6 +46,8 @@ it('sends a 128 KiB binary file to a real socket with hash parity and worker cle
             $files = new ScopedFiles(new AsyncFileSystem($executor), $scope);
             $network = new AsyncConnection($connection, $scope);
             $streamer = new ScopedFileTransfer($files, $network);
+            expect(static fn() => $streamer->send($path, 2, offset: PHP_INT_MAX))
+                ->toThrow(InvalidArgumentException::class);
             $bytes = $streamer->send($path, 131_072, chunkBytes: 4_096);
             $network->close();
 
