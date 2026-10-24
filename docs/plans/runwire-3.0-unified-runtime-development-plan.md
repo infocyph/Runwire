@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 71/175 accepted (40.6%); 104 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 73/175 accepted (41.7%); 102 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -54,14 +54,14 @@
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 0/10 | 10 | Not started | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 1/9 | 8 | In progress | U01,U02,U06 |
-| U13 | Real host and optional extension compatibility | 4/9 | 5 | In progress | U01,U03,U04,U06,U12 |
+| U13 | Real host and optional extension compatibility | 5/9 | 4 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 1/16 | 15 | In progress | U00-U15 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 2/16 | 14 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **71/175** | **104** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **73/175** | **102** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 71/175 (40.6% complete), 104 open.
+**Progress counter:** 73/175 (41.7% complete), 102 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -299,9 +299,9 @@
 - [ ] **U13.06** Verify real PHP-FPM request-scoped operations and cleanup. **Acceptance:** No unsupported persistent resource assumptions. **Proof:** PENDING.
 - [ ] **U13.07** Test optional TLS, sockets, QUIC, PCNTL/POSIX absent/present. **Acceptance:** Explicit capability failure without Composer break. **Proof:** PENDING.
 - [x] **U13.08** Test standalone Composer archives PHP8.4/8.5 stable/lowest. **Acceptance:** Package works without external Infocyph projects. **Proof:** `composer.json` runtime requires only php:^8.4 and php-64bit:^8.4 (no versioned runtime package dependencies), so prefer-stable and prefer-lowest have an identical production dependency graph. The candidate archive was independently extracted, copied into a fresh isolated Composer path repository, production-autoloaded and served correct native HTTP/1.1 200 and 400 replies on both PHP8.4/8.5 in green [Release Candidate #40064842484](https://github.com/infocyph/Runwire/actions/runs/40064842484) and [#40067446052](https://github.com/infocyph/Runwire/actions/runs/40067446052); four PHPForge PHP8.4/8.5 stable/lowest install/test lanes passed at immutable [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). This is standalone package acceptance, not a 3.0 publication or a claim that optional extensions are present.
-- [ ] **U13.09** Publish truthful per-host features and limitations matrix. **Acceptance:** No false universal asynchronous guarantees. **Proof:** PENDING.
+- [x] **U13.09** Publish truthful per-host features and limitations matrix. **Acceptance:** No false universal asynchronous guarantees. **Proof:** The native Sphinx `docs/host-compatibility-3.0.rst` explicitly distinguishes PHP8.4/8.5 portable Select and optional ext-event, PCNTL/POSIX, real FPM/FrankenPHP/RoadRunner/Swoole/OpenSwoole hosts, optional native QUIC+OpenSSL, limits, and unsupported WS clients/WebTransport/autoscale/sandbox features at source 96979be. [Documentation #40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) strict warning-as-error PASS, supported by source-scoped earlier real-host [#40068020488](https://github.com/infocyph/Runwire/actions/runs/40068020488), portable [#40068020499](https://github.com/infocyph/Runwire/actions/runs/40068020499) and Swoole [#40068020502](https://github.com/infocyph/Runwire/actions/runs/40068020502) acceptance; no false universal AIO claim.
 
-**Batch tracker:** 4/9 accepted; 5 open — U13.08 isolated PHP8.4/8.5 Composer archive/zero-runtime-dependency parity accepted alongside native/portable, Swoole and FrankenPHP — U13.01 native Select/prefork vs PCNTL-free portable PHP 8.4/8.5 in green #40064842606 and #40064842530, U13.03 Swoole and U13.05 FrankenPHP — real Swoole/OpenSwoole + real FrankenPHP PHP 8.4/8.5 host lifecycle accepted — U13.03 real Swoole/OpenSwoole host-owned reactor and outgoing dial on PHP 8.4/8.5 PASS [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 5/9 accepted; 4 open — U13.09 truthful host matrix Sphinx green #40068643157 — U13.08 isolated PHP8.4/8.5 Composer archive/zero-runtime-dependency parity accepted alongside native/portable, Swoole and FrankenPHP — U13.01 native Select/prefork vs PCNTL-free portable PHP 8.4/8.5 in green #40064842606 and #40064842530, U13.03 Swoole and U13.05 FrankenPHP — real Swoole/OpenSwoole + real FrankenPHP PHP 8.4/8.5 host lifecycle accepted — U13.03 real Swoole/OpenSwoole host-owned reactor and outgoing dial on PHP 8.4/8.5 PASS [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U14 — Security, fuzzing and adversarial resilience
 
@@ -348,7 +348,7 @@
 - [ ] **U16.07** Document pooling, CONNECT/SOCKS5, relay, TLS and authentication policies. **Acceptance:** Security, credentials, transport lifecycle cases. **Proof:** PENDING.
 - [ ] **U16.08** Document Fiber tasks, event loops, deadlines and ownership. **Acceptance:** Scope and async resource lifecycle diagrams/examples. **Proof:** PENDING.
 - [ ] **U16.09** Document async filesystem executor, safe file I/O and streaming. **Acceptance:** No-hidden-blocking details, quotas and portability. **Proof:** PENDING.
-- [ ] **U16.10** Document native/portable supervision, autoscaling, FPM/FrankenPHP/RoadRunner/Swoole. **Acceptance:** Accurate per-host features and constraints. **Proof:** PENDING.
+- [x] **U16.10** Document native/portable supervision, autoscaling, FPM/FrankenPHP/RoadRunner/Swoole. **Acceptance:** Accurate per-host features and constraints. **Proof:** The Sphinx-native `docs/host-compatibility-3.0.rst` includes accurate native `Supervisor`/`WorkerGroup`, `RestartPolicy` crash budgets/backoff, `ReloadPolicy` readiness/surge/drain, `WorkerRecyclePolicy` request/lifetime/memory limits, host-owned process/reactor portability and a lifecycle diagram; source 96979be passed strict [Sphinx #40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157). Explicitly states that CPU/queue/p99 autoscale remains uncertified, not implemented.
 - [ ] **U16.11** Generate complete source-linked PHP API reference and error catalog. **Acceptance:** Every shipped public symbol documented. **Proof:** PENDING.
 - [ ] **U16.12** Write full 2.1.2 to 3.0 breaking migration guide and before/after snippets. **Acceptance:** All intentional API removals/migrations covered. **Proof:** PENDING.
 - [ ] **U16.13** Write end-to-end tutorials, recipes, deployment and troubleshooting guides. **Acceptance:** Examples execute in CI. **Proof:** PENDING.
@@ -356,7 +356,7 @@
 - [ ] **U16.15** Enforce sphinx-build -n -W --keep-going -b html plus links and code snippet validation. **Acceptance:** CI fails on unresolved refs or invalid examples. **Proof:** PENDING.
 - [ ] **U16.16** Verify Read the Docs navigation, search, versioning and complete feature index. **Acceptance:** Hosted preview passes and 100 percent feature coverage. **Proof:** PENDING.
 
-**Batch tracker:** 1/16 accepted; 15 open — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 2/16 accepted; 14 open — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U17 — Final certification, risk signoff and maintainer handoff
 
@@ -619,3 +619,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **F6 file-transfer arithmetic safety (2026-10-24; staged with F4/F5):** Reject offset+bounded-length integer overflow before any socket/file submission in `ScopedFileTransfer::validate`, with a real-scope negative test using `PHP_INT_MAX`. This avoids silent float coercion or misplaced writes on huge offsets, leaves existing 16 KiB/64 MiB limits and backpressure semantics untouched. U11.05 remains QA-gated. **71/175 accepted, 104 open.**
 
 **E4 QA recovery — socket-test lifecycle and PHPForge braces (2026-10-24):** Exact source 3f66c72 Security & Standards [#40068020767](https://github.com/infocyph/Runwire/actions/runs/40068020767) passed PHPStan/Psalm, PHP 8.4/8.5 real HTTP3/QUIC, PHPCS, Rector and Deptrac; PHPForge Pest hit its 300-second timeout during the new scoped file-transfer socket suite, and Pint found one last ScopedFiles constructor/method braces issue. The test had registered external loop watchers and a periodic timer before driving a root Fiber; their removal in outer finally could not execute until the Fiber returned. Now cancel these loop-owned resources inside the root Fiber after graceful socket close, plus idempotent finally teardown; format the constructor with a nonempty token preflight. Strict Sphinx [#40068020540](https://github.com/infocyph/Runwire/actions/runs/40068020540) title underline already corrected in D1. U11.05 remains pending complete exact-head QA. **71/175 accepted (40.6%), 104 open; 17 to milestone.**
+
+**H6 verified host documentation acceptance (2026-10-24):** Exact source 96979be strict [Sphinx #40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) PASSED the truthful tested host/protocol/extension matrix and actual native supervisor restart/backoff/recycle/readiness/drain lifecycle diagram. Accept U13.09 and U16.10 narrowly; no claim of unimplemented autoscale, WebTransport or HTTP clients. Native RST full versioned feature-index improvements are next; U16.04 stays OPEN until source/API coverage and QA. **73/175 accepted (41.7%), 102 open; 15 more to milestone.**
