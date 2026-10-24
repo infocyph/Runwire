@@ -58,5 +58,4 @@ trait ConnectionCloseObserverTrait
 
         return true;
     }
-
 }

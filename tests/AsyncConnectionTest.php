@@ -403,6 +403,8 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
     $responses = [];
+    $baselineBytes = memory_get_usage(true);
+    $fdBaseline = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd') ?: []) : null;
 
     for ($iteration = 0; $iteration < 48; ++$iteration) {
         [$server, $peer] = runwireAsyncConnectionPair();
@@ -447,6 +449,13 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
     expect($responses)->toHaveCount(48);
     foreach ($responses as $iteration => $data) {
         expect($data)->toBe('tick-' . $iteration);
+    }
+    gc_collect_cycles();
+    expect(memory_get_usage(true))->toBeLessThanOrEqual($baselineBytes + 16 * 1_048_576)
+        ->and($loop->diagnostics()->maxLagNanoseconds)->toBeLessThan(1_000_000_000);
+
+    if ($fdBaseline !== null) {
+        expect(count(scandir('/proc/self/fd') ?: []))->toBeLessThanOrEqual($fdBaseline + 4);
     }
 });
 

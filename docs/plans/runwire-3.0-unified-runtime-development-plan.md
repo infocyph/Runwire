@@ -28,7 +28,7 @@
 | U03 | Async DNS and outbound TCP/Unix dialer | 10/10 | 0 | Complete | U01,U02 |
 | U04 | Unified TLS security and client/server handshakes | 7/8 | 1 | In progress | U02,U03 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 3/10 | 7 | In progress | U02,U03,U04 |
-| U06 | Structured concurrency, tasks, deadlines and scopes | 0/8 | 8 | Not started | U01,U02,U03 |
+| U06 | Structured concurrency, tasks, deadlines and scopes | 0/8 | 8 | In progress; awaiting QA acceptance | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 0/11 | 11 | Not started | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 0/10 | 10 | Not started | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
@@ -40,7 +40,7 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **48/175** | **127** | **U00–U03 complete; U04 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **48/175** | **127** | **U00–U03 complete; U04/U05/U06 in progress** | U00-U17 |
 
 **Progress counter:** 48/175 (27.4% complete), 127 open.
 
@@ -478,3 +478,11 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **QA repair for 725e573 (2026-10-24):** [Security & Standards #40049768924](https://github.com/infocyph/Runwire/actions/runs/40049768924) passed all Pest, Pint, PHPCS and Deptrac suites but failed Rector in all four dependency/version lanes because `AsyncConnection::$closeObserverId` was assigned in the constructor yet also initialized inline; initialization is now constructor-only. Both PHPStan analysis lanes failed due `Connection` cognitive complexity 81 exceeding the limit 80; removable-close-observer mechanics were extracted into an internal `ConnectionCloseObserverTrait` while retaining the same `onClose`, observer subscribe/unsubscribe and stable close dispatch behavior. CI must revalidate both fixes; tracker acceptance remains unchanged until the new head's QA evidence is green.
 
 **U06.02 filesystem deadline inheritance (2026-10-24; QA pending):** A new live one-worker `ProcessExecutor` regression deliberately backs up the worker with a longer sleep, queues a file read carrying an earlier inherited token deadline and later explicit task deadline, and requires exactly one `DEADLINE_EXCEEDED` callback, no leaked token subscriptions or queued jobs, and no loop watches/timers. This extends nested DNS scope deadline proofs to bounded off-loop filesystem work. U06.02 stays OPEN until TLS/protocol paths meet the same contract.
+
+**U06.08 mixed-I/O regression budget extension (2026-10-24; QA pending):** The 48-generation socket/timer request test now asserts monotonic maximum event-loop lag below 1 second, bounded PHP allocator growth within 16 MiB, and on Linux no more than four additional live FDs, alongside zero per-generation socket watches, timers, deferred work and tasks. These are short real-runtime regression budgets, not the separate sustained p99 latency/RSS release certification. U06.08 remains OPEN pending targeted and full CI checks.
+
+**Tracker status consistency (2026-10-24):** U06 is actively implemented and being tested in the rolling QA pipeline; the batch is explicitly marked IN PROGRESS rather than NOT STARTED. Its accepted counter remains 0/8 pending complete evidence. Historical 2.2 crosswalk acceptance and the release-level 48/175 counter are deliberately unchanged until proof is green.
+
+**QA response to 729dbbe (2026-10-24):** [Security & Standards #40050168489](https://github.com/infocyph/Runwire/actions/runs/40050168489) passed PHP 8.4/8.5 analyzers, Pest, Rector, PHPCS and Deptrac in all stable/lowest dependency lanes. Pint alone failed on an extra empty line preceding the closing brace of `ConnectionCloseObserverTrait`; the following commit fixes this strictly within Runwire, without weakening style rules. The PHP 8.5 HTTP/3 acceptance and independent sustained benchmark remain separate gates and were pending at this checkpoint.
+
+**U16 draft coroutine-network documentation (2026-10-24; QA pending):** Added a native reStructuredText manual page linked from the Sphinx index documenting the current 3.0 scope-owned network primitives, dial cancellation, bidirectional pool adoption/transfer, and strict TLS EOF handling. The page is explicitly labeled 3.0 development-only rather than released, and does not count toward U16's full-feature API/manual acceptance until the remaining catalog and extension/host coverage are complete.
