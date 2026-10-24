@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 2/11; U08 4/10; U10 1/9; U11 6/10; U12 3/9; U13 7/9; U16 5/16**. **88/175 accepted tasks, 87 open across 18 batches** (50.3%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 2/11; U08 4/10; U10 1/9; U11 6/10; U12 3/9; U13 8/9; U16 5/16**. **89/175 accepted tasks, 86 open across 18 batches** (50.9%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -70,12 +70,12 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U10 | Connection pooling, proxy negotiation and stream relay | 8 | 1/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 4 | 6/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
-| U13 | Real host and optional extension compatibility | 2 | 7/9 |
+| U13 | Real host and optional extension compatibility | 1 | 8/9 |
 | U14 | Security, fuzzing and adversarial resilience | 8 | 0/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 11 | 5/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **87** | **88/175 (50.3%)** |
+| **TOTAL** | **Full unified-runtime release program** | **86** | **89/175 (50.9%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -260,3 +260,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **M1 50.3% milestone (2026-10-24):** PHPForge four QA and both static analyzers, strict Sphinx and portable extension negatives passed at c2ce077 #40071567489/#40071567309/#40071567310. U10.01 pool isolation keys, U11.08 explicit fsync/rename limitations, U12.03 native autoscale policy only, U13.07 optional extension portability, U16.04 complete versioned feature categories accepted. **Real live pool/scale/durability remain open. 88/175 (50.3%), 87 open.**
 
 **D3 RST network guide staged (2026-10-24):** Detailed real fixture-linked TCP/TLS/Unix/UDP/QUIC and DNS IPv4/IPv6 semantics, transport errors/owners/extensions. U16.05 QA pending. **88/175, 87 open.**
+
+**H11 green optional event/native loop parity (2026-10-24):** Real PHP8.4/8.5 PECL ext-event plus matching EventLoop/H1 worker budget regressions vs no-ext-event Select in green #40071912799. U13.02 accepted for tested equivalence only; U13.04 persistent pooled RoadRunner remains open. **89/175 (50.9%), 86 open.**
