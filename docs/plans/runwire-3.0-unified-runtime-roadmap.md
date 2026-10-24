@@ -206,3 +206,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **F5 slow receiver acceptance staged (2026-10-24):** A 2 MiB wire/file SHA-256 fixture now withholds receiver reads long enough to require real bounded network backpressure, then resumes without blocking event-loop heartbeat. U11.05 still QA-gated. **68/175 accepted, 107 open.**
 
 **E3 grouped QA correction (2026-10-24):** A 1 MiB binary IPC packet exceeded fixed limits due to escaped base64 slashes. Use JSON_UNESCAPED_SLASHES end-to-end, preserving caps. Fix ScopedFiles return shape and API docs, head-parser redundant coalescing, and PHPForge statement spacing. Alongside F4/F5 real wire transfer and slow-peer regression, queue next CI; accept nothing until evidence is green. **68/175 accepted, 107 open.**
+
+**H4 host transport matrix staged (2026-10-24):** Added a Sphinx-listed development host capability and limitation matrix, correctly separating verified host modes from unimplemented outbound clients, WT, migration/datagrams and native file AIO. U13.09 remains open until docs QA and cross-check. **68/175, 107 open**.
