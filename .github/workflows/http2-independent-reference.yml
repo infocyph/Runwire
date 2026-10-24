@@ -1,0 +1,49 @@
+name: "HTTP/2 Independent Reference"
+
+on:
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+  workflow_dispatch:
+
+# An independent hyper-h2 interoperability test, not a duplicate PHPForge lane.
+concurrency:
+  group: h2-reference-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  hyper-h2:
+    name: "hyper-h2 TLS reference - PHP ${{ matrix.php }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ "8.4", "8.5" ]
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@v7 # v7.0.1
+
+      - name: Setup PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          extensions: openssl, pcntl, posix, sockets
+          coverage: none
+
+      - name: Install pinned independent hyper-h2 fixture
+        shell: bash
+        run: |
+          python3 -m venv .ci/h2-reference-venv
+          .ci/h2-reference-venv/bin/python -m pip install --disable-pip-version-check 'h2==4.2.0'
+          echo "$PWD/.ci/h2-reference-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install Runwire dev test dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Verify real TLS, ALPN, and independent H2 headers/body
+        run: |
+          python3 -c 'import h2.connection; print("Independent hyper-h2 available")'
+          vendor/bin/pest tests/Http2IndependentReferenceTest.php

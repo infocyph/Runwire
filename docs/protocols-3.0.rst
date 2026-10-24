@@ -34,7 +34,11 @@ exclusively owns one externally verified TLS+h2 connection, consumes bounded
 response frames and cancels or aborts it on completion (no unsafe pooling).
 ``Http2OutboundClient`` adds independently verified TLS+h2-only dialing and
 a one-shot GET/HEAD exchange; an independent local TLS peer fixture tests
-a real certificate/ALPN handshake and frame response. **These additions
+a real certificate/ALPN handshake and frame response. A dedicated PR-only
+``HTTP/2 Independent Reference`` workflow now validates this outbound client
+against upstream Python ``hyper-h2`` under pinned 8.4/8.5 PHP matrices,
+including verified CA/SAN/TLS, ALPN, HPACK HEADERS and streamed body.
+**These additions
 are QA-pending** and do not implement H2 multiplexing, server push, trailers,
 transparent H1 fallback, a complete H2 client, or H3/WT.
 
@@ -44,6 +48,7 @@ transparent H1 fallback, a complete H2 client, or H3/WT.
    vendor/bin/pest tests/Http2ClientHandshakeTest.php tests/Http2ClientResponseParserTest.php
    vendor/bin/pest tests/Http2ClientSessionTest.php tests/Http2ConnectedExchangeTest.php
    vendor/bin/pest tests/Http2OutboundClientTest.php tests/Http2ConnectedExchangeCancellationTest.php
+   vendor/bin/pest tests/Http2IndependentReferenceTest.php
 
 HTTP/3 and QUIC server
 ----------------------

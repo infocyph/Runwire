@@ -50,7 +50,7 @@ it('generates a complete source-linked public PHP symbol and exception index wit
         ->and($reference)->toContain('**' . $files . ' PHP types**')
         ->and($reference)->toContain('**' . $methods . ' public methods**')
         ->and($propertySummary)->toHaveKey(1)
-        ->and((int) $propertySummary[1])->toBeGreaterThan($properties);
+        ->and((int) $propertySummary[1])->toBe($properties);
     // Constructor promotion is a public PHP property declaration too.
     // Its indexing is independently checked rather than merely counted.
     $tls = file_get_contents($root . '/src/Network/TlsClientOptions.php');
