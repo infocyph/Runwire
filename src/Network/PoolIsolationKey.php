@@ -89,7 +89,7 @@ final readonly class PoolIsolationKey
     {
         if ($identity === '' || strlen($identity) > 256
             || str_contains($identity, "\0")
-            || !mb_check_encoding($identity, 'UTF-8')) {
+            || preg_match('//u', $identity) !== 1) {
             throw new InvalidArgumentException($type . ' pool identity must be a nonempty, valid opaque identifier.');
         }
     }
