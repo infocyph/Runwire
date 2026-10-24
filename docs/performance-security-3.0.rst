@@ -85,3 +85,41 @@ candidate status based only on documentation or a green standalone
 syntax check. Use the appropriate real hosted, native, Swoole,
 portable, independent HTTP/3 and PHPForge matrices and preserve
 all failure logs and resource measurements.
+
+Traceable benchmark and security gates
+--------------------------------------
+
+The following numbers are **required measurement criteria**, not claims
+that unreleased Runwire 3.0 has achieved them.
+
+.. list-table:: Reproducible gates and source-of-truth instrumentation
+   :header-rows: 1
+   :widths: 24 24 52
+
+   * - Metric or control
+     - Expected gate
+     - Executable source
+   * - Matched throughput
+     - Five paired 180-second trials
+     - ``benchmarks/matched_release_certification.sh`` and
+       ``benchmarks/release_topology_inventory.py``
+   * - Sample stability
+     - Successful-RPS CV below 2.5 percent for both builds
+     - ``benchmarks/release_topology_inventory.py`` and the
+       3.0 development-plan U15.09 proof gate
+   * - Resource/GC/OPcache soak
+     - 1800-second nominal duration; validated minimum 1740 seconds
+     - ``benchmarks/soak_runtime_telemetry.php``
+   * - Per-operation file bytes
+     - At most 1048576 bytes per executor operation
+     - ``src/Filesystem/AsyncFileSystem.php``
+   * - Outbound pool isolation
+     - Tenant/host/TLS/ALPN/proxy policy separation
+     - ``src/Network/PoolIsolationKey.php`` and
+       ``tests/PoolIsolationKeyTest.php``
+
+The Benchmarks workflow runs smaller noncertification diagnostics.
+The independent TLS, QUIC, host and security gates retain their own
+immutable workflow-run evidence in the canonical plan. In particular,
+a green profile job or a green Sphinx build **must not** turn U15/U17
+release performance, matched TLS or WebTransport certifications green.
