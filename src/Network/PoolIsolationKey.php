@@ -15,7 +15,11 @@ use InvalidArgumentException;
  */
 final readonly class PoolIsolationKey
 {
+    private ?string $expectedAlpn;
+
     private string $identity;
+
+    private bool $requiresTls;
 
     /**
      * Build a typed, delimiter-safe key without storing credential material.
@@ -51,6 +55,8 @@ final readonly class PoolIsolationKey
             throw new InvalidArgumentException('Negotiated ALPN must be offered by the TLS policy.');
         }
 
+        $this->expectedAlpn = $negotiatedAlpn;
+        $this->requiresTls = $tls !== null;
         $this->identity = hash('sha256', serialize([
             $endpoint->scheme,
             strtolower($endpoint->host ?? ''),
@@ -71,6 +77,17 @@ final readonly class PoolIsolationKey
             $proxy?->path,
             $proxyPolicyIdentity,
         ]));
+    }
+
+    /**
+     * A necessary transport-role/ALPN guard before admitting an idle socket.
+     * This does not prove the original origin/CA/tenant: the verified dial owner
+     * must still present the exact matching policy and key.
+     */
+    public function acceptsTransport(Connection $connection): bool
+    {
+        return $connection->isEncrypted() === $this->requiresTls
+            && ($this->expectedAlpn === null || $connection->negotiatedProtocol() === $this->expectedAlpn);
     }
 
     /** Compare two canonical pool isolation identities without disclosing policies. */

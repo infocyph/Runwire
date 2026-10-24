@@ -59,7 +59,7 @@ final class IdleConnectionPool
      */
     public function store(PoolIsolationKey $key, Connection $connection): bool
     {
-        if ($this->closed || !$connection->isPoolIdleSafe()) {
+        if ($this->closed || !$connection->isPoolIdleSafe() || !$key->acceptsTransport($connection)) {
             $connection->abort();
 
             return false;

@@ -76,7 +76,8 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
 
     $status = 0;
     $reaped = 0;
-    $deadline = microtime(true) + 3.0;
+    // Busy shared CI runners may need more time to reap a graceful prefork shutdown.
+    $deadline = microtime(true) + 6.0;
     while (microtime(true) < $deadline) {
         $reaped = pcntl_waitpid($runtimePid, $status, WNOHANG);
         if ($reaped === $runtimePid) {

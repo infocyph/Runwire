@@ -49,6 +49,33 @@ it('never reuses a stream under a different tenant scope and closes overflow vic
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
+it('refuses to retain a plaintext socket under a TLS and ALPN identity', function (): void {
+    $loop = new SelectLoop();
+    $pool = new IdleConnectionPool($loop, 1);
+    $key = new PoolIsolationKey(
+        DialEndpoint::parse('tcp://127.0.0.1:443'),
+        'worker-a',
+        new \Infocyph\Runwire\Network\TlsClientOptions('localhost', alpnProtocols: ['http/1.1']),
+        tlsPolicyIdentity: 'trust-revision-1',
+        negotiatedAlpn: 'http/1.1',
+    );
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray()->toHaveCount(2);
+    [$socket, $peer] = $pair;
+    $connection = new Connection($loop, $socket);
+
+    try {
+        expect($key->acceptsTransport($connection))->toBeFalse()
+            ->and($pool->store($key, $connection))->toBeFalse()
+            ->and($connection->state())->toBe(ConnectionState::CLOSED)
+            ->and($pool->count())->toBe(0);
+    } finally {
+        $pool->close();
+        $connection->abort();
+        fclose($peer);
+    }
+});
+
 it('evicts idle sockets on unsolicited response bytes or deadline without stale reuse', function (): void {
     $loop = new SelectLoop();
     $pool = new IdleConnectionPool($loop, maxIdle: 2, idleTtlSeconds: 0.03);
