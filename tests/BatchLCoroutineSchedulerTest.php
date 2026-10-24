@@ -566,7 +566,7 @@ it('returns a standalone scope when its root is complete even with an external p
     $runtime = new CoroutineRuntime($loop);
 
     try {
-        $result = $runtime->run(static fn(CoroutineScope $scope): string => 'completed');
+        $result = $runtime->run(static fn(CoroutineScope $scope): string => $scope->cancellation()->isCancelled() ? 'cancelled' : 'completed');
         expect($result)->toBe('completed')
             ->and($runtime->activeTaskCount())->toBe(0)
             ->and($executor->diagnostics()['workers'])->toBeGreaterThan(0);
@@ -577,4 +577,64 @@ it('returns a standalone scope when its root is complete even with an external p
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('delivers terminal future notifications to every waiter despite a throwing observer', function (): void {
+    $runtime = new CoroutineRuntime();
+    $results = $runtime->run(function (CoroutineScope $scope): array {
+        $resolved = $scope->deferred();
+        $rejected = $scope->deferred();
+        $order = [];
+        $resolvedFuture = $resolved->future();
+        $failedFuture = $rejected->future();
+
+        $resolvedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'resolve-first';
+            throw new RuntimeException('observer failed after resolution');
+        });
+        $resolvedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'resolve-second';
+        });
+        $failedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'reject-first';
+            throw new RuntimeException('observer failed after rejection');
+        });
+        $failedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'reject-second';
+        });
+
+        $resolved->resolve('settled');
+        $original = new RuntimeException('expected-rejection');
+        $rejected->reject($original);
+        expect($resolvedFuture->result())->toBe('settled');
+        expect(fn() => $resolved->reject(new RuntimeException('late-error')))->toThrow(FutureCompletedException::class);
+        expect(fn() => $failedFuture->result())->toThrow(RuntimeException::class, 'expected-rejection');
+        expect(fn() => $rejected->resolve('late-success'))->toThrow(FutureCompletedException::class);
+
+        return $order;
+    });
+
+    expect($results)->toBe(['resolve-first', 'resolve-second', 'reject-first', 'reject-second']);
+});
+
+
+it('resumes every Fiber awaiting a future even when an earlier observer throws', function (): void {
+    $runtime = new CoroutineRuntime();
+    $values = $runtime->run(static function (CoroutineScope $scope): array {
+        $deferred = $scope->deferred();
+        $future = $deferred->future();
+        $future->subscribe(static function (): void {
+            throw new RuntimeException('ignored notification failure');
+        });
+        $first = $scope->spawn(static fn(): mixed => $future->await());
+        $second = $scope->spawn(static fn(): mixed => $future->await());
+        $scope->spawn(static function () use ($deferred): void {
+            $deferred->resolve(42);
+        });
+
+        return [$first->await(), $second->await()];
+    });
+
+    expect($values)->toBe([42, 42])
+        ->and($runtime->activeTaskCount())->toBe(0);
 });

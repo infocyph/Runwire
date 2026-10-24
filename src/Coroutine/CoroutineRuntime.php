@@ -167,7 +167,14 @@ final class CoroutineRuntime
                     // watcher on it (for example persistent executor workers).
                     // Scope children have settled before the root completes.
                     if ($task->isComplete()) {
-                        $this->scheduler->loop()->stop();
+                        // A scheduler drain may still contain callbacks queued
+                        // before the root settled. Stop in the next turn so
+                        // those callbacks do not leak across request generations.
+                        $loop = $this->scheduler->loop();
+                        $loop->defer(static function (int $id) use ($loop): void {
+                            unset($id);
+                            $loop->stop();
+                        });
                     }
                 },
             );

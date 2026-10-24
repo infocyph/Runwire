@@ -121,7 +121,12 @@ final class FutureState
         $this->waiters = [];
 
         foreach ($waiters as $waiter) {
-            $waiter();
+            try {
+                $waiter();
+            } catch (Throwable) {
+                // One completion observer must not prevent other suspended
+                // tasks from resuming after this future becomes terminal.
+            }
         }
     }
 }
