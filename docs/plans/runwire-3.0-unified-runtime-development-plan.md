@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 91/175 accepted (52.0%); 84 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 93/175 accepted (53.1%); 82 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -50,18 +50,18 @@
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 2/11 | 9 | In progress | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 5/10 | 5 | In progress | U02,U04,U05,U06 |
-| U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
+| U09 | WebSocket and WebTransport client/server | 1/10 | 9 | In progress | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 1/9 | 8 | In progress | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 6/10 | 4 | In progress | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 3/9 | 6 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 8/9 | 1 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 6/16 | 10 | In progress | U00-U15 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 7/16 | 9 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **91/175** | **84** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **93/175** | **82** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 91/175 (52.0% complete), 84 open.
+**Progress counter:** 93/175 (53.1% complete), 82 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -229,14 +229,14 @@
 - [ ] **U09.02** Implement outbound WebSocket client with TLS and subprotocols. **Acceptance:** Independent server connects and closes safely. **Proof:** PENDING.
 - [ ] **U09.03** Unify WS heartbeat, fragmentation, backpressure and message limits. **Acceptance:** High connection counts bounded. **Proof:** PENDING.
 - [ ] **U09.04** Validate H2/H3 extended CONNECT only if implemented and qualified. **Acceptance:** No unsupported version advertised. **Proof:** PENDING.
-- [ ] **U09.05** Design WebTransport sessions, streams and datagram ownership. **Acceptance:** H3/session lifecycle and authority policy documented. **Proof:** PENDING.
+- [x] **U09.05** Design WebTransport sessions, streams and datagram ownership. **Acceptance:** H3/session lifecycle and authority policy documented. **Proof:** The native RST docs/webtransport-design-3.0.rst specifies original authority and origin authorization, QUIC TLS1.3 h3 ALPN, bounded session ID and cancellation owner, stream registry, uni/bidi FIN/RESET/STOP_SENDING, datagram association/MTU, idle timer, GOAWAY and finite graceful drain. Independent conformance, cross-session isolation, slow-peer, loss/reorder and resource sampling gates are spelled out; native ext-quic DATAGRAM/migration/0-RTT limitations block actual WebTransport exposure. Indexed strict Sphinx [#40073761998](https://github.com/infocyph/Runwire/actions/runs/40073761998) PASSED at e26477b. Only architecture acceptance: U09.06–U09.10 implementation stays open.
 - [ ] **U09.06** Implement WebTransport server over QUIC/H3. **Acceptance:** Independent WebTransport client conformance. **Proof:** PENDING.
 - [ ] **U09.07** Implement WebTransport client over outbound QUIC/H3. **Acceptance:** Independent WebTransport server conformance. **Proof:** PENDING.
 - [ ] **U09.08** Support uni/bidi streams, resets, datagrams and negotiated MTU. **Acceptance:** Per-session flow limits and cancellation tests. **Proof:** PENDING.
 - [ ] **U09.09** Support session idle timeout, graceful drain and overload policy. **Acceptance:** No orphan QUIC streams on shutdown. **Proof:** PENDING.
 - [ ] **U09.10** Run WT/WS hostile frame, slow-peer and throughput suites. **Acceptance:** Fuzz, RPS/p99, RSS and fairness gates. **Proof:** PENDING.
 
-**Batch tracker:** 0/10 accepted; 10 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 1/10 accepted; 9 open — U09.05 accurate WT authority/session/stream design strict Sphinx #40073761998. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U10 — Connection pooling, proxy negotiation and stream relay
 
@@ -344,7 +344,7 @@
 - [ ] **U16.03** Convert existing user-facing Markdown guides to native RST, with RST-only Sphinx navigation. **Acceptance:** No duplicate or broken pages. **Proof:** PENDING.
 - [x] **U16.04** Create complete versioned public feature catalog. **Acceptance:** Every feature annotated by supported host, transport and extension. **Proof:** Native RST `docs/features.rst` explicitly enumerates 29 public feature families plus header across published Runwire 2.1.2 and unreleased 3.0; each entry has source maturity, host/transport, and extension or protocol limitations (H1/H2/H3, WS/WT, TCP/TLS/UDP/Unix/QUIC, DNS, pool/proxy/relay, Fiber, file I/O, supervision, autoscale, FPM/RoadRunner/FrankenPHP/Swoole). `tests/FeatureCatalogCoverageTest.php` checks 30 complete five-column rows, no duplicate labels and all required categories; all four Pest lanes pass [#40071567489](https://github.com/infocyph/Runwire/actions/runs/40071567489) and strict Sphinx [#40071567309](https://github.com/infocyph/Runwire/actions/runs/40071567309) passes at c2ce077. Public-symbol-by-symbol reference U16.11, tutorials and hosted RTD preview remain separate OPEN tasks.
 - [x] **U16.05** Document TCP/TLS/Unix/UDP/QUIC inbound/outbound and DNS/Happy Eyeballs. **Acceptance:** Runnable client/server examples and errors. **Proof:** Native RST index-linked docs/transport-guide-3.0.rst covers TCP/TLS/Unix/UDP/QUIC incoming/outgoing, off-loop DNS/HappyEyeballs, runnable source-backed commands and host/extension/security limits. Exact 00291e1 [Sphinx #40072262989](https://github.com/infocyph/Runwire/actions/runs/40072262989), [Portable #40072263007](https://github.com/infocyph/Runwire/actions/runs/40072263007) and [Security #40072263291](https://github.com/infocyph/Runwire/actions/runs/40072263291) green. No completed H3 client or WebTransport advertised.
-- [ ] **U16.06** Document HTTP1/2/3 client/server and WebSocket/WebTransport. **Acceptance:** Streaming, header limits, cancellation and conformance examples. **Proof:** PENDING.
+- [x] **U16.06** Document HTTP1/2/3 client/server and WebSocket/WebTransport. **Acceptance:** Streaming, header limits, cancellation and conformance examples. **Proof:** Indexed native RST docs/protocols-3.0.rst plus docs/webtransport-design-3.0.rst describe H1/H2/H3 server and existing outbound H1 wire parser, HPACK/QPACK and streamed header/body budgets, frame/stream/session cancellations, H1 WebSocket framing/upgrade, unsupported H2/H3 CONNECT and WT, TLS/QUIC restrictions; source-backed commands reference real existing H1/H2/H3/WebSocket suites and independent aioquic CI. Strict Sphinx [#40073761998](https://github.com/infocyph/Runwire/actions/runs/40073761998) passed at e26477b; prior [Security #40072263291](https://github.com/infocyph/Runwire/actions/runs/40072263291) validated actual runnable protocol suites. Does not imply connected outbound H2/H3 or WebTransport.
 - [ ] **U16.07** Document pooling, CONNECT/SOCKS5, relay, TLS and authentication policies. **Acceptance:** Security, credentials, transport lifecycle cases. **Proof:** PENDING.
 - [x] **U16.08** Document Fiber tasks, event loops, deadlines and ownership. **Acceptance:** Scope and async resource lifecycle diagrams/examples. **Proof:** Native RST docs/coroutine-network-3.0.rst describes Fibers, task scopes, Select/ext-event/Swoole ownership, deadline/cancellation inheritance, dialer off-loop DNS, owner transfer/adoption and resource lifecycle diagrams/code examples. Strict Sphinx source 96979be [#40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) and full coroutine regression [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) PASS.
 - [x] **U16.09** Document async filesystem executor, safe file I/O and streaming. **Acceptance:** No-hidden-blocking details, quotas and portability. **Proof:** Native RST docs/async-file-io-3.0.rst documents off-loop executor queues, 1 MiB binary read/write, stream transfer 16 KiB/64 MiB and cleanup limits, platform sandbox/symlink/TOCTOU/fsync/atomic caveats and usage. Strict Sphinx [#40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) and corresponding worker/wire tests [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) PASS at source 96979be.
@@ -356,7 +356,7 @@
 - [ ] **U16.15** Enforce sphinx-build -n -W --keep-going -b html plus links and code snippet validation. **Acceptance:** CI fails on unresolved refs or invalid examples. **Proof:** PENDING.
 - [ ] **U16.16** Verify Read the Docs navigation, search, versioning and complete feature index. **Acceptance:** Hosted preview passes and 100 percent feature coverage. **Proof:** PENDING.
 
-**Batch tracker:** 6/16 accepted; 10 open — transport/DNS RST U16.05 #40072262989 — U16.04 29-family version/host/extension coverage #40071567489 / #40071567309 — U16.08 coroutine scopes and U16.09 async file RST/CI #40068643157 — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 7/16 accepted; 9 open — U16.06 H1/H2/H3/WS/WT RST runnable source-guide #40073761998 — transport/DNS RST U16.05 #40072262989 — U16.04 29-family version/host/extension coverage #40071567489 / #40071567309 — U16.08 coroutine scopes and U16.09 async file RST/CI #40068643157 — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U17 — Final certification, risk signoff and maintainer handoff
 
@@ -669,3 +669,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **P6 proxy/security documentation + extended CONNECT negatives (2026-10-24; QA pending):** Native Sphinx docs/connection-policies-3.0.rst describes current PoolIsolationKey, opt-in SSRF policy, TLS identity and explicitly unimplemented live pool, CONNECT/SOCKS5 tunnel auth, credential DNS leak protections and bidirectional half-close relay. New tests/ExtendedConnectRejectionTest.php validates HTTP2/H3 unrecognized :protocol websocket/webtransport are rejected and ordinary CONNECT is not conflated with extended CONNECT. U09.04 and U16.07 remain OPEN until exact-source PHPForge/Sphinx CI confirms. **91/175 accepted, 84 open.**
 
 **S7 QA remediation integrated with P6 (2026-10-24):** Source c067bad Security #40073472876 all PHPForge Pest/PHPCS/Rector/Deptrac passed but PHPStan cognitive complexity increased Dialer::connect 14 > 12 after SSRF inline guard, and Pint requires one blank line before inet_pton. Extract direct private assertAddressPolicy() preflight and add blank line, no suppression/no behavior change. Keep U14.01 unaccepted until new exact-head QA and live-address verification. **91/175 accepted, 84 open.**
+
+**P7 docs proof before code QA (2026-10-24):** e26477b [strict Sphinx #40073761998](https://github.com/infocyph/Runwire/actions/runs/40073761998) green with native WebTransport authority/session design and H1/H2/H3/WS/WT protocol guide; accept **U09.05 (design only)** and **U16.06 (documented capability matrix)**. Extended CONNECT negative tests U09.04, pool/proxy guide U16.07, SSRF guard U14.01 require PHPForge QA; QUIC flow-control U05.05 still needs explicit stalled-flow tests. **93/175 (53.1%), 82 open, 39 to 75.4%.**

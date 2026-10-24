@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 2/11; U08 5/10; U10 1/9; U11 6/10; U12 3/9; U13 8/9; U16 6/16**. **91/175 accepted tasks, 84 open across 18 batches** (52.0%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 2/11; U08 5/10; U09 1/10; U10 1/9; U11 6/10; U12 3/9; U13 8/9; U16 7/16**. **93/175 accepted tasks, 82 open across 18 batches** (53.1%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -66,16 +66,16 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 9 | 2/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 5 | 5/10 |
-| U09 | WebSocket and WebTransport client/server | 10 | 0/10 |
+| U09 | WebSocket and WebTransport client/server | 9 | 1/10 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 8 | 1/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 4 | 6/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
 | U13 | Real host and optional extension compatibility | 1 | 8/9 |
 | U14 | Security, fuzzing and adversarial resilience | 8 | 0/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 10 | 6/16 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 9 | 7/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **84** | **91/175 (52.0%)** |
+| **TOTAL** | **Full unified-runtime release program** | **82** | **93/175 (53.1%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -272,3 +272,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **P6 hosted proxy/relay policy docs + H2/H3 CONNECT negative tests staged (2026-10-24):** Clear unsupported status and runnable tests. U09.04 and U16.07 QA pending. **91/175, 84 open.**
 
 **S7 PHPForge QA corrections staged (2026-10-24):** Extract bounded address preflight from dial connect (cognitive complexity) and Pint spacing fix. Waiting exact-head QA, U14.01 not yet accepted. **91/175, 84 open.**
+
+**P7 (2026-10-24):** Sphinx e26477b strict green #40073761998 accepts U09.05 WT architecture only and U16.06 HTTP/WS/WT documentation. Actual WT and extended CONNECT remain unsupported. Other P6/S7 tasks code-QA gated. **93/175 accepted (53.1%), 82 open, 39 to 75.4%.**
