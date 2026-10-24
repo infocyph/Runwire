@@ -24,6 +24,20 @@ function runwireAsyncConnectionPair(): array
     return $pair;
 }
 
+function runwireCurrentRssBytes(): ?int
+{
+    if (!is_readable('/proc/self/status')) {
+        return null;
+    }
+
+    $status = file_get_contents('/proc/self/status');
+    if (!is_string($status) || preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $match) !== 1) {
+        return null;
+    }
+
+    return (int) $match[1] * 1_024;
+}
+
 it('awaits connection data and preserves unread bytes across peer EOF', function (): void {
     [$server, $peer] = runwireAsyncConnectionPair();
     stream_set_blocking($peer, false);
@@ -407,9 +421,11 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
     $responses = [];
     $latencies = [];
     $baselineBytes = memory_get_usage(true);
+    $baselineRss = runwireCurrentRssBytes();
+    $rssSamples = [];
     $fdBaseline = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd') ?: []) : null;
 
-    for ($iteration = 0; $iteration < 512; ++$iteration) {
+    for ($iteration = 0; $iteration < 2_048; ++$iteration) {
         [$server, $peer] = runwireAsyncConnectionPair();
         $connection = new Connection($loop, $server);
         try {
@@ -442,6 +458,11 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
             if (($iteration + 1) % 64 === 0) {
                 gc_collect_cycles();
                 expect(memory_get_usage(true))->toBeLessThanOrEqual($baselineBytes + 16 * 1_048_576);
+                $currentRss = runwireCurrentRssBytes();
+                if ($baselineRss !== null && $currentRss !== null) {
+                    expect($currentRss)->toBeLessThanOrEqual($baselineRss + 32 * 1_048_576);
+                    $rssSamples[] = $currentRss;
+                }
                 if ($fdBaseline !== null) {
                     expect(count(scandir('/proc/self/fd') ?: []))->toBeLessThanOrEqual($fdBaseline + 4);
                 }
@@ -458,7 +479,7 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
         }
     }
 
-    expect($responses)->toHaveCount(512);
+    expect($responses)->toHaveCount(2_048);
     foreach ($responses as $iteration => $data) {
         expect($data)->toBe('tick-' . $iteration);
     }
@@ -471,6 +492,11 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
 
     if ($fdBaseline !== null) {
         expect(count(scandir('/proc/self/fd') ?: []))->toBeLessThanOrEqual($fdBaseline + 4);
+    }
+    if (count($rssSamples) >= 2) {
+        // Reject monotonic persistent RSS expansion across 32 checkpoints;
+        // transient allocator fluctuations stay bounded by the absolute cap.
+        expect($rssSamples[count($rssSamples) - 1])->toBeLessThanOrEqual($rssSamples[0] + 8 * 1_048_576);
     }
 });
 
