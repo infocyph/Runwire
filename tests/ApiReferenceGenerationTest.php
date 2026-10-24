@@ -56,4 +56,14 @@ it('generates a complete source-linked public PHP symbol and exception index wit
     $tls = file_get_contents($root . '/src/Network/TlsClientOptions.php');
     expect($tls)->toContain('public string $peerName')
         ->and($reference)->toContain('TlsClientOptions', 'peerName');
+    $marker = str_repeat(chr(96), 2) . 'Infocyph\\Runwire\\Network\\TlsClientOptions' . str_repeat(chr(96), 2);
+    $offset = strpos($reference, $marker);
+    expect($offset)->not->toBeFalse();
+    $entry = substr($reference, (int) $offset);
+    $nextType = strpos($entry, "\n* ", 1);
+    $entry = $nextType === false ? $entry : substr($entry, 0, $nextType);
+    $fieldName = str_repeat(chr(96), 2) . 'peerName' . str_repeat(chr(96), 2);
+    $pattern = '/Public properties:[^\\n]*' . preg_quote($fieldName, '/') . '/';
+    expect($entry)->toContain('Public properties:')
+        ->and(preg_match($pattern, $entry))->toBe(1);
 });

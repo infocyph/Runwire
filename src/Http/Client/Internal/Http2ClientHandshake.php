@@ -82,6 +82,8 @@ final class Http2ClientHandshake
             FrameType::SETTINGS => $this->settings($frame),
             FrameType::PING => $this->ping($frame),
             FrameType::GOAWAY => $this->goaway($frame),
+            FrameType::WINDOW_UPDATE => $this->windowUpdate($frame),
+            null => '', // RFC 9113: ignore unrecognized extension frame types.
             default => throw new RuntimeException('HTTP/2 bootstrap accepts connection control frames only.'),
         };
     }
@@ -170,4 +172,19 @@ final class Http2ClientHandshake
 
         return FrameWriter::encode(FrameWriter::settings([], true));
     }
+    private function windowUpdate(Frame $frame): string
+    {
+        if ($frame->streamId !== 0 || $frame->flags !== 0 || strlen($frame->payload) !== 4) {
+            throw new RuntimeException('HTTP/2 connection WINDOW_UPDATE must contain four bytes on stream zero.');
+        }
+        $decoded = unpack('Nincrement', $frame->payload);
+        if ($decoded === false || ($decoded['increment'] & 0x7FFF_FFFF) === 0) {
+            throw new RuntimeException('HTTP/2 connection WINDOW_UPDATE increment cannot be zero.');
+        }
+
+        // H2 HEAD/GET bootstrap has no outbound body to consume credit yet.
+        return '';
+    }
+
+
 }

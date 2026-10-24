@@ -77,3 +77,24 @@ it('fails closed on illegal H2 SETTINGS, first-frame, PUSH and GOAWAY state tran
     expect(fn() => $handshake->firstRequest('GET', 'https', 'example.test', '/'))
         ->toThrow(RuntimeException::class, 'verified');
 });
+
+it('accepts legal connection credit and ignores bounded unknown H2 extension frames after SETTINGS', function (): void {
+    $h2 = new Http2ClientHandshake();
+    $h2->start();
+    expect(fn() => $h2->receive(FrameWriter::windowUpdate(0, 32)))
+        ->toThrow(RuntimeException::class, 'first frame');
+    $h2->receive(FrameWriter::settings());
+
+    expect($h2->receive(FrameWriter::windowUpdate(0, 32_768)))->toBe('')
+        ->and($h2->receive(new Frame(0xFA, 0, 0, 'unknown extension')))->toBe('')
+        ->and($h2->ready())->toBeTrue();
+
+    expect(fn() => $h2->receive(new Frame(FrameType::WINDOW_UPDATE->value, 0, 0, pack('N', 0))))
+        ->toThrow(RuntimeException::class, 'cannot be zero');
+    expect(fn() => $h2->receive(new Frame(FrameType::WINDOW_UPDATE->value, 0, 0, "\x01")))
+        ->toThrow(RuntimeException::class, 'four bytes');
+    expect(fn() => $h2->receive(new Frame(FrameType::WINDOW_UPDATE->value, 1, 0, pack('N', 1))))
+        ->toThrow(RuntimeException::class, 'stream zero');
+    expect(fn() => $h2->receive(new Frame(FrameType::WINDOW_UPDATE->value, 0, 1, pack('N', 1))))
+        ->toThrow(RuntimeException::class, 'stream zero');
+});
