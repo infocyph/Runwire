@@ -47,7 +47,7 @@ Untrusted path handling needs explicit U11.09 access policy. A successful
 
 
 Bounded file to network streaming (3.0 development)
-==================================================
+========================================================
 
 The experimental Coroutine/Filesystem/ScopedFileTransfer reuses one scope-owned
 ScopedFiles executor and AsyncConnection. Sending and receiving both operate on
