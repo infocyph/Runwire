@@ -163,3 +163,19 @@ native datagram fail-closed behavior. It also tests native reset of a
 newly opened stream on the existing verified connection, followed by
 a separate actual uni-stream receipt at the independent server. The
 new-head native interop gate must pass before advancing further U05 tasks.
+
+Verified native negative capability policy at Q2-J (2026-10-24)
+================================================================
+
+The independent aioquic fixture on immutable source 3a9d9a7 passed both
+PHP 8.5 live-native TLS/ALPN and stream exchange including a native reset,
+followed by an actual peer-observed unidirectional FIN. The same fixture
+rejects demanded RFC 9221 datagrams, migration/rebinding and early 0-RTT
+before connecting; it rejects datagram use even after verification.
+Security & Standards #40064842606 passed all four PHPForge QA lanes,
+both PHPStan/Psalm analysis and both native H3/QUIC suites.
+
+U05.06/.07/.08 acceptance is **deliberate non-support** only: this
+optional native backend offers no negotiated unreliable datagrams,
+connection-ID migration/rebinding or replay-safe early application
+dispatch. None of these are claimed as implemented positive features.

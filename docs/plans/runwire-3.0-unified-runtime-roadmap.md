@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 4/10; U06 COMPLETE (8/8); U07 1/11; U13 1/9; U16 1/16**. **60/175 accepted tasks, 115 open across 18 batches** (34.3%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 1/11; U13 1/9; U16 1/16**. **63/175 accepted tasks, 112 open across 18 batches** (36.0%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -62,7 +62,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U02 | Unified established connection and transport ownership | 0 | 9/9 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 0 | 10/10 |
 | U04 | Unified TLS security and client/server handshakes | 1 | 7/8 |
-| U05 | UDP, outbound QUIC and unified datagram transport | 6 | 4/10 |
+| U05 | UDP, outbound QUIC and unified datagram transport | 3 | 7/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 10 | 1/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 10 | 0/10 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 15 | 1/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **115** | **60/175 (34.3%)** |
+| **TOTAL** | **Full unified-runtime release program** | **112** | **63/175 (36.0%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -180,3 +180,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **H2 staged HTTP/1.1 writer (2026-10-24):** The first transport-specific request serializer now builds bounded canonical H1 heads, rejects Host spoofing/framing conflicts and implicit H2-to-H1 downgrade, emits streaming chunked binary bodies and safe trailers. It reuses the U07.01 client contracts; **no U07.02 acceptance** until the response parser, real-peer interoperability and complete QA land. Source staged alongside filesystem F1 so one next-head run can validate related preparatory work. Overall **60/175 accepted, 115 open**.
 
 **H3 staged HTTP/1.1 response parser (2026-10-24):** A bounded, streaming response decoder complements the H2 request writer with explicit CL/TE smuggling rejection, chunked/trailer handling, premature EOF and keepalive controls. Unit fixtures alone do not accept U07.02/.03 or substitute for real connected HTTP/1.1 interoperability. Continue rolling QA after Q2-J exact head and F1/H1/H2 group. **60/175 accepted, 115 open.**
+
+**Q2-J QUIC real negative capability closeout (2026-10-24):** [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606) passed real independent aioquic, native reset followed by peer-received uni FIN, all PHPForge QA and both analyzers for source 3a9d9a7. This accepts U05.06/.07/.08 **only as explicit unsupported backend capabilities**: RFC9221 datagrams, path migration/CID rebinding and early 0-RTT remain unavailable and fail closed, not silently emulated. U05.05/.09/.10 and full certified QUIC/H3 performance remain OPEN; Q2-J extended Benchmarks tail must be checked separately. **Canonical 63/175 (36.0%), 112 open; 25 more for 50.3%.** New filesystem F1 and HTTP request/response parser H2/H3 source remain staged/unaccepted while Q2-J long diagnostics complete.
