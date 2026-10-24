@@ -62,6 +62,17 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
         '| **TOTAL** | **Full unified-runtime release program** | **' . $open . '** | **' . $done . '/175',
     );
 
+    // Validate each roadmap batch, not just the aggregate total. This catches
+    // stale divisions when the canonical plan accepts a new task.
+    preg_match_all('/^\\| (U[0-9]{2}) \\| [^\\n]*? \\| (\\d+) \\| (\\d+)\\/(\\d+) \\|$/m', $roadmap, $roadmapRows, PREG_SET_ORDER);
+    expect($roadmapRows)->toHaveCount(18);
+    foreach ($roadmapRows as $row) {
+        [, $batch, $remaining, $completed, $planned] = $row;
+        expect((int) $remaining)->toBe($totals[$batch]['all'] - $totals[$batch]['done'])
+            ->and((int) $completed)->toBe($totals[$batch]['done'])
+            ->and((int) $planned)->toBe($totals[$batch]['all']);
+    }
+
     // The deleted 2.2 plan remains immutable at commit 7afd11e.
     // Pin all 20 unfinished IDs to reject incomplete 3.0 carry-forward.
     $unfinished = [

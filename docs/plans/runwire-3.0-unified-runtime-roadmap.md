@@ -63,7 +63,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U03 | Async DNS and outbound TCP/Unix dialer | 0 | 10/10 |
 | U04 | Unified TLS security and client/server handshakes | 1 | 7/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 3 | 7/10 |
-| U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
+| U06 | Structured concurrency, tasks, deadlines and scopes | 0 | 8/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 9 | 2/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 4 | 6/10 |
 | U09 | WebSocket and WebTransport client/server | 7 | 3/10 |
@@ -306,3 +306,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W10 backpressure and bounded WebSocket send staged (2026-10-24):** Real initially stalled stream with 4KiB send hard cap, PRESSURED/reject assertion, then peer-drain callback and zero watcher/timer cleanup; W6 64 connections previously staged. U09.03 QA pending. **100/175, 75 open.**
 
 **E7 QA fix staged (2026-10-24):** Refactor W8 URI complexity and redundant port check, apply Rector callable, drive actual OS socket saturation for W10 pressure fixture. Counters unchanged until full green. **100/175, 75 open.**
+
+**T0 tracker/QA head verification (2026-10-24):** Checked existing PR #9 head `5259457455ee`: all eight routine PR workflows PASS ([Security & Standards #40078000383](https://github.com/infocyph/Runwire/actions/runs/40078000383), [Benchmarks #40078000285](https://github.com/infocyph/Runwire/actions/runs/40078000285), [Hosted #40078000245](https://github.com/infocyph/Runwire/actions/runs/40078000245), plus native, Sphinx, source audit, Swoole and package). No unresolved PR review threads. Fix historical stale U06 delivery-row tally in roadmap and add exact per-batch roadmap regression coverage to `tests/Plan3TrackerSynchronizationTest.php`. Full matched-TLS and release-duration certification remain OPEN because manual gates are not proven by routine green. No new Uxx acceptance: **100/175 (57.1%), 75 open**. Next grouped implementation W11: connect the verified outbound WebSocket handshake to real TCP/TLS dialing and a client-owned shared session; test independent peer, cancellation and buffered upgrade data.
