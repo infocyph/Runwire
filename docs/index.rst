@@ -22,6 +22,7 @@ Those proposed capabilities have **not** yet been released.
    async-file-io-3.0
    host-compatibility-3.0
    protocols-3.0
+   connection-policies-3.0
    webtransport-design-3.0
 
 All pages in this Sphinx manual are native reStructuredText (``.rst``).
