@@ -69,6 +69,7 @@ final class IdleConnectionPool
 
             return false;
         }
+
         while (count($this->entries) >= $this->maxIdle) {
             $oldest = array_key_first($this->entries);
             if ($oldest === null) {
@@ -87,25 +88,26 @@ final class IdleConnectionPool
         try {
             $connection->handoffCallbacks(
                 $this,
-                function (): void {
+                function () use ($id): void {
                     $this->discard($id);
                 },
-                static function (): void {
-                },
+                static function (): void {},
                 function (): void {
                     $this->discard($id);
                 },
             );
-            if (!isset($this->entries[$id])) {
+            if (!array_key_exists($id, $this->entries)) {
                 return false;
             }
-            $this->entries[$id]['observer'] = $connection->registerCloseObserver(function (): void {
+
+            $this->entries[$id]['observer'] = $connection->registerCloseObserver(function () use ($id): void {
                 $this->discard($id);
             });
-            if (!isset($this->entries[$id])) {
+            if (!array_key_exists($id, $this->entries)) {
                 return false;
             }
-            $this->entries[$id]['timer'] = $this->loop->delay($this->idleTtlSeconds, function (): void {
+
+            $this->entries[$id]['timer'] = $this->loop->delay($this->idleTtlSeconds, function () use ($id): void {
                 $this->discard($id);
             });
         } catch (Throwable $error) {

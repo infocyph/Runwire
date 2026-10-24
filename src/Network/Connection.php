@@ -619,7 +619,6 @@ final class Connection
         $this->syncReadWatcher();
     }
 
-    /** @param resource $stream */
     private function poolBuffersQuiescent(): bool
     {
         return !$this->manualReadPause
@@ -638,6 +637,7 @@ final class Connection
             && $this->callbackOwnership->unclaimed();
     }
 
+    /** @param resource $stream */
     private function readAvailable(mixed $stream, bool &$received, bool &$sawEof): void
     {
         $readThisTick = 0;
