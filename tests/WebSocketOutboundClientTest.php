@@ -71,7 +71,8 @@ it('upgrades a real outbound TCP socket against an independent peer and delivers
                 expect($session)->toBeInstanceOf(WebSocketSession::class);
                 $sessions[] = $session;
                 $session->onMessage(function (WebSocketSession $session, $message) use (&$seen, $loop): void {
-                    $seen[] = $message->data;
+                    expect($session)->toBeInstanceOf(WebSocketSession::class);
+                    $seen = $message->data;
                     $loop->stop();
                 });
             },
@@ -112,7 +113,8 @@ it('rejects oversized upgrade response headers without unbounded buffering', fun
     $upgrade = new \Infocyph\Runwire\WebSocket\Internal\WebSocketClientUpgrade(
         $loop, $connection, $request, [], new \Infocyph\Runwire\WebSocket\WebSocketOptions(),
         new DialOptions(), static function ($session, $error) use (&$errors): void {
-            $errors[] = $error;
+            expect($session)->toBeNull();
+            $errors = $error;
         },
     );
     $stop = $loop->delay(0.5, static function () use ($loop): void { $loop->stop(); });
