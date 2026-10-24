@@ -102,9 +102,28 @@ class H2Bench:
         initial_headers = self.request_header_payload_bytes
         rotations = 0
         waiting = list(range(concurrency))
+        last_progress = time.monotonic()
         while self.active or waiting:
             if time.monotonic() > deadline + 5:
-                raise RuntimeError(f"H2 phase did not drain: active={len(self.active)}, completed={len(measurement.latencies)}, remaining_bytes={sum(len(state['expected']) - len(state['body']) for state in self.active.values())}")
+                stalled = [
+                    {
+                        "stream_id": stream_id,
+                        "status": state["status"],
+                        "received_bytes": len(state["body"]),
+                        "expected_bytes": len(state["expected"]),
+                        "remaining_bytes": len(state["expected"]) - len(state["body"]),
+                    }
+                    for stream_id, state in self.active.items()
+                ]
+                raise RuntimeError(
+                    "H2 phase did not drain: "
+                    f"scenario={self.case.get('scenario')} "
+                    f"issued={self.issued} active={len(self.active)} "
+                    f"completed={len(measurement.latencies)} waiting={len(waiting)} "
+                    f"idle_seconds={time.monotonic() - last_progress:.3f} "
+                    f"client_connection_window={getattr(self.conn, 'inbound_flow_control_window', 'unknown')} "
+                    f"stalled_streams={json.dumps(stalled, sort_keys=True)}"
+                )
             # Rotate only after draining, below the unchanged 10,000-stream server limit.
             if not self.active and self.issued >= 8000:
                 self.close()
@@ -146,6 +165,7 @@ class H2Bench:
                     if self.case.get("scenario") == "flow":
                         constrained_flow_bytes += event.flow_controlled_length
                     state["body"].extend(event.data)
+                    last_progress = time.monotonic()
                     if len(state["body"]) > len(state["expected"]):
                         raise RuntimeError("H2 response exceeded expected body size.")
                     self.conn.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
@@ -154,6 +174,7 @@ class H2Bench:
                     if state["status"] != 200 or state["body"] != state["expected"]:
                         raise RuntimeError("H2 response validation failed.")
                     measurement.complete(state["slot"], state["started"])
+                    last_progress = time.monotonic()
                     if time.monotonic() < deadline:
                         waiting.append(state["slot"])
                 elif isinstance(event, (StreamReset, ConnectionTerminated)):

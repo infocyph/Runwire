@@ -119,3 +119,29 @@ it('preserves task-local inheritance through barrier, mutex and bounded channel 
     expect($result)->toBe([0, 'shared-core', ['request', 0, 'child'], 'request'])
         ->and($runtime->activeTaskCount())->toBe(0);
 });
+
+
+it('enforces one channel waiter per primitive without leaking the accepted suspended child', function (): void {
+    $loop = new \Infocyph\Runwire\Loop\SelectLoop();
+    $runtime = new CoroutineRuntime($loop, new CoroutinePolicy(
+        maxTasks: 4,
+        maxReadyBacklog: 4,
+        maxWaitersPerPrimitive: 1,
+    ));
+
+    $result = $runtime->run(static function (CoroutineScope $scope): string {
+        $channel = $scope->channel();
+        $child = $scope->spawn(static fn(): mixed => $channel->receive());
+        $scope->yieldNow();
+
+        expect(fn() => $channel->receive())->toThrow(CoroutineOverflowException::class);
+        $channel->send('accepted');
+
+        return $child->await();
+    });
+
+    expect($result)->toBe('accepted')
+        ->and($runtime->activeTaskCount())->toBe(0)
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
