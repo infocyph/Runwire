@@ -71,6 +71,51 @@ Transport and workload features
      - Supervisor crash restart and generation rotation with existing bounded diagnostics
      - Adaptive scaling and sustained real mixed-protocol stop/soak acceptance remain in development
 
+Native supervision, recycling and autoscaling
+---------------------------------------------
+
+The native supervisor uses bounded worker groups and a deliberately explicit
+lifecycle. The existing Supervisor and WorkerGroup APIs select a fixed worker
+count; no independently verified CPU/RPS/p99-driven automatic scale-out or
+scale-in policy is part of the published stable contract.
+
+* RestartPolicy limits restarts in a sliding window and applies bounded
+  exponential backoff. Exhaustion is terminal rather than an infinite crash loop.
+* ReloadPolicy controls replacement surge, minimum availability, readiness
+  timeout and graceful drain. A new generation must be ready before retiring
+  the previous healthy workers.
+* WorkerRecyclePolicy can bound request count, lifetime or memory, with jitter
+  to avoid synchronized replacements. Zero thresholds disable those triggers.
+* Supervisor status, worker lifecycle events and group admission expose
+  explicit operational control. A stopped request does not gain permission to
+  leave an orphaned outgoing connection or executor job.
+
+.. code-block:: text
+
+   Native PCNTL/POSIX owner
+     |
+     +--> Supervisor --> WorkerGroup count / restart budget
+             |                  |
+             |                  +--> readiness / generation rotation
+             |                          |
+             |                          +--> old generation drains
+             |
+             +--> status and lifecycle events
+             +--> bounded recycle triggers
+             +--> stop / terminate child process tree
+
+Portable PHP without PCNTL cannot fork or install native signal handlers.
+PHP-FPM, FrankenPHP, RoadRunner, Swoole and OpenSwoole already have host
+process/reactor lifecycle managers; Runwire request adapters must use their
+native ownership instead of attempting a second fork supervisor in-process.
+Worker-owned pools may survive requests **only** after explicit ownership
+handoff, with cleanup performed by the surviving host/worker owner.
+
+Native supervision tests validate crash restart, bounded backoff, generation
+rotation and basic process reaping. Full mixed H1/H2/H3/TCP/UDP stop-during-
+traffic, real autoscale policy, saturation recovery and final process-tree
+soak remain separate unaccepted 3.0 milestones.
+
 Proof boundary and operator guidance
 ------------------------------------
 

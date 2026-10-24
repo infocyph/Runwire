@@ -216,3 +216,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **D1 documentation QA recovery (2026-10-24):** Fix the only Sphinx -n -W build error from #40068020540 (file/network RST title underline too short) with zero semantic changes. Group with next coherent QA batch. **70/175 accepted, 105 open.**
 
 **S3 H1/H2/H3 unchanged safety caps accepted (2026-10-24):** Published 2.1.2 versus green 3.0 source shows identical H1/H2/H3 request/body/frame limit classes, shared connection/worker budgets and original abuse fixtures; new H2 earned control-frame credit test also passes [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). U08.06 accepted for server-side preservation only. **71/175 accepted, 104 open, 17 more to 50.3%.**
+
+**H5 documented supervisor policy and honest autoscale limitations (2026-10-24):** A native RST lifecycle diagram now distinguishes restart budget, readiness and drain, recycle triggers and host-owned vs native processes without advertising unimplemented autoscale. U16.10 still QA-gated. **71/175, 104 open.**
