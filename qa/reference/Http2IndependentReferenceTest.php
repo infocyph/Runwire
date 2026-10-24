@@ -52,6 +52,7 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
             throw new RuntimeException('Independent H2 TLS fixture CSR generation failed.');
         }
 
+        /** @var OpenSSLAsymmetricKey $key */
         $signed = openssl_csr_sign($csr, null, $key, 1, [
             'config' => $cfg, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
         ]);
@@ -60,6 +61,7 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
         }
 
         openssl_x509_export($signed, $certificate);
+        /** @var OpenSSLAsymmetricKey $key */
         openssl_pkey_export($key, $private);
         file_put_contents($cert, $certificate);
         file_put_contents($keyFile, $private);

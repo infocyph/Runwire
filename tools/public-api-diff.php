@@ -3,12 +3,11 @@
 declare(strict_types=1);
 
 /**
- * Compare two immutable source-only PHP public API manifest exports.
+ * Compare two immutable source-only PHP API manifests (no Composer required).
  *
  * php tools/public-api-diff.php <2.1.2-manifest.json> <3.0-manifest.json>
  *
- * Output is reproducible JSON with breaking, changed and added declarations.
- * Behavioral changes still require separate maintainer review.
+ * This checks declarations only; behavioral compatibility needs human review.
  */
 
 /** @var list<string> $arguments */
@@ -17,7 +16,48 @@ if (count($arguments) !== 3) {
     throw new InvalidArgumentException('Usage: php tools/public-api-diff.php <baseline.json> <candidate.json>');
 }
 
-$load = static function (string $file): array {
+/**
+ * @param mixed $values
+ * @return list<string>
+ */
+$readList = static function (mixed $values): array {
+    if (!is_array($values) || !array_is_list($values)) {
+        throw new InvalidArgumentException('Expected a list of public API declarations.');
+    }
+    $result = [];
+    foreach ($values as $value) {
+        if (!is_string($value)) {
+            throw new InvalidArgumentException('Public API declarations must be strings.');
+        }
+        $result[] = $value;
+    }
+
+    return $result;
+};
+
+/**
+ * @param mixed $values
+ * @return array<string,string>
+ */
+$readMethods = static function (mixed $values): array {
+    if (!is_array($values)) {
+        throw new InvalidArgumentException('Expected a public method signature map.');
+    }
+    $result = [];
+    foreach ($values as $name => $signature) {
+        if (!is_string($name) || !is_string($signature)) {
+            throw new InvalidArgumentException('Public method names and signatures must be strings.');
+        }
+        $result[$name] = $signature;
+    }
+
+    return $result;
+};
+
+/**
+ * @return array{sourceRevision:string,symbols:array<string,array{kind:string,methods:array<string,string>,publicConstants:list<string>,enumCases:list<string>,sha256:string}>}
+ */
+$load = static function (string $file) use ($readList, $readMethods): array {
     if (!is_file($file) || !is_readable($file)) {
         throw new InvalidArgumentException('API diff manifest file is unavailable.');
     }
@@ -33,7 +73,23 @@ $load = static function (string $file): array {
         throw new InvalidArgumentException('API diff requires source-only manifest schema version 1.');
     }
 
-    return $decoded;
+    $symbols = [];
+    foreach ($decoded['symbols'] as $name => $record) {
+        if (!is_string($name) || !is_array($record)
+            || !is_string($record['kind'] ?? null)
+            || !is_string($record['sha256'] ?? null)) {
+            throw new InvalidArgumentException('Invalid public API symbol record.');
+        }
+        $symbols[$name] = [
+            'kind' => $record['kind'],
+            'sha256' => $record['sha256'],
+            'methods' => $readMethods($record['methods'] ?? []),
+            'publicConstants' => $readList($record['publicConstants'] ?? []),
+            'enumCases' => $readList($record['enumCases'] ?? []),
+        ];
+    }
+
+    return ['sourceRevision' => $decoded['sourceRevision'], 'symbols' => $symbols];
 };
 
 $baseline = $load($arguments[1]);
@@ -43,27 +99,21 @@ $added = [];
 $changed = [];
 
 foreach ($baseline['symbols'] as $name => $old) {
-    if (!is_array($old) || !is_string($name)) {
-        throw new InvalidArgumentException('Invalid baseline public API type.');
-    }
     $next = $candidate['symbols'][$name] ?? null;
     if ($next === null) {
         $breaking[] = ['type' => 'removed_type', 'symbol' => $name];
 
         continue;
     }
-    if (!is_array($next)) {
-        throw new InvalidArgumentException('Invalid candidate public API type.');
-    }
-    if (($old['kind'] ?? null) !== ($next['kind'] ?? null)) {
+    if ($old['kind'] !== $next['kind']) {
         $breaking[] = [
             'type' => 'changed_kind',
             'symbol' => $name,
-            'before' => $old['kind'] ?? null,
-            'after' => $next['kind'] ?? null,
+            'before' => $old['kind'],
+            'after' => $next['kind'],
         ];
     }
-    foreach ($old['methods'] ?? [] as $method => $signature) {
+    foreach ($old['methods'] as $method => $signature) {
         $current = $next['methods'][$method] ?? null;
         if ($current === null) {
             $breaking[] = ['type' => 'removed_method', 'symbol' => $name . '::' . $method];
@@ -77,12 +127,7 @@ foreach ($baseline['symbols'] as $name => $old) {
         }
     }
     foreach (['publicConstants' => 'constant', 'enumCases' => 'enum_case'] as $field => $kind) {
-        $previous = $old[$field] ?? [];
-        $current = $next[$field] ?? [];
-        if (!is_array($previous) || !is_array($current)) {
-            throw new InvalidArgumentException('Invalid API constant or enum case set.');
-        }
-        foreach (array_diff($previous, $current) as $value) {
+        foreach (array_diff($old[$field], $next[$field]) as $value) {
             $changed[] = [
                 'type' => 'removed_or_changed_' . $kind,
                 'symbol' => $name,
@@ -90,7 +135,7 @@ foreach ($baseline['symbols'] as $name => $old) {
             ];
         }
     }
-    if (($old['sha256'] ?? null) !== ($next['sha256'] ?? null)) {
+    if ($old['sha256'] !== $next['sha256']) {
         $changed[] = ['type' => 'source_changed', 'symbol' => $name];
     }
 }
@@ -101,13 +146,18 @@ foreach ($candidate['symbols'] as $name => $new) {
     }
 }
 
-$bySymbol = static fn(array $left, array $right): int =>
-    strcmp($left['symbol'] . ':' . $left['type'], $right['symbol'] . ':' . $right['type']);
+/**
+ * @param array{symbol:string,type:string} $left
+ * @param array{symbol:string,type:string} $right
+ */
+$bySymbol = static function (array $left, array $right): int {
+    return strcmp($left['symbol'] . ':' . $left['type'], $right['symbol'] . ':' . $right['type']);
+};
 usort($breaking, $bySymbol);
 usort($changed, $bySymbol);
 usort($added, $bySymbol);
 
-echo json_encode([
+$output = json_encode([
     'schemaVersion' => 1,
     'baselineRevision' => $baseline['sourceRevision'],
     'candidateRevision' => $candidate['sourceRevision'],
@@ -117,4 +167,7 @@ echo json_encode([
     'breaking' => $breaking,
     'changed' => $changed,
     'added' => $added,
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+if (file_put_contents('php://stdout', $output . PHP_EOL) === false) {
+    throw new RuntimeException('Unable to write the public API diff.');
+}
