@@ -295,6 +295,60 @@ jobs:
           fi
           server_pid=""
 
+      - name: Verify off-loop outbound QUIC TLS handshake against independent aioquic
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -keyout "$tmpdir/server.key" -out "$tmpdir/ca.pem" >/dev/null 2>&1
+
+          port="$(php -r '
+          $udp = stream_socket_server("udp://127.0.0.1:0", $code, $error, STREAM_SERVER_BIND);
+          if (!is_resource($udp)) { throw new RuntimeException($error); }
+          $address = stream_socket_get_name($udp, false);
+          fclose($udp);
+          if (!is_string($address) || !str_contains($address, ":")) {
+              throw new RuntimeException("Cannot allocate QUIC probe port.");
+          }
+          echo substr(strrchr($address, ":"), 1);
+          ')"
+
+          /tmp/runwire-aioquic/bin/python -u tests/interop/aioquic_quic_probe_server.py \
+            "$port" "$tmpdir/ca.pem" "$tmpdir/server.key" "$tmpdir/ready" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -s "$tmpdir/ready" ]; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.03
+          done
+          test -s "$tmpdir/ready" || {
+            cat "$tmpdir/server.log"
+            echo "::error::Independent aioquic QUIC probe server did not start."
+            exit 1
+          }
+
+          php tests/fixtures/quic_probe_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem"
+
       - name: Real aioquic HTTP/3 stream cancellations and sibling progress
         shell: bash
         run: |

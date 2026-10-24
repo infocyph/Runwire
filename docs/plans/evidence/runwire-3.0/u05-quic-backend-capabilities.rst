@@ -54,3 +54,17 @@ handshake construction only, not stream multiplexing or interoperable QUIC
 sessions. The next stage must preserve connection ownership across commands
 in a long-lived worker, bound per-stream queues and errors, and pass
 independent server acceptance before U05.04/U05.05 can be checked.
+
+Independent aioquic TLS handshake acceptance
+==========================================
+
+Under the existing PHP 8.5 H3 + QUIC CI job, the php-quic extension is
+installed and an independent aioquic Python server is started on an ephemeral
+local UDP port, with a fresh SAN=localhost certificate. Runwire's PHP fixture
+submits a native QUIC client handshake probe through its bounded external
+process executor. The native Connection remains in the worker; host loop
+only waits on nonblocking IPC. Verify chain/hostname using the generated
+trusted certificate, require one positive response, and release all worker
+and loop resources. The job fails if handshake or cleanup fails; do not treat
+a successful probe as completed reusable connection/stream API. The test is
+not skipped when ext-quic is available on that CI job.

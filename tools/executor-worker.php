@@ -77,14 +77,19 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                     || $options['alpn'] === []) {
                     throw new InvalidArgumentException('Invalid or unverified outbound QUIC probe.');
                 }
-                if (!class_exists(\Quic\Connection::class)) {
+                // External extension classes are resolved dynamically by the
+                // worker because they are not a mandatory Composer dependency.
+                $quicConnectionClass = 'Quic' . '\\Connection';
+
+                if (!class_exists($quicConnectionClass)) {
                     throw new RuntimeException('Optional native ext-quic is unavailable for outbound QUIC.');
                 }
 
                 // This constructor performs its full TLS handshake *before*
                 // setBlocking(false) is possible. It may only run here, in
                 // the isolated, deadline-limited executor worker process.
-                $connection = new \Quic\Connection($host, $port, $options);
+                $connection = new $quicConnectionClass($host, $port, $options);
+
                 try {
                     return ['verified' => true, 'backend' => 'ext-quic'];
                 } finally {
