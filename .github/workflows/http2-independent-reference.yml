@@ -46,6 +46,9 @@ jobs:
         run: composer install --prefer-dist --no-interaction --no-progress --ignore-platform-req=ext-event
 
       - name: Verify real TLS, ALPN, and independent H2 headers/body
+        env:
+          RUNWIRE_REQUIRE_H2_REFERENCE: "1"
         run: |
           python3 -c 'import h2.connection; print("Independent hyper-h2 available")'
-          vendor/bin/pest tests/Http2IndependentReferenceTest.php
+          cp vendor/infocyph/phpforge/resources/pest.xml pest.xml
+          vendor/bin/pest --configuration=pest.xml qa/reference/Http2IndependentReferenceTest.php

@@ -48,7 +48,7 @@ transparent H1 fallback, a complete H2 client, or H3/WT.
    vendor/bin/pest tests/Http2ClientHandshakeTest.php tests/Http2ClientResponseParserTest.php
    vendor/bin/pest tests/Http2ClientSessionTest.php tests/Http2ConnectedExchangeTest.php
    vendor/bin/pest tests/Http2OutboundClientTest.php tests/Http2ConnectedExchangeCancellationTest.php
-   vendor/bin/pest tests/Http2IndependentReferenceTest.php
+   vendor/bin/pest --configuration=pest.xml qa/reference/Http2IndependentReferenceTest.php
 
 HTTP/3 and QUIC server
 ----------------------

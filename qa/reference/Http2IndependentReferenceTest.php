@@ -16,14 +16,12 @@ use Infocyph\Runwire\Network\TlsClientOptions;
 
 it('interoperates over real verified TLS h2 with the independent upstream hyper-h2 server', function (): void {
     if (!function_exists('proc_open') || !extension_loaded('openssl')) {
-        $this->markTestSkipped('Independent H2 reference requires process and OpenSSL test tooling.');
+        throw new RuntimeException('Independent H2 QA requires process and OpenSSL tooling.');
     }
     $probe = [];
     $status = 0;
     exec('python3 -c ' . escapeshellarg('import h2.connection'), $probe, $status);
-    if ($status !== 0) {
-        $this->markTestSkipped('Optional hyper-h2 Python reference is installed by the dedicated PR-only H2 QA workflow.');
-    }
+    expect($status)->toBe(0, 'Independent H2 QA must provide hyper-h2.');
 
     $dir = sys_get_temp_dir() . '/runwire-hyper-h2-' . bin2hex(random_bytes(6));
     expect(mkdir($dir, 0700))->toBeTrue();
@@ -32,6 +30,7 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
     $keyFile = $dir . '/key.pem';
     file_put_contents($cfg, "[req]\ndistinguished_name=req_dn\nreq_extensions=v3_req\n[req_dn]\n[v3_req]\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n");
 
+    $root = dirname(__DIR__, 2);
     $loop = null;
     $executor = null;
     $dialer = null;
@@ -55,7 +54,7 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
         file_put_contents($cert, $certificate);
         file_put_contents($keyFile, $private);
 
-        $script = dirname(__DIR__) . '/tests/fixtures/h2_reference_peer.py';
+        $script = $root . '/tests/fixtures/h2_reference_peer.py';
         $process = proc_open(
             ['python3', '-u', $script, $cert, $keyFile],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
