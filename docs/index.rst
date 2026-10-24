@@ -18,6 +18,7 @@ Those proposed capabilities have **not** yet been released.
    features
    architecture
    coroutine-network-3.0
+   async-file-io-3.0
 
 All pages in this Sphinx manual are native reStructuredText (``.rst``).
 The internal development tracker is not part of the published manual.

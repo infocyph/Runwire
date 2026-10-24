@@ -138,6 +138,70 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
 
                 return base64_encode($data);
             })($arguments),
+            'write' => (static function (array $args): int {
+                $path = $args['path'] ?? null;
+                $encoded = $args['data'] ?? null;
+                $offset = $args['offset'] ?? null;
+                if (!is_string($path) || $path === '' || str_contains($path, "\0")
+                    || !is_string($encoded) || strlen($encoded) > 1_400_000
+                    || !is_int($offset) || $offset < 0) {
+                    throw new InvalidArgumentException('Invalid bounded file write.');
+                }
+                $data = base64_decode($encoded, true);
+                if (!is_string($data) || strlen($data) > MAX_FILE_BYTES) {
+                    throw new InvalidArgumentException('File write payload is invalid or exceeds the one-operation limit.');
+                }
+                $stream = fopen($path, 'c+b');
+                if ($stream === false) {
+                    throw new RuntimeException('File write could not open the destination.');
+                }
+
+                try {
+                    if (fseek($stream, $offset, SEEK_SET) !== 0) {
+                        throw new RuntimeException('File write offset cannot be positioned.');
+                    }
+                    $length = strlen($data);
+                    $written = 0;
+                    while ($written < $length) {
+                        $count = fwrite($stream, substr($data, $written, min(8192, $length - $written)));
+                        if ($count === false || $count === 0) {
+                            throw new RuntimeException('File write did not complete.');
+                        }
+                        $written += $count;
+                    }
+                    if (!fflush($stream)) {
+                        throw new RuntimeException('File buffered write flush failed.');
+                    }
+
+                    return $written;
+                } finally {
+                    fclose($stream);
+                }
+            })($arguments),
+            'rename' => (static function (array $args): bool {
+                $from = $args['from'] ?? null;
+                $to = $args['to'] ?? null;
+                if (!is_string($from) || $from === '' || str_contains($from, "\0")
+                    || !is_string($to) || $to === '' || str_contains($to, "\0")) {
+                    throw new InvalidArgumentException('Invalid bounded file rename.');
+                }
+                if (!rename($from, $to)) {
+                    throw new RuntimeException('File rename failed.');
+                }
+
+                return true;
+            })($arguments),
+            'unlink' => (static function (array $args): bool {
+                $path = $args['path'] ?? null;
+                if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
+                    throw new InvalidArgumentException('Invalid bounded file unlink.');
+                }
+                if (!unlink($path)) {
+                    throw new RuntimeException('File unlink failed.');
+                }
+
+                return true;
+            })($arguments),
             'stat' => (static function (array $args): array {
                 $path = $args['path'] ?? null;
                 if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
