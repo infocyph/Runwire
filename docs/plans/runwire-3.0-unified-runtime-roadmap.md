@@ -234,3 +234,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **H9 actual RoadRunner scoped resource cleanup staged (2026-10-24):** Real persistent PHP8.4/8.5 worker fixture now verifies request file and Unix-socket roundtrips/close plus previous request file cleanup, enforced in hosted CI. U13.04 not promoted until QA. **79/175 accepted, 96 open**.
 
 **E5 QA scanner correction and real-FPM acceptance (2026-10-24):** Remove disallowed skip directive from mandatory POSIX FIFO cancel fixture: all original PHPForge Pest suites passed but scanner refused `markTestSkipped` at exact a18c95f #40069276513. Accept real FPM per-request file/socket cleanup on PHP8.4/8.5 #40069276256 as U13.06. No claim of RoadRunner pooled async handles or new FIFO cancellation proof until full QA green. **80/175 accepted, 95 open; 8 to 50.3%.**
+
+**P3 safe pool identity key staged (2026-10-24):** Separate typed isolation keys bind destination, scope, TLS peer/trust ALPN and proxy authorization revision without storing secrets, with negative/cross-tenant unit tests. No pool functionality advertised; U10.01 awaits next exact-head QA. **80/175 accepted, 95 open.**
