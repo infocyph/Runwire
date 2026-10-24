@@ -105,3 +105,73 @@ it('receives real binary socket frames directly through scoped offset file write
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0);
 });
+
+it('holds disk reads behind a deliberately stalled socket and remains timer-responsive', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'runwire-pressure-file-');
+    expect($path)->toBeString();
+    $payload = str_repeat("p\0q\xee", 524_288);
+    file_put_contents($path, $payload);
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray();
+    [$stream, $peer] = $pair;
+    stream_set_blocking($peer, false);
+
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 4);
+    $connection = new Connection($loop, $stream, new ConnectionLimits(
+        sendLowWatermarkBytes: 4_096,
+        sendHighWatermarkBytes: 8_192,
+        maxSendBufferBytes: 16_384,
+        maxWriteBytesPerTick: 4_096,
+    ));
+    $wire = '';
+    $watcher = null;
+    $ticks = 0;
+    $heartbeat = $loop->repeat(0.004, static function () use (&$ticks): void {
+        ++$ticks;
+    });
+    $loop->delay(0.025, static function () use ($loop, $peer, &$wire, &$watcher): void {
+        $watcher = $loop->onReadable($peer, static function ($socket) use (&$wire): void {
+            while (($chunk = fread($socket, 65_536)) !== false && $chunk !== '') {
+                $wire .= $chunk;
+            }
+        });
+    });
+
+    try {
+        $runtime = new CoroutineRuntime($loop);
+        $sent = $runtime->run(static function (CoroutineScope $scope) use ($connection, $executor, $path): int {
+            $scope->registerShutdown(static function () use ($executor): void {
+                $executor->close();
+            });
+            $files = new ScopedFiles(new AsyncFileSystem($executor), $scope);
+            $network = new AsyncConnection($connection, $scope);
+            $streamer = new ScopedFileTransfer($files, $network);
+            $total = $streamer->send($path, 2_097_152, chunkBytes: 16_384);
+            $network->close();
+
+            return $total;
+        });
+        while (($chunk = fread($peer, 65_536)) !== false && $chunk !== '') {
+            $wire .= $chunk;
+        }
+        expect($sent)->toBe(strlen($payload))
+            ->and(hash('sha256', $wire))->toBe(hash('sha256', $payload))
+            ->and($connection->backpressureEvents())->toBeGreaterThan(0)
+            ->and($ticks)->toBeGreaterThan(3)
+            ->and($executor->diagnostics()['workers'])->toBe(0);
+    } finally {
+        $loop->cancel($heartbeat);
+        if (is_int($watcher)) {
+            $loop->cancel($watcher);
+        }
+        $executor->close();
+        $connection->abort();
+        fclose($peer);
+        unlink($path);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+

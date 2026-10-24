@@ -202,3 +202,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **E2 QA remediation grouped with F3 (2026-10-24):** Correct 35e1a393 PHPForge Pint, PHPCS and PHPStan findings in the next push and add 1 MiB binary worker parity regression. All previous native H3+QUIC and other ordinary workflows passed; Security & Standards stayed red. No new task counted until QA. **68/175 accepted, 107 open.**
 
 **F4 file-network bridge staging (2026-10-24):** Single bounded coroutine file/network transfer facade with real binary paired-socket hash fixtures, 16 KiB chunks and connection-pressure handling. U11.05 stays OPEN until slow-peer and full QA pass. **68/175 accepted, 107 open.**
+
+**F5 slow receiver acceptance staged (2026-10-24):** A 2 MiB wire/file SHA-256 fixture now withholds receiver reads long enough to require real bounded network backpressure, then resumes without blocking event-loop heartbeat. U11.05 still QA-gated. **68/175 accepted, 107 open.**
