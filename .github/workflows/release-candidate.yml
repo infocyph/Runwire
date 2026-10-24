@@ -1,0 +1,216 @@
+name: "Release Candidate"
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+
+concurrency:
+  group: rc-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: "Package contents and install - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2 # v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate package metadata
+        run: composer validate --strict --no-check-publish
+
+      - name: Verify strict release benchmark CPU affinity preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v taskset >/dev/null
+          mkdir -p build
+          python3 benchmarks/release_cpu_affinity.py > build/release-cpu-affinity.json
+          jq -e 'type == "object"
+            and .mode == "pinned_distinct_physical_cores"
+            and (.server_cpu | type == "number")
+            and (.client_cpu | type == "number")
+            and .server_cpu != .client_cpu
+            and .same_server_cpu_for_baseline_and_candidate == true
+            and .client_separate_physical_core == true' build/release-cpu-affinity.json >/dev/null
+          taskset -c "$(jq -r '.server_cpu' build/release-cpu-affinity.json)" true
+          taskset -c "$(jq -r '.client_cpu' build/release-cpu-affinity.json)" true
+
+      - name: Capture reproducible 2.1.2 benchmark runner topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 benchmarks/release_topology_inventory.py > build/release-topology-inventory.json
+          jq -e '.schema == "runwire-comparator-topology-v1"
+            and .published_baseline == "7e9bf20ad0737a187dfed77b723791b141b36378"
+            and .candidate_source == env.GITHUB_SHA
+            and .experiment.paired_trials == 5
+            and .experiment.trial_seconds == 180
+            and .experiment.warmup_seconds == 30
+            and .experiment.soak_seconds == 1800
+            and .isolation.client_separate_physical_core == true
+            and (.runner.allowed_logical_cores | length >= 2)' build/release-topology-inventory.json >/dev/null
+
+      - name: Upload benchmark topology inventory
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-benchmark-topology-php-${{ matrix.php-version }}
+          path: build/release-topology-inventory.json
+          retention-days: 90
+
+      - name: Build Composer archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/package
+          composer archive \
+            --format=zip \
+            --dir=build/package \
+            --file=runwire-candidate
+          archive="build/package/runwire-candidate.zip"
+          test -s "$archive"
+          unzip -Z1 "$archive" > build/package-contents.txt
+          cat build/package-contents.txt
+
+      - name: Verify production package surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          listing="build/package-contents.txt"
+
+          grep -Eq '(^|/)composer\.json$' "$listing"
+          grep -Eq '(^|/)src/Runtime\.php$' "$listing"
+
+          for forbidden in             '.github/'             'benchmarks/'             'docs/'             'tests/'             'vendor/'             '.codex/'             '.agents/'; do
+            if grep -Fq "$forbidden" "$listing"; then
+              echo "::error::Packaged archive unexpectedly contains $forbidden"
+              exit 1
+            fi
+          done
+
+      - name: Verify archive clean install and safe defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$workspace"
+          }
+          trap cleanup EXIT
+          mkdir -p "$workspace/package" "$workspace/consumer"
+          unzip -q build/package/runwire-candidate.zip -d "$workspace/package"
+          test -f "$workspace/package/composer.json"
+          test -f "$workspace/package/src/RuntimeOptions.php"
+          if [ -e "$workspace/package/tests" ] || [ -e "$workspace/package/vendor" ]; then
+            echo "::error::Clean archive unexpectedly contains test or vendor dependencies."
+            exit 1
+          fi
+          cat > "$workspace/consumer/composer.json" <<'JSON'
+          {
+            "name": "runwire/archive-smoke",
+            "type": "project",
+            "repositories": [
+              {
+                "type": "path",
+                "url": "../package",
+                "options": {
+                  "symlink": false,
+                  "versions": {"infocyph/runwire": "2.2.x-dev"}
+                }
+              }
+            ],
+            "require": {"infocyph/runwire": "2.2.x-dev"},
+            "minimum-stability": "dev",
+            "prefer-stable": true
+          }
+          JSON
+          pushd "$workspace/consumer"
+          composer install --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+          cmp "$workspace/package/src/RuntimeOptions.php" vendor/infocyph/runwire/src/RuntimeOptions.php
+          php -r '
+          require "vendor/autoload.php";
+          $options = new Infocyph\Runwire\RuntimeOptions();
+          if ($options->driver !== Infocyph\Runwire\Runtime\Enum\RuntimeDriver::AUTO
+              || $options->opcache !== Infocyph\Runwire\Runtime\Enum\OpcacheMode::AUTO
+              || !class_exists(Infocyph\Runwire\Runtime::class)) {
+              throw new RuntimeException("Runwire archive autoload or safe defaults failed.");
+          }
+          '
+          popd
+
+          # A copied native fixture must run from the clean installed package
+          # without Runwire development-only soak helpers or other repositories.
+          mkdir -p "$workspace/consumer/benchmarks"
+          cp benchmarks/http1_server.php "$workspace/consumer/benchmarks/http1_server.php"
+          port="$(php -r '
+          $listener = stream_socket_server("tcp://127.0.0.1:0", $errorCode, $error);
+          if (!is_resource($listener)) {
+              throw new RuntimeException($error);
+          }
+          $address = stream_socket_get_name($listener, false);
+          fclose($listener);
+          echo substr(strrchr((string) $address, ":"), 1);
+          ')"
+          php "$workspace/consumer/benchmarks/http1_server.php" "$port" > build/package-native-server.log 2>&1 &
+          server_pid=$!
+          ready=0
+          for attempt in $(seq 1 100); do
+            if curl -fsS --http1.1 --max-time 2 -H 'Connection: close' \
+              "http://127.0.0.1:$port/benchmark" -o build/package-native-body.txt 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat build/package-native-server.log
+              exit 1
+            fi
+            sleep 0.05
+          done
+          test "$ready" -eq 1
+          test "$(cat build/package-native-body.txt)" = "ok"
+          status="$(curl -sS --http1.1 --max-time 5 -H 'Connection: close' \
+            "http://127.0.0.1:$port/invalid" -o build/package-native-invalid.txt -w '%{http_code}')"
+          test "$status" = "400"
+          test "$(cat build/package-native-invalid.txt)" = "bad"
+          jq -n \
+            --arg source_sha "$(git rev-parse HEAD)" \
+            --arg php_version "$(php -r 'echo PHP_VERSION;')" \
+            '{source_sha:$source_sha,php_version:$php_version,isolated_package_install:true,
+              native_http_200:true,native_http_400:true,
+              diagnostics_disabled:true,correctness_passed:true}' \
+            > "build/package-native-php-${{ matrix.php-version }}.json"
+
+      - name: Upload candidate package evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-candidate-package-php-${{ matrix.php-version }}
+          path: |
+            build/package/runwire-candidate.zip
+            build/package-contents.txt
+            build/package-native-php-${{ matrix.php-version }}.json
+            build/package-native-server.log
+          retention-days: 61

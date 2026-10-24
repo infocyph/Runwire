@@ -1,0 +1,104 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire\Network;
+
+use InvalidArgumentException;
+
+/**
+ * Configures server-side TLS certificates, ALPN, and handshake behavior.
+ */
+final readonly class TlsOptions
+{
+    /**
+     * @param list<string> $alpnProtocols
+     * @param array<string, mixed> $extraContext
+     */
+    public function __construct(
+        public string $localCertificate,
+        public ?string $privateKey = null,
+        public ?string $passphrase = null,
+        public array $alpnProtocols = ['h2', 'http/1.1'],
+        public float $handshakeTimeoutSeconds = 10.0,
+        public ?int $cryptoMethod = null,
+        public array $extraContext = [],
+        public bool $requireClientCertificate = false,
+    ) {
+        if ($localCertificate === '' || !is_file($localCertificate)) {
+            throw new InvalidArgumentException('TLS local certificate must reference an existing file.');
+        }
+        if ($privateKey !== null && ($privateKey === '' || !is_file($privateKey))) {
+            throw new InvalidArgumentException('TLS private key must reference an existing file when supplied.');
+        }
+        if (!is_finite($handshakeTimeoutSeconds) || $handshakeTimeoutSeconds <= 0) {
+            throw new InvalidArgumentException('TLS handshake timeout must be finite and positive.');
+        }
+        self::validateAlpn($alpnProtocols);
+        self::validateTrust($extraContext, $requireClientCertificate);
+    }
+
+    /** @return array<string, mixed> */
+    public function context(): array
+    {
+        $context = $this->extraContext;
+        $context['local_cert'] = realpath($this->localCertificate) ?: $this->localCertificate;
+        if ($this->privateKey !== null) {
+            $context['local_pk'] = realpath($this->privateKey) ?: $this->privateKey;
+        }
+        if ($this->passphrase !== null) {
+            $context['passphrase'] = $this->passphrase;
+        }
+        $context['crypto_method'] = $this->method();
+        $context['verify_peer'] ??= false;
+        $context['verify_peer_name'] ??= false;
+        if ($this->requireClientCertificate) {
+            $context['verify_peer'] = true;
+            $context['verify_peer_name'] = false;
+            $context['allow_self_signed'] = false;
+            $context['capture_peer_cert'] = true;
+            $depth = $context['verify_depth'] ?? 8;
+            $context['verify_depth'] = max(1, min(8, is_int($depth) ? $depth : 8));
+        }
+        $context['disable_compression'] = true;
+        if ($this->alpnProtocols !== []) {
+            $context['alpn_protocols'] = implode(',', $this->alpnProtocols);
+        }
+
+        return $context;
+    }
+
+    /**
+     * Returns the OpenSSL crypto method used for server handshakes.
+     */
+    public function method(): int
+    {
+        return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);
+    }
+
+    /** @param list<string> $protocols */
+    private static function validateAlpn(array $protocols): void
+    {
+        foreach ($protocols as $protocol) {
+            if ($protocol === '' || strlen($protocol) > 255 || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
+                throw new InvalidArgumentException('Every ALPN protocol must be a non-empty string of at most 255 bytes.');
+            }
+        }
+        if (count(array_unique($protocols)) !== count($protocols)) {
+            throw new InvalidArgumentException('ALPN protocols must be unique.');
+        }
+    }
+
+    /** @param array<string, mixed> $context */
+    private static function validateTrust(array $context, bool $required): void
+    {
+        if (!$required) {
+            return;
+        }
+        $caFile = $context['cafile'] ?? null;
+        $caPath = $context['capath'] ?? null;
+        if ((!is_string($caFile) || !is_file($caFile)) && (!is_string($caPath) || !is_dir($caPath))) {
+            throw new InvalidArgumentException('Required mutual TLS needs a configured trusted CA file or directory.');
+        }
+    }
+}

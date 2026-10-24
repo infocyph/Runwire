@@ -1,0 +1,368 @@
+name: "Real Hosted Runtime Acceptance"
+
+on:
+  pull_request:
+    branches: [ "main", "master", "develop", "development" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frankenphp-worker:
+    name: "Real FrankenPHP worker - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+
+      - name: Install Runwire
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Validate the native host fixture
+        run: php -l tests/fixtures/frankenphp-live/index.php
+
+      - name: Exercise actual FrankenPHP persistent worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="dunglas/frankenphp:1-php${{ matrix.php-version }}-bookworm"
+          docker pull "$image"
+          container="runwire-frankenphp-${{ matrix.php-version }}-$GITHUB_RUN_ID"
+          out="$(mktemp -d)"
+          cleanup() {
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            rm -rf "$out"
+          }
+          trap cleanup EXIT
+
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $code, $error);
+          if (!is_resource($server)) { throw new RuntimeException($error); }
+          $addr = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($addr) || !str_contains($addr, ":")) {
+              throw new RuntimeException("No ephemeral host port.");
+          }
+          echo substr(strrchr($addr, ":"), 1);
+          ')"
+
+          docker image inspect "$image" --format 'entrypoint={{json .Config.Entrypoint}} cmd={{json .Config.Cmd}}'
+          if ! docker run -d --name "$container" --entrypoint /usr/local/bin/frankenphp \
+            -p "127.0.0.1:$port:80" \
+            -e "SERVER_NAME=:80" \
+            -e "FRANKENPHP_CONFIG=worker /app/public/index.php 1" \
+            -v "$PWD/tests/fixtures/frankenphp-live:/app/public:ro" \
+            -v "$PWD:/runwire:ro" \
+            "$image" run --config /etc/frankenphp/Caddyfile --adapter caddyfile \
+            >"$out/start.stdout" 2>"$out/start.stderr"; then
+            echo "Docker failed to create the FrankenPHP container." >&2
+            cat "$out/start.stdout" "$out/start.stderr" >&2
+            exit 1
+          fi
+          echo "FrankenPHP container created: $(cat "$out/start.stdout")"
+          docker inspect "$container" --format 'state={{.State.Status}} exit={{.State.ExitCode}} failure={{.State.Error}}' || true
+          docker logs "$container" >&2 || true
+
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 2 "http://127.0.0.1:$port/index.php?case=ready" >"$out/ready.json" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != true ]; then
+              docker inspect "$container" --format 'state={{.State.Status}} exit={{.State.ExitCode}} failure={{.State.Error}}'
+              docker logs "$container" >&2 || true
+              exit 1
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != 1 ]; then
+            docker logs "$container"
+            echo "FrankenPHP real worker did not start." >&2
+            exit 1
+          fi
+
+          for number in 1 2 3; do
+            curl -fsS --max-time 4 "http://127.0.0.1:$port/index.php?case=$number" >"$out/request-$number.json"
+          done
+          echo 'Actual isolated FrankenPHP worker HTTP responses:'
+          jq -s . "$out/request-1.json" "$out/request-2.json" "$out/request-3.json"
+          jq -se '
+            length == 3
+            and .[0].method == "GET"
+            and .[0].target == "/index.php?case=1"
+            and .[1].target == "/index.php?case=2"
+            and .[2].target == "/index.php?case=3"
+            and .[0].pid >= 1
+            and .[0].pid == .[1].pid and .[1].pid == .[2].pid
+            and .[0].sequence >= 2
+            and .[1].sequence == .[0].sequence + 1
+            and .[2].sequence == .[1].sequence + 1
+          ' "$out/request-1.json" "$out/request-2.json" "$out/request-3.json"
+
+          echo "Real FrankenPHP worker: persistent PID, sequential generation, fresh HTTP request context PASS"
+
+  roadrunner-worker:
+    name: "Real RoadRunner worker - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: event, pcntl, posix, opcache
+          coverage: none
+
+      - name: Install standalone Runwire and RoadRunner host client
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          composer require 'roadrunner/http:^4.0' --no-interaction --prefer-dist --no-progress --with-all-dependencies
+
+      - name: Exercise real RoadRunner process and worker ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tests/fixtures/roadrunner-live/index.php
+          tmp="$(mktemp -d)"
+          rr_pid=""
+          cleanup() {
+            if [ -n "$rr_pid" ]; then
+              kill -TERM "$rr_pid" 2>/dev/null || true
+              wait "$rr_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+
+          curl -fsSL --retry 3 \
+            'https://github.com/roadrunner-server/roadrunner/releases/download/v3.0.1/roadrunner-3.0.1-linux-amd64.tar.gz' \
+            -o "$tmp/rr.tar.gz"
+          tar -xzf "$tmp/rr.tar.gz" -C "$tmp"
+          rr="$(find "$tmp" -type f -name rr -print -quit)"
+          if [ -z "$rr" ]; then
+            echo "Pinned RoadRunner 3.0.1 executable not found in archive." >&2
+            exit 1
+          fi
+          chmod +x "$rr"
+          "$rr" --version
+          port="$(php -r '
+          $listener = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($listener)) { throw new RuntimeException($error); }
+          $address = stream_socket_get_name($listener, false);
+          fclose($listener);
+          if (!is_string($address) || !str_contains($address, ":")) {
+              throw new RuntimeException("Failed to allocate RoadRunner port.");
+          }
+          echo substr(strrchr($address, ":"), 1);
+          ')"
+          cat > "$tmp/.rr.yaml" <<YAML
+          version: '3'
+          server:
+            command: "php $PWD/tests/fixtures/roadrunner-live/index.php"
+            relay: pipes
+            env:
+              RR_MODE: "http"
+              RR_RELAY: "pipes"
+          http:
+            address: 127.0.0.1:$port
+            pool:
+              num_workers: 1
+              max_jobs: 0
+          logs:
+            level: error
+          YAML
+
+          rm -f /tmp/runwire-road-runner-worker-error.log
+          "$rr" serve -c "$tmp/.rr.yaml" >"$tmp/rr.log" 2>&1 &
+          rr_pid=$!
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl -fsS --max-time 2 "http://127.0.0.1:$port/rr?case=ready" >"$tmp/ready.json" 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$rr_pid" 2>/dev/null; then
+              cat "$tmp/rr.log" >&2
+              cat /tmp/runwire-road-runner-worker-error.log >&2 || true
+              exit 1
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != 1 ]; then
+            cat "$tmp/rr.log" >&2
+            cat /tmp/runwire-road-runner-worker-error.log >&2 || true
+            echo 'Real RoadRunner host did not respond.' >&2
+            exit 1
+          fi
+
+          for number in 1 2 3; do
+            curl -fsS --max-time 4 "http://127.0.0.1:$port/rr?case=$number" >"$tmp/request-$number.json"
+          done
+          jq -s . "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
+          if ! jq -se '
+            length == 3
+            and .[0].method == "GET"
+            and .[0].target == "/rr?case=1"
+            and .[1].target == "/rr?case=2"
+            and .[2].target == "/rr?case=3"
+            and .[0].pid >= 1
+            and .[0].pid == .[1].pid and .[1].pid == .[2].pid
+            and .[0].sequence >= 2
+            and .[1].sequence == .[0].sequence + 1
+            and .[2].sequence == .[1].sequence + 1
+            and all(.[]; .prior_file_clean == true and .file_roundtrip == true
+              and .file_closed == true and .socket_roundtrip == true and .socket_closed == true
+              and .fd_stable == true and .prior_fd_stable == true and .fd_after <= .fd_before)
+          ' "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"; then
+            cat "$tmp/rr.log" >&2
+            exit 1
+          fi
+          echo "Real RoadRunner persistent PHP ${{ matrix.php-version }} worker PASS"
+
+  fpm-request:
+    name: "Real PHP-FPM request scope - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Setup PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: event, pcntl, posix, opcache
+          coverage: none
+
+      - name: Install standalone Runwire and FastCGI client
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libfcgi-bin
+          php -l tests/fixtures/fpm-live/index.php
+
+      - name: Validate real PHP-FPM isolated request globals
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="php:${{ matrix.php-version }}-fpm-bookworm"
+          docker pull "$image"
+          tmp="$(mktemp -d)"
+          container="runwire-fpm-${{ matrix.php-version }}-$GITHUB_RUN_ID"
+          cleanup() {
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+          port="$(php -r '
+          $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+          if (!is_resource($server)) { throw new RuntimeException($error); }
+          $addr = stream_socket_get_name($server, false);
+          fclose($server);
+          if (!is_string($addr) || !str_contains($addr, ":")) {
+              throw new RuntimeException("No free FastCGI port.");
+          }
+          echo substr(strrchr($addr, ":"), 1);
+          ')"
+          docker run -d --name "$container" \
+            -p "127.0.0.1:$port:9000" \
+            -v "$PWD:/runwire:ro" \
+            "$image" >/dev/null
+
+          ready=0
+          for attempt in $(seq 1 120); do
+            if php -r '
+              $socket = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $error, $message, 0.1);
+              if (!is_resource($socket)) { exit(1); }
+              fclose($socket);
+            ' "$port" >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' "$container")" != true ]; then
+              docker logs "$container" >&2
+              exit 1
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" != 1 ]; then
+            docker logs "$container" >&2
+            echo "Real PHP-FPM transport not ready." >&2
+            exit 1
+          fi
+
+          for number in 1 2 3; do
+            env -i \
+              PATH="$PATH" \
+              REQUEST_METHOD=GET \
+              REQUEST_URI="/index.php?case=$number" \
+              QUERY_STRING="case=$number" \
+              SCRIPT_FILENAME="/runwire/tests/fixtures/fpm-live/index.php" \
+              SCRIPT_NAME="/index.php" \
+              DOCUMENT_ROOT="/runwire/tests/fixtures/fpm-live" \
+              SERVER_PROTOCOL="HTTP/1.1" \
+              SERVER_NAME=localhost \
+              SERVER_PORT=80 \
+              REMOTE_ADDR=127.0.0.1 \
+              CONTENT_LENGTH=0 \
+              cgi-fcgi -bind -connect "127.0.0.1:$port" \
+              </dev/null >"$tmp/response-$number.raw"
+            php -r '
+            $text = file_get_contents($argv[1]);
+            if ($text === false) { throw new RuntimeException("No FastCGI response."); }
+            $parts = preg_split("/\r?\n\r?\n/", $text, 2);
+            if (!is_array($parts) || count($parts) !== 2) {
+                throw new RuntimeException("Malformed FastCGI HTTP header boundary.");
+            }
+            $data = json_decode(trim($parts[1]), true, 512, JSON_THROW_ON_ERROR);
+            file_put_contents($argv[2], json_encode($data, JSON_THROW_ON_ERROR));
+            ' "$tmp/response-$number.raw" "$tmp/request-$number.json"
+          done
+          jq -s . "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
+          jq -se '
+            length == 3
+            and all(.[]; .method == "GET" and .sapi == "fpm-fcgi" and .pid >= 1 and .sequence == 1
+              and .file_roundtrip == true and .file_closed == true
+              and .socket_roundtrip == true and .socket_closed == true)
+            and .[0].target == "/index.php?case=1"
+            and .[1].target == "/index.php?case=2"
+            and .[2].target == "/index.php?case=3"
+          ' "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
+          echo "Real PHP-FPM request-scope isolation PASS"
+

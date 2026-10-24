@@ -1,0 +1,459 @@
+# Runwire
+
+A high-performance, framework-agnostic process and network runtime for PHP.
+
+Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
+
+**Current stable: Runwire 2.1.x.** The planned next major release is **Runwire 3.0.0**, with the [consolidated unified-runtime roadmap](docs/plans/runwire-3.0-unified-runtime-roadmap.md) and [canonical 175-task implementation tracker](docs/plans/runwire-3.0-unified-runtime-development-plan.md). The unpublished 2.2 [plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/plans/runwire-2.2-runtime-improvement-plan.md) and [draft release notes](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/release-notes-2.2.md) remain accessible in Git history, with [historical QA evidence](docs/plans/evidence/runwire-2.2/README.md) retained in-repository. There is **one active tracker for 3.0 only**. See the 2.0 migration guide when upgrading from 1.x.
+
+## Requirements
+
+Hard package requirements:
+
+- 64-bit PHP `^8.4`;
+- Composer.
+
+Install:
+
+```bash
+composer require infocyph/runwire
+```
+
+Optional runtime capabilities:
+
+| Extension/capability | Enables |
+| --- | --- |
+| `ext-pcntl` + `ext-posix` | native prefork supervision, reload, worker replacement/recycle, signals, control operations, privilege reduction |
+| `ext-event` | scalable native HTTP event-loop backend for prefork workers; SelectLoop remains the fallback |
+| `ext-openssl` | native TLS and HTTP/2 ALPN |
+| `ext-quic` | native QUIC / HTTP/3 |
+| `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host runtime integration; select `RuntimeDriver::SWOOLE` explicitly when using this host adapter |
+| `ext-sockets` | optional low-level socket features |
+| OPcache | persistent bytecode caching |
+
+Without PCNTL/POSIX, native CLI uses Runwire's portable single-process runtime. Prefork-only capabilities are not advertised there.
+
+## Native HTTP quick start
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime;
+use Infocyph\Runwire\Server;
+
+require __DIR__ . '/vendor/autoload.php';
+
+$server = Server::http(
+    '127.0.0.1:8080',
+    static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+        $writer->end("Hello from Runwire\n");
+    },
+);
+
+Runtime::create()
+    ->listen($server)
+    ->run();
+```
+
+Run:
+
+```bash
+php server.php
+curl http://127.0.0.1:8080/
+```
+
+## Runtime modes
+
+`RuntimeDriver::AUTO` detects active hosted environments and native CLI capability. The built-in environment probe recognizes active FrankenPHP, RoadRunner, and FPM hosts; otherwise eligible CLI execution resolves to native Runwire. Merely installing Swoole/OpenSwoole does not mark the process as an active Swoole host, so use explicit `RuntimeDriver::SWOOLE` selection when Runwire should use its Swoole/OpenSwoole host adapter.
+
+| Runtime | Listener/wire owner | Application lifetime | Worker pool |
+| --- | --- | --- | --- |
+| Native prefork | Runwire | persistent | Runwire |
+| Native portable | Runwire | persistent | single process |
+| FPM | web server / FPM | request-scoped from Runwire boundary | host |
+| FrankenPHP | FrankenPHP | host/mode dependent | host |
+| RoadRunner | RoadRunner | persistent | host |
+| Swoole/OpenSwoole | Swoole/OpenSwoole | persistent | host |
+
+Native listeners use:
+
+```php
+Runtime::create()->listen($server)->run();
+```
+
+Auto-detected host-owned runtimes use:
+
+```php
+Runtime::create()->serve($handler);
+```
+
+or:
+
+```php
+Runtime::create()->serveApplication($applicationFactory);
+```
+
+Swoole/OpenSwoole uses the same host-owned serving API, but select the driver explicitly:
+
+```php
+use Infocyph\Runwire\Runtime;
+use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\RuntimeOptions;
+use Infocyph\Runwire\SwooleOptions;
+
+$options = new RuntimeOptions(
+    driver: RuntimeDriver::SWOOLE,
+    swoole: new SwooleOptions(
+        host: '127.0.0.1',
+        port: 9501,
+    ),
+);
+
+Runtime::create($options)->serve($handler);
+```
+
+Either supported Swoole-family extension can back `RuntimeDriver::SWOOLE`. Explicit selection fails startup when neither runtime is available.
+
+Do not combine host-owned serving with a competing Runwire listener.
+
+### Portable native contract
+
+Portable native is intentionally not a substitute supervisor:
+
+| Configuration | Portable-native behavior |
+| --- | --- |
+| `workers: 0` or `workers: 1` | One process. |
+| `workers > 1` | Startup error. |
+| Worker recycle threshold enabled | Startup error. |
+| Native control endpoint configured | Startup error. |
+| Development watcher configured | Startup error. |
+| Supervisor lifecycle listener configured | Startup error. |
+| Worker privilege-drop policy configured | Startup error. |
+| HTTP/3 configured without QUIC | Startup error. |
+
+HTTP/1.1, framed TCP/Unix, and UDP remain available when their platform capabilities are present. External supervision owns process restart/replacement.
+
+## Native protocols
+
+Runwire 2.0 provides:
+
+- HTTP/1.1 over TCP/TLS;
+- HTTP/2 over TLS ALPN with HTTP/1.1 fallback;
+- HTTP/3 over QUIC when the supported QUIC capability is available;
+- RFC 6455 WebSocket upgrade over native HTTP/1.1;
+- framed TCP and Unix-domain stream servers;
+- UDP datagram servers.
+
+All native HTTP versions normalize to the same application-facing `HttpRequest` / `ResponseWriterInterface` contract.
+
+### TLS / HTTP/2
+
+```php
+use Infocyph\Runwire\Network\TlsOptions;
+
+$tls = new TlsOptions(
+    localCertificate: __DIR__ . '/certs/server.crt',
+    privateKey: __DIR__ . '/certs/server.key',
+);
+
+$server = Server::http('0.0.0.0:8443', $handler)
+    ->withTls($tls);
+```
+
+Default ALPN is `h2,http/1.1`. Explicit TLS configuration fails when OpenSSL capability is unavailable; it never becomes plaintext silently.
+
+### HTTP/3
+
+```php
+$server = Server::http('0.0.0.0:8443', $handler)
+    ->withTls($tls)
+    ->withHttp3();
+```
+
+HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 2.0.
+
+### Protocol scheduling policy
+
+Runwire can tune a small set of **protocol-internal scheduling decisions** without changing the application-facing HTTP contract. The policy is useful when the same server must favor deterministic behavior, lower interactive latency, sustained transfer efficiency, or automatic crossover under changing load.
+
+HTTP/1.1, HTTP/2, and HTTP/3 all default to `AdaptivePolicyMode::FIXED` in Runwire 2.0. The other modes are explicit opt-ins because a scheduling profile that helps one workload can hurt another, especially during load transitions or at tail latency.
+
+| Mode | Why it exists | Use it when | HTTP/1.1 effect | HTTP/2 effect | HTTP/3 effect |
+| --- | --- | --- | --- | --- | --- |
+| `FIXED` | Predictable, release-certified behavior with no load-state transitions. | **Default choice**; use when you want deterministic behavior, have not benchmarked another profile, or operate a mixed/unknown workload. | Keeps the protocol default TCP_NODELAY behavior enabled unless the listener explicitly overrides it. | Uses the full bounded initial-response fast-path budget; otherwise normal multiplexed scheduling applies. | Uses configured read/write maxima and the configured base poll timing. |
+| `LATENCY` | Pins the latency-biased state instead of adapting at runtime. | Small interactive responses, RPC-style traffic, or latency-sensitive workloads where repeated measurement shows this profile helps. | Keeps TCP_NODELAY enabled. | Keeps the larger latency-biased one-shot initial-response budget. | Reduces adaptive read/write work per turn to favor shorter scheduling turns; idle polling is not stretched by the throughput profile. |
+| `THROUGHPUT` | Pins the throughput-biased state for sustained/bulk work. | Large or sustained transfers where batching/fewer scheduling interruptions improve measured throughput without unacceptable tail latency. | Disables TCP_NODELAY by default so TCP may coalesce small writes; an explicit listener socket setting still wins. | Uses the smaller throughput-profile one-shot budget so larger responses fall back to normal multiplexed scheduling sooner. | Uses the configured maximum read/write work budgets and may use a longer idle poll interval when appropriate. |
+| `AUTO` | Dynamically moves between latency, balanced, and throughput states as protocol-local pressure changes. | Variable workloads **only after** steady-state and transition benchmarks show it is safe for your deployment. | Samples a bounded set of recent live connections and chooses the NODELAY default for newly attached connections. | Adjusts only the bounded initial-response fast-path budget from queue/stream pressure. | Adapts inbound read/poll effort and outbound response-write effort independently. |
+
+`AUTO` uses integer EWMA smoothing, low/high watermarks, and sustained-sample dwell to avoid rapid state flapping. The internal `BALANCED` state is not a separate public mode; it is one state AUTO may select.
+
+Important boundaries:
+
+| Area | Contract |
+| --- | --- |
+| Hard limits | Scheduling policy **never raises** body, header, frame, stream, connection, queue, flow-control, HPACK/QPACK, WebSocket, or lifecycle limits. |
+| H1 application point | NODELAY policy is chosen when a connection is attached; existing connections are not retroactively retuned. |
+| H1 precedence | Explicit listener `tcp_nodelay` configuration overrides the protocol policy. |
+| H2 scope | Policy affects only the bounded initial-response optimization; normal flow control, multiplexing, fairness, and backpressure remain unchanged. |
+| H3 scope | `inboundAdaptive` and `outboundAdaptive` are independent; one direction can remain FIXED while the other is tuned. |
+| Constructor default | Standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; protocol option objects intentionally supply Runwire 2.0 `FIXED` release defaults. |
+
+Use non-default modes only with representative repeated measurements that include throughput, p95/p99 latency, CPU/RSS, backpressure, fairness, and load transitions. See [Getting Started](docs/getting-started.md#7-adaptive-protocol-scheduling) for configuration examples and validation rules, and [Deployment](docs/deployment.md#19-adaptive-protocol-scheduling) for production selection guidance.
+
+### Native HTTP/1 WebSocket
+
+```php
+use Infocyph\Runwire\Http\HttpRequest;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\WebSocket\WebSocketMessage;
+use Infocyph\Runwire\WebSocket\WebSocketSession;
+use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
+
+$server = Server::http(
+    '0.0.0.0:8080',
+    static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+        $session = WebSocketUpgrade::accept(
+            $request,
+            $writer,
+            originPolicy: static fn(string $origin, HttpRequest $request): bool =>
+                $origin === 'https://example.com',
+        );
+        if (!$session instanceof WebSocketSession) {
+            return;
+        }
+
+        $session->onMessage(
+            static function (WebSocketSession $session, WebSocketMessage $message): void {
+                $result = $message->binary
+                    ? $session->sendBinary($message->data)
+                    : $session->sendText($message->data);
+
+                if (!$result->accepted()) {
+                    $session->close(1011, 'write rejected');
+                }
+            },
+        );
+    },
+);
+```
+
+Native WebSocket serving is intentionally HTTP/1.1-only in 2.0. Compression and HTTP/2/HTTP/3 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
+
+## Framed TCP example
+
+```php
+use Infocyph\Runwire\Protocol\FramedConnection;
+use Infocyph\Runwire\Protocol\LineCodec;
+use Infocyph\Runwire\StreamServer;
+
+$server = StreamServer::tcp(
+    '127.0.0.1:9000',
+    static fn(): LineCodec => new LineCodec(),
+    static function (string $frame, FramedConnection $connection): void {
+        $connection->send('echo:' . $frame);
+    },
+);
+
+Runtime::create()->listen($server)->run();
+```
+
+## Structured coroutines
+
+Runwire includes a lightweight structured-concurrency runtime built on PHP `Fiber` and `LoopInterface`. Coroutine request handlers can also use `ResponseTransfer::stream()` to copy an already-authorized stream into a response with bounded chunks, cancellation, cooperative yielding, and writer backpressure.
+
+```php
+use Infocyph\Runwire\Coroutine\CoroutineRuntime;
+use Infocyph\Runwire\Coroutine\CoroutineScope;
+
+$coroutines = new CoroutineRuntime();
+
+$result = $coroutines->run(
+    static function (CoroutineScope $scope): array {
+        $left = $scope->spawn(static function () use ($scope): string {
+            $scope->sleep(0.010);
+            return 'left';
+        });
+
+        $right = $scope->spawn(static fn(): string => 'right');
+
+        return [$left->await(), $right->await()];
+    },
+);
+```
+
+Structured ownership means a scope does not silently finish while owned children remain live. Cancellation and deadlines propagate through the ownership tree.
+
+Available scheduler-aware primitives include:
+
+- tasks and nested groups;
+- futures/deferred values;
+- bounded channels;
+- semaphores and mutexes;
+- barriers;
+- task-local state;
+- cooperative sleep/yield;
+- readable/writable stream waiting;
+- request-scoped coroutine execution;
+- worker-generation background work;
+- coroutine-friendly `AsyncConnection` adaptation.
+
+Runwire does **not** make arbitrary blocking PHP APIs asynchronous.
+
+## Runtime and request context
+
+Runtime and request state are separated by lifetime:
+
+| Context | Lifetime | Contains |
+| --- | --- | --- |
+| `RuntimeContext` | Worker/application lifetime | Driver/mode; worker slot/generation/PID; persistence/concurrency; listener/event-loop/worker-pool ownership; resolved capabilities; runtime metrics. |
+| `RequestContext` | Request lifetime | Request ID; monotonic start/deadline; cancellation token; bounded request attributes; owning `RuntimeContext`. |
+
+Framework integrations should use capability checks instead of driver-name branching for generic behavior:
+
+```php
+use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
+
+if ($context->supports(RuntimeCapability::PERSISTENT)) {
+    // worker-lifetime application state is allowed
+}
+
+$context->requireCapability(RuntimeCapability::RUNWIRE_COROUTINES);
+```
+
+## Application lifecycle
+
+Managed applications follow:
+
+```text
+boot
+→ warmup
+→ ready
+→ handle
+→ reset
+→ ...
+→ drain
+→ shutdown
+```
+
+Frameworks can implement `RuntimeApplicationFactoryInterface` so application construction happens after the concrete runtime context/capabilities are known.
+
+For Swoole/OpenSwoole, `serveApplication()` invokes that factory inside each
+actual worker after the host forks. The exact context passed to the factory is
+also used by its application requests; its PID and worker slot identify the
+current worker. `serve()` likewise creates its built-in application per worker.
+Construct framework containers, connections and other process-bound resources
+inside the factory. Worker stop/replacement drains and shuts down the worker's
+application once, and replacements receive independent contexts and metrics.
+
+Request cleanup is part of the persistent-runtime security boundary. Framework adapters must reset framework-owned request-local state after every request, including failure/cancellation/deadline paths.
+
+## Worker lifecycle
+
+Native prefork supports:
+
+- readiness tracking;
+- bounded startup/readiness timeouts;
+- process restart/backoff;
+- rolling reload;
+- worker recycle/replacement;
+- lifecycle events;
+- optional control socket;
+- optional development watcher;
+- optional privilege reduction.
+
+When UID-based privilege reduction is configured, Runwire resolves the target account, initializes supplementary groups, sets GID before UID, verifies the final effective identity, and only then proceeds to application bootstrap/readiness. A partial transition fails startup.
+
+Native prefork running as root without worker privilege dropping reports a `SECURITY:` runtime-selection warning. Prefer starting the service unprivileged whenever possible.
+
+## Resource safety
+
+Runwire is designed around bounded state:
+
+- admission limits;
+- listener/connection limits;
+- request-body/header limits;
+- HTTP/2/HTTP/3 stream limits;
+- response buffering and backpressure;
+- HPACK/QPACK limits;
+- event-loop work budgets;
+- coroutine tasks/backlogs/waiters;
+- diagnostics/status payloads;
+- restart/reload/recycle policies.
+
+Treat limit increases as capacity-planning decisions and verify them with soak/load tests.
+
+`WorkerRecyclePolicy::maxMemoryBytes` is based on PHP allocator memory, not process RSS/cgroup/native-extension/kernel memory. Use OS/container memory limits as the hard process-memory boundary.
+
+## Process execution
+
+`ProcessRunner` executes validated argv directly with shell bypass and does not require PCNTL. Its default `allowedExecutables: null` means any validated **absolute** executable path is permitted. Security-sensitive consumers should supply an explicit executable allowlist and bound environment, cwd, stdin, output, and timeout policies.
+
+See the security guide before exposing process execution to application-controlled input.
+
+## Performance
+
+Repository benchmark artifacts are regression/workload evidence, not a universal runtime ranking.
+
+| Comparison dimension | Keep equivalent |
+| --- | --- |
+| Platform | Hardware/runner class and OS. |
+| Runtime | PHP/runtime and extension versions. |
+| Transport | Protocol and TLS configuration. |
+| Topology | Worker count and concurrency. |
+| Workload | Request/response shape, payload, reuse, and pressure profile. |
+| Measurement | Warmup, duration, trials, and instrumentation. |
+
+Report throughput together with p50/p95/p99 latency, errors, CPU, and RSS.
+
+Before a release-critical tag/merge, the opt-in Release Certification workflow covers:
+
+| Gate | What it proves |
+| --- | --- |
+| Matched sustained performance | Five 180-second baseline/candidate trials after warmup; correctness, stability, and the 5% throughput-regression budget. |
+| 30-minute native HTTP soak | Sustained correctness with zero errors, timeouts, or response-validation failures. |
+| Representative Infbyte consumer | Exact candidate installs into the real consumer, its full suite passes, and the Foundation/Webrick bridge works. |
+| PHPForge release guard | Required extensions/platform checks plus the full `composer ic:release:guard` gate. |
+
+See [Benchmark Methodology](docs/benchmarks.md) for exact commands, evidence fields, acceptance conditions, and adaptive-policy promotion rules.
+
+## Documentation
+
+Start here for complete examples and operational guidance:
+
+- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, adaptive scheduling, TCP/Unix, UDP, hosted-runtime, explicit Swoole/OpenSwoole selection, application-factory, capability, and coroutine examples.
+- [`docs/architecture.md`](docs/architecture.md) — runtime selection, ownership boundaries, capability model, contexts, lifecycle, networking, protocol, coroutine, observability, and security contracts.
+- [`docs/deployment.md`](docs/deployment.md) — production topology, host selection, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, adaptive policy selection, backpressure, resource limits, and deployment acceptance.
+- [`docs/security.md`](docs/security.md) — least privilege, persistent-state isolation, ProcessRunner policy, `disable_functions`, resource ceilings, and systemd/container hardening.
+- [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
+- [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.
+- [`docs/migration-2.0.md`](docs/migration-2.0.md) — required 1.x to 2.0 consumer migration checks and behavioral contract changes.
+
+## Development
+
+Install development dependencies:
+
+```bash
+composer install
+```
+
+Run repository QA:
+
+```bash
+composer ic:ci
+```
+
+Run the automated formatting/refactor processing pipeline:
+
+```bash
+composer ic:process
+```
+
+The CI matrix covers supported PHP versions/dependency modes, static analysis, clean production installation, genuine no-PCNTL portable-native acceptance, benchmarks, Swoole/OpenSwoole acceptance, and dedicated QUIC/HTTP/3 interoperability/soak lanes.
+
+## License
+
+Runwire is released under the MIT License.

@@ -1,0 +1,112 @@
+<?php
+
+declare(strict_types=1);
+
+it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2 carry forward', function (): void {
+    $root = dirname(__DIR__);
+    $plan = file_get_contents($root . '/docs/plans/runwire-3.0-unified-runtime-development-plan.md');
+    $roadmap = file_get_contents($root . '/docs/plans/runwire-3.0-unified-runtime-roadmap.md');
+    expect($plan)->toBeString();
+    expect($roadmap)->toBeString();
+
+    preg_match_all('/^- \[([ x])\] \*\*(U[0-9]{2}\.[0-9]{2})\*\* (.+)$/m', $plan, $tasks, PREG_SET_ORDER);
+    expect($tasks)->toHaveCount(175);
+    $taskIds = [];
+    $acceptedTaskIds = [];
+    $totals = [];
+    $done = 0;
+    foreach ($tasks as $task) {
+        [, $checked, $id, $description] = $task;
+        expect($taskIds)->not->toContain($id);
+        $taskIds[] = $id;
+        if ($checked === 'x') {
+            $acceptedTaskIds[] = $id;
+        }
+        $batch = substr($id, 0, 3);
+        $totals[$batch]['all'] = ($totals[$batch]['all'] ?? 0) + 1;
+        $totals[$batch]['done'] = ($totals[$batch]['done'] ?? 0) + (int) ($checked === 'x');
+        $done += (int) ($checked === 'x');
+        expect($description)->toContain('**Acceptance:**', '**Proof:**');
+        if ($checked === 'x') {
+            expect($description)->not->toContain('**Proof:** PENDING');
+        }
+    }
+
+    preg_match_all('/^\| (U[0-9]{2}) \| [^\n]*? \| (\d+)\/(\d+) \| (\d+) \| ([^|]+) \|/m', $plan, $rows, PREG_SET_ORDER);
+    expect($rows)->toHaveCount(18);
+    foreach ($rows as $row) {
+        [, $batch, $checked, $all, $open, $status] = $row;
+        expect((int) $all)->toBe($totals[$batch]['all'])
+            ->and((int) $checked)->toBe($totals[$batch]['done'])
+            ->and((int) $open)->toBe($totals[$batch]['all'] - $totals[$batch]['done']);
+
+        $status = strtolower(trim($status));
+        if ((int) $checked === (int) $all) {
+            expect(in_array($status, ['done', 'complete'], true))->toBeTrue();
+        } elseif ((int) $checked > 0) {
+            expect($status)->toContain('in progress');
+        } else {
+            expect($status)->toBe('not started');
+        }
+    }
+    $total = count($tasks);
+    $open = $total - $done;
+    $pct = number_format(100 * $done / $total, 1, '.', '');
+    expect($plan)->toContain(
+        '| **TOTAL** | **Runwire 3.0.0 unified runtime** | **' . $done . '/' . $total . '** | **' . $open . '** |',
+        '**Progress counter:** ' . $done . '/' . $total . ' (' . $pct . '% complete), ' . $open . ' open.',
+    );
+
+    expect($roadmap)->toContain(
+        '**' . $done . '/175 accepted tasks, ' . $open . ' open across 18 batches**',
+        '| **TOTAL** | **Full unified-runtime release program** | **' . $open . '** | **' . $done . '/175',
+    );
+
+    // Validate each roadmap batch, not just the aggregate total. This catches
+    // stale divisions when the canonical plan accepts a new task.
+    preg_match_all('/^\| (U[0-9]{2}) \| [^\n]*? \| (\d+) \| (\d+)\/(\d+) \|$/m', $roadmap, $roadmapRows, PREG_SET_ORDER);
+    expect($roadmapRows)->toHaveCount(18);
+    foreach ($roadmapRows as $row) {
+        [, $batch, $remaining, $completed, $planned] = $row;
+        expect((int) $remaining)->toBe($totals[$batch]['all'] - $totals[$batch]['done'])
+            ->and((int) $completed)->toBe($totals[$batch]['done'])
+            ->and((int) $planned)->toBe($totals[$batch]['all']);
+    }
+
+    // The deleted 2.2 plan remains immutable at commit 7afd11e.
+    // Pin all 20 unfinished IDs to reject incomplete 3.0 carry-forward.
+    $unfinished = [
+        'R0.06', 'R0.07', 'R1.08', 'R3.09',
+        'R4.02', 'R4.04', 'R4.09',
+        'R5.02', 'R5.03', 'R5.04', 'R5.05', 'R5.06', 'R5.07', 'R5.08',
+        'R6.02', 'R8.05', 'R8.10', 'R9.06', 'R9.07', 'R9.09',
+    ];
+    expect($unfinished)->toHaveCount(20);
+    $evidence = file_get_contents($root . '/docs/plans/evidence/runwire-2.2/closure-critical-path.md');
+    expect($evidence)->toBeString()->toContain('Original 95 task IDs: 75 checked complete');
+
+    preg_match_all('/^\| (R[0-9]\.[0-9]{2}) \| ([^|]+) \| ([^|]+) \|$/m', $roadmap, $mappings, PREG_SET_ORDER);
+    expect($mappings)->toHaveCount(20);
+    $mappedIds = [];
+    foreach ($mappings as $row) {
+        $mappedIds[] = $row[1];
+        $targets = explode(' + ', trim($row[2]));
+        $accepted = 0;
+        foreach ($targets as $target) {
+            expect($taskIds)->toContain($target);
+            if (in_array($target, $acceptedTaskIds, true)) {
+                ++$accepted;
+            }
+        }
+
+        $expectedState = $accepted === 0
+            ? 'OPEN'
+            : ($accepted === count($targets) ? 'ACCEPTED' : 'PARTIAL');
+        expect(trim($row[3]))->toStartWith($expectedState);
+    }
+    sort($unfinished);
+    sort($mappedIds);
+    expect($mappedIds)->toBe($unfinished);
+    expect($roadmap)->toContain('Read the Docs-compatible Sphinx');
+    expect($plan)->toContain('Sphinx / Read the Docs complete feature documentation index');
+});
