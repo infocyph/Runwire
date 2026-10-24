@@ -287,32 +287,24 @@ final class Connection
     }
 
     /**
+     * @internal A verified stream may be considered for reuse only when it
+     * carries no active scope, pending traffic or protocol callback owner.
+     */
+    public function isPoolIdleSafe(): bool
+    {
+        return $this->state === ConnectionState::OPEN
+            && !$this->peerReadClosed
+            && $this->scopeOwnership === null
+            && $this->poolBuffersQuiescent()
+            && $this->poolCallbacksAvailable();
+    }
+
+    /**
      * Determine whether receive-buffer pressure paused reads.
      */
     public function isReadPressurePaused(): bool
     {
         return $this->pressureReadPause;
-    }
-
-    /**
-     * @internal Return whether a previously verified stream is quiescent and
-     * may be considered for reuse by a future scoped idle pool. This does not
-     * authorize reuse across TLS/ALPN/tenant/proxy identities.
-     */
-    public function isPoolIdleSafe(): bool
-    {
-        if ($this->state !== ConnectionState::OPEN || $this->peerReadClosed
-            || $this->manualReadPause || $this->pressureReadPause || $this->writePressured
-            || $this->sendBuffer->bytes() > 0 || $this->receiveBuffer->bytes() > 0
-            || $this->scopeOwnership !== null) {
-            return false;
-        }
-        if ($this->dataCallback !== null || $this->drainCallback !== null
-            || $this->eofCallback !== null || $this->closeCallbacks !== []) {
-            return false;
-        }
-
-        return $this->callbackOwnership->unclaimed();
     }
 
     /**
@@ -628,6 +620,24 @@ final class Connection
     }
 
     /** @param resource $stream */
+    private function poolBuffersQuiescent(): bool
+    {
+        return !$this->manualReadPause
+            && !$this->pressureReadPause
+            && !$this->writePressured
+            && $this->sendBuffer->bytes() === 0
+            && $this->receiveBuffer->bytes() === 0;
+    }
+
+    private function poolCallbacksAvailable(): bool
+    {
+        return $this->dataCallback === null
+            && $this->drainCallback === null
+            && $this->eofCallback === null
+            && $this->closeCallbacks === []
+            && $this->callbackOwnership->unclaimed();
+    }
+
     private function readAvailable(mixed $stream, bool &$received, bool &$sawEof): void
     {
         $readThisTick = 0;

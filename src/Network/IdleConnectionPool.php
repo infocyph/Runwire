@@ -16,10 +16,10 @@ use Throwable;
  */
 final class IdleConnectionPool
 {
+    private bool $closed = false;
+
     /** @var array<int, array{key:string, connection:Connection, observer:?int, timer:?int}> */
     private array $entries = [];
-
-    private bool $closed = false;
 
     private int $nextId = 1;
 
@@ -90,7 +90,8 @@ final class IdleConnectionPool
                 function (): void {
                     $this->discard($id);
                 },
-                static function (): void {},
+                static function (): void {
+                },
                 function (): void {
                     $this->discard($id);
                 },
