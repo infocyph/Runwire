@@ -44,3 +44,16 @@ symlink/TOCTOU protection, or an indefinitely open file-descriptor API.
 Native acceleration and file-to-network streaming are separate tasks.
 Untrusted path handling needs explicit U11.09 access policy. A successful
 ``fflush`` does not imply durable ``fsync`` across power failure.
+
+
+Bounded file to network streaming (3.0 development)
+==================================================
+
+The experimental Coroutine/Filesystem/ScopedFileTransfer reuses one scope-owned
+ScopedFiles executor and AsyncConnection. Sending and receiving both operate on
+at most 16 KiB at a time, with a 64 MiB cap per call. Outbound transfers suspend
+on network write pressure and keep the connection's configured send budget.
+
+The caller retains authority over path access, connection ownership, graceful
+shutdown, destination truncation and atomicity. This class does not promise
+file-system sandboxing, fsync durability or a working generic HTTP client.

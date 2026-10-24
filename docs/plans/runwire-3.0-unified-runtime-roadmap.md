@@ -200,3 +200,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **S2 immutable supervisor recovery evidence (2026-10-24):** Published 2.1.2 crash/restart and rolling-generation corpus exactly matches the 3.0 source blobs; full QA and independent native SIGKILL/restart/backoff acceptance green at immutable source 3a9d9a7 [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). U12.01 accepted, U12.05 stop-in-flight and all autoscale tasks remain open. **68/175 accepted, 107 open; 20 to 50.3%.**
 
 **E2 QA remediation grouped with F3 (2026-10-24):** Correct 35e1a393 PHPForge Pint, PHPCS and PHPStan findings in the next push and add 1 MiB binary worker parity regression. All previous native H3+QUIC and other ordinary workflows passed; Security & Standards stayed red. No new task counted until QA. **68/175 accepted, 107 open.**
+
+**F4 file-network bridge staging (2026-10-24):** Single bounded coroutine file/network transfer facade with real binary paired-socket hash fixtures, 16 KiB chunks and connection-pressure handling. U11.05 stays OPEN until slow-peer and full QA pass. **68/175 accepted, 107 open.**
