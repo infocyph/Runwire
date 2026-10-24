@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 4/10; U06 COMPLETE (8/8); U07 1/11; U16 1/16**. **59/175 accepted tasks, 116 open across 18 batches** (33.7%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 4/10; U06 COMPLETE (8/8); U07 1/11; U13 1/9; U16 1/16**. **60/175 accepted tasks, 115 open across 18 batches** (34.3%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -44,7 +44,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R5.04 | U02.04 | ACCEPTED; U02.04 verified in QA #39923215737 |
 | R5.05 | U04.02 + U04.06 | ACCEPTED; both tasks passed QA #39995711371 |
 | R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
-| R5.07 | U03.09 + U13.03 | PARTIAL; U03.09 accepted in QA #39976909971, U13.03 OPEN |
+| R5.07 | U03.09 + U13.03 | ACCEPTED; U03.09 #39976909971 and U13.03 live Swoole/OpenSwoole reactor plus outbound dial #40064041118 |
 | R5.08 | U03.10 + U15.06 | PARTIAL; U03.10 accepted in QA #39977854249, U15.06 OPEN |
 | R6.02 | U12.05 | OPEN, fresh 3.0 QA required |
 | R8.05 | U17.06 | OPEN, fresh 3.0 QA required |
@@ -70,12 +70,12 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U10 | Connection pooling, proxy negotiation and stream relay | 9 | 0/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 10 | 0/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 9 | 0/9 |
-| U13 | Real host and optional extension compatibility | 9 | 0/9 |
+| U13 | Real host and optional extension compatibility | 8 | 1/9 |
 | U14 | Security, fuzzing and adversarial resilience | 8 | 0/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 15 | 1/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **116** | **59/175 (33.7%)** |
+| **TOTAL** | **Full unified-runtime release program** | **115** | **60/175 (34.3%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -174,3 +174,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **Q2-I green → Q2-J verified acceptance + new live negative/reset tests (2026-10-24):** Exact-head [Security & Standards #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388), [Sphinx #40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) and every other mandatory default PR workflow succeeded for `80120be`. Accept U05.04 (native off-loop verified QUIC+ALPN independent real peer), U07.01 (streaming client interface/version policy, not protocol client implementation), U16.01 (strict pinned Sphinx HTML). **Canonical 59/175 accepted (33.7%), 116 open; 29 more for the 88-task 50.3% milestone.** The new Q2-J fixture tests explicit native datagram/migration/0-RTT unsupported behavior both before connection and after verified handshake, followed by real reset and subsequent peer-observed uni FIN. Q2-J transport guard tasks stay OPEN until current-head acceptance; U04.08 matched TLS, U05 flow/cancel/adversity and U15/U17 performance remain OPEN. Draft PR #9 unchanged; Runwire only.
 
 **F1 staged during Q2-J QA (2026-10-24):** Incremental off-loop file I/O builds on the existing `ProcessExecutor` rather than a second thread/process runtime. New bounded write/stat/read/rename/unlink/cancel facade, binary offset operations, explicit worker cleanup and negative/heartbeat tests are prepared alongside an RST development guide. This does not yet implement a persistent `open` handle, safe sandbox/TOCTOU policy, native disk acceleration, file/network streaming or U11 benchmark certification; no U11 task is checked before exact-head QA. **Accepted 59/175 (33.7%), 116 open; 29 tasks to 50.3%.**
+
+**H1 real hosted acceptance while F1 is staged (2026-10-24):** [Swoole/OpenSwoole #40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118) passed all four PHP version and extension combinations with live hosted reactor and outgoing dial tests at source 80120be. U13.03 and historical R5.07 accepted. Runtime lifecycle docs are extended, with U16.08 still awaiting source-backed full docs verification. **60/175 accepted, 115 open; 28 to 50.3%.**

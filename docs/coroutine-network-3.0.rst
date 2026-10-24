@@ -131,3 +131,49 @@ unit tests alone do not certify sustained performance.
 
 See :doc:`features` for published-versus-target feature status and
 :doc:`architecture` for the overall unified-runtime design.
+
+Event loop and scope lifecycle
+==============================
+
+The selected loop is owned by the execution context, not by a request.
+Standalone native mode can own its ``SelectLoop`` or optional
+``EventLoop``; Swoole/OpenSwoole hosts already own the reactor and
+``SwooleLoop`` only adapts readiness, timers and callbacks.
+
+.. code-block:: text
+
+   Host-owned reactor or Runwire standalone loop
+         |
+         v
+   CoroutineRuntime / request CancellationSource
+         |
+         +--> CoroutineScope --> child Task / Future
+         |           |
+         |           +--> AsyncDialer --> DNS worker --> Dialer
+         |                                   |
+         |                                   v
+         |                              Connection
+         |                                   |
+         |                           AsyncConnection
+         |                                   |
+         +--> finish, cancel or deadline ---+
+                         |
+                  explicit transferTo(new owner)?
+                   /                       \
+                 no                       yes
+                 |                         |
+              close owned              remove old callbacks
+              connection               and old cancellation
+              + watchers               owner; pool now owns it
+
+Exactly one active cancellation owner is allowed per established socket.
+The earliest inherited deadline wins. If cancellation races with
+successful dialing, the resulting connection is aborted rather than
+orphaned or transferred after scope shutdown. Transferring a quiescent
+adapter removes the old scope's callbacks and observer before the new
+pool/worker token takes ownership; disposing an adapter without transfer
+never changes the socket's request owner.
+
+A host-managed event loop survives an individual request. Standalone
+loop shutdown waits for owned watchers/timers to settle. This lifecycle
+diagram is development documentation, not a performance certification.

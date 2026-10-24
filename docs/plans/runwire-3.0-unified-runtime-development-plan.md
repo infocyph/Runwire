@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 59/175 accepted (33.7%); 116 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 60/175 accepted (34.3%); 115 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -54,14 +54,14 @@
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 0/10 | 10 | Not started | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 0/9 | 9 | Not started | U01,U02,U06 |
-| U13 | Real host and optional extension compatibility | 0/9 | 9 | Not started | U01,U03,U04,U06,U12 |
+| U13 | Real host and optional extension compatibility | 1/9 | 8 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 1/16 | 15 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **59/175** | **116** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **60/175** | **115** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 59/175 (33.7% complete), 116 open.
+**Progress counter:** 60/175 (34.3% complete), 115 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -293,7 +293,7 @@
 
 - [ ] **U13.01** Verify native portable Select and native prefork execution. **Acceptance:** PHP8.4/8.5 real protocol/file tests. **Proof:** PENDING.
 - [ ] **U13.02** Verify native ext-event remains optional and equivalent. **Acceptance:** Same correctness gates on both loops. **Proof:** PENDING.
-- [ ] **U13.03** Verify Swoole and OpenSwoole actual hosting and outgoing I/O. **Acceptance:** One owned reactor per process. **Proof:** PENDING.
+- [x] **U13.03** Verify Swoole and OpenSwoole actual hosting and outgoing I/O. **Acceptance:** One owned reactor per process. **Proof:** Live Swoole and OpenSwoole host-owned coroutine/reactor plus outgoing localhost /dial TCP acceptance on PHP 8.4/8.5 in [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118) at immutable source 80120be; all related default PHPForge and real hosted suites passed.
 - [ ] **U13.04** Verify real RoadRunner worker lifecycle and pooled sockets/files. **Acceptance:** No leak or cross-request state. **Proof:** PENDING.
 - [ ] **U13.05** Verify real FrankenPHP worker and host-mode differences. **Acceptance:** Repeated request scope isolation. **Proof:** PENDING.
 - [ ] **U13.06** Verify real PHP-FPM request-scoped operations and cleanup. **Acceptance:** No unsupported persistent resource assumptions. **Proof:** PENDING.
@@ -301,7 +301,7 @@
 - [ ] **U13.08** Test standalone Composer archives PHP8.4/8.5 stable/lowest. **Acceptance:** Package works without external Infocyph projects. **Proof:** PENDING.
 - [ ] **U13.09** Publish truthful per-host features and limitations matrix. **Acceptance:** No false universal asynchronous guarantees. **Proof:** PENDING.
 
-**Batch tracker:** 0/9 accepted; 9 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 1/9 accepted; 8 open — U13.03 real Swoole/OpenSwoole host-owned reactor and outgoing dial on PHP 8.4/8.5 PASS [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U14 — Security, fuzzing and adversarial resilience
 
@@ -571,3 +571,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **Q2-J certified baseline and live negative/reset interoperability (2026-10-24; new test QA pending):** Exact Q2-I source [80120be](https://github.com/infocyph/Runwire/commit/80120be10026fb1056c35fd5a0b67a89faf438ce) PASSED all eight GitHub workflows: [Security & Standards #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388), [Sphinx #40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098), [Benchmarks #40064041091](https://github.com/infocyph/Runwire/actions/runs/40064041091) and hosted/portable/source/release-candidate workflows. The exact-source evidence accepts **U05.04** outbound TLS/ALPN QUIC connection against independent aioquic, **U07.01** protocol-neutral streaming HTTP client contract (not a working H1/H2/H3 transport), and **U16.01** pinned warning-free Sphinx setup. **Authoritative: 59/175 accepted, 116 open, 33.7%; 29 additional required for 88/175.** Next Q2-J real-host negative fixture exercises failed datagram, migration/rebind and 0-RTT policy both before dispatch and while connected; it opens and resets a native bidirectional stream before a separate real independent uni-FIN server receipt. Keep **U05.05–U05.10 unchecked** until individual exact-head QA + relevant real-peer acceptance. Never treat this as network-loss, congestion, reset/cancellation storms or release throughput certification.
 
 **F1 — bounded async filesystem executor batch (2026-10-24; staged while Q2-J QUIC QA runs):** Reuse the existing bounded nonblocking `ProcessExecutor` for new fixed whitelisted `write`, `rename`, `unlink` worker operations and a lightweight `Filesystem\\AsyncFileSystem` API exposing read/write/stat/rename/unlink/cancel with caller-owned quotas, inherited deadlines and exact-once cancellation. Worker-local handles are always closed, binary base64 writes are capped at 1 MiB and support absolute byte offsets with partial-write loops and explicit buffered flush. Add real worker tests for binary offsets/hash parity, metadata, rename/unlink, busy-worker timer heartbeat, queue cancellation, malformed input and leak-free cleanup. `docs/async-file-io-3.0.rst` explicitly distinguishes unpublished development from stable features and discloses no sandbox, durability, real open-handle or native-acceleration guarantees. **U11.01–U11.10 remain OPEN until QA and respective full acceptance** (open-handle, safe file paths, off-loop, file/network backpressure, crash safety, benchmarks still required). Tracker stays **59/175, 116 open** while current implementation is uncertified. Follow grouped workflow: combine fixes from Q2-J QA with this next file I/O batch before pushing if necessary.
+
+**H1 host acceptance / runtime docs batch (2026-10-24; staged):** Existing four live Swoole/OpenSwoole PHP 8.4/8.5 hosted outgoing-dial and single-reactor checks [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118) establish U13.03 on immutable 80120be. Historical R5.07 is now fully accepted with previous U03.09. Extend the coroutine manual with an event-loop/ownership sequence; U16.08 remains OPEN until strict documentation and source-example verification. F1 async filesystem work remains unaccepted until exact-head QA. **60/175 accepted (34.3%), 115 open, 28 additional tasks for 88/175.**
