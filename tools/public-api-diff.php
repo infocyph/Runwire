@@ -130,13 +130,24 @@ foreach ($baseline['symbols'] as $name => $old) {
         }
     }
 
-    // Old pinned schema-v1 archives have no property inventory. Never treat
-    // an unknown historical property as removed: compare only complete pairs.
+    // Older pinned source manifests have no property inventory. Compare
+    // property changes only when both revisions explicitly carry it.
     if ($old['publicProperties'] !== null && $next['publicProperties'] !== null) {
         foreach ($old['publicProperties'] as $property => $signature) {
             $current = $next['publicProperties'][$property] ?? null;
             if ($current === null) {
-                $breaking[] = ['type' => 'removed_property', 'symbol' => $name . '::, 'enumCases' => 'enum_case'] as $field => $kind) {
+                $breaking[] = ['type' => 'removed_property', 'symbol' => $name . '::$' . $property];
+            } elseif ($current !== $signature) {
+                $changed[] = [
+                    'type' => 'property_declaration',
+                    'symbol' => $name . '::$' . $property,
+                    'before' => $signature,
+                    'after' => $current,
+                ];
+            }
+        }
+    }
+    foreach (['publicConstants' => 'constant', 'enumCases' => 'enum_case'] as $field => $kind) {
         foreach (array_diff($old[$field], $next[$field]) as $value) {
             $changed[] = [
                 'type' => 'removed_or_changed_' . $kind,

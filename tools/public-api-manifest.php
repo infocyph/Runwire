@@ -7,13 +7,14 @@ declare(strict_types=1);
  * extension is needed to inspect the published tag. The manifest records
  * declarations, not hypothetical runtime availability.
  *
- * php tools/public-api-manifest.php <source-dir> <destination.json> <source-commit>
+ * php tools/public-api-manifest.php <source-dir> <destination.json> <source-commit> [--with-properties]
  */
 
 /** @var list<string> $arguments */
 $arguments = $_SERVER['argv'] ?? [];
-if (count($arguments) !== 4 || !is_dir($arguments[1])) {
-    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit>');
+$withProperties = count($arguments) === 5 && $arguments[4] === '--with-properties';
+if ((count($arguments) !== 4 && !$withProperties) || !is_dir($arguments[1])) {
+    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');
 }
 
 [$command, $inputRoot, $output, $revision] = $arguments;
@@ -136,40 +137,46 @@ foreach ($files as $path) {
     }
 
 
-    // Track declared public fields and constructor-promoted public properties.
-    // The property manifest is additive to historical schema-v1 archives.
-    $properties = [];
-    preg_match_all(
-        '/^\\s*public\\s+(?:(?:readonly|static)\\s+)*(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b[^;]*;/m',
-        $source,
-        $propertyMatches,
-        PREG_SET_ORDER,
-    );
-    foreach ($propertyMatches as $property) {
-        $properties[$property[1]] = trim((string) preg_replace('/\\s+/', ' ', $property[0]));
-    }
-    if (isset($methods['__construct'])) {
+    if ($withProperties) {
+        // Track declared public fields and constructor-promoted public properties.
+        // The property manifest is additive to historical schema-v1 archives.
+        $properties = [];
         preg_match_all(
-            '/(?:^|[,(])\\s*public\\s+(?:readonly\\s+)?(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b/',
-            $methods['__construct'],
-            $promoted,
+            '/^\\s*public\\s+(?:(?:readonly|static)\\s+)*(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b[^;]*;/m',
+            $source,
+            $propertyMatches,
             PREG_SET_ORDER,
         );
-        foreach ($promoted as $property) {
+        foreach ($propertyMatches as $property) {
             $properties[$property[1]] = trim((string) preg_replace('/\\s+/', ' ', $property[0]));
         }
+        if (isset($methods['__construct'])) {
+            preg_match_all(
+                '/(?:^|[,(])\\s*public\\s+(?:readonly\\s+)?(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b/',
+                $methods['__construct'],
+                $promoted,
+                PREG_SET_ORDER,
+            );
+            foreach ($promoted as $property) {
+                $properties[$property[1]] = trim((string) preg_replace('/\\s+/', ' ', $property[0]));
+            }
+        }
+        ksort($properties, SORT_STRING);
+    
     }
-    ksort($properties, SORT_STRING);
 
-    $symbols[$fqcn] = [
+    $symbol = [
         'kind' => $kind,
         'path' => $relative,
         'sha256' => hash('sha256', $source),
         'methods' => $methods,
-        'publicProperties' => $properties,
         'publicConstants' => $constants,
         'enumCases' => $cases,
     ];
+    if ($withProperties) {
+        $symbol['publicProperties'] = $properties;
+    }
+    $symbols[$fqcn] = $symbol;
 }
 ksort($symbols, SORT_STRING);
 $manifest = [

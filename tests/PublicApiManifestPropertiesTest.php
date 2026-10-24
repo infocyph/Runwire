@@ -29,7 +29,7 @@ PHP);
             . escapeshellarg($tool) . ' '
             . escapeshellarg($root) . ' '
             . escapeshellarg($manifest) . ' '
-            . escapeshellarg($revision);
+            . escapeshellarg($revision) . ' --with-properties';
         $output = [];
         $status = 0;
         exec($command . ' 2>&1', $output, $status);

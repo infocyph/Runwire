@@ -106,11 +106,14 @@ U17.01 are not yet complete.**
 Public property inventory note
 ------------------------------
 
-New schema-v1 manifest exports include ``publicProperties`` declarations and
-constructor-promoted fields. The pinned historical 2.1.2 source manifest was
+New opt-in schema-v1 manifest exports include ``publicProperties`` declarations and
+constructor-promoted fields using the final ``--with-properties`` CLI option.
+Default exports remain byte-for-byte compatible with the pinned U00 source
+manifest integrity guard. The pinned historical 2.1.2 source manifest was
 created before this optional field existed. The diff CLI therefore reports
 ``propertyInventoryCompared: false`` when comparing against that older archive;
 it **does not** assert that removed properties were audited in that case.
 Before U16.12 acceptance, regenerate a 2.1.2 source-only manifest with the
-same exporter version and repeat the immutable baseline comparison. Property
+same exporter version using ``--with-properties`` and repeat the immutable
+baseline comparison without modifying the original pinned source-manifest lock. Property
 and method behavior still requires maintainer-reviewed migration examples.
