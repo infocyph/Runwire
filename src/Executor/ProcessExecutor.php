@@ -167,7 +167,7 @@ final class ProcessExecutor
         if ($this->closed) {
             throw new LogicException('Executor is closed.');
         }
-        if (!in_array($operation, ['dns', 'read', 'stat', 'sleep'], true)) {
+        if (!in_array($operation, ['dns', 'quic_probe', 'read', 'stat', 'sleep'], true)) {
             throw new InvalidArgumentException('Unsupported executor operation.');
         }
         if (count($this->jobs) >= $this->maxWorkers + $this->maxQueue) {

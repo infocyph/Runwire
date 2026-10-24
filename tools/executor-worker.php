@@ -60,6 +60,37 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
 
                 return array_values(array_unique($addresses));
             })($arguments),
+            'quic_probe' => (static function (array $args): array {
+                $host = $args['host'] ?? null;
+                $port = $args['port'] ?? null;
+                $options = $args['options'] ?? null;
+                if (!is_string($host) || $host === '' || strlen($host) > 253
+                    || preg_match('/[\x00-\x20\x7f]/', $host) === 1
+                    || !is_int($port) || $port < 1 || $port > 65_535
+                    || !is_array($options)
+                    || ($options['verify_peer'] ?? null) !== true
+                    || ($options['verify_peer_name'] ?? null) !== true
+                    || ($options['allow_self_signed'] ?? null) !== false
+                    || ($options['SNI_enabled'] ?? null) !== true
+                    || !is_string($options['peer_name'] ?? null)
+                    || !is_array($options['alpn'] ?? null)
+                    || $options['alpn'] === []) {
+                    throw new InvalidArgumentException('Invalid or unverified outbound QUIC probe.');
+                }
+                if (!class_exists(\Quic\Connection::class)) {
+                    throw new RuntimeException('Optional native ext-quic is unavailable for outbound QUIC.');
+                }
+
+                // This constructor performs its full TLS handshake *before*
+                // setBlocking(false) is possible. It may only run here, in
+                // the isolated, deadline-limited executor worker process.
+                $connection = new \Quic\Connection($host, $port, $options);
+                try {
+                    return ['verified' => true, 'backend' => 'ext-quic'];
+                } finally {
+                    $connection->close();
+                }
+            })($arguments),
             'read' => (static function (array $args): string {
                 $path = $args['path'] ?? null;
                 $length = $args['length'] ?? null;

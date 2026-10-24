@@ -39,3 +39,18 @@ The worker must implement explicit close/reset, per-stream quotas, response
 flow control, cancellation/deadline correlation, crash recovery, and event
 loop fairness. An alternate native QUIC extension with a documented truly
 async constructor may replace the worker only after real-loop verification.
+
+Isolated handshake probe slice
+==============================
+
+The initial runtime implementation uses the already bounded ProcessExecutor
+and a whitelist-only worker operation named quic_probe. Every native
+Connection is created, TLS-verified, and closed entirely inside an off-loop
+PHP worker; serialized handles NEVER cross the process boundary. The owning
+Runwire reactor uses only nonblocking IPC and its normal deadline/cancellation
+aborts a stalled worker. Missing ext-quic fails explicitly and insecure
+verify-peer options are rejected in the worker. This proves safe isolated
+handshake construction only, not stream multiplexing or interoperable QUIC
+sessions. The next stage must preserve connection ownership across commands
+in a long-lived worker, bound per-stream queues and errors, and pass
+independent server acceptance before U05.04/U05.05 can be checked.
