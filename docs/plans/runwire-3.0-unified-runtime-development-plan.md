@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 67/175 accepted (38.3%); 108 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 68/175 accepted (38.9%); 107 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -53,15 +53,15 @@
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 0/10 | 10 | Not started | U01,U02,U06 |
-| U12 | Native supervisor and adaptive worker autoscaling | 0/9 | 9 | Not started | U01,U02,U06 |
+| U12 | Native supervisor and adaptive worker autoscaling | 1/9 | 8 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 2/9 | 7 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 1/16 | 15 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **67/175** | **108** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **68/175** | **107** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 67/175 (38.3% complete), 108 open.
+**Progress counter:** 68/175 (38.9% complete), 107 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -275,7 +275,7 @@
 
 **Prerequisite:** U01,U02,U06. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U12.01** Revalidate worker crash restart, backoff and generation isolation. **Acceptance:** Historical 2.2 fixtures pass under 3.0. **Proof:** PENDING.
+- [x] **U12.01** Revalidate worker crash restart, backoff and generation isolation. **Acceptance:** Historical 2.2 fixtures pass under 3.0. **Proof:** Published 2.1.2 `tests/SupervisorTest.php` (blob 6f01f753e7fe5a8f8673fef665773c75904468fa) and `tests/BatchISoakFaultTest.php` (blob 4ea973396638f10b016eae81724e8853ddbebbf3) are byte-identical in 3.0 and verify crash restart budgets/exhaustion, backoff, rolling generations and process cleanup; independent SIGKILL/mixed-peer lifecycle source also passes. Full PHPForge QA and native QUIC accepted at immutable source 3a9d9a7, [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). This does not certify U12.05's separate stop-during-traffic requirement.
 - [ ] **U12.02** Guarantee fork-safe listener, outbound pool, QUIC and executor ownership. **Acceptance:** No inherited incorrect resource ownership. **Proof:** PENDING.
 - [ ] **U12.03** Define autoscale signals, bounds and operator overrides. **Acceptance:** CPU/queue/RPS/p99 policy clearly specified. **Proof:** PENDING.
 - [ ] **U12.04** Implement cooldown, hysteresis, scale-out and graceful scale-in. **Acceptance:** No oscillation or admitted request loss. **Proof:** PENDING.
@@ -285,7 +285,7 @@
 - [ ] **U12.08** Fault inject crash loops, signals and concurrent scaling/reloading. **Acceptance:** Bounded restart count and shutdown behavior. **Proof:** PENDING.
 - [ ] **U12.09** Run sustained autoscale stress and process-tree resource sampling. **Acceptance:** Fairness, p99, CPU and RSS accepted. **Proof:** PENDING.
 
-**Batch tracker:** 0/9 accepted; 9 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 1/9 accepted; 8 open — immutable published supervisor/reload/crash fixtures and independent SIGKILL mixed peers passed green QA [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); additional autoscale/shutdown gates remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U13 — Real host and optional extension compatibility
 
@@ -593,3 +593,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **H3 real FrankenPHP host acceptance (2026-10-24):** Actual `dunglas/frankenphp:1-php8.4/8.5-bookworm` worker-mode containers use `RuntimeDriver::FRANKENPHP` and strict `jq` asserts one persistent PID, monotonically increasing worker sequence and distinct request target/handler outputs across three sequential real requests, in [Real Hosted Runtime Acceptance #40064842432](https://github.com/infocyph/Runwire/actions/runs/40064842432) at immutable green source 3a9d9a7. Accept U13.05 only; RoadRunner pooled socket/file cleanup (U13.04) and FPM file/socket resource cleanup (U13.06) are **not** inferred from simple request counters. Canonical **67/175 (38.3%), 108 open; 21 more to 88/175**. Pending E1 QA recovery/refactor is separate.
 
 **F3 full-limit binary filesystem parity (2026-10-24; staged while F1/F2 exact-head QA runs):** A separate real executor regression writes an exact 1 MiB binary mixture including NUL and 0xFF, reads the full limit from the worker and requires matching SHA-256, expected length and zero leaked persistent worker watchers. This directly exercises the 1.4 MiB base64 worker IPC envelope underneath the existing 1 MiB API cap. It is not proof of unlimited file transfer, atomic `fsync`, symlink-safe sandboxing, file-network streaming or active-job interruption. **U11.04 remains unchecked until current-head full PHPForge/portable QA passes; U11.06 remains OPEN for active-job cancellation evidence. Accepted 67/175, 108 open.**
+
+**S2 baseline supervisor recovery accepted (2026-10-24):** Published 2.1.2 and 3.0 `SupervisorTest.php` and `BatchISoakFaultTest.php` have identical Git blobs, and the PHPForge full matrix + independent native SIGKILL worker restart/backoff and mixed-peer recovery pass at source 3a9d9a7 [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). Accept U12.01 only. Do not accept U12.05 without SIGTERM stop **during** H1/H2/H3/TCP/UDP traffic; end-of-scenario shutdown alone is insufficient. **68/175 accepted (38.9%), 107 open; 20 more to 88/175.**
