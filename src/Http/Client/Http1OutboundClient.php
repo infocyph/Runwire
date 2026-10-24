@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Client;
 
-use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialOptions;

@@ -223,8 +223,10 @@ final class Http1ConnectedExchange
         try {
             $frames = 0;
             while ($frames++ < 8 && !$this->writer->done() && !$this->settled) {
-                if ($this->connection->availableWriteBytes() < 8_192) {
-                    break;
+                // Avoid reactor spin when a small socket queue is full;
+                // the drain callback resumes production once writable.
+                if ($this->connection->availableWriteBytes() < 4_096) {
+                    return;
                 }
                 $bytes = $this->writer->next(4_096);
                 if ($bytes === '') {
