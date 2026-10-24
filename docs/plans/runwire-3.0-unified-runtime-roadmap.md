@@ -264,3 +264,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **H11 green optional event/native loop parity (2026-10-24):** Real PHP8.4/8.5 PECL ext-event plus matching EventLoop/H1 worker budget regressions vs no-ext-event Select in green #40071912799. U13.02 accepted for tested equivalence only; U13.04 persistent pooled RoadRunner remains open. **89/175 (50.9%), 86 open.**
 
 **P4 toward 75% (2026-10-24):** Green 00291e1 source accepts U08.07 fixed adaptive defaults and U16.05 real transport/DNS guide, with pinned Sphinx/PHPForge evidence. **91/175 (52.0%), 84 open, 41 to 75.4%.**
+
+**P5 protocol + WT docs staged (2026-10-24):** Source-backed H1/H2/H3/WS docs and unimplemented WebTransport ownership design, pending strict QA. **91/175 accepted, 84 open.**
