@@ -99,3 +99,19 @@ quotas, and subject to inherited cancellation/deadlines.
 .. code-block:: console
 
    vendor/bin/pest tests/AsyncFileApiContractTest.php
+
+Restricted worker-side paths (development)
+-----------------------------------------
+
+``AsyncFileSystem($executor, rootDirectory: '/srv/app/data')`` enables an
+optional canonical-root boundary for read, write, stat, rename and unlink.
+Each subprocess rejects ``..`` traversal, symlink path components, missing
+parents and paths outside the configured absolute Unix directory before
+performing filesystem I/O. Restricted checks remain entirely off the reactor.
+Without a configured root, the historical host-permission semantics remain.
+
+This is **not** a race-free filesystem sandbox: another process may swap
+path components between worker-side validation and ``fopen``/``rename``.
+Use operating-system isolation and a separately audited descriptor-relative
+openat2 or equivalent backend for adversarial multi-user writable directories.
+The complete U14.06 symlink/TOCTOU audit remains open.

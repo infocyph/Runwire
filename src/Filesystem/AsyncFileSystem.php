@@ -23,8 +23,16 @@ final readonly class AsyncFileSystem
 {
     public const int MAX_OPERATION_BYTES = 1_048_576;
 
-    /** Borrow a loop-bound ProcessExecutor with caller-selected quotas. */
-    public function __construct(private ProcessExecutor $executor) {}
+    /** Borrow an off-loop executor; optional root is checked inside each worker operation. */
+    public function __construct(
+        private ProcessExecutor $executor,
+        private ?string $rootDirectory = null,
+    ) {
+        if ($rootDirectory !== null && (!str_starts_with($rootDirectory, '/')
+            || strlen($rootDirectory) > 4096 || str_contains($rootDirectory, "\0"))) {
+            throw new InvalidArgumentException('Restricted filesystem root must be an absolute Unix path.');
+        }
+    }
 
     /** Cancel one queued/active filesystem operation without duplicate callbacks. */
     public function cancel(int $id): bool
@@ -52,7 +60,7 @@ final readonly class AsyncFileSystem
 
         return $this->executor->submit(
             'read',
-            ['path' => $path, 'length' => $length, 'offset' => $offset],
+            ['path' => $path, 'length' => $length, 'offset' => $offset, 'root' => $this->rootDirectory],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
                 if ($error !== null || !is_string($value)) {
                     $completion('', $error ?? new RuntimeException('File read worker returned invalid bytes.'));
@@ -84,7 +92,7 @@ final readonly class AsyncFileSystem
 
         return $this->executor->submit(
             'rename',
-            ['from' => $from, 'to' => $to],
+            ['from' => $from, 'to' => $to, 'root' => $this->rootDirectory],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
                 $completion(
                     $error === null && $value === true,
@@ -111,7 +119,7 @@ final readonly class AsyncFileSystem
 
         return $this->executor->submit(
             'stat',
-            ['path' => $path],
+            ['path' => $path, 'root' => $this->rootDirectory],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
                 if ($error !== null || !is_array($value)
                     || !is_int($value['size'] ?? null)
@@ -144,7 +152,7 @@ final readonly class AsyncFileSystem
 
         return $this->executor->submit(
             'unlink',
-            ['path' => $path],
+            ['path' => $path, 'root' => $this->rootDirectory],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
                 $completion(
                     $error === null && $value === true,
@@ -176,7 +184,7 @@ final readonly class AsyncFileSystem
 
         return $this->executor->submit(
             'write',
-            ['path' => $path, 'data' => base64_encode($bytes), 'offset' => $offset],
+            ['path' => $path, 'data' => base64_encode($bytes), 'offset' => $offset, 'root' => $this->rootDirectory],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
                 if ($error !== null || !is_int($value)) {
                     $completion(0, $error ?? new RuntimeException('File write worker returned invalid byte count.'));

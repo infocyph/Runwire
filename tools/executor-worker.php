@@ -13,6 +13,52 @@ const MAX_FILE_BYTES = 1_048_576;
 // through the host's nonblocking IPC transport.
 $quicSessionWorker = null;
 
+/**
+ * Worker-side opt-in path boundary. Rejects lexical traversal, symlinked
+ * ancestors/leaf and off-root parents without filesystem syscalls on the loop.
+ * The check is intentionally NOT an openat2/dirfd race-free sandbox.
+ */
+function guardFilePath(array $args, string $name): void
+{
+    $root = $args['root'] ?? null;
+    if ($root === null) {
+        return;
+    }
+    $path = $args[$name] ?? null;
+    if (!is_string($root) || !is_string($path) || $root === '' || $path === ''
+        || str_contains($root, "\0") || str_contains($path, "\0")) {
+        throw new InvalidArgumentException('Invalid restricted filesystem path.');
+    }
+    $canonicalRoot = realpath($root);
+    if ($canonicalRoot === false || !is_dir($canonicalRoot)
+        || rtrim($root, '/') !== rtrim($canonicalRoot, '/')) {
+        throw new RuntimeException('Restricted filesystem root must be an existing canonical directory.');
+    }
+    $prefix = rtrim($canonicalRoot, '/') . '/';
+    if (!str_starts_with($path, $prefix)) {
+        throw new RuntimeException('Filesystem path escapes its configured root.');
+    }
+    $relative = substr($path, strlen($prefix));
+    $parts = explode('/', $relative);
+    if ($relative === '' || in_array('', $parts, true) || in_array('.', $parts, true)
+        || in_array('..', $parts, true)) {
+        throw new RuntimeException('Filesystem path traversal is forbidden.');
+    }
+    $current = rtrim($canonicalRoot, '/');
+    foreach ($parts as $part) {
+        $current .= '/' . $part;
+        clearstatcache(true, $current);
+        if (is_link($current)) {
+            throw new RuntimeException('Filesystem symlink traversal is forbidden.');
+        }
+    }
+    $parent = realpath(dirname($path));
+    if ($parent === false || ($parent !== $canonicalRoot && !str_starts_with($parent, $prefix))) {
+        throw new RuntimeException('Filesystem parent is outside the configured root.');
+    }
+}
+
+
 while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
     if (strlen($line) > MAX_MESSAGE_BYTES || !str_ends_with($line, "\n")) {
         throw new RuntimeException('Executor received an oversized or unterminated request.');
@@ -124,6 +170,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
             })($arguments),
             'read' => (static function (array $args): string {
                 $path = $args['path'] ?? null;
+                guardFilePath($args, 'path');
                 $length = $args['length'] ?? null;
                 $offset = $args['offset'] ?? 0;
                 if (!is_string($path) || $path === '' || str_contains($path, "\0")
@@ -140,6 +187,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
             })($arguments),
             'write' => (static function (array $args): int {
                 $path = $args['path'] ?? null;
+                guardFilePath($args, 'path');
                 $encoded = $args['data'] ?? null;
                 $offset = $args['offset'] ?? null;
                 if (!is_string($path) || $path === '' || str_contains($path, "\0")
@@ -181,6 +229,8 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
             'rename' => (static function (array $args): bool {
                 $from = $args['from'] ?? null;
                 $to = $args['to'] ?? null;
+                guardFilePath($args, 'from');
+                guardFilePath($args, 'to');
                 if (!is_string($from) || $from === '' || str_contains($from, "\0")
                     || !is_string($to) || $to === '' || str_contains($to, "\0")) {
                     throw new InvalidArgumentException('Invalid bounded file rename.');
@@ -193,6 +243,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
             })($arguments),
             'unlink' => (static function (array $args): bool {
                 $path = $args['path'] ?? null;
+                guardFilePath($args, 'path');
                 if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
                     throw new InvalidArgumentException('Invalid bounded file unlink.');
                 }
@@ -204,6 +255,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
             })($arguments),
             'stat' => (static function (array $args): array {
                 $path = $args['path'] ?? null;
+                guardFilePath($args, 'path');
                 if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
                     throw new InvalidArgumentException('Invalid file path.');
                 }

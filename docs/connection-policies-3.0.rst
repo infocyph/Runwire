@@ -16,8 +16,12 @@ authentication policy revision. Separate origin, protocol, credential
 or authority contexts must never share a pooled connection. Its
 opaque digest is not a secret and does not authorize reuse.
 
-There is currently NO active connection-dialing pool, waiter queue,
-HTTP/2 or HTTP/3 multiplex slot manager or GOAWAY-aware reuse.
+An experimental ``BoundedConnectionPool`` now adds finite active lease
+slots, FIFO waiter admission, explicit waiter timeouts/cancellation, and
+caller-owned release of successful or failed dials. A null connection
+with no error grants a reserved dial slot; it is NOT a dial itself.
+There is still no automatic connection dialing, no HTTP/2 or HTTP/3
+multiplex slot management, and no GOAWAY-aware reuse.
 An experimental ``IdleConnectionPool`` can retain a finite number of
 already verified, fully quiescent streams for a finite TTL, in separate
 ``PoolIsolationKey`` identity buckets. It installs its own exclusive
@@ -67,15 +71,18 @@ tests a temporarily stalled receiver with 64 KiB send/receive caps.
 
 Optional ``CancellationToken`` and monotonic ``RequestDeadline`` now close both relay directions and retire timer/subscription ownership, with real stream tests. 
 
-This is **not** a certified release-ready relay: EOF currently aborts
-both sides. Correct half-close semantics, request cancellation,
-shutdown deadlines and drain-after-peer-EOF belong to the remaining
-U10.08 gate. In particular, do not use this primitive yet for a
-production tunnel requiring the reverse stream to outlive a half-close.
+The experimental cleartext TCP/Unix relay now allows the reverse stream
+to survive peer FIN. The output half-close occurs only after accepted
+bytes drain, without busy retries, and both sides close when finished.
+Cancellation and deadline still abort both sides immediately. Raw
+``shutdown(SHUT_WR)`` is not an authenticated TLS ``close_notify``;
+encrypted relays retain fail-closed EOF behavior. U10.08 remains unaccepted
+until exact-source QA and independent peer tests pass.
 
 .. code-block:: console
 
    vendor/bin/pest tests/StreamRelayTest.php tests/StreamRelayLargeTransferTest.php
+   vendor/bin/pest tests/StreamRelayHalfCloseTest.php tests/BoundedConnectionPoolTest.php
 
 Outbound trust and SSRF guard
 -----------------------------
@@ -104,3 +111,18 @@ explicitly unsupported; the shared request-header validator rejects
 the unrecognized protocol pseudo-header rather than silently
 advertising unsupported protocol variants. Ordinary CONNECT
 parsing does not constitute successful proxy negotiation.
+
+Active pool isolation caveats
+-----------------------------
+
+``BoundedConnectionPool`` provides a global active lease quota (including
+pending dial permits), finite FIFO waiters and a separate idle-socket cap
+with TTL. Waiters retire on deadline, explicit cancel or pool shutdown.
+Returning a connection through ``release()`` runs idle safety and the
+original scoped ``PoolIsolationKey`` check. A failed dial MUST release its
+permit with a null connection to admit the next queued waiter; otherwise
+the caller, not the pool, owns that active permit indefinitely. Active
+leases are never silently taken away from callers, and pool shutdown
+cannot force-close a socket already issued to another owner. This is
+necessary request-isolation behavior, not a finished high-level HTTP
+client, connector, proxy stack or multiplex scheduler.

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network\Internal;
 
+use Closure;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use Infocyph\Runwire\RequestDeadline;
-use Closure;
 use LogicException;
 
 /** @internal State transition and resource cleanup mechanics for established streams. */
