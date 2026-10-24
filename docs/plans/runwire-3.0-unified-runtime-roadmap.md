@@ -460,3 +460,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W85 formatting recovery (2026-10-25; QA PENDING):** W82 PHPForge Pint failures on H2 handshake class order and source-manifest whitespace corrected with W83–W84. No task accepted without successful exact-source evidence.
 
 **W86 QA recovery (2026-10-25; QA PENDING):** Order private H2 parser methods for PHPForge Pint; previous Security #40123994623 successfully ran functional Pest and analyzers, but Pint rejected member order. No unchecked task promoted. Canonical 117/175.
+
+
+**W87 Batch AA — exact-head QA recovery and evidence hardening (2026-10-25; next-head QA PENDING):** Previous `92f71a9d0632` [Security & Standards #40124300895](https://github.com/infocyph/Runwire/actions/runs/40124300895) FAILED PHPForge Pint for H2 parser method separation on all four stable/lowest lanes; eight other workflows passed. Restore formatting, backfill the four baseline design-gate CI context links, and extend `Plan3TrackerSynchronizationTest.php` to require an immutable Actions run URL for each of the **117 accepted tasks**. Leave U07.04/U07.05 and U16.11/U16.12 OPEN until their own specific gates. Totals **117/175 accepted; 58 open; 33 to 150**.

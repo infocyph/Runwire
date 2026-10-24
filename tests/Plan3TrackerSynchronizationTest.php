@@ -28,7 +28,8 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
         $done += (int) ($checked === 'x');
         expect($description)->toContain('**Acceptance:**', '**Proof:**');
         if ($checked === 'x') {
-            expect($description)->not->toContain('**Proof:** PENDING');
+            expect($description)->not->toContain('**Proof:** PENDING')
+                ->toContain('https://github.com/infocyph/Runwire/actions/runs/');
         }
     }
 

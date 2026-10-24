@@ -166,6 +166,7 @@ final class Http2ClientResponseParser
             $this->completeHeaders($onHeaders);
         }
     }
+
     /** Validate legacy PRIORITY frame shape without scheduling it as response data. */
     private function priority(Frame $frame): void
     {
@@ -207,5 +208,4 @@ final class Http2ClientResponseParser
             throw new RuntimeException('HTTP/2 stream WINDOW_UPDATE increment must be nonzero.');
         }
     }
-
 }
