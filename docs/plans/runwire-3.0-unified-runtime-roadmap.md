@@ -282,3 +282,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W2 shared session role staged (2026-10-24):** One WebSocketSession lifecycle can now use client mask direction with real loopback duplex test; no H1 upgrade client. U09.01 QA pending. **95/175, 80 open.**
 
 **P9 (2026-10-24):** U09.04/U14.01/U16.07 accepted on exact 8ea14d1 [Security #40073762272](https://github.com/infocyph/Runwire/actions/runs/40073762272) and [Sphinx #40073761998](https://github.com/infocyph/Runwire/actions/runs/40073761998). Live pool/proxy client and WebTransport still OPEN. **98/175 (56.0%), 77 open.**
+
+**D4 RST snippet source validation staged (2026-10-24):** Parse PHP examples via PHP TOKEN_PARSE, require referenced test/benchmark files, leverage strict Sphinx links in existing CI. U16.15 pending QA. **98/175, 77 open.**
