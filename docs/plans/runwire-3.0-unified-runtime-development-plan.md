@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 89/175 accepted (50.9%); 86 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 91/175 accepted (52.0%); 84 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -49,7 +49,7 @@
 | U05 | UDP, outbound QUIC and unified datagram transport | 7/10 | 3 | In progress | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 2/11 | 9 | In progress | U03,U04,U05,U06 |
-| U08 | Existing H1/H2/H3 server consolidation | 4/10 | 6 | In progress | U02,U04,U05,U06 |
+| U08 | Existing H1/H2/H3 server consolidation | 5/10 | 5 | In progress | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 1/9 | 8 | In progress | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 6/10 | 4 | In progress | U01,U02,U06 |
@@ -57,11 +57,11 @@
 | U13 | Real host and optional extension compatibility | 8/9 | 1 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 5/16 | 11 | In progress | U00-U15 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 6/16 | 10 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **89/175** | **86** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **91/175** | **84** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 89/175 (50.9% complete), 86 open.
+**Progress counter:** 91/175 (52.0% complete), 84 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -214,12 +214,12 @@
 - [ ] **U08.04** Profile HPACK integer, Huffman, validation and write churn. **Acceptance:** Old R4.02 quantified with before/after tests. **Proof:** PENDING.
 - [ ] **U08.05** Profile QPACK dynamic blocking, varints and QUIC poll/write budgets. **Acceptance:** Old R4.04 quantified with independent workloads. **Proof:** PENDING.
 - [x] **U08.06** Preserve header/body/frame/security caps under unified budgets. **Acceptance:** Limits not weakened by optimization. **Proof:** Published 2.1.2 and green 3.0 source 3a9d9a7 have identical Git blobs for all three HTTP version limits (`Http1Limits` e2b780c, `Http2Limits` 65ca1a1, `Http3Limits` 4f1ad28), shared `ConnectionLimits` a9678e1 and worker `ByteBudget` 8a6ed65, plus byte-identical HTTP1/HTTP2/HTTP3 abuse tests and HTTP1 retained worker-budget tests; 3.0 adds H2 control-frame earned-budget regression. All four PHPForge QA/analysis lanes and both native H3+QUIC peers passed [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606), proving the unified baseline did not reduce header/body/frame bounds. New client-only budgets remain independently QA-gated.
-- [ ] **U08.07** Keep stable FIXED adaptive scheduling until AUTO is certified. **Acceptance:** No unverified behavioral promotion. **Proof:** PENDING.
+- [x] **U08.07** Keep stable FIXED adaptive scheduling until AUTO is certified. **Acceptance:** No unverified behavioral promotion. **Proof:** Http1Limits, Http2Limits and Http3Options inbound/outbound default to AdaptivePolicyMode::FIXED. AdaptiveProtocolPolicyTest validates all four defaults and the promotion matrix refuses incomplete/noisy AUTO evidence. Exact head 00291e1 passed all eight workflows including [Security #40072263291](https://github.com/infocyph/Runwire/actions/runs/40072263291) and [Benchmarks #40072262992](https://github.com/infocyph/Runwire/actions/runs/40072262992). AUTO requires explicit opt-in; no default auto scheduling promotion.
 - [ ] **U08.08** Stress mixed H1/H2/H3, many streams, cancellation and slow receivers. **Acceptance:** Old R4.09 tested under rolling recycle. **Proof:** PENDING.
 - [ ] **U08.09** Benchmark TLS/plaintext sizes, socket writes, syscalls and percentiles. **Acceptance:** Old R3.09 measured end to end. **Proof:** PENDING.
 - [x] **U08.10** Reverify H1 WebSocket upgrade and graceful close paths. **Acceptance:** Existing upgrade interoperability green. **Proof:** Existing H1 WebSocket upgrade/handoff, 101 handshake, negotiated subprotocol, origin rejection, masked frame enforcement, fragmented ping/pong, idle graceful close and size-cap close codes are covered by real socket-pair tests in `tests/WebSocketIntegrationTest.php`; both PHP 8.4/8.5 full PHPForge QA and analyzers PASS at immutable Runwire source [3a9d9a7](https://github.com/infocyph/Runwire/commit/3a9d9a71c0c49d7e3e7c6c225f2c4a6004a20ae1), [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). The later client-only changes do not modify this server upgrade path.
 
-**Batch tracker:** 4/10 accepted; 6 open — identical 2.1.2 and 3.0 protocol limits/ByteBudget/abuse corpus plus new H2 control-budget QA prove no cap regressions — published 2.1.2 H1/H2 test corpus retained verbatim and shared Connection/FlowController/ResponseScheduler integration verified in green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); U08.10 previously accepted — U08.10 real H1 WebSocket upgrade/graceful close and fragmentation interoperability verified in existing green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 5/10 accepted; 5 open — FIXED scheduling defaults U08.07 #40072263291 — identical 2.1.2 and 3.0 protocol limits/ByteBudget/abuse corpus plus new H2 control-budget QA prove no cap regressions — published 2.1.2 H1/H2 test corpus retained verbatim and shared Connection/FlowController/ResponseScheduler integration verified in green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); U08.10 previously accepted — U08.10 real H1 WebSocket upgrade/graceful close and fragmentation interoperability verified in existing green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U09 — WebSocket and WebTransport client/server
 
@@ -343,7 +343,7 @@
 - [ ] **U16.02** Add repository root .readthedocs.yaml v2 and hosted docs build config. **Acceptance:** Read the Docs preview builds correctly. **Proof:** PENDING.
 - [ ] **U16.03** Convert existing user-facing Markdown guides to native RST, with RST-only Sphinx navigation. **Acceptance:** No duplicate or broken pages. **Proof:** PENDING.
 - [x] **U16.04** Create complete versioned public feature catalog. **Acceptance:** Every feature annotated by supported host, transport and extension. **Proof:** Native RST `docs/features.rst` explicitly enumerates 29 public feature families plus header across published Runwire 2.1.2 and unreleased 3.0; each entry has source maturity, host/transport, and extension or protocol limitations (H1/H2/H3, WS/WT, TCP/TLS/UDP/Unix/QUIC, DNS, pool/proxy/relay, Fiber, file I/O, supervision, autoscale, FPM/RoadRunner/FrankenPHP/Swoole). `tests/FeatureCatalogCoverageTest.php` checks 30 complete five-column rows, no duplicate labels and all required categories; all four Pest lanes pass [#40071567489](https://github.com/infocyph/Runwire/actions/runs/40071567489) and strict Sphinx [#40071567309](https://github.com/infocyph/Runwire/actions/runs/40071567309) passes at c2ce077. Public-symbol-by-symbol reference U16.11, tutorials and hosted RTD preview remain separate OPEN tasks.
-- [ ] **U16.05** Document TCP/TLS/Unix/UDP/QUIC inbound/outbound and DNS/Happy Eyeballs. **Acceptance:** Runnable client/server examples and errors. **Proof:** PENDING.
+- [x] **U16.05** Document TCP/TLS/Unix/UDP/QUIC inbound/outbound and DNS/Happy Eyeballs. **Acceptance:** Runnable client/server examples and errors. **Proof:** Native RST index-linked docs/transport-guide-3.0.rst covers TCP/TLS/Unix/UDP/QUIC incoming/outgoing, off-loop DNS/HappyEyeballs, runnable source-backed commands and host/extension/security limits. Exact 00291e1 [Sphinx #40072262989](https://github.com/infocyph/Runwire/actions/runs/40072262989), [Portable #40072263007](https://github.com/infocyph/Runwire/actions/runs/40072263007) and [Security #40072263291](https://github.com/infocyph/Runwire/actions/runs/40072263291) green. No completed H3 client or WebTransport advertised.
 - [ ] **U16.06** Document HTTP1/2/3 client/server and WebSocket/WebTransport. **Acceptance:** Streaming, header limits, cancellation and conformance examples. **Proof:** PENDING.
 - [ ] **U16.07** Document pooling, CONNECT/SOCKS5, relay, TLS and authentication policies. **Acceptance:** Security, credentials, transport lifecycle cases. **Proof:** PENDING.
 - [x] **U16.08** Document Fiber tasks, event loops, deadlines and ownership. **Acceptance:** Scope and async resource lifecycle diagrams/examples. **Proof:** Native RST docs/coroutine-network-3.0.rst describes Fibers, task scopes, Select/ext-event/Swoole ownership, deadline/cancellation inheritance, dialer off-loop DNS, owner transfer/adoption and resource lifecycle diagrams/code examples. Strict Sphinx source 96979be [#40068643157](https://github.com/infocyph/Runwire/actions/runs/40068643157) and full coroutine regression [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399) PASS.
@@ -356,7 +356,7 @@
 - [ ] **U16.15** Enforce sphinx-build -n -W --keep-going -b html plus links and code snippet validation. **Acceptance:** CI fails on unresolved refs or invalid examples. **Proof:** PENDING.
 - [ ] **U16.16** Verify Read the Docs navigation, search, versioning and complete feature index. **Acceptance:** Hosted preview passes and 100 percent feature coverage. **Proof:** PENDING.
 
-**Batch tracker:** 5/16 accepted; 11 open — U16.04 29-family version/host/extension coverage #40071567489 / #40071567309 — U16.08 coroutine scopes and U16.09 async file RST/CI #40068643157 — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 6/16 accepted; 10 open — transport/DNS RST U16.05 #40072262989 — U16.04 29-family version/host/extension coverage #40071567489 / #40071567309 — U16.08 coroutine scopes and U16.09 async file RST/CI #40068643157 — U16.10 source-backed supervision and host ownership lifecycle Sphinx green #40068643157 — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U17 — Final certification, risk signoff and maintainer handoff
 
@@ -659,3 +659,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **D3 transport documentation staged (2026-10-24):** New native RST docs/transport-guide-3.0.rst in Sphinx navigation covers actual TCP/TLS/Unix/UDP incoming/outgoing, off-loop DNS/HappyEyeballs with runnable current fixture commands, optional native QUIC + H3 real CI, and explicit unavailable datagrams/WT/client protocols. Ownership, peer identity, cancellation and resource/error limits documented. U16.05 open pending strict Sphinx and runnable source link QA. **88/175 accepted, 87 open.**
 
 **H11 optional native ext-event cross-version acceptance (2026-10-24):** Exact source b01f41a real [Portable Native #40071912799](https://github.com/infocyph/Runwire/actions/runs/40071912799) passes optional PECL ext-event on PHP8.4 and PHP8.5 with the same `EventLoopTest.php` and `Http1WorkerBudgetTest.php` and separate no-ext-event portable Select tests on both PHP versions. Accept U13.02 only for verified core loop readiness and H1 budget equivalence. Full mixed H2/H3/QUIC and release performance still require independent gates. **89/175 accepted (50.9%), 86 open.** New network-transport guide D3 remains strict-Sphinx QA pending.
+
+**P4 toward 75% (2026-10-24):** All eight workflows green at 00291e1. Verified and accepted U08.07 fixed-by-default H1/H2/H3 policy and U16.05 runnable native transport/DNS guide. Next grouped development: H1/H2/H3/WS documentation, WebTransport architecture, and security tests. **91/175 (52.0%), 84 open; 41 more to 132/175 (75.4%).**
