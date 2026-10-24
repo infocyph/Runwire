@@ -40,6 +40,38 @@ final readonly class QuicClientOptions
         }
     }
 
+    /**
+     * Reject application dispatch until the verified TLS 1.3 handshake has
+     * completed; the native backend provides no replay-safe 0-RTT support.
+     */
+    public function assertApplicationDispatchAllowed(bool $handshakeConfirmed): void
+    {
+        if (!$handshakeConfirmed) {
+            throw new RuntimeUnavailableException('Unverified QUIC 0-RTT application dispatch is forbidden.');
+        }
+    }
+
+    /**
+     * The native backend cannot negotiate RFC 9221 datagrams.
+     * Application writers must not treat reliable streams as datagrams.
+     */
+    public function assertDatagramAvailable(): void
+    {
+        throw new RuntimeUnavailableException('Native QUIC RFC9221 datagrams are unavailable; cannot send or receive an unreliable datagram.');
+    }
+
+    /**
+     * Refuse a synchronous handshake on the owner event-loop thread.
+     * A worker/process backend must own the native connection lifecycle
+     * before this interface may be used to expose an async dialer.
+     */
+    public function assertEventLoopSafeNativeClient(): void
+    {
+        throw new RuntimeUnavailableException(
+            'ext-quic client construction blocks during TLS handshake; direct loop-thread dialing is prohibited.',
+        );
+    }
+
     /** Refuse unsupported native QUIC features instead of silently ignoring them. */
     public function assertNativeCapabilities(): void
     {
@@ -52,6 +84,36 @@ final readonly class QuicClientOptions
         if ($this->requireDatagrams) {
             throw new RuntimeUnavailableException('Native QUIC RFC9221 unreliable datagrams are unsupported.');
         }
+    }
+
+    /**
+     * The native QUIC backend has no post-handshake connection migration.
+     * Reject address/port rebinding instead of pretending a QUIC connection
+     * ID makes the new path routable.
+     */
+    public function assertStablePath(string $establishedPath, string $candidatePath): void
+    {
+        if ($establishedPath === '' || $candidatePath === '' || $establishedPath !== $candidatePath) {
+            throw new RuntimeUnavailableException('Native QUIC migration/rebinding is unavailable: the established peer path must remain fixed.');
+        }
+    }
+
+    /**
+     * Advertise only capabilities offered by the current native backend.
+     *
+     * @return array<string, bool>
+     */
+    public function nativeCapabilities(): array
+    {
+        return [
+            'tls13' => true,
+            'bidirectional_streams' => true,
+            'unidirectional_streams' => true,
+            'datagrams' => false,
+            'migration' => false,
+            'early_data' => false,
+            'nonblocking_client_handshake' => false,
+        ];
     }
 
     /**

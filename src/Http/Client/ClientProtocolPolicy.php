@@ -23,11 +23,6 @@ final readonly class ClientProtocolPolicy
         if ($allowedVersions === [] || count($allowedVersions) > 3) {
             throw new InvalidArgumentException('Allow one to three HTTP protocol versions.');
         }
-        foreach ($allowedVersions as $version) {
-            if (!$version instanceof ProtocolVersion) {
-                throw new InvalidArgumentException('HTTP versions must use ProtocolVersion enum values.');
-            }
-        }
         if (count(array_unique(array_map(static fn(ProtocolVersion $version): string => $version->value, $allowedVersions))) !== count($allowedVersions)
             || !in_array($preferred, $allowedVersions, true)) {
             throw new InvalidArgumentException('HTTP versions must be distinct and include the preferred version.');

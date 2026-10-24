@@ -17,9 +17,12 @@ interface ClientResponseInterface
     /** Abort the response body and release its owned stream. */
     public function close(): void;
 
+    /** Immutable normalized response headers. */
     public function headers(): Headers;
 
+    /** Final HTTP status code after informational responses. */
     public function status(): int;
 
+    /** Protocol actually negotiated for this response. */
     public function version(): ProtocolVersion;
 }

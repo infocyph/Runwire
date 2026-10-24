@@ -12,5 +12,6 @@ namespace Infocyph\Runwire\Http\Client;
  */
 interface ClientExchangeInterface
 {
+    /** Initiate an outbound exchange and return at response header completion. */
     public function send(ClientRequest $request): ClientResponseInterface;
 }

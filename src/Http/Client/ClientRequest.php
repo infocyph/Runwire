@@ -12,6 +12,7 @@ use InvalidArgumentException;
 /** Immutable outbound request envelope; incremental uploads use a body source. */
 final readonly class ClientRequest
 {
+    /** Validate an absolute origin, method token, streaming body and explicit protocol policy. */
     public function __construct(
         public string $method,
         public string $uri,
