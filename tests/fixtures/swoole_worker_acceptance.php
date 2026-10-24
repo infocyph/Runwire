@@ -28,6 +28,74 @@ $request = static function (int $port, string $path = '/probe') use ($check): ar
     }
 };
 
+// Keep simultaneous connections open until every request is submitted. The default
+// Swoole-family fixed-FD dispatch may otherwise recycle one descriptor and route
+// a burst of sequential localhost requests to only one of two healthy workers.
+$parallelRequests = static function (int $port, int $count) use ($check): array {
+    $sockets = [];
+    $results = [];
+    $requestBytes = "GET /probe HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+    try {
+        for ($index = 0; $index < $count; ++$index) {
+            $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errorCode, $error, 3.0);
+            $check(is_resource($socket), 'Unable to create concurrent worker probe: ' . $error);
+            stream_set_timeout($socket, 5);
+            $check(fwrite($socket, $requestBytes) === strlen($requestBytes), 'Incomplete concurrent worker probe request.');
+            $sockets[] = $socket;
+        }
+
+        foreach ($sockets as $socket) {
+            $response = stream_get_contents($socket);
+            $check(is_string($response), 'Unable to read concurrent worker probe response.');
+            $boundary = strpos($response, "\r\n\r\n");
+            $check($boundary !== false, 'Concurrent worker probe returned incomplete HTTP headers.');
+            $status = substr($response, 0, $boundary);
+            $check(preg_match('/^HTTP\/\S+ 200\b/', $status) === 1, 'Concurrent worker probe returned a non-200 status.');
+            $body = substr($response, $boundary + 4);
+            if (preg_match('/(?:^|\r\n)transfer-encoding:\s*chunked(?:\r\n|$)/i', $status) === 1) {
+                $cursor = 0;
+                $decodedChunks = [];
+                while (true) {
+                    $lineEnd = strpos($body, "\r\n", $cursor);
+                    $check($lineEnd !== false, 'Truncated chunked worker response header.');
+                    $sizeLine = explode(';', substr($body, $cursor, $lineEnd - $cursor), 2)[0];
+                    $check($sizeLine !== '' && ctype_xdigit($sizeLine), 'Invalid chunk size from worker.');
+                    $size = hexdec($sizeLine);
+                    $cursor = $lineEnd + 2;
+                    if ($size === 0) {
+                        break;
+                    }
+                    $check(
+                        $cursor + $size + 2 <= strlen($body)
+                            && substr($body, $cursor + $size, 2) === "\r\n",
+                        'Truncated chunked worker response payload.',
+                    );
+                    $decodedChunks[] = substr($body, $cursor, $size);
+                    $cursor += $size + 2;
+                }
+                $body = implode('', $decodedChunks);
+            }
+            try {
+                $decoded = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+            } catch (JsonException $error) {
+                throw new RuntimeException(
+                    'Invalid multiworker response JSON (headers=' . bin2hex(substr($status, 0, 192))
+                    . ', body=' . bin2hex(substr($body, 0, 192)) . ').',
+                    previous: $error,
+                );
+            }
+            $check(is_array($decoded), 'Concurrent worker probe returned invalid JSON.');
+            $results[] = $decoded;
+        }
+
+        return $results;
+    } finally {
+        foreach ($sockets as $socket) {
+            fclose($socket);
+        }
+    }
+};
+
 if (($argv[1] ?? '') === 'client') {
     $responses = [];
     for ($i = 0; $i < 8; $i++) {
@@ -88,11 +156,28 @@ try {
                 array_push($responses, ...json_decode($json, true, flags: JSON_THROW_ON_ERROR));
             }
             $workers = array_unique(array_column($responses, 'pid'));
+            // Reactor scheduling need not distribute the initial burst evenly.
+            // Keep a finite probe budget; fail if both workers cannot actually serve traffic.
+            for ($probe = 0; $probe < 4 && count($workers) === 1; ++$probe) {
+                array_push($responses, ...$parallelRequests($port, 16));
+                $workers = array_unique(array_column($responses, 'pid'));
+            }
             $slots = array_unique(array_column($responses, 'worker_slot'));
             sort($slots);
-            $check(count($responses) === 64 && count($workers) === 2, 'Expected 64 requests across two workers.');
+            $check(
+                count($responses) >= 64 && count($responses) <= 128 && count($workers) === 2,
+                sprintf(
+                    'Expected two active workers; observed %d responses from %d workers (PIDs: %s).',
+                    count($responses),
+                    count($workers),
+                    implode(', ', $workers),
+                ),
+            );
             $check($slots === [0, 1], 'Expected both native worker slots.');
-            $check(count(array_unique(array_column($responses, 'request_id'))) === 64, 'Request identities leaked across requests.');
+            $check(
+                count(array_unique(array_column($responses, 'request_id'))) === count($responses),
+                'Request identities leaked across requests.',
+            );
             foreach ($responses as $response) {
                 $check($response['runtime_pid'] === $response['pid'] && $response['pid'] !== $masterPid, 'Request inherited its parent context.');
             }
@@ -131,7 +216,11 @@ try {
             foreach ($events as $event) {
                 $check($event['pid'] === $event['runtime_pid'], 'Lifecycle inherited its parent context.');
             }
-            fwrite(STDOUT, $api . ': 2 workers, 64 isolated requests, exact worker contexts and one shutdown each' . PHP_EOL);
+            fwrite(STDOUT, sprintf(
+                '%s: 2 workers, %d isolated requests, exact worker contexts and one shutdown each',
+                $api,
+                count($responses),
+            ) . PHP_EOL);
         } catch (Throwable $error) {
             fwrite(STDERR, (string) file_get_contents($log));
             if (is_file($trace)) {

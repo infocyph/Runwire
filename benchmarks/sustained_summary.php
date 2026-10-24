@@ -51,7 +51,7 @@ assertComparable($records);
 
 $reference = $records[0];
 foreach ($records as $record) {
-    foreach (['runtime', 'runtime_version', 'runtime_build'] as $field) {
+    foreach (['runtime', 'runtime_version', 'runtime_build', 'extension_versions'] as $field) {
         if ($record[$field] !== $reference[$field]) {
             throw new RuntimeException(sprintf('Sustained evidence mismatch for "%s".', $field));
         }
@@ -84,6 +84,13 @@ $summary = [
     'workload' => $reference['workload'],
     'php_version' => $reference['php_version'],
     'hardware_id' => $reference['hardware_id'],
+    'host_os' => $reference['host_os'],
+    'host_cpu' => $reference['host_cpu'],
+    'tls' => $reference['tls'],
+    'opcache' => $reference['opcache'],
+    'workers' => $reference['workers'],
+    'connection_reuse' => $reference['connection_reuse'],
+    'extension_versions' => $reference['extension_versions'],
     'instrumentation' => $reference['instrumentation'],
     'trials' => count($records),
     'duration_seconds_per_trial' => $reference['duration_seconds'],

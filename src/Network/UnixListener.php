@@ -344,7 +344,7 @@ final class UnixListener
      */
     private function activateConnection(LoopInterface $loop, mixed $client, mixed $peer, Closure $callback): void
     {
-        $connection = new Connection(
+        $connection = ConnectionFactory::accepted(
             $loop,
             $client,
             $this->connectionLimits,

@@ -23,5 +23,7 @@ enum CloseReason: string
 
     case READ_ERROR = 'read_error';
 
+    case TLS_UNVERIFIED_EOF = 'tls_unverified_eof';
+
     case WRITE_ERROR = 'write_error';
 }

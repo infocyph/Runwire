@@ -552,6 +552,15 @@ Use diagnostics for operational visibility, not unbounded task history.
 10. Measure scheduler diagnostics before increasing limits.
 11. Use `ResponseTransfer::stream()` inside a request `CoroutineScope` when an already-authorized stream must follow response-writer backpressure without monopolizing the loop.
 
+
+## 24. Runwire 2.2 outbound I/O scope decision
+
+The current `AsyncConnection` adapter operates on an **already-established** `Network\\Connection`. It exposes scoped receive, backpressure-aware drain, write, graceful close and exclusive callback ownership. It does **not** provide a nonblocking TCP/TLS dialer, a DNS resolver, a standalone HTTP client, or automatic cooperative execution of arbitrary PHP I/O.
+
+For the 2.2 release, an independent socket-connect API and the related transport/DNS/TLS work are **explicitly deferred**, rather than shipping a partly synchronous API with misleading timeout or cancellation guarantees. Continue using a caller-owned established connection with `AsyncConnection`; connect operations and system resolution using PHP streams can still block unless the consumer supplies a separately reviewed nonblocking connector.
+
+Tests already cover cancellation of a pending receive, callback ownership handoff, shared connection buffer/backpressure accounting, peer EOF and graceful close. Remaining new-connect behavior requires a future API design, real-host tests and workload results; it has **not** been implemented or certified in Runwire 2.2. This decision does not introduce a dependency on Runwire-Core or Runwire-Cells.
+
 ## Related documentation
 
 - [2.0 migration guide](migration-2.0.md)

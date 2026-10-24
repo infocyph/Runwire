@@ -9,7 +9,7 @@ use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use OverflowException;
 
 /**
- * Incrementally parses bounded client-to-server WebSocket frames.
+ * Incrementally parses bounded WebSocket frames with explicit peer masking direction.
  *
  * @internal
  */
@@ -29,6 +29,7 @@ final class WebSocketFrameParser
     public function __construct(
         WebSocketOptions $options,
         ?ByteBudget $workerBudget = null,
+        private readonly bool $expectMasked = true,
     ) {
         $this->options = self::retainOptions($options);
         $this->workerBudget = self::retainBudget($workerBudget);
@@ -188,20 +189,10 @@ final class WebSocketFrameParser
         $first = ord($this->buffer[0]);
         $second = ord($this->buffer[1]);
         $fin = ($first & 0x80) !== 0;
-        $rsv = $first & 0x70;
+        $this->validateFrameHeader($first, $second);
         $opcode = $first & 0x0f;
         $masked = ($second & 0x80) !== 0;
         $indicator = $second & 0x7f;
-
-        if ($rsv !== 0) {
-            throw new WebSocketProtocolException(1002, 'WebSocket RSV bits require a negotiated extension.');
-        }
-        if (!in_array($opcode, [0x0, 0x1, 0x2, 0x8, 0x9, 0xA], true)) {
-            throw new WebSocketProtocolException(1002, 'WebSocket frame opcode is reserved or unsupported.');
-        }
-        if (!$masked) {
-            throw new WebSocketProtocolException(1002, 'Client WebSocket frames must be masked.');
-        }
 
         $offset = 2;
         $length = $this->decodeLength($indicator, $offset);
@@ -215,16 +206,16 @@ final class WebSocketFrameParser
             throw new WebSocketProtocolException(1002, 'WebSocket control frames must be final and at most 125 bytes.');
         }
 
-        $frameBytes = $offset + 4 + $length;
+        $frameBytes = $offset + ($masked ? 4 : 0) + $length;
         if (strlen($this->buffer) < $frameBytes) {
             return null;
         }
 
         $wire = $this->consume($frameBytes);
-        $mask = substr($wire, $offset, 4);
-        $payload = substr($wire, $offset + 4, $length);
+        $mask = $masked ? substr($wire, $offset, 4) : '';
+        $payload = substr($wire, $offset + ($masked ? 4 : 0), $length);
 
-        return new WebSocketFrame($fin, $opcode, self::unmask($payload, $mask));
+        return new WebSocketFrame($fin, $opcode, $masked ? self::unmask($payload, $mask) : $payload);
     }
 
     private function release(int $bytes): void
@@ -234,5 +225,25 @@ final class WebSocketFrameParser
         }
 
         $this->workerBudget?->release($bytes);
+    }
+
+    private function validateFrameHeader(int $first, int $second): void
+    {
+        if (($first & 0x70) !== 0) {
+            throw new WebSocketProtocolException(1002, 'WebSocket RSV bits require a negotiated extension.');
+        }
+        if (!in_array($first & 0x0f, [0x0, 0x1, 0x2, 0x8, 0x9, 0xA], true)) {
+            throw new WebSocketProtocolException(1002, 'WebSocket frame opcode is reserved or unsupported.');
+        }
+
+        $masked = ($second & 0x80) !== 0;
+        if ($masked !== $this->expectMasked) {
+            throw new WebSocketProtocolException(
+                1002,
+                $this->expectMasked
+                    ? 'WebSocket frames from clients must be masked.'
+                    : 'WebSocket frames from servers must not be masked.',
+            );
+        }
     }
 }

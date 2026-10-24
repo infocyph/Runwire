@@ -74,6 +74,63 @@ it('records timer lag introduced by deferred callbacks in the same tick', functi
     expect($loop->diagnostics()->maxLagNanoseconds)->toBeGreaterThanOrEqual(10_000_000);
 });
 
+it('bounds due timer work per tick without dropping pending callbacks', function (): void {
+    $loop = new SelectLoop();
+    $fired = 0;
+
+    for ($i = 0; $i < 600; ++$i) {
+        $loop->delay(0.0, static function () use (&$fired): void {
+            ++$fired;
+        });
+    }
+
+    $loop->tick();
+    expect($fired)->toBe(256)
+        ->and($loop->diagnostics()->timersActive)->toBe(344);
+
+    $loop->tick();
+    expect($fired)->toBe(512);
+
+    $loop->tick();
+    expect($fired)->toBe(600)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('lets a readable socket progress during an excessive due-timer burst', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false) {
+        throw new RuntimeException('Unable to create the stream fairness pair.');
+    }
+
+    [$reader, $writer] = $pair;
+    stream_set_blocking($reader, false);
+    $loop = new SelectLoop();
+    $fired = 0;
+    $payload = null;
+
+    for ($i = 0; $i < 600; ++$i) {
+        $loop->delay(0.0, static function () use (&$fired): void {
+            ++$fired;
+        });
+    }
+    $loop->onReadable($reader, function ($stream) use ($loop, &$payload): void {
+        $payload = fread($stream, 1);
+        $loop->stop();
+    });
+
+    try {
+        fwrite($writer, 'x');
+        $loop->run();
+
+        expect($payload)->toBe('x')
+            ->and($fired)->toBe(256)
+            ->and($loop->diagnostics()->timersActive)->toBe(344);
+    } finally {
+        fclose($reader);
+        fclose($writer);
+    }
+});
+
 it('runs and cancels a repeating timer from its callback', function (): void {
     $loop = new SelectLoop();
     $runs = 0;

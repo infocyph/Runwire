@@ -27,6 +27,9 @@ final class PhpQuicHttp3Worker
 
     private const float DEFAULT_POLL_TIMEOUT_SECONDS = 0.05;
 
+    /** @var ?Closure(Throwable): void */
+    private readonly ?Closure $connectionFailureObserver;
+
     private readonly int $connectionLimit;
 
     /** @var Closure(HttpRequest, ResponseWriterInterface): void */
@@ -44,7 +47,10 @@ final class PhpQuicHttp3Worker
     /** @var array<int, array{connection: PhpQuicConnection, deadline: float}> */
     private array $pendingConnections = [];
 
-    /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
+    /**
+     * @param callable(HttpRequest, ResponseWriterInterface): void $handler
+     * @param callable(Throwable): void|null $connectionFailureObserver
+     */
     public function __construct(
         private readonly PhpQuicListener $listener,
         callable $handler,
@@ -59,6 +65,7 @@ final class PhpQuicHttp3Worker
             lowWatermarkBasisPoints: 1_000,
             highWatermarkBasisPoints: 4_000,
         ),
+        ?callable $connectionFailureObserver = null,
     ) {
         if ($connectionLimit < 1 || $connectionLimit > 1_000_000) {
             throw new InvalidArgumentException('HTTP/3 worker connection limit must be between 1 and 1000000.');
@@ -71,6 +78,9 @@ final class PhpQuicHttp3Worker
         $handlerClosure = Closure::fromCallable($handler);
         $this->connectionLimit = $connectionLimit;
         $this->handler = $handlerClosure;
+        $this->connectionFailureObserver = $connectionFailureObserver !== null
+            ? Closure::fromCallable($connectionFailureObserver)
+            : null;
         $this->poller = $poller ?? new PhpQuicHttp3Poller(PhpQuicEventMasks::native());
     }
 
@@ -218,9 +228,11 @@ final class PhpQuicHttp3Worker
         foreach ($this->connections as $id => $connection) {
             try {
                 $connection->handleReady($ready, $this->poller->events);
-            } catch (Http3Exception) {
+            } catch (Http3Exception $exception) {
                 // The connection owns the protocol close; one client must not terminate the worker.
-            } catch (Throwable) {
+                ($this->connectionFailureObserver)?->__invoke($exception);
+            } catch (Throwable $exception) {
+                ($this->connectionFailureObserver)?->__invoke($exception);
                 unset($this->connections[$id]);
 
                 continue;

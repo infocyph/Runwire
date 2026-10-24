@@ -3,8 +3,10 @@ name: Source Audit
 on:
   workflow_dispatch:
   push:
+    branches: [ "main", "master" ]
     paths:
       - src/**
+      - tools/public-api-manifest.php
       - tests/**
       - composer.json
       - composer.lock
@@ -36,6 +38,40 @@ jobs:
         with:
           php-version: '8.5'
           coverage: none
+
+      - name: Checkout immutable published 2.1.2 comparator
+        uses: actions/checkout@v7
+        with:
+          ref: 7e9bf20ad0737a187dfed77b723791b141b36378
+          path: published-2.1.2
+          persist-credentials: false
+
+      - name: Snapshot all published and current PHP public type signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tools/public-api-manifest.php
+          mkdir -p api-baseline
+          php tools/public-api-manifest.php published-2.1.2/src api-baseline/published-2.1.2.json 7e9bf20ad0737a187dfed77b723791b141b36378
+          php tools/public-api-manifest.php src api-baseline/current.json "${GITHUB_SHA}"
+          test "$(jq -r '.unrecognizedFiles | length' api-baseline/published-2.1.2.json)" -eq 0
+          test "$(jq -r '.symbolCount' api-baseline/published-2.1.2.json)" -gt 200
+          test "$(jq -r '.symbolCount' api-baseline/current.json)" -gt 200
+          sha256sum api-baseline/*.json | tee api-baseline/sha256sums.txt
+          expected_sha="$(jq -er '.manifestSha256' docs/plans/evidence/runwire-3.0/public-api-2.1.2.lock.json)"
+          actual_sha="$(sha256sum api-baseline/published-2.1.2.json | cut -d ' ' -f 1)"
+          test "$actual_sha" = "$expected_sha"
+          test "$(jq -er '.sourceFiles' docs/plans/evidence/runwire-3.0/public-api-2.1.2.lock.json)" -eq "$(jq -er '.sourceFileCount' api-baseline/published-2.1.2.json)"
+          test "$(jq -er '.publicTypes' docs/plans/evidence/runwire-3.0/public-api-2.1.2.lock.json)" -eq "$(jq -er '.symbolCount' api-baseline/published-2.1.2.json)"
+          echo "Published 2.1.2 public API manifest checksum VERIFIED."
+
+      - name: Preserve reproducible API baselines
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-public-api-manifests
+          path: api-baseline/
+          retention-days: 90
 
       - name: Syntax check source
         shell: bash

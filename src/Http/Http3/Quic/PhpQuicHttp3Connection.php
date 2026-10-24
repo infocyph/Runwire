@@ -433,12 +433,6 @@ final class PhpQuicHttp3Connection
                 return;
             }
             $this->readCursorOffset = $nextOffset;
-            if ($ready !== null && isset($this->requestStreams[$streamId])
-                && ($this->peerStreams[$streamId] ?? null)?->resetCode() !== null) {
-                $this->cancelRequestStream($streamId);
-
-                continue;
-            }
             [$streamReads, $streamBytes, $streamControlBytes] = $this->drainStream(
                 $streamId,
                 $readLimit - $reads,
@@ -454,6 +448,15 @@ final class PhpQuicHttp3Connection
     private function expireRequestStreams(): void
     {
         foreach (array_keys($this->requestStreams) as $streamId) {
+            // Native getResetCode() also observes peer STOP_SENDING on the
+            // write side. Do not wait for another readable event before
+            // discarding a cancelled response on a still-live connection.
+            if (($this->peerStreams[$streamId] ?? null)?->resetCode() !== null) {
+                $this->cancelRequestStream($streamId);
+
+                continue;
+            }
+
             $request = $this->state->requestStream($streamId);
             if ($request === null || $request->timeoutReason() === null) {
                 continue;
@@ -574,7 +577,11 @@ final class PhpQuicHttp3Connection
     /** @return list<array{0: int, 1: int}> */
     private function peerStreamOrder(): array
     {
-        $streamIds = array_keys($this->peerStreams);
+        // QPACK-blocked requests remain registered after their transport FIN,
+        // but must not be read again until decoder instructions unblock them.
+        // Filtering the iteration set avoids repeated FIN delivery without
+        // introducing another branch in the hot per-stream drain path.
+        $streamIds = array_keys(array_diff_key($this->peerStreams, $this->peerFinishedRequests));
         $streamCount = count($streamIds);
         if ($streamCount === 0) {
             $this->readCursorOffset = 0;

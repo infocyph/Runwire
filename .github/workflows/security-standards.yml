@@ -65,6 +65,7 @@ jobs:
             build-essential \
             ca-certificates \
             git \
+            jq \
             libev-dev \
             libssl-dev \
             libtool \
@@ -293,6 +294,155 @@ jobs:
             exit 1
           fi
           server_pid=""
+
+      - name: Verify off-loop outbound QUIC TLS handshake against independent aioquic
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -keyout "$tmpdir/server.key" -out "$tmpdir/ca.pem" >/dev/null 2>&1
+
+          port="$(php -r '
+          $udp = stream_socket_server("udp://127.0.0.1:0", $code, $error, STREAM_SERVER_BIND);
+          if (!is_resource($udp)) { throw new RuntimeException($error); }
+          $address = stream_socket_get_name($udp, false);
+          fclose($udp);
+          if (!is_string($address) || !str_contains($address, ":")) {
+              throw new RuntimeException("Cannot allocate QUIC probe port.");
+          }
+          echo substr(strrchr($address, ":"), 1);
+          ')"
+
+          /tmp/runwire-aioquic/bin/python -u tests/interop/aioquic_quic_probe_server.py \
+            "$port" "$tmpdir/ca.pem" "$tmpdir/server.key" "$tmpdir/ready" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -s "$tmpdir/ready" ]; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.03
+          done
+          test -s "$tmpdir/ready" || {
+            cat "$tmpdir/server.log"
+            echo "::error::Independent aioquic QUIC probe server did not start."
+            exit 1
+          }
+
+          php tests/fixtures/quic_probe_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem"
+
+      - name: Verify persistent outbound QUIC worker streams against aioquic echo
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -keyout "$tmpdir/server.key" -out "$tmpdir/ca.pem" >/dev/null 2>&1
+
+          port="$(php -r '
+          $udp = stream_socket_server("udp://127.0.0.1:0", $code, $error, STREAM_SERVER_BIND);
+          if (!is_resource($udp)) { throw new RuntimeException($error); }
+          $address = stream_socket_get_name($udp, false);
+          fclose($udp);
+          if (!is_string($address) || !str_contains($address, ":")) {
+              throw new RuntimeException("Cannot allocate QUIC echo port.");
+          }
+          echo substr(strrchr($address, ":"), 1);
+          ')"
+
+          /tmp/runwire-aioquic/bin/python -u tests/interop/aioquic_quic_echo_server.py \
+            "$port" "$tmpdir/ca.pem" "$tmpdir/server.key" "$tmpdir/ready" "$tmpdir/uni.receipt" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -s "$tmpdir/ready" ]; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.03
+          done
+          test -s "$tmpdir/ready" || {
+            cat "$tmpdir/server.log"
+            echo "::error::Independent QUIC echo server did not start."
+            exit 1
+          }
+
+          php tests/fixtures/quic_session_echo_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem" "$tmpdir/uni.receipt"
+
+      - name: Real aioquic HTTP/3 stream cancellations and sibling progress
+        shell: bash
+        run: |
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/http3_fault_acceptance.sh
+
+      - name: Install independent HTTP/2 client in aioquic environment
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0'
+
+      - name: Real simultaneous H1/H2/H3/TCP/UDP native crash and rolling recycle
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          mkdir -p benchmark-results
+          /tmp/runwire-aioquic/bin/python benchmarks/mixed_native_lifecycle.py | tee benchmark-results/mixed-native-lifecycle.json
+          jq -e '.correctness_passed == true and .events.reload_completed > 0 and .events.manual_recycle_requested > 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
+
+      - name: Upload mixed native listener lifecycle evidence
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-mixed-native-lifecycle
+          path: benchmark-results/mixed-native-lifecycle.json
+          retention-days: 90
+
+      - name: Real independent H3 QPACK, upload and connection-churn pressure
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/real_protocol_pressure.sh h3 benchmark-results/real-h3-pressure
+
+      - name: Upload independent H3 pressure artifacts
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-real-h3-pressure
+          path: benchmark-results/real-h3-pressure/
+          retention-days: 90
 
       - name: Run diagnostic AUTO vs FIXED HTTP/3 matrix
         if: matrix.php-version == '8.5'

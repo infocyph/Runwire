@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      tls_certification:
+        description: "Run full matched 2.1.2-versus-3.0 verified TLS certification"
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ "main", "master" ]
   pull_request:
@@ -18,6 +23,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  matched-tls:
+    name: "U04 matched verified TLS - PHP 8.4"
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.tls_certification }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout immutable Runwire 2.1.2 baseline
+        uses: actions/checkout@v7
+        with:
+          ref: "2.1.2"
+          path: baseline
+      - name: Checkout Runwire 3.0 candidate
+        uses: actions/checkout@v7
+        with:
+          path: candidate
+      - name: Setup pinned PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache, openssl
+          coverage: none
+      - name: Install independently locked dependencies
+        shell: bash
+        run: |
+          (cd baseline && composer install --no-interaction --prefer-dist --no-progress)
+          (cd candidate && composer install --no-interaction --prefer-dist --no-progress)
+      - name: Run 5 matched 180s TLS populations on pinned physical cores
+        shell: bash
+        run: |
+          mkdir -p candidate/benchmark-results/u04-matched-tls
+          RUNWIRE_BENCH_TLS=1 \
+            RUNWIRE_BASELINE_BUILD="$(cd baseline && git rev-parse HEAD)" \
+            RUNWIRE_CANDIDATE_BUILD="$(cd candidate && git rev-parse HEAD)" \
+            bash candidate/benchmarks/matched_release_certification.sh \
+            baseline candidate candidate/benchmark-results/u04-matched-tls
+          jq -e '.budget_enforced == true and .passed == true' \
+            candidate/benchmark-results/u04-matched-tls/comparison.json >/dev/null
+      - name: Upload matched TLS evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-u04-matched-tls-php-8.4
+          path: candidate/benchmark-results/u04-matched-tls/
+          retention-days: 61
   protocol-core:
     name: "Protocol + host core - PHP ${{ matrix.php-version }}"
     runs-on: ubuntu-latest
@@ -58,11 +110,114 @@ jobs:
           {
             php -v
             composer --version
+            printf 'DEPENDENCY LOCK SHA256: '
+            sha256sum composer.lock
+            printf 'Cgroup CPU limit: '
+            cat /sys/fs/cgroup/cpu.max 2>/dev/null || true
+            printf 'Cgroup memory limit: '
+            cat /sys/fs/cgroup/memory.max 2>/dev/null || true
+            printf 'FD soft/hard limits: '
+            ulimit -Sn
+            ulimit -Hn
+            php --ini=diff || true
             php --ri event || true
             php --ri 'Zend OPcache' || true
             uname -a
             lscpu
           } > "benchmark-results/environment-php-${{ matrix.php-version }}.txt"
+
+      - name: Record exact locked development dependencies
+        shell: bash
+        run: |
+          composer show --locked --format=json > "benchmark-results/dependencies-php-${{ matrix.php-version }}.json"
+          jq -e '(.locked // []) | length > 0' "benchmark-results/dependencies-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Audit exact locked dependencies for published security advisories
+        shell: bash
+        run: |
+          composer audit --locked --abandoned=report --no-interaction --format=json \
+            > "benchmark-results/composer-security-audit-php-${{ matrix.php-version }}.json"
+          jq -e '(.advisories | length) == 0' \
+            "benchmark-results/composer-security-audit-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Snapshot public and protected PHP contracts
+        shell: bash
+        run: |
+          php benchmarks/public_api_snapshot.php > "benchmark-results/public-api-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .type_count > 0 and (.types | length) == .type_count' "benchmark-results/public-api-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Profile hosted request path phases without production instrumentation
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/r0_host_profile.php 5000 1000 \
+            > "benchmark-results/r0-host-profile-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .completed == 5000
+            and .host_network_included == false
+            and .phases.total.p99_us > 0
+            and .phases.dispatch_and_finalization.p99_us > 0' \
+            "benchmark-results/r0-host-profile-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Profile R2 scheduler pressure under bounded tasks and I/O waits
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/r2_scheduler_pressure.php 6 2 \
+            > "benchmark-results/r2-scheduler-php-${{ matrix.php-version }}.json"
+          jq -e '.correctness_passed == true and .schema == 1
+            and .real_network_included == false
+            and .overload_boundary.overflow_rejected == true
+            and .overload_boundary.active_after == 0
+            and (.modes | length) == 15
+            and ([.modes[] | select(.active_after != 0 or .watchers_after != 0 or .timers_after != 0)] | length) == 0' \
+            "benchmark-results/r2-scheduler-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Profile U01 genuine off-loop executor cost and fairness
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/u01_executor_profile.php \
+            > "benchmark-results/u01-executor-profile-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .jobs_completed == .jobs_submitted
+            and .jobs_failed == 0 and .pending_after == 0
+            and .worker_count_after == 0
+            and .loop_ticks > 0
+            and .latency.p99_ms > 0 and .cpu.parent_user_ms >= 0
+            and .memory.parent_peak_allocated_bytes > 0' \
+            "benchmark-results/u01-executor-profile-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Profile U03 sequential versus overlapping real outbound connects
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/u03_dial_profile.php \
+            > "benchmark-results/u03-outbound-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .real_socket_io == true
+            and .sequential.submitted == 24 and .sequential.completed == 24
+            and .overlap.submitted == 24 and .overlap.completed == 24
+            and .sequential.failed == 0 and .overlap.failed == 0
+            and .sequential.accepted == 24 and .overlap.accepted == 24
+            and .sequential.p99_ms >= 0 and .overlap.p99_ms >= 0
+            and .sequential.cpu_parent_ms >= 0 and .overlap.cpu_parent_ms >= 0
+            and .sequential.rss_bytes > 0 and .overlap.rss_bytes > 0
+            and .sequential.watchers_after == 0 and .overlap.watchers_after == 0' \
+            "benchmark-results/u03-outbound-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Soak mixed real socket, CPU and timer pressure across three levels
+        shell: bash
+        run: |
+          RUNWIRE_RUNTIME_BUILD="${{ github.event.pull_request.head.sha || github.sha }}" \
+            php benchmarks/r2_mixed_scheduler_soak.php 3.0 \
+            > "benchmark-results/r2-mixed-soak-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .real_socket_io == true and .tier_count == 3
+            and ([.tiers[] | select(.correctness_passed != true or .readable_p99_ms > 500
+              or .pending_socket_bytes > 1 or .watchers_after != 0
+              or .timers_after != 0 or .deferred_after != 0)] | length) == 0' \
+            "benchmark-results/r2-mixed-soak-php-${{ matrix.php-version }}.json" >/dev/null
 
       - name: Capture Runwire OPcache footprint
         shell: bash
@@ -272,7 +427,7 @@ jobs:
             exit 1
           fi
 
-          export RUNWIRE_RUNTIME_VERSION="2.0-candidate"
+          export RUNWIRE_RUNTIME_VERSION="2.2-development"
           export RUNWIRE_RUNTIME_BUILD="$GITHUB_SHA"
           export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
           export RUNWIRE_INSTRUMENTATION="$instrumentation"
@@ -410,6 +565,10 @@ jobs:
           wait "$server_pid"
           server_pid=""
 
+      - name: Smoke-test verified TLS benchmark transport
+        shell: bash
+        run: bash benchmarks/u04_tls_smoke.sh "benchmark-results/u04-tls-php-${{ matrix.php-version }}.json"
+
       - name: Upload benchmark evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -454,6 +613,24 @@ jobs:
           vendor/bin/pest --configuration=.phpforge-pest-adaptive.xml             tests/AdaptiveBenchmarkEvidenceTest.php             tests/AdaptivePromotionMatrixTest.php
           /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h1_client.py' -v
           /tmp/runwire-h2/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_h2_client.py' -v
+
+      - name: Real h2 cancellation, stalled-flow and sibling progress acceptance
+        shell: bash
+        run: |
+          RUNWIRE_H2_PYTHON=/tmp/runwire-h2/bin/python bash benchmarks/h2_fault_acceptance.sh
+
+      - name: Real independent H2 HPACK, flow-control and slow-peer pressure
+        shell: bash
+        run: |
+          RUNWIRE_H2_PYTHON=/tmp/runwire-h2/bin/python bash benchmarks/real_protocol_pressure.sh h2 benchmark-results/real-h2-pressure
+
+      - name: Upload independent H2 pressure artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-real-h2-pressure
+          path: benchmark-results/real-h2-pressure/
+          retention-days: 90
 
       - name: Run diagnostic AUTO vs FIXED HTTP/1.1 and HTTP/2 matrix
         shell: bash

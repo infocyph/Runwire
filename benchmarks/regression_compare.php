@@ -19,18 +19,40 @@ function loadSummary(string $path): array
     }
 
     foreach ([
-        'protocol',
-        'workload',
-        'php_version',
-        'hardware_id',
-        'instrumentation',
-        'median_successful_rps',
-        'median_successful_rpm',
-        'rps_cv_percent',
-        'correctness_passed',
+        'protocol', 'workload', 'php_version', 'hardware_id', 'host_os', 'host_cpu',
+        'instrumentation', 'tls', 'opcache', 'connection_reuse',
+        'runtime_build',
     ] as $field) {
-        if (!array_key_exists($field, $decoded)) {
-            throw new RuntimeException(sprintf('Summary "%s" is missing "%s".', $path, $field));
+        if (!isset($decoded[$field]) || !is_string($decoded[$field]) || $decoded[$field] === '') {
+            throw new RuntimeException(sprintf('Summary "%s" requires string "%s".', $path, $field));
+        }
+    }
+    foreach ([
+        'trials', 'duration_seconds_per_trial', 'workers', 'concurrency',
+        'median_successful_rps', 'median_successful_rpm', 'rps_cv_percent',
+        'median_p99_ms', 'peak_rss_bytes',
+    ] as $field) {
+        if (!isset($decoded[$field]) || (!is_int($decoded[$field]) && !is_float($decoded[$field]))
+            || !is_finite((float) $decoded[$field])) {
+            throw new RuntimeException(sprintf('Summary "%s" requires finite numeric "%s".', $path, $field));
+        }
+    }
+    if (($decoded['trials'] < 5) || $decoded['duration_seconds_per_trial'] <= 0
+        || $decoded['workers'] <= 0 || $decoded['concurrency'] <= 0
+        || $decoded['median_successful_rps'] <= 0 || $decoded['median_successful_rpm'] <= 0
+        || $decoded['rps_cv_percent'] < 0 || $decoded['median_p99_ms'] < 0
+        || $decoded['peak_rss_bytes'] < 0) {
+        throw new RuntimeException(sprintf('Summary "%s" has invalid measurement ranges.', $path));
+    }
+    if (($decoded['correctness_passed'] ?? null) !== true) {
+        throw new RuntimeException(sprintf('Summary "%s" did not pass correctness.', $path));
+    }
+    if (!isset($decoded['extension_versions']) || !is_array($decoded['extension_versions'])) {
+        throw new RuntimeException(sprintf('Summary "%s" is missing extension version provenance.', $path));
+    }
+    foreach ($decoded['extension_versions'] as $name => $version) {
+        if (!is_string($name) || $name === '' || !is_string($version) || $version === '') {
+            throw new RuntimeException(sprintf('Summary "%s" has invalid extension version provenance.', $path));
         }
     }
 
@@ -40,21 +62,18 @@ function loadSummary(string $path): array
 $baseline = loadSummary($argv[1]);
 $candidate = loadSummary($argv[2]);
 
-foreach (['protocol', 'workload', 'php_version', 'hardware_id', 'instrumentation'] as $field) {
+foreach ([
+    'protocol', 'workload', 'php_version', 'hardware_id', 'host_os', 'host_cpu',
+    'instrumentation', 'tls', 'opcache', 'connection_reuse', 'workers', 'concurrency',
+    'duration_seconds_per_trial', 'trials', 'extension_versions',
+] as $field) {
     if ($baseline[$field] !== $candidate[$field]) {
         throw new RuntimeException(sprintf('Benchmark summary mismatch for "%s".', $field));
     }
 }
-if ($baseline['correctness_passed'] !== true || $candidate['correctness_passed'] !== true) {
-    throw new RuntimeException('Regression comparison requires correctness-passing summaries.');
-}
 
 $baselineRps = (float) $baseline['median_successful_rps'];
 $candidateRps = (float) $candidate['median_successful_rps'];
-if ($baselineRps <= 0.0 || $candidateRps <= 0.0) {
-    throw new RuntimeException('Regression comparison requires positive median successful RPS.');
-}
-
 $baselineCv = (float) $baseline['rps_cv_percent'];
 $candidateCv = (float) $candidate['rps_cv_percent'];
 $maxCv = max($baselineCv, $candidateCv);
@@ -62,25 +81,62 @@ $regressionPercent = (($candidateRps - $baselineRps) / $baselineRps) * 100.0;
 $budgetPercent = 5.0;
 $varianceCeilingPercent = 2.5;
 $enforced = $maxCv < $varianceCeilingPercent;
-$passed = !$enforced || $regressionPercent >= -$budgetPercent;
+$baselineP99 = (float) $baseline['median_p99_ms'];
+$candidateP99 = (float) $candidate['median_p99_ms'];
+$baselineRss = (float) $baseline['peak_rss_bytes'];
+$candidateRss = (float) $candidate['peak_rss_bytes'];
+
+// Reuse Runwire's already-established adaptive-promotion safety margins:
+// a p99 regression must exceed BOTH 15% and 0.5 ms; RSS must exceed 110% + 4 MiB.
+// Throughput variance remains a separate hard release-certification gate.
+$p99RelativeCeiling = 1.15;
+$p99AbsoluteToleranceMs = 0.5;
+$rssRelativeCeiling = 1.10;
+$rssAbsoluteToleranceBytes = 4_194_304;
+$p99Passed = $candidateP99 <= $baselineP99 * $p99RelativeCeiling
+    || $candidateP99 - $baselineP99 <= $p99AbsoluteToleranceMs;
+$rssLimitBytes = $baselineRss * $rssRelativeCeiling + $rssAbsoluteToleranceBytes;
+$rssPassed = $candidateRss <= $rssLimitBytes;
+$throughputPassed = $regressionPercent >= -$budgetPercent;
+$passed = $enforced && $throughputPassed && $p99Passed && $rssPassed;
+$certificationStatus = !$enforced ? 'inconclusive_variance' : ($passed ? 'passed' : 'failed');
 
 $result = [
-    'baseline_build' => $baseline['runtime_build'] ?? 'unknown',
-    'candidate_build' => $candidate['runtime_build'] ?? 'unknown',
+    'baseline_build' => $baseline['runtime_build'],
+    'candidate_build' => $candidate['runtime_build'],
     'baseline_median_successful_rps' => round($baselineRps, 3),
     'candidate_median_successful_rps' => round($candidateRps, 3),
     'delta_percent' => round($regressionPercent, 3),
     'baseline_rps_cv_percent' => round($baselineCv, 3),
     'candidate_rps_cv_percent' => round($candidateCv, 3),
     'max_rps_cv_percent' => round($maxCv, 3),
+    'baseline_median_p99_ms' => $baselineP99,
+    'candidate_median_p99_ms' => $candidateP99,
+    'p99_delta_percent' => $baselineP99 > 0 ? round(($candidateP99 - $baselineP99) / $baselineP99 * 100.0, 3) : null,
+    'baseline_peak_rss_bytes' => (int) $baselineRss,
+    'candidate_peak_rss_bytes' => (int) $candidateRss,
+    'rss_delta_percent' => $baselineRss > 0 ? round(($candidateRss - $baselineRss) / $baselineRss * 100.0, 3) : null,
+    'p99_relative_ceiling_ratio' => $p99RelativeCeiling,
+    'p99_absolute_tolerance_ms' => $p99AbsoluteToleranceMs,
+    'p99_passed' => $p99Passed,
+    'rss_relative_ceiling_ratio' => $rssRelativeCeiling,
+    'rss_absolute_tolerance_bytes' => $rssAbsoluteToleranceBytes,
+    'rss_ceiling_bytes' => (int) ceil($rssLimitBytes),
+    'rss_passed' => $rssPassed,
+    'throughput_passed' => $throughputPassed,
     'regression_budget_percent' => $budgetPercent,
     'variance_ceiling_percent' => $varianceCeilingPercent,
     'budget_enforced' => $enforced,
+    'certification_status' => $certificationStatus,
     'passed' => $passed,
 ];
 
 fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 
 if (!$passed) {
-    throw new RuntimeException('Stable benchmark evidence exceeds the permitted regression budget.');
+    throw new RuntimeException(
+        !$enforced
+            ? 'Benchmark evidence is inconclusive: measured variance exceeds the 2.5% certification ceiling.'
+            : 'Benchmark evidence exceeds the permitted throughput, p99 latency, or RSS regression budget.',
+    );
 }

@@ -69,4 +69,10 @@ final class ConnectionCallbackOwnership
 
         $this->owner = null;
     }
+
+    /** Whether the connection has no active exclusive protocol callback owner. */
+    public function unclaimed(): bool
+    {
+        return $this->owner === null;
+    }
 }

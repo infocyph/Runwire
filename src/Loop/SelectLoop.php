@@ -18,6 +18,10 @@ use Throwable;
  */
 final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
+    private const int MAX_DEFERRED_PER_TICK = 256;
+
+    private const int MAX_TIMERS_PER_TICK = 256;
+
     private const int MICROS_PER_SECOND = 1_000_000;
 
     private readonly int $callbackOverrunNanoseconds;
@@ -416,7 +420,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return;
         }
 
-        foreach (array_keys($this->deferred) as $id) {
+        foreach (array_slice(array_keys($this->deferred), 0, self::MAX_DEFERRED_PER_TICK) as $id) {
             $callback = $this->takeDeferred($id);
             if ($callback === null) {
                 continue;
@@ -431,15 +435,18 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function runDueTimers(): void
     {
-        while ($this->running && ($id = $this->timers->takeNextDue()) !== null) {
+        for ($processed = 0; $this->running && $processed < self::MAX_TIMERS_PER_TICK;) {
+            $id = $this->timers->takeNextDue();
+            if ($id === null) {
+                return;
+            }
+            ++$processed;
+
             $timer = $this->timers->timer($id);
             if ($timer === null) {
                 continue;
             }
             $this->fireTimer($id, $timer);
-            if (!$this->running) {
-                return;
-            }
         }
     }
 

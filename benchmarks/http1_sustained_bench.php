@@ -171,7 +171,28 @@ function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
     $error = '';
-    $socket = stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
+    $tls = getenv('RUNWIRE_BENCH_TLS') === '1';
+    $caFile = getenv('RUNWIRE_BENCH_TLS_CA');
+    if ($tls && (!is_string($caFile) || $caFile === '' || !is_file($caFile))) {
+        throw new RuntimeException('TLS certification requires an existing trusted CA file.');
+    }
+    $context = $tls ? stream_context_create(['ssl' => [
+        'verify_peer' => true,
+        'verify_peer_name' => true,
+        'peer_name' => 'localhost',
+        'SNI_enabled' => true,
+        'allow_self_signed' => false,
+        'cafile' => $caFile,
+        'crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+    ]]) : stream_context_create();
+    $socket = stream_socket_client(
+        sprintf('%s://%s:%d', $tls ? 'tls' : 'tcp', $host, $port),
+        $errno,
+        $error,
+        2.0,
+        STREAM_CLIENT_CONNECT,
+        $context,
+    );
     if (!is_resource($socket)) {
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
@@ -223,8 +244,11 @@ function http1SustainedPrepareRequest(array &$client, array &$counter): void
     $client['write_offset'] = 0;
     $client['buffer'] = '';
     $client['head'] = null;
-    $client['request_started'] = hrtime(true);
-    $client['request_deadline'] = microtime(true) + 2.0;
+    // Admission does not begin a request: under high concurrency a stream
+    // may wait for its first write. The strict two-second request budget
+    // starts when the request is actually sent, not while queued.
+    $client['request_started'] = 0;
+    $client['request_deadline'] = 0.0;
 }
 
 /** @param array<string, mixed> $client */
@@ -412,7 +436,7 @@ function http1SustainedSelectSets(array &$clients, array &$counter, int $request
         if (!($client['active'] ?? false)) {
             continue;
         }
-        if ($now >= (float) $client['request_deadline']) {
+        if ((float) $client['request_deadline'] > 0.0 && $now >= (float) $client['request_deadline']) {
             ++$counter['timeouts_total'];
             http1SustainedCloseClient($client);
 
@@ -440,6 +464,10 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
             continue;
         }
         $remaining = substr($request, (int) $clients[$id]['write_offset']);
+        if ((float) $clients[$id]['request_deadline'] === 0.0) {
+            $clients[$id]['request_started'] = hrtime(true);
+            $clients[$id]['request_deadline'] = microtime(true) + 2.0;
+        }
         $written = fwrite($stream, $remaining);
         if ($written === false || $written === 0) {
             ++$counter['errors_total'];
@@ -576,7 +604,10 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
         || $counter['timeouts_total'] !== 0
         || $counter['validation_failures'] !== 0
     ) {
-        throw new RuntimeException($phase . ' received a failed, incomplete, timed-out, or invalid response.');
+        throw new RuntimeException(
+            $phase . ' received a failed, incomplete, timed-out, or invalid response. Counters: '
+            . json_encode($counter, JSON_THROW_ON_ERROR),
+        );
     }
 }
 
@@ -621,13 +652,13 @@ function http1SustainedMain(array $argv): array
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
         'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'protocol' => 'http/1.1',
-        'workload' => 'plaintext-keepalive',
+        'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'verified-tls-keepalive' : 'plaintext-keepalive',
         'hardware_id' => php_uname('m') . '::' . http1SustainedCpuModel(),
         'host_os' => php_uname('a'),
         'host_cpu' => http1SustainedCpuModel(),
         'php_version' => getenv('RUNWIRE_PHP_VERSION') ?: PHP_VERSION,
         'instrumentation' => getenv('RUNWIRE_INSTRUMENTATION') ?: 'ci-smoke',
-        'tls' => 'off',
+        'tls' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'on-verified' : 'off',
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
         'connection_reuse' => 'keep-alive',
         'extension_versions' => http1SustainedExtensionVersions(),

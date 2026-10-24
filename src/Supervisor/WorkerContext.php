@@ -162,6 +162,8 @@ final class WorkerContext
      */
     public function close(): void
     {
+        // A retired generation must never advertise background-work admission.
+        $this->stopping = true;
         $this->backgroundCoroutines?->close();
         $this->periodicTasks->close();
         if ($this->controlWatcher !== null && $this->controlLoop !== null) {

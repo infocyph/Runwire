@@ -337,7 +337,7 @@ final class TcpListener
             return;
         }
 
-        $connection = new Connection(
+        $connection = ConnectionFactory::accepted(
             $loop,
             $stream,
             $this->connectionLimits,

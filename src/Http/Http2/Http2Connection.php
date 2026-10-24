@@ -92,6 +92,7 @@ final class Http2Connection
             cleanupClosed: fn(Http2Stream $stream) => $this->cleanupClosed($stream),
             readyCallback: fn() => $this->handleOutputReady(),
             activityCallback: fn(Http2Stream $stream) => $this->touch($stream),
+            outboundDataCredit: $this->controlBudget->creditOutboundData(...),
         );
 
         $this->requests = new RequestStreamProcessor(
