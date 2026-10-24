@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\CancellationSource;
+use Infocyph\Runwire\Exception\CancelledException;
+use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketClientHandshake;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketClientUpgrade;
+use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
@@ -128,6 +135,88 @@ it('rejects oversized upgrade response headers without unbounded buffering', fun
         $loop->cancel($stop);
         $connection->abort();
         fclose($peer);
+    }
+});
+
+it('settles an outbound WebSocket upgrade exactly once on token cancellation', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray()->toHaveCount(2);
+    [$socket, $peer] = $pair;
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $socket);
+    $source = new CancellationSource();
+    $callbacks = [];
+    $upgrade = new WebSocketClientUpgrade(
+        $loop,
+        $connection,
+        WebSocketClientHandshake::build('ws://localhost/cancel'),
+        [],
+        new WebSocketOptions(),
+        new DialOptions(cancellation: $source->token()),
+        static function (?WebSocketSession $session, ?Throwable $error) use (&$callbacks): void {
+            $callbacks[] = [$session, $error];
+        },
+    );
+
+    try {
+        $upgrade->start();
+        expect($source->token()->subscriptionCount())->toBe(1);
+        $source->cancel(CancellationReason::HOST_CANCELLED);
+        $source->cancel(CancellationReason::HOST_CANCELLED);
+        $connection->abort();
+
+        expect($callbacks)->toHaveCount(1)
+            ->and($callbacks[0][0])->toBeNull()
+            ->and($callbacks[0][1])->toBeInstanceOf(CancelledException::class)
+            ->and($source->token()->subscriptionCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $source->dispose();
+        $connection->abort();
+        fclose($peer);
+    }
+});
+
+it('rejects an upgrade when the independent peer closes before HTTP 101', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray()->toHaveCount(2);
+    [$socket, $peer] = $pair;
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $socket);
+    $callbacks = [];
+    $upgrade = new WebSocketClientUpgrade(
+        $loop,
+        $connection,
+        WebSocketClientHandshake::build('ws://localhost/eof'),
+        [],
+        new WebSocketOptions(),
+        new DialOptions(),
+        static function (?WebSocketSession $session, ?Throwable $error) use (&$callbacks, $loop): void {
+            $callbacks[] = [$session, $error];
+            $loop->stop();
+        },
+    );
+    $watchdog = $loop->delay(0.5, static function () use ($loop): void {
+        $loop->stop();
+    });
+
+    try {
+        $upgrade->start();
+        fclose($peer);
+        $loop->run();
+        expect($callbacks)->toHaveCount(1)
+            ->and($callbacks[0][0])->toBeNull()
+            ->and($callbacks[0][1])->toBeInstanceOf(RuntimeException::class)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        $loop->cancel($watchdog);
+        $connection->abort();
+        if (is_resource($peer)) {
+            fclose($peer);
+        }
     }
 });
 
