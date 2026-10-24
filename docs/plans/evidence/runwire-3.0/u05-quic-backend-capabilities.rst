@@ -135,3 +135,13 @@ uses the same installed PHPForge Pint on the existing PHP 8.5 QUIC job to
 display the real formatter patch, then reverts the temporary CI-only changes.
 This is diagnostic evidence, not a style gate bypass. Remove the step after
 fixing the worker and verifying all four PHPForge QA lanes green.
+
+Q2-I style-only recovery
+========================
+
+The exact formatter output captured in Q2-H Security & Standards run
+40063306046 identified a single class-element ordering edit: move
+``teardown()`` to the first private-method slot. No runtime behavior changes.
+The temporary CI formatter diagnostic is removed with this source fix.
+U05.04 and U05.05 require a newly passing exact-head full matrix before
+acceptance; counts remain 56/175 while that check is pending.

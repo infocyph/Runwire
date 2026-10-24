@@ -29,6 +29,16 @@ final class QuicWorkerSession
     /** @var array<int, array{stream:object, bidirectional:bool}> */
     private array $streams = [];
 
+    private function teardown(): void
+    {
+        $this->streams = [];
+        if (is_object($this->connection) && method_exists($this->connection, 'close')) {
+            $this->connection->close();
+        }
+        $this->connection = null;
+        $this->maxOpenStreams = 0;
+    }
+
     /**
      * Execute a validated command on the worker that owns this native session.
      *
@@ -285,16 +295,6 @@ final class QuicWorkerSession
         }
 
         return $entry['stream'];
-    }
-
-    private function teardown(): void
-    {
-        $this->streams = [];
-        if (is_object($this->connection) && method_exists($this->connection, 'close')) {
-            $this->connection->close();
-        }
-        $this->connection = null;
-        $this->maxOpenStreams = 0;
     }
 
     /**
