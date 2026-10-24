@@ -292,3 +292,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W4 RFC6455 adversarial matrix staged (2026-10-24):** Binary frame boundary, masking-direction, fragmented read, error-code, worker-memory budget fuzz-style fixtures. U09.01/U14.04 remain open pending QA. **98/175 accepted, 77 open**.
 
 **D4 snippet correctness suite staged (2026-10-24):** PHP native syntax checks for RST PHP examples and real test/benchmark file reference validation in PHPForge matrix; strict Sphinx remains required. U16.15 pending green, **98/175 accepted, 77 open**.
+
+**W6 WebSocket multi-connection regression staged (2026-10-24):** 64 concurrent paired sockets, interleaved ping/fragmentation, exact delivery and owner cleanup, QA pending. U09.03 remains open. **98/175 accepted, 77 open.**
