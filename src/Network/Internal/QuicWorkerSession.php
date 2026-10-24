@@ -20,6 +20,8 @@ final class QuicWorkerSession
 
     private int $epoch = 0;
 
+    private int $lastCommandId = 0;
+
     private int $maxOpenStreams = 0;
 
     private int $nextStreamId = 1;
@@ -46,6 +48,10 @@ final class QuicWorkerSession
 
         try {
             $command = QuicWorkerCommand::decode($args['command']);
+            if ($command['id'] <= $this->lastCommandId) {
+                throw new RuntimeException('Stale or replayed native QUIC worker command.');
+            }
+            $this->lastCommandId = $command['id'];
 
             return match ($command['op']) {
                 'open_bidi' => $this->openStream(true),
@@ -67,18 +73,23 @@ final class QuicWorkerSession
 
     /**
      * @param array<array-key, mixed> $protocols
+     * @return list<string>
      */
-    private function assertAlpn(array $protocols): void
+    private function assertAlpn(array $protocols): array
     {
         if ($protocols === [] || count($protocols) > 16) {
             throw new InvalidArgumentException('QUIC worker requires 1–16 ALPN identifiers.');
         }
+        $validated = [];
         foreach ($protocols as $protocol) {
             if (!is_string($protocol) || $protocol === '' || strlen($protocol) > 255
                 || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
                 throw new InvalidArgumentException('Unsafe QUIC ALPN protocol identifier.');
             }
+            $validated[] = $protocol;
         }
+
+        return $validated;
     }
 
     private function assertEndpoint(string $host, int $port, int $limit): void
@@ -91,8 +102,9 @@ final class QuicWorkerSession
 
     /**
      * @param array<array-key, mixed> $options
+     * @return list<string>
      */
-    private function assertTlsOptions(array $options): void
+    private function assertTlsOptions(array $options): array
     {
         if (($options['verify_peer'] ?? null) !== true
             || ($options['verify_peer_name'] ?? null) !== true
@@ -110,7 +122,7 @@ final class QuicWorkerSession
         if (!is_array($protocols)) {
             throw new InvalidArgumentException('QUIC worker requires explicit ALPN negotiation.');
         }
-        $this->assertAlpn($protocols);
+        return $this->assertAlpn($protocols);
     }
 
     /** @return array{closed:bool} */
@@ -139,7 +151,7 @@ final class QuicWorkerSession
             throw new InvalidArgumentException('Invalid native QUIC worker session configuration.');
         }
         $this->assertEndpoint($host, $port, $limit);
-        $this->assertTlsOptions($options);
+        $verifiedProtocols = $this->assertTlsOptions($options);
 
         $nativeClass = 'Quic' . '\Connection';
         if (!class_exists($nativeClass)) {
@@ -162,13 +174,14 @@ final class QuicWorkerSession
         try {
             $alpn = $connection->getNegotiatedAlpn();
             if ($connection->getVerifyResult() !== 0
-                || !is_string($alpn) || !in_array($alpn, $options['alpn'], true)) {
+                || !is_string($alpn) || !in_array($alpn, $verifiedProtocols, true)) {
                 throw new RuntimeException('QUIC session failed the required ALPN negotiation.');
             }
             $connection->setBlocking(false);
             ++$this->epoch;
             $this->connection = $connection;
             $this->streams = [];
+            $this->lastCommandId = 0;
             $this->nextStreamId = 1;
             $this->maxOpenStreams = $limit;
 
@@ -274,6 +287,7 @@ final class QuicWorkerSession
         $this->connection = null;
         $this->maxOpenStreams = 0;
     }
+
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{written:int}
@@ -293,5 +307,4 @@ final class QuicWorkerSession
 
         return ['written' => $written];
     }
-
 }

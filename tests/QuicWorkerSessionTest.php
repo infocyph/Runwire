@@ -121,7 +121,6 @@ it('rejects stale logical streams and never accepts commands from a previous nat
         ->and($native->closed)->toBeTrue();
 });
 
-
 it('fails closed when a FIN-marked native QUIC write reports a partial send', function (): void {
     [$worker, $native] = runwireNativeQuicWorkerFixture(partialWrites: true);
     $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
@@ -131,4 +130,28 @@ it('fails closed when a FIN-marked native QUIC write reports a partial send', fu
         'command' => QuicWorkerCommand::encode(2, 'write', 1, 'complete-payload', true),
     ]))->toThrow(RuntimeException::class, 'invalid write length')
         ->and($native->closed)->toBeTrue();
+});
+
+it('rejects duplicate and out-of-order native QUIC worker commands without reusing stream state', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture();
+    $opened = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'open_bidi')]);
+    expect($opened['stream'])->toBe(1);
+
+    expect(fn() => $worker->execute([
+        'epoch' => 1,
+        'command' => QuicWorkerCommand::encode(4, 'read', 1),
+    ]))->toThrow(RuntimeException::class, 'replayed')
+        ->and($native->closed)->toBeTrue();
+});
+
+it('allows command sequence gaps from canceled queued jobs while preserving worker ownership', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture();
+    $opened = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]);
+    $written = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'write', 1, 'payload', true)]);
+    $received = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(9, 'read', 1)]);
+
+    expect($opened)->toBe(['stream' => 1, 'bidirectional' => true])
+        ->and($written)->toBe(['written' => 7])
+        ->and(base64_decode($received['data'], true))->toBe('payload')
+        ->and($native->closed)->toBeFalse();
 });

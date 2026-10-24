@@ -93,3 +93,23 @@ native Connection retained inside the same external ProcessExecutor worker.
 The PHPForge QA matrix still found complexity, array-key typing and style
 issues. Source acceptance therefore remains pending the combined QA fix plus
 independent unidirectional sender-to-receiver proof and exact-head checks.
+
+Command ordering and replay safety (Q2-G)
+=======================================
+
+A persistent native QUIC worker validates request-correlation IDs carried inside
+the bounded command frame. An epoch accepts strictly increasing positive IDs,
+so a canceled queued command may leave a gap, but an older or duplicate ID
+cannot reissue a write, reset or FIN. The worker fails closed and closes its
+native session upon detecting replay. The counter resets only after a newly
+verified native handshake; host-side cancellation must never silently replay
+an old stream operation. Fake-native tests cover both replay rejection and
+valid increasing IDs with gaps. This is not packet-level anti-replay or 0-RTT
+acceptance; real independent-server adversity remains open under U05.09.
+
+The Q2-G source also makes the validated ALPN list explicit before native
+comparison and aligns the negative-TLS test with the secure failure message.
+Security & Standards #40060404846 failed the PHPForge Pest/Pint and PHPStan
+gates before this change; a new passing source-linked run is required before
+accepting U05.04/U05.05. The independent H3/QUIC success from that older run
+cannot be substituted for a green exact-source matrix.

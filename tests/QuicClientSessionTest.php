@@ -88,5 +88,5 @@ it('rejects missing or stale native worker epochs and unsafe direct native confi
         ->toThrow(RuntimeException::class, 'different epoch')
         ->and(fn() => $worker->execute(['action' => 'connect', 'host' => '127.0.0.1', 'port' => 443,
             'options' => ['verify_peer' => false], 'maxStreams' => 4]))
-        ->toThrow(InvalidArgumentException::class, 'unsafe native QUIC');
+        ->toThrow(InvalidArgumentException::class, 'requires verified TLS 1.3 configuration');
 });
