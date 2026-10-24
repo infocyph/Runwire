@@ -294,3 +294,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **D4 snippet correctness suite staged (2026-10-24):** PHP native syntax checks for RST PHP examples and real test/benchmark file reference validation in PHPForge matrix; strict Sphinx remains required. U16.15 pending green, **98/175 accepted, 77 open**.
 
 **W6 WebSocket multi-connection regression staged (2026-10-24):** 64 concurrent paired sockets, interleaved ping/fragmentation, exact delivery and owner cleanup, QA pending. U09.03 remains open. **98/175 accepted, 77 open.**
+
+**H13 RoadRunner live FD lifecycle regression staged (2026-10-24):** PHP8.4/8.5 real worker now records `/proc/self/fd` before/after, rejects growth per request or cumulative across repeated requests, alongside socket and file cleanup. Real pooled outgoing clients are still unimplemented, so U13.04 stays open. **98/175 accepted.**

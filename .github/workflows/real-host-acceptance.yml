@@ -240,7 +240,8 @@ jobs:
             and .[1].sequence == .[0].sequence + 1
             and .[2].sequence == .[1].sequence + 1
             and all(.[]; .prior_file_clean == true and .file_roundtrip == true
-              and .file_closed == true and .socket_roundtrip == true and .socket_closed == true)
+              and .file_closed == true and .socket_roundtrip == true and .socket_closed == true
+              and .fd_stable == true and .prior_fd_stable == true and .fd_after <= .fd_before)
           ' "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"; then
             cat "$tmp/rr.log" >&2
             exit 1

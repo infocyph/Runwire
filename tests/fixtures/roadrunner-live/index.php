@@ -23,10 +23,13 @@ try {
 
     $sequence = 0;
     $previousTempPath = null;
+    $lastRequestFds = null;
     Runtime::create(new RuntimeOptions(driver: RuntimeDriver::ROADRUNNER))->serve(
-        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$sequence, &$previousTempPath): void {
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$sequence, &$previousTempPath, &$lastRequestFds): void {
             ++$sequence;
             $priorClean = $previousTempPath === null || !file_exists($previousTempPath);
+            $beforeFds = count(glob('/proc/self/fd/*') ?: []);
+            $priorFdStable = $lastRequestFds === null || $beforeFds <= $lastRequestFds;
             $path = tempnam(sys_get_temp_dir(), 'runwire-rr-scope-');
             if (!is_string($path)) {
                 throw new RuntimeException('RoadRunner fixture could not allocate a temporary file.');
@@ -72,6 +75,9 @@ try {
             $socketClean = is_array($pair)
                 && !is_resource($pair[0])
                 && !is_resource($pair[1]);
+            $afterFds = count(glob('/proc/self/fd/*') ?: []);
+            $fdStable = $afterFds <= $beforeFds;
+            $lastRequestFds = $afterFds;
 
             $data = json_encode([
                 'method' => $request->method,
@@ -79,6 +85,10 @@ try {
                 'pid' => getmypid(),
                 'sequence' => $sequence,
                 'prior_file_clean' => $priorClean,
+                'fd_before' => $beforeFds,
+                'fd_after' => $afterFds,
+                'fd_stable' => $fdStable,
+                'prior_fd_stable' => $priorFdStable,
                 'file_roundtrip' => $fileRoundtrip,
                 'file_closed' => $fileClean,
                 'socket_roundtrip' => $socketRoundtrip,
