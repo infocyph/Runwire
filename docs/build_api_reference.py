@@ -19,7 +19,7 @@ METHOD = re.compile(r"(?m)^\s*(?:(?:final|abstract)\s+)?public\s+(?:static\s+)?f
 PROPERTY = re.compile(r"(?m)^\s*public\s+(?:(?:readonly|static)\s+)*(?:[?\w\\|&]+\s+)?\$(\w+)\b")
 CONSTANT = re.compile(r"(?m)^\s*public\s+const\s+(?:\w+\s+)?([A-Za-z_]\w*)\s*=")
 CASE = re.compile(r"(?m)^\s*case\s+([A-Za-z_]\w*)\s*(?:[;=])")
-PROMOTED = re.compile(r"(?m)(?:^|[,(])\s*public\s+(?:readonly\s+)?(?:[?\\w\\|&]+\s+)?\\$(\\w+)\\b")
+PROMOTED = re.compile(r"(?m)(?:^|[,(])\s*public\s+(?:readonly\s+)?(?:[?\w\\|&]+\s+)?\$(\w+)\b")
 THROWN = re.compile(r"\bthrow\s+new\s+(\\?[A-Za-z_][\w\\]*)\s*\(")
 
 

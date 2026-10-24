@@ -2,8 +2,8 @@
 
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
-**Date:** 2026-10-24. **Interim milestone:** 115/175 (65.7%) QA-ACCEPTED; now 117/175 (66.9%); next target **150/175 (85.7%)**, requiring **33** additional QA-accepted tasks. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 117/175 accepted (66.9%); 58 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Date:** 2026-10-24. **Interim milestone:** 115/175 (65.7%) QA-ACCEPTED; now 117/175 (66.9%); next target **140/175 (80.0%)**, requiring **22** additional QA-accepted tasks after U07.04 acceptance. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
+**Canonical tracker:** 118/175 accepted (67.4%); 57 open; 18 batches as of 2026-10-25. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -48,7 +48,7 @@
 | U04 | Unified TLS security and client/server handshakes | 7/8 | 1 | In progress | U02,U03 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 7/10 | 3 | In progress | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
-| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 5/11 | 6 | In progress | U03,U04,U05,U06 |
+| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 6/11 | 5 | In progress | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 6/10 | 4 | In progress | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 5/10 | 5 | In progress | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 4/9 | 5 | In progress | U03,U04,U06,U07 |
@@ -59,9 +59,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 12/16 | 4 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **117/175** | **58** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **118/175** | **57** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 117/175 (66.9% complete), 58 open.
+**Progress counter:** 118/175 (67.4% complete), 57 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -193,7 +193,7 @@
 - [x] **U07.01** Define one streaming HTTP client request/response interface. **Acceptance:** Explicit H1/H2/H3 version and policy negotiation. **Proof:** src/Http/Client/{ClientExchangeInterface,ClientRequest,ClientResponseInterface,ClientBodySourceInterface,ClientProtocolPolicy}.php and tests/HttpClientContractTest.php validate streaming request/response signatures and explicit H1/H2/H3 negotiation, Security & Standards [#40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388) at source 80120be (PHPForge 8.4/8.5 stable/lowest + analyzers PASS). Interface acceptance does not claim client implementations.
 - [x] **U07.02** Implement HTTP/1.1 request writer and response parser. **Acceptance:** Chunked, keepalive, trailers and malformed-message acceptance. **Proof:** Streaming H1 request writer and incremental response parser with strict Host/CL/TE, version fallback, keepalive, trailers, bounded chunks and malformed HTTP rejection, with real peer socket fixture tests/Http1ClientWireTest.php; all four PHPForge QA and both analyzers PASS at immutable 96979be [Security #40068643399](https://github.com/infocyph/Runwire/actions/runs/40068643399). Not a connected reusable HTTP client or H2/H3 transport.
 - [x] **U07.03** Implement safe H1 connection reuse and streaming upload/download. **Acceptance:** No response bleed or unbounded buffering. **Proof:** H1 sequential reuse without response bleed, 128-KiB SHA-correct streamed upload and chunked response, bounded 8-KiB socket queue, and independent dialed TCP peer: tests/Http1PoolReuseIntegrationTest.php, Http1StreamingUploadTest.php, Http1OutboundClientTest.php; PHP8.4/8.5 stable/lowest PHPForge QA and both analyzers PASSED on immutable source 3426f3c [#40103162591](https://github.com/infocyph/Runwire/actions/runs/40103162591). H2/H3, active pooling and retries not included.
-- [ ] **U07.04** Implement HTTP/2 client preface, SETTINGS and HPACK. **Acceptance:** Independent H2 reference-server conformance. **Proof:** PENDING.
+- [x] **U07.04** Implement HTTP/2 client preface, SETTINGS and HPACK. **Acceptance:** Independent H2 reference-server conformance. **Proof:** exact `493ee5892be57` [hyper-h2 TLS/ALPN/HPACK #40144460404](https://github.com/infocyph/Runwire/actions/runs/40144460404) PASS in PHP8.4/8.5, all four PHPForge Pest/Pint/PHPCS/Rector QA lanes plus both analysis lanes PASS in [Security #40144460808](https://github.com/infocyph/Runwire/actions/runs/40144460808), [Source Audit #40144460434](https://github.com/infocyph/Runwire/actions/runs/40144460434) PASS. Verifies strict independent TLS+h2 SETTINGS, HPACK headers and body for single-request bootstrap. U07.05 real multiplex remains OPEN.
 - [ ] **U07.05** Implement H2 multiplex, flow control, RST_STREAM and GOAWAY. **Acceptance:** Slow-peer and cancellation isolation. **Proof:** PENDING.
 - [ ] **U07.06** Implement HTTP/3 client control streams, QPACK and QUIC ownership. **Acceptance:** Independent aioquic/ngtcp2 server conformance. **Proof:** PENDING.
 - [ ] **U07.07** Implement H3 blocking/unblocking and reset/cancel handling. **Acceptance:** Concurrent sibling requests remain correct. **Proof:** PENDING.
@@ -860,3 +860,4 @@ All of these pages are **required deliverables** inside the proposed docs docume
 
 
 **W87 Batch AA — exact-head Pint closure and tracker-proof audit (2026-10-25; QA PENDING on new head):** W86 exact source `92f71a9d0632ff67b218f3af09a8f6a74824a3f5` [Security & Standards #40124300895](https://github.com/infocyph/Runwire/actions/runs/40124300895) **FAILED** four PHP8.4/8.5 stable/lowest PHPForge QA lanes: Pint `class_attributes_separation` in `src/Http/Client/Internal/Http2ClientResponseParser.php` (missing method separation); normal Pest, PHPCS, Rector, and analyzers passed. Other eight exact-head workflows passed, but conditional long certification tasks are NOT certified by normal benchmark green. Add compliant method separation, enforce immutable Actions hyperlinks on every checked task through `tests/Plan3TrackerSynchronizationTest.php`, and backfill four U00 design-gate QA context links without recategorizing their acceptance. `U07.04` remains OPEN pending complete fresh exact-head PHPForge QA plus real hyper-h2 peer conformance; `U07.05`, `U16.11`, `U16.12` remain OPEN. Update PR head/status to the actual SHA after push. Canonical **117/175 accepted (66.9%)**, **58 OPEN**, **33 to milestone 150**. No Foundation/Infbyte work, merge, tag or release.
+**W88 Batch AB — H2 concurrent protocol groundwork and API-reference promotion audit (2026-10-25; new-head QA PENDING):** W87 `493ee5892be57` independent [hyper-h2 #40144460404](https://github.com/infocyph/Runwire/actions/runs/40144460404), [Sphinx #40144460405](https://github.com/infocyph/Runwire/actions/runs/40144460405) and all PHPForge QA/analysis matrix lanes of [Security #40144460808](https://github.com/infocyph/Runwire/actions/runs/40144460808) PASS. Long H3 and adaptive benchmark jobs have separate conclusions. **U07.04 ACCEPTED** on its exact independent TLS/bootstrap evidence; implement bounded *protocol-only* `Http2ClientMultiplexSession` with per-stream completion, shared HPACK, monotonic odd stream ID, peer SETTINGS stream limit, same-origin enforcement, CONTINUATION/GOAWAY guards, reset/CANCEL and bounded credit tests. **U07.05 OPEN** pending live same-connection TCP/TLS multiplex and independent acceptance. Fix API generator inline public promoted-property scan with deterministic Python/Pest proof and truthful RST documentation; **U16.11 OPEN** pending new-head tests and complete error/symbol audit. **118/175 accepted (67.4%); 57 OPEN; 22 to milestone 140**. No merge, tag, release or other repo changes.

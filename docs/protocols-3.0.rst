@@ -38,8 +38,8 @@ a real certificate/ALPN handshake and frame response. A dedicated PR-only
 ``HTTP/2 Independent Reference`` workflow now validates this outbound client
 against upstream Python ``hyper-h2`` under pinned 8.4/8.5 PHP matrices,
 including verified CA/SAN/TLS, ALPN, HPACK HEADERS and streamed body.
-**These additions
-are QA-pending** and do not implement H2 multiplexing, server push, trailers,
+This single-request H2 implementation does not provide network multiplexing,
+server push, trailers,
 transparent H1 fallback, a complete H2 client, or H3/WT.
 
 .. code-block:: console
@@ -104,5 +104,16 @@ stream identifier, with individually bounded header/body memory and terminal
 state. This prepares sibling-stream isolation without silently upgrading the
 existing one-request outgoing connection into a multiplexed H2 client. Real
 concurrent stream scheduling, GOAWAY / RST_STREAM recovery, outbound credit,
-shared connection HPACK state and independent interop are still **pending**
-under U07.05. Existing single-exchange public behavior remains unchanged.
+complete connection-level stream scheduling and independent concurrent-peer
+interop are still **pending** under U07.05. The internal
+``Http2ClientMultiplexSession`` is a protocol-only preparation: it accepts
+bounded concurrent same-origin GET/HEAD streams, reuses one HPACK decoder,
+prevents cross-stream CONTINUATION interleaving and isolates client CANCEL,
+peer RST and GOAWAY. **It does not own a socket, TLS identity, per-request
+deadline, write budget or active HTTP/2 transport.** Real shared-connection
+multiplexing and certified flow control are still required. Existing
+single-exchange public behavior remains unchanged.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/Http2ClientMultiplexSessionTest.php

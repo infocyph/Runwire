@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 5/11; U08 6/10; U09 5/10; U10 4/9; U11 8/10; U12 3/9; U13 9/9; U14 5/8; U16 12/16**. **117/175 accepted tasks, 58 open across 18 batches** (66.9%). **Next milestone: 150/175 (85.7%), 33 further QA-accepted tasks needed**. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 6/11; U08 6/10; U09 5/10; U10 4/9; U11 8/10; U12 3/9; U13 9/9; U14 5/8; U16 12/16**. **118/175 accepted tasks, 57 open across 18 batches** (67.4%). **Next milestone: 140/175 (80.0%), 22 further QA-accepted tasks needed**. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -64,7 +64,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U04 | Unified TLS security and client/server handshakes | 1 | 7/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 3 | 7/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0 | 8/8 |
-| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 6 | 5/11 |
+| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 5 | 6/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 4 | 6/10 |
 | U09 | WebSocket and WebTransport client/server | 5 | 5/10 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 5 | 4/9 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 4 | 12/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **58** | **117/175 (66.9%)** |
+| **TOTAL** | **Full unified-runtime release program** | **57** | **118/175 (67.4%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -463,3 +463,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W87 Batch AA — exact-head QA recovery and evidence hardening (2026-10-25; next-head QA PENDING):** Previous `92f71a9d0632` [Security & Standards #40124300895](https://github.com/infocyph/Runwire/actions/runs/40124300895) FAILED PHPForge Pint for H2 parser method separation on all four stable/lowest lanes; eight other workflows passed. Restore formatting, backfill the four baseline design-gate CI context links, and extend `Plan3TrackerSynchronizationTest.php` to require an immutable Actions run URL for each of the **117 accepted tasks**. Leave U07.04/U07.05 and U16.11/U16.12 OPEN until their own specific gates. Totals **117/175 accepted; 58 open; 33 to 150**.
+
+
+**W88 Batch AB (2026-10-25; QA PENDING):** **U07.04 ACCEPTED** at W87 source `493ee5892be57` via independent real hyper-h2 [#40144460404](https://github.com/infocyph/Runwire/actions/runs/40144460404), PHP8.4/8.5 stable/lowest QA and analysis lanes in [Security #40144460808](https://github.com/infocyph/Runwire/actions/runs/40144460808), and [Source Audit #40144460434](https://github.com/infocyph/Runwire/actions/runs/40144460434). New protocol-only H2 stream state, origin guards, shared HPACK, reset/GOAWAY and bounded credits await the new head's QA. **U07.05 stays OPEN** until live TLS multiplex. Improve generated API reference promotion inventory; **U16.11 OPEN** pending QA and full symbol/error audit. **118/175 accepted; 57 open; 22 to 140**.

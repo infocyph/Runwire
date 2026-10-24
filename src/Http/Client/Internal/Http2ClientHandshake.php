@@ -70,6 +70,12 @@ final class Http2ClientHandshake
         return $this->peerGoAwayLastStreamId;
     }
 
+    /** Maximum concurrent stream slots advertised by the peer; null means unspecified. */
+    public function peerMaxConcurrentStreams(): ?int
+    {
+        return $this->peerSettings->maxConcurrentStreams;
+    }
+
     /** Report whether peer SETTINGS were validated before request dispatch. */
     public function ready(): bool
     {
