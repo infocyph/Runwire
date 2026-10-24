@@ -20,6 +20,9 @@ final readonly class WebSocketClientHandshake
      */
     public static function build(string $uri, array $protocols = []): array
     {
+        if (preg_match('/[\x00-\x1F\x7F]/', $uri) === 1) {
+            throw new InvalidArgumentException('WebSocket URL contains forbidden control bytes.');
+        }
         $parts = parse_url($uri);
         if (!is_array($parts) || !in_array($parts['scheme'] ?? '', ['ws', 'wss'], true)
             || !is_string($parts['host'] ?? null) || isset($parts['user'])
