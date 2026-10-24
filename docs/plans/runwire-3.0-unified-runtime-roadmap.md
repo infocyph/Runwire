@@ -240,3 +240,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **S4 host-owned worker correctness (2026-10-24):** U12.07 accepted from native-only supervisor gating and real PCNTL-free/hosted PHP8.4/8.5 CI, without implying actual autoscaling. P3 pool isolation key remains QA-gated. **81/175 accepted (46.3%), 94 open, seven to milestone.**
 
 **F11 accepted real active FIFO/queued file cancellation and full worker/host file-handle cleanup (2026-10-24):** 439408e four PHPForge QA+2 analyzers green #40070492152; real host PHP8.4/8.5 cleanup #40070491774 green. U11.06/.07 accepted; open/durable sandbox/benchmark remain open. P3 PoolIsolationKey next QA. **83/175 (47.4%), 92 open; five to 50.3%.**
+
+**S5 autoscale policy-only contract staged (2026-10-24):** CPU/queue/RPS/p99, min/max, hysteresis/cooldown and fixed operator override validated by PHP tests and truthful host RST. No scaling activated; U12.03 QA-gated. **83/175 accepted, 92 open.**

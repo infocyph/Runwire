@@ -132,3 +132,19 @@ source SHA. The canonical 3.0 roadmap and development plan remain the final
 acceptance authorities. Do not assume that supporting a host implies that
 all protocol clients, optional extensions, async disk features or worker
 autoscaling are available on that host.
+
+Proposed autoscale policy (not enabled)
+---------------------------------------
+
+``Supervisor\AutoscalePolicy`` is a development-only native worker scaling
+configuration, not a running controller. Its defaults bound workers to 1..8,
+CPU scale-in below 30 percent, scale-out above 75 percent, queue depth 16,
+p99 threshold 250 ms, and low successful RPS at 1/s. Samples span 10 seconds,
+cooldown at least 30 seconds, and changes at most one worker per window.
+
+An operator-supplied fixed worker count within configured bounds overrides
+both effective minimum and maximum. All CPU/latency/rate inputs must be
+finite, with strictly ordered hysteresis thresholds; cooldown must be at
+least one sample window. Host-owned process managers never inherit these
+native worker policies. Automated decisions, readiness, graceful scale-in,
+and 30-minute saturation soak remain separate incomplete U12 gates.
