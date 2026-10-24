@@ -9,6 +9,7 @@ use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\Internal\ExecutorIpcTrait;
+use Infocyph\Runwire\Executor\Internal\ExecutorPendingQueueTrait;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -28,6 +29,7 @@ use Throwable;
 final class ProcessExecutor
 {
     use ExecutorIpcTrait;
+    use ExecutorPendingQueueTrait;
 
     private const int IO_CHUNK_BYTES = 8192;
 
@@ -360,6 +362,9 @@ final class ProcessExecutor
             return;
         }
         unset($this->jobs[$id]);
+        if ($job['worker'] === null) {
+            $this->compactPendingQueue();
+        }
         $job['subscription']?->unsubscribe();
         if ($job['timer'] !== null) {
             $this->loop->cancel($job['timer']);

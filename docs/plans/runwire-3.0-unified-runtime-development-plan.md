@@ -163,6 +163,8 @@
 
 **Rolling batch U06-B (2026-10-24; QA pending):** Added an idle real socket receive nested inside a 25ms child deadline, asserting cancelled suspension, owned stream abort and zero orphan watchers/timers/tasks. The mixed timer/socket endurance corpus now runs 128 sequential request generations instead of 48, samples per-request latency and requires measured p99 below 750ms, less than 16MiB allocator growth, Linux FD drift no more than four, plus a clean loop after each request. Targets U06.02 and U06.08; these remain unaccepted until green CI and any remaining protocol/sustained release certification evidence.
 
+**Rolling batch U06-C (2026-10-24; pending QA):** The off-loop `ProcessExecutor` now compacts canceled queued IDs after a bounded threshold without changing live FIFO submission order or admitting jobs above maxWorkers+maxQueue. Stale queue tombstones were previously able to accumulate even when logical `diagnostics()['queued']` stayed bounded. The queue compaction is isolated in `ExecutorPendingQueueTrait` to keep `ProcessExecutor` within the PHPStan cognitive-complexity budget. A regression performs 512 admit/cancel cycles at a one-worker/one-queue cap, checks physical queue bound and exactly-once callbacks, and confirms zero leftover handles after shutdown. Targets U06.06. U06.06 stays OPEN until exact-head full QA proves no regression, then the batch tracker and roadmap must be updated simultaneously.
+
 **Batch tracker:** 4/8 accepted; 4 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U07 — HTTP/1.1, HTTP/2 and HTTP/3 clients

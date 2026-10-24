@@ -290,3 +290,46 @@ it('keeps a saturated executor queue bounded while accepted off-loop filesystem 
         unlink($file);
     }
 });
+
+
+it('compacts cancelled queue tombstones under repeated bounded admission', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $resultCount = 0;
+    $pending = new ReflectionProperty($executor, 'pending');
+
+    try {
+        $first = $executor->submit('sleep', ['milliseconds' => 100],
+            static function () use (&$resultCount): void {
+                ++$resultCount;
+            },
+        );
+
+        for ($i = 0; $i < 512; ++$i) {
+            $queued = $executor->submit('stat', ['path' => sys_get_temp_dir()],
+                static function () use (&$resultCount): void {
+                    ++$resultCount;
+                },
+            );
+            expect($executor->cancel($queued))->toBeTrue();
+        }
+
+        expect($pending->getValue($executor)->count())->toBeLessThanOrEqual(36)
+            ->and($executor->diagnostics()['queued'])->toBe(1)
+            ->and($executor->diagnostics()['submitted'])->toBe(513)
+            ->and($resultCount)->toBe(512);
+
+        expect($executor->cancel($first))->toBeTrue();
+        $executor->close();
+        $loop->run();
+
+        expect($resultCount)->toBe(513)
+            ->and($executor->diagnostics()['queued'])->toBe(0)
+            ->and($executor->diagnostics()['active'])->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $executor->close();
+    }
+});
