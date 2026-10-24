@@ -89,9 +89,22 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 // setBlocking(false) is possible. It may only run here, in
                 // the isolated, deadline-limited executor worker process.
                 $connection = new $quicConnectionClass($host, $port, $options);
+                if (!is_object($connection) || !method_exists($connection, 'close')
+                    || !method_exists($connection, 'getNegotiatedAlpn')) {
+                    throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
+                }
 
                 try {
-                    return ['verified' => true, 'backend' => 'ext-quic'];
+                    $negotiatedAlpn = $connection->getNegotiatedAlpn();
+                    if (!is_string($negotiatedAlpn) || !in_array($negotiatedAlpn, $options['alpn'], true)) {
+                        throw new RuntimeException('Verified QUIC peer failed the required ALPN negotiation.');
+                    }
+
+                    return [
+                        'verified' => true,
+                        'backend' => 'ext-quic',
+                        'alpn' => $negotiatedAlpn,
+                    ];
                 } finally {
                     $connection->close();
                 }

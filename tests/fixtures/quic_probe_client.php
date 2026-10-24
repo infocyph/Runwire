@@ -35,6 +35,7 @@ try {
     if (count($results) !== 1 || $results[0][1] !== null
         || ($results[0][0]['verified'] ?? null) !== true
         || ($results[0][0]['backend'] ?? null) !== 'ext-quic'
+        || ($results[0][0]['alpn'] ?? null) !== 'h3'
         || $loop->diagnostics()->readWatchers !== 0
         || $loop->diagnostics()->writeWatchers !== 0
         || $loop->diagnostics()->timersActive !== 0
@@ -45,39 +46,50 @@ try {
         );
     }
 
-    // Against the same live independent server, a trusted chain with a
-    // deliberately wrong hostname must never complete a verified handshake.
-    $negativeLoop = new SelectLoop();
-    $negativeExecutor = new ProcessExecutor($negativeLoop, 1, 1);
-    $negativeResult = [];
-    try {
-        (new QuicHandshakeProbe($negativeExecutor))->connect(
-            $host,
-            $port,
-            new QuicClientOptions('mismatched.example.test', caFile: $trustedCa, connectTimeoutMilliseconds: 3_000),
-            static function ($value, ?Throwable $error) use (&$negativeResult, $negativeExecutor): void {
-                $negativeResult[] = [$value, $error];
-                $negativeExecutor->close();
-            },
-        );
-        $negativeLoop->run();
-
-        if (count($negativeResult) !== 1 || $negativeResult[0][1] === null
-            || $negativeResult[0][0] !== null
-            || $negativeLoop->diagnostics()->readWatchers !== 0
-            || $negativeLoop->diagnostics()->timersActive !== 0) {
-            throw new RuntimeException('A QUIC peer with the wrong hostname was not rejected cleanly.');
+    // The independent TLS endpoint only supports localhost and ALPN h3.
+    // Neither a wrong hostname nor an unsupported ALPN may be accepted.
+    foreach ([
+        ['name' => 'mismatched.example.test', 'alpn' => ['h3']],
+        ['name' => 'localhost', 'alpn' => ['h2']],
+    ] as $negativeCase) {
+        $negativeLoop = new SelectLoop();
+        $negativeExecutor = new ProcessExecutor($negativeLoop, 1, 1);
+        $negativeResult = [];
+        try {
+            (new QuicHandshakeProbe($negativeExecutor))->connect(
+                $host,
+                $port,
+                new QuicClientOptions(
+                    $negativeCase['name'],
+                    alpnProtocols: $negativeCase['alpn'],
+                    caFile: $trustedCa,
+                    connectTimeoutMilliseconds: 3_000,
+                ),
+                static function (mixed $value, ?Throwable $error) use (&$negativeResult, $negativeExecutor): void {
+                    $negativeResult[] = [$value, $error];
+                    $negativeExecutor->close();
+                },
+            );
+            $negativeLoop->run();
+            if (count($negativeResult) !== 1 || $negativeResult[0][1] === null
+                || $negativeResult[0][0] !== null
+                || $negativeLoop->diagnostics()->readWatchers !== 0
+                || $negativeLoop->diagnostics()->writeWatchers !== 0
+                || $negativeLoop->diagnostics()->timersActive !== 0) {
+                throw new RuntimeException('An unverified QUIC hostname or ALPN was not rejected cleanly.');
+            }
+        } finally {
+            $negativeExecutor->close();
         }
-    } finally {
-        $negativeExecutor->close();
     }
 
-    echo json_encode([
+    fwrite(STDOUT, json_encode([
         'verified' => true,
         'untrusted_hostname_rejected' => true,
+        'unsupported_alpn_rejected' => true,
         'backend' => 'ext-quic',
         'worker_isolation' => true,
-    ], JSON_THROW_ON_ERROR), PHP_EOL;
+    ], JSON_THROW_ON_ERROR) . PHP_EOL);
 } finally {
     $executor->close();
 }
