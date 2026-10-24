@@ -32,9 +32,9 @@ final class Http2ConnectedExchange
 
     private ?int $closeObserver = null;
 
-    private bool $ownsCallbacks = false;
-
     private string $outgoing = '';
+
+    private bool $ownsCallbacks = false;
 
     private bool $settled = false;
 
@@ -85,9 +85,15 @@ final class Http2ConnectedExchange
         try {
             $this->connection->handoffCallbacks(
                 $this,
-                function (): void { $this->consume(); },
-                function (): void { $this->pump(); },
-                function (): void { $this->finish(new RuntimeException('HTTP/2 peer disconnected before END_STREAM.')); },
+                function (): void {
+                    $this->consume();
+                },
+                function (): void {
+                    $this->pump();
+                },
+                function (): void {
+                    $this->finish(new RuntimeException('HTTP/2 peer disconnected before END_STREAM.'));
+                },
             );
             if ($this->settled) {
                 return;
@@ -135,13 +141,8 @@ final class Http2ConnectedExchange
                 $bytes = $this->connection->receivedBytes() > 0
                     ? $this->connection->read(8_192)
                     : '';
-                foreach ($this->frames->push($bytes, 32) as $frame) {
-                    $this->queue($this->session->receive($frame));
-                    if ($this->session->done()) {
-                        $this->finish(null);
-
-                        return;
-                    }
+                if ($this->processFrames($bytes)) {
+                    return;
                 }
                 if ($this->connection->receivedBytes() === 0 && !$this->frames->hasCompleteFrame()) {
                     break;
@@ -149,7 +150,9 @@ final class Http2ConnectedExchange
             }
             $this->pump();
             if ($this->connection->receivedBytes() > 0 || $this->frames->hasCompleteFrame()) {
-                $this->loop->defer(function (): void { $this->consume(); });
+                $this->loop->defer(function (): void {
+                    $this->consume();
+                });
             }
         } catch (Throwable $error) {
             $this->finish($error);
@@ -181,6 +184,21 @@ final class Http2ConnectedExchange
         ($this->completion)(null, $error);
     }
 
+    /** Consume at most one bounded frame batch and stop on response completion. */
+    private function processFrames(string $bytes): bool
+    {
+        foreach ($this->frames->push($bytes, 32) as $frame) {
+            $this->queue($this->session->receive($frame));
+            if ($this->session->done()) {
+                $this->finish(null);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function pump(): void
     {
         if ($this->settled || $this->outgoing === '') {
@@ -199,7 +217,9 @@ final class Http2ConnectedExchange
                 $this->outgoing = substr($this->outgoing, strlen($part));
             }
             if ($this->outgoing !== '' && !$this->connection->isWritePressured()) {
-                $this->loop->defer(function (): void { $this->pump(); });
+                $this->loop->defer(function (): void {
+                    $this->pump();
+                });
             }
         } catch (Throwable $error) {
             $this->finish($error);

@@ -29,14 +29,21 @@ real TLS ALPN, multiplexed stream lifecycles, flow-control credit and
 CONTINUATION remain open, as does H2 extended CONNECT WebSocket. The new
 internal ``Http2ClientSession`` composes bounded single-stream response
 HEADERS/CONTINUATION/HPACK and DATA callbacks with control-frame validation
-and receive-window credit; it does **not** establish sockets, support server
-push, or represent a certified H2 HTTP client.
+and receive-window credit. The new experimental ``Http2ConnectedExchange``
+exclusively owns one externally verified TLS+h2 connection, consumes bounded
+response frames and cancels or aborts it on completion (no unsafe pooling).
+``Http2OutboundClient`` adds independently verified TLS+h2-only dialing and
+a one-shot GET/HEAD exchange; an independent local TLS peer fixture tests
+a real certificate/ALPN handshake and frame response. **These additions
+are QA-pending** and do not implement H2 multiplexing, server push, trailers,
+transparent H1 fallback, a complete H2 client, or H3/WT.
 
 .. code-block:: console
 
    vendor/bin/pest tests/Http2ConnectionTest.php tests/Http2AbuseTest.php
    vendor/bin/pest tests/Http2ClientHandshakeTest.php tests/Http2ClientResponseParserTest.php
-   vendor/bin/pest tests/Http2ClientSessionTest.php
+   vendor/bin/pest tests/Http2ClientSessionTest.php tests/Http2ConnectedExchangeTest.php
+   vendor/bin/pest tests/Http2OutboundClientTest.php
 
 HTTP/3 and QUIC server
 ----------------------

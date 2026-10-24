@@ -98,6 +98,27 @@ final class Http2ClientHandshake
             . FrameWriter::encode(FrameWriter::settings([PeerSettings::ENABLE_PUSH => 0]));
     }
 
+    private function goaway(Frame $frame): string
+    {
+        if ($frame->streamId !== 0 || $frame->flags !== 0 || strlen($frame->payload) < 8) {
+            throw new RuntimeException('HTTP/2 GOAWAY must contain the last stream and error.');
+        }
+        $this->closed = true;
+
+        return '';
+    }
+
+    private function ping(Frame $frame): string
+    {
+        if ($frame->streamId !== 0 || ($frame->flags & ~0x1) !== 0 || strlen($frame->payload) !== 8) {
+            throw new RuntimeException('HTTP/2 PING must carry exactly eight bytes on stream zero.');
+        }
+
+        return $frame->hasFlag(0x1)
+            ? ''
+            : FrameWriter::encode(new Frame(FrameType::PING->value, 0x1, 0, $frame->payload));
+    }
+
     /**
      * @return list<array{0:string,1:string}>
      */
@@ -120,27 +141,6 @@ final class Http2ClientHandshake
         }
 
         return $fields;
-    }
-
-    private function goaway(Frame $frame): string
-    {
-        if ($frame->streamId !== 0 || $frame->flags !== 0 || strlen($frame->payload) < 8) {
-            throw new RuntimeException('HTTP/2 GOAWAY must contain the last stream and error.');
-        }
-        $this->closed = true;
-
-        return '';
-    }
-
-    private function ping(Frame $frame): string
-    {
-        if ($frame->streamId !== 0 || ($frame->flags & ~0x1) !== 0 || strlen($frame->payload) !== 8) {
-            throw new RuntimeException('HTTP/2 PING must carry exactly eight bytes on stream zero.');
-        }
-
-        return $frame->hasFlag(0x1)
-            ? ''
-            : FrameWriter::encode(new Frame(FrameType::PING->value, 0x1, 0, $frame->payload));
     }
 
     private function settings(Frame $frame): string

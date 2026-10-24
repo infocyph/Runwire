@@ -22,9 +22,9 @@ final class Http2ClientSession
 {
     private readonly Closure $bodyCallback;
 
-    private readonly Closure $headersCallback;
-
     private readonly Http2ClientHandshake $handshake;
+
+    private readonly Closure $headersCallback;
 
     private readonly Http2ClientResponseParser $response;
 
