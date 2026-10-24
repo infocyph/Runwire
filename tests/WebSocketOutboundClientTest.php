@@ -118,7 +118,7 @@ it('rejects oversized upgrade response headers without unbounded buffering', fun
     $stop = $loop->delay(0.5, static function () use ($loop): void { $loop->stop(); });
     try {
         $upgrade->start();
-        fwrite($peer, "HTTP/1.1 101 Switching Protocols\\r\\nX-Fill: " . str_repeat('a', 9_000));
+        fwrite($peer, "HTTP/1.1 101 Switching Protocols\r\nX-Fill: " . str_repeat('a', 9_000));
         $loop->run();
         expect($errors)->toHaveCount(1);
         expect($errors[0])->toBeInstanceOf(RuntimeException::class);
