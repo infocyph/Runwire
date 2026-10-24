@@ -458,3 +458,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W84 Batch Z (2026-10-25; QA PENDING):** Internal outbound H2 GOAWAY last stream/error metadata and fail-closed handshake state; real concurrent drain remains U07.05 OPEN. Tracker 117/175.
 
 **W85 formatting recovery (2026-10-25; QA PENDING):** W82 PHPForge Pint failures on H2 handshake class order and source-manifest whitespace corrected with W83–W84. No task accepted without successful exact-source evidence.
+
+**W86 QA recovery (2026-10-25; QA PENDING):** Order private H2 parser methods for PHPForge Pint; previous Security #40123994623 successfully ran functional Pest and analyzers, but Pint rejected member order. No unchecked task promoted. Canonical 117/175.

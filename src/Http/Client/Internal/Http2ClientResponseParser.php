@@ -80,48 +80,6 @@ final class Http2ClientResponseParser
         };
     }
 
-    /** Terminate this stream on a valid peer reset; sibling streams are unaffected. */
-    private function reset(Frame $frame): void
-    {
-        if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
-            throw new RuntimeException('HTTP/2 RST_STREAM must have four error-code bytes and no flags.');
-        }
-        $decoded = unpack('Nerror', $frame->payload);
-        $error = $decoded['error'] ?? null;
-        if (!is_int($error)) {
-            throw new RuntimeException('HTTP/2 RST_STREAM has an invalid error code.');
-        }
-        $this->done = true;
-
-        throw new RuntimeException('HTTP/2 peer RST_STREAM reset with code ' . $error . '.');
-    }
-
-    /** GET/HEAD has no request body; validate but do not consume peer write credit. */
-    private function windowUpdate(Frame $frame): void
-    {
-        if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
-            throw new RuntimeException('HTTP/2 stream WINDOW_UPDATE requires four bytes without flags.');
-        }
-        $decoded = unpack('Ncredit', $frame->payload);
-        $credit = $decoded['credit'] ?? null;
-        if (!is_int($credit) || ($credit & 0x7FFF_FFFF) === 0) {
-            throw new RuntimeException('HTTP/2 stream WINDOW_UPDATE increment must be nonzero.');
-        }
-    }
-
-    /** Validate legacy PRIORITY frame shape without scheduling it as response data. */
-    private function priority(Frame $frame): void
-    {
-        if ($frame->flags !== 0 || strlen($frame->payload) !== 5) {
-            throw new RuntimeException('HTTP/2 PRIORITY requires exactly five payload bytes.');
-        }
-        $dependency = unpack('Nstream', substr($frame->payload, 0, 4));
-        $id = $dependency['stream'] ?? null;
-        if (!is_int($id) || ($id & 0x7FFF_FFFF) === $frame->streamId) {
-            throw new RuntimeException('HTTP/2 PRIORITY cannot depend on its own stream.');
-        }
-    }
-
     private function appendHeader(string $fragment): void
     {
         if (strlen($fragment) > $this->maxHeaderBlockBytes - strlen($this->headerBlock)) {
@@ -208,4 +166,46 @@ final class Http2ClientResponseParser
             $this->completeHeaders($onHeaders);
         }
     }
+    /** Validate legacy PRIORITY frame shape without scheduling it as response data. */
+    private function priority(Frame $frame): void
+    {
+        if ($frame->flags !== 0 || strlen($frame->payload) !== 5) {
+            throw new RuntimeException('HTTP/2 PRIORITY requires exactly five payload bytes.');
+        }
+        $dependency = unpack('Nstream', substr($frame->payload, 0, 4));
+        $id = $dependency['stream'] ?? null;
+        if (!is_int($id) || ($id & 0x7FFF_FFFF) === $frame->streamId) {
+            throw new RuntimeException('HTTP/2 PRIORITY cannot depend on its own stream.');
+        }
+    }
+
+    /** Terminate this stream on a valid peer reset; sibling streams are unaffected. */
+    private function reset(Frame $frame): void
+    {
+        if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
+            throw new RuntimeException('HTTP/2 RST_STREAM must have four error-code bytes and no flags.');
+        }
+        $decoded = unpack('Nerror', $frame->payload);
+        $error = $decoded['error'] ?? null;
+        if (!is_int($error)) {
+            throw new RuntimeException('HTTP/2 RST_STREAM has an invalid error code.');
+        }
+        $this->done = true;
+
+        throw new RuntimeException('HTTP/2 peer RST_STREAM reset with code ' . $error . '.');
+    }
+
+    /** GET/HEAD has no request body; validate but do not consume peer write credit. */
+    private function windowUpdate(Frame $frame): void
+    {
+        if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
+            throw new RuntimeException('HTTP/2 stream WINDOW_UPDATE requires four bytes without flags.');
+        }
+        $decoded = unpack('Ncredit', $frame->payload);
+        $credit = $decoded['credit'] ?? null;
+        if (!is_int($credit) || ($credit & 0x7FFF_FFFF) === 0) {
+            throw new RuntimeException('HTTP/2 stream WINDOW_UPDATE increment must be nonzero.');
+        }
+    }
+
 }
