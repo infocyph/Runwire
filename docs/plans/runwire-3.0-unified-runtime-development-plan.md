@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 68/175 accepted (38.9%); 107 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 69/175 accepted (39.4%); 106 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -54,14 +54,14 @@
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 0/10 | 10 | Not started | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 1/9 | 8 | In progress | U01,U02,U06 |
-| U13 | Real host and optional extension compatibility | 2/9 | 7 | In progress | U01,U03,U04,U06,U12 |
+| U13 | Real host and optional extension compatibility | 3/9 | 6 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 1/16 | 15 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **68/175** | **107** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **69/175** | **106** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 68/175 (38.9% complete), 107 open.
+**Progress counter:** 69/175 (39.4% complete), 106 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -291,7 +291,7 @@
 
 **Prerequisite:** U01,U03,U04,U06,U12. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U13.01** Verify native portable Select and native prefork execution. **Acceptance:** PHP8.4/8.5 real protocol/file tests. **Proof:** PENDING.
+- [x] **U13.01** Verify native portable Select and native prefork execution. **Acceptance:** PHP8.4/8.5 real protocol/file tests. **Proof:** Real native Select/PCNTL-enabled supervisor, HTTP/1/2/3+QUIC, network and off-loop executor regression coverage across PHP 8.4/8.5 passed all four PHPForge stable/lowest lanes and both native H3/QUIC lanes in immutable [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606) at 3a9d9a7; separately, [Portable Native #40064842530](https://github.com/infocyph/Runwire/actions/runs/40064842530) verified real single-process Select, TLS and process capability checks on both PHP versions without PCNTL, and PHP 8.4 optional ext-event. This acceptance is for tested native/portable execution, not a promise of prefork on PCNTL-absent platforms.
 - [ ] **U13.02** Verify native ext-event remains optional and equivalent. **Acceptance:** Same correctness gates on both loops. **Proof:** PENDING.
 - [x] **U13.03** Verify Swoole and OpenSwoole actual hosting and outgoing I/O. **Acceptance:** One owned reactor per process. **Proof:** Live Swoole and OpenSwoole host-owned coroutine/reactor plus outgoing localhost /dial TCP acceptance on PHP 8.4/8.5 in [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118) at immutable source 80120be; all related default PHPForge and real hosted suites passed.
 - [ ] **U13.04** Verify real RoadRunner worker lifecycle and pooled sockets/files. **Acceptance:** No leak or cross-request state. **Proof:** PENDING.
@@ -301,7 +301,7 @@
 - [ ] **U13.08** Test standalone Composer archives PHP8.4/8.5 stable/lowest. **Acceptance:** Package works without external Infocyph projects. **Proof:** PENDING.
 - [ ] **U13.09** Publish truthful per-host features and limitations matrix. **Acceptance:** No false universal asynchronous guarantees. **Proof:** PENDING.
 
-**Batch tracker:** 2/9 accepted; 7 open — real Swoole/OpenSwoole + real FrankenPHP PHP 8.4/8.5 host lifecycle accepted — U13.03 real Swoole/OpenSwoole host-owned reactor and outgoing dial on PHP 8.4/8.5 PASS [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 3/9 accepted; 6 open — U13.01 native Select/prefork vs PCNTL-free portable PHP 8.4/8.5 in green #40064842606 and #40064842530, U13.03 Swoole and U13.05 FrankenPHP — real Swoole/OpenSwoole + real FrankenPHP PHP 8.4/8.5 host lifecycle accepted — U13.03 real Swoole/OpenSwoole host-owned reactor and outgoing dial on PHP 8.4/8.5 PASS [#40064041118](https://github.com/infocyph/Runwire/actions/runs/40064041118). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U14 — Security, fuzzing and adversarial resilience
 
@@ -605,3 +605,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **E3 actual QA feedback + F4/F5 grouped fix (2026-10-24):** [Security & Standards #40067446228](https://github.com/infocyph/Runwire/actions/runs/40067446228) on exact 92b02ff failed Pest's full-limit 1 MiB binary worker round-trip because JSON escaping base64 slashes inflated the request beyond the existing 1.6 MiB IPC cap. Other failures were required ScopedFiles constructor docs, scoped stat array return shape, redundant head-parser null coalescing, and PHPForge Pint blanks/empty constructor placement. E3 uses JSON_UNESCAPED_SLASHES in both IPC directions **without raising memory limits**, supplies shape validation and docblocks, and formats returns and throws. This is grouped with F4/F5 bounded file-network transfer and deliberate slow-peer 2 MiB SHA-256 backpressure test. Do not accept U11.04/U11.05/.06 or any other new work until fresh full CI passes. **Authoritative 68/175 accepted, 107 open (38.9%); 20 further tasks to 88.**
 
 **H4 truthful host capability matrix (2026-10-24; staged):** Add native RST docs/host-compatibility-3.0.rst to Sphinx navigation. Distinguish real FPM/FrankenPHP/RoadRunner/Swoole hosts, native Select and optional ext-event, required/optional PCNTL/OpenSSL/QUIC, server vs incomplete clients/WT, and worker-owned vs request-owned sockets/files without implying release certification. Verify strict Sphinx HTML and links before accepting U13.09; all other host parity tasks remain independently gated. Tracker **68/175 accepted, 107 open** pending source-linked strict docs QA.
+
+**P1 verified portable/native execution accepted (2026-10-24):** [Portable Native #40064842530](https://github.com/infocyph/Runwire/actions/runs/40064842530) proves real PHP8.4/8.5 PCNTL-free Select with explicit process/TLS capability enforcement and PHP8.4 optional ext-event; [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606) proves PHP8.4/8.5 PCNTL-enabled real native networking, supervisor/process tests, off-loop file executor and real HTTP3/QUIC peer protocol jobs. Together accept U13.01. U13.02 separate full loop equivalence and U13.08 stable/lowest **archive consumer** packaging remain open. **Canonical 69/175 (39.4%), 106 open; 19 more for 88/175**. Pending F3/F4/F5 and H4 code/docs still require exact-head QA.

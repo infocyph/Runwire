@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 1/11; U08 3/10; U12 1/9; U13 2/9; U16 1/16**. **68/175 accepted tasks, 107 open across 18 batches** (38.9%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 1/11; U08 3/10; U12 1/9; U13 3/9; U16 1/16**. **69/175 accepted tasks, 106 open across 18 batches** (39.4%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -70,12 +70,12 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U10 | Connection pooling, proxy negotiation and stream relay | 9 | 0/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 10 | 0/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 8 | 1/9 |
-| U13 | Real host and optional extension compatibility | 7 | 2/9 |
+| U13 | Real host and optional extension compatibility | 6 | 3/9 |
 | U14 | Security, fuzzing and adversarial resilience | 8 | 0/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 15 | 1/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **107** | **68/175 (38.9%)** |
+| **TOTAL** | **Full unified-runtime release program** | **106** | **69/175 (39.4%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -208,3 +208,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **E3 grouped QA correction (2026-10-24):** A 1 MiB binary IPC packet exceeded fixed limits due to escaped base64 slashes. Use JSON_UNESCAPED_SLASHES end-to-end, preserving caps. Fix ScopedFiles return shape and API docs, head-parser redundant coalescing, and PHPForge statement spacing. Alongside F4/F5 real wire transfer and slow-peer regression, queue next CI; accept nothing until evidence is green. **68/175 accepted, 107 open.**
 
 **H4 host transport matrix staged (2026-10-24):** Added a Sphinx-listed development host capability and limitation matrix, correctly separating verified host modes from unimplemented outbound clients, WT, migration/datagrams and native file AIO. U13.09 remains open until docs QA and cross-check. **68/175, 107 open**.
+
+**P1 native/portable PHP8.4/8.5 accepted (2026-10-24):** Prior immutable green #40064842606/ #40064842530 proves native Select + PCNTL supervisor, PCNTL-free portable transports/TLS and file/process regression with real protocol peers. Accept U13.01; do not infer ext-event total parity or 8.4/8.5 archive prefer-lowest consumer tests. **69/175 accepted (39.4%), 106 open; 19 to milestone.**
