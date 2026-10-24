@@ -96,3 +96,30 @@ it('treats close-delimited bodies as nonreusable and rejects premature framed EO
     $premature->push("HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\nshort", $head, $onBody, $onEnd);
     expect(fn() => $premature->finish($onEnd))->toThrow(RuntimeException::class, 'closed');
 });
+
+it('honors tokenized Connection close and rejects malformed chunk extension controls', function (): void {
+    $parser = new Http1ClientResponseParser();
+    $parser->push(
+        "HTTP/1.1 200 OK\r\nConnection: keep-alive, close\r\nContent-Length: 0\r\n\r\n",
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+    );
+    expect($parser->done())->toBeTrue()
+        ->and($parser->keepAlive())->toBeFalse();
+
+    $parser = new Http1ClientResponseParser();
+    $parser->push(
+        "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n",
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+    );
+    expect(fn() => $parser->push(
+        "1;bad\x01extension\r\nA\r\n0\r\n\r\n",
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+    ))->toThrow(RuntimeException::class, 'chunk extension');
+});
+

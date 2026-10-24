@@ -216,6 +216,9 @@ final class Http1ClientResponseParser
         $line = substr($this->buffer, 0, $end);
         $this->buffer = substr($this->buffer, $end + 2);
         $sizeText = explode(';', $line, 2)[0];
+        if (str_contains($line, ';') && preg_match('/[\x00-\x1F\x7F]/', substr($line, strpos($line, ';') + 1)) === 1) {
+            throw new RuntimeException('Malformed HTTP/1.1 chunk extension.');
+        }
         if ($sizeText === '' || preg_match('/^[0-9a-fA-F]+$/D', $sizeText) !== 1) {
             throw new RuntimeException('Malformed HTTP/1.1 chunk size.');
         }
@@ -267,7 +270,15 @@ final class Http1ClientResponseParser
             return; // Informational responses are consumed before final response.
         }
         $this->status = $code;
-        $close = in_array('close', array_map('strtolower', $headers->all('connection')), true);
+        $close = false;
+        foreach ($headers->all('connection') as $fieldValue) {
+            foreach (explode(',', strtolower($fieldValue)) as $token) {
+                if (trim($token) === 'close') {
+                    $close = true;
+                    break 2;
+                }
+            }
+        }
         $this->keepAlive = $match[1] === '1' && !$close;
         $transfer = $headers->all('transfer-encoding');
         $lengths = $headers->all('content-length');
