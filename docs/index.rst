@@ -18,6 +18,7 @@ Those proposed capabilities have **not** yet been released.
    features
    architecture
    coroutine-network-3.0
+   transport-guide-3.0
    async-file-io-3.0
    host-compatibility-3.0
 

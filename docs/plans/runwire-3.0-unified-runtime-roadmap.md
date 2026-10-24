@@ -258,3 +258,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **H12 truthful feature catalog sync staged (2026-10-24):** Status now distinguishes development-only pool isolation and pure autoscale target algorithm from unimplemented working pools/worker scaling. D2 coverage and strict Sphinx still QA-gated. **83/175 accepted, 92 open.**
 
 **M1 50.3% milestone (2026-10-24):** PHPForge four QA and both static analyzers, strict Sphinx and portable extension negatives passed at c2ce077 #40071567489/#40071567309/#40071567310. U10.01 pool isolation keys, U11.08 explicit fsync/rename limitations, U12.03 native autoscale policy only, U13.07 optional extension portability, U16.04 complete versioned feature categories accepted. **Real live pool/scale/durability remain open. 88/175 (50.3%), 87 open.**
+
+**D3 RST network guide staged (2026-10-24):** Detailed real fixture-linked TCP/TLS/Unix/UDP/QUIC and DNS IPv4/IPv6 semantics, transport errors/owners/extensions. U16.05 QA pending. **88/175, 87 open.**
