@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 93/175 accepted (53.1%); 82 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 95/175 accepted (54.3%); 80 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -49,19 +49,19 @@
 | U05 | UDP, outbound QUIC and unified datagram transport | 7/10 | 3 | In progress | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 2/11 | 9 | In progress | U03,U04,U05,U06 |
-| U08 | Existing H1/H2/H3 server consolidation | 5/10 | 5 | In progress | U02,U04,U05,U06 |
+| U08 | Existing H1/H2/H3 server consolidation | 6/10 | 4 | In progress | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 1/10 | 9 | In progress | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 1/9 | 8 | In progress | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 6/10 | 4 | In progress | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 3/9 | 6 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 8/9 | 1 | In progress | U01,U03,U04,U06,U12 |
-| U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
+| U14 | Security, fuzzing and adversarial resilience | 1/8 | 7 | In progress | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 7/16 | 9 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **93/175** | **82** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **95/175** | **80** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 93/175 (53.1% complete), 82 open.
+**Progress counter:** 95/175 (54.3% complete), 80 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -210,7 +210,7 @@
 
 - [x] **U08.01** Port H1 parser and streaming writer to shared connection ownership. **Acceptance:** Published 2.1.2 server corpus retained. **Proof:** Current `Http1Connection` and `Http1ResponseWriter` use the same `Network\\Connection` engine; their published 2.1.2 server corpus `tests/Http1ConnectionTest.php` is byte-for-byte unchanged (same Git blob 99b8f8fe192ee7646a96bdbf1e13361763cc208c). Source 3a9d9a7 full PHP8.4/8.5 PHPForge, protocol, real socket tests PASSED [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606).
 - [x] **U08.02** Port H2 connection and response scheduler without parallel flow controllers. **Acceptance:** Multi-stream/GOAWAY correctness. **Proof:** `Http2Connection` owns exactly one `FlowController` and one `ResponseScheduler` over shared `Network\\Connection`; the published 2.1.2 `tests/Http2ConnectionTest.php` blob 1a2ae6a91a920acd73416fe0024fc4403d2f296b is unchanged and verifies multi-stream, send-window isolation, GOAWAY, fragmented headers/drain and the shared scheduler. All PHPForge QA and real H2 suites PASS at source 3a9d9a7 [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606).
-- [ ] **U08.03** Port H3/QUIC server without duplicate session resource owners. **Acceptance:** QPACK/peer-reset real-client acceptance. **Proof:** PENDING.
+- [x] **U08.03** Port H3/QUIC server without duplicate session resource owners. **Acceptance:** QPACK/peer-reset real-client acceptance. **Proof:** Each PhpQuicHttp3Connection constructs one Http3 Internal ConnectionState and shares it with exactly one Http3Session; native transport controls actual QUIC stream ownership and request release. PhpQuicHttp3ConnectionTest and PhpQuicHttp3WorkerTest exercise real worker/session state, QPACK blocked-frame continuation, peer RESET/STOP_SENDING, healthy sibling progress and idempotent GOAWAY/drain/close. Independent aioquic H3 real-peer and sibling cancellation scripts passed [Security #40072263291](https://github.com/infocyph/Runwire/actions/runs/40072263291) on exact source 00291e1; no competing H3 session owner or duplicate reactor claimed.
 - [ ] **U08.04** Profile HPACK integer, Huffman, validation and write churn. **Acceptance:** Old R4.02 quantified with before/after tests. **Proof:** PENDING.
 - [ ] **U08.05** Profile QPACK dynamic blocking, varints and QUIC poll/write budgets. **Acceptance:** Old R4.04 quantified with independent workloads. **Proof:** PENDING.
 - [x] **U08.06** Preserve header/body/frame/security caps under unified budgets. **Acceptance:** Limits not weakened by optimization. **Proof:** Published 2.1.2 and green 3.0 source 3a9d9a7 have identical Git blobs for all three HTTP version limits (`Http1Limits` e2b780c, `Http2Limits` 65ca1a1, `Http3Limits` 4f1ad28), shared `ConnectionLimits` a9678e1 and worker `ByteBudget` 8a6ed65, plus byte-identical HTTP1/HTTP2/HTTP3 abuse tests and HTTP1 retained worker-budget tests; 3.0 adds H2 control-frame earned-budget regression. All four PHPForge QA/analysis lanes and both native H3+QUIC peers passed [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606), proving the unified baseline did not reduce header/body/frame bounds. New client-only budgets remain independently QA-gated.
@@ -219,7 +219,7 @@
 - [ ] **U08.09** Benchmark TLS/plaintext sizes, socket writes, syscalls and percentiles. **Acceptance:** Old R3.09 measured end to end. **Proof:** PENDING.
 - [x] **U08.10** Reverify H1 WebSocket upgrade and graceful close paths. **Acceptance:** Existing upgrade interoperability green. **Proof:** Existing H1 WebSocket upgrade/handoff, 101 handshake, negotiated subprotocol, origin rejection, masked frame enforcement, fragmented ping/pong, idle graceful close and size-cap close codes are covered by real socket-pair tests in `tests/WebSocketIntegrationTest.php`; both PHP 8.4/8.5 full PHPForge QA and analyzers PASS at immutable Runwire source [3a9d9a7](https://github.com/infocyph/Runwire/commit/3a9d9a71c0c49d7e3e7c6c225f2c4a6004a20ae1), [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). The later client-only changes do not modify this server upgrade path.
 
-**Batch tracker:** 5/10 accepted; 5 open — FIXED scheduling defaults U08.07 #40072263291 — identical 2.1.2 and 3.0 protocol limits/ByteBudget/abuse corpus plus new H2 control-budget QA prove no cap regressions — published 2.1.2 H1/H2 test corpus retained verbatim and shared Connection/FlowController/ResponseScheduler integration verified in green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); U08.10 previously accepted — U08.10 real H1 WebSocket upgrade/graceful close and fragmentation interoperability verified in existing green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 6/10 accepted; 4 open — U08.03 H3 shared connection/session owner and real aioquic peer-reset QA #40072263291 — FIXED scheduling defaults U08.07 #40072263291 — identical 2.1.2 and 3.0 protocol limits/ByteBudget/abuse corpus plus new H2 control-budget QA prove no cap regressions — published 2.1.2 H1/H2 test corpus retained verbatim and shared Connection/FlowController/ResponseScheduler integration verified in green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); U08.10 previously accepted — U08.10 real H1 WebSocket upgrade/graceful close and fragmentation interoperability verified in existing green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U09 — WebSocket and WebTransport client/server
 
@@ -308,7 +308,7 @@
 **Prerequisite:** U03-U13. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
 - [ ] **U14.01** Apply outbound SSRF policy to DNS results and connected address. **Acceptance:** No address swap or rebinding bypass. **Proof:** PENDING.
-- [ ] **U14.02** Verify TLS certificate/hostname/mTLS, ALPN and proxy identity. **Acceptance:** Negative trust-store fixtures fail closed. **Proof:** PENDING.
+- [x] **U14.02** Verify TLS certificate/hostname/mTLS, ALPN and proxy identity. **Acceptance:** Negative trust-store fixtures fail closed. **Proof:** Real TlsClientDialerTest exercises validated CA roots, hostname mismatch, untrusted self-signed rejection, TLS1.2/1.3 and explicit ALPN, client certificate mTLS success and required-client-identity rejection, stalled handshake cleanup and Unix/TLS downgrade rejection. TlsClientOptions never disables verify_peer or verify_peer_name. PoolIsolationKeyTest rejects mixed original TLS peer/trust/ALPN and proxy endpoint/auth policy revisions to prevent identity confusion before reuse. All PHPForge QA and both analyzers passed [Security #40072263291](https://github.com/infocyph/Runwire/actions/runs/40072263291) at 00291e1. This accepts trust/identity policy negatives only; actual CONNECT/SOCKS5 tunneling and nested proxied TLS remain U10.04–U10.06 OPEN.
 - [ ] **U14.03** Fuzz HTTP1/H2/H3 and HPACK/QPACK/QUIC protocol state. **Acceptance:** Malformed frames preserve sibling sessions. **Proof:** PENDING.
 - [ ] **U14.04** Fuzz WebSocket/WebTransport datagrams and stream cancellation. **Acceptance:** Hard message/session budgets remain enforced. **Proof:** PENDING.
 - [ ] **U14.05** Test proxy credentials and redirection/pool isolation. **Acceptance:** No cross-origin secret exposure. **Proof:** PENDING.
@@ -316,7 +316,7 @@
 - [ ] **U14.07** Stress dial, DNS, TLS, pool and executor admission quotas. **Acceptance:** Memory/FD/error rates remain bounded. **Proof:** PENDING.
 - [ ] **U14.08** Run phpforge security, analyzers and dependency audit. **Acceptance:** Zero unresolved release-blocking findings. **Proof:** PENDING.
 
-**Batch tracker:** 0/8 accepted; 8 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 1/8 accepted; 7 open — U14.02 TLS/mTLS/ALPN and proxy identity negative tests #40072263291. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U15 — Performance attribution, regressions and soak
 
@@ -671,3 +671,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **S7 QA remediation integrated with P6 (2026-10-24):** Source c067bad Security #40073472876 all PHPForge Pest/PHPCS/Rector/Deptrac passed but PHPStan cognitive complexity increased Dialer::connect 14 > 12 after SSRF inline guard, and Pint requires one blank line before inet_pton. Extract direct private assertAddressPolicy() preflight and add blank line, no suppression/no behavior change. Keep U14.01 unaccepted until new exact-head QA and live-address verification. **91/175 accepted, 84 open.**
 
 **P7 docs proof before code QA (2026-10-24):** e26477b [strict Sphinx #40073761998](https://github.com/infocyph/Runwire/actions/runs/40073761998) green with native WebTransport authority/session design and H1/H2/H3/WS/WT protocol guide; accept **U09.05 (design only)** and **U16.06 (documented capability matrix)**. Extended CONNECT negative tests U09.04, pool/proxy guide U16.07, SSRF guard U14.01 require PHPForge QA; QUIC flow-control U05.05 still needs explicit stalled-flow tests. **93/175 (53.1%), 82 open, 39 to 75.4%.**
+
+**P8 source-backed H3 and TLS security review (2026-10-24):** Current 3.0 code shares one H3 ConnectionState with Http3Session and native QUIC worker stream owner, verified by real independent aioquic and reset/sibling QA at 00291e1 #40072263291. TLS peer identity, explicit trust roots, negative hostname/mTLS, ALPN and proxy authorization isolation keys tested in same all-green PHPForge lanes. Accept narrowly U08.03 and U14.02. Actual proxy CONNECT, H3 outbound and native QUIC flow-control remain open. **95/175 (54.3%), 80 open, 37 to 75.4%.**
