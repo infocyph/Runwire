@@ -162,21 +162,6 @@ final class CoroutineRuntime
             $root = $this->scheduler->spawn(
                 static fn(): mixed => $scope->execute($closure),
                 $source,
-                function (Task $task): void {
-                    // A standalone run owns the driving loop, but not every
-                    // watcher on it (for example persistent executor workers).
-                    // Scope children have settled before the root completes.
-                    if ($task->isComplete()) {
-                        // A scheduler drain may still contain callbacks queued
-                        // before the root settled. Stop in the next turn so
-                        // those callbacks do not leak across request generations.
-                        $loop = $this->scheduler->loop();
-                        $loop->defer(static function (int $id) use ($loop): void {
-                            unset($id);
-                            $loop->stop();
-                        });
-                    }
-                },
             );
             $this->scheduler->drive();
 
