@@ -250,3 +250,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **D2 feature catalog QA fixture staged (2026-10-24):** Parser asserts all native-RST five-column per-feature status/host/extension cells across 29 required capabilities with no duplicates; stable vs dev is explicit. U16.04 remains unchecked until exact-head PHPForge. **83/175 accepted, 92 open.**
 
 **E6 (2026-10-24):** One PHPStan proxy host nullsafe fix after 7f84bea, pending next QA. **83/175 accepted, 92 open.**
+
+**S6 pure autoscale decision engine staged (2026-10-24):** CPU/queue/p99/RPS target decisions with cooldown and policy bounds, no supervisor connection yet; U12.04 still unaccepted. **83/175, 92 open**.

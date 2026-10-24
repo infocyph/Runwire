@@ -148,3 +148,19 @@ finite, with strictly ordered hysteresis thresholds; cooldown must be at
 least one sample window. Host-owned process managers never inherit these
 native worker policies. Automated decisions, readiness, graceful scale-in,
 and 30-minute saturation soak remain separate incomplete U12 gates.
+
+Pure autoscale decision model (not integrated)
+----------------------------------------------
+
+``Supervisor\AutoscaleDecisionEngine`` computes a bounded desired worker
+count from one CPU/queue/successful-RPS/p99 observation and a policy. It
+refuses missing or non-finite inputs, applies fixed operator overrides before
+cooldown, honors lower/upper limits and restricts steps. Scale-out is
+suggested for queue or active-request pressure; scale-in requires an empty
+queue and both low CPU and low successful RPS. Hysteresis and cooldown
+prevent rapid oscillation when signals cross thresholds.
+
+This function is intentionally pure: **it does not create or retire a
+single worker**, execute process signals, establish readiness, drain open
+connections or claim that the host supports autoscaling. Native supervisor
+wiring and real sustained stress remain U12.04/U12.09 open requirements.
