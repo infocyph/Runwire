@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 70/175 accepted (40.0%); 105 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 71/175 accepted (40.6%); 104 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -49,7 +49,7 @@
 | U05 | UDP, outbound QUIC and unified datagram transport | 7/10 | 3 | In progress | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 1/11 | 10 | In progress | U03,U04,U05,U06 |
-| U08 | Existing H1/H2/H3 server consolidation | 3/10 | 7 | In progress | U02,U04,U05,U06 |
+| U08 | Existing H1/H2/H3 server consolidation | 4/10 | 6 | In progress | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 0/10 | 10 | Not started | U01,U02,U06 |
@@ -59,9 +59,9 @@
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 1/16 | 15 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **70/175** | **105** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **71/175** | **104** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 70/175 (40.0% complete), 105 open.
+**Progress counter:** 71/175 (40.6% complete), 104 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -213,13 +213,13 @@
 - [ ] **U08.03** Port H3/QUIC server without duplicate session resource owners. **Acceptance:** QPACK/peer-reset real-client acceptance. **Proof:** PENDING.
 - [ ] **U08.04** Profile HPACK integer, Huffman, validation and write churn. **Acceptance:** Old R4.02 quantified with before/after tests. **Proof:** PENDING.
 - [ ] **U08.05** Profile QPACK dynamic blocking, varints and QUIC poll/write budgets. **Acceptance:** Old R4.04 quantified with independent workloads. **Proof:** PENDING.
-- [ ] **U08.06** Preserve header/body/frame/security caps under unified budgets. **Acceptance:** Limits not weakened by optimization. **Proof:** PENDING.
+- [x] **U08.06** Preserve header/body/frame/security caps under unified budgets. **Acceptance:** Limits not weakened by optimization. **Proof:** Published 2.1.2 and green 3.0 source 3a9d9a7 have identical Git blobs for all three HTTP version limits (`Http1Limits` e2b780c, `Http2Limits` 65ca1a1, `Http3Limits` 4f1ad28), shared `ConnectionLimits` a9678e1 and worker `ByteBudget` 8a6ed65, plus byte-identical HTTP1/HTTP2/HTTP3 abuse tests and HTTP1 retained worker-budget tests; 3.0 adds H2 control-frame earned-budget regression. All four PHPForge QA/analysis lanes and both native H3+QUIC peers passed [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606), proving the unified baseline did not reduce header/body/frame bounds. New client-only budgets remain independently QA-gated.
 - [ ] **U08.07** Keep stable FIXED adaptive scheduling until AUTO is certified. **Acceptance:** No unverified behavioral promotion. **Proof:** PENDING.
 - [ ] **U08.08** Stress mixed H1/H2/H3, many streams, cancellation and slow receivers. **Acceptance:** Old R4.09 tested under rolling recycle. **Proof:** PENDING.
 - [ ] **U08.09** Benchmark TLS/plaintext sizes, socket writes, syscalls and percentiles. **Acceptance:** Old R3.09 measured end to end. **Proof:** PENDING.
 - [x] **U08.10** Reverify H1 WebSocket upgrade and graceful close paths. **Acceptance:** Existing upgrade interoperability green. **Proof:** Existing H1 WebSocket upgrade/handoff, 101 handshake, negotiated subprotocol, origin rejection, masked frame enforcement, fragmented ping/pong, idle graceful close and size-cap close codes are covered by real socket-pair tests in `tests/WebSocketIntegrationTest.php`; both PHP 8.4/8.5 full PHPForge QA and analyzers PASS at immutable Runwire source [3a9d9a7](https://github.com/infocyph/Runwire/commit/3a9d9a71c0c49d7e3e7c6c225f2c4a6004a20ae1), [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). The later client-only changes do not modify this server upgrade path.
 
-**Batch tracker:** 3/10 accepted; 7 open — published 2.1.2 H1/H2 test corpus retained verbatim and shared Connection/FlowController/ResponseScheduler integration verified in green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); U08.10 previously accepted — U08.10 real H1 WebSocket upgrade/graceful close and fragmentation interoperability verified in existing green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 4/10 accepted; 6 open — identical 2.1.2 and 3.0 protocol limits/ByteBudget/abuse corpus plus new H2 control-budget QA prove no cap regressions — published 2.1.2 H1/H2 test corpus retained verbatim and shared Connection/FlowController/ResponseScheduler integration verified in green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); U08.10 previously accepted — U08.10 real H1 WebSocket upgrade/graceful close and fragmentation interoperability verified in existing green [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U09 — WebSocket and WebTransport client/server
 
@@ -611,3 +611,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **P2 standalone archive acceptance with no artificial CI matrix duplication (2026-10-24):** `composer.json` only has PHP8.4+ 64-bit runtime requirements, so lowest/stable do not select differing runtime dependency packages. Existing [Release Candidate #40064842484](https://github.com/infocyph/Runwire/actions/runs/40064842484) and [#40067446052](https://github.com/infocyph/Runwire/actions/runs/40067446052) independently archive and install in clean Composer consumer directories, then serve correct native HTTP 200/400 on PHP8.4/8.5; [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606) passed every PHPForge stable/lowest pair. Accept U13.08 with explicit dependency parity rather than rerunning redundant release CI. **70/175 accepted (40.0%); 105 open, 18 to 88/175.** U13.07 optional extension permutation and U13.09 new matrix remain open.
 
 **D1 strict Sphinx QA repair (2026-10-24):** Current PR [Documentation #40068020540](https://github.com/infocyph/Runwire/actions/runs/40068020540) failed one warning-as-error: the underline of the new bounded file-to-network streaming RST heading was shorter than its title. Increase the underline to a valid native RST length, preserving all documentation and the draft host matrix. U16.09 and U13.09 remain QA-gated, no acceptance increment. **70/175 accepted, 105 open.**
+
+**S3 unweakened multi-protocol server cap acceptance (2026-10-24):** Compare published 2.1.2 and immutable green 3a9d9a7 Git blobs: H1/H2/H3 limits, shared ConnectionLimits and ByteBudget, H1/H2/H3 abuse fixtures and HTTP1 worker-retained-byte budget tests are byte-identical. New H2 control-frame budget regression in 3.0 passed [Security & Standards #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). Accept U08.06 for unchanged server-side bounds, not as verification of new client limits or all future optimizations. **71/175 accepted (40.6%), 104 open; 17 more to 88/175.**
