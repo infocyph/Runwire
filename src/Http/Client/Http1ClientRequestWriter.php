@@ -18,13 +18,13 @@ use RuntimeException;
  */
 final class Http1ClientRequestWriter
 {
+    private readonly string $head;
+
     private int $bodyBytes = 0;
 
     private bool $done = false;
 
     private bool $headSent = false;
-
-    private readonly string $head;
 
     /** Build a request head, rejecting smuggling and ambiguous framing. */
     public function __construct(

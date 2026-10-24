@@ -89,6 +89,7 @@ it('interoperates with an independent real TCP peer for binary chunked H1 reques
         $response = '';
         $trailers = null;
         $head = static function (int $code, Headers $headers) use (&$status): void {
+            expect($headers->first('transfer-encoding'))->toBe('chunked');
             $status = $code;
         };
         $onBody = static function (string $chunk) use (&$response): void {

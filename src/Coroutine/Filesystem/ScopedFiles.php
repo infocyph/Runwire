@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Coroutine\Filesystem;
 
 use Infocyph\Runwire\Coroutine\CoroutineScope;
-use Infocyph\Runwire\Coroutine\Deferred;
 use Infocyph\Runwire\Filesystem\AsyncFileSystem;
 use Infocyph\Runwire\RequestDeadline;
 use LogicException;
@@ -30,10 +29,16 @@ final readonly class ScopedFiles
         int $length,
         int $offset = 0,
         ?RequestDeadline $deadline = null,
-    ): string {
+    ): string
+    {
         $result = $this->await(
             fn(callable $complete): int => $this->files->read(
-                $path, $length, $complete, $offset, $this->scope->cancellation(), $deadline,
+                $path,
+                $length,
+                $complete,
+                $offset,
+                $this->scope->cancellation(),
+                $deadline,
             ),
         );
         if (!is_string($result)) {
@@ -48,7 +53,11 @@ final readonly class ScopedFiles
     {
         $result = $this->await(
             fn(callable $complete): int => $this->files->rename(
-                $from, $to, $complete, $this->scope->cancellation(), $deadline,
+                $from,
+                $to,
+                $complete,
+                $this->scope->cancellation(),
+                $deadline,
             ),
         );
         if (!is_bool($result)) {
@@ -58,12 +67,19 @@ final readonly class ScopedFiles
         return $result;
     }
 
-    /** Await a bounded metadata stat in the existing scope. */
+    /**
+     * Await bounded metadata stat in the existing scope.
+     *
+     * @return array{size:int,mtime:int,mode:int}
+     */
     public function stat(string $path, ?RequestDeadline $deadline = null): array
     {
         $result = $this->await(
             fn(callable $complete): int => $this->files->stat(
-                $path, $complete, $this->scope->cancellation(), $deadline,
+                $path,
+                $complete,
+                $this->scope->cancellation(),
+                $deadline,
             ),
         );
         if (!is_array($result)) {
@@ -78,7 +94,10 @@ final readonly class ScopedFiles
     {
         $result = $this->await(
             fn(callable $complete): int => $this->files->unlink(
-                $path, $complete, $this->scope->cancellation(), $deadline,
+                $path,
+                $complete,
+                $this->scope->cancellation(),
+                $deadline,
             ),
         );
         if (!is_bool($result)) {
@@ -94,10 +113,16 @@ final readonly class ScopedFiles
         string $bytes,
         int $offset = 0,
         ?RequestDeadline $deadline = null,
-    ): int {
+    ): int
+    {
         $result = $this->await(
             fn(callable $complete): int => $this->files->write(
-                $path, $bytes, $complete, $offset, $this->scope->cancellation(), $deadline,
+                $path,
+                $bytes,
+                $complete,
+                $offset,
+                $this->scope->cancellation(),
+                $deadline,
             ),
         );
         if (!is_int($result)) {

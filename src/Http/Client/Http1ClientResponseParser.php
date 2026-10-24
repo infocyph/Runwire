@@ -16,9 +16,9 @@ use RuntimeException;
  */
 final class Http1ClientResponseParser
 {
-    private string $buffer = '';
-
     private int $bodyBytes = 0;
+
+    private string $buffer = '';
 
     private bool $done = false;
 
