@@ -101,7 +101,7 @@ quotas, and subject to inherited cancellation/deadlines.
    vendor/bin/pest tests/AsyncFileApiContractTest.php
 
 Restricted worker-side paths (development)
------------------------------------------
+------------------------------------------------
 
 ``AsyncFileSystem($executor, rootDirectory: '/srv/app/data')`` enables an
 optional canonical-root boundary for read, write, stat, rename and unlink.

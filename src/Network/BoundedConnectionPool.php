@@ -20,12 +20,12 @@ use Throwable;
  */
 final class BoundedConnectionPool
 {
+    private readonly IdleConnectionPool $idle;
+
     /** @var array<int, PoolIsolationKey> */
     private array $active = [];
 
     private bool $closed = false;
-
-    private readonly IdleConnectionPool $idle;
 
     private int $nextId = 1;
 

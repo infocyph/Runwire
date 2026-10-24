@@ -126,3 +126,25 @@ leases are never silently taken away from callers, and pool shutdown
 cannot force-close a socket already issued to another owner. This is
 necessary request-isolation behavior, not a finished high-level HTTP
 client, connector, proxy stack or multiplex scheduler.
+
+Explicit H1 redirect and retry policy (development)
+---------------------------------------------------
+
+The opt-in ``ClientRedirectRetryPolicy`` and ``Http1PolicyClient`` run
+bodyless GET/HEAD across finite hops and transport retries. HTTP redirects
+cannot silently replay POST/streaming uploads, downgrade HTTPS to HTTP or
+forward Authorization, Cookie, Proxy-Authorization, Host or private custom
+headers across another origin, including a changed port. All redirects
+require an explicit hop ceiling, cross-origin targets require an explicit
+policy, and supplied TLS trust policies are never carried to an unrelated
+origin. Intermediate response bodies are consumed but hidden from the
+application. The runner uses independent verified H1 connections and
+closes intermediate sockets; it does not implement H2/H3, automatic cookie
+management, a generalized proxy connector or safe retry of visible replies.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/ClientRedirectRetryPolicyTest.php tests/Http1PolicyClientTest.php
+
+These are new QA-pending 3.0 development contracts. No U07.09 or U14.05
+acceptance is implied until independent HTTP peer and PHPForge tests pass.

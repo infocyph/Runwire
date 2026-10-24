@@ -109,6 +109,7 @@ it('rejects stale idle traffic and does not hand a tenant socket to another scop
         $first = $pool->acquire($firstKey, static function (): void {});
         expect($pool->release($first, $connection))->toBeTrue();
         $second = $pool->acquire($secondKey, static function (int $id, ?Connection $socket) use (&$borrowed): void {
+            expect($id)->toBeGreaterThan(0);
             $borrowed = $socket;
         });
         expect($borrowed)->toBeNull()

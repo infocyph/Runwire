@@ -18,6 +18,7 @@ $quicSessionWorker = null;
  * ancestors/leaf and off-root parents without filesystem syscalls on the loop.
  * The check is intentionally NOT an openat2/dirfd race-free sandbox.
  */
+/** @param array<string, mixed> $args */
 function guardFilePath(array $args, string $name): void
 {
     $root = $args['root'] ?? null;
@@ -38,7 +39,17 @@ function guardFilePath(array $args, string $name): void
     if (!str_starts_with($path, $prefix)) {
         throw new RuntimeException('Filesystem path escapes its configured root.');
     }
-    $relative = substr($path, strlen($prefix));
+    guardFilePathSegments(substr($path, strlen($prefix)), $canonicalRoot);
+    $parent = realpath(dirname($path));
+    if ($parent === false || ($parent !== $canonicalRoot && !str_starts_with($parent, $prefix))) {
+        throw new RuntimeException('Filesystem parent is outside the configured root.');
+    }
+}
+
+
+/** @internal Validate components without a path mutation or symlink hop. */
+function guardFilePathSegments(string $relative, string $canonicalRoot): void
+{
     $parts = explode('/', $relative);
     if ($relative === '' || in_array('', $parts, true) || in_array('.', $parts, true)
         || in_array('..', $parts, true)) {
@@ -52,12 +63,7 @@ function guardFilePath(array $args, string $name): void
             throw new RuntimeException('Filesystem symlink traversal is forbidden.');
         }
     }
-    $parent = realpath(dirname($path));
-    if ($parent === false || ($parent !== $canonicalRoot && !str_starts_with($parent, $prefix))) {
-        throw new RuntimeException('Filesystem parent is outside the configured root.');
-    }
 }
-
 
 while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
     if (strlen($line) > MAX_MESSAGE_BYTES || !str_ends_with($line, "\n")) {
