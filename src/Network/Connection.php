@@ -279,14 +279,6 @@ final class Connection
     }
 
     /**
-     * Determine whether reads are manually or pressure paused.
-     */
-    public function isReadPaused(): bool
-    {
-        return $this->manualReadPause || $this->pressureReadPause;
-    }
-
-    /**
      * @internal A verified stream may be considered for reuse only when it
      * carries no active scope, pending traffic or protocol callback owner.
      */
@@ -297,6 +289,14 @@ final class Connection
             && $this->scopeOwnership === null
             && $this->poolBuffersQuiescent()
             && $this->poolCallbacksAvailable();
+    }
+
+    /**
+     * Determine whether reads are manually or pressure paused.
+     */
+    public function isReadPaused(): bool
+    {
+        return $this->manualReadPause || $this->pressureReadPause;
     }
 
     /**
