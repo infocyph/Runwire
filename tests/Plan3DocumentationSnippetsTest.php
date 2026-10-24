@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+it('keeps every native RST PHP example syntactically parseable', function (): void {
+    $files = glob(dirname(__DIR__) . '/docs/*.rst');
+    expect($files)->toBeArray()->not->toBeEmpty();
+    $examples = 0;
+
+    foreach ($files as $file) {
+        $lines = file($file, FILE_IGNORE_NEW_LINES);
+        expect($lines)->toBeArray();
+
+        for ($index = 0, $count = count($lines); $index < $count; ++$index) {
+            if (trim($lines[$index]) !== '.. code-block:: php') {
+                continue;
+            }
+
+            $snippet = '';
+            for ($cursor = $index + 1; $cursor < $count; ++$cursor) {
+                $line = $lines[$cursor];
+                if ($line === '') {
+                    $snippet .= "\n";
+                    continue;
+                }
+                if (!str_starts_with($line, '   ')) {
+                    break;
+                }
+                $snippet .= substr($line, 3) . "\n";
+            }
+
+            expect(trim($snippet))->not->toBe('');
+            $source = str_starts_with(ltrim($snippet), '<?php') ? $snippet : "<?php\n" . $snippet;
+            try {
+                token_get_all($source, TOKEN_PARSE);
+            } catch (ParseError $error) {
+                throw new RuntimeException(
+                    sprintf('Invalid PHP example %s:%d: %s', $file, $index + 1, $error->getMessage()),
+                    previous: $error,
+                );
+            }
+
+            ++$examples;
+            $index = $cursor - 1;
+        }
+    }
+
+    expect($examples)->toBeGreaterThanOrEqual(6);
+});
+
+it('resolves all documented runnable fixture and benchmark references', function (): void {
+    $root = dirname(__DIR__);
+    $files = glob($root . '/docs/*.rst');
+    expect($files)->toBeArray()->not->toBeEmpty();
+    $references = 0;
+
+    foreach ($files as $file) {
+        $source = file_get_contents($file);
+        expect($source)->toBeString();
+        preg_match_all('~\b(?:tests|tools|benchmarks)/[A-Za-z0-9_./-]+\.(?:php|py)\b~', $source, $matches);
+
+        foreach (array_unique($matches[0]) as $relative) {
+            expect(is_file($root . '/' . $relative))
+                ->toBeTrue(sprintf('Broken documentation source reference %s in %s', $relative, $file));
+            ++$references;
+        }
+    }
+
+    expect($references)->toBeGreaterThanOrEqual(20);
+});

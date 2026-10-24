@@ -290,3 +290,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W3 WebSocket QA correction staged (2026-10-24):** Correct e5c4a302 Pest/Pint/PHPCS/PHPStan issues on WebSocket framing while preserving strict direction masking, with extra role regression. U09 pending exact-head QA. **98/175, 77 open; 34 to 75%.**
 
 **W4 RFC6455 adversarial matrix staged (2026-10-24):** Binary frame boundary, masking-direction, fragmented read, error-code, worker-memory budget fuzz-style fixtures. U09.01/U14.04 remain open pending QA. **98/175 accepted, 77 open**.
+
+**D4 snippet correctness suite staged (2026-10-24):** PHP native syntax checks for RST PHP examples and real test/benchmark file reference validation in PHPForge matrix; strict Sphinx remains required. U16.15 pending green, **98/175 accepted, 77 open**.
