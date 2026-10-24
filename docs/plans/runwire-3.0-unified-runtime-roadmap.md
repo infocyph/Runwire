@@ -244,3 +244,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **S5 autoscale policy-only contract staged (2026-10-24):** CPU/queue/RPS/p99, min/max, hysteresis/cooldown and fixed operator override validated by PHP tests and truthful host RST. No scaling activated; U12.03 QA-gated. **83/175 accepted, 92 open.**
 
 **F12 rename/durability boundaries staged (2026-10-24):** Explicit native RST OS rename vs fsync/parent-directory crash safety limitations and real replace/failure worker test. No fake atomic-durability support; U11.08 QA gated. **83/175 accepted, 92 open.**
+
+**H10 optional extensions negative matrix staged (2026-10-24):** Two lightweight checks in existing portable workflow: php -n must still run Unix streams without ext-sockets; disabled POSIX API must reject prefork but allow native single-process. Existing TLS/PCNTL/QUIC test lanes untouched. U13.07 awaits green. **83/175 accepted, 92 open.**

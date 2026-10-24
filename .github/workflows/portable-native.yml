@@ -98,6 +98,14 @@ jobs:
         shell: bash
         run: php tests/fixtures/portable_optional_protocol_acceptance.php
 
+      - name: Verify plain Unix streams without optional ext-sockets
+        shell: bash
+        run: php -n tests/fixtures/optional_extension_absence.php no-sockets
+
+      - name: Verify POSIX function unavailability cannot enable prefork
+        shell: bash
+        run: php -d disable_functions=posix_getpid,posix_kill tests/fixtures/optional_extension_absence.php no-posix
+
       - name: Verify ext-openssl unavailable fails closed while plaintext remains usable
         shell: bash
         run: php -d disable_functions=stream_socket_enable_crypto tests/fixtures/no_openssl_outbound.php
