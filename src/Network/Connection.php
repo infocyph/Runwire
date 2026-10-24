@@ -295,6 +295,27 @@ final class Connection
     }
 
     /**
+     * @internal Return whether a previously verified stream is quiescent and
+     * may be considered for reuse by a future scoped idle pool. This does not
+     * authorize reuse across TLS/ALPN/tenant/proxy identities.
+     */
+    public function isPoolIdleSafe(): bool
+    {
+        if ($this->state !== ConnectionState::OPEN || $this->peerReadClosed
+            || $this->manualReadPause || $this->pressureReadPause || $this->writePressured
+            || $this->sendBuffer->bytes() > 0 || $this->receiveBuffer->bytes() > 0
+            || $this->scopeOwnership !== null) {
+            return false;
+        }
+        if ($this->dataCallback !== null || $this->drainCallback !== null
+            || $this->eofCallback !== null || $this->closeCallbacks !== []) {
+            return false;
+        }
+
+        return $this->callbackOwnership->unclaimed();
+    }
+
+    /**
      * Determine whether the send buffer is under write pressure.
      */
     public function isWritePressured(): bool

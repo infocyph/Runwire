@@ -18,6 +18,12 @@ opaque digest is not a secret and does not authorize reuse.
 
 There is currently NO active bounded pool, waiter queue, eviction,
 HTTP/2 or HTTP/3 multiplex slot manager or GOAWAY-aware reuse.
+The development stream provides ``Connection::isPoolIdleSafe()`` as a
+fail-closed reuse preflight: it rejects unread response bytes, queued writes,
+peer EOF, outstanding scope ownership, protocol callback claims and close
+observers. This is a necessary condition only; the caller still must enforce
+the exact scoped ``PoolIsolationKey``, negotiated ALPN and HTTP framing.
+A reusable connection is not certified merely by this predicate.
 Explicit ownership transfer can move one validated live connection
 between cancellation scopes; it does not prove reusable HTTP framing
 or guarantee the previous response body was fully drained.
