@@ -158,3 +158,9 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **Q2-E grouped QA repair and native persistence (2026-10-24):** Correct Pest generic-Throwable matcher and Pint class ordering from prior PR run #40059182244 alongside new one-worker native QUIC session lifecycle, dual-bidi stream echo fixture and independent aioquic CI. QA must validate the current commit before considering U05.04/05; U05 remains 3/10 and U04 7/8 pending required evidence.
 
 **Q2-E failure-path tests added (2026-10-24):** Binary stream data/FIN, unidirectional-read protection, per-session stream admission, reset and stale-epoch rejection are staged alongside independent echo tests. Maintain total 56/175; no QUIC milestone is promoted before new PR CI.
+
+**Q2-F cross-stack uni receipt (2026-10-24, QA pending):** Run real independent aioquic receive/FIN of client unidirectional data in addition to same-session multiple bidirectional echo streams; record server receipt, do not accept U05.05 without corresponding full security/host/benchmark evidence. Totals unchanged: 56/175, U05 3/10, U04 7/8.
+
+**Real positive QUIC persistence observation (2026-10-24):** Independent aioquic TLS 1.3 + two reusable worker-owned bidi streams PASS inside Security #40059788005, but that head's PHPForge/PHPStan/Pint/PHPCS FAIL. Grouped Q2-F fixes must pass the full matrix before U05.04/05 acceptance. One-way peer receipt is a separate next test. Totals remain 56/175, U04 7/8, U05 3/10.
+
+**Q2-F stream FIN protection (2026-10-24):** Worker rejects short native writes on FIN and fails closed, with dedicated negative fixture; keep U05.04/.05/.09 QA pending until exact-head native stream transport and adversity pass.

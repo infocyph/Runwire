@@ -8,8 +8,8 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
 
-if ($argc !== 4 || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
-    throw new InvalidArgumentException('Expected host, UDP port and trusted CA file.');
+if ($argc !== 5 || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
+    throw new InvalidArgumentException('Expected host, UDP port, trusted CA and uni receipt marker.');
 }
 $loop = new SelectLoop();
 $session = new QuicClientSession($loop, 8);
@@ -76,6 +76,50 @@ try {
     $timeout = $loop->delay(10.0, static function () use ($stop): void {
         $stop(new RuntimeException('Independent QUIC session interoperability timed out.'));
     });
+    $sendUni = static function () use ($session, $loop, $stop, $timeout, &$completed, $argv): void {
+        $session->command('open_uni', 0, '', false,
+            static function (mixed $opened, ?Throwable $error) use ($session, $loop, $stop, $timeout, &$completed, $argv): void {
+                if ($error !== null || !is_int($opened['stream'] ?? null)) {
+                    $stop($error ?? new RuntimeException('QUIC worker refused a unidirectional stream.'));
+                    return;
+                }
+                $session->command('write', $opened['stream'], 'one-way-quic-stream', true,
+                    static function (mixed $written, ?Throwable $error) use ($session, $loop, $stop, $timeout, &$completed, $argv): void {
+                        if ($error !== null || ($written['written'] ?? null) !== strlen('one-way-quic-stream')) {
+                            $stop($error ?? new RuntimeException('QUIC uni stream did not accept the complete payload.'));
+                            return;
+                        }
+                        $poll = null;
+                        $poll = static function () use (&$poll, $session, $loop, $stop, $timeout, &$completed, $argv): void {
+                            if (!$session->active()) {
+                                return;
+                            }
+                            $receipt = is_file($argv[4]) ? file_get_contents($argv[4]) : false;
+                            if ($receipt === false) {
+                                $loop->delay(0.01, $poll);
+                                return;
+                            }
+                            if ($receipt !== 'one-way-quic-stream') {
+                                $stop(new RuntimeException('Independent server received an incorrect unidirectional payload.'));
+                                return;
+                            }
+                            $completed[] = 'one-way-quic-stream';
+                            $session->command('close', 0, '', false,
+                                static function (mixed $result, ?Throwable $error) use ($loop, $stop, $timeout): void {
+                                    if ($error !== null || ($result['closed'] ?? null) !== true) {
+                                        $stop($error ?? new RuntimeException('QUIC session failed to close cleanly.'));
+                                        return;
+                                    }
+                                    $loop->cancel($timeout);
+                                },
+                            );
+                        };
+                        $poll();
+                    },
+                );
+            },
+        );
+    };
     $session->connect(
         $argv[1],
         (int) $argv[2],
@@ -86,27 +130,19 @@ try {
             connectTimeoutMilliseconds: 4_000,
             maxOpenStreams: 8,
         ),
-        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, &$completed, $timeout): void {
+        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, $sendUni, &$completed, $timeout): void {
             if ($error !== null || ($value['alpn'] ?? null) !== 'runwire-echo' || !$session->active()) {
                 $stop($error ?? new RuntimeException('QUIC session TLS/ALPN verification failed.'));
                 return;
             }
 
             $exchange('first-quic-stream',
-                static function () use ($exchange, $session, $loop, $stop, &$completed, $timeout): void {
+                static function () use ($exchange, $sendUni, &$completed): void {
                     $completed[] = 'first-quic-stream';
                     $exchange('second-quic-stream',
-                        static function () use ($session, $loop, $stop, &$completed, $timeout): void {
+                        static function () use ($sendUni, &$completed): void {
                             $completed[] = 'second-quic-stream';
-                            $session->command('close', 0, '', false,
-                                static function (mixed $value, ?Throwable $error) use ($loop, $stop, $timeout): void {
-                                    if ($error !== null || ($value['closed'] ?? null) !== true) {
-                                        $stop($error ?? new RuntimeException('QUIC session failed to close cleanly.'));
-                                        return;
-                                    }
-                                    $loop->cancel($timeout);
-                                },
-                            );
+                            $sendUni();
                         },
                     );
                 },
@@ -118,7 +154,7 @@ try {
     if ($failure !== null) {
         throw $failure;
     }
-    if ($completed !== ['first-quic-stream', 'second-quic-stream']
+    if ($completed !== ['first-quic-stream', 'second-quic-stream', 'one-way-quic-stream']
         || $session->active() || $loop->diagnostics()->readWatchers !== 0
         || $loop->diagnostics()->writeWatchers !== 0
         || $loop->diagnostics()->timersActive !== 0) {
@@ -128,7 +164,8 @@ try {
     fwrite(STDOUT, json_encode([
         'verified' => true,
         'alpn' => 'runwire-echo',
-        'bidi_streams' => count($completed),
+        'bidi_streams' => 2,
+        'unidirectional_streams_delivered' => 1,
         'persistent_worker' => true,
     ], JSON_THROW_ON_ERROR) . PHP_EOL);
 } finally {

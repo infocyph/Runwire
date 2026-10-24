@@ -27,11 +27,11 @@ final class QuicClientSession
 {
     private readonly ProcessExecutor $executor;
 
-    private string $state = 'new';
-
     private int $epoch = 0;
 
     private int $nextRequestId = 1;
+
+    private string $state = 'new';
 
     /** Construct one dedicated QUIC process to preserve native session ownership. */
     public function __construct(LoopInterface $loop, int $maxQueuedOperations = 64)
@@ -72,6 +72,7 @@ final class QuicClientSession
                     if ($error !== null || !is_array($value)) {
                         $this->dispose();
                         $completion(null, $error ?? new RuntimeException('QUIC worker returned an invalid stream result.'));
+
                         return;
                     }
                     if ($operation === 'close') {
@@ -84,6 +85,7 @@ final class QuicClientSession
             );
         } catch (Throwable $error) {
             $this->dispose();
+
             throw $error;
         }
     }
@@ -135,6 +137,7 @@ final class QuicClientSession
                         || !is_string($value['alpn'] ?? null)) {
                         $this->dispose();
                         $completion(null, $error ?? new RuntimeException('Worker returned an invalid verified QUIC session.'));
+
                         return;
                     }
                     $this->epoch = $value['epoch'];
@@ -146,6 +149,7 @@ final class QuicClientSession
             );
         } catch (Throwable $error) {
             $this->dispose();
+
             throw $error;
         }
     }

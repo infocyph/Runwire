@@ -68,3 +68,28 @@ trusted certificate, require one positive response, and release all worker
 and loop resources. The job fails if handshake or cleanup fails; do not treat
 a successful probe as completed reusable connection/stream API. The test is
 not skipped when ext-quic is available on that CI job.
+
+Unidirectional receiver proof
+=============================
+
+An outbound client-initiated unidirectional QUIC stream cannot be read by
+the sender. Worker-local metadata rejects such reads. The independent Python
+server accumulates each uni stream up to 64 KiB, writes the complete payload
+only after FIN, and a separate PHP echo test waits for exactly matching bytes
+using bounded Runwire timers. A worker-local write count is not evidence that
+a peer actually received the payload. Keep the session alive until this
+receipt is observed; close worker and listener on all success/failure paths.
+
+This is transport-level evidence and does not imply QUIC/H3 release readiness,
+per-stream congestion fairness, migration, unreliable datagrams, or 0-RTT.
+
+Real native persistence evidence checkpoint
+==========================================
+
+GitHub Security & Standards run 40059788005 completed both the original
+verified off-loop TLS handshake and the independent aioquic persistent-QUIC
+echo step: two bidirectional streams, sequentially opened on one dedicated
+native Connection retained inside the same external ProcessExecutor worker.
+The PHPForge QA matrix still found complexity, array-key typing and style
+issues. Source acceptance therefore remains pending the combined QA fix plus
+independent unidirectional sender-to-receiver proof and exact-head checks.

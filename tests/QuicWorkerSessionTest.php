@@ -6,15 +6,23 @@ use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
 use Infocyph\Runwire\Network\Internal\QuicWorkerSession;
 
 /** @return array{QuicWorkerSession, object} */
-function runwireNativeQuicWorkerFixture(int $limit = 2): array
+function runwireNativeQuicWorkerFixture(int $limit = 2, bool $partialWrites = false): array
 {
     $worker = new QuicWorkerSession();
-    $native = new class {
+    $native = new class($partialWrites) {
+        public function __construct(private readonly bool $partialWrites) {}
+
         public bool $closed = false;
+
+        public bool $lastBidirectional = true;
 
         public function openStream(bool $bidirectional): object
         {
-            return new class {
+            $this->lastBidirectional = $bidirectional;
+
+            return new class($this->partialWrites) {
+                public function __construct(private readonly bool $partialWrites) {}
+
                 private string $buffer = '';
 
                 private bool $finished = false;
@@ -24,7 +32,7 @@ function runwireNativeQuicWorkerFixture(int $limit = 2): array
                     $this->buffer .= $data;
                     $this->finished = $fin;
 
-                    return strlen($data);
+                    return $this->partialWrites ? max(0, strlen($data) - 1) : strlen($data);
                 }
 
                 public function read(int $limit): ?string
@@ -82,7 +90,8 @@ it('preserves worker-owned bidirectional QUIC payloads across independent IPC co
 it('fails closed if a client-initiated unidirectional QUIC stream is read from', function (): void {
     [$worker, $native] = runwireNativeQuicWorkerFixture();
     $open = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_uni')]);
-    expect($open)->toBe(['stream' => 1, 'bidirectional' => false]);
+    expect($open)->toBe(['stream' => 1, 'bidirectional' => false])
+        ->and($native->lastBidirectional)->toBeFalse();
     expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'write', 1, 'uni', true)]))
         ->toBe(['written' => 3]);
 
@@ -109,5 +118,17 @@ it('rejects stale logical streams and never accepts commands from a previous nat
     $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'reset', 1)]);
     expect(fn() => $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'write', 1, 'stale')]))
         ->toThrow(RuntimeException::class, 'Unknown or released')
+        ->and($native->closed)->toBeTrue();
+});
+
+
+it('fails closed when a FIN-marked native QUIC write reports a partial send', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(partialWrites: true);
+    $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
+
+    expect(fn() => $worker->execute([
+        'epoch' => 1,
+        'command' => QuicWorkerCommand::encode(2, 'write', 1, 'complete-payload', true),
+    ]))->toThrow(RuntimeException::class, 'invalid write length')
         ->and($native->closed)->toBeTrue();
 });

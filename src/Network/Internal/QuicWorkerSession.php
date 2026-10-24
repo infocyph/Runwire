@@ -18,19 +18,19 @@ final class QuicWorkerSession
 {
     private mixed $connection = null;
 
-    /** @var array<int, array{stream:object, bidirectional:bool}> */
-    private array $streams = [];
-
     private int $epoch = 0;
 
     private int $maxOpenStreams = 0;
 
     private int $nextStreamId = 1;
 
+    /** @var array<int, array{stream:object, bidirectional:bool}> */
+    private array $streams = [];
+
     /**
      * Execute a validated command on the worker that owns this native session.
      *
-     * @param array<string, mixed> $args
+     * @param array<array-key, mixed> $args
      * @return array<string, mixed>
      */
     public function execute(array $args): array
@@ -60,8 +60,57 @@ final class QuicWorkerSession
             // An invalid or failed native command cannot leave an unobserved
             // stream alive under a stale host-side session.
             $this->teardown();
+
             throw $error;
         }
+    }
+
+    /**
+     * @param array<array-key, mixed> $protocols
+     */
+    private function assertAlpn(array $protocols): void
+    {
+        if ($protocols === [] || count($protocols) > 16) {
+            throw new InvalidArgumentException('QUIC worker requires 1–16 ALPN identifiers.');
+        }
+        foreach ($protocols as $protocol) {
+            if (!is_string($protocol) || $protocol === '' || strlen($protocol) > 255
+                || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
+                throw new InvalidArgumentException('Unsafe QUIC ALPN protocol identifier.');
+            }
+        }
+    }
+
+    private function assertEndpoint(string $host, int $port, int $limit): void
+    {
+        if ($host === '' || strlen($host) > 253 || preg_match('/[\x00-\x20\x7f]/', $host) === 1
+            || $port < 1 || $port > 65_535 || $limit < 1 || $limit > 65_536) {
+            throw new InvalidArgumentException('Invalid native QUIC endpoint or stream capacity.');
+        }
+    }
+
+    /**
+     * @param array<array-key, mixed> $options
+     */
+    private function assertTlsOptions(array $options): void
+    {
+        if (($options['verify_peer'] ?? null) !== true
+            || ($options['verify_peer_name'] ?? null) !== true
+            || ($options['allow_self_signed'] ?? null) !== false
+            || ($options['SNI_enabled'] ?? null) !== true
+            || !is_string($options['peer_name'] ?? null)
+            || !is_int($options['connect_timeout_ms'] ?? null)) {
+            throw new InvalidArgumentException('QUIC native worker requires verified TLS 1.3 configuration.');
+        }
+        $timeout = $options['connect_timeout_ms'];
+        if ($timeout < 1 || $timeout > 300_000) {
+            throw new InvalidArgumentException('QUIC handshake timeout exceeds native worker budget.');
+        }
+        $protocols = $options['alpn'] ?? null;
+        if (!is_array($protocols)) {
+            throw new InvalidArgumentException('QUIC worker requires explicit ALPN negotiation.');
+        }
+        $this->assertAlpn($protocols);
     }
 
     /** @return array{closed:bool} */
@@ -73,7 +122,7 @@ final class QuicWorkerSession
     }
 
     /**
-     * @param array<string, mixed> $args
+     * @param array<array-key, mixed> $args
      * @return array{epoch:int, alpn:string, verified:bool}
      */
     private function connect(array $args): array
@@ -86,28 +135,11 @@ final class QuicWorkerSession
         $port = $args['port'] ?? null;
         $options = $args['options'] ?? null;
         $limit = $args['maxStreams'] ?? null;
-        if (!is_string($host) || $host === '' || strlen($host) > 253
-            || preg_match('/[\x00-\x20\x7f]/', $host) === 1
-            || !is_int($port) || $port < 1 || $port > 65_535
-            || !is_array($options)
-            || ($options['verify_peer'] ?? null) !== true
-            || ($options['verify_peer_name'] ?? null) !== true
-            || ($options['allow_self_signed'] ?? null) !== false
-            || ($options['SNI_enabled'] ?? null) !== true
-            || !is_string($options['peer_name'] ?? null)
-            || !is_array($options['alpn'] ?? null) || $options['alpn'] === []
-            || !is_int($options['connect_timeout_ms'] ?? null)
-            || $options['connect_timeout_ms'] < 1 || $options['connect_timeout_ms'] > 300_000
-            || !is_int($limit) || $limit < 1 || $limit > 65_536) {
-            throw new InvalidArgumentException('Invalid or unsafe native QUIC worker session configuration.');
+        if (!is_string($host) || !is_int($port) || !is_array($options) || !is_int($limit)) {
+            throw new InvalidArgumentException('Invalid native QUIC worker session configuration.');
         }
-
-        foreach ($options['alpn'] as $protocol) {
-            if (!is_string($protocol) || $protocol === '' || strlen($protocol) > 255
-                || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
-                throw new InvalidArgumentException('Unsafe QUIC ALPN protocol identifier.');
-            }
-        }
+        $this->assertEndpoint($host, $port, $limit);
+        $this->assertTlsOptions($options);
 
         $nativeClass = 'Quic' . '\Connection';
         if (!class_exists($nativeClass)) {
@@ -143,6 +175,7 @@ final class QuicWorkerSession
             return ['epoch' => $this->epoch, 'alpn' => $alpn, 'verified' => true];
         } catch (Throwable $error) {
             $connection->close();
+
             throw $error;
         }
     }
@@ -252,7 +285,8 @@ final class QuicWorkerSession
             throw new RuntimeException('Native QUIC stream cannot accept writes.');
         }
         $written = $stream->write($command['data'], $command['fin']);
-        if (!is_int($written) || $written < 0 || $written > strlen($command['data'])) {
+        if (!is_int($written) || $written < 0 || $written > strlen($command['data'])
+            || ($command['fin'] && $written !== strlen($command['data']))) {
             throw new RuntimeException('Native QUIC stream returned an invalid write length.');
         }
         $this->driveNativeEvents();
