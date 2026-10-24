@@ -83,3 +83,22 @@ does not claim that incomplete audit is finished.
 
 The 2.1.2 baseline manifest is pinned independently under the development
 tracker; never relabel current source as the historical 2.1.2 revision.
+
+Automated source-signature comparison (development)
+---------------------------------------------------
+
+Run the source-only API manifest exporter against an unchanged checkout of
+published 2.1.2 and the 3.0 development revision, then compare them with
+the deterministic CLI diff tool. Source fingerprints do **not** prove
+behavioral compatibility, exceptions at runtime, or release readiness.
+
+.. code-block:: console
+
+   php tools/public-api-diff.php /path/to/2.1.2-api.json /path/to/3.0-api.json
+
+The output reports removed types, removed methods, changed signatures,
+constant and enum-case changes, and newly declared types, without loading
+optional PHP extensions or invoking network APIs. The final release audit
+must still document each intentional breaking change, review callback and
+exception behavior and pin both immutable source revisions. **U16.12 and
+U17.01 are not yet complete.**
