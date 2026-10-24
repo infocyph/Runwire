@@ -19,7 +19,10 @@ use Throwable;
 final readonly class ScopedFiles
 {
     /** Borrow the shared filesystem executor and its active coroutine scope. */
-    public function __construct(private AsyncFileSystem $files, private CoroutineScope $scope) {}
+    public function __construct(private AsyncFileSystem $files, private CoroutineScope $scope)
+    {
+        $this->scope->cancellation()->throwIfCancelled();
+    }
 
     /** Await a bounded binary file read without blocking the owning reactor. */
     public function read(
@@ -27,8 +30,7 @@ final readonly class ScopedFiles
         int $length,
         int $offset = 0,
         ?RequestDeadline $deadline = null,
-    ): string
-    {
+    ): string {
         $result = $this->await(
             fn(callable $complete): int => $this->files->read(
                 $path,
@@ -114,8 +116,7 @@ final readonly class ScopedFiles
         string $bytes,
         int $offset = 0,
         ?RequestDeadline $deadline = null,
-    ): int
-    {
+    ): int {
         $result = $this->await(
             fn(callable $complete): int => $this->files->write(
                 $path,

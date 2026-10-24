@@ -39,7 +39,7 @@ it('sends a 128 KiB binary file to a real socket with hash parity and worker cle
     });
     try {
         $runtime = new CoroutineRuntime($loop);
-        $sent = $runtime->run(static function (CoroutineScope $scope) use ($connection, $executor, $path): int {
+        $sent = $runtime->run(static function (CoroutineScope $scope) use ($connection, $executor, $path, $loop, $watcher): int {
             $scope->registerShutdown(static function () use ($executor): void {
                 $executor->close();
             });
@@ -50,6 +50,7 @@ it('sends a 128 KiB binary file to a real socket with hash parity and worker cle
                 ->toThrow(InvalidArgumentException::class);
             $bytes = $streamer->send($path, 131_072, chunkBytes: 4_096);
             $network->close();
+            $loop->cancel($watcher);
 
             return $bytes;
         });
@@ -142,7 +143,7 @@ it('holds disk reads behind a deliberately stalled socket and remains timer-resp
 
     try {
         $runtime = new CoroutineRuntime($loop);
-        $sent = $runtime->run(static function (CoroutineScope $scope) use ($connection, $executor, $path): int {
+        $sent = $runtime->run(static function (CoroutineScope $scope) use ($connection, $executor, $path, $loop, $heartbeat, &$watcher): int {
             $scope->registerShutdown(static function () use ($executor): void {
                 $executor->close();
             });
@@ -151,6 +152,10 @@ it('holds disk reads behind a deliberately stalled socket and remains timer-resp
             $streamer = new ScopedFileTransfer($files, $network);
             $total = $streamer->send($path, 2_097_152, chunkBytes: 16_384);
             $network->close();
+            $loop->cancel($heartbeat);
+            if (is_int($watcher)) {
+                $loop->cancel($watcher);
+            }
 
             return $total;
         });

@@ -220,3 +220,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **H5 documented supervisor policy and honest autoscale limitations (2026-10-24):** A native RST lifecycle diagram now distinguishes restart budget, readiness and drain, recycle triggers and host-owned vs native processes without advertising unimplemented autoscale. U16.10 still QA-gated. **71/175, 104 open.**
 
 **F6 file stream offset validation (2026-10-24):** Fail closed on offset+transfer integer overflow with a regression assertion before socket/file I/O; no new accepted tasks until CI. **71/175, 104 open.**
+
+**E4 source QA remediation staged (2026-10-24):** Fix 3f66c72 Pest 300-second root-coroutine hang by retiring external peer watcher/heartbeat before Fiber completion and last PHPForge ScopedFiles constructor/brace style problem. Sphinx heading fix already staged. U11 filesystem transfer remains QA-unaccepted. **71/175 accepted, 104 open.**
