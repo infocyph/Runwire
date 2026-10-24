@@ -25,6 +25,8 @@ Those proposed capabilities have **not** yet been released.
    connection-policies-3.0
    tutorials-3.0
    performance-security-3.0
+   api-reference-3.0
+   migration-3.0
    webtransport-design-3.0
 
 All pages in this Sphinx manual are native reStructuredText (``.rst``).

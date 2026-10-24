@@ -1,5 +1,7 @@
 """Runwire RST-only Sphinx site; internal Markdown plans are excluded."""
 import os
+import sys
+from pathlib import Path
 from pygments.lexers.web import PhpLexer
 from sphinx.highlighting import lexers
 
@@ -24,3 +26,8 @@ html_theme_options = {
     "use_issues_button": True,
 }
 html_title = "Runwire Manual (" + version + ")"
+
+# Generate source-linked inventory from the checked-out branch, including RTD builds.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_api_reference import generate as generate_api_reference
+generate_api_reference()

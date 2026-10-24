@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Client\Http1ClientResponseParser;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType as H2FrameType;
 use Infocyph\Runwire\Http\Http2\Frame as H2Frame;
 use Infocyph\Runwire\Http\Http2\FrameParser as H2Parser;
@@ -14,6 +15,9 @@ use Infocyph\Runwire\Http\Http3\Frame as H3Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser as H3Parser;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
+use Infocyph\Runwire\Http\Http3\Qpack\DynamicTable as QpackTable;
+use Infocyph\Runwire\Http\Http3\Qpack\FieldSectionDecoder;
+use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
 
 /**
  * Reproducible bounds corpus; each hostile decoder has a fully independent
@@ -68,5 +72,55 @@ it('isolates malformed HPACK representations from a healthy decoder and rejects 
         $sibling = new HpackDecoder(maxDynamicTableBytes: 0, maxHeaderListBytes: 64);
         expect($sibling->decode("\x82"))->toBe([[':method', 'GET']])
             ->and($sibling->dynamicTableBytes())->toBe(0);
+    }
+});
+
+
+it('keeps well-formed H1 sibling responses alive across malformed peer framing corpus', function (): void {
+    for ($index = 1; $index <= 32; ++$index) {
+        $hostile = new Http1ClientResponseParser();
+        $wire = "HTTP/1.1 200 OK\r\nContent-Length: " . $index
+            . "\r\nTransfer-Encoding: chunked\r\n\r\n";
+        expect(fn() => $hostile->push(
+            $wire,
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))->toThrow(RuntimeException::class);
+
+        $headers = 0;
+        $body = '';
+        $healthy = new Http1ClientResponseParser();
+        $healthy->push(
+            "HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\n" . chr(65 + $index % 26),
+            static function () use (&$headers): void { ++$headers; },
+            static function (string $chunk) use (&$body): void { $body .= $chunk; },
+            static function (): void {},
+        );
+        expect($healthy->done())->toBeTrue()
+            ->and($headers)->toBe(1)
+            ->and(strlen($body))->toBe(1);
+    }
+});
+
+it('rejects 64 oversized QPACK field sections without affecting another peer decoder', function (): void {
+    for ($index = 0; $index < 64; ++$index) {
+        $malicious = new FieldSectionDecoder(new QpackTable(0), 64);
+        expect(fn() => $malicious->decode(str_repeat('x', 65 + $index)))
+            ->toThrow(Http3Exception::class);
+        $healthy = new FieldSectionDecoder(new QpackTable(0), 64);
+        expect($healthy->decode("\x00\x00")->fields)->toBe([]);
+    }
+});
+
+it('keeps 64 bounded QUIC worker command decoders independent of invalid IPC frames', function (): void {
+    for ($index = 0; $index < 64; ++$index) {
+        $invalid = str_repeat('!', 90_001 + $index) . "\n";
+        expect(fn() => QuicWorkerCommand::decode($invalid))->toThrow(Throwable::class);
+        $wire = QuicWorkerCommand::encode($index + 1, 'write', 4, "\x00binary", false);
+        $decoded = QuicWorkerCommand::decode($wire);
+        expect($decoded['id'])->toBe($index + 1)
+            ->and($decoded['data'])->toBe("\x00binary")
+            ->and($decoded['stream'])->toBe(4);
     }
 });
