@@ -270,3 +270,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **S7 SSRF candidate+peer rebinding guard staged (2026-10-24):** Opt-in pre-socket post-connect address checks and negative tests, no silent default; U14.01 QA pending. **91/175, 84 open.**
 
 **P6 hosted proxy/relay policy docs + H2/H3 CONNECT negative tests staged (2026-10-24):** Clear unsupported status and runnable tests. U09.04 and U16.07 QA pending. **91/175, 84 open.**
+
+**S7 PHPForge QA corrections staged (2026-10-24):** Extract bounded address preflight from dial connect (cognitive complexity) and Pint spacing fix. Waiting exact-head QA, U14.01 not yet accepted. **91/175, 84 open.**

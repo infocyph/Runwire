@@ -20,6 +20,7 @@ final readonly class OutboundAddressPolicy
         if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
             throw new RuntimeException('Outbound address must be a validated numeric IP.');
         }
+
         $packed = inet_pton($ip);
         if (!is_string($packed)) {
             throw new RuntimeException('Outbound address must be a validated numeric IP.');

@@ -98,12 +98,7 @@ final class Dialer
         if ($options->tls !== null && $endpoint->scheme !== 'tcp') {
             throw new InvalidArgumentException('Client TLS is supported only over TCP, not Unix-domain sockets.');
         }
-        if ($options->addressPolicy !== null) {
-            if ($endpoint->scheme !== 'tcp') {
-                throw new InvalidArgumentException('IP-based outbound address policy requires TCP.');
-            }
-            $options->addressPolicy->assertCandidate($endpoint->host ?? '');
-        }
+        self::assertAddressPolicy($endpoint, $options);
         $stream = $this->open($endpoint);
         $state = new DialAttemptLifecycle();
         $state->transition(DialAttemptPhase::CONNECTING);
@@ -146,6 +141,19 @@ final class Dialer
     public function pendingCount(): int
     {
         return count($this->pending);
+    }
+
+    /** Validate a restricted destination before opening its socket. */
+    private static function assertAddressPolicy(DialEndpoint $endpoint, DialOptions $options): void
+    {
+        if ($options->addressPolicy === null) {
+            return;
+        }
+        if ($endpoint->scheme !== 'tcp') {
+            throw new InvalidArgumentException('IP-based outbound address policy requires TCP.');
+        }
+
+        $options->addressPolicy->assertCandidate($endpoint->host ?? '');
     }
 
     private function attachCancellation(int $id, DialOptions $options): void
