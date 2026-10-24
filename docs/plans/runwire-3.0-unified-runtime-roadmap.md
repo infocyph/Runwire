@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 3/11; U08 6/10; U09 5/10; U10 2/9; U11 7/10; U12 3/9; U13 9/9; U14 2/8; U16 11/16**. **108/175 accepted tasks, 67 open across 18 batches** (61.7%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 5/11; U08 6/10; U09 5/10; U10 4/9; U11 8/10; U12 3/9; U13 9/9; U14 4/8; U16 11/16**. **115/175 accepted tasks, 60 open across 18 batches** (65.7%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -64,18 +64,18 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U04 | Unified TLS security and client/server handshakes | 1 | 7/8 |
 | U05 | UDP, outbound QUIC and unified datagram transport | 3 | 7/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0 | 8/8 |
-| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 8 | 3/11 |
+| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 6 | 5/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 4 | 6/10 |
 | U09 | WebSocket and WebTransport client/server | 5 | 5/10 |
-| U10 | Connection pooling, proxy negotiation and stream relay | 7 | 2/9 |
-| U11 | Truly asynchronous filesystem and file streaming | 3 | 7/10 |
+| U10 | Connection pooling, proxy negotiation and stream relay | 5 | 4/9 |
+| U11 | Truly asynchronous filesystem and file streaming | 2 | 8/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
 | U13 | Real host and optional extension compatibility | 0 | 9/9 |
-| U14 | Security, fuzzing and adversarial resilience | 6 | 2/8 |
+| U14 | Security, fuzzing and adversarial resilience | 4 | 4/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 5 | 11/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **67** | **108/175 (61.7%)** |
+| **TOTAL** | **Full unified-runtime release program** | **60** | **115/175 (65.7%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -398,3 +398,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W55 QA feedback + direct-origin proxy secret safety (2026-10-24; pending):** [Security #40106309207](https://github.com/infocyph/Runwire/actions/runs/40106309207) confirmed 850 Pest tests passing but `PublicApiDocumentationTest` rejected an undocumented new public policy constructor; Pint class-element order/new blank-line violations; Rector flagged constructor promotion and redundant closure state; PHPStan required splitting `Http1PolicyClient::send()` complexity 27 and `ClientRedirectRetryPolicy::redirect()` 13, plus correcting worker arg types and pool first-key certainty. Fix via typed per-attempt mutable `Internal/Http1PolicyAttempt`, three bounded HTTP client callback handlers, alphabetic static/public method ordering, explicit constructor doc, worker `array<mixed>` signature, and removal of impossible null check. Direct-origin request writer now forbids Proxy-Authorization and Proxy-Connection in both headers and trailers; independent no-socket security test exercises pre-write rejection. **108/175 accepted, 67 open**; U07.09 and U14.05 remain unaccepted until full exact-head QA.
 
 **W56 final gate hardening (2026-10-24; QA pending):** [Security #40106753173](https://github.com/infocyph/Runwire/actions/runs/40106753173) W55 passed Pest (850+), Rector, PHPCS, Deptrac, Composer checks and both PHPStan/Psalm PHP8.4/8.5; Pint alone flagged one missing blank line before a `try` in `BoundedConnectionPool::close()`. Fix formatting. Extend worker-root file policy with deterministic file read/write UNIX mode-bit rejection including zero-mode files (not a race-free sandbox), test both denied reads/writes and unchanged contents; extend 32 repeated TLS handshake readiness cancel/FD/memory-budget regressions and test `StreamRelay` worker-shutdown cancellation of a half-open peer. U07.10, U07.09, U10.02, U10.08, U11.09, U14.05 and U14.07 remain OPEN until this source is QA-verified. **108/175 accepted, 67 open; interim target 115.**
+
+**W57 interim 115-task milestone closeout (2026-10-24; exact-source scoped QA):** At immutable 3e31268 [Security #40107078104](https://github.com/infocyph/Runwire/actions/runs/40107078104), **all four PHPForge PHP8.4/8.5 stable/lowest QA jobs and BOTH PHPStan/Psalm analysis jobs PASS**, with H3/QUIC PHP8.4 independent PASS; strict [Sphinx #40107077736](https://github.com/infocyph/Runwire/actions/runs/40107077736), real [Hosted #40107077581](https://github.com/infocyph/Runwire/actions/runs/40107077581), [Portable #40107077605](https://github.com/infocyph/Runwire/actions/runs/40107077605), [Source Audit #40107077596](https://github.com/infocyph/Runwire/actions/runs/40107077596) and Swoole [#40107077622](https://github.com/infocyph/Runwire/actions/runs/40107077622) PASS. Accept U07.09 U07.10 U10.02 U10.08 U11.09 U14.05 U14.07 based on independently proven scoped behaviors, **NOT** complete H2/H3 outbound clients, proxy CONNECT, race-free filesystem sandbox, QUIC throughput, benchmark promotion or release readiness. At the time of scoped acceptance PHP8.5 independent QUIC and long benchmark workflows remained in progress; avoid claiming full release signoff. **115/175 (65.7%) accepted, 60 open; 132 checkpoint next**.
