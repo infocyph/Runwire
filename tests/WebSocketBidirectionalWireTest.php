@@ -20,7 +20,7 @@ it('encodes fresh masked client frames and decodes them with existing bounded se
     foreach ($payloads as $payload) {
         $opcode = str_contains($payload, "\0") ? 0x2 : 0x1;
         $wire = WebSocketWireCodec::clientFrame($opcode, $payload);
-        $parser = new WebSocketFrameParser(new WebSocketOptions(maxFramePayloadBytes: 1_048_576));
+        $parser = new WebSocketFrameParser(new WebSocketOptions(maxFramePayloadBytes: 131_072, maxBufferedBytes: 131_086));
         $parser->append($wire);
         $frames = $parser->parse(1);
         expect($frames)->toHaveCount(1)
