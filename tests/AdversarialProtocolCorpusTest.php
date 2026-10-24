@@ -75,7 +75,6 @@ it('isolates malformed HPACK representations from a healthy decoder and rejects 
     }
 });
 
-
 it('keeps well-formed H1 sibling responses alive across malformed peer framing corpus', function (): void {
     for ($index = 1; $index <= 32; ++$index) {
         $hostile = new Http1ClientResponseParser();
@@ -116,7 +115,7 @@ it('rejects 64 oversized QPACK field sections without affecting another peer dec
 it('keeps 64 bounded QUIC worker command decoders independent of invalid IPC frames', function (): void {
     for ($index = 0; $index < 64; ++$index) {
         $invalid = str_repeat('!', 90_001 + $index) . "\n";
-        expect(fn() => QuicWorkerCommand::decode($invalid))->toThrow(Throwable::class);
+        expect(fn() => QuicWorkerCommand::decode($invalid))->toThrow(InvalidArgumentException::class);
         $wire = QuicWorkerCommand::encode($index + 1, 'write', 4, "\x00binary", false);
         $decoded = QuicWorkerCommand::decode($wire);
         expect($decoded['id'])->toBe($index + 1)

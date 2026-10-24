@@ -16,6 +16,7 @@ BT = chr(96)
 TYPE = re.compile(r"(?m)^\s*(?:(?:final|abstract|readonly)\s+)*(class|interface|trait|enum)\s+([A-Za-z_]\w*)\b")
 NAMESPACE = re.compile(r"(?m)^namespace\s+([A-Za-z_\\][\w\\]*)\s*;")
 METHOD = re.compile(r"(?m)^\s*(?:(?:final|abstract)\s+)?public\s+(?:static\s+)?function\s+&?\s*(\w+)\s*\(")
+PROPERTY = re.compile(r"(?m)^\s*public\s+(?:(?:readonly|static)\s+)*(?:[?\w\\|&]+\s+)?\$(\w+)\b")
 CONSTANT = re.compile(r"(?m)^\s*public\s+const\s+(?:\w+\s+)?([A-Za-z_]\w*)\s*=")
 CASE = re.compile(r"(?m)^\s*case\s+([A-Za-z_]\w*)\s*(?:[;=])")
 THROWN = re.compile(r"\bthrow\s+new\s+(\\?[A-Za-z_][\w\\]*)\s*\(")
@@ -30,7 +31,7 @@ def literal(value):
 
 
 def link(file, number):
-    return BT + "source <" + BASE + file.relative_to(SOURCE).as_posix() + "#L" + str(number) + ">" + BT + "_"
+    return BT + "source <" + BASE + file.relative_to(SOURCE).as_posix() + "#L" + str(number) + ">" + BT + "__"
 
 
 def build():
@@ -38,6 +39,7 @@ def build():
     exceptions = defaultdict(set)
     files = sorted(SOURCE.rglob("*.php"))
     public_methods = 0
+    public_properties = 0
     for file in files:
         source = file.read_text(encoding="utf-8")
         namespace = NAMESPACE.search(source)
@@ -53,6 +55,10 @@ def build():
         public_methods += len(methods)
         if methods:
             entries.append("  - Public methods: " + ", ".join(literal(m) + " (" + link(file, n) + ")" for m, n in methods))
+        properties = sorted([(m.group(1), line(source, m.start())) for m in PROPERTY.finditer(source)])
+        public_properties += len(properties)
+        if properties:
+            entries.append("  - Public properties: " + ", ".join(literal(m) + " (" + link(file, n) + ")" for m, n in properties))
         constants = [m.group(1) for m in CONSTANT.finditer(source)]
         if constants:
             entries.append("  - Public constants: " + ", ".join(map(literal, constants)))
@@ -73,9 +79,10 @@ def build():
         "   types, are enumerated; public methods on internals are not stability",
         "   guarantees. Published stable is Runwire 2.1.2.", "",
         "**" + str(len(files)) + " PHP types** and **" + str(public_methods) + " public methods**",
-        "are cataloged directly from this checkout's declarations.", "",
+        "and **" + str(public_properties) + " public properties** are cataloged",
+        "directly from this checkout's declarations.", "",
         "PHP types, methods, constants and enum cases",
-        "-------------------------------------------", "",
+        "------------------------------------------------", "",
     ]
     for category, entries in sorted(groups.items(), key=lambda item: item[0].lower()):
         out.extend(["**" + category + "**", "", *entries, ""])
