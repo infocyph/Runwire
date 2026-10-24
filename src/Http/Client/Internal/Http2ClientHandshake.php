@@ -31,6 +31,8 @@ final class Http2ClientHandshake
 
     private bool $requestSent = false;
 
+    private int $lastIssuedStreamId = 0;
+
     private bool $started = false;
 
     /** Prepare one new connection-scoped outbound HTTP/2 handshake owner. */
@@ -40,15 +42,38 @@ final class Http2ClientHandshake
         $this->peerSettings = new PeerSettings();
     }
 
-    /** Encode one conservative bodyless GET/HEAD header block for stream one. */
+    /** Preserve the initial one-shot request contract for the existing client. */
     public function firstRequest(string $method, string $scheme, string $authority, string $path, ?Headers $headers = null): string
     {
-        if (!$this->receivedSettings || $this->closed || $this->requestSent
+        if ($this->requestSent) {
+            throw new RuntimeException('HTTP/2 request must be a valid bodyless HTTPS request on a verified connection.');
+        }
+        $wire = $this->requestOnStream(1, $method, $scheme, $authority, $path, $headers);
+        $this->requestSent = true;
+
+        return $wire;
+    }
+
+    /**
+     * Encode one conservative request on a strictly increasing odd client ID.
+     * The connected transport owner must still enforce active stream slots.
+     */
+    public function requestOnStream(
+        int $streamId,
+        string $method,
+        string $scheme,
+        string $authority,
+        string $path,
+        ?Headers $headers = null,
+    ): string {
+        if (!$this->receivedSettings || $this->closed
+            || $streamId < 1 || $streamId > 0x7FFF_FFFF
+            || $streamId % 2 === 0 || $streamId <= $this->lastIssuedStreamId
             || !in_array($method, ['GET', 'HEAD'], true)
             || $scheme !== 'https' || $authority === '' || $path === ''
             || !str_starts_with($path, '/')
             || str_contains($authority, '@') || str_contains($authority, '/')
-            || preg_match('/[\x00-\x20\x7F]/', $authority . $path) === 1) {
+            || preg_match('/[\\x00-\\x20\\x7F]/', $authority . $path) === 1) {
             throw new RuntimeException('HTTP/2 request must be a valid bodyless HTTPS request on a verified connection.');
         }
 
@@ -56,10 +81,9 @@ final class Http2ClientHandshake
         if (strlen($block) > min($this->peerSettings->maxFrameSize, 16_384)) {
             throw new RuntimeException('HTTP/2 request HEADERS exceeds the supported single-frame bound.');
         }
+        $this->lastIssuedStreamId = $streamId;
 
-        $this->requestSent = true;
-
-        return FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
+        return FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x5, $streamId, $block));
     }
 
     /** Report whether peer SETTINGS were validated before request dispatch. */

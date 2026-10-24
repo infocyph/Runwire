@@ -6,6 +6,7 @@ use Infocyph\Runwire\Http\Client\Internal\Http2ClientResponseParser;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
+use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 
 it('delivers bounded H2 headers only after CONTINUATION then streams DATA until END_STREAM', function (): void {
@@ -100,4 +101,84 @@ it('rejects oversized header fragments before allocation and keeps a separate H2
     );
     expect($status)->toBe(204)
         ->and($healthy->done())->toBeTrue();
+});
+
+it('isolates two independently numbered client-initiated H2 response decoders', function (): void {
+    $first = new Http2ClientResponseParser(streamId: 1);
+    $second = new Http2ClientResponseParser(streamId: 3);
+    $states = [1 => [], 3 => []];
+    $data = [1 => '', 3 => ''];
+    $block = (new Encoder())->encode([[':status', '200'], ['content-type', 'text/plain']]);
+
+    $first->push(
+        new Frame(FrameType::HEADERS->value, 0x4, 1, $block),
+        static function (int $code) use (&$states): void { $states[1][] = $code; },
+        static function (string $bytes) use (&$data): void { $data[1] .= $bytes; },
+    );
+    $second->push(
+        new Frame(FrameType::HEADERS->value, 0x4, 3, $block),
+        static function (int $code) use (&$states): void { $states[3][] = $code; },
+        static function (string $bytes) use (&$data): void { $data[3] .= $bytes; },
+    );
+    $second->push(
+        new Frame(FrameType::DATA->value, 0x1, 3, 'second'),
+        static function (): void {},
+        static function (string $bytes) use (&$data): void { $data[3] .= $bytes; },
+    );
+    expect($second->done())->toBeTrue()
+        ->and($first->done())->toBeFalse()
+        ->and($data[3])->toBe('second')
+        ->and($data[1])->toBe('')
+        ->and($states[1])->toBe([200])
+        ->and($states[3])->toBe([200]);
+
+    expect(fn() => $second->push(
+        new Frame(FrameType::DATA->value, 0x1, 1),
+        static function (): void {},
+        static function (): void {},
+    ))->toThrow(RuntimeException::class, 'foreign');
+    $first->push(
+        new Frame(FrameType::DATA->value, 0x1, 1, 'first'),
+        static function (): void {},
+        static function (string $bytes) use (&$data): void { $data[1] .= $bytes; },
+    );
+    expect($first->done())->toBeTrue()->and($data[1])->toBe('first');
+});
+
+it('rejects zero, even, and overflowed HTTP/2 client stream identities', function (): void {
+    expect(fn() => new Http2ClientResponseParser(streamId: 0))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new Http2ClientResponseParser(streamId: 2))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new Http2ClientResponseParser(streamId: 0x8000_0001))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('reuses one connection HPACK decoding table across separately bounded H2 responses', function (): void {
+    $decoder = new Decoder();
+    $first = new Http2ClientResponseParser(streamId: 1, sharedDecoder: $decoder);
+    $second = new Http2ClientResponseParser(streamId: 3, sharedDecoder: $decoder);
+    $encoder = new Encoder();
+    $headerPairs = [[':status', '200'], ['x-dynamic', 'same-value']];
+    $headOne = $encoder->encode($headerPairs);
+    $headThree = $encoder->encode($headerPairs);
+    $fields = [];
+
+    $first->push(
+        new Frame(FrameType::HEADERS->value, 0x5, 1, $headOne),
+        static function (int $status, Headers $headers) use (&$fields): void {
+            $fields[1] = [$status, $headers->first('x-dynamic')];
+        },
+        static function (): void {},
+    );
+    $second->push(
+        new Frame(FrameType::HEADERS->value, 0x5, 3, $headThree),
+        static function (int $status, Headers $headers) use (&$fields): void {
+            $fields[3] = [$status, $headers->first('x-dynamic')];
+        },
+        static function (): void {},
+    );
+    expect($fields)->toBe([1 => [200, 'same-value'], 3 => [200, 'same-value']])
+        ->and($first->done())->toBeTrue()
+        ->and($second->done())->toBeTrue();
 });

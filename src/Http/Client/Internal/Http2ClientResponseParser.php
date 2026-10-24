@@ -12,7 +12,7 @@ use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * @internal One bounded HTTP/2 response stream; transport and flow credit
+ * @internal One bounded HTTP/2 response stream for an explicit odd client stream ID; transport and flow credit
  * remain the caller's responsibility. No trailers, padding or push support.
  */
 final class Http2ClientResponseParser
@@ -35,13 +35,16 @@ final class Http2ClientResponseParser
     public function __construct(
         private readonly int $maxHeaderBlockBytes = 65_536,
         private readonly int $maxBodyBytes = 1_048_576,
+        private readonly int $streamId = 1,
+        ?Decoder $sharedDecoder = null,
     ) {
         if ($maxHeaderBlockBytes < 1 || $maxHeaderBlockBytes > 1_048_576
-            || $maxBodyBytes < 0 || $maxBodyBytes > 16_777_216) {
+            || $maxBodyBytes < 0 || $maxBodyBytes > 16_777_216
+            || $streamId < 1 || $streamId > 0x7FFF_FFFF || $streamId % 2 === 0) {
             throw new InvalidArgumentException('HTTP/2 client response memory limits are invalid.');
         }
 
-        $this->decoder = new Decoder(maxHeaderListBytes: $maxHeaderBlockBytes);
+        $this->decoder = $sharedDecoder ?? new Decoder(maxHeaderListBytes: $maxHeaderBlockBytes);
     }
 
     /** Response ownership terminates only after validated END_STREAM. */
@@ -51,14 +54,14 @@ final class Http2ClientResponseParser
     }
 
     /**
-     * Decode one stream-one frame; no incomplete header block escapes.
+     * Decode one validated response-stream frame; no incomplete header block escapes.
      *
      * @param callable(int,Headers):void $onHeaders
      * @param callable(string):void $onBody
      */
     public function push(Frame $frame, callable $onHeaders, callable $onBody): void
     {
-        if ($this->done || $frame->streamId !== 1) {
+        if ($this->done || $frame->streamId !== $this->streamId) {
             throw new RuntimeException('Unexpected terminal or foreign HTTP/2 response stream.');
         }
         if ($this->awaitingContinuation && $frame->knownType() !== FrameType::CONTINUATION) {

@@ -95,3 +95,14 @@ Enforce headers, HPACK/QPACK, blocked streams, body and write-queue
 budgets. Session-fatal protocol violations terminate the session;
 stream-local errors must not corrupt siblings. Never silently
 replay unsafe methods or forward credentials across origins.
+
+HTTP/2 client stream-state groundwork
+-------------------------------------
+
+The internal H2 response decoder now accepts a validated, odd client-initiated
+stream identifier, with individually bounded header/body memory and terminal
+state. This prepares sibling-stream isolation without silently upgrading the
+existing one-request outgoing connection into a multiplexed H2 client. Real
+concurrent stream scheduling, GOAWAY / RST_STREAM recovery, outbound credit,
+shared connection HPACK state and independent interop are still **pending**
+under U07.05. Existing single-exchange public behavior remains unchanged.

@@ -98,3 +98,31 @@ it('accepts legal connection credit and ignores bounded unknown H2 extension fra
     expect(fn() => $h2->receive(new Frame(FrameType::WINDOW_UPDATE->value, 0, 1, pack('N', 1))))
         ->toThrow(RuntimeException::class, 'stream zero');
 });
+
+it('maintains connection-level HPACK and monotonic odd stream admission for future H2 multiplexing', function (): void {
+    $h2 = new Http2ClientHandshake();
+    $h2->start();
+    $h2->receive(FrameWriter::settings());
+    $headers = \Infocyph\Runwire\Http\Headers::fromArray(['x-repeat' => 'same']);
+    $first = (new FrameParser())->push($h2->requestOnStream(1, 'GET', 'https', 'example.test', '/a', $headers));
+    $third = (new FrameParser())->push($h2->requestOnStream(3, 'GET', 'https', 'example.test', '/b', $headers));
+    $decoder = new Decoder();
+
+    expect($first)->toHaveCount(1)
+        ->and($third)->toHaveCount(1)
+        ->and($first[0]->streamId)->toBe(1)
+        ->and($third[0]->streamId)->toBe(3)
+        ->and($decoder->decode($first[0]->payload))->toContain([':path', '/a'], ['x-repeat', 'same'])
+        ->and($decoder->decode($third[0]->payload))->toContain([':path', '/b'], ['x-repeat', 'same']);
+
+    expect(fn() => $h2->requestOnStream(2, 'GET', 'https', 'example.test', '/'))
+        ->toThrow(RuntimeException::class, 'verified')
+        ->and(fn() => $h2->requestOnStream(3, 'GET', 'https', 'example.test', '/'))
+        ->toThrow(RuntimeException::class, 'verified')
+        ->and(fn() => $h2->requestOnStream(0x8000_0001, 'GET', 'https', 'example.test', '/'))
+        ->toThrow(RuntimeException::class, 'verified');
+
+    $h2->receive(FrameWriter::goAway(3, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR));
+    expect(fn() => $h2->requestOnStream(5, 'GET', 'https', 'example.test', '/'))
+        ->toThrow(RuntimeException::class, 'verified');
+});

@@ -444,3 +444,11 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W78 Batch T (2026-10-25; QA PENDING):** Fix W77 [Source Audit #40123153796](https://github.com/infocyph/Runwire/actions/runs/40123153796) pinned-baseline checksum regression by making public property manifest expansion explicitly opt-in, preserving immutable 2.1.2 standard output; continue full PHPForge feedback recovery. Canonical acceptance **117/175**, remaining **58**, target 150.
 
 **W78 QA recovery:** W77 source QA reported a blocking API-diff parse error and manifest whitespace in addition to pinned 2.1.2 checksum drift. W78 repairs syntax and keeps default schema fingerprint unchanged, pending exact-head full QA. No acceptance changes.
+
+**W79 Batch U (2026-10-25; QA PENDING):** H2 per-stream response decoder identity/invariant tests (odd 1..2^31−1), distinct independent stream IDs and no claim of live multiplexing. U07.05 remains open. Canonical 117/175 pending QA.
+
+**W80 Batch V (2026-10-25; QA PENDING):** Connection-shared HPACK dynamic table used by isolated H2 client response stream decoders, with default one-stream compatibility. No U07.05 acceptance until real multiplex and cancellation proof; canonical 117/175.
+
+**W81 Batch X (2026-10-25; QA PENDING):** H2 future client multiplexer primitive: monotonic odd stream issuance, connection-wide HPACK encoding and GOAWAY gating while preserving one-shot public outbound behavior. U07.05 OPEN; 117/175 unchanged pending certification.
+
+**W82 source QA recovery (2026-10-25; QA PENDING):** Remove malformed duplicate tail in API-diff script after its first complete output statement; W78 source audit passed but PHPForge failed parse. Combine with W79–W81 H2 groundwork, keep 117/175 pending new full QA.
