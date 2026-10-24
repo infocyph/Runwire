@@ -98,7 +98,7 @@ Network, protocols and worker capabilities
      - proc_open/process pipes
    * - Pooled connections
      - Not unified
-     - Explicit owner transfer
+     - Scope/TLS/ALPN/proxy key and owner transfer only; no active pool
      - Outbound streams
      - Lifecycle QA gated
    * - CONNECT/SOCKS5 proxy
@@ -138,7 +138,7 @@ Network, protocols and worker capabilities
      - PCNTL and POSIX required
    * - Automatic autoscaling
      - Not built in
-     - Not yet implemented
+     - Validated policy and pure decision engine; no worker scaling
      - Native worker groups only
      - Policy and soak tests OPEN
    * - FPM/FrankenPHP/RoadRunner

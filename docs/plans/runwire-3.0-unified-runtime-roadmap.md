@@ -254,3 +254,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **S6 pure autoscale decision engine staged (2026-10-24):** CPU/queue/p99/RPS target decisions with cooldown and policy bounds, no supervisor connection yet; U12.04 still unaccepted. **83/175, 92 open**.
 
 **H11 optional event loop matrix staged (2026-10-24):** Existing accelerated-event job checks real PECL event PHP8.4 and PHP8.5 with event-loop and H1 worker budget suite; portable Select lanes unchanged, extension optional. U13.02 QA gated. **83/175, 92 open.**
+
+**H12 truthful feature catalog sync staged (2026-10-24):** Status now distinguishes development-only pool isolation and pure autoscale target algorithm from unimplemented working pools/worker scaling. D2 coverage and strict Sphinx still QA-gated. **83/175 accepted, 92 open.**
