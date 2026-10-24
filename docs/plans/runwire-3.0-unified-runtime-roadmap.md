@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 1/11; U08 3/10; U13 1/9; U16 1/16**. **66/175 accepted tasks, 109 open across 18 batches** (37.7%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 1/11; U08 3/10; U13 2/9; U16 1/16**. **67/175 accepted tasks, 108 open across 18 batches** (38.3%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -70,12 +70,12 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U10 | Connection pooling, proxy negotiation and stream relay | 9 | 0/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 10 | 0/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 9 | 0/9 |
-| U13 | Real host and optional extension compatibility | 8 | 1/9 |
+| U13 | Real host and optional extension compatibility | 7 | 2/9 |
 | U14 | Security, fuzzing and adversarial resilience | 8 | 0/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 15 | 1/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **109** | **66/175 (37.7%)** |
+| **TOTAL** | **Full unified-runtime release program** | **108** | **67/175 (38.3%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -192,3 +192,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W1 old H1 WebSocket interoperability closeout (2026-10-24):** Existing real socket-pair upgrade/handshake, masking, fragmented messages, ping/pong, graceful close and idle-timeout tests `tests/WebSocketIntegrationTest.php` PASS under four PHPForge QA lanes and both analyzers at immutable source 3a9d9a7 [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606). Accept **U08.10 only**; U09 work, outbound WS and WT remain OPEN. **64/175 accepted, 111 open, 24 additional to the 88-task milestone.** Ongoing E1 new-client QA recovery stays separate.
 
 **S1 immutable H1/H2 source parity acceptance (2026-10-24):** Published 2.1.2 `Http1ConnectionTest.php` and `Http2ConnectionTest.php` are **blob-identical** to 3.0 while the current H1 and H2 servers use shared `Network\\Connection`, one H2 `FlowController` and one H2 `ResponseScheduler`. [Security #40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606) passed all four PHPForge QA lanes, analyzers and protocol fixtures. Accept U08.01/.02 in addition to U08.10; U08.07 stays OPEN because `AdaptiveProtocolPolicy` still defaults AUTO pending certification. Canonical **66/175 accepted (37.7%), 109 open; 22 to milestone**.
+
+**H3 hosted FrankenPHP accepted (2026-10-24):** [Real Hosted Runtime Acceptance #40064842432](https://github.com/infocyph/Runwire/actions/runs/40064842432) PHP8.4/8.5 real FrankenPHP workers served persistent PID, incrementing sequence and fresh HTTP request target across three separate requests. U13.05 accepted without pretending RoadRunner/FPM pooled files/sockets are certified. **67/175 accepted, 108 open; 21 more to 88/175.**
