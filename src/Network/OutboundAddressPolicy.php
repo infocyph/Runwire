@@ -41,6 +41,7 @@ final readonly class OutboundAddressPolicy
     public function assertConnected(string $approvedIp, string $peerSocketAddress): void
     {
         $this->assertCandidate($approvedIp);
+
         try {
             $peer = DialEndpoint::parse('tcp://' . $peerSocketAddress);
         } catch (\InvalidArgumentException $exception) {
