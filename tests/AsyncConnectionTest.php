@@ -483,3 +483,82 @@ it('does not retain the coroutine close observer after transferring to a pool', 
         fclose($peer);
     }
 });
+
+
+it('adopts and re-pools the same connection through twelve independent request scopes', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $connection = new Connection($loop, $stream);
+    $pool = new \Infocyph\Runwire\CancellationSource();
+    $connection->bindOwner($pool->token());
+    $observers = new ReflectionProperty($connection, 'closeCallbacks');
+
+    try {
+        for ($round = 0; $round < 12; ++$round) {
+            $payload = sprintf('m%04d', $round);
+            fwrite($peer, $payload);
+
+            $received = $runtime->run(static function (CoroutineScope $scope) use ($connection, $pool, $loop): string {
+                $adapter = AsyncConnection::adopt($connection, $scope);
+                expect($pool->token()->subscriptionCount())->toBe(0);
+                $data = '';
+                while (strlen($data) < 5) {
+                    $fragment = $adapter->receive(5 - strlen($data));
+                    if ($fragment === '') {
+                        throw new RuntimeException('Pooled socket returned EOF before the response.');
+                    }
+                    $data .= $fragment;
+                }
+                $adapter->transferTo($pool->token());
+                $loop->stop();
+
+                return $data;
+            });
+
+            expect($received)->toBe($payload)
+                ->and($connection->state())->toBe(ConnectionState::OPEN)
+                ->and($pool->token()->subscriptionCount())->toBe(1)
+                ->and($observers->getValue($connection))->toBe([])
+                ->and($runtime->activeTaskCount())->toBe(0);
+        }
+
+        $pool->cancel(CancellationReason::HOST_CANCELLED);
+        expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+            ->and($pool->token()->subscriptionCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $connection->abort();
+        $pool->dispose();
+        fclose($peer);
+    }
+});
+
+
+it('aborts a pooled connection when coroutine adoption cannot claim its callback slots', function (): void {
+    [$stream, $peer] = runwireAsyncConnectionPair();
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $core = new Connection($loop, $stream);
+    $pool = new \Infocyph\Runwire\CancellationSource();
+
+    try {
+        $core->bindOwner($pool->token());
+        $core->onData(static function (): void {});
+        expect(fn() => $runtime->run(
+            static fn(CoroutineScope $scope) => AsyncConnection::adopt($core, $scope),
+        ))->toThrow(LogicException::class, 'already configured');
+
+        expect($core->closeReason())->toBe(CloseReason::LOCAL_ABORT)
+            ->and($pool->token()->subscriptionCount())->toBe(0)
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $core->abort();
+        $pool->dispose();
+        fclose($peer);
+    }
+});

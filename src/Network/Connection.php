@@ -13,13 +13,13 @@ use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
+use Infocyph\Runwire\Network\Internal\ConnectionCloseObserverTrait;
 use Infocyph\Runwire\Network\Internal\ConnectionLifecycleOperationsTrait;
 use Infocyph\Runwire\Network\Internal\ConnectionScopeOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use InvalidArgumentException;
-use OverflowException;
 use RuntimeException;
 
 /**
@@ -27,6 +27,7 @@ use RuntimeException;
  */
 final class Connection
 {
+    use ConnectionCloseObserverTrait;
     use ConnectionLifecycleOperationsTrait;
 
     private readonly ConnectionCallbackOwnership $callbackOwnership;
@@ -47,9 +48,6 @@ final class Connection
 
     private int $bytesWritten = 0;
 
-    /** @var array<int, Closure> */
-    private array $closeCallbacks = [];
-
     private ?CloseReason $closeReason = null;
 
     private ?Closure $dataCallback = null;
@@ -61,8 +59,6 @@ final class Connection
     private ?Closure $eofCallback = null;
 
     private bool $manualReadPause = false;
-
-    private int $nextCloseCallbackId = 1;
 
     private bool $peerReadClosed = false;
 
@@ -330,14 +326,6 @@ final class Connection
         return $this->negotiatedProtocol;
     }
 
-    /** @param callable(self, CloseReason): void $callback */
-    public function onClose(callable $callback): self
-    {
-        $this->registerCloseObserver($callback);
-
-        return $this;
-    }
-
     /** @param callable(self): void $callback */
     public function onData(callable $callback): self
     {
@@ -436,28 +424,6 @@ final class Connection
     }
 
     /**
-     * Register a close observer with a removable handle.
-     * The callback executes immediately for an already closed connection.
-     */
-    public function registerCloseObserver(callable $callback): ?int
-    {
-        $closure = Closure::fromCallable($callback);
-        if ($this->state === ConnectionState::CLOSED && $this->closeReason !== null) {
-            $closure($this, $this->closeReason);
-
-            return null;
-        }
-        if ($this->nextCloseCallbackId === PHP_INT_MAX) {
-            throw new OverflowException('Connection close observer handles exhausted.');
-        }
-
-        $id = $this->nextCloseCallbackId++;
-        $this->closeCallbacks[$id] = $closure;
-
-        return $id;
-    }
-
-    /**
      * Return cumulative writes rejected by send-buffer limits.
      */
     public function rejectedWrites(): int
@@ -498,18 +464,6 @@ final class Connection
     public function tlsPeerFingerprint(): ?string
     {
         return $this->tlsPeerFingerprint;
-    }
-
-    /** Remove an active close observer while preserving the other observers. */
-    public function unregisterCloseObserver(int $id): bool
-    {
-        if (!isset($this->closeCallbacks[$id])) {
-            return false;
-        }
-
-        unset($this->closeCallbacks[$id]);
-
-        return true;
     }
 
     private static function nowNanoseconds(): int

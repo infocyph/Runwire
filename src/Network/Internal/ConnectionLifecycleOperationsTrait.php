@@ -29,6 +29,12 @@ trait ConnectionLifecycleOperationsTrait
         }
     }
 
+    /** Identify an established stream already bound to the same owner token. */
+    public function boundTo(CancellationToken $token): bool
+    {
+        return $this->scopeOwnership?->matches($token) ?? false;
+    }
+
     /**
      * Half-close the local write direction while keeping inbound reads active.
      *

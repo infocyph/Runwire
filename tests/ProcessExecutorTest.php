@@ -204,3 +204,45 @@ it('honors the earliest inherited token deadline instead of extending the operat
         ->and($executor->diagnostics()['active'])->toBe(0);
     $source->dispose();
 });
+
+
+it('cancels a queued filesystem read at the inherited token deadline before its worker starts', function (): void {
+    $file = tempnam(sys_get_temp_dir(), 'runwire-scoped-file-');
+    if (!is_string($file)) {
+        throw new RuntimeException('Unable to allocate the off-loop file test fixture.');
+    }
+    file_put_contents($file, 'deadline-protected');
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $source = new CancellationSource(RequestDeadline::afterSeconds(0.025, hrtime(true)));
+    $completed = [];
+
+    try {
+        $executor->submit('sleep', ['milliseconds' => 100], static function (): void {});
+        $executor->submit(
+            'read',
+            ['path' => $file, 'offset' => 0, 'length' => 8],
+            static function ($value, ?Throwable $error) use (&$completed, $executor): void {
+                $completed[] = [$value, $error];
+                $executor->close();
+            },
+            token: $source->token(),
+            deadline: RequestDeadline::afterSeconds(1.0, hrtime(true)),
+        );
+        $loop->run();
+
+        expect($completed)->toHaveCount(1)
+            ->and($completed[0][0])->toBeNull()
+            ->and($completed[0][1])->toBeInstanceOf(CancelledException::class)
+            ->and($completed[0][1]->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
+            ->and($source->token()->subscriptionCount())->toBe(0)
+            ->and($executor->diagnostics()['active'])->toBe(0)
+            ->and($executor->diagnostics()['queued'])->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0);
+    } finally {
+        $executor->close();
+        $source->dispose();
+        unlink($file);
+    }
+});

@@ -15,6 +15,7 @@ use Infocyph\Runwire\RequestDeadline;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
+use Throwable;
 use WeakReference;
 
 /**
@@ -28,7 +29,7 @@ final class AsyncConnection
 
     private ?Deferred $closeDeferred = null;
 
-    private ?int $closeObserverId = null;
+    private ?int $closeObserverId;
 
     private bool $closing = false;
 
@@ -84,13 +85,32 @@ final class AsyncConnection
                 }
             },
         );
-        $this->connection->bindOwner($scope->cancellation());
+        if (!$this->connection->boundTo($scope->cancellation())) {
+            $this->connection->bindOwner($scope->cancellation());
+        }
         if ($this->connection->state() !== ConnectionState::CLOSED) {
             $this->scopeShutdownId = $scope->registerShutdown(
                 static function () use ($connection): void {
                     $connection->abort();
                 },
             );
+        }
+    }
+
+    /**
+     * Adopt an explicitly pool-owned connection into a new coroutine scope.
+     * Failure aborts the stream rather than leaving an unobserved owner.
+     */
+    public static function adopt(Connection $connection, CoroutineScope $scope): self
+    {
+        $connection->transferOwner($scope->cancellation());
+
+        try {
+            return new self($connection, $scope);
+        } catch (Throwable $error) {
+            $connection->abort();
+
+            throw $error;
         }
     }
 

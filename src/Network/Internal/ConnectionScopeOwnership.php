@@ -22,7 +22,7 @@ final class ConnectionScopeOwnership
 
     private ?CancellationSubscription $subscription = null;
 
-    private function __construct(private readonly LoopInterface $loop) {}
+    private function __construct(private readonly LoopInterface $loop, private readonly CancellationToken $token) {}
 
     /** Attach exactly one token and the earliest inherited or explicit deadline. */
     public static function attach(
@@ -31,7 +31,7 @@ final class ConnectionScopeOwnership
         CancellationToken $token,
         ?RequestDeadline $deadline,
     ): self {
-        $binding = new self($loop);
+        $binding = new self($loop, $token);
         $weak = WeakReference::create($connection);
         $subscription = $token->onCancel(static function () use ($weak): void {
             $active = $weak->get();
@@ -85,6 +85,12 @@ final class ConnectionScopeOwnership
             $this->loop->cancel($this->deadlineTimer);
             $this->deadlineTimer = null;
         }
+    }
+
+    /** True while this live attachment belongs to the supplied cancellation token. */
+    public function matches(CancellationToken $token): bool
+    {
+        return !$this->disposed && $this->token === $token;
     }
 
     private static function earliest(RequestDeadline $inherited, ?RequestDeadline $requested): RequestDeadline
