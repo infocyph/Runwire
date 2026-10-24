@@ -22,6 +22,7 @@ use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Runtime\RequestResetterInterface;
 use Infocyph\Runwire\RuntimeContext;
 
@@ -615,4 +616,45 @@ it('resumes every Fiber awaiting a future even when an earlier observer throws',
 
     expect($values)->toBe([42, 42])
         ->and($runtime->activeTaskCount())->toBe(0);
+});
+
+
+it('inherits the protocol request deadline in attached root and child fibers', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $context = RequestContext::create(
+        RuntimeContext::standalone(),
+        new RequestExecutionPolicy(maxExecutionSeconds: 0.08),
+        'protocol-deadline',
+    );
+    $childCleanup = false;
+
+    $task = $runtime->attachRequest(
+        $context,
+        static function (CoroutineScope $scope) use (&$childCleanup): void {
+            $scope->spawn(static function () use ($scope, &$childCleanup): void {
+                try {
+                    $scope->sleep(5.0);
+                } finally {
+                    $childCleanup = true;
+                }
+            });
+            $scope->yieldNow();
+            $scope->sleep(5.0);
+        },
+    );
+
+    try {
+        $loop->run();
+        expect($task->state())->toBe(TaskState::CANCELLED)
+            ->and($childCleanup)->toBeTrue()
+            ->and($runtime->diagnostics()->requestScopesActive)->toBe(0)
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+    } finally {
+        $context->complete();
+    }
 });

@@ -12,6 +12,8 @@ use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use Infocyph\Runwire\Network\TlsClientOptions;
+use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 it('cancels a queued DNS race before a late worker answer and invokes completion once', function (): void {
@@ -368,6 +370,57 @@ it('cancels pending child DNS dialing when its structured parent fails', functio
         $loop->cancel($stopWorker);
         $executor->close();
     }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0)
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});
+
+
+it('enforces a nested coroutine deadline through a stalled TLS client handshake', function (): void {
+    $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+    expect($server)->toBeResource();
+    $address = stream_socket_get_name($server, false);
+    expect($address)->toBeString();
+
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $dialer = new Dialer($loop);
+    $racer = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
+    $runtime = new CoroutineRuntime($loop);
+    $accepted = null;
+    $watcher = $loop->onReadable($server, static function () use ($server, $loop, &$watcher, &$accepted): void {
+        $accepted = stream_socket_accept($server, 0.0);
+        $loop->cancel($watcher);
+    });
+
+    try {
+        expect(fn() => $runtime->run(static function (CoroutineScope $scope) use ($racer, $address): void {
+            $scope->withDeadline(
+                RequestDeadline::afterSeconds(0.08, hrtime(true)),
+                static function (CoroutineScope $child) use ($racer, $address): void {
+                    (new AsyncDialer($racer, $child))->connect('tcp://' . $address, new DialOptions(
+                        connectTimeoutSeconds: 1.0,
+                        tls: new TlsClientOptions('localhost', handshakeTimeoutSeconds: 1.0),
+                    ));
+                },
+            );
+        }))->toThrow(\Infocyph\Runwire\Exception\CancelledException::class);
+
+        expect($racer->pendingCount())->toBe(0)
+            ->and($dialer->pendingCount())->toBe(0)
+            ->and($runtime->activeTaskCount())->toBe(0);
+    } finally {
+        $racer->close();
+        $dialer->close();
+        $executor->close();
+        $loop->cancel($watcher);
+        if (is_resource($accepted)) {
+            fclose($accepted);
+        }
+        fclose($server);
+    }
+
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0)
