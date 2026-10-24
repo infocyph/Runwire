@@ -145,3 +145,21 @@ The exact formatter output captured in Q2-H Security & Standards run
 The temporary CI formatter diagnostic is removed with this source fix.
 U05.04 and U05.05 require a newly passing exact-head full matrix before
 acceptance; counts remain 56/175 while that check is pending.
+
+Q2-I exact-head certificate and Q2-J native negative/reset test
+================================================================
+
+All eight ordinary PR workflows PASSED at source 80120be. Security &
+Standards 40064041388 includes four PHPForge Pest/QA combinations, two
+analyzers and native QUIC PHP 8.4/8.5. The independent aioquic echo
+interoperability on PHP 8.5 verified the native TLS 1.3 peer/ALPN, two
+simultaneously opened bidirectional streams and one FIN-acknowledged
+unidirectional receive. This supplies U05.04 proof and is not a complete
+U05.05 congestion/cancellation or U05.09 adversity certification.
+
+Q2-J adds explicit rejection of native datagrams, rebinding and 0-RTT
+before submitting any handshake command, and checks post-handshake
+native datagram fail-closed behavior. It also tests native reset of a
+newly opened stream on the existing verified connection, followed by
+a separate actual uni-stream receipt at the independent server. The
+new-head native interop gate must pass before advancing further U05 tasks.

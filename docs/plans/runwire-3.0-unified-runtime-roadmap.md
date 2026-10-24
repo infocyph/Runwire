@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 3/10; U06 COMPLETE (8/8)**. **56/175 accepted tasks, 119 open across 18 batches** (32.0%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 4/10; U06 COMPLETE (8/8); U07 1/11; U16 1/16**. **59/175 accepted tasks, 116 open across 18 batches** (33.7%). The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -62,9 +62,9 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U02 | Unified established connection and transport ownership | 0 | 9/9 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 0 | 10/10 |
 | U04 | Unified TLS security and client/server handshakes | 1 | 7/8 |
-| U05 | UDP, outbound QUIC and unified datagram transport | 7 | 3/10 |
+| U05 | UDP, outbound QUIC and unified datagram transport | 6 | 4/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8 | 0/8 |
-| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 11 | 0/11 |
+| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 10 | 1/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 10 | 0/10 |
 | U09 | WebSocket and WebTransport client/server | 10 | 0/10 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 9 | 0/9 |
@@ -73,9 +73,9 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U13 | Real host and optional extension compatibility | 9 | 0/9 |
 | U14 | Security, fuzzing and adversarial resilience | 8 | 0/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 16 | 0/16 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 15 | 1/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **119** | **56/175 (32.0%)** |
+| **TOTAL** | **Full unified-runtime release program** | **116** | **59/175 (33.7%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -170,3 +170,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **Q2-H overlap + resource reuse and QA recovery (2026-10-24; pending):** Q2-G [QA #40062249460](https://github.com/infocyph/Runwire/actions/runs/40062249460) passed Pest, PHPStan/Psalm, Rector/PHPCS/Deptrac, native H3/QUIC and independent peer streams, hosted integrations, ordinary H1/H2 benchmarks, docs and packaging; four PHPForge lanes remain red **only for Pint formatting of QuicWorkerSession.php**. The grouped code repairs stream-slot exhaustion across a long-lived native QUIC session, frees slots on observed EOF/reset, preserves increasing stream IDs, proves sibling continuity after reset, and requires independent aioquic to echo two **simultaneously opened** bidi streams plus the FIN-confirmed client uni stream before closing the sole worker-owned native connection. A temporary single native-QUIC-job formatter diagnostic prints exact PHPForge Pint transformations for final follow-up, without a redundant standalone workflow or style suppression. Acceptance remains **56/175, 119 open**, U04 7/8, U05 3/10 until matched current SHA QA passes, and full QUIC adversity/TLS benchmarks remain required.
 
 **Q2-I exact Pint fix (2026-10-24; QA pending):** [Q2-H Security & Standards #40063306046](https://github.com/infocyph/Runwire/actions/runs/40063306046) completed both native QUIC jobs, Pest, PHPStan/Psalm, and non-style PHPForge checks successfully; only the four PHPForge QA matrices failed `ordered_class_elements`. The temporary PHP 8.5 formatter diagnostic in that run printed the exact transformation: move the existing `QuicWorkerSession::teardown()` private method to the first private-method slot before the public method (with no semantic changes). Apply that exact change and remove the temporary diagnostic step; run fresh full PR QA once. Benchmarks, Sphinx, hosted/portable, packaging and source-audit workflows at the old Q2-H head passed. U05.04/U05.05 remain QA-gated until the corrected head passes; the opt-in U04.08 TLS certification has not run. **Acceptance remains 56/175, 119 open, 32 additional accepted tasks required for 88/175 (50.3%).**
+
+**Q2-I green → Q2-J verified acceptance + new live negative/reset tests (2026-10-24):** Exact-head [Security & Standards #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388), [Sphinx #40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) and every other mandatory default PR workflow succeeded for `80120be`. Accept U05.04 (native off-loop verified QUIC+ALPN independent real peer), U07.01 (streaming client interface/version policy, not protocol client implementation), U16.01 (strict pinned Sphinx HTML). **Canonical 59/175 accepted (33.7%), 116 open; 29 more for the 88-task 50.3% milestone.** The new Q2-J fixture tests explicit native datagram/migration/0-RTT unsupported behavior both before connection and after verified handshake, followed by real reset and subsequent peer-observed uni FIN. Q2-J transport guard tasks stay OPEN until current-head acceptance; U04.08 matched TLS, U05 flow/cancel/adversity and U15/U17 performance remain OPEN. Draft PR #9 unchanged; Runwire only.

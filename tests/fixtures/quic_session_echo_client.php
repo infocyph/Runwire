@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
+use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
@@ -18,6 +19,16 @@ $failure = null;
 $stop = static function (Throwable $error) use (&$failure, $session): void {
     $failure ??= $error;
     $session->dispose();
+};
+
+$rejectUnsupported = static function (callable $action, string $feature): void {
+    try {
+        $action();
+    } catch (RuntimeUnavailableException) {
+        return;
+    }
+
+    throw new RuntimeException('Native QUIC incorrectly accepted unsupported ' . $feature . '.');
 };
 
 $readyWrites = [];
@@ -130,26 +141,73 @@ try {
             },
         );
     };
+    $options = new QuicClientOptions(
+        'localhost',
+        alpnProtocols: ['runwire-echo'],
+        caFile: $argv[3],
+        connectTimeoutMilliseconds: 4_000,
+        maxOpenStreams: 8,
+    );
+    $rejectUnsupported(static fn() => $options->assertDatagramAvailable(), 'unreliable datagrams');
+    $rejectUnsupported(
+        static fn() => $options->assertStablePath('127.0.0.1:' . $argv[2], '127.0.0.2:' . $argv[2]),
+        'migration',
+    );
+    $rejectUnsupported(static fn() => $options->assertApplicationDispatchAllowed(false), '0-RTT');
+    $rejectUnsupported(
+        static fn() => (new QuicClientOptions('localhost', requireDatagrams: true))->nativeOptions(),
+        'datagram negotiation',
+    );
+    $rejectUnsupported(
+        static fn() => (new QuicClientOptions('localhost', allowMigration: true))->nativeOptions(),
+        'native connection migration',
+    );
+    $rejectUnsupported(
+        static fn() => (new QuicClientOptions('localhost', allowEarlyData: true))->nativeOptions(),
+        'native early data',
+    );
     $session->connect(
         $argv[1],
         (int) $argv[2],
-        new QuicClientOptions(
-            'localhost',
-            alpnProtocols: ['runwire-echo'],
-            caFile: $argv[3],
-            connectTimeoutMilliseconds: 4_000,
-            maxOpenStreams: 8,
-        ),
-        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, $sendUni, &$completed): void {
+        $options,
+        static function (mixed $value, ?Throwable $error) use ($session, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed): void {
             if ($error !== null || ($value['alpn'] ?? null) !== 'runwire-echo' || !$session->active()) {
                 $stop($error ?? new RuntimeException('QUIC session TLS/ALPN verification failed.'));
                 return;
             }
 
-            $finishBidi = static function (string $payload) use ($sendUni, &$completed): void {
+            $options->assertApplicationDispatchAllowed(true);
+            $rejectUnsupported(static fn() => $options->assertDatagramAvailable(), 'post-handshake datagrams');
+
+            // Real native stream reset must preserve this verified connection:
+            // the independent peer must still receive the following uni FIN.
+            $resetThenSendUni = static function () use ($session, $stop, $sendUni): void {
+                $session->command('open_bidi', 0, '', false,
+                    static function (mixed $opened, ?Throwable $error) use ($session, $stop, $sendUni): void {
+                        if ($error !== null || !is_int($opened['stream'] ?? null)) {
+                            $stop($error ?? new RuntimeException('QUIC reset fixture could not open a sibling stream.'));
+
+                            return;
+                        }
+                        $session->command('reset', $opened['stream'], '', false,
+                            static function (mixed $result, ?Throwable $error) use ($stop, $sendUni): void {
+                                if ($error !== null || ($result['reset'] ?? null) !== true) {
+                                    $stop($error ?? new RuntimeException('Native QUIC stream reset failed.'));
+
+                                    return;
+                                }
+
+                                $sendUni();
+                            },
+                        );
+                    },
+                );
+            };
+
+            $finishBidi = static function (string $payload) use ($resetThenSendUni, &$completed): void {
                 $completed[] = $payload;
                 if (count($completed) === 2) {
-                    $sendUni();
+                    $resetThenSendUni();
                 }
             };
             $exchange('first-quic-stream', static function () use ($finishBidi): void {
@@ -178,6 +236,8 @@ try {
         'alpn' => 'runwire-echo',
         'bidi_streams' => 2,
         'concurrent_bidirectional' => true,
+        'native_reset_then_peer_uni_fin' => true,
+        'unsupported_datagram_migration_0rtt_rejected' => true,
         'unidirectional_streams_delivered' => 1,
         'persistent_worker' => true,
     ], JSON_THROW_ON_ERROR) . PHP_EOL);

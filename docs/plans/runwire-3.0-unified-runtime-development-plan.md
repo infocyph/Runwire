@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 56/175 accepted (32.0%); 119 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 59/175 accepted (33.7%); 116 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -46,9 +46,9 @@
 | U02 | Unified established connection and transport ownership | 9/9 | 0 | DONE | U01 |
 | U03 | Async DNS and outbound TCP/Unix dialer | 10/10 | 0 | Complete | U01,U02 |
 | U04 | Unified TLS security and client/server handshakes | 7/8 | 1 | In progress | U02,U03 |
-| U05 | UDP, outbound QUIC and unified datagram transport | 3/10 | 7 | In progress | U02,U03,U04 |
+| U05 | UDP, outbound QUIC and unified datagram transport | 4/10 | 6 | In progress | U02,U03,U04 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 8/8 | 0 | Done | U01,U02,U03 |
-| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 0/11 | 11 | Not started | U03,U04,U05,U06 |
+| U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 1/11 | 10 | In progress | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 0/10 | 10 | Not started | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
@@ -57,11 +57,11 @@
 | U13 | Real host and optional extension compatibility | 0/9 | 9 | Not started | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 0/16 | 16 | Not started | U00-U15 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 1/16 | 15 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **56/175** | **119** | **U00–U03/U06 complete; U04/U05 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **59/175** | **116** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 56/175 (32.0% complete), 119 open.
+**Progress counter:** 59/175 (33.7% complete), 116 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -153,7 +153,7 @@
 - [x] **U05.01** Unify inbound and outbound UDP ownership, message limits and metadata. **Acceptance:** IPv4/IPv6 datagram interoperability. **Proof:** `DatagramClient` delegates to the same `DatagramListener` bounded UDP watcher, payload/metadata and send engine for connected/unconnected ownership, with verified numeric-only endpoints and no synchronous hostname fallback. `tests/DatagramClientTest.php` verifies real IPv4 and IPv6 (kernel-capability conditional) reply round trips, correct peer metadata and zero watchers on closure. [Source 20e7f42](https://github.com/infocyph/Runwire/commit/20e7f42ffa95e63b02e93c84bcea0f43dfc81af3); [full PHP 8.4/8.5 stable/lowest PHPForge and both analyzers #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462) PASS.
 - [x] **U05.02** Implement connected and unconnected UDP client operations. **Acceptance:** Bounded send/receive and deadline tests. **Proof:** Connected client `send()` and unconnected `sendTo()` both use the established UDP nonblocking engine, with bounded `DatagramOptions`. One-shot `DatagramClient::receiveOnce()` registers a finite event-loop deadline and cancels its timer/read watch exactly once on a reply or timeout. `tests/DatagramClientTest.php` verifies real response, silent-peer deadline and leak-free cleanup. [Source 20e7f42](https://github.com/infocyph/Runwire/commit/20e7f42ffa95e63b02e93c84bcea0f43dfc81af3); [full PHP 8.4/8.5 stable/lowest PHPForge and both analyzers #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462) PASS.
 - [x] **U05.03** Model UDP truncation, zero-length messages and packet-size ceilings. **Acceptance:** Exact datagram boundary semantics. **Proof:** `DatagramListener` reads at `maxDatagramBytes+1`, rejects truncated packets and never combines message boundaries; `DatagramOptions` enforces a 65,507-byte ceiling and `DatagramWriteResult` rejects oversize sends. `tests/DatagramClientTest.php` proves zero-length datagrams delivered, oversize packets dropped, following packet delivered intact, and exact counts. [Source 20e7f42](https://github.com/infocyph/Runwire/commit/20e7f42ffa95e63b02e93c84bcea0f43dfc81af3); [full PHP 8.4/8.5 stable/lowest PHPForge and both analyzers #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462) PASS.
-- [ ] **U05.04** Implement outbound QUIC client connection and TLS validation. **Acceptance:** Independent QUIC server acceptance. **Proof:** PENDING.
+- [x] **U05.04** Implement outbound QUIC client connection and TLS validation. **Acceptance:** Independent QUIC server acceptance. **Proof:** src/Network/QuicClientSession.php and tests/fixtures/quic_session_echo_client.php prove verified TLS 1.3, ALPN and same-worker outbound connection against independent aioquic, Security & Standards [#40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388) at source 80120be (four PHPForge QA lanes, both analyzers and native H3/QUIC PASS).
 - [ ] **U05.05** Support QUIC unidirectional/bidirectional streams and flow-control. **Acceptance:** Real reset/cancellation and sibling isolation tests. **Proof:** PENDING.
 - [ ] **U05.06** Add negotiated QUIC datagram support and capability checks. **Acceptance:** Unsupported backend fails explicitly. **Proof:** PENDING.
 - [ ] **U05.07** Define QUIC path/migration/rebinding/connection-ID policy. **Acceptance:** Independent migration or deliberate rejection verified. **Proof:** PENDING.
@@ -161,7 +161,7 @@
 - [ ] **U05.09** Fault-test loss, reorder, cancellation storm and stalled peers. **Acceptance:** Safe bounded resources and protocol state. **Proof:** PENDING.
 - [ ] **U05.10** Benchmark real QUIC poll/write budget and H3 transport costs. **Acceptance:** p99, RPS, CPU, RSS and packet metrics. **Proof:** PENDING.
 
-**Batch tracker:** 3/10 accepted; 7 open — shared bounded connected/unconnected UDP, IPv4/IPv6 real-peer tests, exact zero-length/oversize packet boundaries and one-shot deadline cleanup all passed [PHPForge four QA lanes and both analyzers #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462). **Remaining:** U05.04–U05.10 outbound QUIC client, streams, datagrams, migration/security, fault/benchmark gates. U04 batch completion is still a prerequisite for overall U05 exit. **Exit:** all U05 evidence linked, full required QA green, no unresolved critical regression.
+**Batch tracker:** 4/10 accepted; 6 open — U05.04 independent native QUIC TLS/ALPN connected-session acceptance at [QA #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388). Previously verified shared bounded connected/unconnected UDP, IPv4/IPv6 real-peer tests, exact zero-length/oversize packet boundaries and one-shot deadline cleanup all passed [PHPForge four QA lanes and both analyzers #39992267462](https://github.com/infocyph/Runwire/actions/runs/39992267462). **Remaining:** U05.04–U05.10 outbound QUIC client, streams, datagrams, migration/security, fault/benchmark gates. U04 batch completion is still a prerequisite for overall U05 exit. **Exit:** all U05 evidence linked, full required QA green, no unresolved critical regression.
 
 ### U06 — Structured concurrency, tasks, deadlines and scopes
 
@@ -190,7 +190,7 @@
 
 **Prerequisite:** U03,U04,U05,U06. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U07.01** Define one streaming HTTP client request/response interface. **Acceptance:** Explicit H1/H2/H3 version and policy negotiation. **Proof:** PENDING.
+- [x] **U07.01** Define one streaming HTTP client request/response interface. **Acceptance:** Explicit H1/H2/H3 version and policy negotiation. **Proof:** src/Http/Client/{ClientExchangeInterface,ClientRequest,ClientResponseInterface,ClientBodySourceInterface,ClientProtocolPolicy}.php and tests/HttpClientContractTest.php validate streaming request/response signatures and explicit H1/H2/H3 negotiation, Security & Standards [#40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388) at source 80120be (PHPForge 8.4/8.5 stable/lowest + analyzers PASS). Interface acceptance does not claim client implementations.
 - [ ] **U07.02** Implement HTTP/1.1 request writer and response parser. **Acceptance:** Chunked, keepalive, trailers and malformed-message acceptance. **Proof:** PENDING.
 - [ ] **U07.03** Implement safe H1 connection reuse and streaming upload/download. **Acceptance:** No response bleed or unbounded buffering. **Proof:** PENDING.
 - [ ] **U07.04** Implement HTTP/2 client preface, SETTINGS and HPACK. **Acceptance:** Independent H2 reference-server conformance. **Proof:** PENDING.
@@ -202,7 +202,7 @@
 - [ ] **U07.10** Test malformed HTTP servers and large bidirectional streams. **Acceptance:** Fuzz plus hash-correct responses and resource budgets. **Proof:** PENDING.
 - [ ] **U07.11** Benchmark native H1/H2/H3 outbound clients against peers. **Acceptance:** Matched RPS, p99, CPU and RSS. **Proof:** PENDING.
 
-**Batch tracker:** 0/11 accepted; 11 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 1/11 accepted; 10 open — U07.01 streaming HTTP client contract and version-policy tests accepted via [QA #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388); transport implementations remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U08 — Existing H1/H2/H3 server consolidation
 
@@ -339,7 +339,7 @@
 
 **Prerequisite:** U00-U15. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U16.01** Set up docs with Sphinx conf.py and pinned documentation dependencies. **Acceptance:** Reproducible warning-free HTML build. **Proof:** PENDING.
+- [x] **U16.01** Set up docs with Sphinx conf.py and pinned documentation dependencies. **Acceptance:** Reproducible warning-free HTML build. **Proof:** docs/conf.py, pinned docs/requirements.txt and strict .github/workflows/documentation.yml passed the warning-as-error HTML build, [Sphinx #40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) at source 80120be.
 - [ ] **U16.02** Add repository root .readthedocs.yaml v2 and hosted docs build config. **Acceptance:** Read the Docs preview builds correctly. **Proof:** PENDING.
 - [ ] **U16.03** Convert existing user-facing Markdown guides to native RST, with RST-only Sphinx navigation. **Acceptance:** No duplicate or broken pages. **Proof:** PENDING.
 - [ ] **U16.04** Create complete versioned public feature catalog. **Acceptance:** Every feature annotated by supported host, transport and extension. **Proof:** PENDING.
@@ -356,7 +356,7 @@
 - [ ] **U16.15** Enforce sphinx-build -n -W --keep-going -b html plus links and code snippet validation. **Acceptance:** CI fails on unresolved refs or invalid examples. **Proof:** PENDING.
 - [ ] **U16.16** Verify Read the Docs navigation, search, versioning and complete feature index. **Acceptance:** Hosted preview passes and 100 percent feature coverage. **Proof:** PENDING.
 
-**Batch tracker:** 0/16 accepted; 16 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 1/16 accepted; 15 open — U16.01 pinned Sphinx RST and strict HTML [#40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098) green; hosted Read the Docs preview and full coverage remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U17 — Final certification, risk signoff and maintainer handoff
 
@@ -567,3 +567,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **Q2-H grouped QA recovery + QUIC multiplex lifetime (2026-10-24; QA pending):** Exact Q2-G [Security & Standards #40062249460](https://github.com/infocyph/Runwire/actions/runs/40062249460) passed all Pest, PHPStan, Psalm, Rector, PHPCS and Deptrac lanes, both native H3/QUIC lanes, real hosted/portable/accelerated lanes and core/adaptive H1/H2 benchmarks; only PHPForge Pint failed on `QuicWorkerSession.php` (`ordered_class_elements, blank_...`). Normalize evident blank-statement boundaries, and instrument a one-time PHP 8.5 native CI step to show **the actual PHPForge autoformat diff without committing the CI-side formatting**. Remove the instrumentation immediately after using its evidence to obtain a clean exact-head matrix; do not waive Pint or run redundant push+PR suites. In parallel, correct `maxOpenStreams` admission to count simultaneously live native streams rather than exhaust an entire session's lifetime, releasing the worker slot after observed native EOF while preserving monotonically increasing IDs; add same-worker recycle and isolated sibling-reset regression cases. Upgrade the independent aioquic test to establish two outbound bidirectional streams **before** sending either, so both exchange payloads on one verified native QUIC session, followed by the existing separate unidirectional peer-FIN receipt. This is real overlap/ownership evidence but not loss/reorder, congestion fairness, cancellation storm or release throughput proof. **Task counters remain strictly unchanged** at U05 3/10, U04 7/8, U06 8/8, total 56/175; acceptance requires exact-head full QA and independent interoperability. U04.08 opt-in matched TLS still awaits a separately dispatched certified run; U15/U17 release gates remain OPEN.
 
 **Q2-I exact Pint fix (2026-10-24; QA pending):** [Q2-H Security & Standards #40063306046](https://github.com/infocyph/Runwire/actions/runs/40063306046) completed both native QUIC jobs, Pest, PHPStan/Psalm, and non-style PHPForge checks successfully; only the four PHPForge QA matrices failed `ordered_class_elements`. The temporary PHP 8.5 formatter diagnostic in that run printed the exact transformation: move the existing `QuicWorkerSession::teardown()` private method to the first private-method slot before the public method (with no semantic changes). Apply that exact change and remove the temporary diagnostic step; run fresh full PR QA once. Benchmarks, Sphinx, hosted/portable, packaging and source-audit workflows at the old Q2-H head passed. U05.04/U05.05 remain QA-gated until the corrected head passes; the opt-in U04.08 TLS certification has not run. **Acceptance remains 56/175, 119 open, 32 additional accepted tasks required for 88/175 (50.3%).**
+
+**Q2-J certified baseline and live negative/reset interoperability (2026-10-24; new test QA pending):** Exact Q2-I source [80120be](https://github.com/infocyph/Runwire/commit/80120be10026fb1056c35fd5a0b67a89faf438ce) PASSED all eight GitHub workflows: [Security & Standards #40064041388](https://github.com/infocyph/Runwire/actions/runs/40064041388), [Sphinx #40064041098](https://github.com/infocyph/Runwire/actions/runs/40064041098), [Benchmarks #40064041091](https://github.com/infocyph/Runwire/actions/runs/40064041091) and hosted/portable/source/release-candidate workflows. The exact-source evidence accepts **U05.04** outbound TLS/ALPN QUIC connection against independent aioquic, **U07.01** protocol-neutral streaming HTTP client contract (not a working H1/H2/H3 transport), and **U16.01** pinned warning-free Sphinx setup. **Authoritative: 59/175 accepted, 116 open, 33.7%; 29 additional required for 88/175.** Next Q2-J real-host negative fixture exercises failed datagram, migration/rebind and 0-RTT policy both before dispatch and while connected; it opens and resets a native bidirectional stream before a separate real independent uni-FIN server receipt. Keep **U05.05–U05.10 unchecked** until individual exact-head QA + relevant real-peer acceptance. Never treat this as network-loss, congestion, reset/cancellation storms or release throughput certification.
