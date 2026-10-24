@@ -102,3 +102,15 @@ optional PHP extensions or invoking network APIs. The final release audit
 must still document each intentional breaking change, review callback and
 exception behavior and pin both immutable source revisions. **U16.12 and
 U17.01 are not yet complete.**
+
+Public property inventory note
+------------------------------
+
+New schema-v1 manifest exports include ``publicProperties`` declarations and
+constructor-promoted fields. The pinned historical 2.1.2 source manifest was
+created before this optional field existed. The diff CLI therefore reports
+``propertyInventoryCompared: false`` when comparing against that older archive;
+it **does not** assert that removed properties were audited in that case.
+Before U16.12 acceptance, regenerate a 2.1.2 source-only manifest with the
+same exporter version and repeat the immutable baseline comparison. Property
+and method behavior still requires maintainer-reviewed migration examples.

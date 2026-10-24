@@ -55,7 +55,7 @@ $readMethods = static function (mixed $values): array {
 };
 
 /**
- * @return array{sourceRevision:string,symbols:array<string,array{kind:string,methods:array<string,string>,publicConstants:list<string>,enumCases:list<string>,sha256:string}>}
+ * @return array{sourceRevision:string,symbols:array<string,array{kind:string,methods:array<string,string>,publicProperties:?array<string,string>,publicConstants:list<string>,enumCases:list<string>,sha256:string}>}
  */
 $load = static function (string $file) use ($readList, $readMethods): array {
     if (!is_file($file) || !is_readable($file)) {
@@ -84,6 +84,9 @@ $load = static function (string $file) use ($readList, $readMethods): array {
             'kind' => $record['kind'],
             'sha256' => $record['sha256'],
             'methods' => $readMethods($record['methods'] ?? []),
+            'publicProperties' => array_key_exists('publicProperties', $record)
+                ? $readMethods($record['publicProperties'])
+                : null,
             'publicConstants' => $readList($record['publicConstants'] ?? []),
             'enumCases' => $readList($record['enumCases'] ?? []),
         ];
@@ -124,6 +127,125 @@ foreach ($baseline['symbols'] as $name => $old) {
                 'before' => $signature,
                 'after' => $current,
             ];
+        }
+    }
+
+    // Old pinned schema-v1 archives have no property inventory. Never treat
+    // an unknown historical property as removed: compare only complete pairs.
+    if ($old['publicProperties'] !== null && $next['publicProperties'] !== null) {
+        foreach ($old['publicProperties'] as $property => $signature) {
+            $current = $next['publicProperties'][$property] ?? null;
+            if ($current === null) {
+                $breaking[] = ['type' => 'removed_property', 'symbol' => $name . '::, 'enumCases' => 'enum_case'] as $field => $kind) {
+        foreach (array_diff($old[$field], $next[$field]) as $value) {
+            $changed[] = [
+                'type' => 'removed_or_changed_' . $kind,
+                'symbol' => $name,
+                'before' => $value,
+            ];
+        }
+    }
+    if ($old['sha256'] !== $next['sha256']) {
+        $changed[] = ['type' => 'source_changed', 'symbol' => $name];
+    }
+}
+
+foreach ($candidate['symbols'] as $name => $new) {
+    if (!array_key_exists($name, $baseline['symbols'])) {
+        $added[] = ['type' => 'added_type', 'symbol' => $name];
+    }
+}
+
+/**
+ * @param array{symbol:string,type:string} $left
+ * @param array{symbol:string,type:string} $right
+ */
+$bySymbol = static function (array $left, array $right): int {
+    $leftSymbol = $left['symbol'] ?? null;
+    $leftType = $left['type'] ?? null;
+    $rightSymbol = $right['symbol'] ?? null;
+    $rightType = $right['type'] ?? null;
+    if (!is_string($leftSymbol) || !is_string($leftType)
+        || !is_string($rightSymbol) || !is_string($rightType)) {
+        throw new InvalidArgumentException('API diff entries must have string symbol and type.');
+    }
+
+    return strcmp($leftSymbol . ':' . $leftType, $rightSymbol . ':' . $rightType);
+};
+usort($breaking, $bySymbol);
+usort($changed, $bySymbol);
+usort($added, $bySymbol);
+
+$output = json_encode([
+    'schemaVersion' => 1,
+    'baselineRevision' => $baseline['sourceRevision'],
+    'candidateRevision' => $candidate['sourceRevision'],
+    'breakingCount' => count($breaking),
+    'changeCount' => count($changed),
+    'additionCount' => count($added),
+    'propertyInventoryCompared' => !array_filter($baseline['symbols'], static fn(array $symbol): bool => $symbol['publicProperties'] === null)
+        && !array_filter($candidate['symbols'], static fn(array $symbol): bool => $symbol['publicProperties'] === null),
+    'breaking' => $breaking,
+    'changed' => $changed,
+    'added' => $added,
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+if (file_put_contents('php://stdout', $output . PHP_EOL) === false) {
+    throw new RuntimeException('Unable to write the public API diff.');
+}
+ . $property];
+            } elseif ($current !== $signature) {
+                $changed[] = [
+                    'type' => 'property_declaration',
+                    'symbol' => $name . '::, 'enumCases' => 'enum_case'] as $field => $kind) {
+        foreach (array_diff($old[$field], $next[$field]) as $value) {
+            $changed[] = [
+                'type' => 'removed_or_changed_' . $kind,
+                'symbol' => $name,
+                'before' => $value,
+            ];
+        }
+    }
+    if ($old['sha256'] !== $next['sha256']) {
+        $changed[] = ['type' => 'source_changed', 'symbol' => $name];
+    }
+}
+
+foreach ($candidate['symbols'] as $name => $new) {
+    if (!array_key_exists($name, $baseline['symbols'])) {
+        $added[] = ['type' => 'added_type', 'symbol' => $name];
+    }
+}
+
+/**
+ * @param array{symbol:string,type:string} $left
+ * @param array{symbol:string,type:string} $right
+ */
+$bySymbol = static function (array $left, array $right): int {
+    return strcmp($left['symbol'] . ':' . $left['type'], $right['symbol'] . ':' . $right['type']);
+};
+usort($breaking, $bySymbol);
+usort($changed, $bySymbol);
+usort($added, $bySymbol);
+
+$output = json_encode([
+    'schemaVersion' => 1,
+    'baselineRevision' => $baseline['sourceRevision'],
+    'candidateRevision' => $candidate['sourceRevision'],
+    'breakingCount' => count($breaking),
+    'changeCount' => count($changed),
+    'additionCount' => count($added),
+    'breaking' => $breaking,
+    'changed' => $changed,
+    'added' => $added,
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+if (file_put_contents('php://stdout', $output . PHP_EOL) === false) {
+    throw new RuntimeException('Unable to write the public API diff.');
+}
+ . $property,
+                    'before' => $signature,
+                    'after' => $current,
+                ];
+            }
         }
     }
     foreach (['publicConstants' => 'constant', 'enumCases' => 'enum_case'] as $field => $kind) {

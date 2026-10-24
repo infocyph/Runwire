@@ -135,11 +135,38 @@ foreach ($files as $path) {
         sort($cases, SORT_STRING);
     }
 
+
+    // Track declared public fields and constructor-promoted public properties.
+    // The property manifest is additive to historical schema-v1 archives.
+    $properties = [];
+    preg_match_all(
+        '/^\\s*public\\s+(?:(?:readonly|static)\\s+)*(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b[^;]*;/m',
+        $source,
+        $propertyMatches,
+        PREG_SET_ORDER,
+    );
+    foreach ($propertyMatches as $property) {
+        $properties[$property[1]] = trim((string) preg_replace('/\\s+/', ' ', $property[0]));
+    }
+    if (isset($methods['__construct'])) {
+        preg_match_all(
+            '/(?:^|[,(])\\s*public\\s+(?:readonly\\s+)?(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b/',
+            $methods['__construct'],
+            $promoted,
+            PREG_SET_ORDER,
+        );
+        foreach ($promoted as $property) {
+            $properties[$property[1]] = trim((string) preg_replace('/\\s+/', ' ', $property[0]));
+        }
+    }
+    ksort($properties, SORT_STRING);
+
     $symbols[$fqcn] = [
         'kind' => $kind,
         'path' => $relative,
         'sha256' => hash('sha256', $source),
         'methods' => $methods,
+        'publicProperties' => $properties,
         'publicConstants' => $constants,
         'enumCases' => $cases,
     ];

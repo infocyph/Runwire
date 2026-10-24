@@ -18,6 +18,7 @@ it('diffs immutable PHP source API signatures deterministically without requirin
             'Example\\Legacy' => [
                 'kind' => 'class',
                 'methods' => ['old' => 'public function old(): void', 'run' => 'public function run(): void'],
+                'publicProperties' => ['oldFlag' => 'public bool $oldFlag;', 'name' => 'public string $name;'],
                 'publicConstants' => ['public const int V = 1;'],
                 'enumCases' => [],
                 'sha256' => str_repeat('0', 64),
@@ -45,6 +46,7 @@ it('diffs immutable PHP source API signatures deterministically without requirin
             'Example\\Legacy' => [
                 'kind' => 'class',
                 'methods' => ['run' => 'public function run(): int'],
+                'publicProperties' => ['name' => 'public readonly string $name;'],
                 'publicConstants' => ['public const int V = 2;'],
                 'enumCases' => [],
                 'sha256' => str_repeat('1', 64),
@@ -80,16 +82,19 @@ it('diffs immutable PHP source API signatures deterministically without requirin
 
         expect($diff['baselineRevision'])->toBe(str_repeat('a', 40))
             ->and($diff['candidateRevision'])->toBe(str_repeat('b', 40))
-            ->and($diff['breakingCount'])->toBe(2)
+            ->and($diff['breakingCount'])->toBe(3)
             ->and($diff['additionCount'])->toBe(1)
             ->and($diff['breaking'])->toContain(['type' => 'removed_type', 'symbol' => 'Example\\Removed'])
             ->and($diff['breaking'])->toContain(['type' => 'removed_method', 'symbol' => 'Example\\Legacy::old'])
-            ->and($diff['added'])->toContain(['type' => 'added_type', 'symbol' => 'Example\\Added']);
+            ->and($diff['added'])->toContain(['type' => 'added_type', 'symbol' => 'Example\\Added'])
+            ->and($diff['breaking'])->toContain(['type' => 'removed_property', 'symbol' => 'Example\\Legacy::$oldFlag'])
+            ->and($diff['propertyInventoryCompared'])->toBeFalse();
         expect(array_column($diff['changed'], 'type'))->toContain(
             'method_signature',
             'removed_or_changed_constant',
             'removed_or_changed_enum_case',
             'source_changed',
+            'property_declaration',
         );
 
         $again = [];
