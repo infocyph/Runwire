@@ -17,7 +17,10 @@ final readonly class OutboundAddressPolicy
     /** Reject reserved, private, loopback and link-local numeric addresses. */
     public function assertCandidate(string $ip): void
     {
-        $packed = @inet_pton($ip);
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+            throw new RuntimeException('Outbound address must be a validated numeric IP.');
+        }
+        $packed = inet_pton($ip);
         if (!is_string($packed)) {
             throw new RuntimeException('Outbound address must be a validated numeric IP.');
         }
