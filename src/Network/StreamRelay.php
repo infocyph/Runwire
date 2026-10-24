@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Network;
 
+use Infocyph\Runwire\CancellationSubscription;
+use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Loop\LoopInterface;
+use Infocyph\Runwire\RequestDeadline;
 use InvalidArgumentException;
 use Throwable;
 
@@ -20,11 +23,15 @@ final class StreamRelay
 {
     private bool $closed = false;
 
+    private ?int $deadlineTimer = null;
+
     private bool $forwardingLeft = false;
 
     private bool $forwardingRight = false;
 
     private bool $started = false;
+
+    private ?CancellationSubscription $subscription = null;
 
     private int $toLeftBytes = 0;
 
@@ -37,6 +44,8 @@ final class StreamRelay
         private readonly Connection $right,
         private readonly int $chunkBytes = 16_384,
         private readonly int $maxBytesPerTick = 65_536,
+        private readonly ?CancellationToken $cancellation = null,
+        private readonly ?RequestDeadline $deadline = null,
     ) {
         if ($left === $right || $chunkBytes < 1 || $chunkBytes > 65_536
             || $maxBytesPerTick < $chunkBytes || $maxBytesPerTick > 1_048_576) {
@@ -51,6 +60,12 @@ final class StreamRelay
             return;
         }
         $this->closed = true;
+        $this->subscription?->unsubscribe();
+        $this->subscription = null;
+        if ($this->deadlineTimer !== null) {
+            $this->loop->cancel($this->deadlineTimer);
+            $this->deadlineTimer = null;
+        }
         $this->left->abort();
         $this->right->abort();
     }
@@ -68,6 +83,10 @@ final class StreamRelay
             throw new InvalidArgumentException('Stream relay can only be started once while open.');
         }
         $this->started = true;
+        if (!$this->armLifecycle()) {
+            return;
+        }
+
         try {
             $this->left->handoffCallbacks(
                 $this,
@@ -110,6 +129,42 @@ final class StreamRelay
     public function transferredBytes(): array
     {
         return ['toLeft' => $this->toLeftBytes, 'toRight' => $this->toRightBytes];
+    }
+
+    private function armLifecycle(): bool
+    {
+        if ($this->cancellation?->isCancelled()) {
+            $this->close();
+
+            return false;
+        }
+
+        $timeout = min(
+            $this->deadline?->remainingSeconds() ?? INF,
+            $this->cancellation?->deadline()->remainingSeconds() ?? INF,
+        );
+        if ($timeout <= 0) {
+            $this->close();
+
+            return false;
+        }
+        if (is_finite($timeout)) {
+            $this->deadlineTimer = $this->loop->delay($timeout, function (): void {
+                $this->close();
+            });
+        }
+
+        $subscription = $this->cancellation?->onCancel(function (): void {
+            $this->close();
+        });
+        if ($this->closed) {
+            $subscription?->unsubscribe();
+
+            return false;
+        }
+        $this->subscription = $subscription;
+
+        return true;
     }
 
     private function forward(bool $fromLeft): void

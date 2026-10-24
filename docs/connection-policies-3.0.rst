@@ -52,6 +52,8 @@ pressure and resumes on drain. Independent Unix stream fixtures exercise
 both directions and resource cleanup; a separate 1 MiB SHA-256 fixture
 tests a temporarily stalled receiver with 64 KiB send/receive caps.
 
+Optional `CancellationToken` and monotonic `RequestDeadline` now close both relay directions and retire timer/subscription ownership, with real stream tests. 
+
 This is **not** a certified release-ready relay: EOF currently aborts
 both sides. Correct half-close semantics, request cancellation,
 shutdown deadlines and drain-after-peer-EOF belong to the remaining
