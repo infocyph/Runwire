@@ -34,6 +34,8 @@ it('emits an exact H2 preface and validates independent server SETTINGS before H
         ->and($requestFrames[0]->knownType())->toBe(FrameType::HEADERS)
         ->and($requestFrames[0]->hasFlag(0x5))->toBeTrue()
         ->and($requestFrames[0]->streamId)->toBe(1);
+    expect(fn() => $handshake->firstRequest('GET', 'https', 'example.test', '/second'))
+        ->toThrow(RuntimeException::class, 'verified');
     $headers = (new Decoder())->decode($requestFrames[0]->payload);
     expect($headers)->toBe([
         [':method', 'GET'],

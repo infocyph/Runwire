@@ -47,10 +47,7 @@ final class AutoscaleHysteresis
      */
     public function propose(int $current, int $busy, int $queued, int $nowNanoseconds): int
     {
-        if ($current < $this->minWorkers || $current > $this->maxWorkers
-            || $busy < 0 || $busy > $current || $queued < 0 || $nowNanoseconds < 0) {
-            throw new InvalidArgumentException('Invalid worker admission sample.');
-        }
+        $this->assertSample($current, $busy, $queued, $nowNanoseconds);
 
         $pressure = $current === 0 ? 0.0 : $busy / $current;
         $high = $queued > 0 || $pressure >= $this->scaleOutRatio;
@@ -78,6 +75,14 @@ final class AutoscaleHysteresis
         $this->highSamples = 0;
         $this->lowSamples = 0;
         $this->lastChangeNanoseconds = null;
+    }
+
+    private function assertSample(int $current, int $busy, int $queued, int $nowNanoseconds): void
+    {
+        if ($current < $this->minWorkers || $current > $this->maxWorkers
+            || $busy < 0 || $busy > $current || $queued < 0 || $nowNanoseconds < 0) {
+            throw new InvalidArgumentException('Invalid worker admission sample.');
+        }
     }
 
     private function change(int $target, int $time): int
