@@ -42,7 +42,7 @@ final readonly class Http1OutboundClient
             throw new InvalidArgumentException('HTTP/1.1 client requires a valid absolute origin.');
         }
         $host = $parts['host'];
-        $secure = ($parts['scheme'] ?? null) === 'https';
+        $secure = strtolower($parts['scheme'] ?? '') === 'https';
         $port = $parts['port'] ?? ($secure ? 443 : 80);
         $dialOptions = self::verifiedOptions($host, $secure, $dialOptions ?? new DialOptions());
         $endpoint = 'tcp://' . $host . ':' . $port;

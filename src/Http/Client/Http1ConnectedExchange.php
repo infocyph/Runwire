@@ -60,7 +60,7 @@ final class Http1ConnectedExchange
         callable $onComplete,
     ) {
         $parts = parse_url($request->uri);
-        $tls = is_array($parts) && ($parts['scheme'] ?? null) === 'https';
+        $tls = is_array($parts) && strtolower($parts['scheme'] ?? '') === 'https';
         if ($connection->isEncrypted() !== $tls
             || $request->protocol->negotiate($connection->negotiatedProtocol(), $tls) !== ProtocolVersion::HTTP_1_1) {
             throw new InvalidArgumentException('HTTP/1.1 exchange requires the exact requested verified transport and ALPN.');
@@ -241,11 +241,21 @@ final class Http1ConnectedExchange
 
     private function sendFrame(): bool
     {
-        if ($this->settled || $this->writer->done() || $this->connection->availableWriteBytes() < 4_096) {
+        if ($this->settled || $this->writer->done()) {
             return false;
         }
 
-        $bytes = $this->writer->next(4_096);
+        $available = $this->connection->availableWriteBytes();
+        if ($available < 32) {
+            return false;
+        }
+
+        // Reserve framing overhead; the serialized body chunk must fit
+        // even when a caller configures a much smaller send queue.
+        $bytes = $this->writer->next(min(4_096, $available - 16));
+        if (strlen($bytes) > $available) {
+            throw new RuntimeException('HTTP/1.1 request head or trailer exceeds the bounded socket capacity.');
+        }
         if ($bytes === '') {
             return false;
         }
@@ -253,6 +263,6 @@ final class Http1ConnectedExchange
             throw new RuntimeException('HTTP/1.1 request write exceeded the bounded socket capacity.');
         }
 
-        return !$this->writer->done() && !$this->connection->isWritePressured();
+        return !$this->connection->isWritePressured();
     }
 }

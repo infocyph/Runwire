@@ -10,8 +10,9 @@ use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\ConnectionLimits;
 
-it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a real Unix socket', function (): void {
+it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a real Unix socket', function (ConnectionLimits $limits): void {
     $payload = str_repeat("binary\x00\xff", 16_384);
     $bodySource = new class($payload) implements ClientBodySourceInterface {
         private int $offset = 0;
@@ -41,7 +42,7 @@ it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a
     [$clientStream, $server] = $pair;
     stream_set_blocking($server, false);
     $loop = new SelectLoop();
-    $connection = new Connection($loop, $clientStream);
+    $connection = new Connection($loop, $clientStream, $limits);
     $policy = new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true);
     $request = new ClientRequest('POST', 'http://example.test/upload', body: $bodySource, protocol: $policy);
     $serverBuffer = '';
@@ -117,4 +118,11 @@ it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+})->with([
+    'default send queue' => [new ConnectionLimits()],
+    'tight 8-KiB send queue' => [new ConnectionLimits(
+        sendLowWatermarkBytes: 2_048,
+        sendHighWatermarkBytes: 4_096,
+        maxSendBufferBytes: 8_192,
+    )],
+]);

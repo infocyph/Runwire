@@ -90,7 +90,7 @@ it('rejects silent plaintext fallback when a secure URI is requested', function 
     $connection = new Connection($loop, $socket);
     $request = new ClientRequest(
         'GET',
-        'https://example.test/',
+        'HTTPS://example.test/',
         protocol: new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1]),
     );
 

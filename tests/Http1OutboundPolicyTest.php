@@ -44,6 +44,14 @@ it('refuses unsafe outbound H1 TLS and ALPN identity substitutions before alloca
             new DialOptions(tls: new TlsClientOptions('example.test', alpnProtocols: ['http/1.1'])),
         ))->toThrow(InvalidArgumentException::class, 'cannot carry a TLS policy');
 
+        // URI schemes are case-insensitive. An uppercase HTTPS origin must
+        // never be reclassified as plaintext before a TLS policy is checked.
+        expect(fn() => Http1OutboundClient::connect(
+            $loop, $dialer, new ClientRequest('GET', 'HTTPS://example.test/', protocol: $h1),
+            $onHeaders, $onBody, $done,
+            new DialOptions(tls: new TlsClientOptions('different.test', alpnProtocols: ['http/1.1'])),
+        ))->toThrow(InvalidArgumentException::class, 'exact requested origin');
+
         expect($dialer->pendingCount())->toBe(0)
             ->and($numeric->pendingCount())->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0)
