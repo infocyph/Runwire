@@ -3,7 +3,7 @@
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
 **Date:** 2026-10-23. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 80/175 accepted (45.7%); 95 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Canonical tracker:** 81/175 accepted (46.3%); 94 open; 18 batches as of 2026-10-24. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
 ## Development rules
@@ -53,15 +53,15 @@
 | U09 | WebSocket and WebTransport client/server | 0/10 | 10 | Not started | U05,U07,U08 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 0/9 | 9 | Not started | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 3/10 | 7 | In progress | U01,U02,U06 |
-| U12 | Native supervisor and adaptive worker autoscaling | 1/9 | 8 | In progress | U01,U02,U06 |
+| U12 | Native supervisor and adaptive worker autoscaling | 2/9 | 7 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 6/9 | 3 | In progress | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 0/8 | 8 | Not started | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 4/16 | 12 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **80/175** | **95** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **81/175** | **94** | **U00–U03/U06 complete; U04/U05/U07/U16 in progress** | U00-U17 |
 
-**Progress counter:** 80/175 (45.7% complete), 95 open.
+**Progress counter:** 81/175 (46.3% complete), 94 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -281,11 +281,11 @@
 - [ ] **U12.04** Implement cooldown, hysteresis, scale-out and graceful scale-in. **Acceptance:** No oscillation or admitted request loss. **Proof:** PENDING.
 - [ ] **U12.05** Test SIGKILL, restart, reload, recycle and stop during H1/H2/H3/TCP/UDP traffic. **Acceptance:** Old R6.02 full real-peer acceptance. **Proof:** PENDING.
 - [ ] **U12.06** Drain pending dials, sessions, pools, coroutines and file executor jobs. **Acceptance:** No terminal watcher or FD leak. **Proof:** PENDING.
-- [ ] **U12.07** Respect host-owned worker pools and portable single-process limits. **Acceptance:** No false autoscaling promise for FPM/RoadRunner. **Proof:** PENDING.
+- [x] **U12.07** Respect host-owned worker pools and portable single-process limits. **Acceptance:** No false autoscaling promise for FPM/RoadRunner. **Proof:** `Runtime::run()` rejects every non-NATIVE host driver from the native listener/supervisor path; the native CLI probes `RuntimeEnvironment::nativePreforkEligible()` and explicitly uses portable Select single-process mode without PCNTL/POSIX, with unavailable reload/control/recycle behaviors reporting clear errors. `Runtime::serve()` delegates FPM/FrankenPHP/RoadRunner/Swoole to host-owned reactor and worker lifetimes, without creating a second process manager. Real PHP8.4/8.5 FPM, FrankenPHP and RoadRunner [Hosted #40069276256](https://github.com/infocyph/Runwire/actions/runs/40069276256), [Swoole/OpenSwoole #40068643154](https://github.com/infocyph/Runwire/actions/runs/40068643154) and PCNTL-free Select [Portable Native #40070491840](https://github.com/infocyph/Runwire/actions/runs/40070491840) passed; `RuntimeDriverResolverTest` and `RuntimeEnvironmentTest` cover explicit host and portable choices. This does not claim automatic scaling in managed hosts.
 - [ ] **U12.08** Fault inject crash loops, signals and concurrent scaling/reloading. **Acceptance:** Bounded restart count and shutdown behavior. **Proof:** PENDING.
 - [ ] **U12.09** Run sustained autoscale stress and process-tree resource sampling. **Acceptance:** Fairness, p99, CPU and RSS accepted. **Proof:** PENDING.
 
-**Batch tracker:** 1/9 accepted; 8 open — immutable published supervisor/reload/crash fixtures and independent SIGKILL mixed peers passed green QA [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); additional autoscale/shutdown gates remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 2/9 accepted; 7 open — real host-owned adapters versus portable native Select without prefork U12.07 — immutable published supervisor/reload/crash fixtures and independent SIGKILL mixed peers passed green QA [#40064842606](https://github.com/infocyph/Runwire/actions/runs/40064842606); additional autoscale/shutdown gates remain open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U13 — Real host and optional extension compatibility
 
@@ -633,3 +633,5 @@ All of these pages are **required deliverables** inside the proposed docs docume
 **E5 QA fix and FPM closure (2026-10-24):** Exact head a18c95f [Security & Standards #40069276513](https://github.com/infocyph/Runwire/actions/runs/40069276513) completed Pest/Pint/PHPCS/Rector/Deptrac, both analyzers and native QUIC successfully, but PHPForge's blocking skip-directive scanner found `markTestSkipped()` in the FIFO test. `ext-posix` is an explicit development requirement; remove the skip guard and require real FIFO capability on CI rather than hiding test coverage. Separate [Real Hosted Runtime Acceptance #40069276256](https://github.com/infocyph/Runwire/actions/runs/40069276256) fully green on real PHP8.4/8.5 FastCGI file/socket cleanup, so accept U13.06 only. U13.04 pooled RoadRunner resources and U11.06 FIFO cancellation remain open until their full contracts are proven and next-head QA is green. **80/175 accepted (45.7%), 95 open, 8 to 88/175.**
 
 **P3 isolation-key implementation for U10.01 (2026-10-24; QA pending):** New `Network\\PoolIsolationKey` fingerprints validated `DialEndpoint` transport/host/port/path, tenant/worker scope identity, complete caller-revisioned TLS trust/mTLS policy, verified peer name, offered+negotiated ALPN, optional explicit proxy endpoint and proxy policy/authorization revision. Strict validation refuses missing scope/TLS/proxy policy and unintended ALPN; serialized typed tuples prevent delimiter collisions, and only SHA-256 digests are exposed to future keyed wait/pool maps. `tests/PoolIsolationKeyTest.php` checks canonical host casing, isolation across ports/Unix/tenants, trust revision/ALPN/peer/proxy credential changes and rejection cases. This is an independent contract, not a connected reusable pool, and **U10.01 stays unchecked pending full PHPForge QA**; U10.02+ remain open. Current **80/175 accepted, 95 open**.
+
+**S4 actual host-managed lifecycle acceptance (2026-10-24):** Accept only U12.07: source Runtime::run native listener guard + RuntimeEnvironment::nativePreforkEligible and Runtime::serve host adapters prevent false prefork/autoscaling claims in FPM/RoadRunner/Swoole, with real hosted PHP8.4/8.5 #40069276256, Swoole #40068643154 and PCNTL-free native #40070491840 passed. Actual autoscaling and mixed-protocol worker draining remain open. P3 PoolIsolationKey still unaccepted until next-head PHPForge. **81/175 accepted (46.3%), 94 open, seven to 88/175.**
