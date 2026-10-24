@@ -51,8 +51,14 @@ it('enforces numeric TCP dial admission under 12 repeated full-capacity cancella
                 }
                 expect($dialer->cancel($id))->toBeFalse();
             }
-            while (($accepted = stream_socket_accept($listener, 0)) !== false) {
-                fclose($accepted);
+            set_error_handler(static fn(int $severity): bool => $severity === E_WARNING);
+
+            try {
+                while (($accepted = stream_socket_accept($listener, 0)) !== false) {
+                    fclose($accepted);
+                }
+            } finally {
+                restore_error_handler();
             }
             expect($dialer->pendingCount())->toBe(0);
         }
