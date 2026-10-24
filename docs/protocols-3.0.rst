@@ -46,12 +46,20 @@ WebSocket and WebTransport status
 
 Inbound HTTP/1.1 WebSocket upgrade validates request headers, masking,
 bounded fragmentation, UTF-8, ping/pong, close and session ownership.
-Outbound WebSocket clients, H2/H3 extended CONNECT and WebTransport
-server/client are not implemented.
+The unreleased branch also has an **experimental** outbound
+``WebSocketClient::connect()`` for ws/wss over the verified nonblocking
+Happy Eyeballs dialer. It validates an HTTP/1.1 101 response and
+subprotocol, preserves coalesced frames, and uses the same WebSocket
+session lifecycle with client masking. This work is **QA pending** and
+not yet a 3.0 acceptance or production support guarantee.
+HTTP/2 and HTTP/3 extended CONNECT and WebTransport client/server
+are not implemented.
 
 .. code-block:: console
 
    vendor/bin/pest tests/WebSocketIntegrationTest.php tests/WebSocketFrameParserTest.php
+   vendor/bin/pest tests/WebSocketOutboundClientTest.php tests/WebSocketOutboundTlsTest.php
+   vendor/bin/pest tests/WebSocketConcurrentSessionsTest.php tests/WebSocketBackpressureAcceptanceTest.php
 
 The webtransport-design-3.0 document records planned session ownership.
 

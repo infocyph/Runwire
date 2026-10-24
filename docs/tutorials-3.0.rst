@@ -39,6 +39,35 @@ peer hostname and an explicit secure trust policy. Do not retry as
 plaintext after a failed certificate or ALPN negotiation. DNS worker
 saturation, timeout or cancellation must be surfaced to the owner.
 
+WebSocket client and bounded TCP/Unix relay
+-------------------------------------------
+
+The experimental WebSocket client requires one Select-compatible loop,
+a shared off-loop DNS/Happy Eyeballs dialer and a complete trust policy
+for wss. It rejects unexpected ALPN, untrusted certificates, invalid 101
+responses and subprotocol mismatches. A successful callback transfers
+ownership of the established connection to a ``WebSocketSession``; the
+caller must close the session and release the dialer/executor on shutdown.
+Neither an HTTP/2 nor HTTP/3 extended CONNECT client is implied.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/WebSocketOutboundClientTest.php tests/WebSocketOutboundTlsTest.php
+   vendor/bin/pest tests/WebSocketConcurrentSessionsTest.php tests/WebSocketBackpressureAcceptanceTest.php
+
+The development-only ``Network\\StreamRelay`` transfers bounded
+chunks between two already-established TCP or Unix connections,
+using shared send/receive queues, read pressure suspension and
+drain-driven resumption. A cancellation token or monotonic deadline
+can abort both sides. **Half-close is not implemented**: when either
+peer reaches EOF, the current relay closes both connections.
+Do not present this as a production-ready generic CONNECT tunnel.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/StreamRelayTest.php tests/StreamRelayLargeTransferTest.php
+   vendor/bin/pest tests/StreamRelayLifecycleTest.php
+
 Bounded asynchronous files and streaming
 ----------------------------------------
 

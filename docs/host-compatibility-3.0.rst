@@ -59,8 +59,8 @@ Transport and workload features
      - Version-policy interface, in-progress bounded HTTP/1.1 serializer and parser
      - Connected H1 client API, H2/H3 client implementations and outbound client benchmarks are not yet complete
    * - WebSocket
-     - Inbound HTTP/1.1 upgrade, masking, fragmentation, ping and close tests
-     - Outbound WebSocket client and H2/H3 extended CONNECT are not yet available
+     - Inbound HTTP/1.1 upgrade and experimental outbound ws/wss TLS upgrade with shared masking, fragmentation and close
+     - Outbound client QA is not yet accepted; H2/H3 extended CONNECT remains unavailable
    * - WebTransport
      - Planned H3 session, stream, deadline and datagram ownership
      - No advertised end-to-end WebTransport client or server; native QUIC datagram capability is unavailable

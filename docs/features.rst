@@ -63,9 +63,9 @@ Network, protocols and worker capabilities
      - Masking and frame limits
    * - WebSocket client
      - No built-in client
-     - Not yet implemented
-     - Outbound TCP/TLS
-     - RFC 6455 client tests OPEN
+     - Experimental verified ws/wss HTTP/1.1 dial/upgrade and masked session
+     - Outbound TCP/TLS, Select loop
+     - Independent WSS/close and cancellation QA pending, not released
    * - H2/H3 extended CONNECT
      - Not advertised
      - Not qualified
@@ -108,9 +108,9 @@ Network, protocols and worker capabilities
      - Credential policy gated
    * - Bidirectional relay
      - Not unified
-     - Half-close and backpressure
+     - Experimental bounded duplex relay, pressure-aware and cancellable
      - TCP/Unix streams
-     - Release throughput OPEN
+     - Half-close/drain and release throughput OPEN
    * - Fiber tasks and cancellation
      - Supported
      - Structured scope/channel/deadline ownership
