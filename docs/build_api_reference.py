@@ -34,6 +34,41 @@ def link(file, number):
     return BT + "source <" + BASE + file.relative_to(SOURCE).as_posix() + "#L" + str(number) + ">" + BT + "__"
 
 
+
+def method_signature(source, start):
+    """Collect the full PHP public signature, respecting nested defaults."""
+    index = start
+    round_depth = 0
+    square_depth = 0
+    quote = None
+    while index < len(source):
+        char = source[index]
+        if quote is not None:
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in ("'", '"'):
+            quote = char
+        elif char == "(":
+            round_depth += 1
+        elif char == ")":
+            round_depth -= 1
+        elif char == "[":
+            square_depth += 1
+        elif char == "]":
+            square_depth -= 1
+        elif char in ("{", ";") and round_depth == 0 and square_depth == 0:
+            if round_depth != 0:
+                raise ValueError("Unexpected PHP signature nesting")
+            return " ".join(source[start:index].split())
+        index += 1
+    raise ValueError("Unterminated public PHP method signature")
+
+
 def build():
     groups = defaultdict(list)
     exceptions = defaultdict(set)
@@ -51,10 +86,15 @@ def build():
         pieces = fqcn.split("\\")
         category = pieces[2] if len(pieces) > 2 else "Core"
         entries = ["* " + literal(fqcn) + " (" + decl.group(1) + ") — " + link(file, line(source, decl.start()))]
-        methods = sorted([(m.group(1), line(source, m.start())) for m in METHOD.finditer(source)], key=lambda v: v[0].lower())
+        methods = sorted(
+            [(m.group(1), line(source, m.start()), method_signature(source, m.start())) for m in METHOD.finditer(source)],
+            key=lambda value: value[0].lower(),
+        )
         public_methods += len(methods)
         if methods:
-            entries.append("  - Public methods: " + ", ".join(literal(m) + " (" + link(file, n) + ")" for m, n in methods))
+            entries.append("  - Public method signatures: " + ", ".join(
+                literal(signature) + " (" + link(file, number) + ")" for _, number, signature in methods
+            ))
         properties = sorted([(m.group(1), line(source, m.start())) for m in PROPERTY.finditer(source)])
         public_properties += len(properties)
         if properties:

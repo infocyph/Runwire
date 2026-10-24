@@ -14,7 +14,7 @@ it('generates a complete source-linked public PHP symbol and exception index wit
 
     $reference = file_get_contents($root . '/docs/_generated/public-api.inc');
     expect($reference)->toBeString()
-        ->toContain('Source-linked PHP API and error reference', 'Exception catalog');
+        ->toContain('Source-linked PHP API and error reference', 'Exception catalog', 'Public method signatures:', 'public function __construct(');
 
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root . '/src', FilesystemIterator::SKIP_DOTS),

@@ -10,7 +10,7 @@ Incoming HTTP/1.1 enforces bounds for request lines, headers, chunks,
 body size, parser budgets and connection idle timeout. The development
 Http1ClientRequestWriter and Http1ClientResponseParser handle
 incremental bodies, chunked responses, trailers and malformed
-messages. The branch now also contains experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. A fully transport-neutral ``ClientExchangeInterface`` implementation, H2/H3 clients, verified pooling and redirects remain open.
+messages. The branch now also contains experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. The opt-in ``Http1PolicyClient`` enforces bodyless GET/HEAD redirects, bounded retries, and cross-origin secret stripping. ``BoundedConnectionPool`` supports isolated lease admission and idle reuse but is not automatically wired into the client. Full H2/H3 outbound clients and transparent multi-protocol negotiation remain open.
 
 .. code-block:: console
 
@@ -21,12 +21,17 @@ HTTP/2 server and HPACK
 
 The H2 server has one connection flow-controller and scheduler,
 bounded HPACK tables, header blocks, per-stream body queues,
-RST_STREAM and GOAWAY. Outbound H2 and H2 extended CONNECT
-WebSocket are not available.
+RST_STREAM and GOAWAY. The experimental internal
+``Http2ClientHandshake`` validates server SETTINGS, generates an exact
+client preface, bounded bodyless HPACK request HEADERS and connection
+PING/GOAWAY responses. This is **not** an established H2 client:
+real TLS ALPN, multiplexed stream lifecycles, flow-control credit and
+CONTINUATION remain open, as does H2 extended CONNECT WebSocket.
 
 .. code-block:: console
 
    vendor/bin/pest tests/Http2ConnectionTest.php tests/Http2AbuseTest.php
+   vendor/bin/pest tests/Http2ClientHandshakeTest.php
 
 HTTP/3 and QUIC server
 ----------------------
@@ -50,8 +55,9 @@ The unreleased branch also has an **experimental** outbound
 ``WebSocketClient::connect()`` for ws/wss over the verified nonblocking
 Happy Eyeballs dialer. It validates an HTTP/1.1 101 response and
 subprotocol, preserves coalesced frames, and uses the same WebSocket
-session lifecycle with client masking. This work is **QA pending** and
-not yet a 3.0 acceptance or production support guarantee.
+session lifecycle with client masking. Real independent WSS/close and 128 concurrent-peer fragmentation and
+heartbeat regression suites have passed the branch PHPForge matrices;
+this remains unreleased 3.0 development rather than production support.
 HTTP/2 and HTTP/3 extended CONNECT and WebTransport client/server
 are not implemented.
 
@@ -60,6 +66,7 @@ are not implemented.
    vendor/bin/pest tests/WebSocketIntegrationTest.php tests/WebSocketFrameParserTest.php
    vendor/bin/pest tests/WebSocketOutboundClientTest.php tests/WebSocketOutboundTlsTest.php
    vendor/bin/pest tests/WebSocketConcurrentSessionsTest.php tests/WebSocketBackpressureAcceptanceTest.php
+   vendor/bin/pest tests/WebSocketDeterministicFuzzTest.php
 
 The webtransport-design-3.0 document records planned session ownership.
 
