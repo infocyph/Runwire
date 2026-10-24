@@ -18,10 +18,8 @@ use Throwable;
  */
 final readonly class ScopedFiles
 {
-    public function __construct(
-        private AsyncFileSystem $files,
-        private CoroutineScope $scope,
-    ) {}
+    /** Borrow the shared filesystem executor and its active coroutine scope. */
+    public function __construct(private AsyncFileSystem $files, private CoroutineScope $scope) {}
 
     /** Await a bounded binary file read without blocking the owning reactor. */
     public function read(
@@ -82,11 +80,14 @@ final readonly class ScopedFiles
                 $deadline,
             ),
         );
-        if (!is_array($result)) {
+        if (!is_array($result)
+            || !is_int($result['size'] ?? null)
+            || !is_int($result['mtime'] ?? null)
+            || !is_int($result['mode'] ?? null)) {
             throw new LogicException('Scoped file stat returned invalid metadata.');
         }
 
-        return $result;
+        return ['size' => $result['size'], 'mtime' => $result['mtime'], 'mode' => $result['mode']];
     }
 
     /** Await a bounded worker-local unlink. */

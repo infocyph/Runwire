@@ -236,7 +236,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
         ];
     }
 
-    $encoded = json_encode($response, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+    $encoded = json_encode($response, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES);
     if (strlen($encoded) > MAX_MESSAGE_BYTES) {
         throw new RuntimeException('Executor response exceeds IPC limit.');
     }

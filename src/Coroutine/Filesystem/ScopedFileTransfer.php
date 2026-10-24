@@ -18,10 +18,8 @@ final readonly class ScopedFileTransfer
 
     public const int MAX_TRANSFER_BYTES = 67_108_864;
 
-    public function __construct(
-        private ScopedFiles $files,
-        private AsyncConnection $network,
-    ) {}
+    /** Borrow scope-owned file and network endpoints without changing ownership. */
+    public function __construct(private ScopedFiles $files, private AsyncConnection $network) {}
 
     /**
      * Receive a bounded byte range into the existing file at an explicit offset.

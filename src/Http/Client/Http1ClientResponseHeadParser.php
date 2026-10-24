@@ -25,7 +25,7 @@ final readonly class Http1ClientResponseHeadParser
     public static function parse(string $wireHead, int $maxBodyBytes): array
     {
         $lines = explode("\r\n", $wireHead);
-        $statusLine = array_shift($lines) ?? '';
+        $statusLine = array_shift($lines);
         if (preg_match('/^HTTP\/1\.([01]) ([1-5][0-9]{2})(?: [\x20-\x7E]*)?$/D', $statusLine, $match) !== 1) {
             throw new RuntimeException('Malformed HTTP/1.1 response status line.');
         }

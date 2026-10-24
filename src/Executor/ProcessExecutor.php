@@ -180,7 +180,7 @@ final class ProcessExecutor
         $id = $this->nextJobId++;
         $packet = json_encode(
             ['id' => $id, 'op' => $operation, 'args' => $arguments],
-            JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
+            JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES,
         ) . "\n";
         if (strlen($packet) > self::MAX_PACKET_BYTES) {
             throw new InvalidArgumentException('Executor payload exceeds its bounded IPC limit.');

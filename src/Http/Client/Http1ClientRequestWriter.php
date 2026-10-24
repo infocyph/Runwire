@@ -33,10 +33,12 @@ final class Http1ClientRequestWriter
         int $maxHeaderBytes = 65_536,
     ) {
         if ($maxBodyBytes < 0 || $maxHeaderBytes < 1 || $maxHeaderBytes > 1_048_576) {
+
             throw new InvalidArgumentException('Invalid outbound HTTP/1.1 byte budget.');
         }
         if (!in_array(ProtocolVersion::HTTP_1_1, $request->protocol->allowedVersions, true)
             || ($request->protocol->preferred !== ProtocolVersion::HTTP_1_1 && !$request->protocol->allowFallback)) {
+
             throw new InvalidArgumentException('HTTP/1.1 request writer requires explicit protocol preference or authorized fallback.');
         }
 
@@ -56,9 +58,11 @@ final class Http1ClientRequestWriter
     public function next(int $maxBodyChunkBytes = 65_536): string
     {
         if ($maxBodyChunkBytes < 1 || $maxBodyChunkBytes > 1_048_576) {
+
             throw new InvalidArgumentException('Invalid HTTP/1.1 write chunk budget.');
         }
         if ($this->done) {
+
             return '';
         }
         if (!$this->headSent) {
@@ -83,11 +87,13 @@ final class Http1ClientRequestWriter
         }
         $bytes = $body->read(min($maxBodyChunkBytes, $this->maxBodyBytes - $this->bodyBytes + 1));
         if ($bytes === '') {
+
             return '';
         }
         $this->bodyBytes += strlen($bytes);
         if ($this->bodyBytes > $this->maxBodyBytes || strlen($bytes) > $maxBodyChunkBytes) {
             $this->done = true;
+
             throw new RuntimeException('HTTP/1.1 streaming upload exceeds the configured byte budget.');
         }
 
@@ -108,6 +114,7 @@ final class Http1ClientRequestWriter
     {
         $parts = parse_url($this->request->uri);
         if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
+
             throw new InvalidArgumentException('Invalid HTTP/1.1 request target.');
         }
         $authority = $this->authority($parts['host'], $parts['port'] ?? null);
@@ -119,6 +126,7 @@ final class Http1ClientRequestWriter
         ];
         $head = implode("\r\n", $lines) . "\r\n\r\n";
         if (strlen($head) > $maxHeaderBytes) {
+
             throw new InvalidArgumentException('HTTP/1.1 request headers exceed the configured budget.');
         }
 
@@ -131,10 +139,12 @@ final class Http1ClientRequestWriter
         $frame = "0\r\n";
         foreach ($trailers?->fields() ?? [] as $field) {
             if (in_array($field->name, ['content-length', 'transfer-encoding', 'host', 'trailer', 'connection'], true)) {
+
                 throw new RuntimeException('HTTP/1.1 upload trailer contains a prohibited framing or routing field.');
             }
             $frame .= $field->name . ': ' . $field->value . "\r\n";
             if (strlen($frame) > 65_536) {
+
                 throw new RuntimeException('HTTP/1.1 upload trailers exceed the limit.');
             }
         }
@@ -147,6 +157,7 @@ final class Http1ClientRequestWriter
     {
         $fields = $this->request->headers->fields();
         if (count($fields) > 100) {
+
             throw new InvalidArgumentException('Too many HTTP/1.1 request headers.');
         }
         $lines = [];
@@ -167,6 +178,7 @@ final class Http1ClientRequestWriter
     {
         if ($field->name === 'host') {
             if (strtolower(trim($field->value)) !== strtolower($authority)) {
+
                 throw new InvalidArgumentException('HTTP Host header must match the verified request origin.');
             }
 
@@ -174,9 +186,11 @@ final class Http1ClientRequestWriter
         }
         if ($field->name === 'transfer-encoding'
             || ($this->request->body !== null && $field->name === 'content-length')) {
+
             throw new InvalidArgumentException('HTTP/1.1 request framing is owned by the serializer.');
         }
         if ($this->request->body === null && $field->name === 'content-length' && trim($field->value) !== '0') {
+
             throw new InvalidArgumentException('Nonzero Content-Length cannot be used without an upload body.');
         }
 
@@ -190,6 +204,7 @@ final class Http1ClientRequestWriter
             $target .= '?' . $query;
         }
         if (!str_starts_with($target, '/') || str_contains($target, "\r") || str_contains($target, "\n")) {
+
             throw new InvalidArgumentException('Invalid HTTP/1.1 origin-form request target.');
         }
 
