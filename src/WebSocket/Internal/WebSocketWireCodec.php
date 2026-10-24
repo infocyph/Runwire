@@ -58,6 +58,32 @@ final readonly class WebSocketWireCodec
         return $first . chr(127) . pack('NN', 0, $length) . $payload;
     }
 
+    /** Encode a client-to-server frame with a fresh cryptographic masking key. */
+    public static function clientFrame(int $opcode, string $payload, bool $fin = true): string
+    {
+        if (!in_array($opcode, [0x0, 0x1, 0x2, 0x8, 0x9, 0xA], true)) {
+            throw new InvalidArgumentException('WebSocket client opcode is reserved or unsupported.');
+        }
+
+        $length = strlen($payload);
+        if ($length > 1_048_576 || ($opcode >= 0x8 && (!$fin || $length > 125))) {
+            throw new InvalidArgumentException('WebSocket client control or payload limits exceeded.');
+        }
+
+        $first = chr(($fin ? 0x80 : 0) | $opcode);
+        if ($length < 126) {
+            $header = $first . chr(0x80 | $length);
+        } elseif ($length <= 65_535) {
+            $header = $first . chr(0x80 | 126) . pack('n', $length);
+        } else {
+            $header = $first . chr(0x80 | 127) . pack('NN', 0, $length);
+        }
+
+        $mask = random_bytes(4);
+
+        return $header . $mask . ($payload ^ str_repeat($mask, intdiv($length + 3, 4)));
+    }
+
     /**
      * Decode and validate a peer close payload.
      *
