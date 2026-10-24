@@ -20,15 +20,19 @@ $stop = static function (Throwable $error) use (&$failure, $session): void {
     $session->dispose();
 };
 
-$exchange = static function (string $payload, callable $done) use ($session, $loop, $stop): void {
+$readyWrites = [];
+$exchange = static function (string $payload, callable $done) use ($session, $loop, $stop, &$readyWrites): void {
     $session->command('open_bidi', 0, '', false,
-        static function (mixed $opened, ?Throwable $error) use ($payload, $session, $loop, $stop, $done): void {
+        static function (mixed $opened, ?Throwable $error) use ($payload, $session, $loop, $stop, $done, &$readyWrites): void {
             if ($error !== null || !is_array($opened) || !is_int($opened['stream'] ?? null)) {
                 $stop($error ?? new RuntimeException('QUIC worker refused a bidirectional stream.'));
+
                 return;
             }
             $stream = $opened['stream'];
-            $session->command('write', $stream, $payload, true,
+            // Both independent streams must exist before either is sent.
+            $readyWrites[] = static function () use ($session, $loop, $stop, $done, $stream, $payload): void {
+                $session->command('write', $stream, $payload, true,
                 static function (mixed $result, ?Throwable $error) use ($payload, $session, $loop, $stop, $done, $stream): void {
                     if ($error !== null || ($result['written'] ?? null) !== strlen($payload)) {
                         $stop($error ?? new RuntimeException('QUIC worker did not accept the full test upload.'));
@@ -67,7 +71,13 @@ $exchange = static function (string $payload, callable $done) use ($session, $lo
                     };
                     $read();
                 },
-            );
+                );
+            };
+            if (count($readyWrites) === 2) {
+                foreach ($readyWrites as $send) {
+                    $send();
+                }
+            }
         },
     );
 };
@@ -130,23 +140,24 @@ try {
             connectTimeoutMilliseconds: 4_000,
             maxOpenStreams: 8,
         ),
-        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, $sendUni, &$completed, $timeout): void {
+        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, $sendUni, &$completed): void {
             if ($error !== null || ($value['alpn'] ?? null) !== 'runwire-echo' || !$session->active()) {
                 $stop($error ?? new RuntimeException('QUIC session TLS/ALPN verification failed.'));
                 return;
             }
 
-            $exchange('first-quic-stream',
-                static function () use ($exchange, $sendUni, &$completed): void {
-                    $completed[] = 'first-quic-stream';
-                    $exchange('second-quic-stream',
-                        static function () use ($sendUni, &$completed): void {
-                            $completed[] = 'second-quic-stream';
-                            $sendUni();
-                        },
-                    );
-                },
-            );
+            $finishBidi = static function (string $payload) use ($sendUni, &$completed): void {
+                $completed[] = $payload;
+                if (count($completed) === 2) {
+                    $sendUni();
+                }
+            };
+            $exchange('first-quic-stream', static function () use ($finishBidi): void {
+                $finishBidi('first-quic-stream');
+            });
+            $exchange('second-quic-stream', static function () use ($finishBidi): void {
+                $finishBidi('second-quic-stream');
+            });
         },
     );
     $loop->run();
@@ -154,7 +165,8 @@ try {
     if ($failure !== null) {
         throw $failure;
     }
-    if ($completed !== ['first-quic-stream', 'second-quic-stream', 'one-way-quic-stream']
+    sort($completed);
+    if ($completed !== ['first-quic-stream', 'one-way-quic-stream', 'second-quic-stream']
         || $session->active() || $loop->diagnostics()->readWatchers !== 0
         || $loop->diagnostics()->writeWatchers !== 0
         || $loop->diagnostics()->timersActive !== 0) {
@@ -165,6 +177,7 @@ try {
         'verified' => true,
         'alpn' => 'runwire-echo',
         'bidi_streams' => 2,
+        'concurrent_bidirectional' => true,
         'unidirectional_streams_delivered' => 1,
         'persistent_worker' => true,
     ], JSON_THROW_ON_ERROR) . PHP_EOL);

@@ -113,3 +113,25 @@ Security & Standards #40060404846 failed the PHPForge Pest/Pint and PHPStan
 gates before this change; a new passing source-linked run is required before
 accepting U05.04/U05.05. The independent H3/QUIC success from that older run
 cannot be substituted for a green exact-source matrix.
+
+Q2-H bounded stream-slot reuse and independent multiplex proof
+=============================================================
+
+The one-worker QUIC backend has a configured maximum number of concurrently
+retained stream objects, not an artificial lifetime ceiling on the number of
+streams that may be created. Reset and native EOF free retained handles; logical
+IDs increase without recycling within a verified worker epoch. Unit tests
+validate stream-slot reuse after FIN/EOF and resetting one active stream while
+a separate stream remains usable. Native client interop initiates two distinct
+bidirectional streams before sending either request, then independently proves
+both byte-accurate echoes, followed by receipt of a client-initiated uni stream
+at the Python server only after its FIN. Actual async stream overlap and
+independent receipt still do not satisfy congestion fairness, packet loss,
+migration or U05.10 latency/throughput certification.
+
+Security & Standards run 40062249460 passed the functional and static analyzer
+lanes but failed PHPForge Pint on the worker class. The Q2-H CI debugging step
+uses the same installed PHPForge Pint on the existing PHP 8.5 QUIC job to
+display the real formatter patch, then reverts the temporary CI-only changes.
+This is diagnostic evidence, not a style gate bypass. Remove the step after
+fixing the worker and verifying all four PHPForge QA lanes green.

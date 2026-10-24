@@ -186,6 +186,18 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
 
+      # Temporary diagnostic for the exact PHPForge Pint fixture. Remove after
+      # the autoformatted output has been reconciled and full QA is green.
+      - name: Inspect exact PHPForge Pint worker formatting
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          test -x vendor/bin/pint
+          vendor/bin/pint src/Network/Internal/QuicWorkerSession.php \
+            --config=vendor/infocyph/phpforge/resources/pint.json --no-ansi
+          git --no-pager diff -- src/Network/Internal/QuicWorkerSession.php
+          git restore -- src/Network/Internal/QuicWorkerSession.php
+
       - name: Verify Runwire QUIC capability detection
         shell: bash
         run: |

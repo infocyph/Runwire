@@ -155,3 +155,32 @@ it('allows command sequence gaps from canceled queued jobs while preserving work
         ->and(base64_decode($received['data'], true))->toBe('payload')
         ->and($native->closed)->toBeFalse();
 });
+
+it('releases a finished native stream slot while maintaining monotonically increasing stream IDs', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1);
+    expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]))
+        ->toBe(['stream' => 1, 'bidirectional' => true]);
+    $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'write', 1, 'ok', true)]);
+    $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'read', 1)]);
+    expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'read', 1)]))
+        ->toBe(['data' => '', 'eof' => true])
+        ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'open_bidi')]))
+        ->toBe(['stream' => 2, 'bidirectional' => true])
+        ->and($native->closed)->toBeFalse();
+});
+
+it('resets one of two active QUIC streams without aborting its sibling', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2);
+    $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
+    $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]);
+    expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'reset', 1)]))
+        ->toBe(['reset' => true])
+        ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'write', 2, 'sibling', true)]))
+        ->toBe(['written' => 7]);
+
+    $received = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'read', 2)]);
+    expect(base64_decode($received['data'], true))->toBe('sibling')
+        ->and($native->closed)->toBeFalse()
+        ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(6, 'open_bidi')]))
+        ->toBe(['stream' => 3, 'bidirectional' => true]);
+});

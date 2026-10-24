@@ -48,6 +48,7 @@ final class QuicWorkerSession
 
         try {
             $command = QuicWorkerCommand::decode($args['command']);
+
             if ($command['id'] <= $this->lastCommandId) {
                 throw new RuntimeException('Stale or replayed native QUIC worker command.');
             }
@@ -80,12 +81,14 @@ final class QuicWorkerSession
         if ($protocols === [] || count($protocols) > 16) {
             throw new InvalidArgumentException('QUIC worker requires 1–16 ALPN identifiers.');
         }
+
         $validated = [];
         foreach ($protocols as $protocol) {
             if (!is_string($protocol) || $protocol === '' || strlen($protocol) > 255
                 || str_contains($protocol, ',') || str_contains($protocol, "\0")) {
                 throw new InvalidArgumentException('Unsafe QUIC ALPN protocol identifier.');
             }
+
             $validated[] = $protocol;
         }
 
@@ -114,14 +117,17 @@ final class QuicWorkerSession
             || !is_int($options['connect_timeout_ms'] ?? null)) {
             throw new InvalidArgumentException('QUIC native worker requires verified TLS 1.3 configuration.');
         }
+
         $timeout = $options['connect_timeout_ms'];
         if ($timeout < 1 || $timeout > 300_000) {
             throw new InvalidArgumentException('QUIC handshake timeout exceeds native worker budget.');
         }
+
         $protocols = $options['alpn'] ?? null;
         if (!is_array($protocols)) {
             throw new InvalidArgumentException('QUIC worker requires explicit ALPN negotiation.');
         }
+
         return $this->assertAlpn($protocols);
     }
 
@@ -207,7 +213,7 @@ final class QuicWorkerSession
      */
     private function openStream(bool $bidirectional): array
     {
-        if ($this->nextStreamId > $this->maxOpenStreams) {
+        if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
             throw new RuntimeException('QUIC native stream admission limit exceeded.');
         }
 
@@ -243,6 +249,9 @@ final class QuicWorkerSession
         $data = $stream->read(QuicWorkerCommand::MAX_DATA_BYTES);
         if ($data !== null && !is_string($data)) {
             throw new RuntimeException('Native QUIC stream returned invalid bytes.');
+        }
+        if ($data === null) {
+            unset($this->streams[$command['stream']]);
         }
 
         return [
