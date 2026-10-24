@@ -32,13 +32,22 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
         }
     }
 
-    preg_match_all('/^\| (U[0-9]{2}) \| [^\n]*? \| (\d+)\/(\d+) \| (\d+) \|/m', $plan, $rows, PREG_SET_ORDER);
+    preg_match_all('/^\| (U[0-9]{2}) \| [^\n]*? \| (\d+)\/(\d+) \| (\d+) \| ([^|]+) \|/m', $plan, $rows, PREG_SET_ORDER);
     expect($rows)->toHaveCount(18);
     foreach ($rows as $row) {
-        [, $batch, $checked, $all, $open] = $row;
+        [, $batch, $checked, $all, $open, $status] = $row;
         expect((int) $all)->toBe($totals[$batch]['all'])
             ->and((int) $checked)->toBe($totals[$batch]['done'])
             ->and((int) $open)->toBe($totals[$batch]['all'] - $totals[$batch]['done']);
+
+        $status = strtolower(trim($status));
+        if ((int) $checked === (int) $all) {
+            expect(in_array($status, ['done', 'complete'], true))->toBeTrue();
+        } elseif ((int) $checked > 0) {
+            expect($status)->toContain('in progress');
+        } else {
+            expect($status)->toBe('not started');
+        }
     }
     $total = count($tasks);
     $open = $total - $done;
