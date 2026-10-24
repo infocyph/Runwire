@@ -10,7 +10,7 @@ Incoming HTTP/1.1 enforces bounds for request lines, headers, chunks,
 body size, parser budgets and connection idle timeout. The development
 Http1ClientRequestWriter and Http1ClientResponseParser handle
 incremental bodies, chunked responses, trailers and malformed
-messages. Neither is a connected, pooled or redirecting HTTP client.
+messages. The branch now also contains experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. A complete ``ClientExchangeInterface`` implementation, H2/H3 clients and verified pooling remain open.
 
 .. code-block:: console
 
