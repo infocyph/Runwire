@@ -43,12 +43,24 @@ opaque credential revision, not the credential itself.
 Bidirectional stream relay
 --------------------------
 
-A relay will need independent bounded read and write queues,
-symmetric high/low watermarks, half-close semantics and explicit
-scope cancellation. Closing one write direction does not require
-prematurely terminating the reverse side; a shutdown deadline must
-close both directions and retire watchers. No high-throughput
-TCP/Unix relay is implemented or certified yet.
+The 3.0 development branch now contains a preliminary
+``Network\\StreamRelay`` for already-established TCP/Unix ``Connection``
+pairs. It takes exclusive protocol callback ownership of both connections,
+forwards bounded chunks using the existing receive/send queues and
+high/low watermarks, suspends upstream transport reads on downstream
+pressure and resumes on drain. Independent Unix stream fixtures exercise
+both directions and resource cleanup; a separate 1 MiB SHA-256 fixture
+tests a temporarily stalled receiver with 64 KiB send/receive caps.
+
+This is **not** a certified release-ready relay: EOF currently aborts
+both sides. Correct half-close semantics, request cancellation,
+shutdown deadlines and drain-after-peer-EOF belong to the remaining
+U10.08 gate. In particular, do not use this primitive yet for a
+production tunnel requiring the reverse stream to outlive a half-close.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/StreamRelayTest.php tests/StreamRelayLargeTransferTest.php
 
 Outbound trust and SSRF guard
 -----------------------------
