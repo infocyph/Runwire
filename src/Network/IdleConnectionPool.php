@@ -91,8 +91,10 @@ final class IdleConnectionPool
                 function () use ($id): void {
                     $this->discard($id);
                 },
-                static function (): void {},
-                function (): void {
+                function () use ($id): void {
+                    $this->discard($id);
+                },
+                function () use ($id): void {
                     $this->discard($id);
                 },
             );
@@ -100,16 +102,28 @@ final class IdleConnectionPool
                 return false;
             }
 
-            $this->entries[$id]['observer'] = $connection->registerCloseObserver(function () use ($id): void {
+            $observer = $connection->registerCloseObserver(function () use ($id): void {
                 $this->discard($id);
             });
-            if (!array_key_exists($id, $this->entries)) {
+            $entry = $this->entries[$id] ?? null;
+            if ($entry === null) {
                 return false;
             }
 
-            $this->entries[$id]['timer'] = $this->loop->delay($this->idleTtlSeconds, function () use ($id): void {
+            $entry['observer'] = $observer;
+            $this->entries[$id] = $entry;
+            $timer = $this->loop->delay($this->idleTtlSeconds, function () use ($id): void {
                 $this->discard($id);
             });
+            $entry = $this->entries[$id] ?? null;
+            if ($entry === null) {
+                $this->loop->cancel($timer);
+
+                return false;
+            }
+
+            $entry['timer'] = $timer;
+            $this->entries[$id] = $entry;
         } catch (Throwable $error) {
             $this->discard($id);
             $connection->abort();
