@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Client;
 
-use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
-use Infocyph\Runwire\Http\Internal\ContentLengthParser;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -78,45 +76,11 @@ final class Http1ClientResponseParser
         $this->buffer .= $bytes;
 
         for ($step = 0; $step < 1_024; ++$step) {
-            $beforeState = $this->state;
-            $beforeBytes = strlen($this->buffer);
-            switch ($this->state) {
-                case 'head':
-                    $this->readHead($onHead, $onEnd);
-                    break;
-                case 'fixed':
-                    $this->readBody($onBody, $onEnd);
-                    break;
-                case 'chunk_line':
-                    $this->readChunkLine();
-                    break;
-                case 'chunk_data':
-                    $this->readChunkData($onBody);
-                    break;
-                case 'chunk_end':
-                    if (strlen($this->buffer) >= 2) {
-                        if (!str_starts_with($this->buffer, "\r\n")) {
-                            throw new RuntimeException('Malformed HTTP/1.1 chunk terminator.');
-                        }
-                        $this->buffer = substr($this->buffer, 2);
-                        $this->state = 'chunk_line';
-                    }
-                    break;
-                case 'trailers':
-                    $this->readTrailers($onEnd);
-                    break;
-                case 'until_eof':
-                    if ($this->buffer !== '') {
-                        $this->deliver($this->buffer, $onBody);
-                        $this->buffer = '';
-                    }
-                    break;
-                case 'done':
-                    return;
-                default:
-                    throw new RuntimeException('Invalid HTTP/1.1 response parser state.');
-            }
-            if ($this->state === $beforeState && strlen($this->buffer) === $beforeBytes) {
+            $previousState = $this->state;
+            $previousBytes = strlen($this->buffer);
+            $this->advance($onHead, $onBody, $onEnd);
+            if ($this->state === 'done'
+                || ($this->state === $previousState && strlen($this->buffer) === $previousBytes)) {
                 return;
             }
         }
@@ -134,6 +98,37 @@ final class Http1ClientResponseParser
     public function trailers(): ?Headers
     {
         return $this->trailers;
+    }
+
+    private function advance(callable $onHead, callable $onBody, callable $onEnd): void
+    {
+        switch ($this->state) {
+            case 'head':
+                $this->readHead($onHead, $onEnd);
+                return;
+            case 'fixed':
+                $this->readBody($onBody, $onEnd);
+                return;
+            case 'chunk_line':
+                $this->readChunkLine();
+                return;
+            case 'chunk_data':
+                $this->readChunkData($onBody);
+                return;
+            case 'chunk_end':
+                $this->readChunkEnd();
+                return;
+            case 'trailers':
+                $this->readTrailers($onEnd);
+                return;
+            case 'until_eof':
+                $this->readUntilEof($onBody);
+                return;
+            case 'done':
+                return;
+            default:
+                throw new RuntimeException('Invalid HTTP/1.1 response parser state.');
+        }
     }
 
     private function complete(callable $onEnd): void
@@ -158,18 +153,24 @@ final class Http1ClientResponseParser
         $onBody($bytes);
     }
 
-    /** Parse one response header or trailer, rejecting obsolete folded lines. */
-    private function parseField(string $line): HeaderField
+    private function prepareBody(bool $chunked, ?int $length, callable $onEnd): void
     {
-        if ($line === '' || str_starts_with($line, ' ') || str_starts_with($line, "\t")) {
-            throw new RuntimeException('Malformed or folded HTTP/1.1 header.');
-        }
-        $colon = strpos($line, ':');
-        if ($colon === false || $colon === 0) {
-            throw new RuntimeException('Malformed HTTP/1.1 header field.');
-        }
+        if ($chunked) {
+            $this->state = 'chunk_line';
 
-        return new HeaderField(substr($line, 0, $colon), trim(substr($line, $colon + 1), " \t"));
+            return;
+        }
+        if ($length === null) {
+            $this->keepAlive = false;
+            $this->state = 'until_eof';
+
+            return;
+        }
+        $this->remaining = $length;
+        $this->state = 'fixed';
+        if ($length === 0) {
+            $this->complete($onEnd);
+        }
     }
 
     private function readBody(callable $onBody, callable $onEnd): void
@@ -199,6 +200,18 @@ final class Http1ClientResponseParser
         if ($this->remaining === 0) {
             $this->state = 'chunk_end';
         }
+    }
+
+    private function readChunkEnd(): void
+    {
+        if (strlen($this->buffer) < 2) {
+            return;
+        }
+        if (!str_starts_with($this->buffer, "\r\n")) {
+            throw new RuntimeException('Malformed HTTP/1.1 chunk terminator.');
+        }
+        $this->buffer = substr($this->buffer, 2);
+        $this->state = 'chunk_line';
     }
 
     private function readChunkLine(): void
@@ -241,108 +254,51 @@ final class Http1ClientResponseParser
             if (strlen($this->buffer) > $this->maxHeaderBytes) {
                 throw new RuntimeException('HTTP/1.1 response head exceeds byte budget.');
             }
+
             return;
         }
         if ($end + 4 > $this->maxHeaderBytes) {
             throw new RuntimeException('HTTP/1.1 response headers exceed byte budget.');
         }
 
-        $lines = explode("\r\n", substr($this->buffer, 0, $end));
-        $statusLine = array_shift($lines);
-        if (!is_string($statusLine)
-            || preg_match('/^HTTP\/1\.([01]) ([1-5][0-9]{2})(?: [\x20-\x7E]*)?$/D', $statusLine, $match) !== 1) {
-            throw new RuntimeException('Malformed HTTP/1.1 response status line.');
-        }
-        $fields = [];
-        foreach ($lines as $line) {
-            $fields[] = $this->parseField($line);
-            if (count($fields) > 100) {
-                throw new RuntimeException('HTTP/1.1 response header count exceeded.');
-            }
-        }
-        $headers = new Headers($fields);
-        $code = (int) $match[2];
+        $head = Http1ClientResponseHeadParser::parse(substr($this->buffer, 0, $end), $this->maxBodyBytes);
         $this->buffer = substr($this->buffer, $end + 4);
-        if ($code < 200) {
-            if ($code === 101) {
+        if ($head['code'] < 200) {
+            if ($head['code'] === 101) {
                 throw new RuntimeException('HTTP/1.1 protocol upgrade requires a dedicated owner.');
             }
-            return; // Informational responses are consumed before final response.
-        }
-        $this->status = $code;
-        $close = false;
-        foreach ($headers->all('connection') as $fieldValue) {
-            foreach (explode(',', strtolower($fieldValue)) as $token) {
-                if (trim($token) === 'close') {
-                    $close = true;
-                    break 2;
-                }
-            }
-        }
-        $this->keepAlive = $match[1] === '1' && !$close;
-        $transfer = $headers->all('transfer-encoding');
-        $lengths = $headers->all('content-length');
-        if (count($transfer) > 1 || count($lengths) > 1 || ($transfer !== [] && $lengths !== [])) {
-            throw new RuntimeException('Ambiguous HTTP/1.1 response message framing.');
-        }
-        $chunked = $transfer !== [];
-        if ($chunked && strtolower(trim($transfer[0])) !== 'chunked') {
-            throw new RuntimeException('Unsupported HTTP/1.1 Transfer-Encoding.');
-        }
-        $length = $lengths === [] ? null : ContentLengthParser::parse($lengths[0]);
-        if ($length !== null && $length > $this->maxBodyBytes) {
-            throw new RuntimeException('HTTP/1.1 Content-Length exceeds body budget.');
-        }
-        $onHead($code, $headers);
-        if ($this->headRequest || $code === 204 || $code === 304) {
-            $this->complete($onEnd);
+
             return;
         }
-        if ($chunked) {
-            $this->state = 'chunk_line';
-        } elseif ($length !== null) {
-            $this->remaining = $length;
-            $this->state = 'fixed';
-            if ($length === 0) {
-                $this->complete($onEnd);
-            }
-        } else {
-            $this->keepAlive = false;
-            $this->state = 'until_eof';
+        $this->status = $head['code'];
+        $this->keepAlive = $head['http11'] && !$head['close'];
+        $onHead($head['code'], $head['headers']);
+        if ($this->headRequest || in_array($head['code'], [204, 304], true)) {
+            $this->complete($onEnd);
+
+            return;
         }
+
+        $this->prepareBody($head['chunked'], $head['length'], $onEnd);
     }
 
     private function readTrailers(callable $onEnd): void
     {
-        $fields = [];
-        $consumed = 0;
-        while (true) {
-            $end = strpos($this->buffer, "\r\n", $consumed);
-            if ($end === false) {
-                if (strlen($this->buffer) > $this->maxHeaderBytes) {
-                    throw new RuntimeException('HTTP/1.1 response trailers exceed limit.');
-                }
-                return;
-            }
-            $line = substr($this->buffer, $consumed, $end - $consumed);
-            $consumed = $end + 2;
-            if ($consumed > $this->maxHeaderBytes) {
-                throw new RuntimeException('HTTP/1.1 response trailers exceed limit.');
-            }
-            if ($line === '') {
-                $this->buffer = substr($this->buffer, $consumed);
-                $this->trailers = new Headers($fields);
-                $this->complete($onEnd);
-                return;
-            }
-            $field = $this->parseField($line);
-            if (in_array($field->name, ['content-length', 'transfer-encoding', 'host', 'connection'], true)) {
-                throw new RuntimeException('Framing/routing field forbidden in HTTP/1.1 trailers.');
-            }
-            $fields[] = $field;
-            if (count($fields) > 100) {
-                throw new RuntimeException('HTTP/1.1 response trailer count exceeded.');
-            }
+        $parsed = Http1ClientResponseHeadParser::parseTrailers($this->buffer, $this->maxHeaderBytes);
+        if ($parsed === null) {
+            return;
         }
+        $this->buffer = substr($this->buffer, $parsed['used']);
+        $this->trailers = $parsed['trailers'];
+        $this->complete($onEnd);
+    }
+
+    private function readUntilEof(callable $onBody): void
+    {
+        if ($this->buffer === '') {
+            return;
+        }
+        $this->deliver($this->buffer, $onBody);
+        $this->buffer = '';
     }
 }

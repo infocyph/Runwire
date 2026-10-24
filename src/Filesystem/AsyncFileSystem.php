@@ -86,8 +86,10 @@ final readonly class AsyncFileSystem
             'rename',
             ['from' => $from, 'to' => $to],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
-                $completion($error === null && $value === true,
-                    $error ?? ($value === true ? null : new RuntimeException('File rename worker returned an invalid result.')));
+                $completion(
+                    $error === null && $value === true,
+                    $error ?? ($value === true ? null : new RuntimeException('File rename worker returned an invalid result.')),
+                );
             },
             $token,
             $deadline,
@@ -144,8 +146,10 @@ final readonly class AsyncFileSystem
             'unlink',
             ['path' => $path],
             static function (mixed $value, ?Throwable $error) use ($completion): void {
-                $completion($error === null && $value === true,
-                    $error ?? ($value === true ? null : new RuntimeException('File unlink worker returned an invalid result.')));
+                $completion(
+                    $error === null && $value === true,
+                    $error ?? ($value === true ? null : new RuntimeException('File unlink worker returned an invalid result.')),
+                );
             },
             $token,
             $deadline,

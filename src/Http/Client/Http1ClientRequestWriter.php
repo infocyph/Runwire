@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Client;
 
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use InvalidArgumentException;
 use RuntimeException;
@@ -39,50 +40,7 @@ final class Http1ClientRequestWriter
             throw new InvalidArgumentException('HTTP/1.1 request writer requires explicit protocol preference or authorized fallback.');
         }
 
-        $url = parse_url($request->uri);
-        if (!is_array($url) || !is_string($url['host'] ?? null)) {
-            throw new InvalidArgumentException('Invalid HTTP/1.1 request target.');
-        }
-        $host = $url['host'];
-        $authority = str_contains($host, ':') && !str_starts_with($host, '[') ? '[' . $host . ']' : $host;
-        if (isset($url['port'])) {
-            $authority .= ':' . $url['port'];
-        }
-        $target = ($url['path'] ?? '/') ?: '/';
-        if (isset($url['query'])) {
-            $target .= '?' . $url['query'];
-        }
-        if (!str_starts_with($target, '/') || str_contains($target, "\r") || str_contains($target, "\n")) {
-            throw new InvalidArgumentException('Invalid HTTP/1.1 origin-form request target.');
-        }
-
-        $lines = [$request->method . ' ' . $target . ' HTTP/1.1', 'Host: ' . $authority];
-        if (count($request->headers->fields()) > 100) {
-            throw new InvalidArgumentException('Too many HTTP/1.1 request headers.');
-        }
-        foreach ($request->headers->fields() as $field) {
-            if ($field->name === 'host') {
-                if (strtolower(trim($field->value)) !== strtolower($authority)) {
-                    throw new InvalidArgumentException('HTTP Host header must match the verified request origin.');
-                }
-
-                continue;
-            }
-            if ($field->name === 'transfer-encoding' || ($request->body !== null && $field->name === 'content-length')) {
-                throw new InvalidArgumentException('HTTP/1.1 request framing is owned by the serializer.');
-            }
-            if ($request->body === null && $field->name === 'content-length' && trim($field->value) !== '0') {
-                throw new InvalidArgumentException('Nonzero Content-Length cannot be used without an upload body.');
-            }
-            $lines[] = $field->name . ': ' . $field->value;
-        }
-        if ($request->body !== null) {
-            $lines[] = 'Transfer-Encoding: chunked';
-        }
-        $this->head = implode("\r\n", $lines) . "\r\n\r\n";
-        if (strlen($this->head) > $maxHeaderBytes) {
-            throw new InvalidArgumentException('HTTP/1.1 request headers exceed the configured budget.');
-        }
+        $this->head = $this->buildHead($maxHeaderBytes);
     }
 
     /** Whether all request bytes, including the final chunk, have been yielded. */
@@ -136,6 +94,37 @@ final class Http1ClientRequestWriter
         return dechex(strlen($bytes)) . "\r\n" . $bytes . "\r\n";
     }
 
+    private function authority(string $host, ?int $port): string
+    {
+        $authority = str_contains($host, ':') && !str_starts_with($host, '[') ? '[' . $host . ']' : $host;
+        if ($port !== null) {
+            $authority .= ':' . $port;
+        }
+
+        return $authority;
+    }
+
+    private function buildHead(int $maxHeaderBytes): string
+    {
+        $parts = parse_url($this->request->uri);
+        if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
+            throw new InvalidArgumentException('Invalid HTTP/1.1 request target.');
+        }
+        $authority = $this->authority($parts['host'], $parts['port'] ?? null);
+        $target = $this->target($parts['path'] ?? '/', $parts['query'] ?? null);
+        $lines = [
+            $this->request->method . ' ' . $target . ' HTTP/1.1',
+            'Host: ' . $authority,
+            ...$this->requestHeaders($authority),
+        ];
+        $head = implode("\r\n", $lines) . "\r\n\r\n";
+        if (strlen($head) > $maxHeaderBytes) {
+            throw new InvalidArgumentException('HTTP/1.1 request headers exceed the configured budget.');
+        }
+
+        return $head;
+    }
+
     /** Validate trailer names and sizes before the final chunk is sent. */
     private function finalChunk(?Headers $trailers): string
     {
@@ -151,5 +140,59 @@ final class Http1ClientRequestWriter
         }
 
         return $frame . "\r\n";
+    }
+
+    /** @return list<string> */
+    private function requestHeaders(string $authority): array
+    {
+        $fields = $this->request->headers->fields();
+        if (count($fields) > 100) {
+            throw new InvalidArgumentException('Too many HTTP/1.1 request headers.');
+        }
+        $lines = [];
+        foreach ($fields as $field) {
+            $line = $this->serializeField($field, $authority);
+            if ($line !== null) {
+                $lines[] = $line;
+            }
+        }
+        if ($this->request->body !== null) {
+            $lines[] = 'Transfer-Encoding: chunked';
+        }
+
+        return $lines;
+    }
+
+    private function serializeField(HeaderField $field, string $authority): ?string
+    {
+        if ($field->name === 'host') {
+            if (strtolower(trim($field->value)) !== strtolower($authority)) {
+                throw new InvalidArgumentException('HTTP Host header must match the verified request origin.');
+            }
+
+            return null;
+        }
+        if ($field->name === 'transfer-encoding'
+            || ($this->request->body !== null && $field->name === 'content-length')) {
+            throw new InvalidArgumentException('HTTP/1.1 request framing is owned by the serializer.');
+        }
+        if ($this->request->body === null && $field->name === 'content-length' && trim($field->value) !== '0') {
+            throw new InvalidArgumentException('Nonzero Content-Length cannot be used without an upload body.');
+        }
+
+        return $field->name . ': ' . $field->value;
+    }
+
+    private function target(string $path, ?string $query): string
+    {
+        $target = $path === '' ? '/' : $path;
+        if ($query !== null) {
+            $target .= '?' . $query;
+        }
+        if (!str_starts_with($target, '/') || str_contains($target, "\r") || str_contains($target, "\n")) {
+            throw new InvalidArgumentException('Invalid HTTP/1.1 origin-form request target.');
+        }
+
+        return $target;
     }
 }
