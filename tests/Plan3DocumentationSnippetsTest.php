@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 it('keeps every native RST PHP example syntactically parseable', function (): void {
-    $files = glob(dirname(__DIR__) . '/docs/*.rst');
-    expect($files)->toBeArray()->not->toBeEmpty();
+    $files = glob(dirname(__DIR__) . '/docs/*.rst') ?: [];
+    expect($files)->not->toBeEmpty();
     $examples = 0;
 
     foreach ($files as $file) {
-        $lines = file($file, FILE_IGNORE_NEW_LINES);
-        expect($lines)->toBeArray();
+        $lines = file($file, FILE_IGNORE_NEW_LINES) ?: [];
+        expect($lines)->not->toBeEmpty();
 
         for ($index = 0, $count = count($lines); $index < $count; ++$index) {
             if (trim($lines[$index]) !== '.. code-block:: php') {
@@ -50,13 +50,15 @@ it('keeps every native RST PHP example syntactically parseable', function (): vo
 
 it('resolves all documented runnable fixture and benchmark references', function (): void {
     $root = dirname(__DIR__);
-    $files = glob($root . '/docs/*.rst');
-    expect($files)->toBeArray()->not->toBeEmpty();
+    $files = glob($root . '/docs/*.rst') ?: [];
+    expect($files)->not->toBeEmpty();
     $references = 0;
 
     foreach ($files as $file) {
         $source = file_get_contents($file);
-        expect($source)->toBeString();
+        if (!is_string($source)) {
+            throw new RuntimeException('Unreadable RST source: ' . $file);
+        }
         preg_match_all('~\b(?:tests|tools|benchmarks)/[A-Za-z0-9_./-]+\.(?:php|py)\b~', $source, $matches);
 
         foreach (array_unique($matches[0]) as $relative) {
