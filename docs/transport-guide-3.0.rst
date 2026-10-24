@@ -82,6 +82,17 @@ plaintext.
 The negative test cases reject unavailable TLS while retaining ordinary
 TCP. They do not certify outgoing HTTP/2 or HTTP/3 client behavior.
 
+Outbound numeric TCP and Unix dials create a fresh PHP stream context for
+each connection. They do not inherit a process-global default SSL
+``local_cert``, ``cafile`` or peer-policy value from a previous request.
+An isolated subprocess regression deliberately poisons default SSL context
+with a missing certificate and confirms that explicitly trusted TLS remains
+independent while preserving strict peer verification.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/DialerContextIsolationTest.php
+
 Off-loop DNS and IPv4/IPv6 Happy Eyeballs
 ------------------------------------------
 
