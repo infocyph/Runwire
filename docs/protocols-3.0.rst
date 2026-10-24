@@ -43,7 +43,7 @@ transparent H1 fallback, a complete H2 client, or H3/WT.
    vendor/bin/pest tests/Http2ConnectionTest.php tests/Http2AbuseTest.php
    vendor/bin/pest tests/Http2ClientHandshakeTest.php tests/Http2ClientResponseParserTest.php
    vendor/bin/pest tests/Http2ClientSessionTest.php tests/Http2ConnectedExchangeTest.php
-   vendor/bin/pest tests/Http2OutboundClientTest.php
+   vendor/bin/pest tests/Http2OutboundClientTest.php tests/Http2ConnectedExchangeCancellationTest.php
 
 HTTP/3 and QUIC server
 ----------------------

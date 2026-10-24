@@ -64,6 +64,7 @@ final readonly class Http2OutboundClient
 
                     return;
                 }
+
                 try {
                     $exchange = new Http2ConnectedExchange(
                         $loop,

@@ -82,6 +82,7 @@ final class Http2ConnectedExchange
         }
         $this->started = true;
         $this->outgoing = $this->session->start();
+
         try {
             $this->connection->handoffCallbacks(
                 $this,
@@ -136,8 +137,9 @@ final class Http2ConnectedExchange
         if ($this->settled) {
             return;
         }
+
         try {
-            for ($turn = 0; $turn < 8 && !$this->settled; ++$turn) {
+            for ($turn = 0; $turn < 8; ++$turn) {
                 $bytes = $this->connection->receivedBytes() > 0
                     ? $this->connection->read(8_192)
                     : '';
@@ -188,7 +190,11 @@ final class Http2ConnectedExchange
     private function processFrames(string $bytes): bool
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {
-            $this->queue($this->session->receive($frame));
+            $wire = $this->session->receive($frame);
+            if ($this->settled) {
+                return true;
+            }
+            $this->queue($wire);
             if ($this->session->done()) {
                 $this->finish(null);
 
@@ -204,6 +210,7 @@ final class Http2ConnectedExchange
         if ($this->settled || $this->outgoing === '') {
             return;
         }
+
         try {
             for ($chunks = 0; $chunks < 8 && $this->outgoing !== ''; ++$chunks) {
                 $available = $this->connection->availableWriteBytes();

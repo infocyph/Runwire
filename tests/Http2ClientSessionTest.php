@@ -96,3 +96,25 @@ it('fails closed on pre-SETTINGS response, GOAWAY, non-H2 request and custom hea
     expect(fn() => $session->receive(FrameWriter::goAway(1, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR)))
         ->toThrow(RuntimeException::class, 'before END_STREAM');
 });
+
+it('never publishes HEAD response DATA bytes even with a valid H2 HEADERS block', function (): void {
+    $seen = [];
+    $body = '';
+    $session = new Http2ClientSession(
+        new ClientRequest('HEAD', 'https://example.test/metadata'),
+        static function (int $status) use (&$seen): void {
+            $seen[] = $status;
+        },
+        static function (string $chunk) use (&$body): void {
+            $body .= $chunk;
+        },
+    );
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $block = (new Encoder())->encode([[':status', '200']]);
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, $block));
+    expect(fn() => $session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'private')))
+        ->toThrow(RuntimeException::class, 'HEAD response must not contain body bytes')
+        ->and($body)->toBe('')
+        ->and($seen)->toBe([200]);
+});

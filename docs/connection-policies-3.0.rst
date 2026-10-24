@@ -1,10 +1,11 @@
 Pool, proxy, relay and credential boundaries (Runwire 3.0)
 ==========================================================
 
-This is unreleased development documentation, not a feature list
-of connected HTTP client pools, proxy clients or relays. At present,
-only a constrained pool identity contract and outgoing TCP/Unix
-dial and owner-transfer primitives are available.
+This is unreleased Runwire 3.0 development documentation, not
+production certification for client pools or proxy connectors.
+The branch includes bounded H1 connections, a constrained experimental
+H2 one-shot TLS client, idle pool admission and TCP/Unix relay primitives;
+active H2 multiplex reuse and CONNECT/SOCKS5 remain unfinished.
 
 Connection identity and reuse
 -----------------------------
@@ -76,8 +77,9 @@ to survive peer FIN. The output half-close occurs only after accepted
 bytes drain, without busy retries, and both sides close when finished.
 Cancellation and deadline still abort both sides immediately. Raw
 ``shutdown(SHUT_WR)`` is not an authenticated TLS ``close_notify``;
-encrypted relays retain fail-closed EOF behavior. U10.08 remains unaccepted
-until exact-source QA and independent peer tests pass.
+encrypted relays retain fail-closed EOF behavior. The scoped cleartext
+half-close and cancellation task U10.08 was QA-accepted at 3e31268;
+TLS close-notify remains outside its verified scope.
 
 .. code-block:: console
 
@@ -146,8 +148,9 @@ management, a generalized proxy connector or safe retry of visible replies.
 
    vendor/bin/pest tests/ClientRedirectRetryPolicyTest.php tests/Http1PolicyClientTest.php
 
-These are new QA-pending 3.0 development contracts. No U07.09 or U14.05
-acceptance is implied until independent HTTP peer and PHPForge tests pass.
+The bounded H1 redirect/retry and proxy-secret isolation tasks U07.09 and
+U14.05 were QA-accepted at 3e31268. This does not certify transparent H2/H3
+redirects, authenticated proxy connectors or a shared cookie jar.
 
 Direct origin proxy-secret boundary
 -----------------------------------
