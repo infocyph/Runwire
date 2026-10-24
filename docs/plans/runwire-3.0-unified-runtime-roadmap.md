@@ -304,3 +304,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **W9 real socket RFC6455 header peer staged (2026-10-24):** Actual socket pair sends client upgrade and independently computes 101 acceptance; no connected WS client claim. U09.02 OPEN. **100/175, 75 open.**
 
 **W10 backpressure and bounded WebSocket send staged (2026-10-24):** Real initially stalled stream with 4KiB send hard cap, PRESSURED/reject assertion, then peer-drain callback and zero watcher/timer cleanup; W6 64 connections previously staged. U09.03 QA pending. **100/175, 75 open.**
+
+**E7 QA fix staged (2026-10-24):** Refactor W8 URI complexity and redundant port check, apply Rector callable, drive actual OS socket saturation for W10 pressure fixture. Counters unchanged until full green. **100/175, 75 open.**

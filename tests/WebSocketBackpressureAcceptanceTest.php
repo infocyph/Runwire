@@ -36,7 +36,7 @@ it('bounds outgoing WebSocket messages behind a stalled peer and resumes under d
     $stop = null;
 
     try {
-        for ($i = 0; $i < 64; ++$i) {
+        for ($i = 0; $i < 8_192; ++$i) {
             $result = $session->sendText(str_repeat('x', 512));
             $pressured = $pressured || $result->pressured();
             if (!$result->accepted()) {
