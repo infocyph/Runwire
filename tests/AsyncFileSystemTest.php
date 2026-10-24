@@ -167,9 +167,8 @@ it('preserves a full 1 MiB binary file with SHA-256 parity through bounded offse
 });
 
 it('retires a genuinely blocked active FIFO file reader on cancellation exactly once', function (): void {
-    if (!function_exists('posix_mkfifo') || DIRECTORY_SEPARATOR === '\\') {
-        $this->markTestSkipped('This active-file-cancel test requires Unix FIFO support.');
-    }
+    // Test dependencies include ext-posix; keep this a mandatory exercised fixture.
+    expect(function_exists('posix_mkfifo'))->toBeTrue();
 
     $path = tempnam(sys_get_temp_dir(), 'runwire-fifo-job-');
     expect($path)->toBeString();
