@@ -99,7 +99,7 @@ it('interrupts a partially half-closed relay without orphaning watchers or cance
         expect(fwrite($leftPeer, 'fin'))->toBe(3);
         expect(stream_socket_shutdown($leftPeer, STREAM_SHUT_WR))->toBeTrue();
         $timer = $loop->delay(0.02, static function () use ($source, $loop): void {
-            $source->cancel(CancellationReason::HOST_CANCELLED);
+            $source->cancel(CancellationReason::WORKER_SHUTDOWN);
             $loop->stop();
         });
         $loop->run();

@@ -44,6 +44,7 @@ function guardFilePath(array $args, string $name): void
     if ($parent === false || ($parent !== $canonicalRoot && !str_starts_with($parent, $prefix))) {
         throw new RuntimeException('Filesystem parent is outside the configured root.');
     }
+    guardFilePathPermissions($args, $name, $path, $parent);
 }
 
 /** @internal Validate components without a path mutation or symlink hop. */
@@ -60,6 +61,24 @@ function guardFilePathSegments(string $relative, string $canonicalRoot): void
         clearstatcache(true, $current);
         if (is_link($current)) {
             throw new RuntimeException('Filesystem symlink traversal is forbidden.');
+        }
+    }
+}
+
+/** @param array<mixed> $args */
+function guardFilePathPermissions(array $args, string $name, string $path, string $parent): void
+{
+    $parentMode = fileperms($parent);
+    if ($parentMode === false || ($parentMode & 0111) === 0) {
+        throw new RuntimeException('Restricted filesystem parent lacks directory search permission.');
+    }
+    $leafMode = file_exists($path) ? fileperms($path) : false;
+    if ($leafMode !== false && $name === 'path') {
+        if (isset($args['length']) && ($leafMode & 0444) === 0) {
+            throw new RuntimeException('Restricted filesystem file is not readable.');
+        }
+        if (isset($args['data']) && ($leafMode & 0222) === 0) {
+            throw new RuntimeException('Restricted filesystem file is not writable.');
         }
     }
 }

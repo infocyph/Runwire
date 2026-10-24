@@ -14,6 +14,9 @@ it('rejects worker-side symlink traversal and off-root paths without blocking th
     expect($outside)->toBeString();
     file_put_contents($inside, 'protected');
     file_put_contents($outside, 'unchanged');
+    $denied = $root . '/permission-denied';
+    file_put_contents($denied, 'locked');
+    expect(chmod($denied, 0000))->toBeTrue();
     $link = $root . '/linked-file';
     $nested = $root . '/linked-dir';
     expect(symlink($outside, $link))->toBeTrue()
@@ -31,6 +34,12 @@ it('rejects worker-side symlink traversal and off-root paths without blocking th
     try {
         $filesystem->read($inside, 9, static function (string $value, ?Throwable $error) use (&$results): void {
             $results['allowed'] = [$value, $error];
+        });
+        $filesystem->read($denied, 8, static function (string $value, ?Throwable $error) use (&$results): void {
+            $results['permission-read'] = [$value, $error];
+        });
+        $filesystem->write($denied, 'unsafe', static function (int $written, ?Throwable $error) use (&$results): void {
+            $results['permission-write'] = [$written, $error];
         });
         $filesystem->read($link, 12, static function (string $value, ?Throwable $error) use (&$results): void {
             $results['symlink'] = [$value, $error];
@@ -56,8 +65,10 @@ it('rejects worker-side symlink traversal and off-root paths without blocking th
         });
         $loop->run();
 
-        expect($results)->toHaveCount(7)
+        expect($results)->toHaveCount(9)
             ->and($results['allowed'])->toBe(['protected', null])
+            ->and($results['permission-read'][1])->toBeInstanceOf(Throwable::class)
+            ->and($results['permission-write'][1])->toBeInstanceOf(Throwable::class)
             ->and($results['symlink'][1])->toBeInstanceOf(Throwable::class)
             ->and($results['outside'][1])->toBeInstanceOf(Throwable::class)
             ->and($results['traversal'][1])->toBeInstanceOf(Throwable::class)
@@ -76,6 +87,8 @@ it('rejects worker-side symlink traversal and off-root paths without blocking th
         $executor->close();
         unlink($link);
         unlink($nested);
+        chmod($denied, 0600);
+        unlink($denied);
         unlink($inside);
         unlink($outside);
         rmdir($root);

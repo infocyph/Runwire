@@ -106,6 +106,7 @@ final class BoundedConnectionPool
         $firstError = null;
         foreach ($waiters as $id => $entry) {
             $this->loop->cancel($entry['timer']);
+
             try {
                 ($entry['callback'])($id, null, new RuntimeException('Connection pool closed.'));
             } catch (Throwable $error) {
