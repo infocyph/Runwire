@@ -409,7 +409,7 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
     $baselineBytes = memory_get_usage(true);
     $fdBaseline = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd') ?: []) : null;
 
-    for ($iteration = 0; $iteration < 128; ++$iteration) {
+    for ($iteration = 0; $iteration < 512; ++$iteration) {
         [$server, $peer] = runwireAsyncConnectionPair();
         $connection = new Connection($loop, $server);
         try {
@@ -439,6 +439,13 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
             });
 
             $latencies[] = (hrtime(true) - $startedAt) / 1_000_000;
+            if (($iteration + 1) % 64 === 0) {
+                gc_collect_cycles();
+                expect(memory_get_usage(true))->toBeLessThanOrEqual($baselineBytes + 16 * 1_048_576);
+                if ($fdBaseline !== null) {
+                    expect(count(scandir('/proc/self/fd') ?: []))->toBeLessThanOrEqual($fdBaseline + 4);
+                }
+            }
             expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
                 ->and($runtime->activeTaskCount())->toBe(0)
                 ->and($loop->diagnostics()->readWatchers)->toBe(0)
@@ -451,7 +458,7 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
         }
     }
 
-    expect($responses)->toHaveCount(128);
+    expect($responses)->toHaveCount(512);
     foreach ($responses as $iteration => $data) {
         expect($data)->toBe('tick-' . $iteration);
     }

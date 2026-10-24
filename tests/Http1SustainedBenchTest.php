@@ -174,3 +174,52 @@ it('produces correctness-passing CLI evidence through PHP only', function (): vo
         stopHttp1SustainedFixture($fixture);
     }
 });
+
+
+it('starts the strict HTTP/1.1 request deadline on first write, not while queued', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray();
+    [$socket, $peer] = $pair;
+    stream_set_blocking($socket, false);
+    stream_set_blocking($peer, false);
+    $client = ['stream' => $socket, 'active' => true];
+    $counter = http1SustainedCounters();
+    $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\n\r\n";
+
+    try {
+        http1SustainedPrepareRequest($client, $counter);
+        $admittedAt = microtime(true);
+        expect($client['request_deadline'])->toBe(0.0)
+            ->and($client['request_started'])->toBe(0);
+
+        usleep(20_000);
+        $clients = [0 => $client];
+        $read = http1SustainedSelectSets($clients, $counter, strlen($request));
+        expect($read['write'])->toHaveCount(1)
+            ->and($counter['timeouts_total'])->toBe(0);
+
+        http1SustainedWriteReady([$socket], [(int) $socket => 0], $clients, $counter, $request);
+        $armedAt = microtime(true);
+        expect($clients[0]['request_deadline'])->toBeGreaterThan($admittedAt + 2.0)
+            ->and($clients[0]['request_deadline'])->toBeLessThanOrEqual($armedAt + 2.0)
+            ->and($clients[0]['request_started'])->toBeGreaterThan(0)
+            ->and($clients[0]['write_offset'])->toBe(strlen($request))
+            ->and(fread($peer, 8192))->toBe($request);
+    } finally {
+        fclose($socket);
+        fclose($peer);
+    }
+});
+
+it('reports detailed strict request counters on benchmark correctness failure', function (): void {
+    $counter = http1SustainedCounters();
+    $counter['requests_total'] = 3;
+    $counter['completed_requests'] = 2;
+    $counter['successful_requests'] = 2;
+    $counter['timeouts_total'] = 1;
+
+    expect(fn() => http1SustainedAssertCorrect($counter, 'H1 stressed phase'))
+        ->toThrow(RuntimeException::class, 'H1 stressed phase received a failed')
+        ->and(fn() => http1SustainedAssertCorrect($counter, 'H1 stressed phase'))
+        ->toThrow(RuntimeException::class, '"timeouts_total":1');
+});
