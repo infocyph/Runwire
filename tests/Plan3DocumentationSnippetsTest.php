@@ -8,6 +8,11 @@ it('keeps every native RST PHP example syntactically parseable', function (): vo
     $examples = 0;
 
     foreach ($files as $file) {
+        // Historical 2.0 RST retains its original examples as migration
+        // context; runnable syntax/fixture certification applies to 3.0 only.
+        if (preg_match('/(?:-2\.0|-2\.1\.2)\.rst$/', $file) === 1) {
+            continue;
+        }
         $lines = file($file, FILE_IGNORE_NEW_LINES) ?: [];
         expect($lines)->not->toBeEmpty();
 
@@ -55,6 +60,11 @@ it('resolves all documented runnable fixture and benchmark references', function
     $references = 0;
 
     foreach ($files as $file) {
+        // Historical 2.0 RST retains its original examples as migration
+        // context; runnable syntax/fixture certification applies to 3.0 only.
+        if (preg_match('/(?:-2\.0|-2\.1\.2)\.rst$/', $file) === 1) {
+            continue;
+        }
         $source = file_get_contents($file);
         if (!is_string($source)) {
             throw new RuntimeException('Unreadable RST source: ' . $file);

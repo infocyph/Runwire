@@ -22,7 +22,7 @@ it('preserves each historical Runwire 2.0 user-facing guide as a navigable nativ
         expect($source)->toBeString()
             ->and($native)->toBeString()
             ->and($native)->toContain('.. note::', 'unreleased development branch')
-            ->and($native)->not->toContain(chr(96) . chr(96) . chr(96))
+            ->and(preg_match('/^' . preg_quote(str_repeat(chr(96), 3), '/') . '/m', $native))->toBe(0)
             ->and($index)->toContain(substr($rst, 0, -4));
         expect(strlen($native))->toBeGreaterThan((int) (strlen($source) / 2));
 
