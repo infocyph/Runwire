@@ -242,3 +242,5 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 **F11 accepted real active FIFO/queued file cancellation and full worker/host file-handle cleanup (2026-10-24):** 439408e four PHPForge QA+2 analyzers green #40070492152; real host PHP8.4/8.5 cleanup #40070491774 green. U11.06/.07 accepted; open/durable sandbox/benchmark remain open. P3 PoolIsolationKey next QA. **83/175 (47.4%), 92 open; five to 50.3%.**
 
 **S5 autoscale policy-only contract staged (2026-10-24):** CPU/queue/RPS/p99, min/max, hysteresis/cooldown and fixed operator override validated by PHP tests and truthful host RST. No scaling activated; U12.03 QA-gated. **83/175 accepted, 92 open.**
+
+**F12 rename/durability boundaries staged (2026-10-24):** Explicit native RST OS rename vs fsync/parent-directory crash safety limitations and real replace/failure worker test. No fake atomic-durability support; U11.08 QA gated. **83/175 accepted, 92 open.**

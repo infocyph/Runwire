@@ -57,3 +57,26 @@ on network write pressure and keep the connection's configured send budget.
 The caller retains authority over path access, connection ownership, graceful
 shutdown, destination truncation and atomicity. This class does not promise
 file-system sandboxing, fsync durability or a working generic HTTP client.
+
+Rename, flush and crash durability boundaries
+=============================================
+
+``AsyncFileSystem::write`` performs a worker-local buffered write and an
+``fflush`` before closing the file handle. It does **not** call ``fsync`` or
+``fdatasync``, and its success means the requested bytes were accepted by
+the worker/OS, not that data survived power loss. ``rename`` delegates to
+ordinary host ``rename()`` and reports its exact success or failure.
+
+On supporting filesystems, a same-filesystem rename may give atomic name
+visibility, but Runwire 3.0 does not guarantee atomic overwrite across file
+systems or network mounts, and provides no crash-durable replacement API.
+Cross-device rename may fail. A crash-safe replacement requires a verified
+same-directory temporary file, complete and checked writes, file
+``fsync``, a supported atomic rename and directory metadata synchronization.
+The current process worker performs none of that full transaction.
+
+Failure is returned via the worker completion error; there is no hidden
+fallback to a copy/delete that could falsely imply atomicity. This is an
+explicit unsupported capability, not an invitation to assume that
+``fflush``/``rename`` alone guarantee persistence. Path/symlink/TOCTOU
+and sandbox authorization require separate U11.09/U14.06 verification.

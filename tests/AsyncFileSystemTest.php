@@ -242,3 +242,47 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
     }
 });
 
+it('exposes host rename replacement and failed target path without pretending crash durability', function (): void {
+    $directory = sys_get_temp_dir() . '/runwire-rename-' . bin2hex(random_bytes(6));
+    expect(mkdir($directory, 0700))->toBeTrue();
+    $from = $directory . '/source.bin';
+    $to = $directory . '/target.bin';
+    file_put_contents($from, "replacement\0bytes");
+    file_put_contents($to, 'original');
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 3);
+    $files = new AsyncFileSystem($executor);
+    $results = [];
+
+    try {
+        $files->rename($from, $to, static function (bool $value, ?Throwable $error) use (&$results): void {
+            $results['replace'] = [$value, $error];
+        });
+        $files->rename($to, $directory . '/nonexistent/invalid', static function (bool $value, ?Throwable $error) use (&$results): void {
+            $results['invalid'] = [$value, $error];
+        });
+        $executor->onDrained(static function () use ($executor): void {
+            $executor->close();
+        });
+        $loop->run();
+
+        expect($results['replace'])->toBe([true, null])
+            ->and(file_exists($from))->toBeFalse()
+            ->and(file_get_contents($to))->toBe("replacement\0bytes")
+            ->and($results['invalid'][0])->toBeFalse()
+            ->and($results['invalid'][1])->toBeInstanceOf(RuntimeException::class)
+            ->and($executor->diagnostics()['workers'])->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        $executor->close();
+        if (is_file($from)) {
+            unlink($from);
+        }
+        if (is_file($to)) {
+            unlink($to);
+        }
+        rmdir($directory);
+    }
+});
+
