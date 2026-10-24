@@ -26,15 +26,17 @@ final class Http1ConnectedExchange
 {
     private readonly Closure $bodyCallback;
 
-    private ?int $closeObserver = null;
-
     private readonly Closure $completion;
 
     private readonly Closure $headCallback;
 
-    private bool $ownsCallbacks = false;
-
     private readonly Http1ClientResponseParser $parser;
+
+    private readonly Http1ClientRequestWriter $writer;
+
+    private ?int $closeObserver = null;
+
+    private bool $ownsCallbacks = false;
 
     private bool $settled = false;
 
@@ -43,8 +45,6 @@ final class Http1ConnectedExchange
     private ?CancellationSubscription $subscription = null;
 
     private ?int $timer = null;
-
-    private readonly Http1ClientRequestWriter $writer;
 
     /**
      * @param callable(int, \Infocyph\Runwire\Http\Headers):void $onHeaders
