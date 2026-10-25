@@ -507,3 +507,66 @@ jobs:
 
       - name: Run exact PHPForge release guard
         run: composer ic:release:guard
+
+  release-evidence-gate:
+    name: "All mandatory frozen-source certification gates"
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification')
+    needs:
+      - matched-performance
+      - candidate-soak
+      - consumer-app
+      - release-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      EXPECTED_CANDIDATE: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
+      MATCHED: ${{ needs['matched-performance'].result }}
+      SOAK: ${{ needs['candidate-soak'].result }}
+      CONSUMER: ${{ needs['consumer-app'].result }}
+      PHPFORGE: ${{ needs['release-guard'].result }}
+    steps:
+      - name: Check every required release gate and create non-publishing decision
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-certification
+          [[ "$EXPECTED_CANDIDATE" =~ ^[0-9a-fA-F]{40}$ ]] || {
+            echo "::error::No immutable release candidate was selected."
+            exit 1
+          }
+          jq -n --arg sha "$EXPECTED_CANDIDATE" \
+            --arg matched "$MATCHED" \
+            --arg soak "$SOAK" \
+            --arg consumer "$CONSUMER" \
+            --arg phpforge "$PHPFORGE" \
+            '{
+              source_sha: $sha,
+              release_tag_created: false,
+              package_published: false,
+              comparison: $matched,
+              soak_1800s: $soak,
+              standalone_composer_php84_php85: $consumer,
+              phpforge_release_guard: $phpforge,
+              certification_ready: (
+                $matched == "success" and $soak == "success" and
+                $consumer == "success" and $phpforge == "success"
+              )
+            }' > release-certification/decision.json
+          cat release-certification/decision.json
+          jq -e '.certification_ready == true
+            and .release_tag_created == false
+            and .package_published == false' \
+            release-certification/decision.json >/dev/null || {
+              echo "::error::At least one mandatory release certification job failed or was skipped."
+              exit 1
+            }
+          echo "Release evidence gates green; maintainer review still required before publishing."
+      - name: Upload frozen candidate release gate decision
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-release-evidence-decision
+          path: release-certification/decision.json
+          retention-days: 90
