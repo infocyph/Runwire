@@ -184,3 +184,53 @@ it('resets one of two active QUIC streams without aborting its sibling', functio
         ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(6, 'open_bidi')]))
         ->toBe(['stream' => 3, 'bidirectional' => true]);
 });
+
+
+it('bounds native QUIC stream churn across 64 resets with an active sibling', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2);
+    $nextCommand = 1;
+    $first = $worker->execute([
+        'epoch' => 1,
+        'command' => QuicWorkerCommand::encode($nextCommand++, 'open_bidi'),
+    ]);
+    $second = $worker->execute([
+        'epoch' => 1,
+        'command' => QuicWorkerCommand::encode($nextCommand++, 'open_bidi'),
+    ]);
+    $active = [$first['stream'], $second['stream']];
+    for ($i = 0; $i < 64; ++$i) {
+        $retired = $i % 2;
+        $reset = $worker->execute([
+            'epoch' => 1,
+            'command' => QuicWorkerCommand::encode($nextCommand++, 'reset', $active[$retired]),
+        ]);
+        expect($reset)->toBe(['reset' => true]);
+
+        $opened = $worker->execute([
+            'epoch' => 1,
+            'command' => QuicWorkerCommand::encode($nextCommand++, 'open_bidi'),
+        ]);
+        expect($opened['stream'])->toBe($i + 3);
+        $active[$retired] = $opened['stream'];
+
+        $sibling = $active[1 - $retired];
+        $payload = 'sibling-round-' . $i;
+        $written = $worker->execute([
+            'epoch' => 1,
+            'command' => QuicWorkerCommand::encode($nextCommand++, 'write', $sibling, $payload, false),
+        ]);
+        $received = $worker->execute([
+            'epoch' => 1,
+            'command' => QuicWorkerCommand::encode($nextCommand++, 'read', $sibling),
+        ]);
+        expect($written)->toBe(['written' => strlen($payload)])
+            ->and(base64_decode($received['data'], true))->toBe($payload)
+            ->and($received['eof'])->toBeFalse()
+            ->and($native->closed)->toBeFalse();
+    }
+    expect($worker->execute([
+        'epoch' => 1,
+        'command' => QuicWorkerCommand::encode($nextCommand, 'close'),
+    ]))->toBe(['closed' => true])
+        ->and($native->closed)->toBeTrue();
+});

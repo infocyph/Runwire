@@ -210,10 +210,12 @@ try {
                     $resetThenSendUni();
                 }
             };
-            $exchange('first-quic-stream', static function () use ($finishBidi): void {
+            // Independent peer now echoes two simultaneous >32 KiB stream bodies;
+            // verify the entire payload before resetting a third stream.
+            $exchange(str_repeat('first-quic-stream', 2_048), static function () use ($finishBidi): void {
                 $finishBidi('first-quic-stream');
             });
-            $exchange('second-quic-stream', static function () use ($finishBidi): void {
+            $exchange(str_repeat('second-quic-stream', 2_048), static function () use ($finishBidi): void {
                 $finishBidi('second-quic-stream');
             });
         },
@@ -236,6 +238,7 @@ try {
         'alpn' => 'runwire-echo',
         'bidi_streams' => 2,
         'concurrent_bidirectional' => true,
+        'peer_verified_bytes_per_bidi_stream' => 2_048 * strlen('first-quic-stream'),
         'native_reset_then_peer_uni_fin' => true,
         'unsupported_datagram_migration_0rtt_rejected' => true,
         'unidirectional_streams_delivered' => 1,

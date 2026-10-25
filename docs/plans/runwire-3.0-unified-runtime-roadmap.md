@@ -547,3 +547,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W105 QPACK/QUIC-varint source comparator (2026-10-25; QA PENDING):** Reuse the existing pinned 2.1.2 vs candidate two-PHP-version benchmark matrix for QPACK integer, QUIC varint and dynamic QPACK block/unblock/ack profiles. Preserve \`releaseCertified:false\` and explicitly \`nativeQuicPollMeasured:false\`. U08.05/R4.04 remains OPEN until native QUIC poll/write budgets, independently verified transport workloads and CI artifact review; U15/U17 remain OPEN. QA-accepted tracker unchanged at **122/175, 53 OPEN, 18 to target 140**; plan checkboxes and roadmap counts remain synchronized.
+
+
+**W106 native QUIC stress preparation (2026-10-25; QA PENDING):** Two independent aioquic-replied >32 KiB bidirectional stream bodies, third stream native reset, later uni-FIN receipt, and 64 mock worker reset/open/sibling cycles expand evidence for U05.05/U05.09. Full protocol-flow/window, loss/reorder, stalled-peer and cancellation-storm requirements remain unproven. No U05/QA acceptance until exact-head green; remain **122/175, 53 OPEN**, same checked tasks in both trackers.
