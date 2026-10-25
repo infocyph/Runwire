@@ -31,6 +31,12 @@ final readonly class HttpConnectHandshake
         }
     }
 
+    /** Whether the request carries proxy credentials requiring verified transport. */
+    public function usesAuthentication(): bool
+    {
+        return $this->username !== null;
+    }
+
     /** Build CONNECT for the destination origin, never an arbitrary request path. */
     public function request(string $host, int $port): string
     {
@@ -59,12 +65,16 @@ final readonly class HttpConnectHandshake
     /** Parse fragmented 2xx tunnel response, returning consumed length without stealing TLS bytes. */
     public function responseLength(string $buffer): ?int
     {
-        if (strlen($buffer) > self::MAX_HEADER_BYTES) {
-            throw new RuntimeException('CONNECT response exceeds the bounded header budget.');
-        }
         $end = strpos($buffer, "\r\n\r\n");
         if ($end === false) {
+            if (strlen($buffer) > self::MAX_HEADER_BYTES) {
+                throw new RuntimeException('CONNECT response exceeds the bounded header budget.');
+            }
+
             return null;
+        }
+        if ($end + 4 > self::MAX_HEADER_BYTES) {
+            throw new RuntimeException('CONNECT response exceeds the bounded header budget.');
         }
         $lines = explode("\r\n", substr($buffer, 0, $end));
         $status = array_shift($lines);

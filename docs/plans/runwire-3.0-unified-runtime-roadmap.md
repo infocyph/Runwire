@@ -562,3 +562,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W110 HTTP CONNECT source work (2026-10-25; QA PENDING):** Strict bounded 200 CONNECT headers, credential TLS-only policy, IPv6 authority and response-smuggling guards with unit tests. Does not certify established tunnels or target TLS; U10.04/U10.06 remain OPEN. **122/175, 53 open**; synchronized.
+
+
+**W111 nonblocking HTTP CONNECT tunnel stage (2026-10-25; QA PENDING):** A real Runwire connection now owns bounded plaintext CONNECT negotiation, timeout/cancel/observer/callback cleanup, and non-consuming tunnel-byte handoff tested with live Unix stream pair. Credentialed tunnels and original endpoint TLS remain explicitly disabled; U10.04/U10.06 continue OPEN until independent verified TLS proxy evidence. **122/175, 53 open**.

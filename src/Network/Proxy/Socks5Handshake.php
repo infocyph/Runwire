@@ -86,9 +86,6 @@ final readonly class Socks5Handshake
     /** Complete reply frame length or null for fragmented frames; leave tunnel bytes untouched. */
     public function replyLength(string $buffer): ?int
     {
-        if (strlen($buffer) > 65_536) {
-            throw new RuntimeException('SOCKS5 reply exceeds bounded buffer.');
-        }
         if (strlen($buffer) < 4) {
             return null;
         }

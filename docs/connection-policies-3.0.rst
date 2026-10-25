@@ -186,3 +186,16 @@ Proxy Basic credentials require explicit verified encrypted proxy transport.
 Invalid 407/non-200 results, malformed headers and framed bodies fail closed;
 remaining bytes belong to the future target TLS handshake. Neither this codec
 nor SOCKS5 establishes transport, TLS-over-tunnel or callback ownership yet.
+
+
+Live HTTP CONNECT negotiation (experimental)
+--------------------------------------------
+
+``Network\\Proxy\\HttpConnectTunnel`` runs an unauthenticated CONNECT
+handshake on a **previously established** Runwire connection with bounded
+incremental header parsing, cancellation, a finite timeout and exclusive
+callback handoff. It preserves data following the CONNECT response for the
+next connection owner. This is not HTTPS-through-proxy: neither the proxy
+credentialed TLS identity nor TLS upgrade with the original destination
+certificate identity is integrated. Credentialed live tunnels refuse to start
+rather than disclose Basic credentials to an unverified peer.
