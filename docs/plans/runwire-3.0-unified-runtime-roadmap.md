@@ -604,3 +604,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W124 grouped RST integrity checks (2026-10-25; QA PENDING):** Repair three recent connection-policy section underline widths (one Sphinx warning), add all-native-root-docs heading underline regression test to previously added navigation/migration test. No suppression. U16.02/.12/.16 still OPEN. **122/175, 53 OPEN**.
+
+
+**W125 grouped proxy callback + Unicode RST QA (2026-10-25; QA PENDING):** Refactor duplicate onDrain conditional branches into private receiver for both CONNECT/SOCKS, honoring compiler/Pint complexity without weakening error handling; correct RST heading Unicode width test. Prior HTTP1 adaptive diagnostic 256 failures remains a real tracked issue. **122/175 accepted, 53 open**.

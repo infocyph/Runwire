@@ -38,7 +38,6 @@ it('keeps historical manuals and explicit proxy TLS migration limitations', func
         ->toContain('unreleased');
 });
 
-
 it('rejects short native RST heading underlines throughout the published manual', function (): void {
     $root = dirname(__DIR__) . '/docs';
     $pages = glob($root . '/*.rst');
@@ -57,10 +56,20 @@ it('rejects short native RST heading underlines throughout the published manual'
                 || preg_match('/^([=\-~^])\1{2,}$/D', $title) === 1) {
                 continue;
             }
+            // Sphinx measures Unicode characters, not UTF-8 bytes: a title
+            // containing an en dash is wider in strlen() than in rendered text.
+            $columns = preg_match_all('/./u', rtrim($title));
+            expect($columns)->toBeInt();
             expect(strlen($underline))->toBeGreaterThanOrEqual(
-                strlen(rtrim($title)),
+                $columns,
                 basename($file) . ':' . ($position + 1) . ' has a short title underline.',
             );
         }
     }
+});
+
+it('counts Unicode RST heading characters rather than UTF-8 bytes', function (): void {
+    $heading = 'Runwire – HTTP/3';
+    expect(strlen($heading))->toBeGreaterThan(16)
+        ->and(preg_match_all('/./u', $heading))->toBe(16);
 });

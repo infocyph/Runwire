@@ -89,11 +89,7 @@ final class Socks5Tunnel
                 function (Connection $connection): void {
                     $this->receive($connection);
                 },
-                function (Connection $connection): void {
-                    if ($connection->state() === ConnectionState::CLOSED) {
-                        $this->fail(new RuntimeException('Proxy connection closed before tunnel negotiation completed.'));
-                    }
-                },
+                $this->onDrain(...),
                 function (): void {
                     $this->fail(new RuntimeException('Proxy closed during SOCKS5 handshake.'));
                 },
@@ -171,6 +167,14 @@ final class Socks5Tunnel
         $this->cleanup();
         $this->connection->abort();
         ($this->completion)(null, $error);
+    }
+
+    /** Reject a closed proxy transport during send-drain handoff. */
+    private function onDrain(Connection $connection): void
+    {
+        if ($connection->state() === ConnectionState::CLOSED) {
+            $this->fail(new RuntimeException('Proxy connection closed before tunnel negotiation completed.'));
+        }
     }
 
     /** Execute the bounded proxy exchange phase. */
