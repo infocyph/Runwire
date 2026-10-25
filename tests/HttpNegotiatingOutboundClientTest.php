@@ -49,6 +49,14 @@ it('rejects unsupported H3 and unsafe H1/H2 fallback before any socket or DNS wo
             $callback,
             $callback,
         ))->toThrow(RuntimeUnavailableException::class, 'Plaintext');
+        expect(fn() => HttpNegotiatingOutboundClient::connect(
+            $loop,
+            $dialer,
+            new ClientRequest('GET', 'ftp://localhost/remote'),
+            $callback,
+            $callback,
+            $callback,
+        ))->toThrow(InvalidArgumentException::class, 'HTTP or HTTPS scheme');
         expect($numeric->pendingCount())->toBe(0)
             ->and($dialer->pendingCount())->toBe(0)
             ->and($executor->diagnostics()['submitted'])->toBe(0);

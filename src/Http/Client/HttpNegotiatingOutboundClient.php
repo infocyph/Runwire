@@ -48,7 +48,11 @@ final readonly class HttpNegotiatingOutboundClient
         if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
             throw new InvalidArgumentException('HTTP client requires an absolute HTTP origin.');
         }
-        $secure = strtolower($parts['scheme'] ?? '') === 'https';
+        $scheme = strtolower($parts['scheme'] ?? '');
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            throw new InvalidArgumentException('HTTP client requires an HTTP or HTTPS scheme.');
+        }
+        $secure = $scheme === 'https';
         $options = $dialOptions ?? new DialOptions();
         if (!$secure) {
             if ($policy->preferred !== ProtocolVersion::HTTP_1_1) {
@@ -102,6 +106,27 @@ final readonly class HttpNegotiatingOutboundClient
     }
 
     /**
+     * Return an ordered, bounded ALPN offer without unsupported protocol IDs.
+     *
+     * @return list<string>
+     */
+    private static function offeredProtocols(ClientProtocolPolicy $policy): array
+    {
+        $offered = [$policy->preferred === ProtocolVersion::HTTP_2 ? 'h2' : 'http/1.1'];
+        if (!$policy->allowFallback) {
+            return $offered;
+        }
+        foreach ($policy->allowedVersions as $version) {
+            $alpn = $version === ProtocolVersion::HTTP_2 ? 'h2' : 'http/1.1';
+            if (!in_array($alpn, $offered, true)) {
+                $offered[] = $alpn;
+            }
+        }
+
+        return $offered;
+    }
+
+    /**
      * Start exactly one exchanged H1/H2 request after verified TLS negotiation.
      *
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
@@ -142,22 +167,14 @@ final readonly class HttpNegotiatingOutboundClient
         $exchange->start();
     }
 
+
     /** Validate a complete ALPN offer against original peer identity before DNS. */
     private static function verifiedOptions(
         ClientRequest $request,
         DialOptions $options,
         string $peer,
     ): DialOptions {
-        $policy = $request->protocol;
-        $offered = [$policy->preferred === ProtocolVersion::HTTP_2 ? 'h2' : 'http/1.1'];
-        if ($policy->allowFallback) {
-            foreach ($policy->allowedVersions as $version) {
-                $alpn = $version === ProtocolVersion::HTTP_2 ? 'h2' : 'http/1.1';
-                if (!in_array($alpn, $offered, true)) {
-                    $offered[] = $alpn;
-                }
-            }
-        }
+        $offered = self::offeredProtocols($request->protocol);
         if ($request->body !== null && in_array('h2', $offered, true)) {
             throw new RuntimeUnavailableException('Streaming request bodies require an explicitly selected HTTP/1.1 client.');
         }

@@ -11,7 +11,9 @@ use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\TlsClientOptions;
 
-it('interoperates with upstream hyper-h2 over real TLS for parallel streams and flow credit', function (bool $flowPressure): void {
+it('interoperates with upstream hyper-h2 over real TLS for parallel streams and flow credit', function (string $mode): void {
+    $flowPressure = $mode === 'flow';
+    $cancelMode = $mode === 'cancel';
     if (!function_exists('proc_open') || !extension_loaded('openssl')) {
         throw new RuntimeException('Independent H2 multiplexer QA requires process and OpenSSL tooling.');
     }
@@ -66,8 +68,8 @@ it('interoperates with upstream hyper-h2 over real TLS for parallel streams and 
             $cert,
             $keyFile,
         ];
-        if ($flowPressure) {
-            $peerCommand[] = 'flow';
+        if ($mode !== 'default') {
+            $peerCommand[] = $mode;
         }
 
         $process = proc_open(
@@ -101,6 +103,7 @@ it('interoperates with upstream hyper-h2 over real TLS for parallel streams and 
                 &$headers,
                 &$bodies,
                 &$errors,
+                $cancelMode,
             ): void {
                 if ($connection === null || $failure !== null) {
                     $errors['dial'] = $failure ?? new RuntimeException('Missing TLS connection.');
@@ -120,10 +123,12 @@ it('interoperates with upstream hyper-h2 over real TLS for parallel streams and 
                         &$errors,
                         $loop,
                         $port,
+                        $cancelMode,
                     ): void {
                         ++$ready;
+                        $firstStreamId = 0;
                         foreach (['one', 'two'] as $path) {
-                            $transport->request(
+                            $streamId = $transport->request(
                                 new ClientRequest('GET', 'https://127.0.0.1:' . $port . '/multiplex/' . $path),
                                 static function (int $status, Headers $received) use (&$headers, $path): void {
                                     $headers[$path] = [$status, $received->first('x-reference-server')];
@@ -138,6 +143,12 @@ it('interoperates with upstream hyper-h2 over real TLS for parallel streams and 
                                     }
                                 },
                             );
+                            if ($path === 'one') {
+                                $firstStreamId = $streamId;
+                            }
+                        }
+                        if ($cancelMode) {
+                            $transport->cancel($firstStreamId);
                         }
                     },
                     maxConcurrentStreams: 2,
@@ -147,17 +158,23 @@ it('interoperates with upstream hyper-h2 over real TLS for parallel streams and 
             new DialOptions(tls: new TlsClientOptions('127.0.0.1', caFile: $cert, alpnProtocols: ['h2'])),
         );
         $loop->run();
-        expect($ready)->toBe(1)
-            ->and($errors)->toHaveCount(2)
-            ->and($errors['one'])->toBeNull()
-            ->and($errors['two'])->toBeNull()
-            ->and($headers)->toBe([
-                'two' => [200, 'hyper-h2-multiplex'],
-                'one' => [200, 'hyper-h2-multiplex'],
-            ])
-            ->and($bodies)->toBe($flowPressure
-                ? ['two' => str_repeat('3', 131_072), 'one' => str_repeat('1', 131_072)]
-                : ['two' => 'hyper-h2-second', 'one' => 'hyper-h2-first']);
+        expect($ready)->toBe(1)->and($errors)->toHaveCount(2);
+        if ($cancelMode) {
+            expect($errors['one'])->toBeInstanceOf(RuntimeException::class)
+                ->and($errors['two'])->toBeNull()
+                ->and($headers)->toBe(['two' => [200, 'hyper-h2-multiplex']])
+                ->and($bodies)->toBe(['two' => 'hyper-h2-second']);
+        } else {
+            expect($errors['one'])->toBeNull()
+                ->and($errors['two'])->toBeNull()
+                ->and($headers)->toBe([
+                    'two' => [200, 'hyper-h2-multiplex'],
+                    'one' => [200, 'hyper-h2-multiplex'],
+                ])
+                ->and($bodies)->toBe($flowPressure
+                    ? ['two' => str_repeat('3', 131_072), 'one' => str_repeat('1', 131_072)]
+                    : ['two' => ($mode === 'slow' ? 'slow-second' : 'hyper-h2-second'), 'one' => 'hyper-h2-first']);
+        }
     } finally {
         $owner?->close();
         $dialer?->close();
@@ -189,6 +206,8 @@ it('interoperates with upstream hyper-h2 over real TLS for parallel streams and 
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 })->with([
-    'reversed independent responses' => [false],
-    'large flow-control windows and sibling fairness' => [true],
+    'reversed independent responses' => ['default'],
+    'large flow-control windows and sibling fairness' => ['flow'],
+    'authenticated RST cancel with continuing sibling' => ['cancel'],
+    'slow H2 stream does not starve live sibling' => ['slow'],
 ]);

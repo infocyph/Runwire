@@ -505,3 +505,9 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W94 no-hidden-downgrade proof (2026-10-25; QA pending):** Independent TLS reference adds strict-H2-versus-H1-only peer negative test requiring zero HTTP request emission, alongside three positive strict/negotiated H2/H1 modes. U07.08 OPEN until release-scope full protocol fallback proof; tracker unchanged 118/175.
+
+
+**W95 independent real-TLS cancellation isolation (2026-10-25; staged/QA PENDING):** Third mandatory hyper-h2 peer mode requires actual client-initiated RST_STREAM for one of two live requests and validates successful completion of its sibling on the original verified TLS socket. Complements large-window flow pressure and 64-stream repeat-churn; U07.05 OPEN pending fresh whole-head QA and remaining slow-peer proof, tracker 118/175.
+
+
+**W95 recovery and slow-peer H2 reference (2026-10-25; new head QA pending):** W94 8/9 workflows passed; [Security #40147498751](https://github.com/infocyph/Runwire/actions/runs/40147498751) failed two PHPStan complexity lanes (14 > 12) in ALPN options method. W95 separates offer-building from TLS validation, keeps 4 existing successful QA lanes and independent verified H1/H2 TLS fallback, adds H2 peer modes for authenticated RST and a stalled stream with a surviving sibling. Await exact QA before accepting U07.05/U07.08/U16.11. **118/175; 57 OPEN; 22 to 140**.

@@ -9,12 +9,14 @@ import time
 
 from h2.config import H2Configuration
 from h2.connection import H2Connection
-from h2.events import RequestReceived
+from h2.events import RequestReceived, StreamReset
 from h2.settings import SettingCodes
 
-if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] != "flow"):
-    raise SystemExit("Expected certificate, private key, and optional flow mode")
-flow_mode = len(sys.argv) == 4
+if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in ("flow", "cancel", "slow")):
+    raise SystemExit("Expected certificate, private key, and optional flow/cancel/slow mode")
+flow_mode = len(sys.argv) == 4 and sys.argv[3] == "flow"
+cancel_mode = len(sys.argv) == 4 and sys.argv[3] == "cancel"
+slow_mode = len(sys.argv) == 4 and sys.argv[3] == "slow"
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -38,11 +40,14 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         stream.sendall(connection.data_to_send())
 
         requests = {}
+        reset_seen = False
         while len(requests) < 2:
             packet = stream.recv(65_536)
             if not packet:
                 raise RuntimeError("Peer disconnected before concurrent H2 requests")
             for event in connection.receive_data(packet):
+                if isinstance(event, StreamReset) and event.stream_id == 1:
+                    reset_seen = True
                 if not isinstance(event, RequestReceived):
                     continue
                 headers = dict(event.headers)
@@ -57,6 +62,51 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
 
         if requests != {1: "/multiplex/one", 3: "/multiplex/two"}:
             raise RuntimeError(f"Expected two concurrent H2 streams, got {requests!r}")
+        if cancel_mode:
+            # The genuine client must send RST_STREAM on request one while
+            # keeping stream three and the authenticated TLS socket alive.
+            stream.settimeout(5)
+            while not reset_seen:
+                packet = stream.recv(65_536)
+                if not packet:
+                    raise RuntimeError("Missing H2 RST_STREAM before sibling completion")
+                for event in connection.receive_data(packet):
+                    if isinstance(event, StreamReset) and event.stream_id == 1:
+                        reset_seen = True
+            connection.send_headers(3, [
+                (":status", "200"),
+                ("content-type", "text/plain"),
+                ("x-reference-server", "hyper-h2-multiplex"),
+            ])
+            connection.send_data(3, b"hyper-h2-second", end_stream=True)
+            stream.sendall(connection.data_to_send())
+            time.sleep(0.25)
+            sys.exit(0)
+
+        if slow_mode:
+            # Keep stream three pending while completing stream one first;
+            # a connection-wide stall must not starve the healthy sibling.
+            connection.send_headers(3, [
+                (":status", "200"),
+                ("content-type", "text/plain"),
+                ("x-reference-server", "hyper-h2-multiplex"),
+            ])
+            connection.send_data(3, b"slow-", end_stream=False)
+            stream.sendall(connection.data_to_send())
+            time.sleep(0.10)
+            connection.send_headers(1, [
+                (":status", "200"),
+                ("content-type", "text/plain"),
+                ("x-reference-server", "hyper-h2-multiplex"),
+            ])
+            connection.send_data(1, b"hyper-h2-first", end_stream=True)
+            stream.sendall(connection.data_to_send())
+            time.sleep(0.10)
+            connection.send_data(3, b"second", end_stream=True)
+            stream.sendall(connection.data_to_send())
+            time.sleep(0.25)
+            sys.exit(0)
+
         # Respond to stream three before stream one to expose false one-shot owners.
         connection.send_headers(3, [
             (":status", "200"),

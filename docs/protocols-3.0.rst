@@ -182,3 +182,26 @@ The independent TLS reference also probes a strict H2 client against a
 peer advertising only HTTP/1.1: no HTTP request may be emitted during a
 forbidden ALPN downgrade. This is separate from the explicitly permitted H1
 fallback case; both are mandatory CI cases before U07.08 acceptance.
+
+
+Authenticated HTTP/2 stream cancellation interoperability
+---------------------------------------------------------
+
+The mandatory independent ``hyper-h2`` TLS workflow additionally checks a
+live pair of accepted requests where Runwire cancels stream one with
+``RST_STREAM`` and completes stream three over the same verified connection.
+This supplements deterministic 64-generation cancellation tests and the
+large-body flow-window workload. Exact-head full quality and sustained
+slow-peer/fairness requirements still govern U07.05 acceptance.
+
+
+Independent stalled-sibling HTTP/2 acceptance
+--------------------------------------------
+
+The TLS reference server can now withhold completion of one H2 response while
+completing the other over the same verified connection, then finish the
+initially stalled stream. This mode is mandatory beside the independent
+out-of-order response, 131072-byte flow-window, and authenticated RST modes.
+It tests stream-local fairness and cancellation, not the final multi-hour
+release performance and leak certification. A new exact-source QA run is
+required before U07.05 acceptance.
