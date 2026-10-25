@@ -431,6 +431,14 @@ jobs:
             benchmark-results/outbound-h3-client.json \
             benchmark-results/u05-native-h3-serial-profile.json
 
+      - name: Verify real stalled peer cancellation and healthy QUIC sibling recovery
+        shell: bash
+        run: |
+          php -l tests/fixtures/quic_stalled_sibling.php
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_quic_echo_server.py
+          bash -n tests/interop/quic_stalled_sibling.sh
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
+            bash tests/interop/quic_stalled_sibling.sh "benchmark-results/native-quic-stall-php-${{ matrix.php-version }}.json"
       - name: Recover native QUIC sibling streams under real independent UDP loss and reorder
         if: matrix.php-version == '8.5'
         shell: bash
@@ -449,6 +457,8 @@ jobs:
           path: |
             benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json
             benchmark-results/native-quic-inbound.json
+            benchmark-results/native-quic-stall-php-${{ matrix.php-version }}.json
+            benchmark-results/native-quic-stall-php-${{ matrix.php-version }}-peer.json
             benchmark-results/outbound-h3-client.json
             benchmark-results/u05-native-h3-serial-profile.json
             benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}.json

@@ -111,3 +111,54 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
     expect($roadmap)->toContain('Read the Docs-compatible Sphinx');
     expect($plan)->toContain('Sphinx / Read the Docs complete feature documentation index');
 });
+
+
+it('enforces every canonical U division prose tracker against its checked task IDs', function (): void {
+    $plan = file_get_contents(dirname(__DIR__) . '/docs/plans/runwire-3.0-unified-runtime-development-plan.md');
+    expect($plan)->toBeString();
+    preg_match_all('/^### (U[0-9]{2}) —[^\n]*\n([\s\S]*?)(?=^### U[0-9]{2} —|^## |\z)/m', $plan, $sections, PREG_SET_ORDER);
+    expect($sections)->toHaveCount(18);
+    foreach ($sections as $section) {
+        preg_match_all('/^- \[([ x])\] \*\*(U[0-9]{2}\.[0-9]{2})\*\*/m', $section[2], $tasks, PREG_SET_ORDER);
+        $done = count(array_filter($tasks, static fn(array $task): bool => $task[1] === 'x'));
+        $open = count($tasks) - $done;
+        preg_match('/\*\*Batch tracker:\*\* ([0-9]+)\/([0-9]+) accepted; ([0-9]+) open/', $section[2], $tracker);
+        expect($tracker)->not->toBeEmpty()
+            ->and((int) $tracker[1])->toBe($done)
+            ->and((int) $tracker[2])->toBe(count($tasks))
+            ->and((int) $tracker[3])->toBe($open);
+    }
+});
+
+
+it('keeps all five original closure groups disjoint and their open counts synchronized', function (): void {
+    $source = file_get_contents(dirname(__DIR__) . '/docs/plans/runwire-3.0-unified-runtime-development-plan.md');
+    expect($source)->toBeString();
+    preg_match_all('/^- \[([ x])\] \*\*(U[0-9]{2}\.[0-9]{2})\*\*/m', $source, $items, PREG_SET_ORDER);
+    $states = [];
+    foreach ($items as $item) {
+        $states[$item[2]] = $item[1];
+    }
+
+    preg_match_all('/^\| C([1-5]) \| [^|]+ \| ([^|]+) \| ([0-9]+) \|/m', $source, $groups, PREG_SET_ORDER);
+    expect($groups)->toHaveCount(5);
+    $assigned = [];
+    $stillOpen = 0;
+    foreach ($groups as $group) {
+        $ids = array_map('trim', explode(',', $group[2]));
+        $unaccepted = 0;
+        foreach ($ids as $id) {
+            expect($states)->toHaveKey($id);
+            expect($assigned)->not->toContain($id);
+            $assigned[] = $id;
+            $unaccepted += (int) ($states[$id] === ' ');
+        }
+        if ($group[1] === '1') {
+            expect($ids)->toHaveCount(11);
+        }
+        expect((int) $group[3])->toBe($unaccepted);
+        $stillOpen += $unaccepted;
+    }
+    expect($assigned)->toHaveCount(52)
+        ->and($stillOpen)->toBe(count(array_filter($states, static fn(string $state): bool => $state === ' ')));
+});

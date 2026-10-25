@@ -1,0 +1,73 @@
+name: "Runwire C1 Matched TLS Acceptance"
+
+on:
+  push:
+    branches: [ "plan/runwire-independent-ecosystem-roadmaps" ]
+    paths:
+      - ".github/workflows/c1-matched-tls.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1-verified-tls-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  immutable-baseline:
+    name: "C1 U04.08 — published 2.1.2 versus candidate verified TLS"
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout published 2.1.2 baseline
+        uses: actions/checkout@v7
+        with:
+          ref: "2.1.2"
+          path: baseline
+          persist-credentials: false
+      - name: Checkout exact PR head candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Assert immutable revision identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C baseline rev-parse HEAD)" = "7e9bf20ad0737a187dfed77b723791b141b36378"
+          test "$(git -C candidate rev-parse HEAD)" = "${{ github.sha }}"
+      - name: Set up pinned PHP 8.4 on the same runner
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache, openssl
+          coverage: none
+      - name: Install both locked dependency populations
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd baseline && composer install --no-interaction --prefer-dist --no-progress)
+          (cd candidate && composer install --no-interaction --prefer-dist --no-progress)
+      - name: Run five paired 180-second verified TLS measurements
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate/benchmark-results/u04-c1-matched-tls
+          RUNWIRE_BENCH_TLS=1 \
+            RUNWIRE_BASELINE_BUILD="$(git -C baseline rev-parse HEAD)" \
+            RUNWIRE_CANDIDATE_BUILD="$(git -C candidate rev-parse HEAD)" \
+            bash candidate/benchmarks/matched_release_certification.sh \
+              baseline candidate candidate/benchmark-results/u04-c1-matched-tls
+          jq -e '.passed == true and .budget_enforced == true' \
+            candidate/benchmark-results/u04-c1-matched-tls/comparison.json >/dev/null
+      - name: Preserve exact source and full failure evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c1-tls-verified-${{ github.sha }}
+          path: candidate/benchmark-results/u04-c1-matched-tls/
+          retention-days: 90
+          if-no-files-found: warn

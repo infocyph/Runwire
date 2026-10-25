@@ -16,6 +16,7 @@ class EchoProtocol(QuicConnectionProtocol):
     marker_path = None
     impair_post_handshake = False
     send_peer_uni = False
+    stall_bidi = False
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -23,6 +24,7 @@ class EchoProtocol(QuicConnectionProtocol):
         self._post_handshake_datagrams = 0
         self._dropped_datagrams = 0
         self._delayed_datagrams = 0
+        self._stalled_streams = set()
 
     def datagram_received(self, data, addr) -> None:
         if not self.impair_post_handshake or not self._handshake_complete:
@@ -81,6 +83,18 @@ class EchoProtocol(QuicConnectionProtocol):
                     buffers[event.stream_id] = received
                 return
 
+            if self.stall_bidi and (
+                event.stream_id in self._stalled_streams
+                or event.data.startswith(b"STALL:")
+            ):
+                self._stalled_streams.add(event.stream_id)
+                if self.marker_path is not None:
+                    Path(str(self.marker_path) + ".stall.json").write_text(
+                        json.dumps({"stalled_streams": len(self._stalled_streams), "peer_responded": False}),
+                        encoding="utf-8",
+                    )
+                return
+
             self._quic.send_stream_data(
                 event.stream_id, event.data, end_stream=event.end_stream
             )
@@ -96,10 +110,12 @@ async def main() -> None:
     parser.add_argument("unidirectional_marker")
     parser.add_argument("--impair-post-handshake", action="store_true")
     parser.add_argument("--send-peer-uni", action="store_true")
+    parser.add_argument("--stall-bidi", action="store_true")
     args = parser.parse_args()
     EchoProtocol.marker_path = args.unidirectional_marker
     EchoProtocol.impair_post_handshake = args.impair_post_handshake
     EchoProtocol.send_peer_uni = args.send_peer_uni
+    EchoProtocol.stall_bidi = args.stall_bidi
     configuration = QuicConfiguration(is_client=False, alpn_protocols=["runwire-echo"])
     configuration.load_cert_chain(args.cert, args.key)
     server = await serve(
