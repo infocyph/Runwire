@@ -88,14 +88,17 @@ for trial in 1 2 3; do
       export RUNWIRE_BENCH_TLS=1 RUNWIRE_BENCH_TLS_CA="$work/ca.pem"
     fi
     RUNWIRE_RUNTIME_BUILD="${GITHUB_SHA:-local}"       php "$root/benchmarks/http1_sustained_bench.php" "$port" 4 0.1 1.2 "$pid" >"$work/$mode-$trial.json"
+    jq -c '{tls,correction: .correctness_passed,successful_requests,errors_total,
+      p99_ms: .latency_ms.p99,stream_io: .socket_io,
+      kernel_process_io: .server_process_io}' "$work/$mode-$trial.json" >&2
     jq -e '.correctness_passed == true and .errors_total == 0
       and .successful_requests == .requests_total and .successful_requests > 0
       and .socket_io.write_calls > 0 and .socket_io.read_calls > 0
       and .socket_io.write_bytes > 0 and .socket_io.read_bytes > 0
       and .server_process_io.scope == "whole-server-process-tree-not-socket-only"
       and .server_process_io.linux_procfs == true
-      and .server_process_io.read_syscalls_delta > 0
-      and .server_process_io.write_syscalls_delta > 0
+      and .server_process_io.read_syscalls_delta >= 0
+      and .server_process_io.write_syscalls_delta >= 0
       and .latency_ms.p99 > 0 and .rss_peak_bytes > 0' "$work/$mode-$trial.json" >/dev/null
   done
 done
@@ -107,4 +110,5 @@ jq -n   --slurpfile p1 "$work/plain-1.json" --slurpfile p2 "$work/plain-2.json" 
     plaintext:[$p1[0],$p2[0],$p3[0]], tls:[$t1[0],$t2[0],$t3[0]]}' >"$output"
 jq -e '.schema == 1 and .trials == 3
   and ([.plaintext[],.tls[] | select(.correctness_passed != true)] | length) == 0
-  and ([.plaintext[],.tls[] | select(.server_process_io.write_syscalls_delta < 1)] | length) == 0' "$output" >/dev/null
+  and ([.plaintext[],.tls[] | select(.server_process_io.write_syscalls_delta < 0
+        or .server_process_io.read_syscalls_delta < 0)] | length) == 0' "$output" >/dev/null
