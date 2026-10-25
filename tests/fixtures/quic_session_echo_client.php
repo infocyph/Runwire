@@ -132,13 +132,28 @@ try {
                                 return;
                             }
                             $completed[] = 'one-way-quic-stream';
-                            $session->command('close', 0, '', false,
-                                static function (mixed $result, ?Throwable $error) use ($loop, $stop, $timeout): void {
-                                    if ($error !== null || ($result['closed'] ?? null) !== true) {
-                                        $stop($error ?? new RuntimeException('QUIC session failed to close cleanly.'));
+                            $session->command('profile_read', 0, '', false,
+                                static function (mixed $profile, ?Throwable $error) use ($session, $loop, $stop, $timeout, $argv): void {
+                                    if ($error !== null || !is_array($profile)
+                                        || ($profile['profiling'] ?? null) !== true) {
+                                        $stop($error ?? new RuntimeException('Native QUIC profile evidence missing.'));
                                         return;
                                     }
-                                    $loop->cancel($timeout);
+                                    $path = $argv[4] . '.profile.json';
+                                    $written = file_put_contents($path, json_encode($profile, JSON_THROW_ON_ERROR));
+                                    if (!is_int($written) || $written < 1) {
+                                        $stop(new RuntimeException('Unable to persist native QUIC worker profile.'));
+                                        return;
+                                    }
+                                    $session->command('close', 0, '', false,
+                                        static function (mixed $result, ?Throwable $closeError) use ($loop, $stop, $timeout): void {
+                                            if ($closeError !== null || ($result['closed'] ?? null) !== true) {
+                                                $stop($closeError ?? new RuntimeException('QUIC session failed to close cleanly.'));
+                                                return;
+                                            }
+                                            $loop->cancel($timeout);
+                                        },
+                                    );
                                 },
                             );
                         };
@@ -289,12 +304,20 @@ try {
             };
             // Independent peer now echoes two simultaneous >32 KiB stream bodies;
             // verify the entire payload before resetting a third stream.
-            $exchange(str_repeat('first-quic-stream', 2_048), static function () use ($finishBidi): void {
-                $finishBidi('first-quic-stream');
-            });
-            $exchange(str_repeat('second-quic-stream', 2_048), static function () use ($finishBidi): void {
-                $finishBidi('second-quic-stream');
-            });
+            $session->command('profile_start', 0, '', false,
+                static function (mixed $result, ?Throwable $error) use ($exchange, $finishBidi, $stop): void {
+                    if ($error !== null || ($result['profiling'] ?? null) !== true) {
+                        $stop($error ?? new RuntimeException('Native QUIC worker profile cannot start.'));
+                        return;
+                    }
+                    $exchange(str_repeat('first-quic-stream', 2_048), static function () use ($finishBidi): void {
+                        $finishBidi('first-quic-stream');
+                    });
+                    $exchange(str_repeat('second-quic-stream', 2_048), static function () use ($finishBidi): void {
+                        $finishBidi('second-quic-stream');
+                    });
+                },
+            );
         },
     );
     $loop->run();
@@ -311,6 +334,14 @@ try {
         throw new RuntimeException('Native QUIC worker session leaked ownership or failed echo parity.');
     }
 
+    $profileJson = file_get_contents($argv[4] . '.profile.json');
+    $profile = is_string($profileJson) ? json_decode($profileJson, true, 32, JSON_THROW_ON_ERROR) : null;
+    if (!is_array($profile) || ($profile['poll_calls'] ?? 0) < 1
+        || ($profile['write_calls'] ?? 0) < 1 || ($profile['read_calls'] ?? 0) < 1
+        || ($profile['write_bytes'] ?? 0) < 1 || ($profile['read_bytes'] ?? 0) < 1) {
+        throw new RuntimeException('Native QUIC worker has no real poll/write/read profile evidence.');
+    }
+
     fwrite(STDOUT, json_encode([
         'verified' => true,
         'alpn' => 'runwire-echo',
@@ -323,6 +354,7 @@ try {
         'unsupported_datagram_migration_0rtt_rejected' => true,
         'unidirectional_streams_delivered' => 1,
         'persistent_worker' => true,
+        'worker_profile' => $profile,
     ], JSON_THROW_ON_ERROR) . PHP_EOL);
 } finally {
     $session->dispose();

@@ -46,6 +46,9 @@ if ! php tests/fixtures/quic_session_echo_client.php \
     exit 1
 fi
 jq -e '.verified == true and .concurrent_bidirectional == true
+    and .worker_profile.profiling == true
+    and .worker_profile.poll_calls > 0 and .worker_profile.write_calls > 0
+    and .worker_profile.read_calls > 0 and .worker_profile.write_bytes > 0
     and .native_reset_storm_count == 24
     and .verified_post_reset_bidi_streams == 2
     and .unidirectional_streams_delivered == 1' "$output" >/dev/null

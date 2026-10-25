@@ -26,6 +26,30 @@ final class QuicWorkerSession
 
     private int $nextStreamId = 1;
 
+    private bool $profiling = false;
+
+    private int $profilePollCalls = 0;
+
+    private int $profilePollNanoseconds = 0;
+
+    private int $profileReadCalls = 0;
+
+    private int $profileReadNanoseconds = 0;
+
+    private int $profileReadBytes = 0;
+
+    private int $profileWriteCalls = 0;
+
+    private int $profileWriteNanoseconds = 0;
+
+    private int $profileWriteBytes = 0;
+
+    private int $profilePartialWrites = 0;
+
+    private int $profileZeroWrites = 0;
+
+    private int $profilePeakStreams = 0;
+
     /** @var array<int, array{stream:object, bidirectional:bool, readable:bool, writable:bool}> */
     private array $streams = [];
 
@@ -72,6 +96,8 @@ final class QuicWorkerSession
                 'read' => $this->readStream($command),
                 'reset' => $this->resetStream($command),
                 'close' => $this->closeSession(),
+                'profile_start' => $this->startProfile(),
+                'profile_read' => $this->readProfile(),
                 default => throw new InvalidArgumentException('Unknown QUIC worker stream command.'),
             };
         } catch (Throwable $error) {
@@ -118,6 +144,9 @@ final class QuicWorkerSession
             'readable' => true,
             'writable' => $bidirectional,
         ];
+        if ($this->profiling) {
+            $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
+        }
 
         return ['stream' => $id, 'bidirectional' => $bidirectional, 'incoming' => true];
     }
@@ -252,7 +281,12 @@ final class QuicWorkerSession
     private function driveNativeEvents(): void
     {
         if (is_object($this->connection) && method_exists($this->connection, 'handleEvents')) {
+            $started = $this->profiling ? hrtime(true) : 0;
             $this->connection->handleEvents();
+            if ($this->profiling) {
+                ++$this->profilePollCalls;
+                $this->profilePollNanoseconds += max(0, hrtime(true) - $started);
+            }
         }
     }
 
@@ -283,6 +317,9 @@ final class QuicWorkerSession
             'readable' => $bidirectional,
             'writable' => true,
         ];
+        if ($this->profiling) {
+            $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
+        }
 
         return ['stream' => $id, 'bidirectional' => $bidirectional];
     }
@@ -301,7 +338,13 @@ final class QuicWorkerSession
             throw new RuntimeException('Native QUIC stream cannot be read.');
         }
         $this->driveNativeEvents();
+        $started = $this->profiling ? hrtime(true) : 0;
         $data = $stream->read(QuicWorkerCommand::MAX_DATA_BYTES);
+        if ($this->profiling) {
+            ++$this->profileReadCalls;
+            $this->profileReadNanoseconds += max(0, hrtime(true) - $started);
+            $this->profileReadBytes += is_string($data) ? strlen($data) : 0;
+        }
         if ($data !== null && !is_string($data)) {
             throw new RuntimeException('Native QUIC stream returned invalid bytes.');
         }
@@ -319,6 +362,45 @@ final class QuicWorkerSession
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{reset:bool}
      */
+    /** Enable worker-local timing only for a requested diagnostic workload. */
+    private function startProfile(): array
+    {
+        $this->profilePollCalls = 0;
+        $this->profilePollNanoseconds = 0;
+        $this->profileReadCalls = 0;
+        $this->profileReadNanoseconds = 0;
+        $this->profileReadBytes = 0;
+        $this->profileWriteCalls = 0;
+        $this->profileWriteNanoseconds = 0;
+        $this->profileWriteBytes = 0;
+        $this->profilePartialWrites = 0;
+        $this->profileZeroWrites = 0;
+        $this->profilePeakStreams = count($this->streams);
+        $this->profiling = true;
+
+        return ['profiling' => true];
+    }
+
+    /** @return array<string, int|bool> */
+    private function readProfile(): array
+    {
+        return [
+            'profiling' => $this->profiling,
+            'poll_calls' => $this->profilePollCalls,
+            'poll_nanoseconds' => $this->profilePollNanoseconds,
+            'read_calls' => $this->profileReadCalls,
+            'read_nanoseconds' => $this->profileReadNanoseconds,
+            'read_bytes' => $this->profileReadBytes,
+            'write_calls' => $this->profileWriteCalls,
+            'write_nanoseconds' => $this->profileWriteNanoseconds,
+            'write_bytes' => $this->profileWriteBytes,
+            'partial_writes' => $this->profilePartialWrites,
+            'zero_writes' => $this->profileZeroWrites,
+            'peak_streams' => $this->profilePeakStreams,
+            'live_streams' => count($this->streams),
+        ];
+    }
+
     private function resetStream(array $command): array
     {
         $stream = $this->stream($command['stream']);
@@ -355,7 +437,15 @@ final class QuicWorkerSession
         if (!method_exists($stream, 'write')) {
             throw new RuntimeException('Native QUIC stream cannot accept writes.');
         }
+        $started = $this->profiling ? hrtime(true) : 0;
         $written = $stream->write($command['data'], $command['fin']);
+        if ($this->profiling) {
+            ++$this->profileWriteCalls;
+            $this->profileWriteNanoseconds += max(0, hrtime(true) - $started);
+            $this->profileWriteBytes += is_int($written) && $written > 0 ? $written : 0;
+            $this->profilePartialWrites += (int) (is_int($written) && $written > 0 && $written < strlen($command['data']));
+            $this->profileZeroWrites += (int) ($written === 0);
+        }
         if (!is_int($written) || $written < 0 || $written > strlen($command['data'])
             || ($command['fin'] && $written !== strlen($command['data']))) {
             throw new RuntimeException('Native QUIC stream returned an invalid write length.');

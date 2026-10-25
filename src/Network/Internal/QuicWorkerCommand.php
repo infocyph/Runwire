@@ -26,6 +26,8 @@ final class QuicWorkerCommand
         'read',
         'reset',
         'close',
+        'profile_start',
+        'profile_read',
     ];
 
     private const int MAX_WIRE_BYTES = 90_000;
@@ -98,7 +100,7 @@ final class QuicWorkerCommand
         if ($requestId < 1 || $streamId < 0 || !in_array($operation, self::COMMANDS, true)
             || strlen($body) > self::MAX_DATA_BYTES
             || ($operation !== 'write' && $body !== '')
-            || (in_array($operation, ['open_bidi', 'open_uni', 'accept', 'close'], true) && $streamId !== 0)
+            || (in_array($operation, ['open_bidi', 'open_uni', 'accept', 'close', 'profile_start', 'profile_read'], true) && $streamId !== 0)
             || (in_array($operation, ['write', 'read', 'reset'], true) && $streamId === 0)
             || ($operation !== 'write' && $fin)) {
             throw new InvalidArgumentException('Invalid or excessive QUIC worker command.');

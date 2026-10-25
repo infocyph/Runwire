@@ -464,3 +464,52 @@ it('preserves a stream and its sibling during bounded partial writes before FIN'
     } while (!$result['eof']);
     expect($received)->toBe($payload)->and($native->closed)->toBeFalse();
 });
+
+
+it('records native poll/read/write costs only after explicit QUIC worker profiling', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2, partialWrites: true);
+    $first = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'profile_read')]);
+    expect($first['profiling'])->toBeFalse()
+        ->and($first['poll_calls'])->toBe(0)
+        ->and($first['write_calls'])->toBe(0);
+
+    expect($worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'profile_start'),
+    ]))->toBe(['profiling' => true]);
+    $opened = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'open_bidi')]);
+    $write = $worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'write', $opened['stream'], 'abc'),
+    ]);
+    expect($write)->toBe(['written' => 2]);
+    $read = $worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'read', $opened['stream']),
+    ]);
+    expect(base64_decode($read['data'], true))->toBe('ab');
+    $profile = $worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(6, 'profile_read'),
+    ]);
+    expect($profile)->toMatchArray([
+        'profiling' => true,
+        'read_calls' => 1,
+        'read_bytes' => 2,
+        'write_calls' => 1,
+        'write_bytes' => 2,
+        'partial_writes' => 1,
+        'peak_streams' => 1,
+        'live_streams' => 1,
+    ])
+        ->and($profile['poll_calls'])->toBeGreaterThan(0)
+        ->and($profile['poll_nanoseconds'])->toBeGreaterThanOrEqual(0)
+        ->and($profile['write_nanoseconds'])->toBeGreaterThanOrEqual(0)
+        ->and($native->closed)->toBeFalse();
+
+    expect($worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(7, 'profile_start'),
+    ]))->toBe(['profiling' => true]);
+    $reset = $worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(8, 'profile_read'),
+    ]);
+    expect($reset['write_calls'])->toBe(0)
+        ->and($reset['poll_calls'])->toBe(0)
+        ->and($reset['peak_streams'])->toBe(1);
+});
