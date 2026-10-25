@@ -52,11 +52,7 @@ final class AutoscaleWindowController
         float $p99Milliseconds,
         float $observedAtSeconds,
     ): int {
-        if (!is_finite($observedAtSeconds) || $observedAtSeconds < 0
-            || ($this->lastObservedAt !== null && $observedAtSeconds <= $this->lastObservedAt)) {
-            throw new InvalidArgumentException('Autoscale timestamps must be finite and strictly increasing.');
-        }
-        $this->lastObservedAt = $observedAtSeconds;
+        $this->assertMonotonicSample($observedAtSeconds);
 
         $elapsed = $this->lastChangeAt === null
             ? $this->policy->cooldownSeconds
@@ -94,6 +90,31 @@ final class AutoscaleWindowController
             return $currentWorkers;
         }
 
+        return $this->vote($currentWorkers, $desired, $observedAtSeconds);
+    }
+
+    /** Return how many validated samples agree on the next scaling direction. */
+    public function pendingWindows(): int
+    {
+        return $this->pendingWindows;
+    }
+
+    private function assertMonotonicSample(float $observedAtSeconds): void
+    {
+        if (!is_finite($observedAtSeconds) || $observedAtSeconds < 0
+            || ($this->lastObservedAt !== null && $observedAtSeconds <= $this->lastObservedAt)) {
+            throw new InvalidArgumentException('Autoscale timestamps must be finite and strictly increasing.');
+        }
+        $this->lastObservedAt = $observedAtSeconds;
+    }
+
+    private function resetPressure(): void
+    {
+        $this->pendingDirection = 0;
+        $this->pendingWindows = 0;
+    }
+    private function vote(int $currentWorkers, int $desired, float $observedAtSeconds): int
+    {
         $direction = $desired > $currentWorkers ? 1 : -1;
         if ($direction !== $this->pendingDirection) {
             $this->pendingWindows = 0;
@@ -103,22 +124,11 @@ final class AutoscaleWindowController
         if ($this->pendingWindows < $this->consecutiveWindows) {
             return $currentWorkers;
         }
-
         $this->lastChangeAt = $observedAtSeconds;
         $this->resetPressure();
 
         return $desired;
     }
 
-    /** Return how many validated samples agree on the next scaling direction. */
-    public function pendingWindows(): int
-    {
-        return $this->pendingWindows;
-    }
 
-    private function resetPressure(): void
-    {
-        $this->pendingDirection = 0;
-        $this->pendingWindows = 0;
-    }
 }

@@ -652,3 +652,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W140 grouped autoscale control-plane stability (2026-10-25; QA PENDING):** Monotonic observation gating, consecutive pressure votes, cooldown, fixed overrides and 240-window anti-oscillation regression with docs. Not wired to live supervisor worker lifecycle, so U12.04/.08/.09 OPEN. **123/175 accepted, 52 OPEN**.
+
+
+**W141 grouped native peer loss/reorder and previous autoscale QA recovery (2026-10-25; QA PENDING):** Native QUIC real packet-drop/delay peer plus six-reset/two-sibling/full FIN assertions and independent packet-count artifact; split U12 observer time validation/vote state to meet strict analyzer without bypass. U05/U12 OPEN. **123/175 accepted, 52 OPEN**.

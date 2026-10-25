@@ -214,3 +214,14 @@ also starts two fresh concurrent bidirectional streams and echoes their
 entire payloads before the final independent unidirectional FIN. Native
 PHP 8.4 and 8.5 artifacts must report both post-reset successes. This
 regression checks sibling recovery; it is not a simulated loss network.
+
+
+Independent native QUIC packet impairment
+-----------------------------------------
+
+Independent aioquic now optionally drops every nineteenth and delays every
+eleventh post-TLS UDP ingress packet. The actual PHP8.5 native worker must
+still complete six resets, two recovered bidirectional echoes and uni FIN.
+CI archives independent nonzero dropped/delayed datagram counters.
+This does not yet cover every client-side loss, stalled flow window, or
+cancellation storm; U05.05/U05.09 remain OPEN.
