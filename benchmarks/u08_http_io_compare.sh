@@ -43,7 +43,7 @@ mapfile -t reserved_ports < <(php -r '
           fwrite(STDERR, "Ephemeral TCP port allocation failed.");
           exit(1);
       }
-      fwrite(STDOUT, substr(strrchr($address, ":"), 1) . "\\n");
+      fwrite(STDOUT, substr(strrchr($address, ":"), 1) . "\n");
   }
   fclose($first);
   fclose($second);
