@@ -619,3 +619,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W129 grouped callback-ownership API and class-order QA (2026-10-25; QA PENDING):** Reorder two newly introduced owner-query methods under strict Pint class-element requirements and prove claim/release/handoff changes ownership correctly. PHPStan 8.4/8.5 on previous exact-head was green; pending QA must prove PHPForge/Pest and benchmarks. U10.04/.05/.06 OPEN, **122/175 accepted, 53 OPEN**.
+
+
+**W130 grouped release workflow revision safety (2026-10-25; QA PENDING):** Manually dispatched cert no longer silently targets main, candidate SHA input is mandatory and validated throughout 5 certification job lanes; PR-triggered cert stays exact-head. Proper 3.0 metadata and static pin tests. U17 gates remain OPEN; **122/175 accepted, 53 OPEN**.
