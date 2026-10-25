@@ -607,3 +607,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W125 grouped proxy callback + Unicode RST QA (2026-10-25; QA PENDING):** Refactor duplicate onDrain conditional branches into private receiver for both CONNECT/SOCKS, honoring compiler/Pint complexity without weakening error handling; correct RST heading Unicode width test. Prior HTTP1 adaptive diagnostic 256 failures remains a real tracked issue. **122/175 accepted, 53 open**.
+
+
+**W126 grouped real H1 load accounting and backpressure (2026-10-25; QA PENDING):** Correct 0-byte nonblocking writes under full socket send buffer, add real local saturation regression and disaggregate connect/read/write failure counters. Keep strict zero-error 256-concurrent adaptive phases; earlier 256 failed requests block acceptance. U08.08/.09 and U15 OPEN. **122/175 accepted, 53 OPEN**.

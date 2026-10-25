@@ -223,3 +223,57 @@ it('reports detailed strict request counters on benchmark correctness failure', 
         ->and(fn() => http1SustainedAssertCorrect($counter, 'H1 stressed phase'))
         ->toThrow(RuntimeException::class, '"timeouts_total":1');
 });
+
+it('treats transient zero-byte nonblocking writes as bounded retry rather than a failed request', function (): void {
+    $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($sockets)->toBeArray();
+    [$socket, $peer] = $sockets;
+    stream_set_blocking($socket, false);
+    stream_set_blocking($peer, false);
+    stream_set_write_buffer($socket, 0);
+    $filled = false;
+    $chunk = str_repeat('z', 8192);
+    try {
+        for ($attempt = 0; $attempt < 2048; ++$attempt) {
+            $written = fwrite($socket, $chunk);
+            if ($written === 0) {
+                $filled = true;
+
+                break;
+            }
+            if ($written === false) {
+                break;
+            }
+        }
+        expect($filled)->toBeTrue('The local socket must expose real nonblocking send backpressure.');
+
+        $clients = [0 => ['stream' => $socket, 'active' => true]];
+        $counter = http1SustainedCounters();
+        http1SustainedPrepareRequest($clients[0], $counter);
+        $request = "GET /benchmark HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n";
+        http1SustainedWriteReady([$socket], [(int) $socket => 0], $clients, $counter, $request);
+        expect($counter['errors_total'])->toBe(0)
+            ->and($counter['write_errors'])->toBe(0)
+            ->and($counter['write_would_block'])->toBe(1)
+            ->and($clients[0]['active'])->toBeTrue()
+            ->and($clients[0]['write_offset'])->toBe(0)
+            ->and($clients[0]['request_deadline'])->toBeGreaterThan(microtime(true));
+        $received = fread($peer, 8192);
+        expect($received)->not->toBe('');
+    } finally {
+        fclose($socket);
+        fclose($peer);
+    }
+});
+
+it('records transport error classes without suppressing strict sustained request accounting', function (): void {
+    $counters = http1SustainedCounters();
+    expect($counters)->toHaveKeys([
+        'connect_errors', 'response_read_errors', 'write_errors', 'write_would_block',
+    ]);
+    $counters['requests_total'] = 1;
+    $counters['errors_total'] = 1;
+    $counters['write_errors'] = 1;
+    expect(fn() => http1SustainedAssertCorrect($counters, 'Backpressure diagnostics'))
+        ->toThrow(RuntimeException::class, '"write_errors":1');
+});

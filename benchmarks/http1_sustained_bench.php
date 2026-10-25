@@ -14,6 +14,10 @@ function http1SustainedCounters(): array
         'completed_requests' => 0,
         'successful_requests' => 0,
         'errors_total' => 0,
+        'connect_errors' => 0,
+        'response_read_errors' => 0,
+        'write_errors' => 0,
+        'write_would_block' => 0,
         'timeouts_total' => 0,
         'validation_failures' => 0,
         'reconnects_total' => 0,
@@ -222,6 +226,7 @@ function http1SustainedOpenClient(string $host, int $port, array &$counter): ?ar
     } catch (Throwable) {
         ++$counter['requests_total'];
         ++$counter['errors_total'];
+        ++$counter['connect_errors'];
 
         return null;
     }
@@ -400,6 +405,7 @@ function http1SustainedHandleReadable(
         $response = http1SustainedTryCompleteResponse($clients[$id]);
     } catch (Throwable) {
         ++$counter['errors_total'];
+        ++$counter['response_read_errors'];
         http1SustainedCloseClient($clients[$id]);
 
         return;
@@ -469,9 +475,18 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
             $clients[$id]['request_deadline'] = microtime(true) + 2.0;
         }
         $written = fwrite($stream, $remaining);
-        if ($written === false || $written === 0) {
+        if ($written === false) {
             ++$counter['errors_total'];
+            ++$counter['write_errors'];
             http1SustainedCloseClient($clients[$id]);
+
+            continue;
+        }
+        if ($written === 0) {
+            // A writable descriptor may race with another writer or hit a
+            // transient send-buffer limit. Let the existing select() and
+            // request deadline determine forward progress, not false failure.
+            ++$counter['write_would_block'];
 
             continue;
         }

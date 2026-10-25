@@ -123,3 +123,19 @@ The independent TLS, QUIC, host and security gates retain their own
 immutable workflow-run evidence in the canonical plan. In particular,
 a green profile job or a green Sphinx build **must not** turn U15/U17
 release performance, matched TLS or WebTransport certifications green.
+
+
+HTTP/1.1 diagnostic send-buffer contention
+-----------------------------------------
+
+The development adaptive HTTP/1.1 benchmark now distinguishes a transient
+zero-byte nonblocking ``fwrite()`` from an actual failed write. A zero-byte
+write retains the current bounded request, preserves the unchanged
+two-second timeout and retries through select readiness; ``false``
+remains an error. Transport counters separate connection, read and write
+failures and count blocked writes. This is an accounting/correctness fix,
+**not permission to ignore server failures, change concurrency or reduce
+release throughput and p99 acceptance budgets**. The strict benchmark still
+rejects all failed/incomplete requests. Prior W124 PHP 8.5 H1 adaptive
+matrix failed with 256 errors; its source cause is not considered
+certified until matched workload QA passes.
