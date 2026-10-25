@@ -358,11 +358,35 @@ jobs:
           set -euo pipefail
           php -l benchmarks/async_file_worker_profile.php
           output="benchmark-results/u11-file-worker-php-${{ matrix.php-version }}.json"
-          php benchmarks/async_file_worker_profile.php 32 16384 > "$output"
+          single="benchmark-results/u11-file-worker-single-php-${{ matrix.php-version }}.json"
+          matched="benchmark-results/u11-file-worker-1-vs-2-php-${{ matrix.php-version }}.json"
+          php benchmarks/async_file_worker_profile.php 32 16384 2 > "$output"
+          php benchmarks/async_file_worker_profile.php 32 16384 1 > "$single"
+          jq -e '.configuredWorkers == 1 and .correctnessPassed == true and .verifiedRoundTrips == 32
+            and .bytesReadWritten == 1048576 and .loopTicks > 0 and .releaseCertified == false' "$single" >/dev/null
+          jq -n --slurpfile a "$single" --slurpfile b "$output" '
+            ($a[0]) as $single | ($b[0]) as $dual | {
+              schemaVersion: 1,
+              scope: "development-only-one-vs-two-worker-sensitivity",
+              releaseCertified: false,
+              verifiedByteParity: ($single.bytesReadWritten == $dual.bytesReadWritten),
+              workersSingle: $single.configuredWorkers,
+              workersDual: $dual.configuredWorkers,
+              throughputRatio: ($dual.throughputBytesPerSecond / $single.throughputBytesPerSecond),
+              parentRssRatio: ($dual.parentPhpPeakRssBytes / $single.parentPhpPeakRssBytes),
+              singleLoopTicks: $single.loopTicks,
+              dualLoopTicks: $dual.loopTicks,
+              singlePeakQueued: $single.executorPeakQueued,
+              dualPeakQueued: $dual.executorPeakQueued
+            }' > "$matched"
+          jq -e '.releaseCertified == false and .verifiedByteParity == true
+            and .workersSingle == 1 and .workersDual == 2
+            and .throughputRatio > 0 and .parentRssRatio > 0
+            and .singleLoopTicks > 0 and .dualLoopTicks > 0' "$matched" >/dev/null
           jq -e '.schemaVersion == 1 and .releaseCertified == false and .correctnessPassed == true
             and .verifiedRoundTrips == 32 and .bytesReadWritten == 1048576
             and .throughputBytesPerSecond > 0 and .loopTicks > 0
-            and .executorJobsCompleted == 96 and .executorWorkers >= 1
+            and .configuredWorkers == 2 and .executorJobsCompleted == 96 and .executorWorkers >= 1
             and .executorPeakQueued >= 0 and .parentPhpPeakRssBytes > 0
             and .rssIncludesWorkerProcesses == false
             and .sampledMaxBusyWorkers >= 0 and .sampledWorkerOccupancyRatio >= 0

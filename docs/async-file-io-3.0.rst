@@ -151,3 +151,14 @@ provide durable fsync or a race-free path sandbox.
 .. code-block:: console
 
    php benchmarks/async_file_worker_profile.php 32 16384
+
+One-versus-two worker sensitivity (development only)
+---------------------------------------------------
+
+The worker-backed file profile now accepts a third numeric argument, a
+bounded worker count of 1–4. The CI benchmark jobs execute identical
+32 by 16 KiB byte-verified workloads with one and two PHP worker processes.
+Version-specific JSON records throughput, event-loop heartbeats, queue
+pressure, utilization, and parent-only RSS. Matched comparison artifacts
+record a ratio but impose no invented minimum speedup. These runs do not
+certify native asynchronous file I/O or release performance.

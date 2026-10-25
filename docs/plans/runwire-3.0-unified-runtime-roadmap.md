@@ -589,3 +589,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W119 grouped QUIC stream write-pressure QA (2026-10-25; QA PENDING):** 2-stream partial-write correctness, 4 concurrent streams × 24 cycles, zero-FIN slot reclamation and truthful fake native write lengths; plus W118 strict Sphinx heading fix. U05.05/.09/.10 still OPEN pending live native independent flow/loss/reorder/cancellation tests. QA-accepted **122/175**, 53 OPEN; plan and roadmap consistent.
+
+
+**W120 grouped async file I/O performance evidence (2026-10-25; QA PENDING):** One-versus-two worker comparison per PHP 8.4/8.5 job, verified byte/loop/queue/parent RSS metrics, ratio artifacts, bounded 1–4 worker setting and tests. U11.03/U11.10 OPEN pending substantive comparison. **122/175 accepted, 53 OPEN**.

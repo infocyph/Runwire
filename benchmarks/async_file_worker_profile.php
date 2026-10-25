@@ -9,21 +9,24 @@ use Infocyph\Runwire\Loop\SelectLoop;
 /**
  * Bounded worker-backed filesystem performance profile, not release certification.
  *
- * Usage: php benchmarks/async_file_worker_profile.php [operations] [bytes]
+ * Usage: php benchmarks/async_file_worker_profile.php [operations] [bytes] [workers]
  */
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 $args = $_SERVER['argv'] ?? null;
-if (!is_array($args) || count($args) > 3
+if (!is_array($args) || count($args) > 4
     || (isset($args[1]) && !is_string($args[1]))
-    || (isset($args[2]) && !is_string($args[2]))) {
+    || (isset($args[2]) && !is_string($args[2]))
+    || (isset($args[3]) && !is_string($args[3]))) {
     throw new InvalidArgumentException('Invalid filesystem profile arguments.');
 }
 $operations = isset($args[1]) ? filter_var($args[1], FILTER_VALIDATE_INT) : 32;
 $bytes = isset($args[2]) ? filter_var($args[2], FILTER_VALIDATE_INT) : 16_384;
+$workers = isset($args[3]) ? filter_var($args[3], FILTER_VALIDATE_INT) : 2;
 if (!is_int($operations) || $operations < 4 || $operations > 64
-    || !is_int($bytes) || $bytes < 128 || $bytes > 65_536) {
-    throw new InvalidArgumentException('Filesystem profile requires 4–64 operations and 128–65536 bytes.');
+    || !is_int($bytes) || $bytes < 128 || $bytes > 65_536
+    || !is_int($workers) || $workers < 1 || $workers > 4) {
+    throw new InvalidArgumentException('Filesystem profile requires 4–64 operations and 128–65536 bytes and 1–4 workers.');
 }
 
 $directory = sys_get_temp_dir() . '/runwire-fs-profile-' . bin2hex(random_bytes(8));
@@ -31,7 +34,7 @@ if (!mkdir($directory, 0700) || !is_dir($directory)) {
     throw new RuntimeException('Unable to create filesystem profile directory.');
 }
 $loop = new SelectLoop();
-$executor = new ProcessExecutor($loop, 2, 128);
+$executor = new ProcessExecutor($loop, $workers, 128);
 $filesystem = new AsyncFileSystem($executor, $directory);
 $payload = substr(str_repeat('runwire-fs-profile/', intdiv($bytes, 19) + 1), 0, $bytes);
 $paths = [];
@@ -155,6 +158,7 @@ try {
         'scope' => 'development-only-real-filesystem-worker-profile',
         'releaseCertified' => false,
         'operations' => $operations,
+        'configuredWorkers' => $workers,
         'payloadBytes' => $bytes,
         'verifiedRoundTrips' => $completed,
         'bytesReadWritten' => $completed * $bytes * 2,
@@ -162,7 +166,7 @@ try {
         'throughputBytesPerSecond' => round($completed * $bytes * 2 * 1_000_000_000 / $elapsed, 2),
         'loopTicks' => $heartbeats,
         'sampledMaxBusyWorkers' => $maxBusyWorkers,
-        'sampledWorkerOccupancyRatio' => round($activeSampleSum / max(1, $heartbeats * 2), 3),
+        'sampledWorkerOccupancyRatio' => round($activeSampleSum / max(1, $heartbeats * $workers), 3),
         'executorPeakQueued' => $diagnostics['peakQueued'],
         'executorWorkers' => $diagnostics['workers'],
         'executorJobsCompleted' => $diagnostics['completed'],
