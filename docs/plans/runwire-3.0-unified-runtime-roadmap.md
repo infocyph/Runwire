@@ -550,3 +550,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W106 native QUIC stress preparation (2026-10-25; QA PENDING):** Two independent aioquic-replied >32 KiB bidirectional stream bodies, third stream native reset, later uni-FIN receipt, and 64 mock worker reset/open/sibling cycles expand evidence for U05.05/U05.09. Full protocol-flow/window, loss/reorder, stalled-peer and cancellation-storm requirements remain unproven. No U05/QA acceptance until exact-head green; remain **122/175, 53 OPEN**, same checked tasks in both trackers.
+
+
+**W107 U11.10 worker/filesystem measurements (2026-10-25; QA PENDING):** Profile process-backed file read/write/unlink under bounded concurrent 32 × 16 KiB workload, independent heartbeat and metrics (bytes/s, completion, executor active occupancy/queue/workers, parent-only peak RSS/heap). One new source test and new measurements in existing PHP 8.4/8.5 benchmark artifacts. U11.10, U15.08 and U17 stay OPEN until exact-source QA and evidence; current checked totals **122/175, 53 OPEN**, same roadmap batch counts.

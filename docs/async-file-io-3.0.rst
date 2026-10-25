@@ -135,3 +135,19 @@ It does **not** eliminate a time-of-check/time-of-use race if another
 process can rename or replace path components between validation and the
 subsequent PHP filesystem syscall. Configure filesystem isolation and refuse
 untrusted mutable path roots until descriptor-relative access is supported.
+
+Worker resource profiling (development only)
+--------------------------------------------
+
+On PHP CLI environments with nonblocking subprocess pipes, the bounded
+benchmarks/async_file_worker_profile.php exercise writes, verifies,
+reads and deletes isolated files through two process-backed workers.
+It records event-loop heartbeat ticks, queue pressure, validated throughput
+in bytes per second, peak process RSS and heap. Separate PHP 8.4/8.5
+benchmark artifacts are diagnostic only: no published 2.1.2 filesystem
+throughput comparison or release certification is implied. This does not
+provide durable fsync or a race-free path sandbox.
+
+.. code-block:: console
+
+   php benchmarks/async_file_worker_profile.php 32 16384

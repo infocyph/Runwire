@@ -351,6 +351,23 @@ jobs:
             and (.workloads | length) == 3
             and all(.workloads[]; .candidate_to_baseline_ratio > 0)' "$directory/comparison.json" >/dev/null
 
+
+      - name: Profile verified worker filesystem bytes, queue and loop ticks
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l benchmarks/async_file_worker_profile.php
+          output="benchmark-results/u11-file-worker-php-${{ matrix.php-version }}.json"
+          php benchmarks/async_file_worker_profile.php 32 16384 > "$output"
+          jq -e '.schemaVersion == 1 and .releaseCertified == false and .correctnessPassed == true
+            and .verifiedRoundTrips == 32 and .bytesReadWritten == 1048576
+            and .throughputBytesPerSecond > 0 and .loopTicks > 0
+            and .executorJobsCompleted == 96 and .executorWorkers >= 1
+            and .executorPeakQueued >= 0 and .parentPhpPeakRssBytes > 0
+            and .rssIncludesWorkerProcesses == false
+            and .sampledMaxBusyWorkers >= 0 and .sampledWorkerOccupancyRatio >= 0
+            and .phpHeapPeakBytes > 0' "$output" >/dev/null
+
       - name: Compare F-04 helper with manual bounded pump
         shell: bash
         run: |
