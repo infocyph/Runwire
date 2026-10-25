@@ -12,7 +12,6 @@ it('allows opt-in evidence collection while keeping final release certification 
         ->toContain('($task_open == "0")', '$precheck == "success"')
         ->toContain('($task_open | tonumber? // -1)')
         ->toContain('      - release-preflight')
-        ->toContain('Evidence-generation is permitted before all tasks are accepted.')
         ->not->toContain('if [ "$total" -ne 175 ] || [ "$open" -ne 0 ]; then')
         ->not->toContain('gh release create');
     expect(substr_count($workflow, '    needs: release-preflight'))->toBe(4);

@@ -81,3 +81,15 @@ it('enforces field-section size without retaining invalid outstanding dynamic re
         Headers::fromArray(['x-large-field' => str_repeat('a', 128)]), protocol: h3TestPolicy());
     expect(fn() => $codec->encodeRequestHeaders($request, 1))->toThrow(InvalidArgumentException::class, 'configured limit');
 });
+
+it('refuses CONNECT pseudo-header misuse and hop-by-hop response metadata', function (): void {
+    $codec = new Http3ClientWireCodec();
+    $request = new ClientRequest('CONNECT', 'https://example.com:443/', protocol: h3TestPolicy());
+    $encoder = new Encoder(0, 0);
+    $response = $encoder->encode([[':status', '200'], ['connection', 'keep-alive']], 7)->block;
+
+    expect(fn() => $codec->encodeRequestHeaders($request, 7))
+        ->toThrow(RuntimeUnavailableException::class, 'CONNECT needs')
+        ->and(fn() => $codec->decodeResponseHeaders($response, 7))
+        ->toThrow(Http3Exception::class, 'hop-by-hop');
+});

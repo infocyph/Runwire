@@ -24,9 +24,9 @@ final class Http3ClientControl
 {
     private readonly ControlStream $peer;
 
-    private string $peerPrefix = '';
-
     private bool $localStarted = false;
+
+    private string $peerPrefix = '';
 
     private bool $peerTyped = false;
 

@@ -111,7 +111,11 @@ run_trial() {
 
   result="$output_dir/${protocol}-${mode}-trial-${trial}.json"
   if [ "$protocol" = "http1" ]; then
-    php benchmarks/adaptive_http1_matrix.php       "$port" "$server_pid" "$mode" "$phase_seconds"       > "$result"
+    if ! php benchmarks/adaptive_http1_matrix.php       "$port" "$server_pid" "$mode" "$phase_seconds"       > "$result"; then
+      echo "::error::Adaptive HTTP/1.1 $mode trial $trial failed; server diagnostics:" >&2
+      tail -n 120 "$tmpdir/server.log" >&2
+      exit 1
+    fi
   else
     /tmp/runwire-h2/bin/python benchmarks/h2_adaptive_matrix.py       "$port" "$server_pid" "$mode" "$phase_seconds" "$payload"       > "$result"
   fi

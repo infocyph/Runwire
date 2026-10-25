@@ -684,3 +684,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W146 outbound HTTP/3 wire codec (2026-10-25; QA PENDING):** Static QPACK client request HEADERS and response :status decode, security/downgrade/size tests; still requires actual outbound QUIC+h3 stream ownership and independent interoperability before U07 acceptance. **123/175 accepted; 52 OPEN**.
+
+
+**W147 C1 rolling QA + diagnostic correction (2026-10-25; QA PENDING):** Fix measured W146 PHPForge Pest/Pint/Rector findings, tighten fail-closed H3 CONNECT/hop-by-hop behavior and preserve actual server logs for red adaptive H1 stress. Neither incorrect 256 EOFs nor uncompleted H3 are promoted. **123/175 accepted, 52 OPEN**, C1 active.

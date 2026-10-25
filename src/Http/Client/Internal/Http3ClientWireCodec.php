@@ -22,11 +22,11 @@ use InvalidArgumentException;
  * Uses static QPACK only until the QUIC client owns encoder and decoder
  * instruction streams; never advertises dynamic references it cannot service.
  */
-final class Http3ClientWireCodec
+final readonly class Http3ClientWireCodec
 {
-    private readonly Decoder $decoder;
+    private Decoder $decoder;
 
-    private readonly Encoder $encoder;
+    private Encoder $encoder;
 
     /** Restrict both directions to unblocked, finite field sections. */
     public function __construct(int $maxFieldSectionBytes = 65_536, int $maxHeaderFields = 128)
@@ -60,6 +60,9 @@ final class Http3ClientWireCodec
                 throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response pseudo-header ordering.');
             }
 
+            if (in_array($name, ['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade'], true)) {
+                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response included a prohibited hop-by-hop field.');
+            }
             try {
                 $fields[] = new HeaderField($name, $value);
             } catch (InvalidArgumentException $error) {
@@ -77,6 +80,9 @@ final class Http3ClientWireCodec
     public function encodeRequestHeaders(ClientRequest $request, int $streamId): string
     {
         $request->protocol->negotiate('h3', true, true);
+        if (strtoupper($request->method) === 'CONNECT') {
+            throw new RuntimeUnavailableException('HTTP/3 CONNECT needs a separately authenticated tunnel protocol.');
+        }
         if ($request->body !== null) {
             throw new RuntimeUnavailableException('HTTP/3 client streaming body support is not yet implemented.');
         }
@@ -113,6 +119,6 @@ final class Http3ClientWireCodec
             throw new Http3Exception(ErrorCode::INTERNAL_ERROR, 'Static HTTP/3 QPACK must never block.');
         }
 
-        return (new Frame(FrameType::HEADERS->value, $encoded->block))->encode();
+        return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 }
