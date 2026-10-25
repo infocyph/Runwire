@@ -126,6 +126,21 @@ release every lease on both success and failure. Stream relays preserve
 cleartext half-close and cancel their own callbacks; a TCP half-close is
 not an authenticated TLS close_notify.
 
+Experimental HTTP CONNECT and SOCKS5 stages
+--------------------------------------------
+
+The unreleased HTTP CONNECT and SOCKS5 tunnel types are limited to
+unauthenticated handshake stages on an already established Runwire Connection.
+Their bounded framing, DNS disclosure policy, cancellation, and callback
+ownership are development building blocks, **not an HTTPS-through-proxy client**.
+Neither authenticated proxy TLS ownership nor the original target's
+nested TLS handshake, verified certificate identity and ALPN have been
+implemented. A 200 CONNECT reply or successful SOCKS5 handshake does
+not prove original target identity or authorize weakening TLS checks.
+
+Keep production HTTPS proxy clients unchanged until independently verified
+proxy and original-target TLS reference tests have passed U10.04–U10.06.
+
 Compatibility and release verification
 --------------------------------------
 

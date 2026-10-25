@@ -595,3 +595,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W121 grouped proxy fragmented-handshake QA (2026-10-25; QA PENDING):** Resolve PHPForge Pint and Pest failures from previous proxy group; correct truncated method+CONNECT distinction, add three finite-timeout partial replies across both protocols, preserve fail-closed policy and exactly-once cleanup. U10.04/.05/.06 OPEN, **122/175 accepted, 53 OPEN**, tracker synchronized.
+
+
+**W122 grouped RST manual completeness/migration (2026-10-25; QA PENDING):** Fix worker-profile heading warning, test all 22 top-level manual pages navigable once, retain historical navigation and document unreleased proxy/original-target TLS limits. Hosted preview, frozen migration proof, final nav review U16.02/.12/.16 remain OPEN. **122/175 accepted, 53 OPEN**, plan synchronized.
