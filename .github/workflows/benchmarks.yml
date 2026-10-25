@@ -706,6 +706,12 @@ jobs:
         shell: bash
         run: bash benchmarks/u04_tls_smoke.sh "benchmark-results/u04-tls-php-${{ matrix.php-version }}.json"
 
+      - name: Profile matching plaintext and verified TLS sizes, I/O calls and kernel process syscalls
+        shell: bash
+        run: |
+          bash -n benchmarks/u08_http_io_compare.sh
+          bash benchmarks/u08_http_io_compare.sh "benchmark-results/u08-io-php-${{ matrix.php-version }}.json"
+
       - name: Upload benchmark evidence
         if: always()
         uses: actions/upload-artifact@v7

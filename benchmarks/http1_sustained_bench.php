@@ -130,6 +130,31 @@ function http1SustainedTreeTicks(int $root): int
     return array_sum(array_map(http1SustainedProcessTicks(...), http1SustainedProcessTree($root)));
 }
 
+/** @return array{syscr:int,syscw:int,rchar:int,wchar:int} */
+function http1SustainedTreeIoCounters(int $root): array
+{
+    $totals = ['syscr' => 0, 'syscw' => 0, 'rchar' => 0, 'wchar' => 0];
+    foreach (http1SustainedProcessTree($root) as $pid) {
+        $lines = is_readable('/proc/' . $pid . '/io')
+            ? file('/proc/' . $pid . '/io', FILE_IGNORE_NEW_LINES)
+            : false;
+        if (!is_array($lines)) {
+            continue;
+        }
+        foreach ($lines as $line) {
+            if (!str_contains($line, ':')) {
+                continue;
+            }
+            [$key, $raw] = explode(':', $line, 2);
+            if (array_key_exists($key, $totals) && preg_match('/^\\d+$/D', trim($raw)) === 1) {
+                $totals[$key] += max(0, (int) trim($raw));
+            }
+        }
+    }
+
+    return $totals;
+}
+
 function http1SustainedTreeRss(int $root): int
 {
     return array_sum(array_map(http1SustainedProcessRss(...), http1SustainedProcessTree($root)));
@@ -505,7 +530,7 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
 }
 
 /**
- * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int}
+ * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int, io_start:array<string,int>, io_end:array<string,int>}
  */
 function http1SustainedRun(
     string $host,
@@ -523,6 +548,7 @@ function http1SustainedRun(
     $started = hrtime(true);
     $deadline = microtime(true) + $duration;
     $startTicks = http1SustainedTreeTicks($serverPid);
+    $startIo = http1SustainedTreeIoCounters($serverPid);
     $peakRss = http1SustainedTreeRss($serverPid);
 
     for ($id = 0; $id < $concurrency; ++$id) {
@@ -579,6 +605,8 @@ function http1SustainedRun(
         'peak_rss' => max($peakRss, http1SustainedTreeRss($serverPid)),
         'start_ticks' => $startTicks,
         'end_ticks' => http1SustainedTreeTicks($serverPid),
+        'io_start' => $startIo,
+        'io_end' => http1SustainedTreeIoCounters($serverPid),
     ];
 }
 
@@ -706,6 +734,14 @@ function http1SustainedMain(array $argv): array
         'error_rate' => $requests > 0 ? round($failures / $requests, 8) : 1.0,
         'cpu_percent' => round($cpu, 3),
         'rss_peak_bytes' => $measured['peak_rss'],
+        'server_process_io' => [
+            'linux_procfs' => is_readable('/proc/' . $serverPid . '/io'),
+            'read_syscalls_delta' => max(0, $measured['io_end']['syscr'] - $measured['io_start']['syscr']),
+            'write_syscalls_delta' => max(0, $measured['io_end']['syscw'] - $measured['io_start']['syscw']),
+            'rchar_delta' => max(0, $measured['io_end']['rchar'] - $measured['io_start']['rchar']),
+            'wchar_delta' => max(0, $measured['io_end']['wchar'] - $measured['io_start']['wchar']),
+            'scope' => 'whole-server-process-tree-not-socket-only',
+        ],
         'socket_io' => [
             'request_size_bytes' => strlen("GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n"),
             'write_calls' => $counter['socket_write_calls'],

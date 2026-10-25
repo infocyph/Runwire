@@ -744,3 +744,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 independent QUIC/QPACK cost-profile acceptance (2026-10-25):** [a4a2d6b](https://github.com/infocyph/Runwire/commit/a4a2d6b26836cf89f4cfc3830077266b7803439c) nine green workflows; [Security #40215640638](https://github.com/infocyph/Runwire/actions/runs/40215640638) both native PHPs + all QA and analysis; [Benchmarks #40215640344](https://github.com/infocyph/Runwire/actions/runs/40215640344) two-PHP matched 2.1.2/current QPACK+varint microprofiles and dynamic QPACK real H3 pressure. Accept U05.10 and U08.05 as scoped development cost profiles with real native poll/write/CPU/RSS/independent-packet evidence. Do NOT conflate with release saturation or full H3 client multiplexing. **129/175 accepted, 46 OPEN; C1 6/11 with five OPEN; C2-C5 QUEUED.**
+
+
+**C1 paired H1 plaintext/TLS syscall profile (2026-10-25, QA PENDING):** Adds `/proc` process-tree syscr/syscw/rchar/wchar counters beside true application socket byte/write/read counts, plus three alternating measured same-runner verified TLS/plaintext tests per PHP 8.4/8.5. Server process I/O includes non-network syscalls; release-grade sustained U08.09 evidence is not implied. Tracker remains **129/175; C1 6/11**.
