@@ -681,3 +681,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W145 outbound H3 client groundwork (2026-10-25; QA PENDING):** Introduce isolated client-side H3 control/SETTINGS stream state and protocol rejection tests, without claiming implemented outbound H3 transport or task acceptance. C1 active, **123/175 accepted, 52 OPEN**.
+
+
+**W146 outbound HTTP/3 wire codec (2026-10-25; QA PENDING):** Static QPACK client request HEADERS and response :status decode, security/downgrade/size tests; still requires actual outbound QUIC+h3 stream ownership and independent interoperability before U07 acceptance. **123/175 accepted; 52 OPEN**.
