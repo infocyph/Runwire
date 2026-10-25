@@ -553,3 +553,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W107 U11.10 worker/filesystem measurements (2026-10-25; QA PENDING):** Profile process-backed file read/write/unlink under bounded concurrent 32 × 16 KiB workload, independent heartbeat and metrics (bytes/s, completion, executor active occupancy/queue/workers, parent-only peak RSS/heap). One new source test and new measurements in existing PHP 8.4/8.5 benchmark artifacts. U11.10, U15.08 and U17 stay OPEN until exact-source QA and evidence; current checked totals **122/175, 53 OPEN**, same roadmap batch counts.
+
+
+**W108 CI remediation (2026-10-25; QA PENDING):** W107 PHPForge matrix failures share a Pint-only style issue (`method_argument_space`, `blank_line_before_statement`) on the newly added file worker profile, rather than multiple runtime regressions. Formatting corrected without relaxing QA. U11.10 and U15/U17 remain OPEN until exact W108 CI verification. Canonical accepted **122/175, 53 OPEN**, synchronized with plan.

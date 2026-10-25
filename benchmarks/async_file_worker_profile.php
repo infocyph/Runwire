@@ -50,8 +50,15 @@ $fail = static function (Throwable $error) use (&$failure, $loop): void {
 };
 $tick = null;
 $tick = static function () use (
-    &$tick, &$heartbeatTimer, &$heartbeats, &$maxBusyWorkers, &$activeSampleSum,
-    &$remaining, &$failure, $loop, $executor,
+    &$tick,
+    &$heartbeatTimer,
+    &$heartbeats,
+    &$maxBusyWorkers,
+    &$activeSampleSum,
+    &$remaining,
+    &$failure,
+    $loop,
+    $executor,
 ): void {
     ++$heartbeats;
     $active = $executor->diagnostics()['active'];
@@ -61,6 +68,7 @@ $tick = static function () use (
         $heartbeatTimer = $loop->delay(0.002, $tick);
     }
 };
+
 try {
     $heartbeatTimer = $loop->delay(0.002, $tick);
     $deadlineTimer = $loop->delay(30.0, static function () use ($fail): void {
@@ -73,7 +81,14 @@ try {
             $path,
             $payload,
             static function (int $written, ?Throwable $error) use (
-                $filesystem, $path, $payload, $bytes, $fail, &$completed, &$remaining, $loop,
+                $filesystem,
+                $path,
+                $payload,
+                $bytes,
+                $fail,
+                &$completed,
+                &$remaining,
+                $loop,
             ): void {
                 if ($error !== null || $written !== $bytes) {
                     $fail($error ?? new RuntimeException('Filesystem worker wrote insufficient bytes.'));
@@ -84,7 +99,13 @@ try {
                     $path,
                     $bytes,
                     static function (string $data, ?Throwable $error) use (
-                        $filesystem, $path, $payload, $fail, &$completed, &$remaining, $loop,
+                        $filesystem,
+                        $path,
+                        $payload,
+                        $fail,
+                        &$completed,
+                        &$remaining,
+                        $loop,
                     ): void {
                         if ($error !== null || $data !== $payload) {
                             $fail($error ?? new RuntimeException('Filesystem worker readback mismatch.'));
@@ -94,7 +115,10 @@ try {
                         $filesystem->unlink(
                             $path,
                             static function (bool $removed, ?Throwable $error) use (
-                                $fail, &$completed, &$remaining, $loop,
+                                $fail,
+                                &$completed,
+                                &$remaining,
+                                $loop,
                             ): void {
                                 if ($error !== null || !$removed) {
                                     $fail($error ?? new RuntimeException('Filesystem worker unlink failed.'));
