@@ -56,7 +56,7 @@ it('rejects unsupported H3 and unsafe H1/H2 fallback before any socket or DNS wo
             $callback,
             $callback,
             $callback,
-        ))->toThrow(InvalidArgumentException::class, 'HTTP or HTTPS scheme');
+        ))->toThrow(InvalidArgumentException::class, 'absolute http(s) origin');
         expect($numeric->pendingCount())->toBe(0)
             ->and($dialer->pendingCount())->toBe(0)
             ->and($executor->diagnostics()['submitted'])->toBe(0);

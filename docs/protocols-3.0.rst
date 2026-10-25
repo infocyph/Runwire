@@ -196,7 +196,7 @@ slow-peer/fairness requirements still govern U07.05 acceptance.
 
 
 Independent stalled-sibling HTTP/2 acceptance
---------------------------------------------
+---------------------------------------------
 
 The TLS reference server can now withhold completion of one H2 response while
 completing the other over the same verified connection, then finish the

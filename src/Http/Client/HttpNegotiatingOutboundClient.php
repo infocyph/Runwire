@@ -48,11 +48,8 @@ final readonly class HttpNegotiatingOutboundClient
         if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
             throw new InvalidArgumentException('HTTP client requires an absolute HTTP origin.');
         }
-        $scheme = strtolower($parts['scheme'] ?? '');
-        if (!in_array($scheme, ['http', 'https'], true)) {
-            throw new InvalidArgumentException('HTTP client requires an HTTP or HTTPS scheme.');
-        }
-        $secure = $scheme === 'https';
+        // ClientRequest validated the absolute HTTP(S) scheme before dialing.
+        $secure = strtolower($parts['scheme'] ?? '') === 'https';
         $options = $dialOptions ?? new DialOptions();
         if (!$secure) {
             if ($policy->preferred !== ProtocolVersion::HTTP_1_1) {
@@ -166,7 +163,6 @@ final readonly class HttpNegotiatingOutboundClient
         };
         $exchange->start();
     }
-
 
     /** Validate a complete ALPN offer against original peer identity before DNS. */
     private static function verifiedOptions(
