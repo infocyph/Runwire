@@ -131,3 +131,70 @@ it('rejects stale idle traffic and does not hand a tenant socket to another scop
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
+
+
+it('reports opt-in bounded pool hit, miss, waiter, and retirement counters without exposing tenant identities', function (): void {
+    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $socket);
+    $pool = new BoundedConnectionPool(
+        $loop, maxActive: 1, maxWaiting: 1, maxIdle: 1, enableMetrics: true,
+    );
+    $key = new PoolIsolationKey(DialEndpoint::parse('unix:///tmp/runwire-metric-pool.sock'), 'private-tenant');
+    $borrowed = null;
+    try {
+        $first = $pool->acquire($key, static function (): void {});
+        $second = $pool->acquire($key, static function (int $id, ?Connection $conn) use (&$borrowed): void {
+            $borrowed = $conn;
+        });
+        expect(fn() => $pool->acquire($key, static function (): void {}))
+            ->toThrow(OverflowException::class);
+        expect($pool->release($first, $connection))->toBeTrue()
+            ->and($borrowed)->toBe($connection);
+        expect($pool->release($second, $connection))->toBeTrue();
+
+        $third = $pool->acquire($key, static function (int $id, ?Connection $conn) use (&$borrowed): void {
+            $borrowed = $conn;
+        });
+        expect($borrowed)->toBe($connection);
+        expect($pool->release($third))->toBeTrue();
+        $metrics = $pool->metrics();
+        expect($metrics)->toMatchArray([
+            'enabled' => true,
+            'acquisitions' => 4,
+            'reuse_hits' => 2,
+            'fresh_dial_slots' => 1,
+            'queued' => 1,
+            'waiter_grants' => 1,
+            'waiter_overflow' => 1,
+            'releases' => 3,
+            'idle_retained' => 2,
+            'active' => 0,
+            'waiting' => 0,
+            'idle' => 0,
+        ])->and(json_encode($metrics, JSON_THROW_ON_ERROR))->not->toContain('private-tenant');
+    } finally {
+        $pool->close();
+        $connection->abort();
+        fclose($peer);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('keeps pool counters inactive unless explicitly enabled', function (): void {
+    $loop = new SelectLoop();
+    $pool = new BoundedConnectionPool($loop, maxActive: 1, maxWaiting: 1, maxIdle: 1);
+    $key = new PoolIsolationKey(DialEndpoint::parse('unix:///tmp/runwire-off-pool.sock'), 'isolated');
+    try {
+        $id = $pool->acquire($key, static function (): void {});
+        expect($pool->release($id))->toBeTrue();
+        expect($pool->metrics())->toMatchArray([
+            'enabled' => false, 'acquisitions' => 0,
+            'reuse_hits' => 0, 'fresh_dial_slots' => 0, 'releases' => 0,
+        ]);
+    } finally {
+        $pool->close();
+    }
+});

@@ -36,11 +36,11 @@ The original **52** Uxx.yy IDs are assigned exactly once (two C1 IDs are accepte
 | Closure batch | Coherent workstream | Assigned canonical task IDs | Open | Status | Acceptance boundary |
 | --- | --- | --- | ---: | --- | --- |
 | C1 | Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 5 | IN DEVELOPMENT (6/11 accepted) | Real TLS, QUIC and H1/H2/H3 peer conformance; bounded loss/reset/fallback; matched evidence |
-| C2 | WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 10 | QUEUED | Independent WT peer tests, authenticated proxy TLS, origin identity, pool and multiplex QA |
+| C2 | WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 10 | IN DEVELOPMENT (0/10 accepted) | Independent WT peer tests, authenticated proxy TLS, origin identity, pool and multiplex QA |
 | C3 | Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 9 | QUEUED | Real live worker scaling/drain/crash tests, mixed transports, bounded file executor and fuzz |
 | C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | QUEUED | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
 | C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED | Exact-head PHPForge/host/interop/packaging gates, independent reviewer acceptance and no automatic release |
-| **TOTAL** | **Five closure groups; no extra task IDs** | **52 originally assigned; 6 accepted** | **46** | **1 active / 4 queued** | **175 canonical tasks unchanged** |
+| **TOTAL** | **Five closure groups; no extra task IDs** | **52 originally assigned; 6 accepted** | **46** | **2 active / 3 queued** | **175 canonical tasks unchanged** |
 
 ### Cross-batch delivery and QA discipline
 
@@ -1120,3 +1120,6 @@ All of these pages are **required deliverables** inside the proposed docs docume
 
 
 **C1 U08.08 mixed-protocol stream/cancellation/slow-receiver stress (2026-10-25; QA PENDING):** Extend existing independent native crash/reload/manual-recycle suite to simultaneously issue 8 multiplexed H2 requests and 8 multiplexed H3 requests per wave, send one H2 RST_STREAM and one native QUIC H3 RESET_STREAM without counting canceled requests as successful, and deliberately hold H2 read/flow-control updates 20ms while accepted siblings must complete byte-identically. Repeat with HTTPS H1, TCP and UDP during live SIGKILL worker replacement, SIGHUP reload and manual generational recycle. Tighten CI JSON assertions for all five lifecycle waves, real peer streams and cancellation counts. **U08.08 remains OPEN until exact-head and native PHP8.5 real-peer QA succeed; 129/175 accepted, 46 OPEN, C1 6/11; C2-C5 queued.**
+
+
+**Parallel independent C2 implementation authorized 2026-10-26 (QA PENDING):** User now allows starting independent C2 work while C1 QA runs. `BoundedConnectionPool` gains opt-in, default-off nonsecret hit/miss, fresh dial slot, waiter overflow/grant/expiry/cancel and idle-safe retention counters for eventual U10.09 matched pool/direct-dial benchmark. Tests validate real pool/socket reuse and no scope identity disclosure. **No C2 task accepted:** pool hit rates alone do not prove saturated p99/CPU/FD/RSS gains, H2/H3 multiplex slots, authenticated proxies, or WebTransport. **129/175 accepted, 46 open; C1 6/11, C2 0/10 both IN DEVELOPMENT; C3-C5 queued.** C1 acceptance gates are independent from C2 code work; no merge/release.

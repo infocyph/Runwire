@@ -22,6 +22,22 @@ final class BoundedConnectionPool
 {
     private readonly IdleConnectionPool $idle;
 
+    /** @var array<string, int> */
+    private array $metricCounts = [
+        'acquisitions' => 0,
+        'reuse_hits' => 0,
+        'fresh_dial_slots' => 0,
+        'queued' => 0,
+        'waiter_grants' => 0,
+        'waiter_timeouts' => 0,
+        'waiter_cancellations' => 0,
+        'waiter_closed' => 0,
+        'waiter_overflow' => 0,
+        'releases' => 0,
+        'idle_retained' => 0,
+        'idle_rejected' => 0,
+    ];
+
     /** @var array<int, PoolIsolationKey> */
     private array $active = [];
 
@@ -39,6 +55,7 @@ final class BoundedConnectionPool
         private readonly int $maxWaiting = 128,
         int $maxIdle = 16,
         float $idleTtlSeconds = 30.0,
+        private readonly bool $enableMetrics = false,
     ) {
         if ($maxActive < 1 || $maxActive > 65_536 || $maxWaiting < 1
             || $maxWaiting > 65_536 || $maxIdle < 1 || $maxIdle > $maxActive) {
@@ -59,6 +76,9 @@ final class BoundedConnectionPool
             throw new InvalidArgumentException('Pool is closed or waiter deadline/identity is invalid.');
         }
         $id = $this->nextId++;
+        if ($this->enableMetrics) {
+            ++$this->metricCounts['acquisitions'];
+        }
         $callback = Closure::fromCallable($ready);
         if (count($this->active) < $this->maxActive && $this->waiting === []) {
             $this->grant($id, $key, $callback);
@@ -66,13 +86,22 @@ final class BoundedConnectionPool
             return $id;
         }
         if (count($this->waiting) >= $this->maxWaiting) {
+            if ($this->enableMetrics) {
+                ++$this->metricCounts['waiter_overflow'];
+            }
             throw new OverflowException('Connection pool waiter quota exceeded.');
         }
 
         $timer = $this->loop->delay($waitSeconds, function () use ($id): void {
+            if ($this->enableMetrics && isset($this->waiting[$id])) {
+                ++$this->metricCounts['waiter_timeouts'];
+            }
             $this->rejectWaiter($id, new RuntimeException('Connection pool waiter timed out.'));
         });
         $this->waiting[$id] = ['key' => $key, 'callback' => $callback, 'timer' => $timer];
+        if ($this->enableMetrics) {
+            ++$this->metricCounts['queued'];
+        }
 
         return $id;
     }
@@ -89,6 +118,9 @@ final class BoundedConnectionPool
         if (!isset($this->waiting[$id])) {
             return false;
         }
+        if ($this->enableMetrics) {
+            ++$this->metricCounts['waiter_cancellations'];
+        }
         $this->rejectWaiter($id, new RuntimeException('Connection pool waiter was canceled.'));
 
         return true;
@@ -103,6 +135,9 @@ final class BoundedConnectionPool
         $this->closed = true;
         $waiters = $this->waiting;
         $this->waiting = [];
+        if ($this->enableMetrics) {
+            $this->metricCounts['waiter_closed'] += count($waiters);
+        }
         $firstError = null;
         foreach ($waiters as $id => $entry) {
             $this->loop->cancel($entry['timer']);
@@ -117,6 +152,18 @@ final class BoundedConnectionPool
         if ($firstError !== null) {
             throw $firstError;
         }
+    }
+
+    /** Snapshot optionally enabled bounded counters without exposing tenant/proxy credentials. */
+    public function metrics(): array
+    {
+        return [
+            'enabled' => $this->enableMetrics,
+            ...$this->metricCounts,
+            'active' => count($this->active),
+            'waiting' => count($this->waiting),
+            'idle' => $this->idle->count(),
+        ];
     }
 
     /** Number of quiescent, verified sockets available for identity-safe reuse. */
@@ -135,11 +182,17 @@ final class BoundedConnectionPool
             return false;
         }
         unset($this->active[$id]);
+        if ($this->enableMetrics) {
+            ++$this->metricCounts['releases'];
+        }
         if ($connection !== null) {
             if ($this->closed) {
                 $connection->abort();
             } else {
-                $this->idle->store($key, $connection);
+                $retained = $this->idle->store($key, $connection);
+                if ($this->enableMetrics) {
+                    ++$this->metricCounts[$retained ? 'idle_retained' : 'idle_rejected'];
+                }
             }
         }
         $this->dispatch();
@@ -160,6 +213,9 @@ final class BoundedConnectionPool
             $entry = $this->waiting[$id];
             unset($this->waiting[$id]);
             $this->loop->cancel($entry['timer']);
+            if ($this->enableMetrics) {
+                ++$this->metricCounts['waiter_grants'];
+            }
             $this->grant($id, $entry['key'], $entry['callback']);
         }
     }
@@ -167,6 +223,9 @@ final class BoundedConnectionPool
     private function grant(int $id, PoolIsolationKey $key, Closure $callback): void
     {
         $connection = $this->idle->take($key);
+        if ($this->enableMetrics) {
+            ++$this->metricCounts[$connection === null ? 'fresh_dial_slots' : 'reuse_hits'];
+        }
         $this->active[$id] = $key;
 
         try {
