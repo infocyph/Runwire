@@ -124,6 +124,7 @@ it('establishes a verified nonblocking TLS client connection with explicit trust
         expect($error)->toBeNull()
             ->and($connection)->toBeInstanceOf(Connection::class)
             ->and($connection->isEncrypted())->toBeTrue()
+            ->and($connection->verifiedOutboundTlsPeerName())->toBe('localhost')
             ->and($accepted)->toBeTrue();
         $connection->abort();
     } finally {

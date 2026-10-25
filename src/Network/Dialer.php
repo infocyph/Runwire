@@ -238,6 +238,7 @@ final class Dialer
                 tcpTransport: $job['tcp'],
                 tcpNoDelayOverride: $job['options']->tcpNoDelay,
                 strictTlsPeerEof: $job['options']->tls !== null,
+                verifiedOutboundTlsPeerName: $job['options']->tls?->peerName,
             );
         } catch (Throwable $error) {
             $this->finish($id, null, $error);
