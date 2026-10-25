@@ -136,6 +136,7 @@ final class Http3ClientResponseStream
         $this->headersSeen = true;
         ($this->onHeaders)($response['status'], $headers);
     }
+
     private function acceptTrailers(Frame $frame): void
     {
         if ($this->trailersSeen) {
@@ -147,5 +148,4 @@ final class Http3ClientResponseStream
             ($this->onTrailers)($trailers);
         }
     }
-
 }
