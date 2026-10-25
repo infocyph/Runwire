@@ -613,3 +613,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W127 grouped proxy cross-owner isolation (2026-10-25; QA PENDING):** Both CONNECT and SOCKS5 now release/abort only when owning callback slots, preserving another adapter's already-claimed live socket and subsequent data. Internal/public owner-specific query and real socket regression tests. No nested TLS; U10.04/.05/.06 remain OPEN; **122/175 QA accepted, 53 OPEN**.
+
+
+**W128 grouped Runwire correctness/QA convergence (2026-10-25; QA PENDING):** In addition to exclusive-adapter ownership, test configured direct-connection callback preservation when proxy claim fails; resolve both shared Pint before-try formatting defects, restore actual request CRLF in H1 send-pressure fixture and fix two strict Sphinx heading warnings. No QA bypass and no new acceptance until exact-head checks. **122/175, 53 open**.

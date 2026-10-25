@@ -265,7 +265,7 @@ verifies full negotiation, application-byte handoff, pressure detection
 and final watcher/timer cleanup. It does not prove end-to-end nested TLS.
 
 Exclusive callback ownership on proxy failures
----------------------------------------------
+----------------------------------------------
 
 CONNECT and SOCKS5 stages now check whether *their own adapter* actually
 acquired the Runwire connection's callback slots before releasing slots or

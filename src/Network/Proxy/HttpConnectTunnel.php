@@ -84,6 +84,7 @@ final class HttpConnectTunnel
         $request = $this->handshake->request($this->host, $this->port);
         $this->assertTargetPolicy();
         $this->state = 'pending';
+
         try {
             $this->connection->claimCallbacks(
                 $this,

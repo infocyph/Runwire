@@ -126,7 +126,7 @@ release performance, matched TLS or WebTransport certifications green.
 
 
 HTTP/1.1 diagnostic send-buffer contention
------------------------------------------
+------------------------------------------
 
 The development adaptive HTTP/1.1 benchmark now distinguishes a transient
 zero-byte nonblocking ``fwrite()`` from an actual failed write. A zero-byte

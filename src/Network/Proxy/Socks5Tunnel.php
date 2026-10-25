@@ -83,6 +83,7 @@ final class Socks5Tunnel
         $this->handshake->connectRequest($this->host, $this->port);
         $this->assertTargetPolicy();
         $this->phase = 'method';
+
         try {
             $this->connection->claimCallbacks(
                 $this,

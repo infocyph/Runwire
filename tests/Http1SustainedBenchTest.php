@@ -250,7 +250,7 @@ it('treats transient zero-byte nonblocking writes as bounded retry rather than a
         $clients = [0 => ['stream' => $socket, 'active' => true]];
         $counter = http1SustainedCounters();
         http1SustainedPrepareRequest($clients[0], $counter);
-        $request = "GET /benchmark HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n";
+        $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\n\r\n";
         http1SustainedWriteReady([$socket], [(int) $socket => 0], $clients, $counter, $request);
         expect($counter['errors_total'])->toBe(0)
             ->and($counter['write_errors'])->toBe(0)

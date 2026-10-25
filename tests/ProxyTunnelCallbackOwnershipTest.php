@@ -81,3 +81,45 @@ it('never releases or aborts another owner when either proxy cannot claim callba
             ->and($loop->diagnostics()->writeWatchers)->toBe(0);
     }
 });
+
+
+it('preserves an existing unclaimed direct data callback when proxy tunnel claim is refused', function (): void {
+    foreach (['http', 'socks5'] as $protocol) {
+        $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        expect($pair)->toBeArray();
+        [$stream, $peer] = $pair;
+        $loop = new SelectLoop();
+        $connection = ConnectionFactory::accepted($loop, $stream);
+        $observed = '';
+        $outcomes = [];
+        $connection->onData(static function (Connection $existing) use (&$observed, $loop): void {
+            $observed .= $existing->read();
+            $loop->stop();
+        });
+        try {
+            $done = static function (?Connection $ready, ?Throwable $error) use (&$outcomes): void {
+                $outcomes[] = [$ready, $error];
+            };
+            $tunnel = $protocol === 'http'
+                ? new HttpConnectTunnel($loop, $connection, new HttpConnectHandshake(), 'origin.example', 443, $done)
+                : new Socks5Tunnel($loop, $connection, new Socks5Handshake(), '127.0.0.1', 443, $done);
+            $tunnel->start();
+            expect($outcomes)->toHaveCount(1)
+                ->and($outcomes[0][0])->toBeNull()
+                ->and($outcomes[0][1])->toBeInstanceOf(LogicException::class)
+                ->and($connection->callbacksOwnedBy($tunnel))->toBeFalse()
+                ->and($connection->state())->not->toBe(ConnectionState::CLOSED);
+            fwrite($peer, 'direct-callback-still-active');
+            $watchdog = $loop->delay(0.2, static function () use ($loop): void {
+                $loop->stop();
+            });
+            $loop->run();
+            $loop->cancel($watchdog);
+            expect($observed)->toBe('direct-callback-still-active');
+        } finally {
+            $connection->abort();
+            fclose($peer);
+        }
+        expect($loop->diagnostics()->readWatchers)->toBe(0);
+    }
+});
