@@ -76,6 +76,13 @@ jobs:
           jq -e --arg base "7e9bf20ad0737a187dfed77b723791b141b36378" --arg candidate "${GITHUB_SHA}" \
             '.schemaVersion == 1 and .baselineRevision == $base and .candidateRevision == $candidate and .propertyInventoryCompared == true' \
             api-baseline/migration-source-diff.json >/dev/null
+          php -l tools/public-api-migration-audit.php
+          php tools/public-api-migration-audit.php \
+            api-baseline/migration-source-diff.json \
+            docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json \
+            > api-baseline/migration-reviewed-contract.json
+          jq -e '.reviewed == true and .traitRelocations == 2 and .reviewedSignatureChanges == 6 and .behavioralCompatibilityCertified == false' \
+            api-baseline/migration-reviewed-contract.json >/dev/null
           {
             echo "### Source-only 2.1.2 to 3.0 migration diff (not behavioral certification)"
             jq -r '[.breakingCount,.changeCount,.additionCount] | "Breaking: \(.[0]); signature/declaration changes: \(.[1]); new types: \(.[2])"' api-baseline/migration-source-diff.json

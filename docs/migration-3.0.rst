@@ -175,6 +175,45 @@ must still document each intentional breaking change, review callback and
 exception behavior and pin both immutable source revisions. **U16.12 and
 U17.01 are not yet complete.**
 
+Reviewed 2.1.2-to-3.0 source API differences
+----------------------------------------------
+
+The W97 [1]_ independently archived Source Audit exported the pinned 2.1.2
+public API (350 PHP types) and this unreleased 3.0 development snapshot
+(414 types) with **complete public property inventories**. The source-only
+diff reports 64 added types, two apparent removed methods, six constructor
+signature changes and 26 implementation hashes changed without declaration
+changes.
+
+The two apparent removals are **not runtime API removals**:
+``Connection::onClose(callable): self`` is implemented by
+``ConnectionCloseObserverTrait``, and
+``Connection::write(string): WriteResult`` by
+``ConnectionLifecycleOperationsTrait``. Both are composed by
+the same public ``Connection`` class, and dedicated reflection tests
+verify their signatures and continued availability.
+
+The six changed constructors append optional parameters, retaining the
+previous required-argument lists: H2 response scheduler credit callback,
+H3 worker failure observer, established Connection TLS fingerprint/strict
+EOF, server TlsOptions client-certificate requirement, WebSocket parser
+mask expectation, and WebSocketSession client mode. Defaults preserve
+the original call shapes; security/behavioral regression requires its own
+integration tests.
+
+The independently versioned review inventory and exact signature hashes
+are in ``docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json``
+and ``u16-reviewed-public-api-migration.md``. The ordinary
+Source Audit fails on unreviewed public removals, changed signatures,
+property/enum/constant changes or incomplete source inventories, and
+records the checked output as ``migration-reviewed-contract.json``.
+Its strict source check does **not** establish behavioral compatibility.
+U16.12 is still open until all intentionally changed operations, errors
+and runtime ownership migration cases are reviewed at the frozen revision.
+
+.. [1] Exact source and baseline artifacts:
+   https://github.com/infocyph/Runwire/actions/runs/40163809510
+
 Public property inventory note
 ------------------------------
 
