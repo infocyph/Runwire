@@ -210,3 +210,13 @@ Unapproved remote DNS and credential disclosure fail before writing. Remaining
 tunnel data is preserved for the subsequent application owner. Verified proxy
 TLS credentials, nested original-endpoint TLS and external peer conformance
 are not provided by this stage and remain mandatory gates.
+
+
+Loopback TCP proxy peer verification (development)
+--------------------------------------------------
+
+The development fixture ``tests/ProxyTcpInteropTest.php`` uses a real TCP
+listener and Runwire's asynchronous numeric TCP Dialer to test HTTP CONNECT
+and SOCKS5 request/reply framing and tunneled data against a separate local
+socket. This is a local peer, **not** an independent external proxy reference
+implementation, and does not establish proxied TLS or authenticate to a proxy.

@@ -568,3 +568,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W112 SOCKS5 live tunnel (2026-10-25; QA PENDING):** Real nonblocking SOCKS5 greeting/CONNECT on existing Runwire Connection, remote-DNS leak guard, exclusive callbacks, timeout/cancellation and response payload handoff covered by socket-pair tests. Password exchange remains disabled without verified proxy TLS, and original-target TLS/proxy-peer conformance OPEN under U10.05. **122/175 accepted, 53 OPEN**.
+
+
+**W113 proxy live loopback TCP acceptance (2026-10-25; QA PENDING):** Real Runwire dialer TCP + separately accepted peer validates CONNECT and SOCKS5 negotiation and tunneled payloads, beyond deterministic Unix socketpairs. TLS-to-origin, proxy credentials and independent reference still OPEN under U10.04–06. **122/175 accepted, 53 OPEN**.
