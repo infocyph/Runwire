@@ -23,6 +23,8 @@ final class Http3ClientResponseStream
 
     private readonly Closure $onHeaders;
 
+    private readonly ?Closure $onTrailers;
+
     private ?int $expectedBodyBytes = null;
 
     private bool $finished = false;
@@ -31,9 +33,12 @@ final class Http3ClientResponseStream
 
     private int $receivedBodyBytes = 0;
 
+    private bool $trailersSeen = false;
+
     /**
      * @param callable(int,Headers):void $onHeaders
      * @param callable(string):void $onBody
+     * @param null|callable(Headers):void $onTrailers
      */
     public function __construct(
         private readonly int $streamId,
@@ -41,12 +46,14 @@ final class Http3ClientResponseStream
         callable $onBody,
         private readonly int $maxBodyBytes = 1_048_576,
         int $maxFrameBytes = 65_536,
+        ?callable $onTrailers = null,
     ) {
         if ($streamId < 0 || $maxBodyBytes < 0 || $maxFrameBytes < 1) {
             throw new \InvalidArgumentException('Invalid outbound HTTP/3 response limits.');
         }
         $this->onHeaders = Closure::fromCallable($onHeaders);
         $this->onBody = Closure::fromCallable($onBody);
+        $this->onTrailers = $onTrailers === null ? null : Closure::fromCallable($onTrailers);
         $this->frames = new FrameParser($maxFrameBytes);
         $this->codec = new Http3ClientWireCodec();
     }
@@ -86,6 +93,9 @@ final class Http3ClientResponseStream
             return;
         }
         if ($type === FrameType::DATA) {
+            if ($this->trailersSeen) {
+                throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 DATA is forbidden after response trailers.');
+            }
             $length = strlen($frame->payload);
             if ($length > $this->maxBodyBytes - $this->receivedBodyBytes
                 || ($this->expectedBodyBytes !== null && $length > $this->expectedBodyBytes - $this->receivedBodyBytes)) {
@@ -97,7 +107,9 @@ final class Http3ClientResponseStream
             return;
         }
         if ($type === FrameType::HEADERS) {
-            throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 response trailers require an explicit response contract.');
+            $this->acceptTrailers($frame);
+
+            return;
         }
         if (in_array($type, [FrameType::SETTINGS, FrameType::GOAWAY, FrameType::PUSH_PROMISE], true)) {
             throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'Forbidden HTTP/3 control frame on a response stream.');
@@ -124,4 +136,16 @@ final class Http3ClientResponseStream
         $this->headersSeen = true;
         ($this->onHeaders)($response['status'], $headers);
     }
+    private function acceptTrailers(Frame $frame): void
+    {
+        if ($this->trailersSeen) {
+            throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'Duplicate HTTP/3 response trailers.');
+        }
+        $trailers = $this->codec->decodeResponseTrailers($frame->payload, $this->streamId);
+        $this->trailersSeen = true;
+        if ($this->onTrailers !== null) {
+            ($this->onTrailers)($trailers);
+        }
+    }
+
 }

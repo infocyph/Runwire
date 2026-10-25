@@ -21,7 +21,7 @@ class IndependentH3(QuicConnectionProtocol):
         self.answered = set()
         self.uploads = {}
 
-    def respond(self, stream_id):
+    def respond(self, stream_id, with_trailers=False):
         body = b"runwire-outbound-h3-peer-ok"
         self.http.send_headers(
             stream_id,
@@ -31,7 +31,9 @@ class IndependentH3(QuicConnectionProtocol):
                 (b"content-length", str(len(body)).encode("ascii")),
             ],
         )
-        self.http.send_data(stream_id, body, end_stream=True)
+        self.http.send_data(stream_id, body, end_stream=not with_trailers)
+        if with_trailers:
+            self.http.send_headers(stream_id, [(b"x-server-check", b"verified")], end_stream=True)
         self.transmit()
 
     def quic_event_received(self, event):
@@ -54,7 +56,7 @@ class IndependentH3(QuicConnectionProtocol):
                     or bytes(self.uploads.pop(stream_id)) != b"upload-data-" * 2730 + b"end"):
                     self.close(error_code=0x10E, reason_phrase="invalid upload or trailers")
                     return
-                self.respond(stream_id)
+                self.respond(stream_id, with_trailers=True)
                 continue
             if stream_id in self.answered:
                 self.close(error_code=0x10E, reason_phrase="duplicate request headers")

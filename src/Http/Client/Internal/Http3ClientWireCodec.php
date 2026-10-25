@@ -68,6 +68,27 @@ final readonly class Http3ClientWireCodec
         return ['status' => $status, 'headers' => new Headers($fields)];
     }
 
+    /**
+     * Decode a finite HTTP/3 trailer section without accepting pseudo or framing fields.
+     */
+    public function decodeResponseTrailers(string $payload, int $streamId): Headers
+    {
+        $decoded = $this->decoder->decode($payload, $streamId);
+        if ($decoded === null) {
+            throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response trailer QPACK is unsupported.');
+        }
+
+        $fields = [];
+        foreach ($decoded->fields as [$name, $value]) {
+            if (in_array($name, ['content-length', 'host', 'te', 'trailer'], true)) {
+                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response trailers contain forbidden framing or routing fields.');
+            }
+            $fields[] = self::responseField($name, $value);
+        }
+
+        return new Headers($fields);
+    }
+
     /** Serialize HTTPS request headers for an already verified QUIC+h3 stream. */
     public function encodeRequestHeaders(ClientRequest $request, int $streamId): string
     {

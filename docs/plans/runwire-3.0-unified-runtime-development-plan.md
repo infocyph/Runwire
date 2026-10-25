@@ -1099,3 +1099,6 @@ All of these pages are **required deliverables** inside the proposed docs docume
 
 
 **C1 strict native-peer milestone (2026-10-25):** `aa09a568` all nine regular workflows GREEN, including both real native PHP8.4/8.5 QUIC peer lanes, four PHPForge QA, two analyzers, 24-reset four-wave storm, impaired post-handshake packet loss/reorder, stalled peer isolation, verified uni-FIN and healthy sibling recovery. Accept U05.05 and U05.09 as backend-scoped conformance; neither is a claim of H3 dynamic QPACK/concurrent client completion nor matched benchmarks. **127/175 accepted, 48 OPEN; C1 4/11, seven OPEN; U05 9/10.** Full C1 remains active, C2–C5 queued; no merge/tag/release.
+
+
+**C1 incremental H3 response trailer support (2026-10-25; QA PENDING):** Current implementation stage adds validated bounded static-QPACK response trailer decoding and an opt-in response trailer callback to the one-shot native outbound H3 client; DATA after trailers, duplicate trailers, pseudo/routing/framing fields fail closed. The independent aioquic POST peer sends a trailing HEADERS frame and the fixture asserts exact callback delivery. This does **not** complete dynamic QPACK, outbound multiplexing or U07.06/.07. **Canonical 127/175 accepted, 48 OPEN, C1 4/11 accepted, 7 OPEN; C2-C5 queued.** Source-specific QA is required before promoting any task.

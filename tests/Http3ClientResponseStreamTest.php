@@ -70,3 +70,52 @@ it('enforces response byte budgets and rejects forbidden frames', function (): v
     expect(fn() => $illegal->push(new Frame(FrameType::SETTINGS->value)->encode()))
         ->toThrow(Http3Exception::class, 'Forbidden');
 });
+
+
+it('emits bounded static-QPACK response trailers and rejects DATA after trailers', function (): void {
+    $encoder = new Encoder(0, 0);
+    $seen = [];
+    $body = '';
+    $trailers = [];
+    $stream = new Http3ClientResponseStream(
+        4,
+        static function (int $status) use (&$seen): void { $seen[] = $status; },
+        static function (string $bytes) use (&$body): void { $body .= $bytes; },
+        onTrailers: static function (\Infocyph\Runwire\Http\Headers $fields) use (&$trailers): void {
+            $trailers[] = $fields->first('x-server-check');
+        },
+    );
+    $headers = new Frame(FrameType::HEADERS->value, $encoder->encode([
+        [':status', '200'], ['content-length', '2'],
+    ], 4)->block);
+    $last = new Frame(FrameType::HEADERS->value, $encoder->encode([
+        ['x-server-check', 'verified'],
+    ], 4)->block);
+    foreach (str_split($headers->encode() . new Frame(FrameType::DATA->value, 'ok')->encode() . $last->encode()) as $byte) {
+        $stream->push($byte);
+    }
+    $stream->finish();
+    expect($seen)->toBe([200])->and($body)->toBe('ok')->and($trailers)->toBe(['verified']);
+
+    $invalid = new Http3ClientResponseStream(8, static function (): void {}, static function (): void {});
+    $invalid->push($headers->encode() . $last->encode());
+    expect(fn() => $invalid->push(new Frame(FrameType::DATA->value, 'oops')->encode()))
+        ->toThrow(Http3Exception::class, 'after response trailers')
+        ->and(fn() => $invalid->push($last->encode()))
+        ->toThrow(Http3Exception::class, 'Duplicate');
+});
+
+it('rejects HTTP/3 response trailers with pseudo, routing and length fields', function (): void {
+    $encoder = new Encoder(0, 0);
+    $initial = new Frame(FrameType::HEADERS->value, $encoder->encode([[':status', '200']], 4)->block);
+    foreach ([
+        [[':status', '201']],
+        [['content-length', '0']],
+        [['connection', 'close']],
+    ] as $fields) {
+        $stream = new Http3ClientResponseStream(4, static function (): void {}, static function (): void {});
+        $stream->push($initial->encode());
+        $trailer = new Frame(FrameType::HEADERS->value, $encoder->encode($fields, 4)->block);
+        expect(fn() => $stream->push($trailer->encode()))->toThrow(Http3Exception::class);
+    }
+});

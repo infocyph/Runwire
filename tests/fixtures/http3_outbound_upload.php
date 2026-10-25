@@ -46,6 +46,7 @@ $body = new class implements ClientBodySourceInterface {
 $loop = new SelectLoop();
 $response = '';
 $statuses = 0;
+$serverTrailers = 0;
 $completed = 0;
 $failure = null;
 $client = Http3OutboundClient::connect(
@@ -74,12 +75,18 @@ $client = Http3OutboundClient::connect(
         $failure = $error;
         ++$completed;
     },
+    static function (Headers $trailers) use (&$serverTrailers): void {
+        if ($trailers->first('x-server-check') !== 'verified') {
+            throw new RuntimeException('Independent HTTP/3 response trailer mismatch.');
+        }
+        ++$serverTrailers;
+    },
 );
 $loop->run();
 if ($failure !== null) {
     throw $failure;
 }
-if ($completed !== 1 || $statuses !== 1 || !$body->eof()
+if ($completed !== 1 || $statuses !== 1 || $serverTrailers !== 1 || !$body->eof()
     || $response !== 'runwire-outbound-h3-peer-ok'
     || $loop->diagnostics()->timersActive !== 0
     || $loop->diagnostics()->readWatchers !== 0
@@ -91,6 +98,7 @@ fwrite(STDOUT, json_encode([
     'verified' => true,
     'independent_upload' => true,
     'trailing_headers' => true,
+    'response_trailers' => true,
     'exact_response' => true,
     'cleanup' => true,
 ], JSON_THROW_ON_ERROR) . PHP_EOL);

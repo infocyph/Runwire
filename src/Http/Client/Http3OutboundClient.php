@@ -41,6 +41,8 @@ final class Http3OutboundClient
 
     private readonly Closure $onHeaders;
 
+    private readonly ?Closure $onTrailers;
+
     private readonly QuicClientSession $session;
 
     private ?CancellationSubscription $cancellation = null;
@@ -63,6 +65,7 @@ final class Http3OutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
+     * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
      */
     private function __construct(
         private readonly LoopInterface $loop,
@@ -71,9 +74,11 @@ final class Http3OutboundClient
         callable $onHeaders,
         callable $onBody,
         callable $completion,
+        ?callable $onTrailers,
     ) {
         $this->onHeaders = Closure::fromCallable($onHeaders);
         $this->onBody = Closure::fromCallable($onBody);
+        $this->onTrailers = $onTrailers === null ? null : Closure::fromCallable($onTrailers);
         $this->completion = Closure::fromCallable($completion);
         $this->session = new QuicClientSession($loop);
         $this->control = new Http3ClientControl();
@@ -85,6 +90,7 @@ final class Http3OutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
+     * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
      */
     public static function connect(
         LoopInterface $loop,
@@ -93,11 +99,12 @@ final class Http3OutboundClient
         callable $onHeaders,
         callable $onBody,
         callable $completion,
+        ?callable $onTrailers = null,
     ): self {
         $parts = self::validatedOrigin($request, $options);
         // Fail unsafe framing before opening any native session or DNS path.
         new Http3ClientWireCodec()->encodeRequestHeaders($request, 1);
-        $client = new self($loop, $request, $options, $onHeaders, $onBody, $completion);
+        $client = new self($loop, $request, $options, $onHeaders, $onBody, $completion, $onTrailers);
         $client->start($parts['host'], $parts['port']);
 
         return $client;
@@ -346,7 +353,7 @@ final class Http3OutboundClient
         }
         $bytes = new Http3ClientWireCodec()->encodeRequestHeaders($this->request, $stream);
         $this->responseStream = $stream;
-        $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody);
+        $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody, onTrailers: $this->onTrailers);
         $this->writeAll(
             $stream,
             $bytes,
