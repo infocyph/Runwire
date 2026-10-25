@@ -628,3 +628,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W132 grouped Composer 3.0 archive verification (2026-10-25; QA PENDING):** Both routine and final certification consumers now install actual 3.0.x-dev package, verify Composer-resolved version and runtime platform requirements without hard external/extension dependencies, test production archive excludes dev scaffolding. U17.05 still OPEN pending exact final freeze. **122/175 accepted, 53 OPEN**.
+
+
+**W133 grouped 175-task prerequisite before final release suite (2026-10-25; QA PENDING):** All expensive manually/label-triggered certification jobs depend on exact-SHA source and zero-open-task preflight; terminal readiness also checks same condition, never publishes. Tests pin required dependency graph. **122/175 accepted, 53 OPEN**.

@@ -27,9 +27,44 @@ env:
   CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
 
 jobs:
+  release-preflight:
+    name: "Immutable source and 175-task tracker preflight"
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      task_total: ${{ steps.verify.outputs.task_total }}
+      task_open: ${{ steps.verify.outputs.task_open }}
+    steps:
+      - name: Checkout selected 3.0 source, not default main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
+      - name: Reject incomplete tracker or unpinned source before expensive certification
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || {
+            echo "::error::Release requires exact 40-character SHA."
+            exit 1
+          }
+          test "$(git rev-parse HEAD)" = "${CANDIDATE_SHA,,}"
+          plan=docs/plans/runwire-3.0-unified-runtime-development-plan.md
+          test -f "$plan"
+          total="$(grep -Ec '^- \[[x ]\] \*\*U[0-9]{2}\.[0-9]{2}\*\*' "$plan")"
+          open="$(grep -Ec '^- \[ \] \*\*U[0-9]{2}\.[0-9]{2}\*\*' "$plan" || true)"
+          echo "task_total=$total" >> "$GITHUB_OUTPUT"
+          echo "task_open=$open" >> "$GITHUB_OUTPUT"
+          if [ "$total" -ne 175 ] || [ "$open" -ne 0 ]; then
+            echo "::error::3.0 cannot be release-certified: $open of $total planned tasks remain unaccepted."
+            exit 1
+          fi
+
   matched-performance:
     name: "Matched baseline/candidate - PHP 8.5"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
+    needs: release-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 55
 
@@ -131,6 +166,7 @@ jobs:
   candidate-soak:
     name: "Candidate 30-minute HTTP soak - PHP 8.5"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
+    needs: release-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -293,6 +329,7 @@ jobs:
   consumer-app:
     name: "Standalone Runwire package / native HTTP - PHP ${{ matrix.php-version }}"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
+    needs: release-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -463,6 +500,7 @@ jobs:
   release-guard:
     name: "PHPForge release guard with ext-event"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
+    needs: release-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -515,6 +553,7 @@ jobs:
     name: "All mandatory frozen-source certification gates"
     if: always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification')
     needs:
+      - release-preflight
       - matched-performance
       - candidate-soak
       - consumer-app
@@ -525,6 +564,8 @@ jobs:
       contents: read
     env:
       EXPECTED_CANDIDATE: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
+      PRECHECK: ${{ needs['release-preflight'].result }}
+      OPEN_TASKS: ${{ needs['release-preflight'].outputs.task_open }}
       MATCHED: ${{ needs['matched-performance'].result }}
       SOAK: ${{ needs['candidate-soak'].result }}
       CONSUMER: ${{ needs['consumer-app'].result }}
@@ -540,12 +581,16 @@ jobs:
             exit 1
           }
           jq -n --arg sha "$EXPECTED_CANDIDATE" \
+            --arg precheck "$PRECHECK" \
+            --arg task_open "$OPEN_TASKS" \
             --arg matched "$MATCHED" \
             --arg soak "$SOAK" \
             --arg consumer "$CONSUMER" \
             --arg phpforge "$PHPFORGE" \
             '{
               source_sha: $sha,
+              tracker_preflight: $precheck,
+              open_tasks: ($task_open | tonumber? // -1),
               release_tag_created: false,
               package_published: false,
               comparison: $matched,
@@ -553,6 +598,7 @@ jobs:
               standalone_composer_php84_php85: $consumer,
               phpforge_release_guard: $phpforge,
               certification_ready: (
+                $precheck == "success" and ($task_open == "0") and
                 $matched == "success" and $soak == "success" and
                 $consumer == "success" and $phpforge == "success"
               )
