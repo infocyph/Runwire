@@ -139,7 +139,7 @@ slow-receiver flow control, and fully integrated dialing/pooling remain
    vendor/bin/pest tests/Http2MultiplexConnectionTest.php
 
 Independent concurrent TLS HTTP/2 interoperability
--------------------------------------------------
+--------------------------------------------------
 
 A separate, mandatory ``HTTP/2 Independent Reference`` PR workflow executes
 ``qa/reference/Http2MultiplexIndependentReferenceTest.php`` on PHP 8.4 and 8.5

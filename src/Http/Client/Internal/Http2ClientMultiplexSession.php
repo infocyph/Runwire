@@ -234,6 +234,7 @@ final class Http2ClientMultiplexSession
         unset($this->streams[$streamId]);
         ($slot['complete'])($error);
     }
+
     /** Drain previously canceled response frames without accepting new headers. */
     private function retiredFrame(Frame $frame): string
     {
@@ -280,6 +281,7 @@ final class Http2ClientMultiplexSession
 
         return self::credit($frame);
     }
+
     /** Never allow sibling frames to interleave an incomplete header block. */
     private function trackHeaderBlock(Frame $frame): void
     {
@@ -289,5 +291,4 @@ final class Http2ClientMultiplexSession
             $this->continuationStreamId = null;
         }
     }
-
 }

@@ -121,7 +121,7 @@ final class Http2MultiplexConnection
             || strlen($this->outgoing) > 240_000) {
             throw new RuntimeException('H2 multiplex connection is not available for request admission.');
         }
-        $seconds = $this->requestDeadline($request);
+        $seconds = self::requestDeadline($request);
         $token = $request->cancellation;
 
         $streamId = null;
@@ -130,9 +130,7 @@ final class Http2MultiplexConnection
             $onHeaders,
             $onBody,
             function (?Throwable $error) use (&$streamId, $onComplete): void {
-                if ($streamId !== null) {
-                    $this->releaseRequest($streamId);
-                }
+                $this->releaseRequest((int) $streamId);
                 $onComplete($error);
             },
         );
@@ -189,6 +187,25 @@ final class Http2MultiplexConnection
         } catch (Throwable $error) {
             $this->close($error);
         }
+    }
+
+    /** Enforce cancellation and the shortest monotonic request deadline. */
+    private static function requestDeadline(ClientRequest $request): float
+    {
+        $token = $request->cancellation;
+        if ($token?->isCancelled()) {
+            throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
+        }
+        $seconds = min(
+            10.0,
+            $request->deadline?->remainingSeconds() ?? INF,
+            $token?->deadline()->remainingSeconds() ?? INF,
+        );
+        if ($seconds <= 0) {
+            throw new RuntimeException('HTTP/2 request deadline has expired.');
+        }
+
+        return $seconds;
     }
 
     private function consume(): void
@@ -285,23 +302,4 @@ final class Http2MultiplexConnection
             $this->loop->cancel($watchers['timer']);
         }
     }
-    /** Enforce cancellation and the shortest monotonic request deadline. */
-    private static function requestDeadline(ClientRequest $request): float
-    {
-        $token = $request->cancellation;
-        if ($token?->isCancelled()) {
-            throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
-        }
-        $seconds = min(
-            10.0,
-            $request->deadline?->remainingSeconds() ?? INF,
-            $token?->deadline()->remainingSeconds() ?? INF,
-        );
-        if ($seconds <= 0) {
-            throw new RuntimeException('HTTP/2 request deadline has expired.');
-        }
-
-        return $seconds;
-    }
-
 }

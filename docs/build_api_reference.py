@@ -72,7 +72,7 @@ def method_signature(source, start):
 
 def build():
     groups = defaultdict(list)
-    exceptions = defaultdict(set)
+    exceptions = defaultdict(dict)
     files = sorted(SOURCE.rglob("*.php"))
     public_methods = 0
     public_properties = 0
@@ -119,7 +119,7 @@ def build():
                 entries.append("  - Enum cases: " + ", ".join(map(literal, cases)))
         groups[category].extend(entries)
         for match in THROWN.finditer(source):
-            exceptions[match.group(1).lstrip("\\").split("\\")[-1]].add(fqcn)
+            exceptions[match.group(1).lstrip("\\").split("\\")[-1]][fqcn] = (file, line(source, match.start()))
 
     heading = "Source-linked PHP API and error reference"
     out = [
@@ -144,7 +144,10 @@ def build():
         "fully captured by syntactic scanning.", "",
     ])
     for name, owners in sorted(exceptions.items(), key=lambda item: item[0].lower()):
-        out.append("* " + literal(name) + " — " + str(len(owners)) + " declaring PHP type(s)")
+        out.extend(["* " + literal(name) + " — " + str(len(owners)) + " declaring PHP type(s)", ""])
+        for fqcn, (file, number) in sorted(owners.items()):
+            out.append("  - " + literal(fqcn) + " (" + link(file, number) + ")")
+        out.append("")
     out.extend(["", "See :doc:" + BT + "connection-policies-3.0" + BT + " for trust boundaries and",
                 ":doc:" + BT + "migration-3.0" + BT + " for migration guidance.", ""])
     return "\n".join(out)

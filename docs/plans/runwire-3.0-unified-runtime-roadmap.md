@@ -475,3 +475,9 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W90 independent H2 certification harness (2026-10-25; QA PENDING):** Add upstream hyper-h2 TLS/ALPN concurrent GET peer with reversed completion and require the new `qa/reference/Http2MultiplexIndependentReferenceTest.php` in the existing PHP8.4/8.5 independent workflow. Real exact-source PASS, flow credit/slow-peer correctness and full PHPForge required before U07.05 acceptance. W88 PHPForge #40145057392 FAIL and Sphinx #40145057151 FAIL are diagnosed and carried into W89/90 combined recovery. Tracker **118/175 accepted, 57 OPEN, 22 to 140**.
+
+
+**W91 QA remediation (2026-10-25; QA pending):** Previous real independent multiplex TLS [#40145655859](https://github.com/infocyph/Runwire/actions/runs/40145655859) PASS 8.4/8.5; functional Pest PASS, [Security #40145656214](https://github.com/infocyph/Runwire/actions/runs/40145656214) FAIL Pint/Rector/PHPStan for source ordering and OpenSSL fixture/static guard; [Sphinx #40145655767](https://github.com/infocyph/Runwire/actions/runs/40145655767) FAIL underlength title. W91 corrects without removing quality gates; adds public API symbol parity evidence. U07.05/U16.11 OPEN; 118/175 accepted, 57 OPEN.
+
+
+**W92 source-linked API/error catalog (2026-10-25; QA pending):** Native Sphinx API builder now records per-exception declaring type and `throw new` source line; an executable parity test checks public methods/properties/constants/enums and source-linked runtime error owner references. The runtime/extension error catalog remains deliberately qualified; U16.11/U16.12 stay OPEN until their complete independent gates. **118/175 accepted; 57 open**.

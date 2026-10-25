@@ -39,20 +39,30 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
             throw new RuntimeException('Independent H2 multiplexer fixture key generation failed.');
         }
 
-        $csr = openssl_csr_new(['commonName' => 'localhost'], $key, [
+        $csr = openssl_csr_new(
+            ['commonName' => 'localhost'],
+            $key,
+            [
             'config' => $config, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256',
         ]);
         if (!$csr instanceof OpenSSLCertificateSigningRequest) {
             throw new RuntimeException('Independent H2 multiplexer fixture CSR generation failed.');
         }
 
-        $signed = openssl_csr_sign($csr, null, $key, 1, [
+        /** @var OpenSSLAsymmetricKey $key */
+        $signed = openssl_csr_sign(
+            $csr,
+            null,
+            $key,
+            1,
+            [
             'config' => $config, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
         ]);
         if (!$signed instanceof OpenSSLCertificate) {
             throw new RuntimeException('Independent H2 multiplexer certificate signing failed.');
         }
         openssl_x509_export($signed, $certificate);
+        /** @var OpenSSLAsymmetricKey $key */
         openssl_pkey_export($key, $private);
         file_put_contents($cert, $certificate);
         file_put_contents($keyFile, $private);
@@ -81,7 +91,13 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
         $dialer->connect(
             'tcp://127.0.0.1:' . $port,
             static function (?Connection $connection, ?Throwable $failure) use (
-                $loop, $port, &$owner, &$ready, &$headers, &$bodies, &$errors,
+                $loop,
+                $port,
+                &$owner,
+                &$ready,
+                &$headers,
+                &$bodies,
+                &$errors,
             ): void {
                 if ($connection === null || $failure !== null) {
                     $errors['dial'] = $failure ?? new RuntimeException('Missing TLS connection.');
@@ -95,7 +111,12 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
                     $loop,
                     $connection,
                     static function (Http2MultiplexConnection $transport) use (
-                        &$ready, &$headers, &$bodies, &$errors, $loop, $port,
+                        &$ready,
+                        &$headers,
+                        &$bodies,
+                        &$errors,
+                        $loop,
+                        $port,
                     ): void {
                         ++$ready;
                         foreach (['one', 'two'] as $path) {
