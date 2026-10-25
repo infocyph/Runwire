@@ -456,32 +456,40 @@ final class Http3OutboundClient
      */
     private function writeAll(int $stream, string $bytes, bool $fin, callable $completed): void
     {
+        if ($bytes === '' && $fin) {
+            // Current native php-quic only delivers FIN reliably with bytes.
+            // An empty HTTP/3 DATA frame is a valid, bounded end marker.
+            $bytes = new Frame(FrameType::DATA->value)->encode();
+        }
         $this->writeChunk($stream, $bytes, 0, $fin, $completed);
     }
 
     /**
-     * Advance only after a positive native write; zero means backpressure.
+     * Retain the trailing byte for the native FIN write; retry partial non-FIN
+     * writes without dropping framing bytes or advancing the response early.
      *
      * @param callable():void $completed
      */
     private function writeChunk(int $stream, string $bytes, int $offset, bool $fin, callable $completed): void
     {
-        if ($offset === strlen($bytes)) {
-            if (!$fin) {
-                $completed();
+        $remaining = strlen($bytes) - $offset;
+        if ($remaining === 0) {
+            $completed();
 
-                return;
-            }
-            // Send FIN only after all bytes have been acknowledged as written.
-            $this->command('write', $stream, '', true, function (array $result) use ($completed): void {
-                $this->assertWritten($result, 0);
+            return;
+        }
+
+        if ($fin && $remaining === 1) {
+            $this->command('write', $stream, substr($bytes, $offset, 1), true, function (array $result) use ($completed): void {
+                $this->assertWritten($result, 1);
                 $completed();
             });
 
             return;
         }
 
-        $part = substr($bytes, $offset, 4_096);
+        $length = min(4_096, $fin ? $remaining - 1 : $remaining);
+        $part = substr($bytes, $offset, $length);
         $this->command('write', $stream, $part, false, function (array $result) use (
             $stream,
             $bytes,
