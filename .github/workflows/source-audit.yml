@@ -7,6 +7,9 @@ on:
     paths:
       - src/**
       - tools/public-api-manifest.php
+      - tools/public-api-diff.php
+      - tools/public-api-migration-audit.php
+      - docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json
       - tests/**
       - composer.json
       - composer.lock
@@ -14,6 +17,10 @@ on:
   pull_request:
     paths:
       - src/**
+      - tools/public-api-manifest.php
+      - tools/public-api-diff.php
+      - tools/public-api-migration-audit.php
+      - docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json
       - tests/**
       - composer.json
       - composer.lock

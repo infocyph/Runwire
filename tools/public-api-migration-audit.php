@@ -10,7 +10,9 @@ declare(strict_types=1);
  * The source parser cannot flatten traits and cannot prove behavioral BC.
  * Unexpected removed declarations or signature changes fail closed.
  */
-if ($argc !== 3) {
+$arguments = $_SERVER['argv'] ?? null;
+if (!is_array($arguments) || count($arguments) !== 3
+    || !is_string($arguments[1] ?? null) || !is_string($arguments[2] ?? null)) {
     throw new InvalidArgumentException('Usage: php tools/public-api-migration-audit.php <diff.json> <policy.json>');
 }
 
@@ -27,14 +29,18 @@ $read = static function (string $file): array {
     return $value;
 };
 
-$diff = $read($argv[1]);
-$policy = $read($argv[2]);
+$diff = $read($arguments[1]);
+$policy = $read($arguments[2]);
+$publishedRevision = $policy['publishedRevision'] ?? null;
+$candidateRevision = $diff['candidateRevision'] ?? null;
 if (($diff['schemaVersion'] ?? null) !== 1
     || ($policy['schemaVersion'] ?? null) !== 1
     || ($diff['propertyInventoryCompared'] ?? null) !== true
     || !is_string($diff['baselineRevision'] ?? null)
-    || !hash_equals($policy['publishedRevision'] ?? '', $diff['baselineRevision'])
-    || preg_match('/^[0-9a-f]{40}$/D', $diff['candidateRevision'] ?? '') !== 1) {
+    || !is_string($publishedRevision)
+    || !hash_equals($publishedRevision, $diff['baselineRevision'])
+    || !is_string($candidateRevision)
+    || preg_match('/^[0-9a-f]{40}$/D', $candidateRevision) !== 1) {
     throw new RuntimeException('API migration review requires the exact 2.1.2 comparator and complete property inventory.');
 }
 foreach (['breaking', 'changed', 'added'] as $section) {
@@ -67,8 +73,10 @@ if ($missingRemovals !== []) {
 $expected = [];
 foreach ($expectedSignatures as $record) {
     if (!is_array($record) || !is_string($record['symbol'] ?? null)
-        || !preg_match('/^[0-9a-f]{64}$/D', $record['beforeSha256'] ?? '')
-        || !preg_match('/^[0-9a-f]{64}$/D', $record['afterSha256'] ?? '')
+        || !is_string($record['beforeSha256'] ?? null)
+        || !is_string($record['afterSha256'] ?? null)
+        || !preg_match('/^[0-9a-f]{64}$/D', $record['beforeSha256'])
+        || !preg_match('/^[0-9a-f]{64}$/D', $record['afterSha256'])
         || isset($expected[$record['symbol']])) {
         throw new RuntimeException('Invalid or duplicate approved signature fingerprint.');
     }
@@ -110,11 +118,11 @@ if (($diff['breakingCount'] ?? null) !== count($diff['breaking'])
     throw new RuntimeException('Source-only API delta counts are inconsistent.');
 }
 
-echo json_encode([
+fwrite(STDOUT, json_encode([
     'reviewed' => true,
     'sourceRevision' => $diff['candidateRevision'],
     'traitRelocations' => count($actualRemovals),
     'reviewedSignatureChanges' => count($actual),
     'addedTypes' => count($diff['added']),
     'behavioralCompatibilityCertified' => false,
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
+], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
