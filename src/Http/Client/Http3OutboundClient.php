@@ -318,13 +318,11 @@ final class Http3OutboundClient
             return;
         }
         $data = $this->control->start();
-        $this->command(
-            'write',
+        $this->writeAll(
             $stream,
             $data,
             false,
-            function (array $result) use ($data): void {
-                $this->assertWritten($result, strlen($data));
+            function (): void {
                 $this->command(
                     'open_bidi',
                     0,
@@ -350,8 +348,7 @@ final class Http3OutboundClient
         if ($body->eof()) {
             $trailers = $body->trailers();
             $last = $trailers === null ? '' : new Http3ClientWireCodec()->encodeRequestTrailers($trailers, $this->responseStream);
-            $this->command('write', $this->responseStream, $last, true, function (array $result) use ($last): void {
-                $this->assertWritten($result, strlen($last));
+            $this->writeAll($this->responseStream, $last, true, function (): void {
                 $this->receiveControl();
             });
 
@@ -370,8 +367,7 @@ final class Http3OutboundClient
         }
         $this->uploadedBytes += $length;
         $frame = new Frame(FrameType::DATA->value, $chunk)->encode();
-        $this->command('write', $this->responseStream, $frame, false, function (array $result) use ($frame): void {
-            $this->assertWritten($result, strlen($frame));
+        $this->writeAll($this->responseStream, $frame, false, function (): void {
             $this->sendUpload();
         });
     }
@@ -386,13 +382,11 @@ final class Http3OutboundClient
         $bytes = new Http3ClientWireCodec()->encodeRequestHeaders($this->request, $stream);
         $this->responseStream = $stream;
         $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody);
-        $this->command(
-            'write',
+        $this->writeAll(
             $stream,
             $bytes,
             $this->request->body === null,
-            function (array $result) use ($bytes): void {
-                $this->assertWritten($result, strlen($bytes));
+            function (): void {
                 $this->sendUpload();
             },
         );
@@ -455,4 +449,58 @@ final class Http3OutboundClient
             $this->finish($error);
         }
     }
+    /**
+     * Write a complete frame through partial, bounded native QUIC writes.
+     *
+     * @param callable():void $completed
+     */
+    private function writeAll(int $stream, string $bytes, bool $fin, callable $completed): void
+    {
+        $this->writeChunk($stream, $bytes, 0, $fin, $completed);
+    }
+
+    /**
+     * Advance only after a positive native write; zero means backpressure.
+     *
+     * @param callable():void $completed
+     */
+    private function writeChunk(int $stream, string $bytes, int $offset, bool $fin, callable $completed): void
+    {
+        if ($offset === strlen($bytes)) {
+            if (!$fin) {
+                $completed();
+
+                return;
+            }
+            // Send FIN only after all bytes have been acknowledged as written.
+            $this->command('write', $stream, '', true, function (array $result) use ($completed): void {
+                $this->assertWritten($result, 0);
+                $completed();
+            });
+
+            return;
+        }
+
+        $part = substr($bytes, $offset, 4_096);
+        $this->command('write', $stream, $part, false, function (array $result) use (
+            $stream,
+            $bytes,
+            $offset,
+            $fin,
+            $completed,
+            $part,
+        ): void {
+            $written = $result['written'] ?? null;
+            if (!is_int($written) || $written < 0 || $written > strlen($part)) {
+                throw new RuntimeException('Invalid partial HTTP/3 native QUIC write result.');
+            }
+            if ($written === 0) {
+                $this->poll(fn() => $this->writeChunk($stream, $bytes, $offset, $fin, $completed));
+
+                return;
+            }
+            $this->writeChunk($stream, $bytes, $offset + $written, $fin, $completed);
+        });
+    }
+
 }

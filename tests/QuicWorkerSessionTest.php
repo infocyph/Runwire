@@ -429,3 +429,35 @@ it('rejects writes to peer-created receive-only streams and invalid accept comma
         ]))->toThrow(InvalidArgumentException::class, 'receive-only')
         ->and($native->closed)->toBeTrue();
 });
+
+
+it('preserves a stream and its sibling during bounded partial writes before FIN', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2, partialWrites: true);
+    $first = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
+    $second = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]);
+    $payload = 'partial-write-flow';
+    $offset = 0;
+    $id = 3;
+    while ($offset < strlen($payload)) {
+        $next = $worker->execute([
+            'epoch' => 1,
+            'command' => QuicWorkerCommand::encode($id++, 'write', $first['stream'], substr($payload, $offset)),
+        ]);
+        expect($next['written'])->toBeGreaterThan(0);
+        $offset += $next['written'];
+    }
+    expect($worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode($id++, 'write', $first['stream'], '', true),
+    ]))->toBe(['written' => 0])
+        ->and($worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode($id++, 'write', $second['stream'], 'alive', true),
+        ]))->toBe(['written' => 5]);
+    $received = '';
+    do {
+        $result = $worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode($id++, 'read', $first['stream']),
+        ]);
+        $received .= base64_decode($result['data'], true);
+    } while (!$result['eof']);
+    expect($received)->toBe($payload)->and($native->closed)->toBeFalse();
+});
