@@ -220,3 +220,15 @@ listener and Runwire's asynchronous numeric TCP Dialer to test HTTP CONNECT
 and SOCKS5 request/reply framing and tunneled data against a separate local
 socket. This is a local peer, **not** an independent external proxy reference
 implementation, and does not establish proxied TLS or authenticate to a proxy.
+
+
+Origin target address authorization across proxies
+--------------------------------------------------
+
+Passing an ``OutboundAddressPolicy`` as ``targetAddressPolicy`` on the
+experimental HTTP CONNECT or SOCKS5 tunnel enforces the same numeric public
+IP restrictions **at the origin target**, not merely at the proxy endpoint.
+Remote-DNS hostnames cannot prove their eventual resolved IP through that
+boundary, so the restricted mode refuses them until a separately verified
+resolved-target handoff is implemented. This is an optional fail-closed
+policy, not proxy hostname authenticity or nested target TLS verification.

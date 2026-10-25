@@ -10,6 +10,7 @@ use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\OutboundAddressPolicy;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
 use LogicException;
@@ -48,6 +49,7 @@ final class HttpConnectTunnel
         callable $completion,
         private readonly float $timeoutSeconds = 10.0,
         private readonly ?CancellationToken $token = null,
+        private readonly ?OutboundAddressPolicy $targetAddressPolicy = null,
     ) {
         if (!is_finite($timeoutSeconds) || $timeoutSeconds <= 0 || $timeoutSeconds > 300) {
             throw new InvalidArgumentException('HTTP CONNECT tunnel timeout is invalid.');
@@ -79,6 +81,7 @@ final class HttpConnectTunnel
         }
 
         $request = $this->handshake->request($this->host, $this->port);
+        $this->assertTargetPolicy();
         $this->state = 'pending';
         try {
             $this->connection->claimCallbacks(
@@ -129,6 +132,19 @@ final class HttpConnectTunnel
     }
 
     /** Execute the bounded proxy exchange phase. */
+    /** Fail closed when a remote proxy cannot prove an approved destination IP. */
+    private function assertTargetPolicy(): void
+    {
+        if ($this->targetAddressPolicy === null) {
+            return;
+        }
+        $target = trim($this->host, '[]');
+        if (filter_var($target, FILTER_VALIDATE_IP) === false) {
+            throw new RuntimeException('Proxy destination IP policy requires a pre-resolved numeric target.');
+        }
+        $this->targetAddressPolicy->assertCandidate($target);
+    }
+
     private function cleanup(): void
     {
         if ($this->timer !== null) {

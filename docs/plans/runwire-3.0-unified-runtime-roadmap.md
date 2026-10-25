@@ -574,3 +574,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W114 proxy QA fixes (2026-10-25; QA PENDING):** Consolidate PHPForge failures from rolling proxy batches: PHPStan nullable values/complexity, API documentation test, Pint class/method order, PHPCS unused observer args, and Rector unused promoted property. Keep actual proxy integration and tests; no checks disabled. **122/175 accepted, 53 OPEN**.
+
+
+**W115 proxy-target outbound SSRF authorization (2026-10-25; QA PENDING):** Existing `OutboundAddressPolicy` can now opt-in at HTTP CONNECT and SOCKS5 origin-target admission, separately from the connected proxy endpoint. Fail closed on unresolvable proxy target identity, reserved/private IP and malformed target before tunnel bytes. Auth and nested target-TLS gates still OPEN under U10.04/.05/.06. **122/175 accepted, 53 open**.
