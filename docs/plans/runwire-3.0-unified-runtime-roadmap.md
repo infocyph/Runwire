@@ -532,3 +532,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W101 reflection constructor migration coverage (2026-10-25; staged/QA PENDING):** Runtime Reflection checks six optional constructor additions retain original 2.1.2 required-argument counts, added flags remain defaulted, and `Connection` TLS strict EOF/fingerprint are optional. Migration guide explains tests and behavioral limits; U16.12 stays OPEN pending full behavioral/exception approval. Combine with W100 diagnostic-only H2 retry instrumentation after W99 CI finishes. **121/175, 54 OPEN, 19 to 140**.
+
+
+**W102 HPACK protocol-core workload expansion (2026-10-25; staged/QA PENDING):** Add PHPBench measurements for integer continuation max-width, bounded Huffman decode, dynamic HPACK/header write churn and repeated H2 header validation. Add 256-roundtrip correctness/authorization/decoder-size negative tests. This is development profiling **not** a matched pinned 2.1.2-to-3.0 measured delta, so U08.04, U15, U17 stay OPEN. Keep the existing PHPBench matrix (not duplicate push/PR runs) and immutable QA proof discipline. **121/175 accepted, 54 OPEN, 19 to 140**.

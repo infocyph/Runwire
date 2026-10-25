@@ -165,6 +165,69 @@ final class ProtocolCoreBench
         return strlen($head->target);
     }
 
+    public function benchHttp2HpackDynamicTableChurn(): int
+    {
+        $encoder = new HpackEncoder(512);
+        $decoder = new HpackDecoder(512);
+        $validated = 0;
+
+        for ($index = 0; $index < 12; ++$index) {
+            $headers = [
+                [':method', 'GET'],
+                [':path', '/churn/' . ($index % 5)],
+                ['x-runwire-rotation', 'value-' . ($index % 7)],
+                ['authorization', 'never-index-' . $index],
+            ];
+            if ($decoder->decode($encoder->encode($headers)) !== $headers) {
+                throw new RuntimeException('HPACK dynamic churn failed header fidelity.');
+            }
+            ++$validated;
+        }
+
+        return $validated;
+    }
+
+    public function benchHttp2HpackLongContinuationInteger(): int
+    {
+        $encoded = HpackIntegerCodec::encode(PHP_INT_MAX, 5);
+        $offset = 0;
+        $decoded = HpackIntegerCodec::decode($encoded, $offset, 5);
+        if ($decoded !== PHP_INT_MAX || $offset !== strlen($encoded)) {
+            throw new RuntimeException('HPACK long integer continuation mismatch.');
+        }
+
+        return $decoded;
+    }
+
+    public function benchHttp2HuffmanLargeBoundedDecode(): int
+    {
+        $value = str_repeat('runwire-hpack-pressure/', 12);
+        $wire = $this->huffmanCodec->encode($value);
+        if ($this->huffmanCodec->decode($wire, strlen($value)) !== $value) {
+            throw new RuntimeException('HPACK bounded Huffman decode mismatch.');
+        }
+
+        return strlen($wire);
+    }
+
+    public function benchHttp2HpackRepeatedHeaderValidation(): int
+    {
+        $headers = [
+            [':method', 'GET'],
+            [':scheme', 'https'],
+            [':authority', 'benchmark.example'],
+            [':path', '/validation'],
+            ['x-validation', 'bounded'],
+        ];
+        $validated = 0;
+        for ($index = 0; $index < 8; ++$index) {
+            $request = (new RequestHeaderValidator('HTTP/2'))->request($headers);
+            $validated += strlen($request->target);
+        }
+
+        return $validated;
+    }
+
     public function benchHttp3FrameDecode(): int
     {
         $frames = (new FrameParser())->push($this->http3Wire);
