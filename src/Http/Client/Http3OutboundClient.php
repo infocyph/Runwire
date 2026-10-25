@@ -336,6 +336,26 @@ final class Http3OutboundClient
         );
     }
 
+    private function sendRequest(int $stream): void
+    {
+        if ($stream < 1) {
+            $this->finish(new RuntimeException('HTTP/3 QUIC cannot open a bidirectional request stream.'));
+
+            return;
+        }
+        $bytes = new Http3ClientWireCodec()->encodeRequestHeaders($this->request, $stream);
+        $this->responseStream = $stream;
+        $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody);
+        $this->writeAll(
+            $stream,
+            $bytes,
+            $this->request->body === null,
+            function (): void {
+                $this->sendUpload();
+            },
+        );
+    }
+
     /** Pull one bounded producer chunk only after the previous QUIC write completes. */
     private function sendUpload(): void
     {
@@ -370,26 +390,6 @@ final class Http3OutboundClient
         $this->writeAll($this->responseStream, $frame, false, function (): void {
             $this->sendUpload();
         });
-    }
-
-    private function sendRequest(int $stream): void
-    {
-        if ($stream < 1) {
-            $this->finish(new RuntimeException('HTTP/3 QUIC cannot open a bidirectional request stream.'));
-
-            return;
-        }
-        $bytes = new Http3ClientWireCodec()->encodeRequestHeaders($this->request, $stream);
-        $this->responseStream = $stream;
-        $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody);
-        $this->writeAll(
-            $stream,
-            $bytes,
-            $this->request->body === null,
-            function (): void {
-                $this->sendUpload();
-            },
-        );
     }
 
     private function start(string $host, int $port): void

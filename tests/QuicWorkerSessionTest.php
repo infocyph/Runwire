@@ -450,8 +450,11 @@ it('preserves a stream and its sibling during bounded partial writes before FIN'
         'epoch' => 1, 'command' => QuicWorkerCommand::encode($id++, 'write', $first['stream'], '', true),
     ]))->toBe(['written' => 0])
         ->and($worker->execute([
-            'epoch' => 1, 'command' => QuicWorkerCommand::encode($id++, 'write', $second['stream'], 'alive', true),
-        ]))->toBe(['written' => 5]);
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode($id++, 'write', $second['stream'], 'alive'),
+        ]))->toBe(['written' => 4])
+        ->and($worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode($id++, 'write', $second['stream'], 'e', true),
+        ]))->toBe(['written' => 1]);
     $received = '';
     do {
         $result = $worker->execute([

@@ -118,7 +118,6 @@ final readonly class Http3ClientWireCodec
         }
     }
 
-
     /** @return list<array{0:string,1:string}> */
     private static function requestFields(ClientRequest $request): array
     {
