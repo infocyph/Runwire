@@ -586,3 +586,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W118 grouped proxy reliability (2026-10-25; QA PENDING):** One related-task group for U10.04/.05/.06: resolve prior W117 Pint/PHPCS findings, validate real connection callbacks for malformed HTTP CONNECT (7), SOCKS method negotiation (4) and CONNECT response (4), assert no handoff/leaks, and sync evidence. No completed U10 acceptance claimed absent proxy/origin TLS identity. **122/175 QA accepted, 53 OPEN**, synced.
+
+
+**W119 grouped QUIC stream write-pressure QA (2026-10-25; QA PENDING):** 2-stream partial-write correctness, 4 concurrent streams × 24 cycles, zero-FIN slot reclamation and truthful fake native write lengths; plus W118 strict Sphinx heading fix. U05.05/.09/.10 still OPEN pending live native independent flow/loss/reorder/cancellation tests. QA-accepted **122/175**, 53 OPEN; plan and roadmap consistent.

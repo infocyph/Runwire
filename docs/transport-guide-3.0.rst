@@ -183,3 +183,16 @@ enable this public-only policy and should use a separate explicit allowlist.
 
 No implicit SSRF protection is asserted for dial calls without a policy;
 HTTP redirect and cross-origin credential policies remain independent.
+
+QUIC worker write-pressure regression evidence
+----------------------------------------------
+
+The grouped QUIC transport tests use a realistic prefix-accepting native
+stream fake to verify non-FIN partial writes, continuation of only the
+remaining bytes, sibling stream isolation, four-slot turnover across 24
+rounds and empty-FIN EOF reuse. The independent aioquic fixture separately
+validates real TLS/ALPN, large simultaneous bidirectional echoes, native
+stream reset and subsequent unidirectional FIN. Mock tests cannot prove
+native loss/reorder, live flow-control windows, fair transport scheduling
+or cancellation-storm recovery; U05.05/U05.09/U05.10 remain open until
+independent evidence covers those cases.

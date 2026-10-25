@@ -235,7 +235,7 @@ policy, not proxy hostname authenticity or nested target TLS verification.
 
 
 Proxy hostile-response matrix (development)
-------------------------------------------
+-------------------------------------------
 
 The grouped W118 proxy reliability suite uses real Runwire socket-pair
 connections to reject invalid HTTP CONNECT headers, SOCKS5 authentication

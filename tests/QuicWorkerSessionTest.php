@@ -29,10 +29,13 @@ function runwireNativeQuicWorkerFixture(int $limit = 2, bool $partialWrites = fa
 
                 public function write(string $data, bool $fin): int
                 {
-                    $this->buffer .= $data;
-                    $this->finished = $fin;
+                    $accepted = $this->partialWrites && strlen($data) > 1
+                        ? strlen($data) - 1
+                        : strlen($data);
+                    $this->buffer .= substr($data, 0, $accepted);
+                    $this->finished = $fin && $accepted === strlen($data);
 
-                    return $this->partialWrites ? max(0, strlen($data) - 1) : strlen($data);
+                    return $accepted;
                 }
 
                 public function read(int $limit): ?string
@@ -234,3 +237,109 @@ it('bounds native QUIC stream churn across 64 resets with an active sibling', fu
     ]))->toBe(['closed' => true])
         ->and($native->closed)->toBeTrue();
 });
+
+it('preserves two native QUIC siblings under non-FIN partial writes followed by full FIN chunks', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2, partialWrites: true);
+    $streamA = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')])['stream'];
+    $streamB = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')])['stream'];
+    $payloadA = 'alpha-flow-window';
+    $payloadB = 'bravo-stream-window';
+
+    $acceptedA = $worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'write', $streamA, $payloadA, false),
+    ])['written'];
+    $acceptedB = $worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'write', $streamB, $payloadB, false),
+    ])['written'];
+    expect($acceptedA)->toBe(strlen($payloadA) - 1)
+        ->and($acceptedB)->toBe(strlen($payloadB) - 1)
+        ->and($native->closed)->toBeFalse();
+
+    $lastA = substr($payloadA, $acceptedA);
+    $lastB = substr($payloadB, $acceptedB);
+    expect($worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'write', $streamA, $lastA, true),
+    ]))->toBe(['written' => strlen($lastA)])
+        ->and($worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode(6, 'write', $streamB, $lastB, true),
+        ]))->toBe(['written' => strlen($lastB)]);
+
+    $replyA = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(7, 'read', $streamA)]);
+    $replyB = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(8, 'read', $streamB)]);
+    expect(base64_decode($replyA['data'], true))->toBe($payloadA)
+        ->and(base64_decode($replyB['data'], true))->toBe($payloadB)
+        ->and($replyA['eof'])->toBeFalse()
+        ->and($replyB['eof'])->toBeFalse()
+        ->and($worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode(9, 'read', $streamA),
+        ])['eof'])->toBeTrue()
+        ->and($worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode(10, 'read', $streamB),
+        ])['eof'])->toBeTrue()
+        ->and($native->closed)->toBeFalse();
+});
+
+it('reuses four native QUIC slots through 24 concurrent partial-write and complete-FIN cycles', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 4, partialWrites: true);
+    $commandId = 1;
+    for ($cycle = 0; $cycle < 24; ++$cycle) {
+        $streams = [];
+        foreach (range(0, 3) as $sibling) {
+            $opened = $worker->execute([
+                'epoch' => 1,
+                'command' => QuicWorkerCommand::encode($commandId++, 'open_bidi'),
+            ]);
+            $streams[] = ['id' => $opened['stream'], 'payload' => 'cycle-' . $cycle . '-sibling-' . $sibling];
+        }
+        foreach ($streams as $stream) {
+            $data = $stream['payload'];
+            $sent = $worker->execute([
+                'epoch' => 1,
+                'command' => QuicWorkerCommand::encode($commandId++, 'write', $stream['id'], $data, false),
+            ])['written'];
+            expect($sent)->toBe(strlen($data) - 1);
+        }
+        foreach ($streams as $stream) {
+            $last = substr($stream['payload'], -1);
+            expect($worker->execute([
+                'epoch' => 1,
+                'command' => QuicWorkerCommand::encode($commandId++, 'write', $stream['id'], $last, true),
+            ]))->toBe(['written' => 1]);
+        }
+        foreach ($streams as $stream) {
+            $read = $worker->execute([
+                'epoch' => 1,
+                'command' => QuicWorkerCommand::encode($commandId++, 'read', $stream['id']),
+            ]);
+            expect(base64_decode($read['data'], true))->toBe($stream['payload'])
+                ->and($read['eof'])->toBeFalse()
+                ->and($worker->execute([
+                    'epoch' => 1,
+                    'command' => QuicWorkerCommand::encode($commandId++, 'read', $stream['id']),
+                ])['eof'])->toBeTrue();
+        }
+        expect($native->closed)->toBeFalse();
+    }
+    expect($worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode($commandId, 'close'),
+    ]))->toBe(['closed' => true])
+        ->and($native->closed)->toBeTrue();
+});
+
+it('supports an empty FIN and then safely reclaims the stream slot after EOF', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1, partialWrites: true);
+    $opened = $worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi'),
+    ]);
+    expect($worker->execute([
+        'epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'write', $opened['stream'], '', true),
+    ]))->toBe(['written' => 0])
+        ->and($worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'read', $opened['stream']),
+        ]))->toBe(['data' => '', 'eof' => true])
+        ->and($worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'open_bidi'),
+        ])['stream'])->toBe(2)
+        ->and($native->closed)->toBeFalse();
+});
+
