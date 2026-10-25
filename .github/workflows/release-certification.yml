@@ -351,14 +351,17 @@ jobs:
             "name": "runwire/standalone-release-smoke",
             "type": "project",
             "repositories": [
-              {"type": "path", "url": "../package", "options": {"symlink": false, "versions": {"infocyph/runwire": "2.2.x-dev"}}}
+              {"type": "path", "url": "../package", "options": {"symlink": false, "versions": {"infocyph/runwire": "3.0.x-dev"}}}
             ],
-            "require": {"infocyph/runwire": "2.2.x-dev"},
+            "require": {"infocyph/runwire": "3.0.x-dev"},
             "minimum-stability": "dev",
             "prefer-stable": true
           }
           JSON
           composer install --working-dir="$workspace/consumer" --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+          composer show --working-dir="$workspace/consumer" --format=json infocyph/runwire \
+            | jq -e '.versions | index("3.0.x-dev") != null' >/dev/null
+          composer check-platform-reqs --working-dir="$workspace/consumer" --no-dev
           cmp runwire/src/RuntimeOptions.php "$workspace/consumer/vendor/infocyph/runwire/src/RuntimeOptions.php"
           cmp runwire/composer.json "$workspace/consumer/vendor/infocyph/runwire/composer.json"
           (

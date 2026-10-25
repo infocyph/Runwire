@@ -625,3 +625,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W131 grouped release certification aggregate (2026-10-25; QA PENDING):** New fail-closed gate joins all four immutable-SHA release streams into one nonpublishing JSON decision, eliminating false readiness when a matrix fails or skips. New tests prove no auto publication. U17 tasks remain OPEN; **122/175 accepted, 53 OPEN**.
+
+
+**W132 grouped Composer 3.0 archive verification (2026-10-25; QA PENDING):** Both routine and final certification consumers now install actual 3.0.x-dev package, verify Composer-resolved version and runtime platform requirements without hard external/extension dependencies, test production archive excludes dev scaffolding. U17.05 still OPEN pending exact final freeze. **122/175 accepted, 53 OPEN**.

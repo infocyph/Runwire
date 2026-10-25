@@ -138,17 +138,19 @@ jobs:
                 "url": "../package",
                 "options": {
                   "symlink": false,
-                  "versions": {"infocyph/runwire": "2.2.x-dev"}
+                  "versions": {"infocyph/runwire": "3.0.x-dev"}
                 }
               }
             ],
-            "require": {"infocyph/runwire": "2.2.x-dev"},
+            "require": {"infocyph/runwire": "3.0.x-dev"},
             "minimum-stability": "dev",
             "prefer-stable": true
           }
           JSON
           pushd "$workspace/consumer"
           composer install --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+          composer show --format=json infocyph/runwire | jq -e '.versions | index("3.0.x-dev") != null' >/dev/null
+          composer check-platform-reqs --no-dev
           cmp "$workspace/package/src/RuntimeOptions.php" vendor/infocyph/runwire/src/RuntimeOptions.php
           php -r '
           require "vendor/autoload.php";
