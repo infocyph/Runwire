@@ -146,6 +146,7 @@ final class Http3OutboundClient
         if ($request->protocol->negotiate('h3', true, true) !== ProtocolVersion::HTTP_3) {
             throw new InvalidArgumentException('HTTP/3 client protocol policy rejected h3.');
         }
+
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
 
