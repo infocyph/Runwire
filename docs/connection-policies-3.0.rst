@@ -199,3 +199,14 @@ next connection owner. This is not HTTPS-through-proxy: neither the proxy
 credentialed TLS identity nor TLS upgrade with the original destination
 certificate identity is integrated. Credentialed live tunnels refuse to start
 rather than disclose Basic credentials to an unverified peer.
+
+
+SOCKS5 tunnel connection stage (experimental)
+-----------------------------------------------
+
+``Network\\Proxy\\Socks5Tunnel`` negotiates no-auth SOCKS5 on an existing
+Runwire connection with a finite deadline, callback ownership and cancellation.
+Unapproved remote DNS and credential disclosure fail before writing. Remaining
+tunnel data is preserved for the subsequent application owner. Verified proxy
+TLS credentials, nested original-endpoint TLS and external peer conformance
+are not provided by this stage and remain mandatory gates.

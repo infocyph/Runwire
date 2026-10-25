@@ -29,6 +29,12 @@ final readonly class Socks5Handshake
         }
     }
 
+    /** Whether SOCKS5 requires proxy credentials and an independently verified TLS owner. */
+    public function usesAuthentication(): bool
+    {
+        return $this->username !== null;
+    }
+
     public function greeting(): string
     {
         return $this->username === null ? "\x05\x01\x00" : "\x05\x01\x02";
