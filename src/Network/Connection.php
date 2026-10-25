@@ -188,6 +188,12 @@ final class Connection
         return $this->bytesWritten;
     }
 
+    /** Only the current protocol adapter may release or abort its claimed callbacks. */
+    public function callbacksOwnedBy(object $owner): bool
+    {
+        return $this->callbackOwnership->ownedBy($owner);
+    }
+
     /**
      * @internal Reserved for isolated adapters that require the single data/drain/EOF callback slots.
      * @param callable(self): void $onData
@@ -457,12 +463,6 @@ final class Connection
         $this->dataCallback = null;
         $this->drainCallback = null;
         $this->eofCallback = null;
-    }
-
-    /** Only the current protocol adapter may release or abort its claimed callbacks. */
-    public function callbacksOwnedBy(object $owner): bool
-    {
-        return $this->callbackOwnership->ownedBy($owner);
     }
 
     /**

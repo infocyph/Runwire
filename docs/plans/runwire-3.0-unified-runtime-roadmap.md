@@ -616,3 +616,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W128 grouped Runwire correctness/QA convergence (2026-10-25; QA PENDING):** In addition to exclusive-adapter ownership, test configured direct-connection callback preservation when proxy claim fails; resolve both shared Pint before-try formatting defects, restore actual request CRLF in H1 send-pressure fixture and fix two strict Sphinx heading warnings. No QA bypass and no new acceptance until exact-head checks. **122/175, 53 open**.
+
+
+**W129 grouped callback-ownership API and class-order QA (2026-10-25; QA PENDING):** Reorder two newly introduced owner-query methods under strict Pint class-element requirements and prove claim/release/handoff changes ownership correctly. PHPStan 8.4/8.5 on previous exact-head was green; pending QA must prove PHPForge/Pest and benchmarks. U10.04/.05/.06 OPEN, **122/175 accepted, 53 OPEN**.

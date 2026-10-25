@@ -123,3 +123,20 @@ it('preserves an existing unclaimed direct data callback when proxy tunnel claim
         expect($loop->diagnostics()->readWatchers)->toBe(0);
     }
 });
+
+
+it('releases a callback owner and allows a later owner without preserving stale identities', function (): void {
+    $ownership = new ConnectionCallbackOwnership();
+    $first = new stdClass();
+    $second = new stdClass();
+    $ownership->claim($first, false, false);
+    expect($ownership->ownedBy($first))->toBeTrue()
+        ->and($ownership->ownedBy($second))->toBeFalse();
+    $ownership->release($first);
+    expect($ownership->unclaimed())->toBeTrue();
+    $ownership->handoff($second, false);
+    expect($ownership->ownedBy($second))->toBeTrue()
+        ->and($ownership->ownedBy($first))->toBeFalse();
+    $ownership->release($second);
+    expect($ownership->unclaimed())->toBeTrue();
+});
