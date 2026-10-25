@@ -535,3 +535,9 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W102 HPACK protocol-core workload expansion (2026-10-25; staged/QA PENDING):** Add PHPBench measurements for integer continuation max-width, bounded Huffman decode, dynamic HPACK/header write churn and repeated H2 header validation. Add 256-roundtrip correctness/authorization/decoder-size negative tests. This is development profiling **not** a matched pinned 2.1.2-to-3.0 measured delta, so U08.04, U15, U17 stay OPEN. Keep the existing PHPBench matrix (not duplicate push/PR runs) and immutable QA proof discipline. **121/175 accepted, 54 OPEN, 19 to 140**.
+
+
+**W103 before/after HPACK workload evidence (2026-10-25; staged/QA PENDING):** Immutable published 2.1.2 versus current HEAD profiling with one shared independent-source workload script, 5 x 320 iterations per case, CV and per-op median for HPACK integer, Huffman, H2 validation and bounded frame write churn on PHP8.4/8.5, via existing Protocol Core Benchmarks job/artifact. Explicitly `releaseCertified:false`; avoid rewarding noisy gains or changing limits. U08.04 only after real artifact review. Count unchanged **121/175, 54 OPEN, 19 to 140**.
+
+
+**W103 W102 PHPForge Pint recovery (2026-10-25; next-head QA pending):** Four W102 quality matrix lanes flagged only `ordered_class_elements` in ProtocolCoreBench; existing functional Pest and PHPStan/Psalm green. W103 reorders added benchmark methods alphabetically while retaining workloads, and pushes same batch as immutable 2.1.2 matched profiling work. No U08.04 or U15/U17 promotion, **121/175, 19 to 140**.

@@ -135,36 +135,6 @@ final class ProtocolCoreBench
         return count($this->hpackDecoder->decode($this->hpackWire));
     }
 
-    public function benchHttp2HpackEncode(): int
-    {
-        return strlen($this->hpackEncoder->encode($this->http2Headers));
-    }
-
-    public function benchHttp2HpackIntegerRoundTrip(): int
-    {
-        $encoded = HpackIntegerCodec::encode(16_384, 5);
-        $offset = 0;
-
-        return HpackIntegerCodec::decode($encoded, $offset, 5);
-    }
-
-    public function benchHttp2HuffmanDecode(): int
-    {
-        return strlen($this->huffmanCodec->decode($this->huffmanWire, 256));
-    }
-
-    public function benchHttp2HuffmanEncode(): int
-    {
-        return strlen($this->huffmanCodec->encode('https://example.test/benchmark'));
-    }
-
-    public function benchHttp2RequestHeaderValidation(): int
-    {
-        $head = (new RequestHeaderValidator('HTTP/2'))->request($this->http2Headers);
-
-        return strlen($head->target);
-    }
-
     public function benchHttp2HpackDynamicTableChurn(): int
     {
         $encoder = new HpackEncoder(512);
@@ -187,6 +157,19 @@ final class ProtocolCoreBench
         return $validated;
     }
 
+    public function benchHttp2HpackEncode(): int
+    {
+        return strlen($this->hpackEncoder->encode($this->http2Headers));
+    }
+
+    public function benchHttp2HpackIntegerRoundTrip(): int
+    {
+        $encoded = HpackIntegerCodec::encode(16_384, 5);
+        $offset = 0;
+
+        return HpackIntegerCodec::decode($encoded, $offset, 5);
+    }
+
     public function benchHttp2HpackLongContinuationInteger(): int
     {
         $encoded = HpackIntegerCodec::encode(PHP_INT_MAX, 5);
@@ -197,6 +180,16 @@ final class ProtocolCoreBench
         }
 
         return $decoded;
+    }
+
+    public function benchHttp2HuffmanDecode(): int
+    {
+        return strlen($this->huffmanCodec->decode($this->huffmanWire, 256));
+    }
+
+    public function benchHttp2HuffmanEncode(): int
+    {
+        return strlen($this->huffmanCodec->encode('https://example.test/benchmark'));
     }
 
     public function benchHttp2HuffmanLargeBoundedDecode(): int
@@ -210,7 +203,14 @@ final class ProtocolCoreBench
         return strlen($wire);
     }
 
-    public function benchHttp2HpackRepeatedHeaderValidation(): int
+    public function benchHttp2RequestHeaderValidation(): int
+    {
+        $head = (new RequestHeaderValidator('HTTP/2'))->request($this->http2Headers);
+
+        return strlen($head->target);
+    }
+
+    public function benchHttp2RequestHeaderValidationChurn(): int
     {
         $headers = [
             [':method', 'GET'],
