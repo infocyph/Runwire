@@ -415,6 +415,7 @@ jobs:
         if: matrix.php-version == '8.5'
         shell: bash
         run: |
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_quic_echo_server.py
           bash -n tests/interop/quic_impaired_native_session.sh
           RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
             bash tests/interop/quic_impaired_native_session.sh \

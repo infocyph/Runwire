@@ -655,3 +655,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W141 grouped native peer loss/reorder and previous autoscale QA recovery (2026-10-25; QA PENDING):** Native QUIC real packet-drop/delay peer plus six-reset/two-sibling/full FIN assertions and independent packet-count artifact; split U12 observer time validation/vote state to meet strict analyzer without bypass. U05/U12 OPEN. **123/175 accepted, 52 OPEN**.
+
+
+**W142 grouped QUIC fault peer evidence and previous autoscale QA correction (2026-10-25; QA PENDING):** W141 native impaired-UDP step PASSED; add Python compile gate, source proof and artifact dossier; fix one PHPForge Pint separation failure in autoscale. U05.05/.09 and U12.04 remain OPEN, **123/175 accepted, 52 OPEN**.

@@ -113,6 +113,7 @@ final class AutoscaleWindowController
         $this->pendingDirection = 0;
         $this->pendingWindows = 0;
     }
+
     private function vote(int $currentWorkers, int $desired, float $observedAtSeconds): int
     {
         $direction = $desired > $currentWorkers ? 1 : -1;
@@ -129,6 +130,4 @@ final class AutoscaleWindowController
 
         return $desired;
     }
-
-
 }
