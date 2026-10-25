@@ -48,7 +48,7 @@ Network, protocols and worker capabilities
      - No general-purpose H2/H3 fallback
    * - HTTP/2 outbound
      - No complete client
-     - Not yet implemented
+     - Experimental verified H2 exchange and bounded multiplexing; full acceptance OPEN
      - Outgoing TLS with ALPN
      - HPACK and multiplex OPEN
    * - HTTP/3 outbound

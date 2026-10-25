@@ -53,6 +53,20 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R9.07 | U17.07 | OPEN, fresh 3.0 QA required |
 | R9.09 | U17.09 | OPEN, fresh 3.0 QA required |
 
+## Five-batch 3.0 closure execution map
+
+**Current canonical QA state: 123/175 accepted, 52 OPEN.** The following **execution groups** reassign every remaining task exactly once without replacing the canonical U00–U17 checklist. C1 started on 2026-10-25; do not promote QA-pending code to accepted.
+
+| Group | Exact remaining U tasks | Open | Status |
+| --- | --- | ---: | --- |
+| C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 11 | IN DEVELOPMENT |
+| C2 — WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 10 | QUEUED |
+| C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 9 | QUEUED |
+| C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | QUEUED |
+| C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
+| **TOTAL** | **52 unique IDs; unchanged 175-task acceptance scope** | **52** | **In progress** |
+
+**Critical-path and CI invariant:** C1 transport/H3 → C2 WT/network services → C3 live supervisor/filesystem/security → C4 3.0 benchmarks/hosted RST → C5 frozen final certification. Repair crosscutting CI defects during the currently active group. Source-pinned opt-in evidence jobs may run with tasks still OPEN, but final release-ready aggregate continues to require **zero open tasks** plus every certification result PASS. Routine workflow GREEN does not prove conditional TLS/frozen certification. Synchronize this roadmap, detailed plan, PR body, CI links and checkboxes with each rolling group.
 ## Delivery program and initial tracker
 
 | Batch | Division | Open acceptance tasks | Progress |
@@ -658,3 +672,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W142 grouped QUIC fault peer evidence and previous autoscale QA correction (2026-10-25; QA PENDING):** W141 native impaired-UDP step PASSED; add Python compile gate, source proof and artifact dossier; fix one PHPForge Pint separation failure in autoscale. U05.05/.09 and U12.04 remain OPEN, **123/175 accepted, 52 OPEN**.
+
+
+**W143 five-batch kickoff (2026-10-25; QA PENDING):** Disjoint 52-task C1–C5 partition committed with candidate checkout/immutable QA-gathering regression repairs in C1 groundwork. W142 exact-head routine nine workflow results PASS; no full matched TLS or release certification claims. **123/175 accepted, 52 OPEN**, both trackers synchronized.

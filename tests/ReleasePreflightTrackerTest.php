@@ -2,16 +2,18 @@
 
 declare(strict_types=1);
 
-it('blocks costly release certification whenever any canonical 3.0 task is open', function (): void {
+it('allows opt-in evidence collection while keeping final release certification blocked by open tasks', function (): void {
     $workflow = file_get_contents(dirname(__DIR__) . '/.github/workflows/release-certification.yml');
     expect($workflow)->toBeString()
         ->toContain('release-preflight:', 'task_open:')
-        ->toContain('if [ "$total" -ne 175 ] || [ "$open" -ne 0 ]; then')
-        ->toContain('3.0 cannot be release-certified')
+        ->toContain('if [ "$total" -ne 175 ]; then')
+        ->toContain('Malformed 3.0 canonical tracker: expected 175 tasks')
         ->toContain('tracker_preflight: $precheck')
         ->toContain('($task_open == "0")', '$precheck == "success"')
         ->toContain('($task_open | tonumber? // -1)')
         ->toContain('      - release-preflight')
+        ->toContain('Evidence-generation is permitted before all tasks are accepted.')
+        ->not->toContain('if [ "$total" -ne 175 ] || [ "$open" -ne 0 ]; then')
         ->not->toContain('gh release create');
     expect(substr_count($workflow, '    needs: release-preflight'))->toBe(4);
 });

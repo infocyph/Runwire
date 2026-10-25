@@ -37,6 +37,29 @@
 
 **Immediate rolling example:** Q2-A isolated native QUIC handshake probe → Q2-A source and PHPForge QA; build Q2-B independent aioquic real-server proof in parallel → resolve Q2-A reference/Pint/PHPStan feedback + Q2-B interop + this synchronized workflow in one commit → inspect complete next-head QA before U05 acceptance. U04.08 remains an independently triggered matched-TLS certification task.
 
+## Five grouped completion batches (52 open tasks; authoritative U acceptance remains unchanged)
+
+All **52** unchecked Uxx.yy IDs are assigned exactly once across these five **execution batches**. They are not extra acceptance items: the canonical 18 U-divisions, 175-task total and proof thresholds above remain authoritative. Shared release-infrastructure fixes, trackers, workflow repairs and QA recovery follow the batch currently in progress; they never count as new accepted tasks. A downstream batch may receive nonblocking groundwork earlier, but no prerequisite may be counted as complete before real evidence.
+
+| Closure batch | Coherent workstream | Exact open task IDs | Open | Status | Acceptance boundary |
+| --- | --- | --- | ---: | --- | --- |
+| C1 | Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 11 | IN DEVELOPMENT | Real TLS, QUIC and H1/H2/H3 peer conformance; bounded loss/reset/fallback; matched evidence |
+| C2 | WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 10 | QUEUED | Independent WT peer tests, authenticated proxy TLS, origin identity, pool and multiplex QA |
+| C3 | Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 9 | QUEUED | Real live worker scaling/drain/crash tests, mixed transports, bounded file executor and fuzz |
+| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | QUEUED | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
+| C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED | Exact-head PHPForge/host/interop/packaging gates, independent reviewer acceptance and no automatic release |
+| **TOTAL** | **Five closure groups; no extra task IDs** | **52 individually assigned** | **52** | **1 active / 4 queued** | **175 canonical tasks unchanged** |
+
+### Cross-batch delivery and QA discipline
+
+- **C1:** start with capability/test boundaries and essential infrastructure defects (frozen release checkout, fail-closed certification aggregation, exact-source evidence collection). Work next through QUIC transport, H3 client and protocol pressure. Track implemented-versus-accepted separately.
+- **C2:** use C1 H3 stream ownership to deliver WT uni/bidi, session/cancel/backpressure and proxy original-target TLS identity, without insecure authentication shortcuts.
+- **C3:** connect bounded autoscale *decisions* to real native supervisor lifecycle and its crash/drain QA, prove filesystem acceleration/performance and adversarial session limits.
+- **C4:** run genuine matching and resource telemetry once real protocol capabilities exist; perform the complete RST migration/hosted docs preview while code stabilizes.
+- **C5:** certify an immutable final head. No U17 checkbox and no release-ready claim is permitted without its task-specific proof, including U15 performance, U16 hosted preview, independently verified peers and full PHP 8.4/8.5 gates.
+- **Rolling loop:** cohesive group development → targeted tests → one PR push/QA; while QA runs prepare another group; resolve previous QA with current group and push together where safe. Checkboxes and counts move **only** after independent task-relevant Actions success. Keep both trackers and PR in sync. Do not merge, tag, publish, or edit other repositories.
+- **Evidence/preflight distinction:** opt-in immutable-source certification must be runnable to *produce* U15/U17 evidence before all tasks are checked; the authoritative final aggregation **still refuses** release readiness unless exactly 175/175 tasks and every required job succeed. Never downgrade a failed/skipped gate to green.
+
 ## Canonical batch summary
 
 | Batch | Division | Done / total | Open | Status | Dependencies |
@@ -1027,3 +1050,6 @@ All of these pages are **required deliverables** inside the proposed docs docume
 
 
 **Grouped batch W142 — native QUIC impaired peer reproducibility + autoscale PHPForge QA (2026-10-25; QA PENDING; U05.05/U05.09/U12.04):** W141 real independent PHP8.5 QUIC post-handshake UDP loss/reorder step passed in [Security & Standards #40185537136](https://github.com/infocyph/Runwire/actions/runs/40185537136): 6 resets, 2 recovered peers, uni FIN and positive peer drop/delay counts. The same source PHP8.4/8.5 analyzers passed; PHPForge QA flagged Pint `class_attributes_separation` due to missing blank line between autoscale private methods. Repair class ordering/spacing without changing functionality; add peer Python syntax verification, fail-closed native-impairment contract regression and separate exact-step evidence note. Do not accept U05/U12 before full native, resource and live supervisor proof; **123/175 accepted (70.3%), 52 OPEN**, tracker synced.
+
+
+**W143 C1 kickoff / five-batch closure and release infrastructure (2026-10-25; CI PENDING):** Partition all 52 OPEN canonical IDs into five disjoint subsystem groups (11+10+9+13+9), retaining 123/175 QA-accepted and zero new unproven task acceptances. W142 source `9698ea0444dc0ac4a7ddb6ec42dd9a8e73e41b7a` [Security & Standards #40185999068](https://github.com/infocyph/Runwire/actions/runs/40185999068), [Benchmarks #40185998744](https://github.com/infocyph/Runwire/actions/runs/40185998744), native, hosts, API/docs and other routine workflows all completed successfully; conditional full U04 matched TLS and separate frozen release certification are **SKIPPED / NOT CERTIFIED**. Correct misplaced matched-performance candidate checkout path (previously a shell command), assert its actual git SHA in candidate/ and permit opt-in exact-head evidence acquisition with incomplete trackers while final aggregate strictly rejects OPEN tasks. Align experimental H2 feature catalog with actual source; add regression tests. C1 transport/H3 implementation remains underway, none of U04/U05/U07/U08 is promoted without exact acceptance proof. PR stays draft; no merge/tag/publish.
