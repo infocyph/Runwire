@@ -232,3 +232,14 @@ Remote-DNS hostnames cannot prove their eventual resolved IP through that
 boundary, so the restricted mode refuses them until a separately verified
 resolved-target handoff is implemented. This is an optional fail-closed
 policy, not proxy hostname authenticity or nested target TLS verification.
+
+
+Proxy hostile-response matrix (development)
+------------------------------------------
+
+The grouped W118 proxy reliability suite uses real Runwire socket-pair
+connections to reject invalid HTTP CONNECT headers, SOCKS5 authentication
+method substitution, malformed address replies, and oversized headers.
+The tests assert no tunnel handoff and no retained loop watchers or timers.
+They do not replace independent proxy-reference testing, nested target TLS
+or verified proxy authentication acceptance.

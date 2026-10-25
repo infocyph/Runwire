@@ -89,7 +89,9 @@ final class HttpConnectTunnel
                 function (Connection $connection): void {
                     $this->receive($connection);
                 },
-                static function (): void {},
+                static function (): void {
+                    // Connection owns write-drain scheduling.
+                },
                 function (): void {
                     $this->fail(new RuntimeException('Proxy closed before CONNECT tunnel establishment.'));
                 },

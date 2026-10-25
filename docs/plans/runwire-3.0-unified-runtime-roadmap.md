@@ -583,3 +583,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W117 proxy fault tests (2026-10-25; QA PENDING):** Both negotiated HTTP CONNECT and SOCKS5 socket owners now face independent denied-response, cancellation, idle timeout and EOF test permutations with exactly-once settlement and zero watcher/timer/subscription leaks. Does not imply end-to-end TLS or external proxy interoperability; U10.04/.05/.06 OPEN, **122/175 accepted, 53 OPEN**.
+
+
+**W118 grouped proxy reliability (2026-10-25; QA PENDING):** One related-task group for U10.04/.05/.06: resolve prior W117 Pint/PHPCS findings, validate real connection callbacks for malformed HTTP CONNECT (7), SOCKS method negotiation (4) and CONNECT response (4), assert no handoff/leaks, and sync evidence. No completed U10 acceptance claimed absent proxy/origin TLS identity. **122/175 QA accepted, 53 OPEN**, synced.

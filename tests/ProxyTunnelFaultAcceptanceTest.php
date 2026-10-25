@@ -30,8 +30,10 @@ function runwireProxyFaultFixture(
     $callback = static function ($value, ?Throwable $error) use (&$errors, &$successes, $loop): void {
         if ($error !== null) {
             $errors[] = $error;
-        } else {
+        } elseif ($value instanceof \Infocyph\Runwire\Network\Connection) {
             ++$successes;
+        } else {
+            $errors[] = new RuntimeException('Proxy tunnel returned neither a connection nor an error.');
         }
         $loop->stop();
     };
