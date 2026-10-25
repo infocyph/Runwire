@@ -25,6 +25,8 @@ class EchoProtocol(QuicConnectionProtocol):
         self._dropped_datagrams = 0
         self._delayed_datagrams = 0
         self._stalled_streams = set()
+        self._echo_finished_streams = set()
+        self._uni_finished_streams = set()
 
     def datagram_received(self, data, addr) -> None:
         if not self.impair_post_handshake or not self._handshake_complete:
@@ -59,6 +61,8 @@ class EchoProtocol(QuicConnectionProtocol):
         if isinstance(event, StreamDataReceived):
             # Client-initiated unidirectional QUIC stream IDs have bit 1 set.
             if (event.stream_id & 0x02) != 0:
+                if event.stream_id in self._uni_finished_streams:
+                    return
                 buffers = self.__dict__.setdefault("_uni_buffers", {})
                 received = buffers.get(event.stream_id, b"") + event.data
                 if len(received) > 65_536:
@@ -79,6 +83,7 @@ class EchoProtocol(QuicConnectionProtocol):
                             )
                         Path(self.marker_path).write_bytes(received)
                     buffers.pop(event.stream_id, None)
+                    self._uni_finished_streams.add(event.stream_id)
                 else:
                     buffers[event.stream_id] = received
                 return
@@ -95,9 +100,16 @@ class EchoProtocol(QuicConnectionProtocol):
                     )
                 return
 
+            # Under independent datagram impairment, retransmission and
+            # delayed-delivery callbacks can arrive after echo FIN. Do not
+            # write a second FIN to a native sender that has already closed.
+            if event.stream_id in self._echo_finished_streams:
+                return
             self._quic.send_stream_data(
                 event.stream_id, event.data, end_stream=event.end_stream
             )
+            if event.end_stream:
+                self._echo_finished_streams.add(event.stream_id)
             self.transmit()
 
 
