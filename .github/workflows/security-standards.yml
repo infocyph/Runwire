@@ -406,6 +406,7 @@ jobs:
             | tee "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json"
           jq -e '.verified == true and .concurrent_bidirectional == true
             and .native_reset_storm_count == 6
+            and .verified_post_reset_bidi_streams == 2
             and .native_reset_then_peer_uni_fin == true
             and .unidirectional_streams_delivered == 1' \
             "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json" >/dev/null

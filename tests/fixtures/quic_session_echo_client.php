@@ -16,6 +16,7 @@ $loop = new SelectLoop();
 $session = new QuicClientSession($loop, 8);
 $completed = [];
 $nativeResets = 0;
+$postResetBidi = 0;
 $failure = null;
 $stop = static function (Throwable $error) use (&$failure, $session): void {
     $failure ??= $error;
@@ -181,7 +182,7 @@ try {
             $rejectUnsupported(static fn() => $options->assertDatagramAvailable(), 'post-handshake datagrams');
 
             // Real native stream reset must preserve this verified connection:
-            // the independent peer must still receive the             $resetThenSendUni = static function () use ($session, $stop, $sendUni, &$nativeResets): void {
+            // the independent peer must still receive the             $resetThenSendUni = static function () use ($session, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
                 // All 6 siblings are admitted before reset callbacks settle.
                 // The independent peer must remain healthy for the subsequent uni FIN.
                 for ($index = 0; $index < 6; ++$index) {
@@ -193,7 +194,7 @@ try {
                                 return;
                             }
                             $session->command('reset', $opened['stream'], '', false,
-                                static function (mixed $result, ?Throwable $error) use ($stop, $sendUni, &$nativeResets): void {
+                                static function (mixed $result, ?Throwable $error) use ($stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
                                     if ($error !== null || ($result['reset'] ?? null) !== true) {
                                         $stop($error ?? new RuntimeException('Native QUIC reset burst failed.'));
 
@@ -201,7 +202,16 @@ try {
                                     }
                                     ++$nativeResets;
                                     if ($nativeResets === 6) {
-                                        $sendUni();
+                                        // The post-reset siblings must work before final uni FIN.
+                                        $readyWrites = [];
+                                        $survivorDone = static function () use (&$postResetBidi, $sendUni): void {
+                                            ++$postResetBidi;
+                                            if ($postResetBidi === 2) {
+                                                $sendUni();
+                                            }
+                                        };
+                                        $exchange(str_repeat('survivor-first', 256), $survivorDone);
+                                        $exchange(str_repeat('survivor-second', 256), $survivorDone);
                                     }
                                 },
                             );
@@ -250,6 +260,7 @@ try {
         'peer_verified_bytes_per_bidi_stream' => 2_048 * strlen('first-quic-stream'),
         'native_reset_then_peer_uni_fin' => true,
         'native_reset_storm_count' => $nativeResets,
+        'verified_post_reset_bidi_streams' => $postResetBidi,
         'unsupported_datagram_migration_0rtt_rejected' => true,
         'unidirectional_streams_delivered' => 1,
         'persistent_worker' => true,

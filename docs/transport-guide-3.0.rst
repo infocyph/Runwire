@@ -198,7 +198,7 @@ or cancellation-storm recovery; U05.05/U05.09/U05.10 remain open until
 independent evidence covers those cases.
 
 Independent QUIC sibling reset burst (development)
--------------------------------------------------
+--------------------------------------------------
 
 The optional native QUIC CI matrix tests a verified TLS 1.3/ALPN session
 against an independently implemented aioquic echo peer. Two >32 KiB
@@ -208,3 +208,9 @@ stream FIN. JSON artifacts are checked on PHP 8.4 and 8.5. This verifies
 worker/session ownership across repeated native reset operations; it does
 **not** substitute for network loss/reorder injection, datagram support,
 full flow-control stalls or release throughput budgets.
+
+After the six native resets, the same worker-owned, verified QUIC session
+also starts two fresh concurrent bidirectional streams and echoes their
+entire payloads before the final independent unidirectional FIN. Native
+PHP 8.4 and 8.5 artifacts must report both post-reset successes. This
+regression checks sibling recovery; it is not a simulated loss network.

@@ -634,3 +634,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W134 grouped native QUIC reset burst/peer isolation (2026-10-25; QA PENDING):** Independent aioquic peer now validates two concurrent large echoes, six real native sibling resets and later uni FIN, with PHP8.4/8.5 JSON artifacts plus tests. Native loss/reorder/flow-window stress still open under U05.05/.09. **122/175 QA accepted, 53 OPEN**.
+
+
+**W135 grouped native QUIC post-reset survivor traffic (2026-10-25; QA PENDING):** Independent real peer now must echo 2 fresh concurrent bidirectional siblings after a 6-stream reset burst and then accept uni FIN; PHP8.4/8.5 artifacts certify the post-reset count. Repair W134 native RST Sphinx heading and interpolating PHP test string. Full loss/reorder U05 gates OPEN, **122/175 accepted, 53 OPEN**.
