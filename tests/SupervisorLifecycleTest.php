@@ -79,14 +79,29 @@ it('isolates lifecycle observer failures and reports their count in status', fun
     $loop = new SelectLoop();
     $supervisor = new Supervisor($loop);
     $observed = [];
-    $supervisor->onEvent(static function (SupervisorEvent $event) use (&$observed): void { $observed[] = $event->type; });
+    $stopScheduled = false;
+    $supervisor->onEvent(static function (SupervisorEvent $event) use (
+        &$observed,
+        &$stopScheduled,
+        $loop,
+        $supervisor,
+    ): void {
+        $observed[] = $event->type;
+        if ($event->type === SupervisorEventType::WORKER_READY && !$stopScheduled) {
+            $stopScheduled = true;
+            $loop->delay(0.02, static function () use ($supervisor): void {
+                $supervisor->stop();
+            });
+        }
+    });
     $supervisor->onEvent(static function (): void { throw new RuntimeException('observer failure'); });
     $supervisor->group(WorkerGroup::callbacks(
         'events', 1,
         static function (WorkerContext $context): void { while (!$context->stopping()) { usleep(1_000); } },
         shutdownTimeoutSeconds: 0.1,
     ));
-    $loop->delay(0.04, static fn () => $supervisor->stop());
+    // A timeout detects genuine readiness failures without racing worker startup.
+    $loop->delay(1.0, static function () use ($supervisor): void { $supervisor->stop(true); });
     $supervisor->run();
     $status = $supervisor->status();
 

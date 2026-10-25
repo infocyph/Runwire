@@ -162,3 +162,23 @@ sibling fairness rather than merely testing short responses. A separate
 acknowledgments, exactly-once completion and the fixed retired-stream budget.
 These development tests do not replace production benchmark certification,
 full slow-peer adversarial interop or final U07.05 QA acceptance.
+
+
+Explicit outbound H1/H2 ALPN selection
+--------------------------------------
+
+The experimental ``HttpNegotiatingOutboundClient`` uses one existing outbound
+verified TLS connection and selects an H1 or H2 exchange only after actual
+ALPN negotiation. It advertises only the caller-approved HTTP/1.1/H2 versions,
+preserves the original certificate peer identity, and requires explicit
+fallback permission before H2 can become HTTP/1.1. HTTP/3 is deliberately
+rejected rather than treating an absent outbound QUIC client as permission to
+downgrade. Plain HTTP remains a separate, explicit H1-only opt-in. Independent
+TLS reference fixtures offer H2 and H1 individually to exercise selection,
+not mock negotiation. The whole feature is pending exact-head quality gates;
+HTTP/3 and unified H3/H2/H1 fallback remain U07.06–U07.08 work.
+
+The independent TLS reference also probes a strict H2 client against a
+peer advertising only HTTP/1.1: no HTTP request may be emitted during a
+forbidden ALPN downgrade. This is separate from the explicitly permitted H1
+fallback case; both are mandatory CI cases before U07.08 acceptance.

@@ -496,3 +496,12 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W93 retired H2 stream adversarial frames (2026-10-25; pending CI):** Reject invalid peer RST_STREAM and unsupported DATA flag combinations on canceled stream IDs; retain canceled-stream state until a valid final reset/END_STREAM, with negative protocol tests. No new checkboxes accepted yet.
+
+
+**W94 verified H1/H2 outbound ALPN policy (2026-10-25; QA PENDING):** New experimental `HttpNegotiatingOutboundClient` dispatches one verified established socket to H1 or H2 by actual TLS/ALPN under explicit fallback policy, rejects H3 before a QUIC client exists, requires peer-name/ALPN matching and preserves explicit plaintext opt-in. Independent reference expands to strict H2, allowed H2 and true HTTP/1.1-only TLS fallback. **U07.08 remains OPEN** until complete H1/H2/H3 downgrade/security acceptance; no promotion before QA. 118/175 accepted, 57 OPEN, target 140.
+
+
+**W94 QA recovery from W93 (2026-10-25; pending new exact head):** W93 independent real hyper-h2 flow pressure passed 8.4/8.5 [#40146897175](https://github.com/infocyph/Runwire/actions/runs/40146897175), Sphinx/Source/native/host green. W93 [Security #40146897622](https://github.com/infocyph/Runwire/actions/runs/40146897622) only PHP8.5 stable Pest failed: `SupervisorLifecycleTest` had a pre-readiness fixed 40ms stop race; make stop event-driven on WORKER_READY with finite watchdog, retain all assertions. 3/4 PHPForge QA and both analysis lanes green. W94 combines recovery and negotiated H1/H2 code, no change to 118/175 until full acceptance.
+
+
+**W94 no-hidden-downgrade proof (2026-10-25; QA pending):** Independent TLS reference adds strict-H2-versus-H1-only peer negative test requiring zero HTTP request emission, alongside three positive strict/negotiated H2/H1 modes. U07.08 OPEN until release-scope full protocol fallback proof; tracker unchanged 118/175.

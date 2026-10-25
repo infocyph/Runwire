@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Executor\ProcessExecutor;
+use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http2OutboundClient;
+use Infocyph\Runwire\Http\Client\HttpNegotiatingOutboundClient;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
@@ -14,7 +17,10 @@ use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\TlsClientOptions;
 
-it('interoperates over real verified TLS h2 with the independent upstream hyper-h2 server', function (): void {
+it('interoperates over real verified TLS h2 with strict and explicitly negotiated client ALPN', function (string $mode): void {
+    $auto = $mode !== 'strict-h2';
+    $fallbackH1 = $mode === 'fallback-h1';
+    $rejectH1 = $mode === 'reject-h1';
     if (!function_exists('proc_open') || !extension_loaded('openssl')) {
         throw new RuntimeException('Independent H2 QA requires process and OpenSSL tooling.');
     }
@@ -67,8 +73,12 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
         file_put_contents($keyFile, $private);
 
         $script = $root . '/tests/fixtures/h2_reference_peer.py';
+        $peerCommand = ['python3', '-u', $script, $cert, $keyFile];
+        if ($fallbackH1 || $rejectH1) {
+            $peerCommand[] = $rejectH1 ? 'deny' : 'http1';
+        }
         $process = proc_open(
-            ['python3', '-u', $script, $cert, $keyFile],
+            $peerCommand,
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
         );
@@ -93,10 +103,16 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
             $loop->stop();
         });
 
-        Http2OutboundClient::connect(
+        $client = $auto ? HttpNegotiatingOutboundClient::class : Http2OutboundClient::class;
+        $policy = new ClientProtocolPolicy(
+            ProtocolVersion::HTTP_2,
+            [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_1_1],
+            allowFallback: $auto && !$rejectH1,
+        );
+        $client::connect(
             $loop,
             $race,
-            new ClientRequest('GET', 'https://127.0.0.1:' . $port . '/independent'),
+            new ClientRequest('GET', 'https://127.0.0.1:' . $port . '/independent', protocol: $policy),
             static function (int $code, Headers $headers) use (&$statusCode, &$type, &$reference): void {
                 $statusCode = $code;
                 $type = $headers->first('content-type');
@@ -111,15 +127,25 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
                 ++$completed;
                 $loop->stop();
             },
-            new DialOptions(tls: new TlsClientOptions('127.0.0.1', caFile: $cert, alpnProtocols: ['h2'])),
+            new DialOptions(tls: new TlsClientOptions(
+                '127.0.0.1',
+                caFile: $cert,
+                alpnProtocols: $auto && !$rejectH1 ? ['h2', 'http/1.1'] : ['h2'],
+            )),
         );
         $loop->run();
-        expect($completed)->toBe(1)
-            ->and($failure)->toBeNull()
-            ->and($statusCode)->toBe(200)
-            ->and($type)->toBe('text/plain')
-            ->and($reference)->toBe('hyper-h2')
-            ->and($body)->toBe('hyper-h2-reference');
+        expect($completed)->toBe(1);
+        if ($rejectH1) {
+            expect($failure)->toBeInstanceOf(Throwable::class)
+                ->and($statusCode)->toBeNull()
+                ->and($body)->toBe('');
+        } else {
+            expect($failure)->toBeNull()
+                ->and($statusCode)->toBe(200)
+                ->and($type)->toBe('text/plain')
+                ->and($reference)->toBe($fallbackH1 ? 'hyper-h2-fallback' : 'hyper-h2')
+                ->and($body)->toBe($fallbackH1 ? 'hyper-h2-h1-fallback' : 'hyper-h2-reference');
+        }
     } finally {
         if ($loop instanceof SelectLoop && $watchdog !== null) {
             $loop->cancel($watchdog);
@@ -151,4 +177,9 @@ it('interoperates over real verified TLS h2 with the independent upstream hyper-
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+})->with([
+    'strict H2 only' => ['strict-h2'],
+    'verified H2 with explicit H1 fallback permission' => ['auto-h2'],
+    'verified H1 fallback when TLS peer cannot negotiate H2' => ['fallback-h1'],
+    'strict H2 rejects H1-only peer without publishing request' => ['reject-h1'],
+]);
