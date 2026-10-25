@@ -643,3 +643,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W137 verified security QA closeout (2026-10-25):** Accept U14.08 at W129 immutable green Security & Standards and both PHP8.4/8.5 locked Composer audits; evidence archived and automated. U14.04 WebTransport fuzz and U17.02 final frozen QA remain OPEN. **123/175 accepted (70.3%), 52 OPEN**, target 140 needs 17.
+
+
+**W138 grouped QUIC native reset stream-credit recovery (2026-10-25; QA PENDING):** PHP8.4 native peer passed; PHP8.5 timed out after new reset burst. Add bounded event-loop credit recovery and failure counters while preserving all 6 reset, 2 sibling, uni FIN assertions and 10s watchdog. Do not mark U05 tasks accepted until green and actual loss/reorder tests. **123/175 accepted, 52 OPEN**.

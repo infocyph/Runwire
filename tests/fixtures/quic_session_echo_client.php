@@ -96,8 +96,13 @@ $exchange = static function (string $payload, callable $done) use ($session, $lo
 };
 
 try {
-    $timeout = $loop->delay(10.0, static function () use ($stop): void {
-        $stop(new RuntimeException('Independent QUIC session interoperability timed out.'));
+    $timeout = $loop->delay(10.0, static function () use ($stop, &$nativeResets, &$postResetBidi, &$completed): void {
+        $stop(new RuntimeException(sprintf(
+            'Independent QUIC session interoperability timed out; resets=%d survivor_echoes=%d completed=%s',
+            $nativeResets,
+            $postResetBidi,
+            json_encode($completed, JSON_THROW_ON_ERROR),
+        )));
     });
     $sendUni = static function () use ($session, $loop, $stop, $timeout, &$completed, $argv): void {
         $session->command('open_uni', 0, '', false,
@@ -172,7 +177,7 @@ try {
         $argv[1],
         (int) $argv[2],
         $options,
-        static function (mixed $value, ?Throwable $error) use ($session, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed, &$nativeResets, &$postResetBidi): void {
+        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed, &$nativeResets, &$postResetBidi): void {
             if ($error !== null || ($value['alpn'] ?? null) !== 'runwire-echo' || !$session->active()) {
                 $stop($error ?? new RuntimeException('QUIC session TLS/ALPN verification failed.'));
                 return;
@@ -183,7 +188,7 @@ try {
 
             // Real native stream reset must preserve this verified connection:
             // the independent peer must still receive the final uni FIN.
-            $resetThenSendUni = static function () use ($session, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
+            $resetThenSendUni = static function () use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
                 // All 6 siblings are admitted before reset callbacks settle.
                 // The independent peer must remain healthy for the subsequent uni FIN.
                 for ($index = 0; $index < 6; ++$index) {
@@ -195,7 +200,7 @@ try {
                                 return;
                             }
                             $session->command('reset', $opened['stream'], '', false,
-                                static function (mixed $result, ?Throwable $error) use ($stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
+                                static function (mixed $result, ?Throwable $error) use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
                                     if ($error !== null || ($result['reset'] ?? null) !== true) {
                                         $stop($error ?? new RuntimeException('Native QUIC reset burst failed.'));
 
@@ -203,16 +208,23 @@ try {
                                     }
                                     ++$nativeResets;
                                     if ($nativeResets === 6) {
-                                        // The post-reset siblings must work before final uni FIN.
-                                        $readyWrites = [];
-                                        $survivorDone = static function () use (&$postResetBidi, $sendUni): void {
-                                            ++$postResetBidi;
-                                            if ($postResetBidi === 2) {
-                                                $sendUni();
+                                        // Let the peer reclaim stream credit after receiving
+                                        // the six RESET_STREAM frames. This is bounded by the
+                                        // original ten-second watchdog, not a relaxed pass rule.
+                                        $loop->delay(0.20, static function () use ($session, $exchange, $sendUni, &$readyWrites, &$postResetBidi): void {
+                                            if (!$session->active()) {
+                                                return;
                                             }
-                                        };
-                                        $exchange(str_repeat('survivor-first', 256), $survivorDone);
-                                        $exchange(str_repeat('survivor-second', 256), $survivorDone);
+                                            $readyWrites = [];
+                                            $survivorDone = static function () use (&$postResetBidi, $sendUni): void {
+                                                ++$postResetBidi;
+                                                if ($postResetBidi === 2) {
+                                                    $sendUni();
+                                                }
+                                            };
+                                            $exchange(str_repeat('survivor-first', 256), $survivorDone);
+                                            $exchange(str_repeat('survivor-second', 256), $survivorDone);
+                                        });
                                     }
                                 },
                             );

@@ -9,6 +9,8 @@ it('requires native QUIC burst resets on six sibling streams before independent 
         ->toContain('$nativeResets = 0;')
         ->toContain('$index < 6', '++$nativeResets')
         ->toContain('if ($nativeResets === 6)')
+        ->toContain('resets=%d survivor_echoes=%d')
+        ->toContain('$loop->delay(0.20,')
         ->toContain('native_reset_storm_count', '$nativeResets')
         ->toContain('verified_post_reset_bidi_streams', '$postResetBidi')
         ->toContain("'unidirectional_streams_delivered' => 1");
