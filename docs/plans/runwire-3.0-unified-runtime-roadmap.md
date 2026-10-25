@@ -678,3 +678,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W144 C1 recovery (2026-10-25; QA PENDING):** Repair genuine W143 malformed release certification YAML and matching PHPForge Pest assertion using W142 green source as baseline. Keep independent frozen release evidence generation separate from final 175/175 signoff. No U task promoted; **123/175, 52 OPEN**, C1 active.
+
+
+**W145 outbound H3 client groundwork (2026-10-25; QA PENDING):** Introduce isolated client-side H3 control/SETTINGS stream state and protocol rejection tests, without claiming implemented outbound H3 transport or task acceptance. C1 active, **123/175 accepted, 52 OPEN**.
