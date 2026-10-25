@@ -177,7 +177,7 @@ try {
         $argv[1],
         (int) $argv[2],
         $options,
-        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed, &$nativeResets, &$postResetBidi): void {
+        static function (mixed $value, ?Throwable $error) use ($session, $loop, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed, &$nativeResets, &$postResetBidi, &$readyWrites): void {
             if ($error !== null || ($value['alpn'] ?? null) !== 'runwire-echo' || !$session->active()) {
                 $stop($error ?? new RuntimeException('QUIC session TLS/ALPN verification failed.'));
                 return;
@@ -193,7 +193,7 @@ try {
                 // The independent peer must remain healthy for the subsequent uni FIN.
                 for ($index = 0; $index < 6; ++$index) {
                     $session->command('open_bidi', 0, '', false,
-                        static function (mixed $opened, ?Throwable $error) use ($session, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
+                        static function (mixed $opened, ?Throwable $error) use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
                             if ($error !== null || !is_int($opened['stream'] ?? null)) {
                                 $stop($error ?? new RuntimeException('QUIC reset burst could not open its sibling.'));
 

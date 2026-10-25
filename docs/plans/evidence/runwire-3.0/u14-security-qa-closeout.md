@@ -4,7 +4,7 @@
 
 ## Required evidence
 
-- [Security & Standards #40180033609](https://github.com/infocyph/Runwire/actions/runs/40180033609): successful workflow; PHPForge Pest/QA PHP 8.4 and 8.5 × stable/lowest, PHPStan analysis on both versions, and optional native QUIC protocol test lanes on both versions succeeded.
+- [Security & Standards #40180033609](https://github.com/infocyph/Runwire/actions/runs/40180033609): successful workflow; PHPForge Pest/QA PHP 8.4 and PHP 8.5 × stable/lowest, PHPStan analysis on both versions, and optional native QUIC protocol test lanes on both versions succeeded.
 - [Benchmarks #40180033273](https://github.com/infocyph/Runwire/actions/runs/40180033273): successful protocol-core PHP 8.4/8.5 jobs; their **Audit exact locked dependencies for published security advisories** steps both concluded success.
 - No unsuppressed actionable security/advisory/analyzer failure remains in those exact-head checks.
 

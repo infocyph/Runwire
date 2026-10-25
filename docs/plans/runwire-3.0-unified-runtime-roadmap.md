@@ -646,3 +646,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W138 grouped QUIC native reset stream-credit recovery (2026-10-25; QA PENDING):** PHP8.4 native peer passed; PHP8.5 timed out after new reset burst. Add bounded event-loop credit recovery and failure counters while preserving all 6 reset, 2 sibling, uni FIN assertions and 10s watchdog. Do not mark U05 tasks accepted until green and actual loss/reorder tests. **123/175 accepted, 52 OPEN**.
+
+
+**W139 grouped real QUIC async-callback safety and closeout QA recovery (2026-10-25; QA PENDING):** Repair missing `$loop` lexical capture in reset callback and missing `$readyWrites` capture at verified-connect boundary, preserving six real resets, two fresh sibling echoes, uni FIN and 10-second watchdog. Fix U14.08 QA dossier wording for two explicit PHP version names; immutable accepted evidence unchanged. Test lexical captures and `php -l`. U05.05/.09 still OPEN, **123/175 accepted, 52 OPEN**.
