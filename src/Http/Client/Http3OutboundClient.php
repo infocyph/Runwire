@@ -183,6 +183,7 @@ final class Http3OutboundClient
         if ($this->finished) {
             return;
         }
+
         try {
             $this->session->command(
                 $op,
@@ -198,6 +199,7 @@ final class Http3OutboundClient
 
                         return;
                     }
+
 
                     try {
                         /** @var array<string,mixed> $validated */
@@ -274,7 +276,7 @@ final class Http3OutboundClient
                 if (($result['eof'] ?? null) === true) {
                     $response->finish();
                     $this->finish(null);
-    
+
                     return;
                 }
                 $this->poll(fn() => $this->readResponse());
@@ -293,7 +295,7 @@ final class Http3OutboundClient
             function (array $accepted): void {
                 if (($accepted['pending'] ?? null) === true) {
                     $this->poll(fn() => $this->receiveControl());
-    
+
                     return;
                 }
                 if (($accepted['incoming'] ?? null) !== true || ($accepted['bidirectional'] ?? null) !== false
@@ -382,6 +384,7 @@ final class Http3OutboundClient
         if ($this->finished) {
             return;
         }
+
         try {
             $this->session->connect(
                 $host,

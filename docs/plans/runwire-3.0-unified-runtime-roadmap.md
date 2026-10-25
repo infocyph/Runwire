@@ -711,3 +711,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 outbound H3 PHPForge recovery (2026-10-25; QA PENDING):** e3a0a40 both PHP native aioquic H3 peer interoperability checks PASS, but strict PHPForge analysis and formatting caught eight PHPStan findings and Pint argument formatting. Source-validated callback types/worker handles, response bytes and peer-control complexity corrected; mandatory exact-head green verification outstanding. **123/175 accepted, 52 OPEN; C1 remains 0/11**.
+
+
+**C1 H3 Pint last-mile correction (2026-10-25; QA PENDING):** PHP8.4/8.5 static analysis and PHP8.4 native H3 peer pass on e4a1547; correct remaining whitespace-only Pint source violations in a no-behavior-change commit. Original 11-task C1 acceptance boundary and **123/175, 52 OPEN** unchanged.
