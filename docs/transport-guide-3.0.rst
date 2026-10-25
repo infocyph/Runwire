@@ -196,3 +196,15 @@ stream reset and subsequent unidirectional FIN. Mock tests cannot prove
 native loss/reorder, live flow-control windows, fair transport scheduling
 or cancellation-storm recovery; U05.05/U05.09/U05.10 remain open until
 independent evidence covers those cases.
+
+Independent QUIC sibling reset burst (development)
+-------------------------------------------------
+
+The optional native QUIC CI matrix tests a verified TLS 1.3/ALPN session
+against an independently implemented aioquic echo peer. Two >32 KiB
+bidirectional streams complete byte-perfectly before a bounded six-sibling
+open/reset burst, followed by an independently observed unidirectional
+stream FIN. JSON artifacts are checked on PHP 8.4 and 8.5. This verifies
+worker/session ownership across repeated native reset operations; it does
+**not** substitute for network loss/reorder injection, datagram support,
+full flow-control stalls or release throughput budgets.

@@ -631,3 +631,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W133 grouped 175-task prerequisite before final release suite (2026-10-25; QA PENDING):** All expensive manually/label-triggered certification jobs depend on exact-SHA source and zero-open-task preflight; terminal readiness also checks same condition, never publishes. Tests pin required dependency graph. **122/175 accepted, 53 OPEN**.
+
+
+**W134 grouped native QUIC reset burst/peer isolation (2026-10-25; QA PENDING):** Independent aioquic peer now validates two concurrent large echoes, six real native sibling resets and later uni FIN, with PHP8.4/8.5 JSON artifacts plus tests. Native loss/reorder/flow-window stress still open under U05.05/.09. **122/175 QA accepted, 53 OPEN**.

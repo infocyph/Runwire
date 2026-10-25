@@ -401,7 +401,22 @@ jobs:
             exit 1
           }
 
-          php tests/fixtures/quic_session_echo_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem" "$tmpdir/uni.receipt"
+          mkdir -p benchmark-results
+          php tests/fixtures/quic_session_echo_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem" "$tmpdir/uni.receipt" \
+            | tee "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json"
+          jq -e '.verified == true and .concurrent_bidirectional == true
+            and .native_reset_storm_count == 6
+            and .native_reset_then_peer_uni_fin == true
+            and .unidirectional_streams_delivered == 1' \
+            "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Upload independent native QUIC sibling/reset evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-native-quic-session-php-${{ matrix.php-version }}
+          path: benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json
+          retention-days: 90
 
       - name: Real aioquic HTTP/3 stream cancellations and sibling progress
         shell: bash

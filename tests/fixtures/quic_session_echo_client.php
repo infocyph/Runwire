@@ -15,6 +15,7 @@ if ($argc !== 5 || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
 $loop = new SelectLoop();
 $session = new QuicClientSession($loop, 8);
 $completed = [];
+$nativeResets = 0;
 $failure = null;
 $stop = static function (Throwable $error) use (&$failure, $session): void {
     $failure ??= $error;
@@ -180,28 +181,36 @@ try {
             $rejectUnsupported(static fn() => $options->assertDatagramAvailable(), 'post-handshake datagrams');
 
             // Real native stream reset must preserve this verified connection:
-            // the independent peer must still receive the following uni FIN.
-            $resetThenSendUni = static function () use ($session, $stop, $sendUni): void {
-                $session->command('open_bidi', 0, '', false,
-                    static function (mixed $opened, ?Throwable $error) use ($session, $stop, $sendUni): void {
-                        if ($error !== null || !is_int($opened['stream'] ?? null)) {
-                            $stop($error ?? new RuntimeException('QUIC reset fixture could not open a sibling stream.'));
+            // the independent peer must still receive the             $resetThenSendUni = static function () use ($session, $stop, $sendUni, &$nativeResets): void {
+                // All 6 siblings are admitted before reset callbacks settle.
+                // The independent peer must remain healthy for the subsequent uni FIN.
+                for ($index = 0; $index < 6; ++$index) {
+                    $session->command('open_bidi', 0, '', false,
+                        static function (mixed $opened, ?Throwable $error) use ($session, $stop, $sendUni, &$nativeResets): void {
+                            if ($error !== null || !is_int($opened['stream'] ?? null)) {
+                                $stop($error ?? new RuntimeException('QUIC reset burst could not open its sibling.'));
 
-                            return;
-                        }
-                        $session->command('reset', $opened['stream'], '', false,
-                            static function (mixed $result, ?Throwable $error) use ($stop, $sendUni): void {
-                                if ($error !== null || ($result['reset'] ?? null) !== true) {
-                                    $stop($error ?? new RuntimeException('Native QUIC stream reset failed.'));
+                                return;
+                            }
+                            $session->command('reset', $opened['stream'], '', false,
+                                static function (mixed $result, ?Throwable $error) use ($stop, $sendUni, &$nativeResets): void {
+                                    if ($error !== null || ($result['reset'] ?? null) !== true) {
+                                        $stop($error ?? new RuntimeException('Native QUIC reset burst failed.'));
 
-                                    return;
-                                }
+                                        return;
+                                    }
+                                    ++$nativeResets;
+                                    if ($nativeResets === 6) {
+                                        $sendUni();
+                                    }
+                                },
+                            );
+                        },
+                    );
+                }
+            };
 
-                                $sendUni();
-                            },
-                        );
-                    },
-                );
+);
             };
 
             $finishBidi = static function (string $payload) use ($resetThenSendUni, &$completed): void {
@@ -240,6 +249,7 @@ try {
         'concurrent_bidirectional' => true,
         'peer_verified_bytes_per_bidi_stream' => 2_048 * strlen('first-quic-stream'),
         'native_reset_then_peer_uni_fin' => true,
+        'native_reset_storm_count' => $nativeResets,
         'unsupported_datagram_migration_0rtt_rejected' => true,
         'unidirectional_streams_delivered' => 1,
         'persistent_worker' => true,
