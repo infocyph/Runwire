@@ -324,6 +324,26 @@ final class QuicWorkerSession
         return ['stream' => $id, 'bidirectional' => $bidirectional];
     }
 
+    /** @return array<string, int|bool> */
+    private function readProfile(): array
+    {
+        return [
+            'profiling' => $this->profiling,
+            'poll_calls' => $this->profilePollCalls,
+            'poll_nanoseconds' => $this->profilePollNanoseconds,
+            'read_calls' => $this->profileReadCalls,
+            'read_nanoseconds' => $this->profileReadNanoseconds,
+            'read_bytes' => $this->profileReadBytes,
+            'write_calls' => $this->profileWriteCalls,
+            'write_nanoseconds' => $this->profileWriteNanoseconds,
+            'write_bytes' => $this->profileWriteBytes,
+            'partial_writes' => $this->profilePartialWrites,
+            'zero_writes' => $this->profileZeroWrites,
+            'peak_streams' => $this->profilePeakStreams,
+            'live_streams' => count($this->streams),
+        ];
+    }
+
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{data:string, eof:bool}
@@ -362,6 +382,18 @@ final class QuicWorkerSession
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{reset:bool}
      */
+    private function resetStream(array $command): array
+    {
+        $stream = $this->stream($command['stream']);
+        if (!method_exists($stream, 'reset')) {
+            throw new RuntimeException('Native QUIC stream cannot be reset.');
+        }
+        $stream->reset();
+        unset($this->streams[$command['stream']]);
+
+        return ['reset' => true];
+    }
+
     /** Enable worker-local timing only for a requested diagnostic workload. */
     private function startProfile(): array
     {
@@ -379,38 +411,6 @@ final class QuicWorkerSession
         $this->profiling = true;
 
         return ['profiling' => true];
-    }
-
-    /** @return array<string, int|bool> */
-    private function readProfile(): array
-    {
-        return [
-            'profiling' => $this->profiling,
-            'poll_calls' => $this->profilePollCalls,
-            'poll_nanoseconds' => $this->profilePollNanoseconds,
-            'read_calls' => $this->profileReadCalls,
-            'read_nanoseconds' => $this->profileReadNanoseconds,
-            'read_bytes' => $this->profileReadBytes,
-            'write_calls' => $this->profileWriteCalls,
-            'write_nanoseconds' => $this->profileWriteNanoseconds,
-            'write_bytes' => $this->profileWriteBytes,
-            'partial_writes' => $this->profilePartialWrites,
-            'zero_writes' => $this->profileZeroWrites,
-            'peak_streams' => $this->profilePeakStreams,
-            'live_streams' => count($this->streams),
-        ];
-    }
-
-    private function resetStream(array $command): array
-    {
-        $stream = $this->stream($command['stream']);
-        if (!method_exists($stream, 'reset')) {
-            throw new RuntimeException('Native QUIC stream cannot be reset.');
-        }
-        $stream->reset();
-        unset($this->streams[$command['stream']]);
-
-        return ['reset' => true];
     }
 
     /** Return an established worker-local stream or fail closed. */
