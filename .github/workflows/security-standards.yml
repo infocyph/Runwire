@@ -419,6 +419,14 @@ jobs:
           bash -n tests/interop/quic_peer_inbound_uni.sh
           RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash tests/interop/quic_peer_inbound_uni.sh benchmark-results/native-quic-inbound.json
 
+      - name: Prove outbound native HTTP/3 client against independent aioquic server
+        shell: bash
+        run: |
+          php -l tests/fixtures/http3_outbound_client.php
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_outbound_h3_server.py
+          bash -n tests/interop/http3_outbound_client.sh
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash tests/interop/http3_outbound_client.sh benchmark-results/outbound-h3-client.json
+
       - name: Recover native QUIC sibling streams under real independent UDP loss and reorder
         if: matrix.php-version == '8.5'
         shell: bash
@@ -437,6 +445,7 @@ jobs:
           path: |
             benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json
             benchmark-results/native-quic-inbound.json
+            benchmark-results/outbound-h3-client.json
             benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}.json
             benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}-peer.json
           retention-days: 90

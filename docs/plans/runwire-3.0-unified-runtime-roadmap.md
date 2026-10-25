@@ -705,3 +705,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 PHPForge correction (2026-10-25; QA PENDING):** Replace forbidden fixture echo with `fwrite(STDOUT, ...)`, retain real independent aioquic stream acceptance and fail-closed native gates. Still one unfinished 11-task C1, no C2 work. **123/175, 52 OPEN**.
+
+
+**C1 outbound H3 native client integration (2026-10-25; QA PENDING):** Add first real bodyless native H3 outbound request/response exchange with strict ALPN/TLS and independent aioquic H3-peer test in both native PHP lanes. Requires new exact-head QA, full H3 concurrency/dynamic QPACK/policy and benchmarks before any U07/C1 closure. **123/175 accepted, 52 OPEN; C1 0/11, C2-C5 queued**.
