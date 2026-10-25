@@ -306,6 +306,51 @@ jobs:
           jq -e '.schemaVersion == 1 and .releaseCertified == false and (.workloads | length) == 4
             and all(.workloads[]; .candidate_to_baseline_ratio > 0)' "$directory/comparison.json" >/dev/null
 
+
+      - name: Record QPACK and QUIC varint source microprofiles without release certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l benchmarks/u08_qpack_source_profile.php
+          directory="benchmark-results/u08-qpack-php-${{ matrix.php-version }}"
+          mkdir -p "$directory"
+          baseline_sha="7e9bf20ad0737a187dfed77b723791b141b36378"
+          candidate_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          php benchmarks/u08_qpack_source_profile.php baseline-hpack/src "$baseline_sha" 320 > "$directory/baseline.json"
+          php benchmarks/u08_qpack_source_profile.php src "$candidate_sha" 320 > "$directory/candidate.json"
+          jq -e --arg revision "$baseline_sha" \
+            '.schemaVersion == 1 and .sourceRevision == $revision and .releaseCertified == false
+             and .nativeQuicPollMeasured == false and (.workloads | length) == 3
+             and all(.workloads[]; .iterations == 320 and .trials == 5 and .median_nanoseconds_per_op > 0)' \
+            "$directory/baseline.json" >/dev/null
+          jq -e --arg revision "$candidate_sha" \
+            '.schemaVersion == 1 and .sourceRevision == $revision and .releaseCertified == false
+             and .nativeQuicPollMeasured == false and (.workloads | length) == 3
+             and all(.workloads[]; .iterations == 320 and .trials == 5 and .median_nanoseconds_per_op > 0)' \
+            "$directory/candidate.json" >/dev/null
+          jq -n --slurpfile before "$directory/baseline.json" --slurpfile after "$directory/candidate.json" '
+            ($before[0]) as $original | ($after[0]) as $current | {
+              schemaVersion: 1,
+              baselineRevision: $original.sourceRevision,
+              candidateRevision: $current.sourceRevision,
+              scope: "same-source-development-microprofile-not-transport-certification",
+              releaseCertified: false,
+              nativeQuicPollMeasured: false,
+              workloads: ($current.workloads | to_entries | map({
+                key: .key,
+                value: {
+                  baseline_median_nanoseconds_per_op: $original.workloads[.key].median_nanoseconds_per_op,
+                  candidate_median_nanoseconds_per_op: .value.median_nanoseconds_per_op,
+                  baseline_cv_percent: $original.workloads[.key].cv_percent,
+                  candidate_cv_percent: .value.cv_percent,
+                  candidate_to_baseline_ratio: (.value.median_nanoseconds_per_op / $original.workloads[.key].median_nanoseconds_per_op)
+                }
+              }) | from_entries)
+            }' > "$directory/comparison.json"
+          jq -e '.releaseCertified == false and .nativeQuicPollMeasured == false
+            and (.workloads | length) == 3
+            and all(.workloads[]; .candidate_to_baseline_ratio > 0)' "$directory/comparison.json" >/dev/null
+
       - name: Compare F-04 helper with manual bounded pump
         shell: bash
         run: |
