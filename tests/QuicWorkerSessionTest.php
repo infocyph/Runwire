@@ -16,6 +16,14 @@ function runwireNativeQuicWorkerFixture(int $limit = 2, bool $partialWrites = fa
 
         public bool $lastBidirectional = true;
 
+        /** @var list<object> */
+        public array $incoming = [];
+
+        public function acceptStream(): ?object
+        {
+            return array_shift($this->incoming);
+        }
+
         public function openStream(bool $bidirectional): object
         {
             $this->lastBidirectional = $bidirectional;
@@ -343,3 +351,78 @@ it('supports an empty FIN and then safely reclaims the stream slot after EOF', f
         ->and($native->closed)->toBeFalse();
 });
 
+
+
+it('accepts peer QUIC unidirectional streams without confusing local send-only ownership', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2);
+    $pending = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'accept')]);
+    expect($pending)->toBe(['pending' => true])
+        ->and($native->closed)->toBeFalse();
+
+    $native->incoming[] = new class {
+        private bool $sent = false;
+
+        public function isBidirectional(): bool
+        {
+            return false;
+        }
+
+        public function read(int $limit): ?string
+        {
+            if ($this->sent) {
+                return null;
+            }
+            $this->sent = true;
+
+            return 'peer-control-settings';
+        }
+
+        public function reset(): void {}
+
+        public function write(string $data, bool $fin): int
+        {
+            return strlen($data);
+        }
+    };
+    $accepted = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'accept')]);
+    expect($accepted)->toBe(['stream' => 1, 'bidirectional' => false, 'incoming' => true]);
+    $read = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'read', 1)]);
+    expect(base64_decode($read['data'], true))->toBe('peer-control-settings')
+        ->and($read['eof'])->toBeFalse()
+        ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'read', 1)]))
+        ->toBe(['data' => '', 'eof' => true])
+        ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'open_bidi')]))
+        ->toBe(['stream' => 2, 'bidirectional' => true])
+        ->and($native->closed)->toBeFalse();
+});
+
+it('rejects writes to peer-created receive-only streams and invalid accept commands', function (): void {
+    expect(fn() => QuicWorkerCommand::encode(1, 'accept', 5))
+        ->toThrow(InvalidArgumentException::class, 'Invalid or excessive');
+
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1);
+    $native->incoming[] = new class {
+        public function isBidirectional(): bool
+        {
+            return false;
+        }
+
+        public function read(int $limit): ?string
+        {
+            return '';
+        }
+
+        public function reset(): void {}
+
+        public function write(string $bytes, bool $fin): int
+        {
+            return strlen($bytes);
+        }
+    };
+    $accepted = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'accept')]);
+    expect($accepted['stream'])->toBe(1)
+        ->and(fn() => $worker->execute([
+            'epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'write', 1, 'forbidden'),
+        ]))->toThrow(InvalidArgumentException::class, 'receive-only')
+        ->and($native->closed)->toBeTrue();
+});

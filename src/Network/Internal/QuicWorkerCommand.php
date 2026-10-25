@@ -21,6 +21,7 @@ final class QuicWorkerCommand
     private const array COMMANDS = [
         'open_bidi',
         'open_uni',
+        'accept',
         'write',
         'read',
         'reset',
@@ -97,7 +98,7 @@ final class QuicWorkerCommand
         if ($requestId < 1 || $streamId < 0 || !in_array($operation, self::COMMANDS, true)
             || strlen($body) > self::MAX_DATA_BYTES
             || ($operation !== 'write' && $body !== '')
-            || (in_array($operation, ['open_bidi', 'open_uni', 'close'], true) && $streamId !== 0)
+            || (in_array($operation, ['open_bidi', 'open_uni', 'accept', 'close'], true) && $streamId !== 0)
             || (in_array($operation, ['write', 'read', 'reset'], true) && $streamId === 0)
             || ($operation !== 'write' && $fin)) {
             throw new InvalidArgumentException('Invalid or excessive QUIC worker command.');

@@ -26,7 +26,7 @@ final class QuicWorkerSession
 
     private int $nextStreamId = 1;
 
-    /** @var array<int, array{stream:object, bidirectional:bool}> */
+    /** @var array<int, array{stream:object, bidirectional:bool, readable:bool, writable:bool}> */
     private array $streams = [];
 
     private function teardown(): void
@@ -67,6 +67,7 @@ final class QuicWorkerSession
             return match ($command['op']) {
                 'open_bidi' => $this->openStream(true),
                 'open_uni' => $this->openStream(false),
+                'accept' => $this->acceptStream(),
                 'write' => $this->writeStream($command),
                 'read' => $this->readStream($command),
                 'reset' => $this->resetStream($command),
@@ -221,6 +222,45 @@ final class QuicWorkerSession
      *
      * @return array{stream:int, bidirectional:bool}
      */
+    /**
+     * Import one peer-created QUIC stream without transferring native ownership.
+     *
+     * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
+     */
+    private function acceptStream(): array
+    {
+        if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
+            throw new RuntimeException('QUIC native stream admission limit exceeded.');
+        }
+        $connection = $this->connection;
+        if (!is_object($connection) || !method_exists($connection, 'acceptStream')) {
+            throw new RuntimeException('Native QUIC backend cannot accept peer streams.');
+        }
+        $this->driveNativeEvents();
+        $stream = $connection->acceptStream();
+        if ($stream === null) {
+            return ['pending' => true];
+        }
+        if (!is_object($stream) || !method_exists($stream, 'isBidirectional')
+            || !method_exists($stream, 'read') || !method_exists($stream, 'write')
+            || !method_exists($stream, 'reset')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid peer stream.');
+        }
+        $bidirectional = $stream->isBidirectional();
+        if (!is_bool($bidirectional)) {
+            throw new RuntimeException('Native QUIC backend returned invalid stream directionality.');
+        }
+        $id = $this->nextStreamId++;
+        $this->streams[$id] = [
+            'stream' => $stream,
+            'bidirectional' => $bidirectional,
+            'readable' => true,
+            'writable' => $bidirectional,
+        ];
+
+        return ['stream' => $id, 'bidirectional' => $bidirectional, 'incoming' => true];
+    }
+
     private function openStream(bool $bidirectional): array
     {
         if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
@@ -237,7 +277,8 @@ final class QuicWorkerSession
             throw new RuntimeException('Native QUIC backend returned an invalid stream.');
         }
         $id = $this->nextStreamId++;
-        $this->streams[$id] = ['stream' => $stream, 'bidirectional' => $bidirectional];
+        $this->streams[$id] = ['stream' => $stream, 'bidirectional' => $bidirectional,
+            'readable' => $bidirectional, 'writable' => true];
 
         return ['stream' => $id, 'bidirectional' => $bidirectional];
     }
@@ -248,7 +289,7 @@ final class QuicWorkerSession
      */
     private function readStream(array $command): array
     {
-        if (!($this->streams[$command['stream']]['bidirectional'] ?? false)) {
+        if (!($this->streams[$command['stream']]['readable'] ?? false)) {
             throw new InvalidArgumentException('A client-initiated unidirectional stream cannot receive data.');
         }
         $stream = $this->stream($command['stream']);
@@ -304,6 +345,9 @@ final class QuicWorkerSession
     private function writeStream(array $command): array
     {
         $stream = $this->stream($command['stream']);
+        if (!($this->streams[$command['stream']]['writable'] ?? false)) {
+            throw new InvalidArgumentException('Peer-created unidirectional QUIC stream is receive-only.');
+        }
         if (!method_exists($stream, 'write')) {
             throw new RuntimeException('Native QUIC stream cannot accept writes.');
         }

@@ -687,3 +687,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W147 C1 rolling QA + diagnostic correction (2026-10-25; QA PENDING):** Fix measured W146 PHPForge Pest/Pint/Rector findings, tighten fail-closed H3 CONNECT/hop-by-hop behavior and preserve actual server logs for red adaptive H1 stress. Neither incorrect 256 EOFs nor uncompleted H3 are promoted. **123/175 accepted, 52 OPEN**, C1 active.
+
+
+**W148 C1 QUIC client peer streams (2026-10-25; QA PENDING):** Add bounded and direction-safe worker-local accepting of peer-created QUIC streams, allowing upcoming H3 SETTINGS/QPACK ingress while keeping source-only fake-native tests separate from real aioquic/stream interop. No newly accepted U task; **123/175 accepted, 52 OPEN**.
