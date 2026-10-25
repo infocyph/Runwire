@@ -15,12 +15,12 @@ final readonly class HttpConnectHandshake
     public function __construct(
         private ?string $username = null,
         private ?string $password = null,
-        private bool $verifiedProxyTransport = false,
+        bool $verifiedProxyTransport = false,
     ) {
         if (($username === null) !== ($password === null)) {
             throw new InvalidArgumentException('CONNECT authentication credentials must be paired.');
         }
-        if ($username !== null) {
+        if ($username !== null && $password !== null) {
             if (!$verifiedProxyTransport) {
                 throw new InvalidArgumentException('CONNECT credentials require verified encrypted proxy transport.');
             }
@@ -29,12 +29,6 @@ final readonly class HttpConnectHandshake
                 throw new InvalidArgumentException('Invalid CONNECT proxy credentials.');
             }
         }
-    }
-
-    /** Whether the request carries proxy credentials requiring verified transport. */
-    public function usesAuthentication(): bool
-    {
-        return $this->username !== null;
     }
 
     /** Build CONNECT for the destination origin, never an arbitrary request path. */
@@ -76,14 +70,30 @@ final readonly class HttpConnectHandshake
         if ($end + 4 > self::MAX_HEADER_BYTES) {
             throw new RuntimeException('CONNECT response exceeds the bounded header budget.');
         }
+
         $lines = explode("\r\n", substr($buffer, 0, $end));
-        $status = array_shift($lines);
-        if (!is_string($status) || preg_match('/^HTTP\/1\.[01] 200(?: [\x20-\x7e]*)?$/D', $status) !== 1) {
+        $status = $lines[0];
+        if (preg_match('/^HTTP\/1\.[01] 200(?: [\x20-\x7e]*)?$/D', $status) !== 1) {
             throw new RuntimeException('CONNECT proxy did not establish a successful tunnel.');
         }
-        if (count($lines) > 64) {
+        if (count($lines) > 65) {
             throw new RuntimeException('CONNECT response contains too many headers.');
         }
+        array_shift($lines);
+        self::assertResponseHeaders($lines);
+
+        return $end + 4;
+    }
+
+    /** Whether the request carries proxy credentials requiring verified transport. */
+    public function usesAuthentication(): bool
+    {
+        return $this->username !== null;
+    }
+
+    /** @param list<string> $lines */
+    private static function assertResponseHeaders(array $lines): void
+    {
         foreach ($lines as $line) {
             if (strlen($line) > 2048 || preg_match('/^[!#$%&\x27*+.^_\x60|~0-9A-Za-z-]+:[\x20-\x7e\t]*$/D', $line) !== 1) {
                 throw new RuntimeException('CONNECT response contains malformed header fields.');
@@ -92,14 +102,14 @@ final readonly class HttpConnectHandshake
             if (in_array(strtolower($name), ['transfer-encoding', 'content-length'], true)) {
                 throw new RuntimeException('CONNECT response must not frame a body before tunneled TLS.');
             }
-            if (strtolower($name) === 'connection' && preg_match('/(?:^|[, \t])close(?:$|[, \t])/i', substr($line, strlen($name) + 1)) === 1) {
+            if (strtolower($name) === 'connection'
+                && preg_match('/(?:^|[, \t])close(?:$|[, \t])/i', substr($line, strlen($name) + 1)) === 1) {
                 throw new RuntimeException('CONNECT proxy cannot close the established tunnel.');
             }
         }
-
-        return $end + 4;
     }
 
+    /** Execute the bounded proxy exchange phase. */
     private static function validateHost(string $host): void
     {
         if ($host === '' || strlen($host) > 253 || str_contains($host, ':')) {

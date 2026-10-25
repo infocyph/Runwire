@@ -10,7 +10,6 @@ use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
 use LogicException;
@@ -57,6 +56,18 @@ final class HttpConnectTunnel
         $this->completion = Closure::fromCallable($completion);
     }
 
+    /** Cancel the pending proxy handshake exactly once, retiring all owned resources. */
+    public function cancel(): bool
+    {
+        if ($this->state !== 'pending') {
+            return false;
+        }
+        $this->fail(new CancelledException(CancellationReason::HOST_CANCELLED));
+
+        return true;
+    }
+
+    /** Start one bounded nonblocking proxy handshake with exclusive callback ownership. */
     public function start(): void
     {
         if ($this->state !== 'new') {
@@ -84,7 +95,7 @@ final class HttpConnectTunnel
                 return;
             }
             $this->closeObserver = $this->connection->registerCloseObserver(
-                function (Connection $connection, CloseReason $reason): void {
+                function (): void {
                     $this->fail(new RuntimeException('Proxy connection closed during CONNECT negotiation.'));
                 },
             );
@@ -117,16 +128,7 @@ final class HttpConnectTunnel
         }
     }
 
-    public function cancel(): bool
-    {
-        if ($this->state !== 'pending') {
-            return false;
-        }
-        $this->fail(new CancelledException(CancellationReason::HOST_CANCELLED));
-
-        return true;
-    }
-
+    /** Execute the bounded proxy exchange phase. */
     private function cleanup(): void
     {
         if ($this->timer !== null) {
@@ -142,6 +144,7 @@ final class HttpConnectTunnel
         $this->connection->releaseCallbacks($this);
     }
 
+    /** Execute the bounded proxy exchange phase. */
     private function fail(Throwable $error): void
     {
         if ($this->state !== 'pending') {
@@ -153,6 +156,7 @@ final class HttpConnectTunnel
         ($this->completion)(null, $error);
     }
 
+    /** Execute the bounded proxy exchange phase. */
     private function receive(Connection $connection): void
     {
         if ($this->state !== 'pending') {

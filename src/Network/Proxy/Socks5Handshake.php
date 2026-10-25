@@ -10,58 +10,23 @@ use RuntimeException;
 /** Bounded RFC 1928/1929 SOCKS5 wire codec, without network or TLS ownership. */
 final readonly class Socks5Handshake
 {
+
     public function __construct(
         private bool $remoteDns = false,
         private ?string $username = null,
         private ?string $password = null,
-        private bool $verifiedProxyTransport = false,
+        bool $verifiedProxyTransport = false,
     ) {
         if (($username === null) !== ($password === null)) {
             throw new InvalidArgumentException('SOCKS5 credentials must be paired.');
         }
-        if ($username !== null) {
+        if ($username !== null && $password !== null) {
             if (!$verifiedProxyTransport) {
                 throw new InvalidArgumentException('SOCKS5 credentials require verified encrypted proxy transport.');
             }
             if ($username === '' || $password === '' || strlen($username) > 255 || strlen($password) > 255) {
                 throw new InvalidArgumentException('SOCKS5 credentials must contain 1–255 octets.');
             }
-        }
-    }
-
-    /** Whether SOCKS5 requires proxy credentials and an independently verified TLS owner. */
-    public function usesAuthentication(): bool
-    {
-        return $this->username !== null;
-    }
-
-    public function greeting(): string
-    {
-        return $this->username === null ? "\x05\x01\x00" : "\x05\x01\x02";
-    }
-
-    public function verifyMethod(string $reply): void
-    {
-        $expected = $this->username === null ? "\x00" : "\x02";
-        if (strlen($reply) !== 2 || $reply[0] !== "\x05" || $reply[1] !== $expected) {
-            throw new RuntimeException('SOCKS5 proxy rejected the required authentication method.');
-        }
-    }
-
-    public function credentials(): string
-    {
-        if ($this->username === null || $this->password === null) {
-            throw new InvalidArgumentException('SOCKS5 authentication is not configured.');
-        }
-
-        return "\x01" . chr(strlen($this->username)) . $this->username
-            . chr(strlen($this->password)) . $this->password;
-    }
-
-    public function verifyAuthentication(string $reply): void
-    {
-        if ($this->username === null || $reply !== "\x01\x00") {
-            throw new RuntimeException('SOCKS5 proxy authentication failed.');
         }
     }
 
@@ -83,10 +48,27 @@ final readonly class Socks5Handshake
                 throw new InvalidArgumentException('SOCKS5 local DNS policy requires a pre-resolved IP.');
             }
             self::validateDomain($target);
-            $address = "\x03" . chr(strlen($target)) . $target;
+            $address = "\x03" . chr(min(255, strlen($target))) . $target;
         }
 
         return "\x05\x01\x00" . $address . pack('n', $port);
+    }
+
+    /** Build one bounded RFC 1929 authentication request. */
+    public function credentials(): string
+    {
+        if ($this->username === null || $this->password === null) {
+            throw new InvalidArgumentException('SOCKS5 authentication is not configured.');
+        }
+
+        return "\x01" . chr(min(255, strlen($this->username))) . $this->username
+            . chr(min(255, strlen($this->password))) . $this->password;
+    }
+
+    /** Return the exactly-one-method SOCKS5 negotiation greeting. */
+    public function greeting(): string
+    {
+        return $this->username === null ? "\x05\x01\x00" : "\x05\x01\x02";
     }
 
     /** Complete reply frame length or null for fragmented frames; leave tunnel bytes untouched. */
@@ -114,6 +96,30 @@ final readonly class Socks5Handshake
         return strlen($buffer) >= $length ? $length : null;
     }
 
+    /** Whether SOCKS5 requires proxy credentials and an independently verified TLS owner. */
+    public function usesAuthentication(): bool
+    {
+        return $this->username !== null;
+    }
+
+    /** Verify the required proxy authentication response. */
+    public function verifyAuthentication(string $reply): void
+    {
+        if ($this->username === null || $reply !== "\x01\x00") {
+            throw new RuntimeException('SOCKS5 proxy authentication failed.');
+        }
+    }
+
+    /** Reject any SOCKS5 method substitution or unauthenticated downgrade. */
+    public function verifyMethod(string $reply): void
+    {
+        $expected = $this->username === null ? "\x00" : "\x02";
+        if (strlen($reply) !== 2 || $reply[0] !== "\x05" || $reply[1] !== $expected) {
+            throw new RuntimeException('SOCKS5 proxy rejected the required authentication method.');
+        }
+    }
+
+    /** Execute the bounded proxy exchange phase. */
     private static function validateDomain(string $host): void
     {
         if ($host === '' || strlen($host) > 253 || str_contains($host, ':')) {

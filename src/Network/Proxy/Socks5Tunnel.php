@@ -10,7 +10,6 @@ use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
 use LogicException;
@@ -56,6 +55,18 @@ final class Socks5Tunnel
         $this->completion = Closure::fromCallable($completion);
     }
 
+    /** Cancel the pending proxy handshake exactly once, retiring all owned resources. */
+    public function cancel(): bool
+    {
+        if (!$this->pending()) {
+            return false;
+        }
+        $this->fail(new CancelledException(CancellationReason::HOST_CANCELLED));
+
+        return true;
+    }
+
+    /** Start one bounded nonblocking proxy handshake with exclusive callback ownership. */
     public function start(): void
     {
         if ($this->phase !== 'new') {
@@ -83,7 +94,7 @@ final class Socks5Tunnel
                 return;
             }
             $this->closeObserver = $this->connection->registerCloseObserver(
-                function (Connection $connection, CloseReason $reason): void {
+                function (): void {
                     $this->fail(new RuntimeException('SOCKS5 proxy connection closed during negotiation.'));
                 },
             );
@@ -113,21 +124,7 @@ final class Socks5Tunnel
         }
     }
 
-    public function cancel(): bool
-    {
-        if (!$this->pending()) {
-            return false;
-        }
-        $this->fail(new CancelledException(CancellationReason::HOST_CANCELLED));
-
-        return true;
-    }
-
-    private function pending(): bool
-    {
-        return $this->phase === 'method' || $this->phase === 'connect';
-    }
-
+    /** Execute the bounded proxy exchange phase. */
     private function cleanup(): void
     {
         if ($this->timer !== null) {
@@ -143,6 +140,7 @@ final class Socks5Tunnel
         $this->connection->releaseCallbacks($this);
     }
 
+    /** Execute the bounded proxy exchange phase. */
     private function fail(Throwable $error): void
     {
         if (!$this->pending()) {
@@ -154,6 +152,42 @@ final class Socks5Tunnel
         ($this->completion)(null, $error);
     }
 
+    /** Execute the bounded proxy exchange phase. */
+    private function pending(): bool
+    {
+        return $this->phase === 'method' || $this->phase === 'connect';
+    }
+
+    /** Execute the bounded proxy exchange phase. */
+    private function readConnectReply(Connection $connection): void
+    {
+        $size = $this->handshake->replyLength($this->reply);
+        if ($size === null) {
+            return;
+        }
+        if ($size !== strlen($this->reply)) {
+            throw new RuntimeException('SOCKS5 reply boundary mismatch.');
+        }
+        $this->phase = 'ready';
+        $this->cleanup();
+        ($this->completion)($connection, null);
+    }
+
+    /** Execute the bounded proxy exchange phase. */
+    private function readMethodReply(Connection $connection): void
+    {
+        if (strlen($this->reply) < 2) {
+            return;
+        }
+        $this->handshake->verifyMethod($this->reply);
+        $this->reply = '';
+        $this->phase = 'connect';
+        if (!$connection->write($this->handshake->connectRequest($this->host, $this->port))->accepted()) {
+            throw new RuntimeException('SOCKS5 CONNECT request exceeds connection write budget.');
+        }
+    }
+
+    /** Execute the bounded proxy exchange phase. */
     private function receive(Connection $connection): void
     {
         if (!$this->pending()) {
@@ -164,30 +198,10 @@ final class Socks5Tunnel
             while ($connection->receivedBytes() > 0 && $this->pending()) {
                 $this->reply .= $connection->read(1);
                 if ($this->phase === 'method') {
-                    if (strlen($this->reply) < 2) {
-                        continue;
-                    }
-                    $this->handshake->verifyMethod($this->reply);
-                    $this->reply = '';
-                    $this->phase = 'connect';
-                    if (!$connection->write($this->handshake->connectRequest($this->host, $this->port))->accepted()) {
-                        throw new RuntimeException('SOCKS5 CONNECT request exceeds connection write budget.');
-                    }
-
-                    continue;
+                    $this->readMethodReply($connection);
+                } else {
+                    $this->readConnectReply($connection);
                 }
-                $size = $this->handshake->replyLength($this->reply);
-                if ($size === null) {
-                    continue;
-                }
-                if ($size !== strlen($this->reply)) {
-                    throw new RuntimeException('SOCKS5 reply boundary mismatch.');
-                }
-                $this->phase = 'ready';
-                $this->cleanup();
-                ($this->completion)($connection, null);
-
-                return;
             }
         } catch (Throwable $error) {
             $this->fail($error);

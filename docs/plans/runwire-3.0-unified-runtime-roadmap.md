@@ -571,3 +571,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W113 proxy live loopback TCP acceptance (2026-10-25; QA PENDING):** Real Runwire dialer TCP + separately accepted peer validates CONNECT and SOCKS5 negotiation and tunneled payloads, beyond deterministic Unix socketpairs. TLS-to-origin, proxy credentials and independent reference still OPEN under U10.04–06. **122/175 accepted, 53 OPEN**.
+
+
+**W114 proxy QA fixes (2026-10-25; QA PENDING):** Consolidate PHPForge failures from rolling proxy batches: PHPStan nullable values/complexity, API documentation test, Pint class/method order, PHPCS unused observer args, and Rector unused promoted property. Keep actual proxy integration and tests; no checks disabled. **122/175 accepted, 53 OPEN**.
