@@ -120,6 +120,44 @@ class H2Bench:
             "body": bytearray(), "expected": b"x" * size,
         }
 
+    def stall_snapshot(self) -> dict[str, Any]:
+        """Failure-only peer/socket state; never changes measured hot-path metrics."""
+        try:
+            return self._stall_details()
+        except Exception as exc:
+            # Diagnostics must never suppress the original protocol failure.
+            return {
+                "diagnostic_error": type(exc).__name__,
+                "active_stream_count": len(self.active),
+            }
+
+    def _stall_details(self) -> dict[str, Any]:
+        """Sample bounded read-only state only after an already-failed phase."""
+        remote = self.conn.remote_settings
+        streams = [
+            {
+                "stream_id": stream_id,
+                "status": state["status"],
+                "expected_bytes": len(state["expected"]),
+                "received_bytes": len(state["body"]),
+                "remaining_bytes": len(state["expected"]) - len(state["body"]),
+                "age_seconds": round(time.perf_counter() - state["started"], 3),
+                "client_stream_window": self.conn.local_flow_control_window(stream_id),
+            }
+            for stream_id, state in list(self.active.items())[:16]
+        ]
+        return {
+            "peer_pid_alive": os.path.exists(f"/proc/{self.server_pid}"),
+            "active_stream_count": len(self.active),
+            "active_stream_sample": streams,
+            "client_connection_window": self.conn.inbound_flow_control_window,
+            "client_outbound_window": self.conn.outbound_flow_control_window,
+            "peer_concurrent_stream_cap": remote.max_concurrent_streams,
+            "peer_initial_window": remote.initial_window_size,
+            "socket_fd": self.sock.fileno(),
+            "socket_error": self.sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR),
+        }
+
     def run_phase(self, concurrency: int, duration: float) -> dict[str, Any]:
         if self.active or not 1 <= concurrency <= 100:
             raise RuntimeError("H2 phase needs no active streams and concurrency between 1 and 100.")
@@ -134,24 +172,15 @@ class H2Bench:
         last_progress = time.monotonic()
         while self.active or waiting:
             if time.monotonic() > deadline + 5:
-                stalled = [
-                    {
-                        "stream_id": stream_id,
-                        "status": state["status"],
-                        "received_bytes": len(state["body"]),
-                        "expected_bytes": len(state["expected"]),
-                        "remaining_bytes": len(state["expected"]) - len(state["body"]),
-                    }
-                    for stream_id, state in self.active.items()
-                ]
+                # Do not relax the five-second deadline or allow a false pass.
+                # Capture *only on failure* to avoid distorting RPS/p99 samples.
                 raise RuntimeError(
                     "H2 phase did not drain: "
                     f"scenario={self.case.get('scenario')} "
-                    f"issued={self.issued} active={len(self.active)} "
-                    f"completed={len(measurement.latencies)} waiting={len(waiting)} "
+                    f"issued={self.issued} completed={len(measurement.latencies)} "
+                    f"waiting={len(waiting)} "
                     f"idle_seconds={time.monotonic() - last_progress:.3f} "
-                    f"client_connection_window={getattr(self.conn, 'inbound_flow_control_window', 'unknown')} "
-                    f"stalled_streams={json.dumps(stalled, sort_keys=True)}"
+                    f"diagnostics={json.dumps(self.stall_snapshot(), sort_keys=True)}"
                 )
             # Rotate only after draining, below the unchanged 10,000-stream server limit.
             if not self.active and self.issued >= 8000:
