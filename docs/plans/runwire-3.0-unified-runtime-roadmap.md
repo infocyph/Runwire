@@ -735,3 +735,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 worker-local native poll/write profiling (2026-10-25, QA PENDING):** `profile_start/profile_read` are fixed validated worker commands, with conditional native poll/write/read timing, worker CPU/kernel RSS and bounded stream-lifetime counters stored in same real independent aioquic JSON evidence. Ordinary requests do not enable profiling. Supports U05.10 and U08.05; not a substitute for multi-protocol matched performance certification. **127/175, 48 OPEN, C1 4/11**, no C2 changes.
+
+
+**C1 resource-usage QA recovery (2026-10-25, pending):** Typed, opt-in `QuicWorkerResourceUsage` isolates CPU/RSS platform sampling from the QUIC hot path and resolves worker cognitive complexity, numeric guards and member ordering. QA must pass before any additional U05.10/U08.05 acceptance. **127/175, 48 open, C1 4/11.**

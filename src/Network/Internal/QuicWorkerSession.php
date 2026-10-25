@@ -26,31 +26,31 @@ final class QuicWorkerSession
 
     private int $nextStreamId = 1;
 
-    private bool $profiling = false;
+    private int $profileCpuStartMicroseconds = 0;
+
+    private int $profilePartialWrites = 0;
+
+    private int $profilePeakStreams = 0;
 
     private int $profilePollCalls = 0;
 
-    private int $profileCpuStartMicroseconds = 0;
-
     private int $profilePollNanoseconds = 0;
+
+    private int $profileReadBytes = 0;
 
     private int $profileReadCalls = 0;
 
     private int $profileReadNanoseconds = 0;
 
-    private int $profileReadBytes = 0;
+    private int $profileWriteBytes = 0;
 
     private int $profileWriteCalls = 0;
 
     private int $profileWriteNanoseconds = 0;
 
-    private int $profileWriteBytes = 0;
-
-    private int $profilePartialWrites = 0;
-
     private int $profileZeroWrites = 0;
 
-    private int $profilePeakStreams = 0;
+    private bool $profiling = false;
 
     /** @var array<int, array{stream:object, bidirectional:bool, readable:bool, writable:bool}> */
     private array $streams = [];
@@ -283,11 +283,11 @@ final class QuicWorkerSession
     private function driveNativeEvents(): void
     {
         if (is_object($this->connection) && method_exists($this->connection, 'handleEvents')) {
-            $started = $this->profiling ? hrtime(true) : 0;
+            $started = $this->profiling ? (int) hrtime(true) : 0;
             $this->connection->handleEvents();
             if ($this->profiling) {
                 ++$this->profilePollCalls;
-                $this->profilePollNanoseconds += max(0, hrtime(true) - $started);
+                $this->profilePollNanoseconds += max(0, (int) hrtime(true) - $started);
             }
         }
     }
@@ -329,19 +329,15 @@ final class QuicWorkerSession
     /** @return array<string, int|bool|float> */
     private function readProfile(): array
     {
-        $usage = function_exists('getrusage') ? getrusage() : false;
-        $cpuEnd = is_array($usage)
-            ? (int) $usage['ru_utime.tv_sec'] * 1_000_000 + (int) $usage['ru_utime.tv_usec']
-                + (int) $usage['ru_stime.tv_sec'] * 1_000_000 + (int) $usage['ru_stime.tv_usec']
-            : 0;
+        $usage = QuicWorkerResourceUsage::snapshot();
 
         return [
             'profiling' => $this->profiling,
-            'worker_usage_available' => is_array($usage),
-            'worker_cpu_ms' => $this->profiling && is_array($usage)
-                ? round(max(0, $cpuEnd - $this->profileCpuStartMicroseconds) / 1_000, 3)
+            'worker_usage_available' => $usage['available'],
+            'worker_cpu_ms' => $this->profiling && $usage['available']
+                ? round(max(0, $usage['cpu_us'] - $this->profileCpuStartMicroseconds) / 1_000, 3)
                 : 0.0,
-            'worker_peak_rss_kib' => is_array($usage) ? (int) ($usage['ru_maxrss'] ?? 0) : 0,
+            'worker_peak_rss_kib' => $usage['rss_kib'],
             'worker_php_peak_bytes' => memory_get_peak_usage(true),
             'poll_calls' => $this->profilePollCalls,
             'poll_nanoseconds' => $this->profilePollNanoseconds,
@@ -372,11 +368,11 @@ final class QuicWorkerSession
             throw new RuntimeException('Native QUIC stream cannot be read.');
         }
         $this->driveNativeEvents();
-        $started = $this->profiling ? hrtime(true) : 0;
+        $started = $this->profiling ? (int) hrtime(true) : 0;
         $data = $stream->read(QuicWorkerCommand::MAX_DATA_BYTES);
         if ($this->profiling) {
             ++$this->profileReadCalls;
-            $this->profileReadNanoseconds += max(0, hrtime(true) - $started);
+            $this->profileReadNanoseconds += max(0, (int) hrtime(true) - $started);
             $this->profileReadBytes += is_string($data) ? strlen($data) : 0;
         }
         if ($data !== null && !is_string($data)) {
@@ -408,14 +404,10 @@ final class QuicWorkerSession
         return ['reset' => true];
     }
 
-    /** Enable worker-local timing only for a requested diagnostic workload. */
+    /** @return array{profiling:bool} */
     private function startProfile(): array
     {
-        $usage = function_exists('getrusage') ? getrusage() : false;
-        $this->profileCpuStartMicroseconds = is_array($usage)
-            ? (int) $usage['ru_utime.tv_sec'] * 1_000_000 + (int) $usage['ru_utime.tv_usec']
-                + (int) $usage['ru_stime.tv_sec'] * 1_000_000 + (int) $usage['ru_stime.tv_usec']
-            : 0;
+        $this->profileCpuStartMicroseconds = QuicWorkerResourceUsage::snapshot()['cpu_us'];
         $this->profilePollCalls = 0;
         $this->profilePollNanoseconds = 0;
         $this->profileReadCalls = 0;
@@ -456,11 +448,11 @@ final class QuicWorkerSession
         if (!method_exists($stream, 'write')) {
             throw new RuntimeException('Native QUIC stream cannot accept writes.');
         }
-        $started = $this->profiling ? hrtime(true) : 0;
+        $started = $this->profiling ? (int) hrtime(true) : 0;
         $written = $stream->write($command['data'], $command['fin']);
         if ($this->profiling) {
             ++$this->profileWriteCalls;
-            $this->profileWriteNanoseconds += max(0, hrtime(true) - $started);
+            $this->profileWriteNanoseconds += max(0, (int) hrtime(true) - $started);
             $this->profileWriteBytes += is_int($written) && $written > 0 ? $written : 0;
             $this->profilePartialWrites += (int) (is_int($written) && $written > 0 && $written < strlen($command['data']));
             $this->profileZeroWrites += (int) ($written === 0);
