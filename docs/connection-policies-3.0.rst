@@ -163,3 +163,15 @@ separately and never reuse those fields in an origin request. Tests prove
 that cross-origin redirects also strip Authorization, Cookie, arbitrary
 private headers and proxy-only secrets. This does **not** certify a
 proxy connector or proxy credential encryption implementation.
+
+
+Outbound proxy wire negotiation (unreleased)
+--------------------------------------------
+
+The ``Network\\Proxy\\Socks5Handshake`` wire codec encodes and validates
+RFC 1928/1929 frames. Local DNS mode accepts only pre-resolved IP addresses;
+remote hostname disclosure requires explicit opt-in. Password authentication
+requires independently verified encrypted transport to the proxy and never
+permits anonymous downgrade. Socket ownership, asynchronous handshakes and
+original-target TLS identity are **not yet implemented**. U10.04–U10.06
+remain open until real peer integration.

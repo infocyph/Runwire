@@ -556,3 +556,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W108 CI remediation (2026-10-25; QA PENDING):** W107 PHPForge matrix failures share a Pint-only style issue (`method_argument_space`, `blank_line_before_statement`) on the newly added file worker profile, rather than multiple runtime regressions. Formatting corrected without relaxing QA. U11.10 and U15/U17 remain OPEN until exact W108 CI verification. Canonical accepted **122/175, 53 OPEN**, synchronized with plan.
+
+
+**W109 SOCKS5 wire implementation (2026-10-25; QA PENDING):** Codec enforces encrypted credential transport and opt-in remote DNS, validates bounded RFC1928/1929 handshake frames and malformed replies. U10.05 is OPEN until actual proxy I/O and independent peer integration. **122/175 accepted, 53 open**; not a release claim.
