@@ -22,6 +22,11 @@ final class BoundedConnectionPool
 {
     private readonly IdleConnectionPool $idle;
 
+    /** @var array<int, PoolIsolationKey> */
+    private array $active = [];
+
+    private bool $closed = false;
+
     /** @var array<string, int> */
     private array $metricCounts = [
         'acquisitions' => 0,
@@ -37,11 +42,6 @@ final class BoundedConnectionPool
         'idle_retained' => 0,
         'idle_rejected' => 0,
     ];
-
-    /** @var array<int, PoolIsolationKey> */
-    private array $active = [];
-
-    private bool $closed = false;
 
     private int $nextId = 1;
 
@@ -190,14 +190,7 @@ final class BoundedConnectionPool
             ++$this->metricCounts['releases'];
         }
         if ($connection !== null) {
-            if ($this->closed) {
-                $connection->abort();
-            } else {
-                $retained = $this->idle->store($key, $connection);
-                if ($this->enableMetrics) {
-                    ++$this->metricCounts[$retained ? 'idle_retained' : 'idle_rejected'];
-                }
-            }
+            $this->retainReleasedConnection($key, $connection);
         }
         $this->dispatch();
 
@@ -251,5 +244,18 @@ final class BoundedConnectionPool
         unset($this->waiting[$id]);
         $this->loop->cancel($entry['timer']);
         ($entry['callback'])($id, null, $error);
+    }
+    /** Preserve socket ownership and bounded opt-in accounting after lease retirement. */
+    private function retainReleasedConnection(PoolIsolationKey $key, Connection $connection): void
+    {
+        if ($this->closed) {
+            $connection->abort();
+
+            return;
+        }
+        $retained = $this->idle->store($key, $connection);
+        if ($this->enableMetrics) {
+            ++$this->metricCounts[$retained ? 'idle_retained' : 'idle_rejected'];
+        }
     }
 }

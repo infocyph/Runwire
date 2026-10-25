@@ -200,3 +200,33 @@ it('keeps pool counters inactive unless explicitly enabled', function (): void {
         $pool->close();
     }
 });
+
+it('aborts real sockets released after pool closure without leaking idle leases or counters', function (): void {
+    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $socket);
+    $pool = new BoundedConnectionPool($loop, maxActive: 1, maxWaiting: 1, maxIdle: 1, enableMetrics: true);
+    $key = new PoolIsolationKey(DialEndpoint::parse('unix:///tmp/runwire-retire-after-close.sock'), 'worker');
+    try {
+        $lease = $pool->acquire($key, static function (): void {});
+        $pool->close();
+        expect($pool->release($lease, $connection))->toBeTrue()
+            ->and($connection->state())->toBe(ConnectionState::CLOSED)
+            ->and($pool->idleCount())->toBe(0)
+            ->and($pool->activeCount())->toBe(0)
+            ->and($pool->release($lease))->toBeFalse();
+        expect($pool->metrics())->toMatchArray([
+            'enabled' => true,
+            'releases' => 1,
+            'idle_retained' => 0,
+            'idle_rejected' => 0,
+        ]);
+    } finally {
+        $pool->close();
+        $connection->abort();
+        fclose($peer);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
