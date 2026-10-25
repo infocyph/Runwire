@@ -649,3 +649,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W139 grouped real QUIC async-callback safety and closeout QA recovery (2026-10-25; QA PENDING):** Repair missing `$loop` lexical capture in reset callback and missing `$readyWrites` capture at verified-connect boundary, preserving six real resets, two fresh sibling echoes, uni FIN and 10-second watchdog. Fix U14.08 QA dossier wording for two explicit PHP version names; immutable accepted evidence unchanged. Test lexical captures and `php -l`. U05.05/.09 still OPEN, **123/175 accepted, 52 OPEN**.
+
+
+**W140 grouped autoscale control-plane stability (2026-10-25; QA PENDING):** Monotonic observation gating, consecutive pressure votes, cooldown, fixed overrides and 240-window anti-oscillation regression with docs. Not wired to live supervisor worker lifecycle, so U12.04/.08/.09 OPEN. **123/175 accepted, 52 OPEN**.
