@@ -245,6 +245,7 @@ final class BoundedConnectionPool
         $this->loop->cancel($entry['timer']);
         ($entry['callback'])($id, null, $error);
     }
+
     /** Preserve socket ownership and bounded opt-in accounting after lease retirement. */
     private function retainReleasedConnection(PoolIsolationKey $key, Connection $connection): void
     {
@@ -253,6 +254,7 @@ final class BoundedConnectionPool
 
             return;
         }
+
         $retained = $this->idle->store($key, $connection);
         if ($this->enableMetrics) {
             ++$this->metricCounts[$retained ? 'idle_retained' : 'idle_rejected'];
