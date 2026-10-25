@@ -21,8 +21,8 @@ use Throwable;
 /**
  * Experimental nonblocking SOCKS5 CONNECT over one established proxy socket.
  *
- * Credentials and original-destination TLS are not enabled until a verified
- * proxy TLS owner and nested original-peer verification can be guaranteed.
+ * Credential exchange requires the verified outbound TLS identity of the proxy.
+ * Nested original-destination TLS is not established by this adapter.
  */
 final class Socks5Tunnel
 {
@@ -50,6 +50,7 @@ final class Socks5Tunnel
         private readonly float $timeoutSeconds = 10.0,
         private readonly ?CancellationToken $token = null,
         private readonly ?OutboundAddressPolicy $targetAddressPolicy = null,
+        private readonly ?string $verifiedProxyPeerName = null,
     ) {
         if (!is_finite($timeoutSeconds) || $timeoutSeconds <= 0 || $timeoutSeconds > 300) {
             throw new InvalidArgumentException('SOCKS5 tunnel timeout is invalid.');
@@ -76,8 +77,11 @@ final class Socks5Tunnel
             throw new LogicException('SOCKS5 tunnel may start only once.');
         }
         $this->token?->throwIfCancelled();
-        if ($this->handshake->usesAuthentication()) {
-            throw new LogicException('SOCKS5 password exchange requires a verified proxy TLS owner.');
+        if ($this->handshake->usesAuthentication()
+            && ($this->verifiedProxyPeerName === null
+                || $this->connection->verifiedOutboundTlsPeerName() === null
+                || strcasecmp($this->verifiedProxyPeerName, $this->connection->verifiedOutboundTlsPeerName()) !== 0)) {
+            throw new LogicException('SOCKS5 credentials require a verified proxy TLS identity matching the configured peer.');
         }
         // Validate DNS disclosure policy and target before writing any bytes.
         $this->handshake->connectRequest($this->host, $this->port);
@@ -186,10 +190,23 @@ final class Socks5Tunnel
     /** Execute the bounded proxy exchange phase. */
     private function pending(): bool
     {
-        return $this->phase === 'method' || $this->phase === 'connect';
+        return $this->phase === 'method' || $this->phase === 'authentication' || $this->phase === 'connect';
     }
 
     /** Execute the bounded proxy exchange phase. */
+    private function readAuthenticationReply(Connection $connection): void
+    {
+        if (strlen($this->reply) < 2) {
+            return;
+        }
+        $this->handshake->verifyAuthentication($this->reply);
+        $this->reply = '';
+        $this->phase = 'connect';
+        if (!$connection->write($this->handshake->connectRequest($this->host, $this->port))->accepted()) {
+            throw new RuntimeException('SOCKS5 authenticated CONNECT exceeds connection write budget.');
+        }
+    }
+
     private function readConnectReply(Connection $connection): void
     {
         $size = $this->handshake->replyLength($this->reply);
@@ -212,6 +229,15 @@ final class Socks5Tunnel
         }
         $this->handshake->verifyMethod($this->reply);
         $this->reply = '';
+        if ($this->handshake->usesAuthentication()) {
+            $this->phase = 'authentication';
+            if (!$connection->write($this->handshake->credentials())->accepted()) {
+                throw new RuntimeException('SOCKS5 authentication request exceeds connection write budget.');
+            }
+
+            return;
+        }
+
         $this->phase = 'connect';
         if (!$connection->write($this->handshake->connectRequest($this->host, $this->port))->accepted()) {
             throw new RuntimeException('SOCKS5 CONNECT request exceeds connection write budget.');
@@ -230,6 +256,8 @@ final class Socks5Tunnel
                 $this->reply .= $connection->read(1);
                 if ($this->phase === 'method') {
                     $this->readMethodReply($connection);
+                } elseif ($this->phase === 'authentication') {
+                    $this->readAuthenticationReply($connection);
                 } else {
                     $this->readConnectReply($connection);
                 }

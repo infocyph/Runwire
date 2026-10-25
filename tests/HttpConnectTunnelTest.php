@@ -117,3 +117,27 @@ it('cancels a pending CONNECT once and releases all callback owners', function (
         fclose($peer);
     }
 });
+
+it('refuses to disclose CONNECT credentials on a plaintext socket with a claimed proxy name', function (): void {
+    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    $loop = new SelectLoop();
+    $connection = ConnectionFactory::accepted($loop, $socket);
+    try {
+        $tunnel = new HttpConnectTunnel(
+            $loop,
+            $connection,
+            new HttpConnectHandshake('name', 'secret', verifiedProxyTransport: true),
+            '127.0.0.1',
+            443,
+            static function (): void {},
+            verifiedProxyPeerName: 'proxy.example',
+        );
+        expect(fn() => $tunnel->start())->toThrow(LogicException::class, 'verified proxy TLS identity')
+            ->and($connection->verifiedOutboundTlsPeerName())->toBeNull();
+        stream_set_blocking($peer, false);
+        expect(fread($peer, 8192))->toBe('');
+    } finally {
+        $connection->abort();
+        fclose($peer);
+    }
+});

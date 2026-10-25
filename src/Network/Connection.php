@@ -297,12 +297,6 @@ final class Connection
         return $this->encrypted;
     }
 
-    /** Verified outbound peer policy name, never inferred from generic encrypted streams. */
-    public function verifiedOutboundTlsPeerName(): ?string
-    {
-        return $this->verifiedOutboundTlsPeerName;
-    }
-
     /**
      * @internal A verified stream may be considered for reuse only when it
      * carries no active scope, pending traffic or protocol callback owner.
@@ -509,6 +503,12 @@ final class Connection
         $now = hrtime(true);
 
         return is_int($now) ? $now : (int) $now;
+    }
+
+    /** Verified outbound peer policy name, never inferred from generic encrypted streams. */
+    public function verifiedOutboundTlsPeerName(): ?string
+    {
+        return $this->verifiedOutboundTlsPeerName;
     }
 
     private function assertCallbackSlotsUnclaimed(): void

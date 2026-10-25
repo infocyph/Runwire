@@ -21,9 +21,8 @@ use Throwable;
 /**
  * Experimental nonblocking HTTP CONNECT tunnel on one already established proxy stream.
  *
- * Only unauthenticated tunnel setup is available until independently verified
- * proxy TLS identity and target TLS upgrade are implemented. Does not negotiate
- * end-to-end TLS to the original target.
+ * Authenticated CONNECT requires a dialer-proven TLS identity for the proxy.
+ * Nested end-to-end TLS to the original target remains a separate gate.
  */
 final class HttpConnectTunnel
 {
@@ -51,6 +50,7 @@ final class HttpConnectTunnel
         private readonly float $timeoutSeconds = 10.0,
         private readonly ?CancellationToken $token = null,
         private readonly ?OutboundAddressPolicy $targetAddressPolicy = null,
+        private readonly ?string $verifiedProxyPeerName = null,
     ) {
         if (!is_finite($timeoutSeconds) || $timeoutSeconds <= 0 || $timeoutSeconds > 300) {
             throw new InvalidArgumentException('HTTP CONNECT tunnel timeout is invalid.');
@@ -77,8 +77,11 @@ final class HttpConnectTunnel
             throw new LogicException('HTTP CONNECT tunnel may start exactly once.');
         }
         $this->token?->throwIfCancelled();
-        if ($this->handshake->usesAuthentication()) {
-            throw new LogicException('Authenticated HTTP CONNECT requires a verified proxy TLS owner.');
+        if ($this->handshake->usesAuthentication()
+            && ($this->verifiedProxyPeerName === null
+                || $this->connection->verifiedOutboundTlsPeerName() === null
+                || strcasecmp($this->verifiedProxyPeerName, $this->connection->verifiedOutboundTlsPeerName()) !== 0)) {
+            throw new LogicException('HTTP CONNECT credentials require a verified proxy TLS identity matching the configured peer.');
         }
 
         $request = $this->handshake->request($this->host, $this->port);

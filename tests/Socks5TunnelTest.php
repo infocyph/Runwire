@@ -111,3 +111,26 @@ it('cancels SOCKS5 setup exactly once without leaving a live transport observer'
         fclose($peer);
     }
 });
+
+it('refuses SOCKS5 credentials before proving an exact outbound proxy TLS peer', function (): void {
+    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    $loop = new SelectLoop();
+    $connection = ConnectionFactory::accepted($loop, $socket);
+    try {
+        $tunnel = new Socks5Tunnel(
+            $loop,
+            $connection,
+            new Socks5Handshake(username: 'user', password: 'secret', verifiedProxyTransport: true),
+            '127.0.0.1',
+            443,
+            static function (): void {},
+            verifiedProxyPeerName: 'proxy.example',
+        );
+        expect(fn() => $tunnel->start())->toThrow(LogicException::class, 'verified proxy TLS identity');
+        stream_set_blocking($peer, false);
+        expect(fread($peer, 8192))->toBe('');
+    } finally {
+        $connection->abort();
+        fclose($peer);
+    }
+});
