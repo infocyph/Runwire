@@ -35,7 +35,7 @@ final class Http2ClientMultiplexSession
 
     private ?int $continuationStreamId = null;
 
-    private int $lastStreamId = 0;
+    private int $lastStreamId = -1;
 
     /** @var array<int, true> */
     private array $retired = [];
@@ -50,6 +50,7 @@ final class Http2ClientMultiplexSession
      */
     private array $streams = [];
 
+    /** Construct a bounded protocol-only session with no implicit socket ownership. */
     public function __construct(private readonly int $maxStreams = 16)
     {
         if ($maxStreams < 1 || $maxStreams > 32) {
@@ -94,6 +95,12 @@ final class Http2ClientMultiplexSession
         }
     }
 
+    /** Validated peer SETTINGS allow new requests on this verified socket. */
+    public function ready(): bool
+    {
+        return $this->started && !$this->closed && $this->handshake->ready();
+    }
+
     /** Consume one frame in wire order, returning bounded connection/stream credit. */
     public function receive(Frame $frame): string
     {
@@ -106,75 +113,13 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('HTTP/2 connection interleaved a frame during CONTINUATION.');
         }
         if ($frame->streamId === 0) {
-            $wire = $this->handshake->receive($frame);
-            if ($frame->knownType() === FrameType::GOAWAY) {
-                $lastAccepted = $this->handshake->peerGoAwayLastStreamId();
-                foreach (array_keys($this->streams) as $streamId) {
-                    if ($lastAccepted !== null && $streamId > $lastAccepted) {
-                        $this->finish($streamId, new RuntimeException('HTTP/2 peer GOAWAY refused this client stream.'));
-                    }
-                }
-            }
-
-            return $wire;
+            return $this->control($frame);
         }
-
         if (isset($this->retired[$frame->streamId])) {
-            // Tombstones absorb late DATA/RST after our outbound CANCEL,
-            // but reject header blocks that could desynchronize shared HPACK.
-            if ($frame->knownType() === FrameType::RST_STREAM
-                || ($frame->knownType() === FrameType::DATA && $frame->hasFlag(0x1))) {
-                unset($this->retired[$frame->streamId]);
-            } elseif ($frame->knownType() !== FrameType::DATA) {
-                throw new RuntimeException('H2 retired stream received an unsafe control/header frame.');
-            }
-
-            $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
-
-            return $bytes > 0
-                ? FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes))
-                : '';
-        }
-        $slot = $this->streams[$frame->streamId] ?? null;
-        if ($slot === null) {
-            throw new RuntimeException('HTTP/2 peer used an unknown client response stream.');
-        }
-        if ($frame->knownType() === FrameType::HEADERS && !$frame->hasFlag(0x4)) {
-            $this->continuationStreamId = $frame->streamId;
-        } elseif ($frame->knownType() === FrameType::CONTINUATION && $frame->hasFlag(0x4)) {
-            $this->continuationStreamId = null;
-        }
-        if ($slot['request']->method === 'HEAD' && $frame->knownType() === FrameType::DATA
-            && $frame->payload !== '') {
-            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
+            return $this->retiredFrame($frame);
         }
 
-        try {
-            $slot['response']->push($frame, $slot['headers'], $slot['body']);
-        } catch (RuntimeException $error) {
-            if ($frame->knownType() === FrameType::RST_STREAM && $slot['response']->done()) {
-                $this->finish($frame->streamId, $error);
-
-                return '';
-            }
-
-            throw $error;
-        }
-        if ($slot['response']->done()) {
-            $this->finish($frame->streamId, null);
-        }
-
-        $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
-        if ($bytes === 0) {
-            return '';
-        }
-
-        $wire = FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes));
-        if (!$frame->hasFlag(0x1)) {
-            $wire .= FrameWriter::encode(FrameWriter::windowUpdate($frame->streamId, $bytes));
-        }
-
-        return $wire;
+        return $this->streamFrame($frame);
     }
 
     /**
@@ -218,7 +163,12 @@ final class Http2ClientMultiplexSession
         }
         $streamId = $this->lastStreamId + 2;
         $wire = $this->handshake->requestOnStream(
-            $streamId, $request->method, 'https', $authority, $path, $request->headers,
+            $streamId,
+            $request->method,
+            'https',
+            $authority,
+            $path,
+            $request->headers,
         );
         $this->authority = $authority;
         $this->lastStreamId = $streamId;
@@ -244,6 +194,37 @@ final class Http2ClientMultiplexSession
         return $this->handshake->start();
     }
 
+    /** Account for receive-window consumption without extending terminated streams. */
+    private static function credit(Frame $frame): string
+    {
+        $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
+        if ($bytes === 0) {
+            return '';
+        }
+        $wire = FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes));
+        if (!$frame->hasFlag(0x1)) {
+            $wire .= FrameWriter::encode(FrameWriter::windowUpdate($frame->streamId, $bytes));
+        }
+
+        return $wire;
+    }
+
+    /** Enforce connection SETTINGS and reject GOAWAY streams above peer last ID. */
+    private function control(Frame $frame): string
+    {
+        $wire = $this->handshake->receive($frame);
+        if ($frame->knownType() === FrameType::GOAWAY) {
+            $lastAccepted = $this->handshake->peerGoAwayLastStreamId();
+            foreach (array_keys($this->streams) as $streamId) {
+                if ($lastAccepted !== null && $streamId > $lastAccepted) {
+                    $this->finish($streamId, new RuntimeException('HTTP/2 peer GOAWAY refused this client stream.'));
+                }
+            }
+        }
+
+        return $wire;
+    }
+
     private function finish(int $streamId, ?Throwable $error): void
     {
         $slot = $this->streams[$streamId] ?? null;
@@ -253,4 +234,60 @@ final class Http2ClientMultiplexSession
         unset($this->streams[$streamId]);
         ($slot['complete'])($error);
     }
+    /** Drain previously canceled response frames without accepting new headers. */
+    private function retiredFrame(Frame $frame): string
+    {
+        if ($frame->knownType() === FrameType::RST_STREAM
+            || ($frame->knownType() === FrameType::DATA && $frame->hasFlag(0x1))) {
+            unset($this->retired[$frame->streamId]);
+        } elseif ($frame->knownType() !== FrameType::DATA) {
+            throw new RuntimeException('H2 retired stream received an unsafe control/header frame.');
+        }
+
+        $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
+
+        return $bytes > 0
+            ? FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes))
+            : '';
+    }
+
+    /** Validate and complete one response without closing sibling exchanges. */
+    private function streamFrame(Frame $frame): string
+    {
+        $slot = $this->streams[$frame->streamId] ?? null;
+        if ($slot === null) {
+            throw new RuntimeException('HTTP/2 peer used an unknown client response stream.');
+        }
+        $this->trackHeaderBlock($frame);
+        if ($slot['request']->method === 'HEAD' && $frame->knownType() === FrameType::DATA
+            && $frame->payload !== '') {
+            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
+        }
+
+        try {
+            $slot['response']->push($frame, $slot['headers'], $slot['body']);
+        } catch (RuntimeException $error) {
+            if ($frame->knownType() !== FrameType::RST_STREAM || !$slot['response']->done()) {
+                throw $error;
+            }
+            $this->finish($frame->streamId, $error);
+
+            return '';
+        }
+        if ($slot['response']->done()) {
+            $this->finish($frame->streamId, null);
+        }
+
+        return self::credit($frame);
+    }
+    /** Never allow sibling frames to interleave an incomplete header block. */
+    private function trackHeaderBlock(Frame $frame): void
+    {
+        if ($frame->knownType() === FrameType::HEADERS && !$frame->hasFlag(0x4)) {
+            $this->continuationStreamId = $frame->streamId;
+        } elseif ($frame->knownType() === FrameType::CONTINUATION && $frame->hasFlag(0x4)) {
+            $this->continuationStreamId = null;
+        }
+    }
+
 }

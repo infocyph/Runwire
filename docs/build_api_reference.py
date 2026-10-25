@@ -93,9 +93,12 @@ def build():
         )
         public_methods += len(methods)
         if methods:
-            entries.append("  - Public method signatures: " + ", ".join(
-                literal(signature) + " (" + link(file, number) + ")" for _, number, signature in methods
-            ))
+            entries.extend(["  - Public method signatures:", ""])
+            entries.extend(
+                "    - " + literal(signature) + " (" + link(file, number) + ")"
+                for _, number, signature in methods
+            )
+            entries.append("")
         properties = [(m.group(1), line(source, m.start())) for m in PROPERTY.finditer(source)]
         for constructor in METHOD.finditer(source):
             if constructor.group(1) == "__construct":
@@ -104,7 +107,9 @@ def build():
         properties = sorted(set(properties))
         public_properties += len(properties)
         if properties:
-            entries.append("  - Public properties: " + ", ".join(literal(m) + " (" + link(file, n) + ")" for m, n in properties))
+            entries.extend(["  - Public properties:", ""])
+            entries.extend("    - " + literal(name) + " (" + link(file, number) + ")" for name, number in properties)
+            entries.append("")
         constants = [m.group(1) for m in CONSTANT.finditer(source)]
         if constants:
             entries.append("  - Public constants: " + ", ".join(map(literal, constants)))

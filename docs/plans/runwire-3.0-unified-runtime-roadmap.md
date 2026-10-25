@@ -466,3 +466,12 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W88 Batch AB (2026-10-25; QA PENDING):** **U07.04 ACCEPTED** at W87 source `493ee5892be57` via independent real hyper-h2 [#40144460404](https://github.com/infocyph/Runwire/actions/runs/40144460404), PHP8.4/8.5 stable/lowest QA and analysis lanes in [Security #40144460808](https://github.com/infocyph/Runwire/actions/runs/40144460808), and [Source Audit #40144460434](https://github.com/infocyph/Runwire/actions/runs/40144460434). New protocol-only H2 stream state, origin guards, shared HPACK, reset/GOAWAY and bounded credits await the new head's QA. **U07.05 stays OPEN** until live TLS multiplex. Improve generated API reference promotion inventory; **U16.11 OPEN** pending QA and full symbol/error audit. **118/175 accepted; 57 open; 22 to 140**.
+
+
+**W89 Batch AC (2026-10-25; QA PENDING):** Experimental shared-socket `Http2MultiplexConnection` joins the W88 bounded protocol/HPACK owner to one verified established callback-owned TLS+h2 stream, with parallel same-origin GET/HEAD response dispatch, per-stream cancellations/deadlines and live socket-pair regression tests. **U07.05 remains OPEN** until independent multi-stream real TLS testing, slow-client flow-control and complete QA. Tracker stays **118/175**, 57 OPEN, milestone 140. Combine W88 QA feedback with the W89 push.
+
+
+**W89 W88-QA recovery (2026-10-25; pending new-head proof):** Previous W88 [Sphinx #40145057151](https://github.com/infocyph/Runwire/actions/runs/40145057151) FAILED on generated RST line limit; [Security #40145057392](https://github.com/infocyph/Runwire/actions/runs/40145057392) PHPForge uncovered initial even H2 client stream ID, promoted field count test, missing constructor docblock, method-argument formatting and PHPStan receive() cognitive complexity. Roll fixes into W89 shared-socket transport and tests, without accepting U07.05/U16.11 until real exact-head CI. Remain 118/175; 57 open; 22 to target 140.
+
+
+**W90 independent H2 certification harness (2026-10-25; QA PENDING):** Add upstream hyper-h2 TLS/ALPN concurrent GET peer with reversed completion and require the new `qa/reference/Http2MultiplexIndependentReferenceTest.php` in the existing PHP8.4/8.5 independent workflow. Real exact-source PASS, flow credit/slow-peer correctness and full PHPForge required before U07.05 acceptance. W88 PHPForge #40145057392 FAIL and Sphinx #40145057151 FAIL are diagnosed and carried into W89/90 combined recovery. Tracker **118/175 accepted, 57 OPEN, 22 to 140**.

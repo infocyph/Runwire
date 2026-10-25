@@ -117,3 +117,34 @@ single-exchange public behavior remains unchanged.
 .. code-block:: console
 
    vendor/bin/pest tests/Http2ClientMultiplexSessionTest.php
+
+
+Live HTTP/2 multiplexer transport groundwork
+--------------------------------------------
+
+The experimental ``Http2MultiplexConnection`` now binds the connection-scoped
+protocol session to one caller-supplied, separately verified TLS+ALPN ``h2``
+stream. Its callbacks admit simultaneous same-origin bodyless requests after
+server SETTINGS, isolate stream cancellation and response completion, and
+cap outgoing control buffers, deadlines and active slots. A live socket-pair
+fixture verifies sibling H2 exchanges and client RST handling without
+pretending the fixture performs TLS verification. The existing independent
+``hyper-h2`` TLS reference suite still certifies only the single-request
+outbound path; independent concurrent TLS/ALPN/HPACK interoperability,
+slow-receiver flow control, and fully integrated dialing/pooling remain
+**OPEN under U07.05**. This is unreleased 3.0 development code.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/Http2MultiplexConnectionTest.php
+
+Independent concurrent TLS HTTP/2 interoperability
+-------------------------------------------------
+
+A separate, mandatory ``HTTP/2 Independent Reference`` PR workflow executes
+``qa/reference/Http2MultiplexIndependentReferenceTest.php`` on PHP 8.4 and 8.5
+against upstream ``hyper-h2``. The peer verifies one real TLS/ALPN socket,
+two concurrent request streams and reversed-order responses with connection-
+scoped HPACK state. The test is a **candidate acceptance gate**, not a claim
+of independent success until its exact-head run finishes. Stream-cancellation
+storms, slow consumers and saturated flow windows remain required under U07.05.

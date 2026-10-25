@@ -51,4 +51,4 @@ jobs:
         run: |
           python3 -c 'import h2.connection; print("Independent hyper-h2 available")'
           cp vendor/infocyph/phpforge/resources/pest.xml pest.xml
-          vendor/bin/pest --configuration=pest.xml qa/reference/Http2IndependentReferenceTest.php
+          vendor/bin/pest --configuration=pest.xml qa/reference/Http2IndependentReferenceTest.php qa/reference/Http2MultiplexIndependentReferenceTest.php
