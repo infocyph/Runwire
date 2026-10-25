@@ -175,3 +175,14 @@ requires independently verified encrypted transport to the proxy and never
 permits anonymous downgrade. Socket ownership, asynchronous handshakes and
 original-target TLS identity are **not yet implemented**. U10.04–U10.06
 remain open until real peer integration.
+
+
+HTTP CONNECT development (unreleased)
+--------------------------------------
+
+``Network\\Proxy\\HttpConnectHandshake`` builds a strict HTTP/1.1
+CONNECT authority and parses complete bounded 200 response headers.
+Proxy Basic credentials require explicit verified encrypted proxy transport.
+Invalid 407/non-200 results, malformed headers and framed bodies fail closed;
+remaining bytes belong to the future target TLS handshake. Neither this codec
+nor SOCKS5 establishes transport, TLS-over-tunnel or callback ownership yet.

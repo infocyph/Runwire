@@ -559,3 +559,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W109 SOCKS5 wire implementation (2026-10-25; QA PENDING):** Codec enforces encrypted credential transport and opt-in remote DNS, validates bounded RFC1928/1929 handshake frames and malformed replies. U10.05 is OPEN until actual proxy I/O and independent peer integration. **122/175 accepted, 53 open**; not a release claim.
+
+
+**W110 HTTP CONNECT source work (2026-10-25; QA PENDING):** Strict bounded 200 CONNECT headers, credential TLS-only policy, IPv6 authority and response-smuggling guards with unit tests. Does not certify established tunnels or target TLS; U10.04/U10.06 remain OPEN. **122/175, 53 open**; synchronized.
