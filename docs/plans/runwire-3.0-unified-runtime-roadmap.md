@@ -529,3 +529,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W100 H2 drain regression evidence (2026-10-25; staged/QA PENDING):** W99 source/script and all six PHPForge QA/analysis lanes green; extended suite pending. Prepare diagnostic-only bounded peer/socket/window snapshot on prior real H2 adaptive phase timeout, plus live client unit verification that the snapshot is read-only; no widening deadlines or throughput/p99/CV budgets. Original [W98 adaptive regression #40164430453](https://github.com/infocyph/Runwire/actions/runs/40164430453) remains an open investigation. **121/175, 54 open, 19 to 140**.
+
+
+**W101 reflection constructor migration coverage (2026-10-25; staged/QA PENDING):** Runtime Reflection checks six optional constructor additions retain original 2.1.2 required-argument counts, added flags remain defaulted, and `Connection` TLS strict EOF/fingerprint are optional. Migration guide explains tests and behavioral limits; U16.12 stays OPEN pending full behavioral/exception approval. Combine with W100 diagnostic-only H2 retry instrumentation after W99 CI finishes. **121/175, 54 OPEN, 19 to 140**.

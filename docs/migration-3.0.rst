@@ -201,6 +201,24 @@ mask expectation, and WebSocketSession client mode. Defaults preserve
 the original call shapes; security/behavioral regression requires its own
 integration tests.
 
+Reflection-backed constructor compatibility audit
+-------------------------------------------------
+
+The six reviewed optional 2.1.2-to-3.0 constructor extensions are checked
+against live PHP Reflection, not just source-text fingerprints. The
+regression suite pins every public constructor's required parameter count,
+total count and final optional argument default. Connection also checks
+that opt-in TLS fingerprint and strict EOF parameters remain optional.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/PublicApiMigrationCompatibilityTest.php
+   vendor/bin/pest tests/PublicApiMigrationConstructorCompatibilityTest.php
+
+These are backward-call-shape checks, not runtime behavior or complete
+exception compatibility certification. The independent protocol/host
+suites and U17 remain responsible for those other release gates.
+
 The independently versioned review inventory and exact signature hashes
 are in ``docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json``
 and ``u16-reviewed-public-api-migration.md``. The ordinary
