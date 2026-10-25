@@ -690,3 +690,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W148 C1 QUIC client peer streams (2026-10-25; QA PENDING):** Add bounded and direction-safe worker-local accepting of peer-created QUIC streams, allowing upcoming H3 SETTINGS/QPACK ingress while keeping source-only fake-native tests separate from real aioquic/stream interop. No newly accepted U task; **123/175 accepted, 52 OPEN**.
+
+
+**W149 C1 static QA repair (2026-10-25; QA PENDING):** Address real H3 PHPStan cognitive-complexity violations and QUIC peer-stream comment/metadata layout; keep all independent H3 and real transport tests OPEN. **123/175 accepted, 52 OPEN**.

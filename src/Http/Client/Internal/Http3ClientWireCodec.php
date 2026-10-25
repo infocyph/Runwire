@@ -50,25 +50,17 @@ final readonly class Http3ClientWireCodec
         $status = null;
         $fields = [];
         foreach ($decoded->fields as [$name, $value]) {
-            if ($name === ':status' && $status === null && $fields === []
-                && preg_match('/^[1-5][0-9]{2}$/D', $value) === 1) {
+            if ($name === ':status') {
+                if ($status !== null || $fields !== [] || preg_match('/^[1-5][0-9]{2}$/D', $value) !== 1) {
+                    throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response pseudo-header ordering.');
+                }
                 $status = (int) $value;
 
                 continue;
             }
-            if ($name === ':status' || str_starts_with($name, ':') || preg_match('/[A-Z]/', $name) === 1) {
-                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response pseudo-header ordering.');
-            }
-
-            if (in_array($name, ['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade'], true)) {
-                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response included a prohibited hop-by-hop field.');
-            }
-            try {
-                $fields[] = new HeaderField($name, $value);
-            } catch (InvalidArgumentException $error) {
-                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response header field.', $error);
-            }
+            $fields[] = self::responseField($name, $value);
         }
+
         if ($status === null) {
             throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response has no valid :status pseudo-header.');
         }
@@ -87,7 +79,46 @@ final readonly class Http3ClientWireCodec
             throw new RuntimeUnavailableException('HTTP/3 client streaming body support is not yet implemented.');
         }
 
-        $parts = parse_url($request->uri);
+        $fields = self::requestFields($request);
+
+        $encoded = $this->encoder->encode($fields, $streamId);
+        if ($encoded->requiredInsertCount !== 0 || $encoded->blocking) {
+            throw new Http3Exception(ErrorCode::INTERNAL_ERROR, 'Static HTTP/3 QPACK must never block.');
+        }
+
+        return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
+    }
+    /** @return list<array{0:string,1:string}> */
+    private static function requestFields(ClientRequest $request): array
+    {
+        [$authority, $target] = self::validatedOrigin($request->uri);
+        $fields = [
+            [':method', $request->method],
+            [':scheme', 'https'],
+            [':authority', $authority],
+            [':path', $target],
+        ];
+        foreach ($request->headers->fields() as $header) {
+            self::assertRequestHeader($header->name, $header->value);
+            $fields[] = [$header->name, $header->value];
+        }
+
+        return $fields;
+    }
+
+    private static function assertRequestHeader(string $name, string $value): void
+    {
+        if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade'], true)
+            || ($name === 'te' && strtolower(trim($value)) !== 'trailers')
+            || ($name === 'content-length' && $value !== '0')) {
+            throw new InvalidArgumentException('HTTP/3 client request includes a prohibited hop-by-hop or body header.');
+        }
+    }
+
+    /** @return array{0:string,1:string} */
+    private static function validatedOrigin(string $uri): array
+    {
+        $parts = parse_url($uri);
         if (!is_array($parts) || !is_string($parts['host'] ?? null)
             || ($parts['scheme'] ?? null) !== 'https') {
             throw new InvalidArgumentException('HTTP/3 requires a verified HTTPS origin.');
@@ -98,27 +129,23 @@ final readonly class Http3ClientWireCodec
             throw new InvalidArgumentException('Invalid HTTP/3 request target.');
         }
         $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
-        $fields = [
-            [':method', $request->method],
-            [':scheme', 'https'],
-            [':authority', $authority],
-            [':path', $target],
-        ];
-        foreach ($request->headers->fields() as $header) {
-            $name = $header->name;
-            if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade'], true)
-                || ($name === 'te' && strtolower(trim($header->value)) !== 'trailers')
-                || ($name === 'content-length' && $header->value !== '0')) {
-                throw new InvalidArgumentException('HTTP/3 client request includes a prohibited hop-by-hop or body header.');
-            }
-            $fields[] = [$name, $header->value];
-        }
 
-        $encoded = $this->encoder->encode($fields, $streamId);
-        if ($encoded->requiredInsertCount !== 0 || $encoded->blocking) {
-            throw new Http3Exception(ErrorCode::INTERNAL_ERROR, 'Static HTTP/3 QPACK must never block.');
-        }
-
-        return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
+        return [$authority, $target];
     }
+
+    private static function responseField(string $name, string $value): HeaderField
+    {
+        if (str_starts_with($name, ':') || preg_match('/[A-Z]/', $name) === 1) {
+            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response pseudo-header ordering.');
+        }
+        if (in_array($name, ['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade'], true)) {
+            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response included a prohibited hop-by-hop field.');
+        }
+        try {
+            return new HeaderField($name, $value);
+        } catch (InvalidArgumentException $error) {
+            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response header field.', $error);
+        }
+    }
+
 }

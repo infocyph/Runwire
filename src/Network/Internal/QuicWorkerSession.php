@@ -218,11 +218,6 @@ final class QuicWorkerSession
     }
 
     /**
-     * Open a locally initiated QUIC stream, returning a worker-local handle.
-     *
-     * @return array{stream:int, bidirectional:bool}
-     */
-    /**
      * Import one peer-created QUIC stream without transferring native ownership.
      *
      * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
@@ -261,6 +256,11 @@ final class QuicWorkerSession
         return ['stream' => $id, 'bidirectional' => $bidirectional, 'incoming' => true];
     }
 
+    /**
+     * Open a locally initiated QUIC stream, returning a worker-local handle.
+     *
+     * @return array{stream:int, bidirectional:bool}
+     */
     private function openStream(bool $bidirectional): array
     {
         if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
@@ -277,8 +277,12 @@ final class QuicWorkerSession
             throw new RuntimeException('Native QUIC backend returned an invalid stream.');
         }
         $id = $this->nextStreamId++;
-        $this->streams[$id] = ['stream' => $stream, 'bidirectional' => $bidirectional,
-            'readable' => $bidirectional, 'writable' => true];
+        $this->streams[$id] = [
+            'stream' => $stream,
+            'bidirectional' => $bidirectional,
+            'readable' => $bidirectional,
+            'writable' => true,
+        ];
 
         return ['stream' => $id, 'bidirectional' => $bidirectional];
     }
