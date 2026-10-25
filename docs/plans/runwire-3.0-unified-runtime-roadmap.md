@@ -732,3 +732,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 incremental H3 response trailer support (2026-10-25; QA PENDING):** Current implementation stage adds validated bounded static-QPACK response trailer decoding and an opt-in response trailer callback to the one-shot native outbound H3 client; DATA after trailers, duplicate trailers, pseudo/routing/framing fields fail closed. The independent aioquic POST peer sends a trailing HEADERS frame and the fixture asserts exact callback delivery. This does **not** complete dynamic QPACK, outbound multiplexing or U07.06/.07. **Canonical 127/175 accepted, 48 OPEN, C1 4/11 accepted, 7 OPEN; C2-C5 queued.** Source-specific QA is required before promoting any task.
+
+
+**C1 worker-local native poll/write profiling (2026-10-25, QA PENDING):** `profile_start/profile_read` are fixed validated worker commands, with conditional native poll/write/read timing, worker CPU/kernel RSS and bounded stream-lifetime counters stored in same real independent aioquic JSON evidence. Ordinary requests do not enable profiling. Supports U05.10 and U08.05; not a substitute for multi-protocol matched performance certification. **127/175, 48 OPEN, C1 4/11**, no C2 changes.

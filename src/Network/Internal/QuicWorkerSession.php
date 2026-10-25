@@ -30,6 +30,8 @@ final class QuicWorkerSession
 
     private int $profilePollCalls = 0;
 
+    private int $profileCpuStartMicroseconds = 0;
+
     private int $profilePollNanoseconds = 0;
 
     private int $profileReadCalls = 0;
@@ -324,11 +326,23 @@ final class QuicWorkerSession
         return ['stream' => $id, 'bidirectional' => $bidirectional];
     }
 
-    /** @return array<string, int|bool> */
+    /** @return array<string, int|bool|float> */
     private function readProfile(): array
     {
+        $usage = function_exists('getrusage') ? getrusage() : false;
+        $cpuEnd = is_array($usage)
+            ? (int) $usage['ru_utime.tv_sec'] * 1_000_000 + (int) $usage['ru_utime.tv_usec']
+                + (int) $usage['ru_stime.tv_sec'] * 1_000_000 + (int) $usage['ru_stime.tv_usec']
+            : 0;
+
         return [
             'profiling' => $this->profiling,
+            'worker_usage_available' => is_array($usage),
+            'worker_cpu_ms' => $this->profiling && is_array($usage)
+                ? round(max(0, $cpuEnd - $this->profileCpuStartMicroseconds) / 1_000, 3)
+                : 0.0,
+            'worker_peak_rss_kib' => is_array($usage) ? (int) ($usage['ru_maxrss'] ?? 0) : 0,
+            'worker_php_peak_bytes' => memory_get_peak_usage(true),
             'poll_calls' => $this->profilePollCalls,
             'poll_nanoseconds' => $this->profilePollNanoseconds,
             'read_calls' => $this->profileReadCalls,
@@ -397,6 +411,11 @@ final class QuicWorkerSession
     /** Enable worker-local timing only for a requested diagnostic workload. */
     private function startProfile(): array
     {
+        $usage = function_exists('getrusage') ? getrusage() : false;
+        $this->profileCpuStartMicroseconds = is_array($usage)
+            ? (int) $usage['ru_utime.tv_sec'] * 1_000_000 + (int) $usage['ru_utime.tv_usec']
+                + (int) $usage['ru_stime.tv_sec'] * 1_000_000 + (int) $usage['ru_stime.tv_usec']
+            : 0;
         $this->profilePollCalls = 0;
         $this->profilePollNanoseconds = 0;
         $this->profileReadCalls = 0;

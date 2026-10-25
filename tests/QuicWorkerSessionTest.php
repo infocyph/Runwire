@@ -490,6 +490,7 @@ it('records native poll/read/write costs only after explicit QUIC worker profili
     ]);
     expect($profile)->toMatchArray([
         'profiling' => true,
+        'worker_usage_available' => true,
         'read_calls' => 1,
         'read_bytes' => 2,
         'write_calls' => 1,
@@ -498,6 +499,9 @@ it('records native poll/read/write costs only after explicit QUIC worker profili
         'peak_streams' => 1,
         'live_streams' => 1,
     ])
+        ->and($profile['worker_peak_rss_kib'])->toBeGreaterThan(0)
+        ->and($profile['worker_php_peak_bytes'])->toBeGreaterThan(0)
+        ->and($profile['worker_cpu_ms'])->toBeGreaterThanOrEqual(0.0)
         ->and($profile['poll_calls'])->toBeGreaterThan(0)
         ->and($profile['poll_nanoseconds'])->toBeGreaterThanOrEqual(0)
         ->and($profile['write_nanoseconds'])->toBeGreaterThanOrEqual(0)

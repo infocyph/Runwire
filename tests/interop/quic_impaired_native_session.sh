@@ -47,6 +47,10 @@ if ! php tests/fixtures/quic_session_echo_client.php \
 fi
 jq -e '.verified == true and .concurrent_bidirectional == true
     and .worker_profile.profiling == true
+    and .worker_profile.worker_usage_available == true
+    and .worker_profile.worker_peak_rss_kib > 0
+    and .worker_profile.worker_php_peak_bytes > 0
+    and .worker_profile.worker_cpu_ms >= 0
     and .worker_profile.poll_calls > 0 and .worker_profile.write_calls > 0
     and .worker_profile.read_calls > 0 and .worker_profile.write_bytes > 0
     and .native_reset_storm_count == 24
