@@ -68,17 +68,13 @@ final readonly class Http3ClientWireCodec
         return ['status' => $status, 'headers' => new Headers($fields)];
     }
 
-    /** Serialize one bodyless HTTPS request for an already verified QUIC+h3 stream. */
+    /** Serialize HTTPS request headers for an already verified QUIC+h3 stream. */
     public function encodeRequestHeaders(ClientRequest $request, int $streamId): string
     {
         $request->protocol->negotiate('h3', true, true);
         if (strtoupper($request->method) === 'CONNECT') {
             throw new RuntimeUnavailableException('HTTP/3 CONNECT needs a separately authenticated tunnel protocol.');
         }
-        if ($request->body !== null) {
-            throw new RuntimeUnavailableException('HTTP/3 client streaming body support is not yet implemented.');
-        }
-
         $fields = self::requestFields($request);
 
         $encoded = $this->encoder->encode($fields, $streamId);
@@ -89,13 +85,37 @@ final readonly class Http3ClientWireCodec
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
-    private static function assertRequestHeader(string $name, string $value): void
+    private static function assertRequestHeader(string $name, string $value, bool $hasBody): void
     {
-        if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade'], true)
+        if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'proxy-authorization', 'transfer-encoding', 'upgrade'], true)
             || ($name === 'te' && strtolower(trim($value)) !== 'trailers')
-            || ($name === 'content-length' && $value !== '0')) {
+            || ($name === 'content-length' && ($hasBody || $value !== '0'))) {
             throw new InvalidArgumentException('HTTP/3 client request includes a prohibited hop-by-hop or body header.');
         }
+    }
+
+    /** Encode the final bounded HTTP/3 trailer section without dynamic QPACK. */
+    public function encodeRequestTrailers(Headers $trailers, int $streamId): string
+    {
+        $fields = [];
+        foreach ($trailers->fields() as $field) {
+            if (str_starts_with($field->name, ':')
+                || in_array($field->name, ['content-length', 'host', 'te', 'trailer'], true)) {
+                throw new InvalidArgumentException('HTTP/3 upload trailers contain prohibited routing or framing fields.');
+            }
+            self::assertRequestHeader($field->name, $field->value, true);
+            $fields[] = [$field->name, $field->value];
+        }
+        if ($fields === []) {
+            return '';
+        }
+
+        $encoded = $this->encoder->encode($fields, $streamId);
+        if ($encoded->requiredInsertCount !== 0 || $encoded->blocking) {
+            throw new Http3Exception(ErrorCode::INTERNAL_ERROR, 'HTTP/3 upload trailers must never block.');
+        }
+
+        return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
     /** @return list<array{0:string,1:string}> */
@@ -109,7 +129,7 @@ final readonly class Http3ClientWireCodec
             [':path', $target],
         ];
         foreach ($request->headers->fields() as $header) {
-            self::assertRequestHeader($header->name, $header->value);
+            self::assertRequestHeader($header->name, $header->value, $request->body !== null);
             $fields[] = [$header->name, $header->value];
         }
 

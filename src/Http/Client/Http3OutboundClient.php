@@ -11,6 +11,8 @@ use Infocyph\Runwire\Http\Client\Internal\Http3ClientControl;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Http3\Enum\FrameType;
+use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
@@ -22,8 +24,8 @@ use Throwable;
 /**
  * Experimental one-shot HTTPS/h3 client with off-event-loop native QUIC I/O.
  *
- * Supports one bodyless request with bounded static-QPACK response streaming.
- * No implicit H1/H2 fallback, connection reuse, dynamic QPACK or trailers.
+ * Supports bounded incremental DATA uploads and static-QPACK response streaming.
+ * No implicit H1/H2 fallback, connection reuse or dynamic QPACK.
  */
 final class Http3OutboundClient
 {
@@ -50,6 +52,12 @@ final class Http3OutboundClient
     private ?int $timeout = null;
 
     private int $unrelatedStreams = 0;
+
+    private int $uploadedBytes = 0;
+
+    private const int MAX_UPLOAD_BYTES = 16_777_216;
+
+    private const int UPLOAD_CHUNK_BYTES = 4_096;
 
     /**
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
@@ -138,10 +146,6 @@ final class Http3OutboundClient
         if ($request->protocol->negotiate('h3', true, true) !== ProtocolVersion::HTTP_3) {
             throw new InvalidArgumentException('HTTP/3 client protocol policy rejected h3.');
         }
-        if ($request->body !== null) {
-            throw new InvalidArgumentException('HTTP/3 streaming request uploads are not yet supported.');
-        }
-
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
 
@@ -334,6 +338,44 @@ final class Http3OutboundClient
         );
     }
 
+    /** Pull one bounded producer chunk only after the previous QUIC write completes. */
+    private function sendUpload(): void
+    {
+        $body = $this->request->body;
+        if ($body === null) {
+            $this->receiveControl();
+
+            return;
+        }
+        if ($body->eof()) {
+            $trailers = $body->trailers();
+            $last = $trailers === null ? '' : new Http3ClientWireCodec()->encodeRequestTrailers($trailers, $this->responseStream);
+            $this->command('write', $this->responseStream, $last, true, function (array $result) use ($last): void {
+                $this->assertWritten($result, strlen($last));
+                $this->receiveControl();
+            });
+
+            return;
+        }
+
+        $chunk = $body->read(self::UPLOAD_CHUNK_BYTES);
+        if ($chunk === '') {
+            $this->poll(fn() => $this->sendUpload());
+
+            return;
+        }
+        $length = strlen($chunk);
+        if ($length > self::UPLOAD_CHUNK_BYTES || $length > self::MAX_UPLOAD_BYTES - $this->uploadedBytes) {
+            throw new RuntimeException('HTTP/3 streaming upload exceeded its bounded byte budget.');
+        }
+        $this->uploadedBytes += $length;
+        $frame = new Frame(FrameType::DATA->value, $chunk)->encode();
+        $this->command('write', $this->responseStream, $frame, false, function (array $result) use ($frame): void {
+            $this->assertWritten($result, strlen($frame));
+            $this->sendUpload();
+        });
+    }
+
     private function sendRequest(int $stream): void
     {
         if ($stream < 1) {
@@ -348,10 +390,10 @@ final class Http3OutboundClient
             'write',
             $stream,
             $bytes,
-            true,
+            $this->request->body === null,
             function (array $result) use ($bytes): void {
                 $this->assertWritten($result, strlen($bytes));
-                $this->receiveControl();
+                $this->sendUpload();
             },
         );
     }

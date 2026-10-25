@@ -93,3 +93,39 @@ it('refuses CONNECT pseudo-header misuse and hop-by-hop response metadata', func
         ->and(fn() => $codec->decodeResponseHeaders($response, 7))
         ->toThrow(Http3Exception::class, 'hop-by-hop');
 });
+
+
+it('permits bounded H3 upload headers but rejects ambiguous length and proxy credentials', function (): void {
+    $body = new class implements \Infocyph\Runwire\Http\Client\ClientBodySourceInterface {
+        public function eof(): bool { return true; }
+        public function read(int $maxBytes = PHP_INT_MAX): string { return ''; }
+        public function trailers(): ?Headers { return null; }
+    };
+    $codec = new Http3ClientWireCodec();
+    $upload = new ClientRequest('POST', 'https://example.com/upload', body: $body, protocol: h3TestPolicy());
+    $frames = (new FrameParser())->push($codec->encodeRequestHeaders($upload, 1));
+    expect($frames)->toHaveCount(1)->and($frames[0]->type)->toBe(FrameType::HEADERS->value);
+
+    $wrongLength = new ClientRequest('POST', 'https://example.com/upload',
+        Headers::fromArray(['content-length' => '3']), body: $body, protocol: h3TestPolicy());
+    $proxySecret = new ClientRequest('POST', 'https://example.com/upload',
+        Headers::fromArray(['proxy-authorization' => 'Basic secret']), body: $body, protocol: h3TestPolicy());
+    expect(fn() => $codec->encodeRequestHeaders($wrongLength, 3))
+        ->toThrow(InvalidArgumentException::class, 'prohibited')
+        ->and(fn() => $codec->encodeRequestHeaders($proxySecret, 3))
+        ->toThrow(InvalidArgumentException::class, 'prohibited');
+});
+
+it('encodes static QPACK trailers but rejects framing and hop-by-hop fields', function (): void {
+    $codec = new Http3ClientWireCodec();
+    $bytes = $codec->encodeRequestTrailers(Headers::fromArray(['x-upload-finished' => 'yes']), 3);
+    $frames = (new FrameParser())->push($bytes);
+    expect($frames)->toHaveCount(1)->and($frames[0]->type)->toBe(FrameType::HEADERS->value);
+    $fields = (new Decoder(0, 0))->decode($frames[0]->payload, 3);
+    expect($fields)->not->toBeNull()
+        ->and($fields->fields)->toContain(['x-upload-finished', 'yes']);
+    expect(fn() => $codec->encodeRequestTrailers(Headers::fromArray(['content-length' => '42']), 3))
+        ->toThrow(InvalidArgumentException::class, 'prohibited')
+        ->and(fn() => $codec->encodeRequestTrailers(Headers::fromArray(['connection' => 'close']), 3))
+        ->toThrow(InvalidArgumentException::class, 'prohibited');
+});
