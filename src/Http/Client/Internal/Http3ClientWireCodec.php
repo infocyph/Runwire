@@ -85,15 +85,6 @@ final readonly class Http3ClientWireCodec
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
-    private static function assertRequestHeader(string $name, string $value, bool $hasBody): void
-    {
-        if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'proxy-authorization', 'transfer-encoding', 'upgrade'], true)
-            || ($name === 'te' && strtolower(trim($value)) !== 'trailers')
-            || ($name === 'content-length' && ($hasBody || $value !== '0'))) {
-            throw new InvalidArgumentException('HTTP/3 client request includes a prohibited hop-by-hop or body header.');
-        }
-    }
-
     /** Encode the final bounded HTTP/3 trailer section without dynamic QPACK. */
     public function encodeRequestTrailers(Headers $trailers, int $streamId): string
     {
@@ -117,6 +108,16 @@ final readonly class Http3ClientWireCodec
 
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
+
+    private static function assertRequestHeader(string $name, string $value, bool $hasBody): void
+    {
+        if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'proxy-authorization', 'transfer-encoding', 'upgrade'], true)
+            || ($name === 'te' && strtolower(trim($value)) !== 'trailers')
+            || ($name === 'content-length' && ($hasBody || $value !== '0'))) {
+            throw new InvalidArgumentException('HTTP/3 client request includes a prohibited hop-by-hop or body header.');
+        }
+    }
+
 
     /** @return list<array{0:string,1:string}> */
     private static function requestFields(ClientRequest $request): array

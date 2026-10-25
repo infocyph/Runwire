@@ -29,6 +29,10 @@ use Throwable;
  */
 final class Http3OutboundClient
 {
+    private const int MAX_UPLOAD_BYTES = 16_777_216;
+
+    private const int UPLOAD_CHUNK_BYTES = 4_096;
+
     private readonly Closure $completion;
 
     private readonly Http3ClientControl $control;
@@ -54,10 +58,6 @@ final class Http3OutboundClient
     private int $unrelatedStreams = 0;
 
     private int $uploadedBytes = 0;
-
-    private const int MAX_UPLOAD_BYTES = 16_777_216;
-
-    private const int UPLOAD_CHUNK_BYTES = 4_096;
 
     /**
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders

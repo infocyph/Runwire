@@ -98,7 +98,7 @@ it('refuses CONNECT pseudo-header misuse and hop-by-hop response metadata', func
 it('permits bounded H3 upload headers but rejects ambiguous length and proxy credentials', function (): void {
     $body = new class implements \Infocyph\Runwire\Http\Client\ClientBodySourceInterface {
         public function eof(): bool { return true; }
-        public function read(int $maxBytes = PHP_INT_MAX): string { return ''; }
+        public function read(int $maxBytes = PHP_INT_MAX): string { return $maxBytes < 1 ? '' : ''; }
         public function trailers(): ?Headers { return null; }
     };
     $codec = new Http3ClientWireCodec();
