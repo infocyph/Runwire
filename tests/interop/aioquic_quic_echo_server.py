@@ -15,6 +15,7 @@ from aioquic.quic.events import HandshakeCompleted, StreamDataReceived
 class EchoProtocol(QuicConnectionProtocol):
     marker_path = None
     impair_post_handshake = False
+    send_peer_uni = False
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -44,6 +45,14 @@ class EchoProtocol(QuicConnectionProtocol):
     def quic_event_received(self, event) -> None:
         if isinstance(event, HandshakeCompleted):
             self._handshake_complete = True
+            if self.send_peer_uni:
+                stream_id = self._quic.get_next_available_stream_id(
+                    is_unidirectional=True
+                )
+                self._quic.send_stream_data(
+                    stream_id, b"peer-control-settings", end_stream=True
+                )
+                self.transmit()
             return
         if isinstance(event, StreamDataReceived):
             # Client-initiated unidirectional QUIC stream IDs have bit 1 set.
@@ -86,9 +95,11 @@ async def main() -> None:
     parser.add_argument("ready")
     parser.add_argument("unidirectional_marker")
     parser.add_argument("--impair-post-handshake", action="store_true")
+    parser.add_argument("--send-peer-uni", action="store_true")
     args = parser.parse_args()
     EchoProtocol.marker_path = args.unidirectional_marker
     EchoProtocol.impair_post_handshake = args.impair_post_handshake
+    EchoProtocol.send_peer_uni = args.send_peer_uni
     configuration = QuicConfiguration(is_client=False, alpn_protocols=["runwire-echo"])
     configuration.load_cert_chain(args.cert, args.key)
     server = await serve(

@@ -31,7 +31,7 @@
 
 ## Five grouped completion batches (52 open tasks; authoritative U acceptance remains unchanged)
 
-All **52** unchecked Uxx.yy IDs are assigned exactly once across these five **execution batches**. They are not extra acceptance items: the canonical 18 U-divisions, 175-task total and proof thresholds above remain authoritative. Shared release-infrastructure fixes, trackers, workflow repairs and QA recovery follow the batch currently in progress; they never count as new accepted tasks. A downstream batch may receive nonblocking groundwork earlier, but no prerequisite may be counted as complete before real evidence.
+All **52** unchecked Uxx.yy IDs are assigned exactly once across these five **execution batches**. They are not extra acceptance items: the canonical 18 U-divisions, 175-task total and proof thresholds above remain authoritative. Shared release-infrastructure fixes, trackers, workflow repairs and QA recovery follow the batch currently in progress; they never count as new accepted tasks. No downstream batch can begin before the active closure batch is fully accepted with green QA; prerequisites must be independently proven.
 
 | Closure batch | Coherent workstream | Exact open task IDs | Open | Status | Acceptance boundary |
 | --- | --- | --- | ---: | --- | --- |
@@ -1069,3 +1069,6 @@ All of these pages are **required deliverables** inside the proposed docs docume
 
 
 **C1 whole-batch acceptance correction (2026-10-25; QA PENDING):** C1 is **one indivisible eleven-task batch**. Do not call any smaller code change or rolling QA adjustment a separate batch. Source `da7a22641913` completed eight routine workflows, including Benchmarks, but Security & Standards PHPForge Pint failed H3 codec private method order. Fix the measured formatter regression and enforce exact-head green QA as a mandatory C1 exit gate. Continue all remaining H3 QUIC, TLS, peer and performance work *within the same C1*. No C2 development permitted before 11/11 verified. **123/175 QA-accepted; 52 OPEN; C1 0/11 newly accepted.**
+
+
+**C1 ongoing integration (2026-10-25; native/QA PENDING):** Correct the PHPForge Pint `class_attributes_separation` regression on W151 after the formatter identified the extra newline before the H3 codec closing brace. Extend independent `aioquic` echo service with opt-in server-initiated unidirectional peer traffic while retaining existing fixtures' defaults, add a bounded QUIC worker client verifying native incoming one-way stream payload, EOF, TLS identity and cleanup, and run the new test within BOTH PHP 8.4/8.5 native QUIC lanes with uploaded JSON evidence. These are C1 implementation/QA corrections **inside the same 11-task batch**, not separate completion batches. C1 still 11 OPEN / 0 newly accepted; canonical **123/175 accepted, 52 OPEN**. C2-C5 remain untouched.

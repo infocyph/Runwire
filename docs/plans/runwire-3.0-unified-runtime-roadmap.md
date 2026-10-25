@@ -699,3 +699,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 scope discipline correction (2026-10-25; QA PENDING):** C1 must be **fully delivered (11/11 task acceptances) with green PHPForge, protocols, native peers, hosted and performance QA** before any C2 work. Fix latest H3 formatter regression; no new task checkbox is justified yet. **123/175 accepted; 52 open; C1 ACTIVE; C2-C5 QUEUED**.
+
+
+**C1 independent peer acceptance extension (2026-10-25; QA PENDING):** Native QUIC incoming peer-created unidirectional stream interop and post-Pint correction belong to the same fixed C1 scope. Existing aioquic loss/reorder and echo tests remain enabled. Neither workflow-code integration nor source tests alone close C1; full 11/11 and green exact-head QA required before C2. **123/175 accepted, 52 OPEN**.

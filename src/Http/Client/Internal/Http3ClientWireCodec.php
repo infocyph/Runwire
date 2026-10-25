@@ -149,5 +149,4 @@ final readonly class Http3ClientWireCodec
 
         return [$authority, $target];
     }
-
 }

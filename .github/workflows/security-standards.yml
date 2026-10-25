@@ -411,6 +411,14 @@ jobs:
             and .unidirectional_streams_delivered == 1' \
             "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json" >/dev/null
 
+      - name: Verify peer-initiated QUIC unidirectional streams against independent aioquic
+        shell: bash
+        run: |
+          php -l tests/fixtures/quic_client_inbound_uni.php
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_quic_echo_server.py
+          bash -n tests/interop/quic_peer_inbound_uni.sh
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash tests/interop/quic_peer_inbound_uni.sh benchmark-results/native-quic-inbound.json
+
       - name: Recover native QUIC sibling streams under real independent UDP loss and reorder
         if: matrix.php-version == '8.5'
         shell: bash
@@ -428,6 +436,7 @@ jobs:
           name: runwire-native-quic-session-php-${{ matrix.php-version }}
           path: |
             benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json
+            benchmark-results/native-quic-inbound.json
             benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}.json
             benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}-peer.json
           retention-days: 90
