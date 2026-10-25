@@ -172,7 +172,7 @@ try {
         $argv[1],
         (int) $argv[2],
         $options,
-        static function (mixed $value, ?Throwable $error) use ($session, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed): void {
+        static function (mixed $value, ?Throwable $error) use ($session, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed, &$nativeResets, &$postResetBidi): void {
             if ($error !== null || ($value['alpn'] ?? null) !== 'runwire-echo' || !$session->active()) {
                 $stop($error ?? new RuntimeException('QUIC session TLS/ALPN verification failed.'));
                 return;
@@ -182,12 +182,13 @@ try {
             $rejectUnsupported(static fn() => $options->assertDatagramAvailable(), 'post-handshake datagrams');
 
             // Real native stream reset must preserve this verified connection:
-            // the independent peer must still receive the             $resetThenSendUni = static function () use ($session, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
+            // the independent peer must still receive the final uni FIN.
+            $resetThenSendUni = static function () use ($session, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
                 // All 6 siblings are admitted before reset callbacks settle.
                 // The independent peer must remain healthy for the subsequent uni FIN.
                 for ($index = 0; $index < 6; ++$index) {
                     $session->command('open_bidi', 0, '', false,
-                        static function (mixed $opened, ?Throwable $error) use ($session, $stop, $sendUni, &$nativeResets): void {
+                        static function (mixed $opened, ?Throwable $error) use ($session, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
                             if ($error !== null || !is_int($opened['stream'] ?? null)) {
                                 $stop($error ?? new RuntimeException('QUIC reset burst could not open its sibling.'));
 
@@ -220,9 +221,6 @@ try {
                 }
             };
 
-);
-            };
-
             $finishBidi = static function (string $payload) use ($resetThenSendUni, &$completed): void {
                 $completed[] = $payload;
                 if (count($completed) === 2) {
@@ -246,6 +244,7 @@ try {
     }
     sort($completed);
     if ($completed !== ['first-quic-stream', 'one-way-quic-stream', 'second-quic-stream']
+        || $nativeResets !== 6 || $postResetBidi !== 2
         || $session->active() || $loop->diagnostics()->readWatchers !== 0
         || $loop->diagnostics()->writeWatchers !== 0
         || $loop->diagnostics()->timersActive !== 0) {
