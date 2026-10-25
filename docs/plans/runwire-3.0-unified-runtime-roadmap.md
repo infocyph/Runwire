@@ -481,3 +481,18 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W92 source-linked API/error catalog (2026-10-25; QA pending):** Native Sphinx API builder now records per-exception declaring type and `throw new` source line; an executable parity test checks public methods/properties/constants/enums and source-linked runtime error owner references. The runtime/extension error catalog remains deliberately qualified; U16.11/U16.12 stay OPEN until their complete independent gates. **118/175 accepted; 57 open**.
+
+
+**W93 independent H2 WINDOW_UPDATE stress (2026-10-25; QA PENDING):** A second mandatory independently verified TLS/hyper-h2 peer mode transfers 131072 bytes on **each of two simultaneously active streams**, demanding real 65535-byte connection and stream credit replenishment and sibling fairness. Existing reversed-response mode retained. This is not U07.05 acceptance until green exact-source independent/PHPForge and cancellation-storm evidence. Tracker 118/175, 57 open; target 140.
+
+
+**W93 cancellation-churn additions (2026-10-25; QA PENDING):** 64 repeated H2 client canceled streams and peer-reset drains, deterministic finite tombstone-budget failure for withheld peer resets, and zero live requests after session shutdown; supplement independent large-response flow-control mode. No acceptance without full QA; totals 118/175, 57 open.
+
+
+**W93 W91 QA recovery (2026-10-25; new-head QA PENDING):** Previous W91 Sphinx #40146243161, hyper-h2 #40146243105 and source/host/native PASS; [Security #40146243564](https://github.com/infocyph/Runwire/actions/runs/40146243564) PHPForge QA Pint fails two formatting issues (OpenSSL fixture argument layout, transport private property order/blank before `try`), with Pest/Rector/PHPCS/analysis passing. Recover in W93 alongside independent H2 flow-window and cancellation-churn tests, no acceptance change before QA. 118/175 accepted; 57 OPEN; target 140.
+
+
+**W93 H2 observer exception isolation (2026-10-25; staged):** Explicit H2 multiplexer terminal callback failure cannot prevent sibling drain; unit regression verifies all completion notifications, zero active streams and idempotent second close. No extra accepted tasks pending exact head QA.
+
+
+**W93 retired H2 stream adversarial frames (2026-10-25; pending CI):** Reject invalid peer RST_STREAM and unsupported DATA flag combinations on canceled stream IDs; retain canceled-stream state until a valid final reset/END_STREAM, with negative protocol tests. No new checkboxes accepted yet.

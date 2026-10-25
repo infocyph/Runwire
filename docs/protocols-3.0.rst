@@ -148,3 +148,17 @@ two concurrent request streams and reversed-order responses with connection-
 scoped HPACK state. The test is a **candidate acceptance gate**, not a claim
 of independent success until its exact-head run finishes. Stream-cancellation
 storms, slow consumers and saturated flow windows remain required under U07.05.
+
+
+HTTP/2 receive-window stress and canceled streams
+-------------------------------------------------
+
+The same mandatory independent TLS/hyper-h2 reference now has an additional
+flow-pressure mode: each of two simultaneously live streams carries 131072
+bytes, deliberately exceeding the default 65535-byte connection and stream
+receive windows. Peer completion therefore tests credit replenishment and
+sibling fairness rather than merely testing short responses. A separate
+64-generation protocol regression exercises stream-local RST, pending peer
+acknowledgments, exactly-once completion and the fixed retired-stream budget.
+These development tests do not replace production benchmark certification,
+full slow-peer adversarial interop or final U07.05 QA acceptance.

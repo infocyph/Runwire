@@ -90,8 +90,16 @@ final class Http2ClientMultiplexSession
         }
         $this->closed = true;
         $this->retired = [];
+        $callbackError = null;
         foreach (array_keys($this->streams) as $streamId) {
-            $this->finish($streamId, $error ?? new RuntimeException('HTTP/2 client connection closed.'));
+            try {
+                $this->finish($streamId, $error ?? new RuntimeException('HTTP/2 client connection closed.'));
+            } catch (Throwable $failure) {
+                $callbackError ??= $failure;
+            }
+        }
+        if ($callbackError !== null) {
+            throw $callbackError;
         }
     }
 
@@ -238,14 +246,21 @@ final class Http2ClientMultiplexSession
     /** Drain previously canceled response frames without accepting new headers. */
     private function retiredFrame(Frame $frame): string
     {
-        if ($frame->knownType() === FrameType::RST_STREAM
-            || ($frame->knownType() === FrameType::DATA && $frame->hasFlag(0x1))) {
+        if ($frame->knownType() === FrameType::RST_STREAM) {
+            if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
+                throw new RuntimeException('H2 retired stream RST_STREAM requires four bytes and no flags.');
+            }
             unset($this->retired[$frame->streamId]);
-        } elseif ($frame->knownType() !== FrameType::DATA) {
+
+            return '';
+        }
+        if ($frame->knownType() !== FrameType::DATA || ($frame->flags & ~0x1) !== 0) {
             throw new RuntimeException('H2 retired stream received an unsafe control/header frame.');
         }
-
-        $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
+        if ($frame->hasFlag(0x1)) {
+            unset($this->retired[$frame->streamId]);
+        }
+        $bytes = strlen($frame->payload);
 
         return $bytes > 0
             ? FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes))

@@ -33,9 +33,9 @@ final class Http2MultiplexConnection
 
     private ?int $closeObserver = null;
 
-    private bool $ownsCallbacks = false;
-
     private string $outgoing = '';
+
+    private bool $ownsCallbacks = false;
 
     private bool $readyNotified = false;
 
@@ -86,6 +86,7 @@ final class Http2MultiplexConnection
             return;
         }
         $this->settled = true;
+
         try {
             $this->session->close($error);
         } finally {
@@ -213,6 +214,7 @@ final class Http2MultiplexConnection
         if ($this->settled) {
             return;
         }
+
         try {
             for ($turn = 0; $turn < 8; ++$turn) {
                 $bytes = $this->connection->receivedBytes() > 0
@@ -257,6 +259,7 @@ final class Http2MultiplexConnection
         if ($this->settled || $this->outgoing === '') {
             return;
         }
+
         try {
             for ($count = 0; $count < 8 && $this->outgoing !== ''; ++$count) {
                 $available = $this->connection->availableWriteBytes();

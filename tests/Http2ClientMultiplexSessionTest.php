@@ -155,3 +155,125 @@ it('honors an independent peer SETTINGS concurrency limit across sequential stre
     expect($session->activeCount())->toBe(0)
         ->and($request()['stream'])->toBe(3);
 });
+
+it('drains 64 canceled H2 streams and peer resets without orphaning live requests', function (): void {
+    $session = new Http2ClientMultiplexSession(1);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $completed = 0;
+    for ($index = 0; $index < 64; ++$index) {
+        $exchange = $session->request(
+            new ClientRequest('GET', 'https://example.test/churn/' . $index),
+            static function (): void {},
+            static function (): void {},
+            static function (?Throwable $error) use (&$completed): void {
+                expect($error)->toBeInstanceOf(RuntimeException::class);
+                ++$completed;
+            },
+        );
+        $streamId = $exchange['stream'];
+        $reset = (new FrameParser())->push($session->cancel($streamId));
+        expect($reset)->toHaveCount(1)
+            ->and($reset[0]->streamId)->toBe($streamId)
+            ->and($reset[0]->knownType())->toBe(FrameType::RST_STREAM)
+            ->and($session->activeCount())->toBe(0);
+        expect($session->receive(FrameWriter::rstStream(
+            $streamId,
+            ErrorCode::CANCEL,
+        )))->toBe('');
+    }
+    expect($completed)->toBe(64)
+        ->and($session->activeCount())->toBe(0);
+    $session->close();
+    expect($completed)->toBe(64);
+});
+
+it('fails closed when a peer withholds H2 reset acknowledgments beyond the bounded tombstone budget', function (): void {
+    $session = new Http2ClientMultiplexSession(1);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $settled = 0;
+    for ($index = 0; $index < 4; ++$index) {
+        $request = $session->request(
+            new ClientRequest('GET', 'https://example.test/pending/' . $index),
+            static function (): void {},
+            static function (): void {},
+            static function (?Throwable $error) use (&$settled): void {
+                expect($error)->toBeInstanceOf(RuntimeException::class);
+                ++$settled;
+            },
+        );
+        $session->cancel($request['stream']);
+    }
+    $fifth = $session->request(
+        new ClientRequest('GET', 'https://example.test/last'),
+        static function (): void {},
+        static function (): void {},
+        static function (?Throwable $error) use (&$settled): void {
+            expect($error)->toBeInstanceOf(RuntimeException::class);
+            ++$settled;
+        },
+    );
+    expect(fn() => $session->cancel($fifth['stream']))
+        ->toThrow(RuntimeException::class, 'tombstone budget');
+    $session->close();
+    expect($settled)->toBe(5)
+        ->and($session->activeCount())->toBe(0);
+});
+
+it('terminates every pending H2 sibling even when one application completion observer throws', function (): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $first = 0;
+    $second = 0;
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/failing-observer'),
+        static function (): void {},
+        static function (): void {},
+        static function (?Throwable $error) use (&$first): void {
+            expect($error)->toBeInstanceOf(RuntimeException::class);
+            ++$first;
+            throw new RuntimeException('application callback failure');
+        },
+    );
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/healthy-observer'),
+        static function (): void {},
+        static function (): void {},
+        static function (?Throwable $error) use (&$second): void {
+            expect($error)->toBeInstanceOf(RuntimeException::class);
+            ++$second;
+        },
+    );
+    expect(fn() => $session->close())->toThrow(RuntimeException::class, 'application callback failure');
+    expect($first)->toBe(1)
+        ->and($second)->toBe(1)
+        ->and($session->activeCount())->toBe(0);
+    $session->close();
+    expect($first)->toBe(1)->and($second)->toBe(1);
+});
+
+it('validates peer RST and DATA framing even after a local H2 stream cancellation', function (): void {
+    $session = new Http2ClientMultiplexSession(1);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $request = $session->request(
+        new ClientRequest('GET', 'https://example.test/canceled'),
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+    );
+    $streamId = $request['stream'];
+    $session->cancel($streamId);
+    expect(fn() => $session->receive(new Frame(FrameType::RST_STREAM->value, 0, $streamId, 'x')))
+        ->toThrow(RuntimeException::class, 'four bytes');
+    expect(fn() => $session->receive(new Frame(FrameType::RST_STREAM->value, 1, $streamId, pack('N', 8))))
+        ->toThrow(RuntimeException::class, 'no flags');
+    expect(fn() => $session->receive(new Frame(FrameType::DATA->value, 0x8, $streamId, 'bad')))
+        ->toThrow(RuntimeException::class, 'unsafe');
+    expect($session->receive(new Frame(FrameType::RST_STREAM->value, 0, $streamId, pack('N', 8))))
+        ->toBe('');
+    $session->close();
+    expect($session->activeCount())->toBe(0);
+});

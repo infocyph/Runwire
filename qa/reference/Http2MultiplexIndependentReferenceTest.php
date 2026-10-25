@@ -11,7 +11,7 @@ use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\TlsClientOptions;
 
-it('interoperates with upstream hyper-h2 for two concurrent, reversed-order streams on real verified TLS', function (): void {
+it('interoperates with upstream hyper-h2 over real TLS for parallel streams and flow credit', function (bool $flowPressure): void {
     if (!function_exists('proc_open') || !extension_loaded('openssl')) {
         throw new RuntimeException('Independent H2 multiplexer QA requires process and OpenSSL tooling.');
     }
@@ -39,10 +39,7 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
             throw new RuntimeException('Independent H2 multiplexer fixture key generation failed.');
         }
 
-        $csr = openssl_csr_new(
-            ['commonName' => 'localhost'],
-            $key,
-            [
+        $csr = openssl_csr_new(['commonName' => 'localhost'], $key, [
             'config' => $config, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256',
         ]);
         if (!$csr instanceof OpenSSLCertificateSigningRequest) {
@@ -50,12 +47,7 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
         }
 
         /** @var OpenSSLAsymmetricKey $key */
-        $signed = openssl_csr_sign(
-            $csr,
-            null,
-            $key,
-            1,
-            [
+        $signed = openssl_csr_sign($csr, null, $key, 1, [
             'config' => $config, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
         ]);
         if (!$signed instanceof OpenSSLCertificate) {
@@ -67,8 +59,19 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
         file_put_contents($cert, $certificate);
         file_put_contents($keyFile, $private);
 
+        $peerCommand = [
+            'python3',
+            '-u',
+            dirname(__DIR__, 2) . '/tests/fixtures/h2_multiplex_reference_peer.py',
+            $cert,
+            $keyFile,
+        ];
+        if ($flowPressure) {
+            $peerCommand[] = 'flow';
+        }
+
         $process = proc_open(
-            ['python3', '-u', dirname(__DIR__, 2) . '/tests/fixtures/h2_multiplex_reference_peer.py', $cert, $keyFile],
+            $peerCommand,
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
         );
@@ -152,7 +155,9 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
                 'two' => [200, 'hyper-h2-multiplex'],
                 'one' => [200, 'hyper-h2-multiplex'],
             ])
-            ->and($bodies)->toBe(['two' => 'hyper-h2-second', 'one' => 'hyper-h2-first']);
+            ->and($bodies)->toBe($flowPressure
+                ? ['two' => str_repeat('3', 131_072), 'one' => str_repeat('1', 131_072)]
+                : ['two' => 'hyper-h2-second', 'one' => 'hyper-h2-first']);
     } finally {
         $owner?->close();
         $dialer?->close();
@@ -183,4 +188,7 @@ it('interoperates with upstream hyper-h2 for two concurrent, reversed-order stre
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+})->with([
+    'reversed independent responses' => [false],
+    'large flow-control windows and sibling fairness' => [true],
+]);

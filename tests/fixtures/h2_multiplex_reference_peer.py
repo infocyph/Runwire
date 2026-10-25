@@ -12,8 +12,9 @@ from h2.connection import H2Connection
 from h2.events import RequestReceived
 from h2.settings import SettingCodes
 
-if len(sys.argv) != 3:
-    raise SystemExit("Expected certificate and private key")
+if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] != "flow"):
+    raise SystemExit("Expected certificate, private key, and optional flow mode")
+flow_mode = len(sys.argv) == 4
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -62,14 +63,59 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
             ("content-type", "text/plain"),
             ("x-reference-server", "hyper-h2-multiplex"),
         ])
-        connection.send_data(3, b"hyper-h2-second", end_stream=True)
+        if not flow_mode:
+            connection.send_data(3, b"hyper-h2-second", end_stream=True)
         connection.send_headers(1, [
             (":status", "200"),
             ("content-type", "text/plain"),
             ("x-reference-server", "hyper-h2-multiplex"),
         ])
-        connection.send_data(1, b"hyper-h2-first", end_stream=True)
-        stream.sendall(connection.data_to_send())
-        time.sleep(0.25)
+        if not flow_mode:
+            connection.send_data(1, b"hyper-h2-first", end_stream=True)
+            stream.sendall(connection.data_to_send())
+            time.sleep(0.25)
+        else:
+            # Each body exceeds both HTTP/2's initial stream and connection
+            # receive windows. A client that fails to return consumed credit
+            # will deadlock without sending complete, correct responses.
+            pending = {3: b"3" * 131_072, 1: b"1" * 131_072}
+            offsets = {3: 0, 1: 0}
+            stream.sendall(connection.data_to_send())
+            deadline = time.monotonic() + 6.0
+            while offsets:
+                if time.monotonic() > deadline:
+                    raise RuntimeError(f"H2 flow-pressure stalled at {offsets!r}")
+                progressed = False
+                for stream_id in (3, 1):
+                    if stream_id not in offsets:
+                        continue
+                    available = min(
+                        connection.local_flow_control_window(stream_id),
+                        connection.max_outbound_frame_size,
+                        8_192,
+                        len(pending[stream_id]) - offsets[stream_id],
+                    )
+                    if available <= 0:
+                        continue
+                    start = offsets[stream_id]
+                    end = start + available
+                    connection.send_data(
+                        stream_id,
+                        pending[stream_id][start:end],
+                        end_stream=end == len(pending[stream_id]),
+                    )
+                    offsets[stream_id] = end
+                    if end == len(pending[stream_id]):
+                        del offsets[stream_id]
+                    progressed = True
+                outgoing = connection.data_to_send()
+                if outgoing:
+                    stream.sendall(outgoing)
+                if not progressed:
+                    packet = stream.recv(65_536)
+                    if not packet:
+                        raise RuntimeError("H2 peer closed before credit replenishment")
+                    connection.receive_data(packet)
+            time.sleep(0.25)
 
 print("multiplex-reference-ok", file=sys.stderr)
