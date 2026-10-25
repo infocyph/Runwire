@@ -720,3 +720,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 first acceptance and real stress/certification gates (2026-10-25; QA PENDING for new code):** Existing immutable `af98a8ba` completed all nine workflows green, including original-origin H1/H2/H3 TLS/ALPN policy, 48 fallback permutations and both independent native QUIC H3 peers. Accept **U07.08 only** with documented source and workflow links; canonical **124/175 accepted, 51 OPEN; C1 1/11 accepted, 10 open**. Correct stale prose counts for eight U divisions and add a drift test. New real independent stalled QUIC peer/reset with live sibling recovery and verified one-shot source-pinned 5x180-second TLS baseline gate are **not accepted yet**. No C2 development, no tag/merge/release.
+
+
+**C1 bounded H3 upload progress (2026-10-25; QA PENDING):** `3175e10f288d` adds 4 KiB bounded request DATA streaming, trailer validation and independent aioquic upload acceptance for the one-shot H3 client. Full U07.06 dynamic QPACK, multiplexing and broader C1 acceptance remain OPEN. **124/175 accepted, 51 OPEN; C1 1/11 accepted**, C2-C5 QUEUED. See exact-head CI before accepting any tasks.
