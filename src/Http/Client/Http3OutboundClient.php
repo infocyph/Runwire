@@ -200,7 +200,6 @@ final class Http3OutboundClient
                         return;
                     }
 
-
                     try {
                         /** @var array<string,mixed> $validated */
                         $validated = $result;

@@ -714,3 +714,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 H3 Pint last-mile correction (2026-10-25; QA PENDING):** PHP8.4/8.5 static analysis and PHP8.4 native H3 peer pass on e4a1547; correct remaining whitespace-only Pint source violations in a no-behavior-change commit. Original 11-task C1 acceptance boundary and **123/175, 52 OPEN** unchanged.
+
+
+**C1 native H3 performance baseline (2026-10-25, QA PENDING):** Add real independent peer serial native QUIC/H3 quantitative profile with zero-error assertions on both PHP versions and clean up the last Pint extra blank line. Real partial data is not complete release/task benchmark evidence. **123/175 accepted, 52 OPEN, C1 active**.

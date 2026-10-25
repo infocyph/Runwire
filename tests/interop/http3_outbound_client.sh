@@ -39,3 +39,12 @@ if ! php tests/fixtures/http3_outbound_client.php "$port" "$tmpdir/cert.pem" >"$
     exit 1
 fi
 jq -e '.verified and .http3_outbound_independent_peer and .tls_alpn == "h3" and .response_status == 200 and .exact_body and .finished_exactly_once and .loop_resources_released' "$output" >/dev/null
+if [ "$#" -eq 2 ]; then
+    profile_output="$2"
+    php benchmarks/u05_native_h3_transport_profile.php "$port" "$tmpdir/cert.pem" 16 >"$profile_output"
+    jq -e '.schema == 1 and .real_network_io == true and .verified_tls_alpn == true
+        and .correctness_passed == true and .concurrency == 1
+        and .requests_total == 16 and .successful_requests == 16 and .errors_total == 0
+        and .successful_rps > 0 and .p99_ms > 0 and .peak_memory_bytes > 0
+        and .parent_cpu_ms > 0 and .full_end_to_end_certification == false' "$profile_output" >/dev/null
+fi
