@@ -459,6 +459,12 @@ final class Connection
         $this->eofCallback = null;
     }
 
+    /** Only the current protocol adapter may release or abort its claimed callbacks. */
+    public function callbacksOwnedBy(object $owner): bool
+    {
+        return $this->callbackOwnership->ownedBy($owner);
+    }
+
     /**
      * Resume manually paused reads.
      */

@@ -610,3 +610,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W126 grouped real H1 load accounting and backpressure (2026-10-25; QA PENDING):** Correct 0-byte nonblocking writes under full socket send buffer, add real local saturation regression and disaggregate connect/read/write failure counters. Keep strict zero-error 256-concurrent adaptive phases; earlier 256 failed requests block acceptance. U08.08/.09 and U15 OPEN. **122/175 accepted, 53 OPEN**.
+
+
+**W127 grouped proxy cross-owner isolation (2026-10-25; QA PENDING):** Both CONNECT and SOCKS5 now release/abort only when owning callback slots, preserving another adapter's already-claimed live socket and subsequent data. Internal/public owner-specific query and real socket regression tests. No nested TLS; U10.04/.05/.06 remain OPEN; **122/175 QA accepted, 53 OPEN**.

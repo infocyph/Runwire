@@ -263,3 +263,14 @@ Drain callbacks inspect the live connection state rather than using
 a no-op that conflicts with PHPForge Pint/Rector policies. The fixture
 verifies full negotiation, application-byte handoff, pressure detection
 and final watcher/timer cleanup. It does not prove end-to-end nested TLS.
+
+Exclusive callback ownership on proxy failures
+---------------------------------------------
+
+CONNECT and SOCKS5 stages now check whether *their own adapter* actually
+acquired the Runwire connection's callback slots before releasing slots or
+aborting transport. A failed claim cannot close or revoke another adapter's
+connection. Both protocols have live socket-pair regression coverage for
+an already claimed connection and the original owner's successful
+subsequent receive. The owner query reveals only whether the supplied
+adapter is the owner, not another adapter's identity.

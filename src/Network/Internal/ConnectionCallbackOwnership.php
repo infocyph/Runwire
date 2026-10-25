@@ -70,6 +70,12 @@ final class ConnectionCallbackOwnership
         $this->owner = null;
     }
 
+    /** Whether this adapter exclusively owns the live callback slots. */
+    public function ownedBy(object $owner): bool
+    {
+        return $this->owner === $owner;
+    }
+
     /** Whether the connection has no active exclusive protocol callback owner. */
     public function unclaimed(): bool
     {

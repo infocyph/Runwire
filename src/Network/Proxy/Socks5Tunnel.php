@@ -154,7 +154,9 @@ final class Socks5Tunnel
             $this->connection->unregisterCloseObserver($this->closeObserver);
             $this->closeObserver = null;
         }
-        $this->connection->releaseCallbacks($this);
+        if ($this->connection->callbacksOwnedBy($this)) {
+            $this->connection->releaseCallbacks($this);
+        }
     }
 
     /** Execute the bounded proxy exchange phase. */
@@ -164,8 +166,11 @@ final class Socks5Tunnel
             return;
         }
         $this->phase = 'closed';
+        $ownsTransport = $this->connection->callbacksOwnedBy($this);
         $this->cleanup();
-        $this->connection->abort();
+        if ($ownsTransport) {
+            $this->connection->abort();
+        }
         ($this->completion)(null, $error);
     }
 
