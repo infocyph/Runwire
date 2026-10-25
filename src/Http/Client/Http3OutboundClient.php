@@ -449,6 +449,7 @@ final class Http3OutboundClient
             $this->finish($error);
         }
     }
+
     /**
      * Write a complete frame through partial, bounded native QUIC writes.
      *
@@ -510,5 +511,4 @@ final class Http3OutboundClient
             $this->writeChunk($stream, $bytes, $offset + $written, $fin, $completed);
         });
     }
-
 }

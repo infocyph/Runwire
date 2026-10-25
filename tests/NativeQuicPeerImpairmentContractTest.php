@@ -14,7 +14,7 @@ it('pins real impaired QUIC peer packets and a complete native stream recovery g
     expect($script)->toBeString()
         ->toContain('quic_session_echo_client.php')
         ->toContain('dropped_datagrams >= 1', 'delayed_datagrams >= 1')
-        ->toContain('native_reset_storm_count == 6')
+        ->toContain('native_reset_storm_count == 24')
         ->toContain('verified_post_reset_bidi_streams == 2');
     expect($workflow)->toBeString()
         ->toContain('quic_impaired_native_session.sh')

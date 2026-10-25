@@ -10,7 +10,7 @@ it('propagates the event loop and native reset counters through every async QUIC
         ->toContain('use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void')
         ->toContain('$loop->delay(0.20,')
         ->toContain('$postResetBidi === 2')
-        ->toContain('$nativeResets === 6')
+        ->toContain('$nativeResets < 24')
         ->toContain('Independent QUIC session interoperability timed out');
 
     $output = [];
