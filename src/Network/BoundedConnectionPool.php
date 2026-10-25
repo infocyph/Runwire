@@ -154,7 +154,17 @@ final class BoundedConnectionPool
         }
     }
 
-    /** Snapshot optionally enabled bounded counters without exposing tenant/proxy credentials. */
+    /** Number of quiescent, verified sockets available for identity-safe reuse. */
+    public function idleCount(): int
+    {
+        return $this->idle->count();
+    }
+
+    /**
+     * Snapshot optionally enabled bounded counters without exposing tenant/proxy credentials.
+     *
+     * @return array<string, int|bool>
+     */
     public function metrics(): array
     {
         return [
@@ -164,12 +174,6 @@ final class BoundedConnectionPool
             'waiting' => count($this->waiting),
             'idle' => $this->idle->count(),
         ];
-    }
-
-    /** Number of quiescent, verified sockets available for identity-safe reuse. */
-    public function idleCount(): int
-    {
-        return $this->idle->count();
     }
 
     /** Retire a lease; unhealthy, foreign or closed-pool sockets are aborted. */
