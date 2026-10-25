@@ -84,6 +84,45 @@ final class QuicWorkerSession
     }
 
     /**
+     * Import one peer-created QUIC stream without transferring native ownership.
+     *
+     * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
+     */
+    private function acceptStream(): array
+    {
+        if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
+            throw new RuntimeException('QUIC native stream admission limit exceeded.');
+        }
+        $connection = $this->connection;
+        if (!is_object($connection) || !method_exists($connection, 'acceptStream')) {
+            throw new RuntimeException('Native QUIC backend cannot accept peer streams.');
+        }
+        $this->driveNativeEvents();
+        $stream = $connection->acceptStream();
+        if ($stream === null) {
+            return ['pending' => true];
+        }
+        if (!is_object($stream) || !method_exists($stream, 'isBidirectional')
+            || !method_exists($stream, 'read') || !method_exists($stream, 'write')
+            || !method_exists($stream, 'reset')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid peer stream.');
+        }
+        $bidirectional = $stream->isBidirectional();
+        if (!is_bool($bidirectional)) {
+            throw new RuntimeException('Native QUIC backend returned invalid stream directionality.');
+        }
+        $id = $this->nextStreamId++;
+        $this->streams[$id] = [
+            'stream' => $stream,
+            'bidirectional' => $bidirectional,
+            'readable' => true,
+            'writable' => $bidirectional,
+        ];
+
+        return ['stream' => $id, 'bidirectional' => $bidirectional, 'incoming' => true];
+    }
+
+    /**
      * @param array<array-key, mixed> $protocols
      * @return list<string>
      */
@@ -215,45 +254,6 @@ final class QuicWorkerSession
         if (is_object($this->connection) && method_exists($this->connection, 'handleEvents')) {
             $this->connection->handleEvents();
         }
-    }
-
-    /**
-     * Import one peer-created QUIC stream without transferring native ownership.
-     *
-     * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
-     */
-    private function acceptStream(): array
-    {
-        if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
-            throw new RuntimeException('QUIC native stream admission limit exceeded.');
-        }
-        $connection = $this->connection;
-        if (!is_object($connection) || !method_exists($connection, 'acceptStream')) {
-            throw new RuntimeException('Native QUIC backend cannot accept peer streams.');
-        }
-        $this->driveNativeEvents();
-        $stream = $connection->acceptStream();
-        if ($stream === null) {
-            return ['pending' => true];
-        }
-        if (!is_object($stream) || !method_exists($stream, 'isBidirectional')
-            || !method_exists($stream, 'read') || !method_exists($stream, 'write')
-            || !method_exists($stream, 'reset')) {
-            throw new RuntimeException('Native QUIC backend returned an invalid peer stream.');
-        }
-        $bidirectional = $stream->isBidirectional();
-        if (!is_bool($bidirectional)) {
-            throw new RuntimeException('Native QUIC backend returned invalid stream directionality.');
-        }
-        $id = $this->nextStreamId++;
-        $this->streams[$id] = [
-            'stream' => $stream,
-            'bidirectional' => $bidirectional,
-            'readable' => true,
-            'writable' => $bidirectional,
-        ];
-
-        return ['stream' => $id, 'bidirectional' => $bidirectional, 'incoming' => true];
     }
 
     /**

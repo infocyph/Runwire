@@ -1071,3 +1071,6 @@ All of these pages are **required deliverables** inside the proposed docs docume
 
 
 **W149 C1 static analysis recovery (2026-10-25; QA PENDING):** Earlier W147 [Security & Standards #40190583580](https://github.com/infocyph/Runwire/actions/runs/40190583580) PHPStan PHP8.4+8.5 flagged `Http3ClientWireCodec` complexity 13>12 (decode) and 16>12 (encode); Pint observed statement spacing. Preserve all request/response limits and reject behavior while splitting deterministic validation into local small static helpers. Correct W148 QUIC native accept-stream duplicated PHPDoc and stream-map layout. No false task promotion; C1 still in progress, **123/175 accepted, 52 OPEN**.
+
+
+**W150 C1 QUIC process-worker PHPForge QA repair (2026-10-25; QA PENDING):** W148 exact-source [Security & Standards #40190852594](https://github.com/infocyph/Runwire/actions/runs/40190852594) showed 460-file Pint ordering issue for new peer `QuicWorkerSession::acceptStream` and PHPCS 4 unused fake-peer fixture args (all 992+ behavior Pest tests green). Relocate the new accept method before existing private `assertAlpn` ordering and explicitly use test fixture read limit/FIN args without changing tested rejection semantics. H3 QPACK complexity fix carried from W149. Keep native peer conformance OPEN, **123/175 accepted, 52 OPEN**.

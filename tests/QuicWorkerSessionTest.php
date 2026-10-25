@@ -369,6 +369,9 @@ it('accepts peer QUIC unidirectional streams without confusing local send-only o
 
         public function read(int $limit): ?string
         {
+            if ($limit < 1) {
+                return '';
+            }
             if ($this->sent) {
                 return null;
             }
@@ -381,7 +384,7 @@ it('accepts peer QUIC unidirectional streams without confusing local send-only o
 
         public function write(string $data, bool $fin): int
         {
-            return strlen($data);
+            return $fin ? strlen($data) : 0;
         }
     };
     $accepted = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'accept')]);
@@ -409,14 +412,14 @@ it('rejects writes to peer-created receive-only streams and invalid accept comma
 
         public function read(int $limit): ?string
         {
-            return '';
+            return $limit > 0 ? '' : null;
         }
 
         public function reset(): void {}
 
         public function write(string $bytes, bool $fin): int
         {
-            return strlen($bytes);
+            return $fin ? strlen($bytes) : 0;
         }
     };
     $accepted = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'accept')]);

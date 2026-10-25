@@ -693,3 +693,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W149 C1 static QA repair (2026-10-25; QA PENDING):** Address real H3 PHPStan cognitive-complexity violations and QUIC peer-stream comment/metadata layout; keep all independent H3 and real transport tests OPEN. **123/175 accepted, 52 OPEN**.
+
+
+**W150 C1 QUIC fixture QA (2026-10-25; QA PENDING):** Repair actual W148 PHPForge Pint method ordering and test fixture unused parameters; no feature scope weakening or accepted task inflation. **123/175 accepted, 52 OPEN**.
