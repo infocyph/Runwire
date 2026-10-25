@@ -1108,3 +1108,6 @@ All of these pages are **required deliverables** inside the proposed docs docume
 
 
 **C1 PHPForge profiling QA recovery (2026-10-25; verification pending):** Correct strict static-analysis findings from run #40214649874 by moving platform process CPU/RSS sampling into an opt-in helper with typed nonnegative extraction, tightening return shapes and nanosecond arithmetic to real integers, and sorting worker fields. Native PHP8.4 peer suite passed on the previous source, but full QA did not. No new accepted task or C2 changes; **127/175 accepted, 48 OPEN; C1 4/11**.
+
+
+**C1 H1 TLS/plaintext size/write accounting (2026-10-25; QA PENDING):** Extend existing sustained-HTTP1 benchmark to record actual PHP stream read/write attempt counts and successful byte counts per phase, with request-size and per-request transport ratios and existing valid-response p50/p95/p99, RPS/CPU/RSS; require nonzero values in ordinary plaintext profile and verified TLS smoke on both PHP versions. These are **application stream-I/O calls, not kernel syscalls**, and do not by themselves satisfy U08.09's syscall-level or matched-source certification. U08.09 remains OPEN. **127/175 accepted, 48 open; C1 4/11**; C2-C5 queued.

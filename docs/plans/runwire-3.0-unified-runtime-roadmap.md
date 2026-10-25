@@ -738,3 +738,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 resource-usage QA recovery (2026-10-25, pending):** Typed, opt-in `QuicWorkerResourceUsage` isolates CPU/RSS platform sampling from the QUIC hot path and resolves worker cognitive complexity, numeric guards and member ordering. QA must pass before any additional U05.10/U08.05 acceptance. **127/175, 48 open, C1 4/11.**
+
+
+**C1 HTTP/1 transport-cost instrumentation (2026-10-25; QA PENDING):** Record real stream read/write call and byte accounting in plaintext/TLS HTTP/1 sustained workloads alongside existing p99/CPU/RSS, zero-error criteria. Do not label PHP stream attempts as kernel syscalls; U08.09 remains open for syscall-level proof and TLS/plaintext matched comparison. **127/175 accepted; C1 4/11.**

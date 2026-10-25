@@ -83,4 +83,6 @@ jq -e '.tls == "on-verified" and .workload == "verified-tls-keepalive"
   and .successful_requests == .requests_total
   and .errors_total == 0 and .timeouts_total == 0
   and .validation_failures == 0 and .latency_ms.p99 > 0
-  and .rss_peak_bytes > 0' "$out" >/dev/null
+  and .rss_peak_bytes > 0 and .socket_io.write_calls > 0
+  and .socket_io.write_bytes > 0 and .socket_io.read_calls > 0
+  and .socket_io.read_bytes > 0' "$out" >/dev/null

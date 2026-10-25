@@ -18,6 +18,10 @@ function http1SustainedCounters(): array
         'response_read_errors' => 0,
         'write_errors' => 0,
         'write_would_block' => 0,
+        'socket_write_calls' => 0,
+        'socket_write_bytes' => 0,
+        'socket_read_calls' => 0,
+        'socket_read_bytes' => 0,
         'timeouts_total' => 0,
         'validation_failures' => 0,
         'reconnects_total' => 0,
@@ -293,9 +297,13 @@ function http1SustainedReconnect(array &$clients, int $id, string $host, int $po
 }
 
 /** @param array<string, mixed> $client */
-function http1SustainedReadChunk(array &$client): void
+function http1SustainedReadChunk(array &$client, array &$counter): void
 {
+    ++$counter['socket_read_calls'];
     $chunk = fread($client['stream'], 8192);
+    if (is_string($chunk)) {
+        $counter['socket_read_bytes'] += strlen($chunk);
+    }
     if ($chunk === false) {
         throw new Http1SustainedProtocolError('Response read failed.');
     }
@@ -401,7 +409,7 @@ function http1SustainedHandleReadable(
     bool $collectLatency,
 ): void {
     try {
-        http1SustainedReadChunk($clients[$id]);
+        http1SustainedReadChunk($clients[$id], $counter);
         $response = http1SustainedTryCompleteResponse($clients[$id]);
     } catch (Throwable) {
         ++$counter['errors_total'];
@@ -474,6 +482,7 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
             $clients[$id]['request_started'] = hrtime(true);
             $clients[$id]['request_deadline'] = microtime(true) + 2.0;
         }
+        ++$counter['socket_write_calls'];
         $written = fwrite($stream, $remaining);
         if ($written === false) {
             ++$counter['errors_total'];
@@ -490,6 +499,7 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
 
             continue;
         }
+        $counter['socket_write_bytes'] += $written;
         $clients[$id]['write_offset'] += $written;
     }
 }
@@ -696,6 +706,26 @@ function http1SustainedMain(array $argv): array
         'error_rate' => $requests > 0 ? round($failures / $requests, 8) : 1.0,
         'cpu_percent' => round($cpu, 3),
         'rss_peak_bytes' => $measured['peak_rss'],
+        'socket_io' => [
+            'request_size_bytes' => strlen("GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n"),
+            'write_calls' => $counter['socket_write_calls'],
+            'write_bytes' => $counter['socket_write_bytes'],
+            'write_would_block' => $counter['write_would_block'],
+            'read_calls' => $counter['socket_read_calls'],
+            'read_bytes' => $counter['socket_read_bytes'],
+            'write_bytes_per_request' => $requests > 0
+                ? round($counter['socket_write_bytes'] / $requests, 3)
+                : 0.0,
+            'read_bytes_per_request' => $requests > 0
+                ? round($counter['socket_read_bytes'] / $requests, 3)
+                : 0.0,
+            'write_calls_per_request' => $requests > 0
+                ? round($counter['socket_write_calls'] / $requests, 6)
+                : 0.0,
+            'read_calls_per_request' => $requests > 0
+                ? round($counter['socket_read_calls'] / $requests, 6)
+                : 0.0,
+        ],
         'correctness_passed' => $requests > 0
             && $counter['completed_requests'] === $requests
             && $counter['successful_requests'] === $requests

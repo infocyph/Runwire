@@ -586,7 +586,9 @@ jobs:
             php benchmarks/http1_sustained_bench.php \
               "$port" 16 "$warmup_seconds" "$duration_seconds" "$server_pid" \
               > "$result"
-            jq -e '.correctness_passed == true and .successful_requests == .requests_total and .errors_total == 0 and .timeouts_total == 0 and .validation_failures == 0' "$result" >/dev/null
+            jq -e '.correctness_passed == true and .successful_requests == .requests_total and .errors_total == 0 and .timeouts_total == 0 and .validation_failures == 0
+              and .socket_io.write_calls > 0 and .socket_io.write_bytes > 0
+              and .socket_io.read_calls > 0 and .socket_io.read_bytes > 0' "$result" >/dev/null
             files+=("$result")
           done
 
