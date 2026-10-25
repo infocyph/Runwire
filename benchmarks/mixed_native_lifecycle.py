@@ -176,21 +176,30 @@ async def request_http3(port):
     config.server_name = "localhost"
     async with connect("127.0.0.1", port, configuration=config,
                        create_protocol=H3BenchClient) as protocol:
-        # Cancel one independent real QUIC request stream while eight
-        # validated H3 siblings share the verified transport.
-        cancelled_id = protocol._quic.get_next_available_stream_id()
-        protocol.http.send_headers(cancelled_id, [
-            (b":method", b"GET"), (b":scheme", b"https"),
-            (b":authority", f"localhost:{port}".encode()), (b":path", b"/benchmark"),
-        ], end_stream=True)
-        protocol.transmit()
-        await asyncio.sleep(0.01)
-        protocol._quic.reset_stream(cancelled_id, error_code=0x10C)
-        protocol.transmit()
-        await asyncio.wait_for(asyncio.gather(*[
-            protocol.request(f"localhost:{port}", 16384, 0) for _ in range(8)
-        ]), timeout=9)
-        return 8
+        # Admit eight verified response streams before canceling a ninth.
+        # This preserves native request-stream ID ordering through rollover.
+        siblings = [
+            asyncio.create_task(protocol.request(f"localhost:{port}", 16384, 0))
+            for _ in range(8)
+        ]
+        try:
+            await asyncio.sleep(0.01)
+            cancelled_id = protocol._quic.get_next_available_stream_id()
+            protocol.http.send_headers(cancelled_id, [
+                (b":method", b"GET"), (b":scheme", b"https"),
+                (b":authority", f"localhost:{port}".encode()), (b":path", b"/benchmark"),
+            ], end_stream=True)
+            protocol.transmit()
+            await asyncio.sleep(0.01)
+            protocol._quic.reset_stream(cancelled_id, error_code=0x10C)
+            protocol.transmit()
+            await asyncio.wait_for(asyncio.gather(*siblings), timeout=9)
+            return 8
+        finally:
+            for sibling in siblings:
+                if not sibling.done():
+                    sibling.cancel()
+            await asyncio.gather(*siblings, return_exceptions=True)
 
 
 async def request_tcp(port):
