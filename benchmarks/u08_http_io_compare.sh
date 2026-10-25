@@ -3,6 +3,27 @@
 # Diagnostic acceptance only; short runs do not certify release saturation.
 set -euo pipefail
 output="${1:?Expected output evidence JSON}"
+trials="${RUNWIRE_COMPARE_TRIALS:-3}"
+concurrency="${RUNWIRE_COMPARE_CONCURRENCY:-4}"
+warmup="${RUNWIRE_COMPARE_WARMUP_SECONDS:-0.1}"
+duration="${RUNWIRE_COMPARE_DURATION_SECONDS:-1.2}"
+for value in "$trials" "$concurrency"; do
+  [[ "$value" =~ ^[1-9][0-9]*$ ]] || { echo 'Trial/concurrency must be positive integers.' >&2; exit 2; }
+done
+[[ "$warmup" =~ ^[0-9]+([.][0-9]+)?$ && "$duration" =~ ^[0-9]+([.][0-9]+)?$ ]] || {
+  echo 'Invalid warmup or duration.' >&2; exit 2
+}
+if [ "$trials" -gt 5 ] || [ "$concurrency" -gt 1024 ] || [ "$duration" = 0 ]; then
+  echo 'Benchmark inputs exceed supported limits.' >&2; exit 2
+fi
+server_affinity=()
+client_affinity=()
+if [ -n "${RUNWIRE_COMPARE_SERVER_CPU:-}" ]; then
+  server_affinity=(taskset -c "$RUNWIRE_COMPARE_SERVER_CPU")
+fi
+if [ -n "${RUNWIRE_COMPARE_CLIENT_CPU:-}" ]; then
+  client_affinity=(taskset -c "$RUNWIRE_COMPARE_CLIENT_CPU")
+fi
 root="$(cd "$(dirname "$0")/.." && pwd)"
 work="$(mktemp -d)"
 plain_pid=""
@@ -54,9 +75,9 @@ if [ "${#reserved_ports[@]}" -ne 2 ] || [ "${reserved_ports[0]}" = "${reserved_p
 fi
 plain_port="${reserved_ports[0]}"
 tls_port="${reserved_ports[1]}"
-php -d opcache.enable_cli=1 "$root/benchmarks/http1_server.php" "$plain_port" >"$work/plain.log" 2>&1 &
+"${server_affinity[@]}" php -d opcache.enable_cli=1 "$root/benchmarks/http1_server.php" "$plain_port" >"$work/plain.log" 2>&1 &
 plain_pid=$!
-php -d opcache.enable_cli=1 "$root/benchmarks/http1_tls_server.php" "$root" "$tls_port" "$work/ca.pem" "$work/key.pem" >"$work/tls.log" 2>&1 &
+"${server_affinity[@]}" php -d opcache.enable_cli=1 "$root/benchmarks/http1_tls_server.php" "$root" "$tls_port" "$work/ca.pem" "$work/key.pem" >"$work/tls.log" 2>&1 &
 tls_pid=$!
 for mode in plain tls; do
   ready=0
@@ -78,7 +99,7 @@ for mode in plain tls; do
   done
   if [ "$ready" -ne 1 ]; then cat "$work/$mode.log" >&2; exit 1; fi
 done
-for trial in 1 2 3; do
+for trial in $(seq 1 "$trials"); do
   for mode in plain tls; do
     if [ "$mode" = plain ]; then
       port="$plain_port"; pid="$plain_pid"
@@ -87,7 +108,7 @@ for trial in 1 2 3; do
       port="$tls_port"; pid="$tls_pid"
       export RUNWIRE_BENCH_TLS=1 RUNWIRE_BENCH_TLS_CA="$work/ca.pem"
     fi
-    RUNWIRE_RUNTIME_BUILD="${GITHUB_SHA:-local}"       php "$root/benchmarks/http1_sustained_bench.php" "$port" 4 0.1 1.2 "$pid" >"$work/$mode-$trial.json"
+    RUNWIRE_RUNTIME_BUILD="${GITHUB_SHA:-local}" "${client_affinity[@]}" php "$root/benchmarks/http1_sustained_bench.php" "$port" "$concurrency" "$warmup" "$duration" "$pid" >"$work/$mode-$trial.json"
     jq -c '{tls,correction: .correctness_passed,successful_requests,errors_total,
       p99_ms: .latency_ms.p99,stream_io: .socket_io,
       kernel_process_io: .server_process_io}' "$work/$mode-$trial.json" >&2
@@ -102,13 +123,38 @@ for trial in 1 2 3; do
       and .latency_ms.p99 > 0 and .rss_peak_bytes > 0' "$work/$mode-$trial.json" >/dev/null
   done
 done
-jq -n   --slurpfile p1 "$work/plain-1.json" --slurpfile p2 "$work/plain-2.json" --slurpfile p3 "$work/plain-3.json"   --slurpfile t1 "$work/tls-1.json" --slurpfile t2 "$work/tls-2.json" --slurpfile t3 "$work/tls-3.json"   '{schema:1, candidate_build:($p1[0].runtime_build),
-    workload:"same-runner-H1-plaintext-versus-verified-TLS", trials:3,
-    source_scope:"development-transport-comparison-not-final-release-certification",
-    socket_write_scope:"PHP-stream-fwrite-calls-not-kernel-syscall-count",
-    server_syscall_scope:"all-server-process-reads-writes-not-socket-only",
-    plaintext:[$p1[0],$p2[0],$p3[0]], tls:[$t1[0],$t2[0],$t3[0]]}' >"$output"
-jq -e '.schema == 1 and .trials == 3
-  and ([.plaintext[],.tls[] | select(.correctness_passed != true)] | length) == 0
-  and ([.plaintext[],.tls[] | select(.server_process_io.write_syscalls_delta < 0
-        or .server_process_io.read_syscalls_delta < 0)] | length) == 0' "$output" >/dev/null
+jq -s '.' "$work"/plain-*.json > "$work/plain-evidence.json"
+jq -s '.' "$work"/tls-*.json > "$work/tls-evidence.json"
+jq -n \
+  --argjson trials "$trials" \
+  --argjson concurrency "$concurrency" \
+  --argjson duration "$duration" \
+  --argjson warmup "$warmup" \
+  --slurpfile plain "$work/plain-evidence.json" \
+  --slurpfile tls "$work/tls-evidence.json" \
+  '{
+    schema: 1,
+    candidate_build: $plain[0][0].runtime_build,
+    workload: "same-runner-H1-plaintext-versus-verified-TLS",
+    trials: $trials,
+    concurrency: $concurrency,
+    trial_seconds: $duration,
+    warmup_seconds_per_trial: $warmup,
+    source_scope: "instrumented-transport-measurement-not-final-3.0-release-certification",
+    socket_write_scope: "PHP-stream-fwrite-calls-not-kernel-syscall-count",
+    server_syscall_scope: "all-server-process-reads-writes-not-socket-only",
+    plaintext: $plain[0],
+    tls: $tls[0]
+  }' > "$output"
+jq -e --argjson count "$trials" '
+  .schema == 1 and .trials == $count
+  and (.plaintext | length) == $count and (.tls | length) == $count
+  and all(.plaintext[], .tls[];
+    .correctness_passed == true and .errors_total == 0
+    and .successful_requests == .requests_total and .successful_requests > 0
+    and .socket_io.write_calls > 0 and .socket_io.read_calls > 0
+    and .server_process_io.scope == "whole-server-process-tree-not-socket-only"
+    and .server_process_io.linux_procfs == true
+    and .server_process_io.read_syscalls_delta >= 0
+    and .server_process_io.write_syscalls_delta >= 0
+    and .latency_ms.p99 > 0 and .rss_peak_bytes > 0)' "$output" >/dev/null

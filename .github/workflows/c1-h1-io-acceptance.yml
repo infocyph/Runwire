@@ -1,0 +1,74 @@
+name: "Runwire C1 H1 TLS and Plaintext I/O Acceptance"
+
+on:
+  push:
+    branches: [ "plan/runwire-independent-ecosystem-roadmaps" ]
+    paths:
+      - ".github/workflows/c1-h1-io-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1-h1-io-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  sustained-h1-io:
+    name: "C1 U08.09 five-pair real I/O - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - name: Checkout exact Runwire candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache, openssl
+          coverage: none
+      - name: Install immutable dependency population
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Record hardware and pin distinct physical cores
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-results/c1-h1-io
+          python3 benchmarks/release_cpu_affinity.py > benchmark-results/c1-h1-io/affinity.json
+          jq -e '.client_separate_physical_core == true
+            and .same_server_cpu_for_baseline_and_candidate == true
+            and .server_cpu != .client_cpu' benchmark-results/c1-h1-io/affinity.json >/dev/null
+      - name: Run five alternating warmed 180-second H1 plaintext/TLS comparisons
+        shell: bash
+        timeout-minutes: 65
+        run: |
+          set -euo pipefail
+          export RUNWIRE_COMPARE_TRIALS=5
+          export RUNWIRE_COMPARE_CONCURRENCY=16
+          export RUNWIRE_COMPARE_WARMUP_SECONDS=30
+          export RUNWIRE_COMPARE_DURATION_SECONDS=180
+          export RUNWIRE_COMPARE_SERVER_CPU="$(jq -r '.server_cpu' benchmark-results/c1-h1-io/affinity.json)"
+          export RUNWIRE_COMPARE_CLIENT_CPU="$(jq -r '.client_cpu' benchmark-results/c1-h1-io/affinity.json)"
+          bash benchmarks/u08_http_io_compare.sh benchmark-results/c1-h1-io/measurements.json
+          jq -e '.trials == 5 and .trial_seconds == 180
+            and .warmup_seconds_per_trial == 30
+            and (.plaintext | length) == 5 and (.tls | length) == 5
+            and all(.tls[]; .tls == "on-verified" and .correctness_passed == true)
+            and all(.plaintext[]; .tls == "off" and .correctness_passed == true)'             benchmark-results/c1-h1-io/measurements.json >/dev/null
+      - name: Preserve full real-process evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c1-h1-io-php-${{ matrix.php-version }}-${{ github.sha }}
+          path: benchmark-results/c1-h1-io/
+          retention-days: 90
+          if-no-files-found: warn
