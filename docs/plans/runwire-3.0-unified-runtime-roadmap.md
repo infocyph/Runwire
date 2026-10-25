@@ -580,3 +580,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W115–W116 grouped security + QA correction (2026-10-25; QA PENDING):** Adds opt-in proxy *destination* public-IP SSRF admission guard (vs only the proxy IP) and fixes shared PHPForge constructor documentation and Pint readonly/mutable field ordering from W114. No weaker checks or false acceptance: U10.04/.05/.06 remain OPEN; **122/175 accepted, 53 OPEN**.
+
+
+**W117 proxy fault tests (2026-10-25; QA PENDING):** Both negotiated HTTP CONNECT and SOCKS5 socket owners now face independent denied-response, cancellation, idle timeout and EOF test permutations with exactly-once settlement and zero watcher/timer/subscription leaks. Does not imply end-to-end TLS or external proxy interoperability; U10.04/.05/.06 OPEN, **122/175 accepted, 53 OPEN**.
