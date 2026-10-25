@@ -189,29 +189,76 @@ try {
             // Real native stream reset must preserve this verified connection:
             // the independent peer must still receive the final uni FIN.
             $resetThenSendUni = static function () use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
-                // All 6 siblings are admitted before reset callbacks settle.
-                // The independent peer must remain healthy for the subsequent uni FIN.
-                for ($index = 0; $index < 6; ++$index) {
-                    $session->command('open_bidi', 0, '', false,
-                        static function (mixed $opened, ?Throwable $error) use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
-                            if ($error !== null || !is_int($opened['stream'] ?? null)) {
-                                $stop($error ?? new RuntimeException('QUIC reset burst could not open its sibling.'));
+                // Four independently checked waves, six concurrent resets each.
+                // Preserve the live QUIC session and verify healthy siblings at
+                // the end, rather than treating cancellation errors as success.
+                $wave = null;
+                $wave = static function () use (
+                    &$wave,
+                    $session,
+                    $loop,
+                    $stop,
+                    $sendUni,
+                    $exchange,
+                    &$readyWrites,
+                    &$nativeResets,
+                    &$postResetBidi,
+                ): void {
+                    $completedWave = 0;
+                    for ($index = 0; $index < 6; ++$index) {
+                        $session->command('open_bidi', 0, '', false,
+                            static function (mixed $opened, ?Throwable $error) use (
+                                &$wave,
+                                &$completedWave,
+                                $session,
+                                $loop,
+                                $stop,
+                                $sendUni,
+                                $exchange,
+                                &$readyWrites,
+                                &$nativeResets,
+                                &$postResetBidi,
+                            ): void {
+                                if ($error !== null || !is_int($opened['stream'] ?? null)) {
+                                    $stop($error ?? new RuntimeException('QUIC reset storm could not open a sibling.'));
 
-                                return;
-                            }
-                            $session->command('reset', $opened['stream'], '', false,
-                                static function (mixed $result, ?Throwable $error) use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void {
-                                    if ($error !== null || ($result['reset'] ?? null) !== true) {
-                                        $stop($error ?? new RuntimeException('Native QUIC reset burst failed.'));
+                                    return;
+                                }
+                                $session->command('reset', $opened['stream'], '', false,
+                                    static function (mixed $result, ?Throwable $error) use (
+                                        &$wave,
+                                        &$completedWave,
+                                        $session,
+                                        $loop,
+                                        $stop,
+                                        $sendUni,
+                                        $exchange,
+                                        &$readyWrites,
+                                        &$nativeResets,
+                                        &$postResetBidi,
+                                    ): void {
+                                        if ($error !== null || ($result['reset'] ?? null) !== true) {
+                                            $stop($error ?? new RuntimeException('Native QUIC reset storm failed.'));
 
-                                        return;
-                                    }
-                                    ++$nativeResets;
-                                    if ($nativeResets === 6) {
-                                        // Let the peer reclaim stream credit after receiving
-                                        // the six RESET_STREAM frames. This is bounded by the
-                                        // original ten-second watchdog, not a relaxed pass rule.
-                                        $loop->delay(0.20, static function () use ($session, $exchange, $sendUni, &$readyWrites, &$postResetBidi): void {
+                                            return;
+                                        }
+                                        ++$nativeResets;
+                                        ++$completedWave;
+                                        if ($completedWave !== 6) {
+                                            return;
+                                        }
+                                        if ($nativeResets < 24) {
+                                            $loop->delay(0.05, $wave);
+
+                                            return;
+                                        }
+                                        $loop->delay(0.20, static function () use (
+                                            $session,
+                                            $exchange,
+                                            $sendUni,
+                                            &$readyWrites,
+                                            &$postResetBidi,
+                                        ): void {
                                             if (!$session->active()) {
                                                 return;
                                             }
@@ -225,12 +272,13 @@ try {
                                             $exchange(str_repeat('survivor-first', 256), $survivorDone);
                                             $exchange(str_repeat('survivor-second', 256), $survivorDone);
                                         });
-                                    }
-                                },
-                            );
-                        },
-                    );
-                }
+                                    },
+                                );
+                            },
+                        );
+                    }
+                };
+                $wave();
             };
 
             $finishBidi = static function (string $payload) use ($resetThenSendUni, &$completed): void {
@@ -256,7 +304,7 @@ try {
     }
     sort($completed);
     if ($completed !== ['first-quic-stream', 'one-way-quic-stream', 'second-quic-stream']
-        || $nativeResets !== 6 || $postResetBidi !== 2
+        || $nativeResets !== 24 || $postResetBidi !== 2
         || $session->active() || $loop->diagnostics()->readWatchers !== 0
         || $loop->diagnostics()->writeWatchers !== 0
         || $loop->diagnostics()->timersActive !== 0) {

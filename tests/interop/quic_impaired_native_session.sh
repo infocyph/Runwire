@@ -46,7 +46,7 @@ if ! php tests/fixtures/quic_session_echo_client.php \
     exit 1
 fi
 jq -e '.verified == true and .concurrent_bidirectional == true
-    and .native_reset_storm_count == 6
+    and .native_reset_storm_count == 24
     and .verified_post_reset_bidi_streams == 2
     and .unidirectional_streams_delivered == 1' "$output" >/dev/null
 jq -e '.fault_profile == "post-handshake-udp-loss-reorder"

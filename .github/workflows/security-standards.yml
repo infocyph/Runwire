@@ -405,7 +405,7 @@ jobs:
           php tests/fixtures/quic_session_echo_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem" "$tmpdir/uni.receipt" \
             | tee "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json"
           jq -e '.verified == true and .concurrent_bidirectional == true
-            and .native_reset_storm_count == 6
+            and .native_reset_storm_count == 24
             and .verified_post_reset_bidi_streams == 2
             and .native_reset_then_peer_uni_fin == true
             and .unidirectional_streams_delivered == 1' \
