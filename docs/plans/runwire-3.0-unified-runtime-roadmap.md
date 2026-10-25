@@ -702,3 +702,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 independent peer acceptance extension (2026-10-25; QA PENDING):** Native QUIC incoming peer-created unidirectional stream interop and post-Pint correction belong to the same fixed C1 scope. Existing aioquic loss/reorder and echo tests remain enabled. Neither workflow-code integration nor source tests alone close C1; full 11/11 and green exact-head QA required before C2. **123/175 accepted, 52 OPEN**.
+
+
+**C1 PHPForge correction (2026-10-25; QA PENDING):** Replace forbidden fixture echo with `fwrite(STDOUT, ...)`, retain real independent aioquic stream acceptance and fail-closed native gates. Still one unfinished 11-task C1, no C2 work. **123/175, 52 OPEN**.

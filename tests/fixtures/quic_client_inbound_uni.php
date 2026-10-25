@@ -120,7 +120,7 @@ try {
         throw new RuntimeException('Peer QUIC stream delivery or resource cleanup was incomplete.');
     }
 
-    echo json_encode([
+    fwrite(STDOUT, json_encode([
         'verified' => true,
         'independent_aioquic_peer' => true,
         'peer_initiated_unidirectional' => true,
@@ -128,7 +128,7 @@ try {
         'peer_fin_observed' => true,
         'worker_owned' => true,
         'callback_cleanup' => true,
-    ], JSON_THROW_ON_ERROR), PHP_EOL;
+    ], JSON_THROW_ON_ERROR) . PHP_EOL);
 } finally {
     $session->dispose();
 }
