@@ -99,16 +99,9 @@ final class Connection
         private readonly ?bool $tcpNoDelayOverride = null,
         private readonly ?string $tlsPeerFingerprint = null,
         private readonly bool $strictTlsPeerEof = false,
-        private readonly ?string $verifiedOutboundTlsPeerName = null,
     ) {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('Connection requires a live stream resource.');
-        }
-
-        if ($this->verifiedOutboundTlsPeerName !== null
-            && (!$this->encrypted || $this->tlsPeerFingerprint === null
-                || !is_array(stream_get_meta_data($stream)['crypto'] ?? null))) {
-            throw new InvalidArgumentException('Outbound verified TLS identity requires a real authenticated TLS stream.');
         }
 
         $this->stream = $stream;
@@ -503,12 +496,6 @@ final class Connection
         $now = hrtime(true);
 
         return is_int($now) ? $now : (int) $now;
-    }
-
-    /** Verified outbound peer policy name, never inferred from generic encrypted streams. */
-    public function verifiedOutboundTlsPeerName(): ?string
-    {
-        return $this->verifiedOutboundTlsPeerName;
     }
 
     private function assertCallbackSlotsUnclaimed(): void

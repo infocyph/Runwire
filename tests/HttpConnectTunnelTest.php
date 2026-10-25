@@ -133,7 +133,7 @@ it('refuses to disclose CONNECT credentials on a plaintext socket with a claimed
             verifiedProxyPeerName: 'proxy.example',
         );
         expect(fn() => $tunnel->start())->toThrow(LogicException::class, 'verified proxy TLS identity')
-            ->and($connection->verifiedOutboundTlsPeerName())->toBeNull();
+            ->and(\Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers::peerName($connection))->toBeNull();
         stream_set_blocking($peer, false);
         expect(fread($peer, 8192))->toBe('');
     } finally {

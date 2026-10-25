@@ -11,6 +11,7 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use Infocyph\Runwire\Network\OutboundAddressPolicy;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
@@ -77,10 +78,10 @@ final class HttpConnectTunnel
             throw new LogicException('HTTP CONNECT tunnel may start exactly once.');
         }
         $this->token?->throwIfCancelled();
+        $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
         if ($this->handshake->usesAuthentication()
-            && ($this->verifiedProxyPeerName === null
-                || $this->connection->verifiedOutboundTlsPeerName() === null
-                || strcasecmp($this->verifiedProxyPeerName, $this->connection->verifiedOutboundTlsPeerName()) !== 0)) {
+            && ($this->verifiedProxyPeerName === null || $verified === null
+                || strcasecmp($this->verifiedProxyPeerName, $verified) !== 0)) {
             throw new LogicException('HTTP CONNECT credentials require a verified proxy TLS identity matching the configured peer.');
         }
 

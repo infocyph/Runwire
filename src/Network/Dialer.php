@@ -11,6 +11,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
 use Infocyph\Runwire\Network\Internal\ClientTlsHandshake;
 use Infocyph\Runwire\Network\Internal\DialAttemptLifecycle;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
 use LogicException;
@@ -238,8 +239,10 @@ final class Dialer
                 tcpTransport: $job['tcp'],
                 tcpNoDelayOverride: $job['options']->tcpNoDelay,
                 strictTlsPeerEof: $job['options']->tls !== null,
-                verifiedOutboundTlsPeerName: $job['options']->tls?->peerName,
             );
+            if ($job['options']->tls !== null) {
+                VerifiedOutboundTlsPeers::register($connection, $job['options']->tls->peerName);
+            }
         } catch (Throwable $error) {
             $this->finish($id, null, $error);
 
