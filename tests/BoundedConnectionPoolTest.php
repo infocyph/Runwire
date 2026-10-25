@@ -145,6 +145,7 @@ it('reports opt-in bounded pool hit, miss, waiter, and retirement counters witho
     try {
         $first = $pool->acquire($key, static function (): void {});
         $second = $pool->acquire($key, static function (int $id, ?Connection $conn) use (&$borrowed): void {
+            expect($id)->toBeGreaterThan(0);
             $borrowed = $conn;
         });
         expect(fn() => $pool->acquire($key, static function (): void {}))
@@ -154,6 +155,7 @@ it('reports opt-in bounded pool hit, miss, waiter, and retirement counters witho
         expect($pool->release($second, $connection))->toBeTrue();
 
         $third = $pool->acquire($key, static function (int $id, ?Connection $conn) use (&$borrowed): void {
+            expect($id)->toBeGreaterThan(0);
             $borrowed = $conn;
         });
         expect($borrowed)->toBe($connection);
