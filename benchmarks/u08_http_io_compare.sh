@@ -8,30 +8,52 @@ work="$(mktemp -d)"
 plain_pid=""
 tls_pid=""
 cleanup() {
+  exit_status=$?
   for pid in "$plain_pid" "$tls_pid"; do
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
       kill -TERM "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
     fi
   done
+  if [ "${exit_status:-0}" -ne 0 ]; then
+    for mode in plain tls; do
+      if [ -f "$work/$mode.log" ]; then
+        printf '%s\n' "--- $mode benchmark server ---" >&2
+        tail -n 40 "$work/$mode.log" >&2
+      fi
+    done
+    ls -l "$work" >&2 || true
+  fi
   rm -rf "$work"
 }
 trap cleanup EXIT
 mkdir -p "$(dirname "$output")"
 openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1   -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost'   -keyout "$work/key.pem" -out "$work/ca.pem" >/dev/null 2>&1
-reserve_port() {
-  php -r '
-    $sock = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
-    if (!is_resource($sock)) { throw new RuntimeException($error); }
-    $address = stream_socket_get_name($sock, false);
-    fclose($sock);
-    if (!is_string($address)) { throw new RuntimeException("Cannot reserve benchmark TCP port."); }
-    fwrite(STDOUT, substr(strrchr($address, ":"), 1));
-  '
-}
-plain_port="$(reserve_port)"
-tls_port="$(reserve_port)"
-test "$plain_port" != "$tls_port"
+# Keep both sockets bound until their distinct port numbers are assigned.
+mapfile -t reserved_ports < <(php -r '
+  $first = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
+  $second = stream_socket_server("tcp://127.0.0.1:0", $errno2, $error2);
+  if (!is_resource($first) || !is_resource($second)) {
+      fwrite(STDERR, "Cannot reserve separate benchmark TCP ports.");
+      exit(1);
+  }
+  foreach ([$first, $second] as $socket) {
+      $address = stream_socket_get_name($socket, false);
+      if (!is_string($address) || !str_contains($address, ":")) {
+          fwrite(STDERR, "Ephemeral TCP port allocation failed.");
+          exit(1);
+      }
+      fwrite(STDOUT, substr(strrchr($address, ":"), 1) . "\\n");
+  }
+  fclose($first);
+  fclose($second);
+')
+if [ "${#reserved_ports[@]}" -ne 2 ] || [ "${reserved_ports[0]}" = "${reserved_ports[1]}" ]; then
+  printf '%s\n' 'Separate benchmark ports were not reserved.' >&2
+  exit 1
+fi
+plain_port="${reserved_ports[0]}"
+tls_port="${reserved_ports[1]}"
 php -d opcache.enable_cli=1 "$root/benchmarks/http1_server.php" "$plain_port" >"$work/plain.log" 2>&1 &
 plain_pid=$!
 php -d opcache.enable_cli=1 "$root/benchmarks/http1_tls_server.php" "$root" "$tls_port" "$work/ca.pem" "$work/key.pem" >"$work/tls.log" 2>&1 &
