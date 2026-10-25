@@ -675,3 +675,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W143 five-batch kickoff (2026-10-25; QA PENDING):** Disjoint 52-task C1–C5 partition committed with candidate checkout/immutable QA-gathering regression repairs in C1 groundwork. W142 exact-head routine nine workflow results PASS; no full matched TLS or release certification claims. **123/175 accepted, 52 OPEN**, both trackers synchronized.
+
+
+**W144 C1 recovery (2026-10-25; QA PENDING):** Repair genuine W143 malformed release certification YAML and matching PHPForge Pest assertion using W142 green source as baseline. Keep independent frozen release evidence generation separate from final 175/175 signoff. No U task promoted; **123/175, 52 OPEN**, C1 active.
