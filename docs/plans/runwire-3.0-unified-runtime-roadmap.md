@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 7/11; U08 6/10; U09 5/10; U10 4/9; U11 8/10; U12 3/9; U13 9/9; U14 6/8; U16 13/16**. **121/175 accepted tasks, 54 open across 18 batches** (69.1%). **Next milestone: 140/175 (80.0%), 19 further QA-accepted tasks needed**. **QA head W98 `09c74abd78ac`: 7/9 workflows PASS, Security & Standards and Benchmarks FAIL; zero W98 acceptances**. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 7/8; U05 7/10; U06 COMPLETE (8/8); U07 7/11; U08 7/10; U09 5/10; U10 4/9; U11 8/10; U12 3/9; U13 9/9; U14 6/8; U16 13/16**. **122/175 accepted tasks, 53 open across 18 batches** (69.7%). **Next milestone: 140/175 (80.0%), 18 further QA-accepted tasks needed**. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -36,7 +36,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R0.07 | U15.02 | OPEN, fresh 3.0 QA required |
 | R1.08 | U15.03 | OPEN, fresh 3.0 QA required |
 | R3.09 | U08.09 + U15.04 | OPEN, fresh 3.0 QA required |
-| R4.02 | U08.04 + U15.04 | OPEN, fresh 3.0 QA required |
+| R4.02 | U08.04 + U15.04 | PARTIAL — U08.04 HPACK source benchmark accepted; U15.04 sustained release gate OPEN |
 | R4.04 | U08.05 + U15.04 | OPEN, fresh 3.0 QA required |
 | R4.09 | U08.08 + U15.05 | OPEN, fresh 3.0 QA required |
 | R5.02 | U03.01 | ACCEPTED; U03.01 verified in QA #39929786108 |
@@ -65,7 +65,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U05 | UDP, outbound QUIC and unified datagram transport | 3 | 7/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0 | 8/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 4 | 7/11 |
-| U08 | Existing H1/H2/H3 server consolidation | 4 | 6/10 |
+| U08 | Existing H1/H2/H3 server consolidation | 3 | 7/10 |
 | U09 | WebSocket and WebTransport client/server | 5 | 5/10 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 5 | 4/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 2 | 8/10 |
@@ -75,7 +75,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 3 | 13/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **54** | **121/175 (69.1%)** |
+| **TOTAL** | **Full unified-runtime release program** | **53** | **122/175 (69.7%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -541,3 +541,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W103 W102 PHPForge Pint recovery (2026-10-25; next-head QA pending):** Four W102 quality matrix lanes flagged only `ordered_class_elements` in ProtocolCoreBench; existing functional Pest and PHPStan/Psalm green. W103 reorders added benchmark methods alphabetically while retaining workloads, and pushes same batch as immutable 2.1.2 matched profiling work. No U08.04 or U15/U17 promotion, **121/175, 19 to 140**.
+
+
+**W104 HPACK source baseline acceptance (2026-10-25; prepared only after W103 full QA):** Accept exactly U08.04 using [W103 Benchmarks #40168119709](https://github.com/infocyph/Runwire/actions/runs/40168119709), immutable 2.1.2 matched [PHP 8.4](https://github.com/infocyph/Runwire/actions/runs/40168119709/artifacts/12589100756) and [PHP 8.5](https://github.com/infocyph/Runwire/actions/runs/40168119709/artifacts/12589840441) JSON source-level profiling, and `docs/plans/evidence/runwire-3.0/u08-hpack-before-after.md` showing all four workload medians, CV and ratios. Preserve literal **PARTIAL** R4.02 historical mapping; U15.04 still OPEN. No statistically significant performance gains or certified regression-free claim (two integer CV measurements >2.5%). Plan and roadmap reconcile at **122/175 accepted (69.7%), 53 OPEN, 18 to 140**. No change to Foundation/Infbyte, PR stays draft, no merging/tagging/releases.
