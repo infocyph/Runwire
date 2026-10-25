@@ -708,3 +708,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 outbound H3 native client integration (2026-10-25; QA PENDING):** Add first real bodyless native H3 outbound request/response exchange with strict ALPN/TLS and independent aioquic H3-peer test in both native PHP lanes. Requires new exact-head QA, full H3 concurrency/dynamic QPACK/policy and benchmarks before any U07/C1 closure. **123/175 accepted, 52 OPEN; C1 0/11, C2-C5 queued**.
+
+
+**C1 outbound H3 PHPForge recovery (2026-10-25; QA PENDING):** e3a0a40 both PHP native aioquic H3 peer interoperability checks PASS, but strict PHPForge analysis and formatting caught eight PHPStan findings and Pint argument formatting. Source-validated callback types/worker handles, response bytes and peer-control complexity corrected; mandatory exact-head green verification outstanding. **123/175 accepted, 52 OPEN; C1 remains 0/11**.

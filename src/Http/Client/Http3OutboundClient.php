@@ -101,6 +101,28 @@ final class Http3OutboundClient
         $this->finish(new RuntimeException('HTTP/3 exchange was closed before completion.'));
     }
 
+    /** @param array<string,mixed> $result */
+    private static function decodeBytes(array $result): string
+    {
+        $data = $result['data'] ?? null;
+        if (!is_string($data) || ($bytes = base64_decode($data, true)) === false) {
+            throw new RuntimeException('Invalid HTTP/3 worker binary result.');
+        }
+
+        return $bytes;
+    }
+
+    /** @param array<string,mixed> $result */
+    private static function streamId(array $result): int
+    {
+        $stream = $result['stream'] ?? null;
+        if (!is_int($stream) || $stream < 1) {
+            throw new RuntimeException('Invalid HTTP/3 worker stream handle.');
+        }
+
+        return $stream;
+    }
+
     /** @return array{host:string,port:int} */
     private static function validatedOrigin(ClientRequest $request, QuicClientOptions $options): array
     {
@@ -123,6 +145,30 @@ final class Http3OutboundClient
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
 
+    private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
+    {
+        if (!$this->peerControlFound && $bytes !== '' && $bytes[0] !== "\x00") {
+            if (++$this->unrelatedStreams > 8) {
+                throw new RuntimeException('Excessive non-control HTTP/3 peer streams.');
+            }
+            $this->receiveControl();
+
+            return;
+        }
+        if ($bytes !== '') {
+            $this->peerControlFound = true;
+        }
+        $this->control->receivePeerControl($bytes);
+        if ($eof) {
+            $this->control->closePeerControl();
+        }
+        if ($this->control->peerSettings() !== null) {
+            $this->readResponse();
+        } else {
+            $this->poll(fn() => $this->readControl($stream));
+        }
+    }
+
     /** @param array<string,mixed> $result */
     private function assertWritten(array $result, int $length): void
     {
@@ -138,7 +184,11 @@ final class Http3OutboundClient
             return;
         }
         try {
-            $this->session->command($op, $stream, $data, $fin,
+            $this->session->command(
+                $op,
+                $stream,
+                $data,
+                $fin,
                 function (mixed $result, ?Throwable $error) use ($next): void {
                     if ($this->finished) {
                         return;
@@ -150,11 +200,16 @@ final class Http3OutboundClient
                     }
 
                     try {
-                        $next($result);
+                        /** @var array<string,mixed> $validated */
+                        $validated = $result;
+                        $next($validated);
                     } catch (Throwable $failure) {
                         $this->finish($failure);
                     }
-                }, $this->request->cancellation, $this->request->deadline);
+                },
+                $this->request->cancellation,
+                $this->request->deadline,
+            );
         } catch (Throwable $error) {
             $this->finish($error);
         }
@@ -187,32 +242,19 @@ final class Http3OutboundClient
 
     private function readControl(int $stream): void
     {
-        $this->command('read', $stream, '', false, function (array $result) use ($stream): void {
-            $bytes = base64_decode((string) ($result['data'] ?? ''), true);
-            if ($bytes === false) {
-                throw new RuntimeException('Invalid HTTP/3 peer control stream payload.');
-            }
-            if (!$this->peerControlFound && $bytes !== '' && $bytes[0] !== "\x00") {
-                if (++$this->unrelatedStreams > 8) {
-                    throw new RuntimeException('Excessive non-control HTTP/3 peer streams.');
-                }
-                $this->receiveControl();
-
-                return;
-            }
-            if ($bytes !== '') {
-                $this->peerControlFound = true;
-            }
-            $this->control->receivePeerControl($bytes);
-            if (($result['eof'] ?? null) === true) {
-                $this->control->closePeerControl();
-            }
-            if ($this->control->peerSettings() !== null) {
-                $this->readResponse();
-            } else {
-                $this->poll(fn() => $this->readControl($stream));
-            }
-        });
+        $this->command(
+            'read',
+            $stream,
+            '',
+            false,
+            function (array $result) use ($stream): void {
+                $this->acceptPeerControl(
+                    self::decodeBytes($result),
+                    $stream,
+                    ($result['eof'] ?? null) === true,
+                );
+            },
+        );
     }
 
     private function readResponse(): void
@@ -222,37 +264,45 @@ final class Http3OutboundClient
             throw new RuntimeException('HTTP/3 request stream was not started.');
         }
         $stream = $this->responseStream;
-        $this->command('read', $stream, '', false, function (array $result) use ($response): void {
-            $bytes = base64_decode((string) ($result['data'] ?? ''), true);
-            if ($bytes === false) {
-                throw new RuntimeException('Invalid HTTP/3 response payload.');
-            }
-            $response->push($bytes);
-            if (($result['eof'] ?? null) === true) {
-                $response->finish();
-                $this->finish(null);
-
-                return;
-            }
-            $this->poll(fn() => $this->readResponse());
-        });
+        $this->command(
+            'read',
+            $stream,
+            '',
+            false,
+            function (array $result) use ($response): void {
+                $response->push(self::decodeBytes($result));
+                if (($result['eof'] ?? null) === true) {
+                    $response->finish();
+                    $this->finish(null);
+    
+                    return;
+                }
+                $this->poll(fn() => $this->readResponse());
+            },
+        );
     }
 
     /** Locate the mandatory peer control stream before processing the response. */
     private function receiveControl(): void
     {
-        $this->command('accept', 0, '', false, function (array $accepted): void {
-            if (($accepted['pending'] ?? null) === true) {
-                $this->poll(fn() => $this->receiveControl());
-
-                return;
-            }
-            if (($accepted['incoming'] ?? null) !== true || ($accepted['bidirectional'] ?? null) !== false
-                || !is_int($accepted['stream'] ?? null)) {
-                throw new RuntimeException('Invalid peer HTTP/3 control stream admission.');
-            }
-            $this->readControl($accepted['stream']);
-        });
+        $this->command(
+            'accept',
+            0,
+            '',
+            false,
+            function (array $accepted): void {
+                if (($accepted['pending'] ?? null) === true) {
+                    $this->poll(fn() => $this->receiveControl());
+    
+                    return;
+                }
+                if (($accepted['incoming'] ?? null) !== true || ($accepted['bidirectional'] ?? null) !== false
+                    || !is_int($accepted['stream'] ?? null)) {
+                    throw new RuntimeException('Invalid peer HTTP/3 control stream admission.');
+                }
+                $this->readControl($accepted['stream']);
+            },
+        );
     }
 
     private function sendControl(int $stream): void
@@ -263,12 +313,24 @@ final class Http3OutboundClient
             return;
         }
         $data = $this->control->start();
-        $this->command('write', $stream, $data, false, function (array $result) use ($data): void {
-            $this->assertWritten($result, strlen($data));
-            $this->command('open_bidi', 0, '', false, function (array $opened): void {
-                $this->sendRequest((int) ($opened['stream'] ?? 0));
-            });
-        });
+        $this->command(
+            'write',
+            $stream,
+            $data,
+            false,
+            function (array $result) use ($data): void {
+                $this->assertWritten($result, strlen($data));
+                $this->command(
+                    'open_bidi',
+                    0,
+                    '',
+                    false,
+                    function (array $opened): void {
+                        $this->sendRequest(self::streamId($opened));
+                    },
+                );
+            },
+        );
     }
 
     private function sendRequest(int $stream): void
@@ -281,10 +343,16 @@ final class Http3OutboundClient
         $bytes = new Http3ClientWireCodec()->encodeRequestHeaders($this->request, $stream);
         $this->responseStream = $stream;
         $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody);
-        $this->command('write', $stream, $bytes, true, function (array $result) use ($bytes): void {
-            $this->assertWritten($result, strlen($bytes));
-            $this->receiveControl();
-        });
+        $this->command(
+            'write',
+            $stream,
+            $bytes,
+            true,
+            function (array $result) use ($bytes): void {
+                $this->assertWritten($result, strlen($bytes));
+                $this->receiveControl();
+            },
+        );
     }
 
     private function start(string $host, int $port): void
@@ -295,8 +363,11 @@ final class Http3OutboundClient
 
             return;
         }
-        $seconds = min(10.0, $this->request->deadline?->remainingSeconds() ?? INF,
-            $token?->deadline()->remainingSeconds() ?? INF);
+        $seconds = min(
+            10.0,
+            $this->request->deadline?->remainingSeconds() ?? INF,
+            $token?->deadline()->remainingSeconds() ?? INF,
+        );
         if ($seconds <= 0) {
             $this->finish(new RuntimeException('HTTP/3 exchange deadline already expired.'));
 
@@ -312,18 +383,30 @@ final class Http3OutboundClient
             return;
         }
         try {
-            $this->session->connect($host, $port, $this->options,
+            $this->session->connect(
+                $host,
+                $port,
+                $this->options,
                 function (mixed $result, ?Throwable $error): void {
-                    if ($error !== null || ($result['alpn'] ?? null) !== 'h3'
+                    if ($error !== null || !is_array($result) || ($result['alpn'] ?? null) !== 'h3'
                         || ($result['verified'] ?? null) !== true) {
                         $this->finish($error ?? new RuntimeException('HTTP/3 QUIC h3 TLS/ALPN verification failed.'));
 
                         return;
                     }
-                    $this->command('open_uni', 0, '', false, function (array $opened): void {
-                        $this->sendControl((int) ($opened['stream'] ?? 0));
-                    });
-                }, $this->request->cancellation, $this->request->deadline);
+                    $this->command(
+                        'open_uni',
+                        0,
+                        '',
+                        false,
+                        function (array $opened): void {
+                            $this->sendControl(self::streamId($opened));
+                        },
+                    );
+                },
+                $this->request->cancellation,
+                $this->request->deadline,
+            );
         } catch (Throwable $error) {
             $this->finish($error);
         }
