@@ -10,7 +10,7 @@ use RuntimeException;
 /** Bounded RFC 1928/1929 SOCKS5 wire codec, without network or TLS ownership. */
 final readonly class Socks5Handshake
 {
-
+    /** Validate bounded SOCKS5 credentials and remote DNS disclosure policy. */
     public function __construct(
         private bool $remoteDns = false,
         private ?string $username = null,

@@ -577,3 +577,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W115 proxy-target outbound SSRF authorization (2026-10-25; QA PENDING):** Existing `OutboundAddressPolicy` can now opt-in at HTTP CONNECT and SOCKS5 origin-target admission, separately from the connected proxy endpoint. Fail closed on unresolvable proxy target identity, reserved/private IP and malformed target before tunnel bytes. Auth and nested target-TLS gates still OPEN under U10.04/.05/.06. **122/175 accepted, 53 open**.
+
+
+**W115–W116 grouped security + QA correction (2026-10-25; QA PENDING):** Adds opt-in proxy *destination* public-IP SSRF admission guard (vs only the proxy IP) and fixes shared PHPForge constructor documentation and Pint readonly/mutable field ordering from W114. No weaker checks or false acceptance: U10.04/.05/.06 remain OPEN; **122/175 accepted, 53 OPEN**.

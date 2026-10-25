@@ -25,18 +25,18 @@ use Throwable;
  */
 final class Socks5Tunnel
 {
+    /** @var Closure(?Connection, ?Throwable):void */
+    private readonly Closure $completion;
+
     private ?int $closeObserver = null;
-
-    private ?CancellationSubscription $subscription = null;
-
-    private ?int $timer = null;
 
     private string $phase = 'new';
 
     private string $reply = '';
 
-    /** @var Closure(?Connection, ?Throwable):void */
-    private readonly Closure $completion;
+    private ?CancellationSubscription $subscription = null;
+
+    private ?int $timer = null;
 
     /** @param callable(?Connection, ?Throwable):void $completion */
     public function __construct(

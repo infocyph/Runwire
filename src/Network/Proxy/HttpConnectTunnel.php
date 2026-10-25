@@ -26,18 +26,18 @@ use Throwable;
  */
 final class HttpConnectTunnel
 {
+    /** @var Closure(?Connection, ?Throwable):void */
+    private readonly Closure $completion;
+
     private ?int $closeObserver = null;
+
+    private string $header = '';
+
+    private string $state = 'new';
 
     private ?CancellationSubscription $subscription = null;
 
     private ?int $timer = null;
-
-    private string $state = 'new';
-
-    private string $header = '';
-
-    /** @var Closure(?Connection, ?Throwable):void */
-    private readonly Closure $completion;
 
     /** @param callable(?Connection, ?Throwable):void $completion */
     public function __construct(

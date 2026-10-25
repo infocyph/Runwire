@@ -12,6 +12,7 @@ final readonly class HttpConnectHandshake
 {
     public const int MAX_HEADER_BYTES = 8192;
 
+    /** Validate the proxy authentication requirement at construction. */
     public function __construct(
         private ?string $username = null,
         private ?string $password = null,
