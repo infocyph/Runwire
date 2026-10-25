@@ -592,3 +592,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W120 grouped async file I/O performance evidence (2026-10-25; QA PENDING):** One-versus-two worker comparison per PHP 8.4/8.5 job, verified byte/loop/queue/parent RSS metrics, ratio artifacts, bounded 1–4 worker setting and tests. U11.03/U11.10 OPEN pending substantive comparison. **122/175 accepted, 53 OPEN**.
+
+
+**W121 grouped proxy fragmented-handshake QA (2026-10-25; QA PENDING):** Resolve PHPForge Pint and Pest failures from previous proxy group; correct truncated method+CONNECT distinction, add three finite-timeout partial replies across both protocols, preserve fail-closed policy and exactly-once cleanup. U10.04/.05/.06 OPEN, **122/175 accepted, 53 OPEN**, tracker synchronized.

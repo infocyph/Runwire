@@ -243,3 +243,14 @@ method substitution, malformed address replies, and oversized headers.
 The tests assert no tunnel handoff and no retained loop watchers or timers.
 They do not replace independent proxy-reference testing, nested target TLS
 or verified proxy authentication acceptance.
+
+Incomplete reply timeout semantics (development)
+-----------------------------------------------
+
+SOCKS5 method selection and CONNECT replies, like HTTP CONNECT response
+headers, are incremental: a short prefix is incomplete, not automatically
+an invalid response. The grouped W121 tests exercise fragmented prefixes
+through finite negotiation timeouts and require one terminal error with
+no early successful tunnel handoff. Invalid complete frames remain
+immediate failures.
+

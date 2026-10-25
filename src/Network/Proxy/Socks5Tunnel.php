@@ -89,7 +89,7 @@ final class Socks5Tunnel
                     $this->receive($connection);
                 },
                 static function (): void {
-                    // Connection owns write-drain scheduling.
+                    return;
                 },
                 function (): void {
                     $this->fail(new RuntimeException('Proxy closed during SOCKS5 handshake.'));

@@ -14,7 +14,12 @@ use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
  * Exercise the real connection callback/ownership path, not only codec methods.
  * Every negative result must have one error, no successful handoff and no leak.
  */
-function runwireProxyAdversarialReply(string $protocol, string $badReply, bool $afterMethod = false): void
+function runwireProxyAdversarialReply(
+    string $protocol,
+    string $badReply,
+    bool $afterMethod = false,
+    bool $incompleteReply = false,
+): void
 {
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($sockets)->toBeArray();
@@ -41,8 +46,14 @@ function runwireProxyAdversarialReply(string $protocol, string $badReply, bool $
         $loop->stop();
     };
     $tunnel = $protocol === 'http'
-        ? new HttpConnectTunnel($loop, $connection, new HttpConnectHandshake(), 'example.com', 443, $complete)
-        : new Socks5Tunnel($loop, $connection, new Socks5Handshake(), '127.0.0.1', 443, $complete);
+        ? new HttpConnectTunnel(
+            $loop, $connection, new HttpConnectHandshake(), 'example.com', 443,
+            $complete, timeoutSeconds: $incompleteReply ? 0.08 : 1.0,
+        )
+        : new Socks5Tunnel(
+            $loop, $connection, new Socks5Handshake(), '127.0.0.1', 443,
+            $complete, timeoutSeconds: $incompleteReply ? 0.08 : 1.0,
+        );
     try {
         $tunnel->start();
         if ($afterMethod) {
@@ -94,7 +105,7 @@ it('refuses HTTP CONNECT response smuggling, wrong status and oversized framing 
 });
 
 it('refuses SOCKS5 authentication substitution and incorrect version on a real stream', function (): void {
-    foreach (["\x05\x02", "\x05\xff", "\x04\x00", "\x05\x00\x00"] as $reply) {
+    foreach (["\x05\x02", "\x05\xff", "\x04\x00"] as $reply) {
         runwireProxyAdversarialReply('socks5', $reply);
     }
 });
@@ -109,3 +120,10 @@ it('refuses malformed SOCKS5 CONNECT replies after a separately successful metho
         runwireProxyAdversarialReply('socks5', $reply, afterMethod: true);
     }
 });
+
+it('times out incomplete method, CONNECT, and HTTP headers instead of inventing a success', function (): void {
+    runwireProxyAdversarialReply('socks5', "\x05\x00\x00", incompleteReply: true);
+    runwireProxyAdversarialReply('socks5', "\x05\x00\x00\x01\x7f", afterMethod: true, incompleteReply: true);
+    runwireProxyAdversarialReply('http', "HTTP/1.1 200 OK\r\nX-Proxy: pending", incompleteReply: true);
+});
+
