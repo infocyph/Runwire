@@ -46,6 +46,70 @@ must fail closed. The ``Http1PolicyClient`` redirect helper is optional,
 bodyless GET/HEAD only, and does not supply a cookie jar or transparent
 HTTP/2/3 fallback.
 
+Opt-in verified H1/H2 client migration (3.0 development)
+--------------------------------------------------------
+
+Runwire 2.1.2 does not ship a built-in outbound HTTP client. Existing
+consumers relied on their own HTTP clients, not a Runwire client TLS
+context. Do not repurpose insecure server-side TLS defaults for dialing.
+
+The unreleased ``HttpNegotiatingOutboundClient`` selects HTTP/1.1 or
+HTTP/2 only **after verified TLS/ALPN negotiation**. Explicitly allowing
+fallback limits how a peer can choose a nonpreferred version. HTTP/3
+remains unsupported for outbound HTTP requests; a requested H3 policy
+is rejected rather than silently downgraded to H2/H1 or plaintext.
+
+.. code-block:: php
+
+   use Infocyph\Runwire\Executor\ProcessExecutor;
+   use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
+   use Infocyph\Runwire\Http\Client\ClientRequest;
+   use Infocyph\Runwire\Http\Client\HttpNegotiatingOutboundClient;
+   use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+   use Infocyph\Runwire\Http\Headers;
+   use Infocyph\Runwire\Loop\SelectLoop;
+   use Infocyph\Runwire\Network\AsyncDnsResolver;
+   use Infocyph\Runwire\Network\Connection;
+   use Infocyph\Runwire\Network\Dialer;
+   use Infocyph\Runwire\Network\HappyEyeballsDialer;
+
+   $loop = new SelectLoop();
+   $executor = new ProcessExecutor($loop, 1, 8);
+   $tcpDialer = new Dialer($loop);
+   $dialer = new HappyEyeballsDialer(
+       $loop, $tcpDialer, new AsyncDnsResolver($executor)
+   );
+
+   $policy = new ClientProtocolPolicy(
+       ProtocolVersion::HTTP_2,
+       [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_1_1],
+       allowFallback: true,
+   );
+   HttpNegotiatingOutboundClient::connect(
+       $loop,
+       $dialer,
+       new ClientRequest('GET', 'https://example.com/', protocol: $policy),
+       static function (int $status, Headers $headers): void {
+           // Process the negotiated response without leaking credentials.
+       },
+       static function (string $part): void {
+           // Bound retained response bytes at the application boundary.
+       },
+       static function (?Connection $unused, ?Throwable $error) use ($loop): void {
+           $unused?->abort();
+           $loop->stop();
+       },
+   );
+   $loop->run();
+   $dialer->close();
+   $tcpDialer->close();
+   $executor->close();
+
+The single-request client does not enable transparent connection pooling
+or H3. ``Http2MultiplexConnection`` is a separate experimental transport
+that requires an **already verified** shared TLS+h2 socket, not a
+general-purpose HTTP browser or a proxy.
+
 Async filesystem and resource ownership
 ---------------------------------------
 
@@ -68,8 +132,10 @@ Compatibility and release verification
 Native prefork workers require PCNTL/POSIX; PHP-FPM, FrankenPHP,
 RoadRunner and Swoole continue to own their host-specific listener/worker
 lifecycle. Optional ext-event, ext-swoole and ext-quic are not mandatory
-Composer dependencies. HTTP/2 and HTTP/3 outbound clients, CONNECT/SOCKS5,
-WebTransport and full release benchmarks are **not complete** yet.
+Composer dependencies. HTTP/2 has independently tested one-shot and
+experimental multiplexed TLS clients in 3.0 development. The HTTP/3 request
+client, CONNECT/SOCKS5, WebTransport and final release benchmarks are
+**not complete**; no unreleased APIs should be treated as shipped.
 
 The final migration acceptance requires an exact reflected 2.1.2 versus
 3.0 manifest diff for removed/renamed symbols, changed public parameters,
@@ -98,7 +164,13 @@ behavioral compatibility, exceptions at runtime, or release readiness.
 
 The output reports removed types, removed methods, changed signatures,
 constant and enum-case changes, and newly declared types, without loading
-optional PHP extensions or invoking network APIs. The final release audit
+optional PHP extensions or invoking network APIs.
+
+The Source Audit workflow additionally regenerates both immutable source
+manifests with ``--with-properties``, checks the property inventory,
+runs the deterministic diff and archives ``migration-source-diff.json``.
+The generated delta is a **source-only input**, not proof of behavioral
+compatibility or approval to publish. The final release audit
 must still document each intentional breaking change, review callback and
 exception behavior and pin both immutable source revisions. **U16.12 and
 U17.01 are not yet complete.**

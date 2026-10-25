@@ -114,7 +114,9 @@ This is **not** a race-free filesystem sandbox: another process may swap
 path components between worker-side validation and ``fopen``/``rename``.
 Use operating-system isolation and a separately audited descriptor-relative
 openat2 or equivalent backend for adversarial multi-user writable directories.
-The complete U14.06 symlink/TOCTOU audit remains open.
+The U14.06 worker-side path/permission audit now covers common adversarial
+inputs and documents the unresolved concurrent-mutation TOCTOU boundary.
+That acceptance is **not** a promise of kernel-enforced sandboxing.
 
 
 Adversarial filesystem path and permission checks
@@ -127,7 +129,8 @@ unwritable leaves, and prohibited rename/unlink/stat operations. It verifies
 that the original outside file and allowed file remain unchanged, and that
 all worker handles/watchers are retired.
 
-Passing these tests only verifies the checked path and permission cases.
+The exact W96 PHPForge security/functional matrix passed these worker tests.
+That acceptance verifies checked path and permission cases only.
 It does **not** eliminate a time-of-check/time-of-use race if another
 process can rename or replace path components between validation and the
 subsequent PHP filesystem syscall. Configure filesystem isolation and refuse

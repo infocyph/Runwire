@@ -65,6 +65,23 @@ jobs:
           test "$(jq -er '.publicTypes' docs/plans/evidence/runwire-3.0/public-api-2.1.2.lock.json)" -eq "$(jq -er '.symbolCount' api-baseline/published-2.1.2.json)"
           echo "Published 2.1.2 public API manifest checksum VERIFIED."
 
+      - name: Validate property-aware public API migration from pinned 2.1.2 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tools/public-api-diff.php
+          php tools/public-api-manifest.php published-2.1.2/src api-baseline/published-2.1.2-properties.json 7e9bf20ad0737a187dfed77b723791b141b36378 --with-properties
+          php tools/public-api-manifest.php src api-baseline/current-properties.json "${GITHUB_SHA}" --with-properties
+          php tools/public-api-diff.php api-baseline/published-2.1.2-properties.json api-baseline/current-properties.json > api-baseline/migration-source-diff.json
+          jq -e --arg base "7e9bf20ad0737a187dfed77b723791b141b36378" --arg candidate "${GITHUB_SHA}" \
+            '.schemaVersion == 1 and .baselineRevision == $base and .candidateRevision == $candidate and .propertyInventoryCompared == true' \
+            api-baseline/migration-source-diff.json >/dev/null
+          {
+            echo "### Source-only 2.1.2 to 3.0 migration diff (not behavioral certification)"
+            jq -r '[.breakingCount,.changeCount,.additionCount] | "Breaking: \(.[0]); signature/declaration changes: \(.[1]); new types: \(.[2])"' api-baseline/migration-source-diff.json
+            echo "Published 2.1.2 comparator: 7e9bf20ad073; checked-out source: ${GITHUB_SHA}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Preserve reproducible API baselines
         if: always()
         uses: actions/upload-artifact@v7

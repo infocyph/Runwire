@@ -10,7 +10,8 @@ Incoming HTTP/1.1 enforces bounds for request lines, headers, chunks,
 body size, parser budgets and connection idle timeout. The development
 Http1ClientRequestWriter and Http1ClientResponseParser handle
 incremental bodies, chunked responses, trailers and malformed
-messages. The branch now also contains experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. The opt-in ``Http1PolicyClient`` enforces bodyless GET/HEAD redirects, bounded retries, and cross-origin secret stripping. ``BoundedConnectionPool`` supports isolated lease admission and idle reuse but is not automatically wired into the client. Full H2/H3 outbound clients and transparent multi-protocol negotiation remain open.
+messages. The branch now also contains experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. The opt-in ``Http1PolicyClient`` enforces bodyless GET/HEAD redirects, bounded retries, and cross-origin secret stripping. ``BoundedConnectionPool`` supports isolated lease admission and idle reuse but is not automatically wired into the client. The unreleased H2 client now has one-shot and live shared-connection paths;
+H3 request clients, finished pooling and transparent H3 fallback remain open.
 
 .. code-block:: console
 
@@ -24,9 +25,9 @@ bounded HPACK tables, header blocks, per-stream body queues,
 RST_STREAM and GOAWAY. The experimental internal
 ``Http2ClientHandshake`` validates server SETTINGS, generates an exact
 client preface, bounded bodyless HPACK request HEADERS and connection
-PING/GOAWAY responses. This is **not** an established H2 client:
-real TLS ALPN, multiplexed stream lifecycles, flow-control credit and
-CONTINUATION remain open, as does H2 extended CONNECT WebSocket. The new
+PING/GOAWAY responses. Independent reference tests now exercise a verified
+TLS/ALPN H2 client, concurrent streams, received flow credit, cancellation
+and CONTINUATION handling. H2 extended CONNECT WebSocket remains open. The new
 internal ``Http2ClientSession`` composes bounded single-stream response
 HEADERS/CONTINUATION/HPACK and DATA callbacks with control-frame validation
 and receive-window credit. The new experimental ``Http2ConnectedExchange``
@@ -38,9 +39,10 @@ a real certificate/ALPN handshake and frame response. A dedicated PR-only
 ``HTTP/2 Independent Reference`` workflow now validates this outbound client
 against upstream Python ``hyper-h2`` under pinned 8.4/8.5 PHP matrices,
 including verified CA/SAN/TLS, ALPN, HPACK HEADERS and streamed body.
-This single-request H2 implementation does not provide network multiplexing,
-server push, trailers,
-transparent H1 fallback, a complete H2 client, or H3/WT.
+The single-request H2 client deliberately does not multiplex, while the
+separate verified shared-session transport does. H2 server push, extended
+CONNECT and H3/WT remain outside these development client contracts.
+An independent negotiated H1/H2 client supports **explicit** TLS fallback.
 
 .. code-block:: console
 
@@ -99,20 +101,19 @@ replay unsafe methods or forward credentials across origins.
 HTTP/2 client stream-state groundwork
 -------------------------------------
 
-The internal H2 response decoder now accepts a validated, odd client-initiated
-stream identifier, with individually bounded header/body memory and terminal
-state. This prepares sibling-stream isolation without silently upgrading the
-existing one-request outgoing connection into a multiplexed H2 client. Real
-concurrent stream scheduling, GOAWAY / RST_STREAM recovery, outbound credit,
-complete connection-level stream scheduling and independent concurrent-peer
-interop are still **pending** under U07.05. The internal
+The internal H2 response decoder accepts validated odd client stream IDs
+with bounded header/body memory and isolated terminal state. The distinct
+multiplexed protocol and transport owners are implemented and exercised
+against a real external TLS/hyper-h2 peer; existing one-shot clients remain
+one-shot. Independent tests cover concurrent scheduling, GOAWAY, RST_STREAM
+and outbound WINDOW_UPDATE credit. The internal
 ``Http2ClientMultiplexSession`` is a protocol-only preparation: it accepts
 bounded concurrent same-origin GET/HEAD streams, reuses one HPACK decoder,
 prevents cross-stream CONTINUATION interleaving and isolates client CANCEL,
-peer RST and GOAWAY. **It does not own a socket, TLS identity, per-request
-deadline, write budget or active HTTP/2 transport.** Real shared-connection
-multiplexing and certified flow control are still required. Existing
-single-exchange public behavior remains unchanged.
+peer RST and GOAWAY. **It does not itself own a socket, TLS identity, deadline, write budget
+or event loop.** The separate Http2MultiplexConnection supplies that
+callback/transport integration. Full 3.0 pooling and release-level
+performance certification remain separate open gates.
 
 .. code-block:: console
 
@@ -128,11 +129,12 @@ stream. Its callbacks admit simultaneous same-origin bodyless requests after
 server SETTINGS, isolate stream cancellation and response completion, and
 cap outgoing control buffers, deadlines and active slots. A live socket-pair
 fixture verifies sibling H2 exchanges and client RST handling without
-pretending the fixture performs TLS verification. The existing independent
-``hyper-h2`` TLS reference suite still certifies only the single-request
-outbound path; independent concurrent TLS/ALPN/HPACK interoperability,
-slow-receiver flow control, and fully integrated dialing/pooling remain
-**OPEN under U07.05**. This is unreleased 3.0 development code.
+pretending the fixture performs TLS verification. The independent
+``hyper-h2`` TLS suite separately verifies the real shared-connection
+multiplexer with reversed responses, large flow windows, authenticated
+cancellation and slow sibling completion. U07.05's development acceptance
+is covered; full automatic pooling, H3 and frozen-release performance
+certification remain separate gates. This is unreleased 3.0 code.
 
 .. code-block:: console
 
@@ -144,10 +146,11 @@ Independent concurrent TLS HTTP/2 interoperability
 A separate, mandatory ``HTTP/2 Independent Reference`` PR workflow executes
 ``qa/reference/Http2MultiplexIndependentReferenceTest.php`` on PHP 8.4 and 8.5
 against upstream ``hyper-h2``. The peer verifies one real TLS/ALPN socket,
-two concurrent request streams and reversed-order responses with connection-
-scoped HPACK state. The test is a **candidate acceptance gate**, not a claim
-of independent success until its exact-head run finishes. Stream-cancellation
-storms, slow consumers and saturated flow windows remain required under U07.05.
+two concurrent request streams and reversed responses with connection-
+scoped HPACK. The exact W96 independent reference and PHPForge source suites
+passed on PHP 8.4/8.5; real canceled streams, bounded 64-cycle churn,
+slow peers and saturated flow windows are also covered. Full frozen-release
+fault and resource certification remain U15/U17 responsibilities.
 
 
 HTTP/2 receive-window stress and canceled streams
@@ -160,8 +163,8 @@ receive windows. Peer completion therefore tests credit replenishment and
 sibling fairness rather than merely testing short responses. A separate
 64-generation protocol regression exercises stream-local RST, pending peer
 acknowledgments, exactly-once completion and the fixed retired-stream budget.
-These development tests do not replace production benchmark certification,
-full slow-peer adversarial interop or final U07.05 QA acceptance.
+These development tests satisfy the development flow/cancel acceptance,
+not production benchmarking, H3 availability or full release certification.
 
 
 Explicit outbound H1/H2 ALPN selection
@@ -192,7 +195,7 @@ live pair of accepted requests where Runwire cancels stream one with
 ``RST_STREAM`` and completes stream three over the same verified connection.
 This supplements deterministic 64-generation cancellation tests and the
 large-body flow-window workload. Exact-head full quality and sustained
-slow-peer/fairness requirements still govern U07.05 acceptance.
+This real TLS acceptance is bounded to U07.05; release soak is separate.
 
 
 Independent stalled-sibling HTTP/2 acceptance
@@ -204,4 +207,4 @@ initially stalled stream. This mode is mandatory beside the independent
 out-of-order response, 131072-byte flow-window, and authenticated RST modes.
 It tests stream-local fairness and cancellation, not the final multi-hour
 release performance and leak certification. A new exact-source QA run is
-required before U07.05 acceptance.
+required for ongoing release hardening beyond accepted U07.05 work.
