@@ -89,6 +89,7 @@ final class BoundedConnectionPool
             if ($this->enableMetrics) {
                 ++$this->metricCounts['waiter_overflow'];
             }
+
             throw new OverflowException('Connection pool waiter quota exceeded.');
         }
 
