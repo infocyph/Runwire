@@ -137,6 +137,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
             'quic_session' => (static function (array $args) use (&$quicSessionWorker): array {
                 if ($quicSessionWorker === null) {
                     require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerCommand.php';
+                    require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerResourceUsage.php';
                     require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerSession.php';
                     $quicSessionWorker = new \Infocyph\Runwire\Network\Internal\QuicWorkerSession();
                 }
