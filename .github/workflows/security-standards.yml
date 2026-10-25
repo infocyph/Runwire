@@ -491,7 +491,14 @@ jobs:
         run: |
           mkdir -p benchmark-results
           /tmp/runwire-aioquic/bin/python benchmarks/mixed_native_lifecycle.py | tee benchmark-results/mixed-native-lifecycle.json
-          jq -e '.correctness_passed == true and .events.reload_completed > 0 and .events.manual_recycle_requested > 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
+          jq -e '.correctness_passed == true and .events.reload_completed > 0
+            and .events.manual_recycle_requested > 0 and .simultaneous_h2_streams_per_wave == 8
+            and .simultaneous_h3_streams_per_wave == 8
+            and .cancelled_h2_streams_per_wave == 1
+            and .cancelled_h3_streams_per_wave == 1
+            and .slow_receiver_delay_ms == 20
+            and ([.waves[] | select(.http2 != 8 or .http3 != 8
+                 or .cancelled_h2_streams != 1 or .cancelled_h3_streams != 1)] | length) == 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
 
       - name: Upload mixed native listener lifecycle evidence
         if: always() && matrix.php-version == '8.5'

@@ -747,3 +747,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **C1 paired H1 plaintext/TLS syscall profile (2026-10-25, QA PENDING):** Adds `/proc` process-tree syscr/syscw/rchar/wchar counters beside true application socket byte/write/read counts, plus three alternating measured same-runner verified TLS/plaintext tests per PHP 8.4/8.5. Server process I/O includes non-network syscalls; release-grade sustained U08.09 evidence is not implied. Tracker remains **129/175; C1 6/11**.
+
+
+**C1 mixed-native rollover pressure (2026-10-25; QA PENDING):** Real Python independent peers now demand 8 H2 + 8 H3 concurrent requests per wave, one canceled stream of each version, 20ms H2 slow read and verified healthy traffic before/after true worker crash, reload and generational recycle (with H1/TCP/UDP). Full exact-head green required before U08.08 acceptance. **129/175, C1 6/11; C2-C5 queued.**

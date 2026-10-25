@@ -79,9 +79,11 @@ async def request_http1(port):
 
 
 async def request_http2(port, _server_pid):
-    # Two actual independent H2 requests are admitted together. Do not keep
-    # opening new streams on a retiring connection after server GOAWAY.
-    expected = {1: b"x" * 1024, 3: b"x" * 16384}
+    # Admit eight real independent H2 streams with different body lengths;
+    # cancellation of a ninth stream must not abort accepted sibling traffic.
+    expected = {stream: b"x" * (1024 if stream % 4 == 1 else 16384)
+                for stream in range(1, 17, 2)}
+    cancelled_id = 17
     tls = ssl.create_default_context()
     tls.check_hostname = False
     tls.verify_mode = ssl.CERT_NONE
@@ -107,13 +109,26 @@ async def request_http2(port, _server_pid):
                     (":authority", "localhost"),
                     (":path", f"/benchmark/{len(body)}"),
                 ], end_stream=True)
+            h2.send_headers(cancelled_id, [
+                (":method", "GET"), (":scheme", "https"),
+                (":authority", "localhost"), (":path", "/benchmark/16384"),
+            ], end_stream=True)
+            h2.reset_stream(cancelled_id, error_code=0x8)
             writer.write(h2.data_to_send())
             await writer.drain()
+            # Intentionally slow receive/flow-control updates while multiple
+            # server streams remain in flight through rollover and recycling.
+            await asyncio.sleep(0.02)
             while len(completed) < len(expected):
                 data = await asyncio.wait_for(reader.read(65535), 4)
                 if not data:
                     raise ConnectionError("H2 transport retired before response completion")
                 for event in h2.receive_data(data):
+                    if isinstance(event, (ResponseReceived, DataReceived, StreamEnded, StreamReset)) \
+                            and event.stream_id == cancelled_id:
+                        if isinstance(event, DataReceived):
+                            h2.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
+                        continue
                     if isinstance(event, ResponseReceived):
                         if event.stream_id not in expected or int(dict(event.headers).get(":status", "0")) != 200:
                             raise RuntimeError("H2 status/header corruption during native recycle")
@@ -161,8 +176,21 @@ async def request_http3(port):
     config.server_name = "localhost"
     async with connect("127.0.0.1", port, configuration=config,
                        create_protocol=H3BenchClient) as protocol:
-        await asyncio.wait_for(protocol.request(f"localhost:{port}", 16384, 0), 6)
-        return 1
+        # Cancel one independent real QUIC request stream while eight
+        # validated H3 siblings share the verified transport.
+        cancelled_id = protocol._quic.get_next_available_stream_id()
+        protocol.http.send_headers(cancelled_id, [
+            (b":method", b"GET"), (b":scheme", b"https"),
+            (b":authority", f"localhost:{port}".encode()), (b":path", b"/benchmark"),
+        ], end_stream=True)
+        protocol.transmit()
+        await asyncio.sleep(0.01)
+        protocol._quic.reset_stream(cancelled_id, error_code=0x10C)
+        protocol.transmit()
+        await asyncio.wait_for(asyncio.gather(*[
+            protocol.request(f"localhost:{port}", 16384, 0) for _ in range(8)
+        ]), timeout=9)
+        return 8
 
 
 async def request_tcp(port):
@@ -197,7 +225,9 @@ async def complete_wave(tls_port, tcp_port, udp_port, server_pid):
         ),
         timeout=12,
     )
-    return {"http1": 1, "http2": results[1], "http3": results[2], "tcp": 1, "udp": 1}
+    return {"http1": 1, "http2": results[1], "http3": results[2], "tcp": 1, "udp": 1,
+            "cancelled_h2_streams": 1, "cancelled_h3_streams": 1,
+            "slow_h2_receiver_delay_ms": 20}
 
 
 async def exercise():
@@ -277,6 +307,11 @@ async def exercise():
                                          "reload_started", "reload_completed",
                                          "worker_recycle_started", "manual_recycle_requested")},
                 "waves": observed,
+                "simultaneous_h2_streams_per_wave": 8,
+                "simultaneous_h3_streams_per_wave": 8,
+                "cancelled_h2_streams_per_wave": 1,
+                "cancelled_h3_streams_per_wave": 1,
+                "slow_receiver_delay_ms": 20,
                 "release_performance_certified": False,
             }
         finally:
