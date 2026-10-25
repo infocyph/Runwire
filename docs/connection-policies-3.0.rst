@@ -245,7 +245,7 @@ They do not replace independent proxy-reference testing, nested target TLS
 or verified proxy authentication acceptance.
 
 Incomplete reply timeout semantics (development)
------------------------------------------------
+------------------------------------------------
 
 SOCKS5 method selection and CONNECT replies, like HTTP CONNECT response
 headers, are incremental: a short prefix is incomplete, not automatically

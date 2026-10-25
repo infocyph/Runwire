@@ -37,3 +37,30 @@ it('keeps historical manuals and explicit proxy TLS migration limitations', func
         ->toContain('original target')
         ->toContain('unreleased');
 });
+
+
+it('rejects short native RST heading underlines throughout the published manual', function (): void {
+    $root = dirname(__DIR__) . '/docs';
+    $pages = glob($root . '/*.rst');
+    expect($pages)->toBeArray();
+    foreach ($pages as $file) {
+        $source = file_get_contents($file);
+        expect($source)->toBeString();
+        $lines = preg_split('/\r?\n/', $source);
+        expect($lines)->toBeArray();
+        foreach ($lines as $position => $underline) {
+            if ($position < 1 || preg_match('/^([=\-~^])\1{2,}$/D', $underline) !== 1) {
+                continue;
+            }
+            $title = $lines[$position - 1];
+            if ($title === '' || preg_match('/^\s/', $title) === 1
+                || preg_match('/^([=\-~^])\1{2,}$/D', $title) === 1) {
+                continue;
+            }
+            expect(strlen($underline))->toBeGreaterThanOrEqual(
+                strlen(rtrim($title)),
+                basename($file) . ':' . ($position + 1) . ' has a short title underline.',
+            );
+        }
+    }
+});

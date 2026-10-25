@@ -601,3 +601,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W123 grouped proxy drain QA + pressure recovery (2026-10-25; QA PENDING):** One common test exercises both CONNECT and SOCKS5 under tiny write budgets, complete peer framing, byte parity and no leaks; replaces unnecessary no-op drain returns with real liveness handling to satisfy Pint/PHPCS/Rector. U10.04/.05/.06 remain OPEN. **122/175 accepted, 53 OPEN**.
+
+
+**W124 grouped RST integrity checks (2026-10-25; QA PENDING):** Repair three recent connection-policy section underline widths (one Sphinx warning), add all-native-root-docs heading underline regression test to previously added navigation/migration test. No suppression. U16.02/.12/.16 still OPEN. **122/175, 53 OPEN**.
