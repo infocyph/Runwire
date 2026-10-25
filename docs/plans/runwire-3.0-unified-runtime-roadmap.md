@@ -55,7 +55,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
-**Current canonical QA state: 123/175 accepted, 52 OPEN.** The following **execution groups** reassign every remaining task exactly once without replacing the canonical U00–U17 checklist. C1 started on 2026-10-25; do not promote QA-pending code to accepted.
+**Current canonical QA state: 123/175 accepted, 52 OPEN.** These are indivisible execution batches, not subdivisions. C1 contains 11 U tasks and must be 11/11 accepted with exact-head green QA before C2 begins. Intermediate commits, fixes and tests remain inside C1 and do not count as batch completion.
 
 | Group | Exact remaining U tasks | Open | Status |
 | --- | --- | ---: | --- |
@@ -696,3 +696,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W150 C1 QUIC fixture QA (2026-10-25; QA PENDING):** Repair actual W148 PHPForge Pint method ordering and test fixture unused parameters; no feature scope weakening or accepted task inflation. **123/175 accepted, 52 OPEN**.
+
+
+**C1 scope discipline correction (2026-10-25; QA PENDING):** C1 must be **fully delivered (11/11 task acceptances) with green PHPForge, protocols, native peers, hosted and performance QA** before any C2 work. Fix latest H3 formatter regression; no new task checkbox is justified yet. **123/175 accepted; 52 open; C1 ACTIVE; C2-C5 QUEUED**.
