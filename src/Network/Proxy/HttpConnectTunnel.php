@@ -78,11 +78,8 @@ final class HttpConnectTunnel
             throw new LogicException('HTTP CONNECT tunnel may start exactly once.');
         }
         $this->token?->throwIfCancelled();
-        $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
-        if ($this->handshake->usesAuthentication()
-            && ($this->verifiedProxyPeerName === null || $verified === null
-                || strcasecmp($this->verifiedProxyPeerName, $verified) !== 0)) {
-            throw new LogicException('HTTP CONNECT credentials require a verified proxy TLS identity matching the configured peer.');
+        if ($this->handshake->usesAuthentication()) {
+            $this->assertVerifiedProxyPeer();
         }
 
         $request = $this->handshake->request($this->host, $this->port);
@@ -149,6 +146,16 @@ final class HttpConnectTunnel
             throw new RuntimeException('Proxy destination IP policy requires a pre-resolved numeric target.');
         }
         $this->targetAddressPolicy->assertCandidate($target);
+    }
+
+    /** Permit credentials only on a matching, dialer-verified outbound TLS channel. */
+    private function assertVerifiedProxyPeer(): void
+    {
+        $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
+        if ($this->verifiedProxyPeerName === null || $verified === null
+            || strcasecmp($this->verifiedProxyPeerName, $verified) !== 0) {
+            throw new LogicException('HTTP CONNECT credentials require a verified proxy TLS identity matching the configured peer.');
+        }
     }
 
     private function cleanup(): void

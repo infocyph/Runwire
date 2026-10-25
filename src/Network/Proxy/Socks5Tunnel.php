@@ -78,11 +78,8 @@ final class Socks5Tunnel
             throw new LogicException('SOCKS5 tunnel may start only once.');
         }
         $this->token?->throwIfCancelled();
-        $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
-        if ($this->handshake->usesAuthentication()
-            && ($this->verifiedProxyPeerName === null || $verified === null
-                || strcasecmp($this->verifiedProxyPeerName, $verified) !== 0)) {
-            throw new LogicException('SOCKS5 credentials require a verified proxy TLS identity matching the configured peer.');
+        if ($this->handshake->usesAuthentication()) {
+            $this->assertVerifiedProxyPeer();
         }
         // Validate DNS disclosure policy and target before writing any bytes.
         $this->handshake->connectRequest($this->host, $this->port);
@@ -146,6 +143,16 @@ final class Socks5Tunnel
             throw new RuntimeException('Proxy destination IP policy requires a pre-resolved numeric target.');
         }
         $this->targetAddressPolicy->assertCandidate($target);
+    }
+
+    /** Permit credentials only on a matching, dialer-verified outbound TLS channel. */
+    private function assertVerifiedProxyPeer(): void
+    {
+        $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
+        if ($this->verifiedProxyPeerName === null || $verified === null
+            || strcasecmp($this->verifiedProxyPeerName, $verified) !== 0) {
+            throw new LogicException('SOCKS5 credentials require a verified proxy TLS identity matching the configured peer.');
+        }
     }
 
     private function cleanup(): void

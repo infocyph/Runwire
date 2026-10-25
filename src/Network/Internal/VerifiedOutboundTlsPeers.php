@@ -18,6 +18,12 @@ final class VerifiedOutboundTlsPeers
     /** @var WeakMap<Connection, string>|null */
     private static ?WeakMap $names = null;
 
+    /** Return null for plain, accepted or otherwise unverified streams. */
+    public static function peerName(Connection $connection): ?string
+    {
+        return self::$names === null ? null : (self::$names[$connection] ?? null);
+    }
+
     /** Record the peer only after the dialer's secure client TLS handshake succeeded. */
     public static function register(Connection $connection, string $peerName): void
     {
@@ -27,11 +33,5 @@ final class VerifiedOutboundTlsPeers
 
         self::$names ??= new WeakMap();
         self::$names[$connection] = $peerName;
-    }
-
-    /** Return null for plain, accepted or otherwise unverified streams. */
-    public static function peerName(Connection $connection): ?string
-    {
-        return self::$names === null ? null : (self::$names[$connection] ?? null);
     }
 }
