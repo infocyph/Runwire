@@ -598,3 +598,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W122 grouped RST manual completeness/migration (2026-10-25; QA PENDING):** Fix worker-profile heading warning, test all 22 top-level manual pages navigable once, retain historical navigation and document unreleased proxy/original-target TLS limits. Hosted preview, frozen migration proof, final nav review U16.02/.12/.16 remain OPEN. **122/175 accepted, 53 OPEN**, plan synchronized.
+
+
+**W123 grouped proxy drain QA + pressure recovery (2026-10-25; QA PENDING):** One common test exercises both CONNECT and SOCKS5 under tiny write budgets, complete peer framing, byte parity and no leaks; replaces unnecessary no-op drain returns with real liveness handling to satisfy Pint/PHPCS/Rector. U10.04/.05/.06 remain OPEN. **122/175 accepted, 53 OPEN**.

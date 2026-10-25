@@ -254,3 +254,12 @@ through finite negotiation timeouts and require one terminal error with
 no early successful tunnel handoff. Invalid complete frames remain
 immediate failures.
 
+Backpressured proxy connection ownership (development)
+------------------------------------------------------
+
+The grouped proxy lifecycle regression now exercises HTTP CONNECT and
+SOCKS5 under one-byte-per-tick writes and a two-byte high watermark.
+Drain callbacks inspect the live connection state rather than using
+a no-op that conflicts with PHPForge Pint/Rector policies. The fixture
+verifies full negotiation, application-byte handoff, pressure detection
+and final watcher/timer cleanup. It does not prove end-to-end nested TLS.

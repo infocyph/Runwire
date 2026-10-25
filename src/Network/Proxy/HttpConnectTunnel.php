@@ -10,6 +10,7 @@ use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\OutboundAddressPolicy;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
@@ -89,8 +90,10 @@ final class HttpConnectTunnel
                 function (Connection $connection): void {
                     $this->receive($connection);
                 },
-                static function (): void {
-                    return;
+                function (Connection $connection): void {
+                    if ($connection->state() === ConnectionState::CLOSED) {
+                        $this->fail(new RuntimeException('Proxy connection closed before tunnel negotiation completed.'));
+                    }
                 },
                 function (): void {
                     $this->fail(new RuntimeException('Proxy closed before CONNECT tunnel establishment.'));
