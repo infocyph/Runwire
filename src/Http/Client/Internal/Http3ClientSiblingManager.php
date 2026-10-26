@@ -186,10 +186,6 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /**
-     * @param callable(array<string,mixed>):void $next
-     */
-
     /** @param array<string,mixed> $result */
     private function acceptRead(int $id, array $result): void
     {
@@ -344,7 +340,6 @@ final class Http3ClientSiblingManager
         }
         $state->readActive = true;
         $this->command('read', $state->stream, '', false, function (array $result) use ($id): void {
-            /** @var array<string,mixed> $result */
             $this->acceptRead($id, $result);
         });
     }
@@ -425,7 +420,6 @@ final class Http3ClientSiblingManager
             $length,
             $last,
         ): void {
-            /** @var array<string,mixed> $result */
             $this->acceptWrite($id, $result, $bytes, $fin, $offset, $next, $length, $last);
         });
     }
