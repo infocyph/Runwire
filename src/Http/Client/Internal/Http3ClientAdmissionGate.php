@@ -21,6 +21,7 @@ final class Http3ClientAdmissionGate
 
     private bool $ready = false;
 
+    /** Validate maximum live-stream and FIFO waiter budgets before admission. */
     public function __construct(
         private readonly int $maxActive = 32,
         private readonly int $maxPending = 128,
@@ -36,7 +37,11 @@ final class Http3ClientAdmissionGate
         return count($this->active);
     }
 
-    /** Reject future streams and retire queued (but not active) siblings on GOAWAY. @return list<int> */
+    /**
+     * Reject future streams and retire queued (but not active) siblings on GOAWAY.
+     *
+     * @return list<int>
+     */
     public function drain(): array
     {
         $this->draining = true;
@@ -46,7 +51,11 @@ final class Http3ClientAdmissionGate
         return $rejected;
     }
 
-    /** Queue a unique sibling; native stream creation occurs only after start(). */
+    /**
+     * Queue a unique sibling; native stream creation occurs only after start().
+     *
+     * @return list<int>
+     */
     public function enqueue(int $id): array
     {
         if ($id < 1 || isset($this->active[$id]) || isset($this->pending[$id])) {
@@ -69,7 +78,11 @@ final class Http3ClientAdmissionGate
         return count($this->pending);
     }
 
-    /** Retire one admitted or queued sibling, then grant free slots in FIFO order. @return list<int> */
+    /**
+     * Retire one admitted or queued sibling, then grant free slots in FIFO order.
+     *
+     * @return list<int>
+     */
     public function release(int $id): array
     {
         unset($this->active[$id], $this->pending[$id]);
@@ -77,7 +90,11 @@ final class Http3ClientAdmissionGate
         return $this->admit();
     }
 
-    /** Mark the verified transport/control streams ready and return grantable siblings. @return list<int> */
+    /**
+     * Mark the verified transport/control streams ready and return grantable siblings.
+     *
+     * @return list<int>
+     */
     public function start(): array
     {
         $this->ready = true;
@@ -85,7 +102,11 @@ final class Http3ClientAdmissionGate
         return $this->admit();
     }
 
-    /** Return the bounded set of FIFO stream admissions without bypassing a pending request. @return list<int> */
+    /**
+     * Return FIFO stream admissions without bypassing a pending request.
+     *
+     * @return list<int>
+     */
     private function admit(): array
     {
         if (!$this->ready || $this->draining) {

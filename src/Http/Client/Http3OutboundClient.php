@@ -63,9 +63,9 @@ final class Http3OutboundClient
 
     private bool $localStreamsReady = false;
 
-    private bool $peerSettingsSeen = false;
-
     private bool $peerDraining = false;
+
+    private bool $peerSettingsSeen = false;
 
     private int $qpackDecoderStream = 0;
 
@@ -256,7 +256,8 @@ final class Http3OutboundClient
 
         foreach ($this->control->receivePeerControl($bytes) as $frame) {
             if ($frame->knownType() === FrameType::GOAWAY) {
-                $this->acceptPeerGoaway($frame->payload);
+                $this->peerDraining = true;
+                $this->siblings?->drain();
             }
         }
         if ($eof) {
@@ -270,17 +271,6 @@ final class Http3OutboundClient
         // The peer's critical control stream stays live for the entire session.
         // Re-read after SETTINGS to detect premature FIN and later control frames.
         $this->poll(fn() => $this->readControl($stream));
-    }
-
-    /** RFC 9114 GOAWAY must use a complete client-bidi stream ID, never a request count. */
-    private function acceptPeerGoaway(string $payload): void
-    {
-        $decoded = VarIntCodec::tryDecode($payload);
-        if ($decoded === null || $decoded[1] !== strlen($payload) || $decoded[0] % 4 !== 0) {
-            throw new RuntimeException('HTTP/3 GOAWAY contains an invalid request stream ID.');
-        }
-        $this->peerDraining = true;
-        $this->siblings?->drain();
     }
 
     /** @param array<string,mixed> $result */

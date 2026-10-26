@@ -26,6 +26,8 @@ final class Http3ClientControl
 
     private bool $localStarted = false;
 
+    private ?int $peerGoawayId = null;
+
     private string $peerPrefix = '';
 
     private bool $peerTyped = false;
@@ -53,6 +55,12 @@ final class Http3ClientControl
         }
 
         return VarIntCodec::encode($type->value);
+    }
+
+    /** The most restrictive client-bidirectional request ID refused by peer GOAWAY. */
+    public function peerGoaway(): ?int
+    {
+        return $this->peerGoawayId;
     }
 
     /** Return peer SETTINGS only once its complete first frame was parsed. */
@@ -91,7 +99,14 @@ final class Http3ClientControl
             $bytes = substr($bytes, $offset - $prefixLength);
         }
 
-        return $this->peer->push($bytes);
+        $frames = $this->peer->push($bytes);
+        foreach ($frames as $frame) {
+            if ($frame->knownType() === \Infocyph\Runwire\Http\Http3\Enum\FrameType::GOAWAY) {
+                $this->validateGoaway($frame);
+            }
+        }
+
+        return $frames;
     }
 
     /** Emit local HTTP/3 stream type and SETTINGS, exactly once. */
@@ -108,4 +123,15 @@ final class Http3ClientControl
             SettingIdentifier::MAX_FIELD_SECTION_SIZE->value => 65_536,
         ]));
     }
+    /** Accept only a complete, nonincreasing client-bidi GOAWAY request stream ID. */
+    private function validateGoaway(Frame $frame): void
+    {
+        $decoded = VarIntCodec::tryDecode($frame->payload);
+        if ($decoded === null || $decoded[1] !== strlen($frame->payload) || $decoded[0] % 4 !== 0
+            || ($this->peerGoawayId !== null && $decoded[0] > $this->peerGoawayId)) {
+            throw new Http3Exception(ErrorCode::ID_ERROR, 'HTTP/3 peer GOAWAY stream ID is invalid or increasing.');
+        }
+        $this->peerGoawayId = $decoded[0];
+    }
+
 }

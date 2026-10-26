@@ -98,6 +98,14 @@ final class Http3ClientSiblingManager
         }
     }
 
+    /** Retire queued request streams after peer GOAWAY without canceling in-flight work. */
+    public function drain(): void
+    {
+        foreach ($this->admission->drain() as $id) {
+            $this->complete($id, new RuntimeException('HTTP/3 peer GOAWAY rejected queued stream admission.'));
+        }
+    }
+
     /**
      * Register an independently cancellable request without allocating a second QUIC session.
      *
@@ -128,9 +136,6 @@ final class Http3ClientSiblingManager
         $state = new Http3ClientSiblingExchange($request, $onHeaders, $onBody, $completion, $onTrailers);
         $granted = $this->admission->enqueue($id);
         $this->exchanges[$id] = $state;
-        foreach ($granted as $readyId) {
-            $this->open($readyId);
-        }
         $state->timeout = $this->loop->delay($limit, function () use ($id): void {
             $this->cancel($id, new RuntimeException('HTTP/3 sibling exchange deadline expired.'));
         });
@@ -143,6 +148,12 @@ final class Http3ClientSiblingManager
         $state->cancellation = $token?->onCancel(function () use ($id, $token): void {
             $this->cancel($id, new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
         });
+        foreach ($granted as $readyId) {
+            if (isset($this->exchanges[$readyId])) {
+                $this->open($readyId);
+            }
+        }
+
         return $id;
     }
 
@@ -155,14 +166,6 @@ final class Http3ClientSiblingManager
         $this->ready = true;
         foreach ($this->admission->start() as $id) {
             $this->open($id);
-        }
-    }
-
-    /** Retire queued request streams after peer GOAWAY without canceling in-flight work. */
-    public function drain(): void
-    {
-        foreach ($this->admission->drain() as $id) {
-            $this->complete($id, new RuntimeException('HTTP/3 peer GOAWAY rejected queued stream admission.'));
         }
     }
 

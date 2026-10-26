@@ -91,3 +91,24 @@ it('announces one local encoder and decoder QPACK critical stream only after SET
         ->and(fn() => $control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::CONTROL))
         ->toThrow(LogicException::class, 'Only HTTP/3 QPACK');
 });
+
+it('validates monotonic peer GOAWAY request IDs on the same critical control stream', function (): void {
+    $peer = new Http3ClientControl();
+    $peer->start();
+    $peer->receivePeerControl("\x00" . (new Frame(FrameType::SETTINGS->value))->encode());
+    $peer->receivePeerControl(new Frame(FrameType::GOAWAY->value, VarIntCodec::encode(12))->encode());
+    $peer->receivePeerControl(new Frame(FrameType::GOAWAY->value, VarIntCodec::encode(8))->encode());
+    expect($peer->peerGoaway())->toBe(8);
+    expect(fn() => $peer->receivePeerControl(new Frame(FrameType::GOAWAY->value, VarIntCodec::encode(16))->encode()))
+        ->toThrow(Http3Exception::class, 'invalid or increasing');
+});
+
+it('rejects malformed HTTP/3 peer GOAWAY stream identities and trailing payload bytes', function (): void {
+    foreach ([VarIntCodec::encode(1), "\x40", VarIntCodec::encode(8) . "\x00"] as $invalid) {
+        $peer = new Http3ClientControl();
+        $peer->start();
+        $peer->receivePeerControl("\x00" . (new Frame(FrameType::SETTINGS->value))->encode());
+        expect(fn() => $peer->receivePeerControl(new Frame(FrameType::GOAWAY->value, $invalid)->encode()))
+            ->toThrow(Http3Exception::class, 'invalid or increasing');
+    }
+});
