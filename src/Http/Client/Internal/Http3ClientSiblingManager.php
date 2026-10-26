@@ -78,8 +78,10 @@ final class Http3ClientSiblingManager
             ($this->feedback)();
         }
         if ($state->stream > 0 && !$state->peerEof && $this->session->active()) {
-            $this->command('reset', $state->stream, '', false, static function (): void {
-                return;
+            $this->command('reset', $state->stream, '', false, static function (array $receipt): void {
+                if (!is_bool($receipt['reset'] ?? null)) {
+                    throw new RuntimeException('Native QUIC sibling reset returned an invalid receipt.');
+                }
             });
         }
         $this->complete($id, $error);
