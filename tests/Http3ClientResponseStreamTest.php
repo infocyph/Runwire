@@ -202,3 +202,18 @@ it('isolates QPACK-blocked sibling stream sections until each required insertion
     $two->resumeQpack($readySecond[0]);
     expect($seen)->toBe(['one-200', 'two-201'])->and($two->isFinished())->toBeTrue();
 });
+
+it('cancels one QPACK-blocked stream without releasing its canceled headers', function (): void {
+    $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(
+        decoderCapacity: 256,
+        maxBlocked: 2,
+    );
+    $encoder = new Encoder(256, 2, dynamicTableCapacity: 256);
+    $codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions());
+    $block = $encoder->encode([[':status', '200'], ['x-canceled', 'untrusted']], 4);
+    expect($block->blocking)->toBeTrue();
+    expect($codec->tryDecodeResponseHeaders($block->block, 4))->toBeNull();
+    $codec->cancelResponseStream(4);
+    expect($codec->takeDecoderInstructions())->not->toBe('');
+    expect($codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions()))->toBe([]);
+});

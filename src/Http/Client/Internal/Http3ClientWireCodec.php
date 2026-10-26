@@ -37,6 +37,12 @@ final readonly class Http3ClientWireCodec
         $this->decoder = new Decoder($decoderCapacity, $maxBlocked, $maxFieldSectionBytes, $maxHeaderFields);
     }
 
+    /** Cancel retained QPACK field sections and enqueue the matching stream-cancellation signal. */
+    public function cancelResponseStream(int $wireStreamId): void
+    {
+        $this->decoder->cancelStream($wireStreamId);
+    }
+
     /** @return array{status:int, headers:Headers} */
     public function decodeReadyHeaders(DecodedFieldSection $section): array
     {

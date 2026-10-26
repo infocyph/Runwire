@@ -73,6 +73,10 @@ final class Http3ClientSiblingManager
         if ($state === null) {
             return false;
         }
+        if ($state->stream > 0) {
+            $this->codec->cancelResponseStream($state->wireStreamId);
+            ($this->feedback)();
+        }
         if ($state->stream > 0 && !$state->peerEof && $this->session->active()) {
             $this->command('reset', $state->stream, '', false, static function (): void {});
         }
