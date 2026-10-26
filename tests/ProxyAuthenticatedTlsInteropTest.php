@@ -22,7 +22,14 @@ use Infocyph\Runwire\Network\TlsOptions;
  *
  * @return array{received:string,verified:?string,error:?Throwable,completed:int,accepted:bool}
  */
-function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProxy = 'localhost', bool $rejectAuthentication = false): array
+function runwireAuthenticatedProxyInterop(
+    string $protocol,
+    string $expectedProxy = 'localhost',
+    bool $rejectAuthentication = false,
+    string $targetHost = '127.0.0.1',
+    bool $remoteDns = false,
+    bool $rejectMethod = false,
+): array
 {
     $dir = sys_get_temp_dir() . '/runwire-proxy-tls-' . bin2hex(random_bytes(8));
     if (!mkdir($dir, 0700)) {
@@ -60,13 +67,13 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
     });
     try {
         $listener->start($loop, static function (Connection $peer) use (
-            &$received, &$accepted, $protocol, $rejectAuthentication,
+            &$received, &$accepted, $protocol, $rejectAuthentication, $rejectMethod,
         ): void {
             $accepted = true;
             $state = 0;
             $pending = '';
             $peer->onData(static function (Connection $ready) use (
-                &$received, &$state, &$pending, $protocol, $rejectAuthentication,
+                &$received, &$state, &$pending, $protocol, $rejectAuthentication, $rejectMethod,
             ): void {
                 $pending .= $ready->read();
                 if ($protocol === 'http') {
@@ -83,7 +90,7 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
                     expect($pending)->toBe("\x05\x01\x02");
                     $pending = '';
                     $state = 1;
-                    $ready->write("\x05\x02");
+                    $ready->write($rejectMethod ? "\x05\x00" : "\x05\x02");
 
                     return;
                 }
@@ -95,7 +102,17 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
 
                     return;
                 }
-                if ($state === 2 && strlen($pending) >= 10) {
+                if ($state === 2 && strlen($pending) >= 5) {
+                    $length = match (ord($pending[3])) {
+                        1 => 10,
+                        4 => 22,
+                        3 => 7 + ord($pending[4]),
+                        default => throw new RuntimeException('Invalid SOCKS5 test peer address type.'),
+                    };
+                    if (strlen($pending) < $length) {
+                        return;
+                    }
+
                     $received = $pending;
                     $pending = '';
                     $state = 3;
@@ -108,7 +125,7 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
         $dialer->connect(
             'tcp://' . $listener->address(),
             static function (?Connection $ready, ?Throwable $error) use (
-                &$client, &$verified, &$failure, &$completed, $loop, $protocol, $expectedProxy,
+                &$client, &$verified, &$failure, &$completed, $loop, $protocol, $expectedProxy, $targetHost, $remoteDns,
             ): void {
                 if ($error !== null || $ready === null) {
                     $failure = $error ?? new RuntimeException('Authenticated proxy TLS dial failed.');
@@ -143,8 +160,8 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
                         (new Socks5Tunnel(
                             $loop,
                             $ready,
-                            new Socks5Handshake(username: 'user', password: 'secret', verifiedProxyTransport: true),
-                            '127.0.0.1',
+                            new Socks5Handshake(remoteDns: $remoteDns, username: 'user', password: 'secret', verifiedProxyTransport: true),
+                            $targetHost,
                             443,
                             $done,
                             verifiedProxyPeerName: $expectedProxy,
@@ -216,4 +233,38 @@ it('rejects live SOCKS5 password authentication failure before submitting CONNEC
         ->and($result['accepted'])->toBeTrue()
         ->and($result['completed'])->toBe(1)
         ->and($result['received'])->toBe('');
+});
+
+it('sends hostname to an authenticated TLS SOCKS5 proxy only with explicit remote DNS opt-in', function (): void {
+    $result = runwireAuthenticatedProxyInterop('socks5', targetHost: 'origin.example', remoteDns: true);
+    $hostname = 'origin.example';
+    $expected = "\x05\x01\x00\x03" . chr(strlen($hostname)) . $hostname . "\x01\xbb";
+    expect($result['error'])->toBeNull()
+        ->and($result['verified'])->toBe('localhost')
+        ->and($result['completed'])->toBe(1)
+        ->and($result['received'])->toBe($expected);
+});
+
+it('refuses to leak local-only SOCKS5 DNS over authenticated TLS before any greeting', function (): void {
+    $result = runwireAuthenticatedProxyInterop('socks5', targetHost: 'origin.example');
+    expect($result['error'])->toBeInstanceOf(InvalidArgumentException::class)
+        ->and($result['verified'])->toBe('localhost')
+        ->and($result['received'])->toBe('')
+        ->and($result['completed'])->toBe(0);
+});
+
+it('rejects SOCKS5 password-authentication downgrade over live verified TLS before disclosing credentials', function (): void {
+    $result = runwireAuthenticatedProxyInterop('socks5', rejectMethod: true);
+    expect($result['error'])->toBeInstanceOf(RuntimeException::class)
+        ->and($result['verified'])->toBe('localhost')
+        ->and($result['received'])->toBe('')
+        ->and($result['completed'])->toBe(1);
+});
+
+it('rejects mismatched SOCKS5 verified TLS proxy identity before any request bytes', function (): void {
+    $result = runwireAuthenticatedProxyInterop('socks5', expectedProxy: 'wrong.example');
+    expect($result['error'])->toBeInstanceOf(LogicException::class)
+        ->and($result['verified'])->toBe('localhost')
+        ->and($result['received'])->toBe('')
+        ->and($result['completed'])->toBe(0);
 });
