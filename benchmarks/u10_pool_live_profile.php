@@ -273,7 +273,7 @@ function u10Median(array $values): float
     $count = count($values);
 
     return $count % 2 === 0
-        ? ($values[$count / 2 - 1] + $values[$count / 2]) / 2
+        ? ($values[intdiv($count, 2) - 1] + $values[intdiv($count, 2)]) / 2
         : $values[intdiv($count, 2)];
 }
 
@@ -349,7 +349,7 @@ try {
         'pooled_vs_direct_p99_ratio' => round($summary['pool']['p99_ms'] / max($summary['direct']['p99_ms'], 0.000001), 4),
         'correctness_passed' => $summary['direct']['successful_requests'] === 2 * $count
             && $summary['pool']['successful_requests'] === 2 * $count
-            && $summary['pooled']['reuse_hits'] > 0,
+            && $summary['pool']['reuse_hits'] > 0,
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL;
 } finally {
     proc_terminate($process);
