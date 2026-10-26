@@ -1,0 +1,89 @@
+name: "Runwire C1 H1 Payload, Reuse and Concurrency Matrix"
+
+on:
+  push:
+    branches: [ "plan/runwire-independent-ecosystem-roadmaps" ]
+    paths:
+      - ".github/workflows/c1-h1-cost-matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1-h1-matrix-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  measured-http1-matrix:
+    name: "C1 H1 diagnostic 2x2x2x2 matrix - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: pcntl, posix, event, opcache, openssl
+          tools: composer:v2
+          coverage: none
+      - name: Install exact source and mandatory PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Compare plaintext/verified TLS across payload, reuse and concurrency
+        shell: bash
+        timeout-minutes: 24
+        run: |
+          set -euo pipefail
+          mkdir -p build/c1-h1-cost-matrix
+          for payload in 2 65536; do
+            for mode in keep-alive close; do
+              for concurrency in 1 16; do
+                export RUNWIRE_BENCH_RESPONSE_BYTES="$payload"
+                export RUNWIRE_BENCH_CONNECTION_MODE="$mode"
+                export RUNWIRE_COMPARE_TRIALS=3
+                export RUNWIRE_COMPARE_WARMUP_SECONDS=0.1
+                export RUNWIRE_COMPARE_DURATION_SECONDS=1.2
+                export RUNWIRE_COMPARE_CONCURRENCY="$concurrency"
+                output="build/c1-h1-cost-matrix/${payload}-${mode}-${concurrency}.json"
+                bash benchmarks/u08_http_io_compare.sh "$output"
+                jq -e --argjson payload "$payload" --arg mode "$mode" \
+                  --argjson concurrent "$concurrency" '
+                  .schema == 1 and .trials == 3
+                  and all(.plaintext[], .tls[];
+                    .correctness_passed == true and .errors_total == 0
+                    and .timeouts_total == 0
+                    and .successful_requests == .requests_total
+                    and .successful_requests > 0
+                    and .response_body_bytes == $payload
+                    and .connection_reuse == $mode
+                    and .concurrency == $concurrent
+                    and .latency_ms.p99 > 0
+                    and .cpu_percent >= 0 and .rss_peak_bytes > 0
+                    and .socket_io.write_calls > 0
+                    and .socket_io.write_bytes > 0
+                    and .socket_io.read_calls > 0
+                    and .socket_io.read_bytes > 0)' "$output" >/dev/null
+              done
+            done
+          done
+          jq -n --arg sha "${GITHUB_SHA}" \
+            '{scope: "development-h1-diagnostic-not-5pair-release-certification",
+              sha: $sha, sizes: [2,65536], modes: ["keep-alive","close"],
+              concurrencies: [1,16], tls_populations: ["off","on-verified"],
+              expected_population_files: 8}' > build/c1-h1-cost-matrix/manifest.json
+          test "$(find build/c1-h1-cost-matrix -maxdepth 1 -name '*.json' | wc -l)" -eq 9
+      - name: Preserve all raw population measurements
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: c1-h1-cost-matrix-php-${{ matrix.php-version }}-${{ github.sha }}
+          path: build/c1-h1-cost-matrix/
+          retention-days: 90
+          if-no-files-found: warn

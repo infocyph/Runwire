@@ -277,3 +277,42 @@ it('records transport error classes without suppressing strict sustained request
     expect(fn() => http1SustainedAssertCorrect($counters, 'Backpressure diagnostics'))
         ->toThrow(RuntimeException::class, '"write_errors":1');
 });
+
+it('uses the same bounded native H1 response and connection variants for compared workloads', function (): void {
+    $originalSize = getenv('RUNWIRE_BENCH_RESPONSE_BYTES');
+    $originalMode = getenv('RUNWIRE_BENCH_CONNECTION_MODE');
+    try {
+        putenv('RUNWIRE_BENCH_RESPONSE_BYTES=65536');
+        putenv('RUNWIRE_BENCH_CONNECTION_MODE=close');
+        expect(strlen(http1BenchResponseBody()))->toBe(65_536)
+            ->and(http1BenchConnectionMode())->toBe('close')
+            ->and(http1BenchRequest())->toContain("Connection: close\r\n");
+        $response = "HTTP/1.1 200 OK\r\nContent-Length: 65536\r\nConnection: close\r\n\r\n"
+            . str_repeat('x', 65_536);
+        $fixture = startHttp1SustainedFixture($response, true);
+        try {
+            $report = http1SustainedMain([
+                'http1_sustained_bench.php',
+                (string) $fixture['port'],
+                '2',
+                '0.05',
+                '0.15',
+                (string) getmypid(),
+            ]);
+            expect($report['correctness_passed'])->toBeTrue()
+                ->and($report['response_body_bytes'])->toBe(65_536)
+                ->and($report['connection_reuse'])->toBe('close')
+                ->and($report['reconnects_total'])->toBeGreaterThan(0)
+                ->and($report['socket_io']['read_bytes'])->toBeGreaterThan(65_536);
+        } finally {
+            stopHttp1SustainedFixture($fixture);
+        }
+        putenv('RUNWIRE_BENCH_RESPONSE_BYTES=1');
+        expect(fn() => http1BenchResponseBody())->toThrow(InvalidArgumentException::class);
+        putenv('RUNWIRE_BENCH_CONNECTION_MODE=invalid');
+        expect(fn() => http1BenchConnectionMode())->toThrow(InvalidArgumentException::class);
+    } finally {
+        $originalSize === false ? putenv('RUNWIRE_BENCH_RESPONSE_BYTES') : putenv('RUNWIRE_BENCH_RESPONSE_BYTES=' . $originalSize);
+        $originalMode === false ? putenv('RUNWIRE_BENCH_CONNECTION_MODE') : putenv('RUNWIRE_BENCH_CONNECTION_MODE=' . $originalMode);
+    }
+});

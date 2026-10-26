@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/http1_bench_workload.php';
+
 final class Http1SustainedTimeout extends RuntimeException {}
 
 final class Http1SustainedProtocolError extends RuntimeException {}
@@ -395,11 +397,13 @@ function http1SustainedCompleteResponse(
     array &$slotCompleted,
     bool $collectLatency,
     array $response,
+    string $expectedBody,
+    bool $closeRequested,
 ): void {
     $client = &$clients[$id];
     ++$counter['completed_requests'];
     ++$slotCompleted[$id];
-    if ($response['status'] === 200 && $response['body'] === 'ok') {
+    if ($response['status'] === 200 && $response['body'] === $expectedBody) {
         ++$counter['successful_requests'];
     } else {
         ++$counter['validation_failures'];
@@ -407,7 +411,7 @@ function http1SustainedCompleteResponse(
     if ($collectLatency) {
         http1SustainedRecordLatency($histogram, (int) $client['request_started']);
     }
-    if ($response['close']) {
+    if ($response['close'] || $closeRequested) {
         http1SustainedReconnect($clients, $id, $host, $port, $deadline, $counter);
     } elseif (microtime(true) < $deadline) {
         http1SustainedPrepareRequest($client, $counter);
@@ -432,6 +436,8 @@ function http1SustainedHandleReadable(
     array &$histogram,
     array &$slotCompleted,
     bool $collectLatency,
+    string $expectedBody,
+    bool $closeRequested,
 ): void {
     try {
         http1SustainedReadChunk($clients[$id], $counter);
@@ -457,6 +463,8 @@ function http1SustainedHandleReadable(
         $slotCompleted,
         $collectLatency,
         $response,
+        $expectedBody,
+        $closeRequested,
     );
 }
 
@@ -544,7 +552,9 @@ function http1SustainedRun(
     $histogram = [];
     $slotCompleted = array_fill(0, $concurrency, 0);
     $clients = [];
-    $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n";
+    $request = http1BenchRequest();
+    $expectedBody = http1BenchResponseBody();
+    $closeRequested = http1BenchConnectionMode() === 'close';
     $started = hrtime(true);
     $deadline = microtime(true) + $duration;
     $startTicks = http1SustainedTreeTicks($serverPid);
@@ -585,6 +595,8 @@ function http1SustainedRun(
                     $histogram,
                     $slotCompleted,
                     $collectLatency,
+                    $expectedBody,
+                    $closeRequested,
                 );
             }
         }
@@ -705,7 +717,7 @@ function http1SustainedMain(array $argv): array
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
         'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'protocol' => 'http/1.1',
-        'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'verified-tls-keepalive' : 'plaintext-keepalive',
+        'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'verified-tls-H1' : 'plaintext-H1',
         'hardware_id' => php_uname('m') . '::' . http1SustainedCpuModel(),
         'host_os' => php_uname('a'),
         'host_cpu' => http1SustainedCpuModel(),
@@ -713,7 +725,8 @@ function http1SustainedMain(array $argv): array
         'instrumentation' => getenv('RUNWIRE_INSTRUMENTATION') ?: 'ci-smoke',
         'tls' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'on-verified' : 'off',
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
-        'connection_reuse' => 'keep-alive',
+        'connection_reuse' => http1BenchConnectionMode(),
+        'response_body_bytes' => strlen(http1BenchResponseBody()),
         'extension_versions' => http1SustainedExtensionVersions(),
         'workers' => 1,
         'concurrency' => $concurrency,
@@ -743,7 +756,7 @@ function http1SustainedMain(array $argv): array
             'scope' => 'whole-server-process-tree-not-socket-only',
         ],
         'socket_io' => [
-            'request_size_bytes' => strlen("GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n"),
+            'request_size_bytes' => strlen(http1BenchRequest()),
             'write_calls' => $counter['socket_write_calls'],
             'write_bytes' => $counter['socket_write_bytes'],
             'write_would_block' => $counter['write_would_block'],

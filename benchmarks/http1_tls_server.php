@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/http1_bench_workload.php';
+
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -25,11 +27,13 @@ if (!is_file($root . '/vendor/autoload.php') || $port < 1 || $port > 65_535
 }
 require $root . '/vendor/autoload.php';
 
+$benchmarkBody = http1BenchResponseBody();
+
 $server = Server::http(
     '127.0.0.1:' . $port,
-    static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+    static function (HttpRequest $request, ResponseWriterInterface $writer) use ($benchmarkBody): void {
         $valid = $request->method === 'GET' && str_starts_with($request->target, '/benchmark');
-        $body = $valid ? 'ok' : 'bad';
+        $body = $valid ? $benchmarkBody : 'bad';
         $writer->start(
             $valid ? 200 : 400,
             Headers::fromArray([

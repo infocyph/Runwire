@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/http1_bench_workload.php';
+
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -27,9 +29,11 @@ if ($port < 1 || $port > 65_535) {
     throw new InvalidArgumentException('Benchmark port must be between 1 and 65535.');
 }
 
+$benchmarkBody = http1BenchResponseBody();
+
 $server = Server::http(
     '127.0.0.1:' . $port,
-    static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+    static function (HttpRequest $request, ResponseWriterInterface $writer) use ($benchmarkBody): void {
         if ($request->method === 'GET'
             && $request->target === '/__runwire_soak_diagnostics'
             && getenv('RUNWIRE_SOAK_DIAGNOSTICS') === '1') {
@@ -44,7 +48,7 @@ $server = Server::http(
         }
 
         $valid = $request->method === 'GET' && str_starts_with($request->target, '/benchmark');
-        $body = $valid ? 'ok' : 'bad';
+        $body = $valid ? $benchmarkBody : 'bad';
         $writer->start(
             $valid ? 200 : 400,
             Headers::fromArray([
