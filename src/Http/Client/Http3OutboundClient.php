@@ -8,11 +8,15 @@ use Closure;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientControl;
+use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamType;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
+use Infocyph\Runwire\Http\Http3\Http3Exception;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
@@ -33,6 +37,8 @@ final class Http3OutboundClient
 
     private const int UPLOAD_CHUNK_BYTES = 4_096;
 
+    private readonly Http3ClientWireCodec $codec;
+
     private readonly Closure $completion;
 
     private readonly Http3ClientControl $control;
@@ -50,6 +56,15 @@ final class Http3OutboundClient
     private bool $finished = false;
 
     private bool $peerControlFound = false;
+
+    /** @var array<int, Http3ClientPeerStreamType> */
+    private array $peerPrefixes = [];
+
+    /** @var array<int, int> */
+    private array $peerStreamTypes = [];
+
+    /** @var array<int, true> */
+    private array $peerCriticalTypes = [];
 
     private ?Http3ClientResponseStream $response = null;
 
@@ -82,6 +97,7 @@ final class Http3OutboundClient
         $this->completion = Closure::fromCallable($completion);
         $this->session = new QuicClientSession($loop);
         $this->control = new Http3ClientControl();
+        $this->codec = new Http3ClientWireCodec();
     }
 
     /**
@@ -159,17 +175,40 @@ final class Http3OutboundClient
 
     private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
     {
-        if (!$this->peerControlFound && $bytes !== '' && $bytes[0] !== "\x00") {
-            if (++$this->unrelatedStreams > 8) {
-                throw new RuntimeException('Excessive non-control HTTP/3 peer streams.');
-            }
-            $this->receiveControl();
+        if (!isset($this->peerStreamTypes[$stream])) {
+            $probe = ($this->peerPrefixes[$stream] ??= new Http3ClientPeerStreamType())->push($bytes);
+            if ($probe === null) {
+                if ($eof) {
+                    throw new Http3Exception(ErrorCode::STREAM_CREATION_ERROR, 'Peer HTTP/3 stream ended before its type was complete.');
+                }
+                $this->poll(fn() => $this->readControl($stream));
 
-            return;
-        }
-        if ($bytes !== '') {
+                return;
+            }
+
+            unset($this->peerPrefixes[$stream]);
+            $type = $probe['type'];
+            $this->peerStreamTypes[$stream] = $type;
+            if (in_array($type, [
+                StreamType::CONTROL->value,
+                StreamType::QPACK_ENCODER->value,
+                StreamType::QPACK_DECODER->value,
+            ], true)) {
+                if (isset($this->peerCriticalTypes[$type])) {
+                    throw new Http3Exception(ErrorCode::STREAM_CREATION_ERROR, 'Duplicate HTTP/3 peer critical stream.');
+                }
+                $this->peerCriticalTypes[$type] = true;
+            }
+
+            if ($type !== StreamType::CONTROL->value) {
+                $this->acceptPeerAuxiliary($type, $probe['payload'], $stream, $eof);
+
+                return;
+            }
             $this->peerControlFound = true;
+            $bytes = $probe['wire'];
         }
+
         $this->control->receivePeerControl($bytes);
         if ($eof) {
             $this->control->closePeerControl();
@@ -179,6 +218,37 @@ final class Http3OutboundClient
         } else {
             $this->poll(fn() => $this->readControl($stream));
         }
+    }
+
+    private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
+    {
+        if ($type === StreamType::QPACK_ENCODER->value) {
+            $this->codec->receivePeerEncoderInstructions($bytes);
+        } elseif ($type === StreamType::QPACK_DECODER->value) {
+            $this->codec->receivePeerDecoderInstructions($bytes);
+        } elseif ($type === StreamType::PUSH->value) {
+            throw new Http3Exception(ErrorCode::ID_ERROR, 'Peer push is forbidden without MAX_PUSH_ID.');
+        } elseif (++$this->unrelatedStreams > 8) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Excessive unrecognized HTTP/3 peer streams.');
+        }
+
+        if ($eof && in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
+            throw new Http3Exception(ErrorCode::CLOSED_CRITICAL_STREAM, 'Peer QPACK critical stream ended prematurely.');
+        }
+
+        if (in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
+            $this->poll(fn() => $this->readPeerAuxiliary($stream, $type));
+        }
+        if (!$this->peerControlFound) {
+            $this->receiveControl();
+        }
+    }
+
+    private function readPeerAuxiliary(int $stream, int $type): void
+    {
+        $this->command('read', $stream, '', false, function (array $result) use ($stream, $type): void {
+            $this->acceptPeerAuxiliary(self::decodeBytes($result) === '' ? $type : $type, self::decodeBytes($result), $stream, ($result['eof'] ?? null) === true);
+        });
     }
 
     /** @param array<string,mixed> $result */
@@ -351,7 +421,7 @@ final class Http3OutboundClient
 
             return;
         }
-        $bytes = new Http3ClientWireCodec()->encodeRequestHeaders($this->request, $stream);
+        $bytes = $this->codec->encodeRequestHeaders($this->request, $stream);
         $this->responseStream = $stream;
         $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody, onTrailers: $this->onTrailers);
         $this->writeAll(
@@ -375,7 +445,7 @@ final class Http3OutboundClient
         }
         if ($body->eof()) {
             $trailers = $body->trailers();
-            $last = $trailers === null ? '' : new Http3ClientWireCodec()->encodeRequestTrailers($trailers, $this->responseStream);
+            $last = $trailers === null ? '' : $this->codec->encodeRequestTrailers($trailers, $this->responseStream);
             $this->writeAll($this->responseStream, $last, true, function (): void {
                 $this->receiveControl();
             });
