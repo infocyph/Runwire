@@ -236,7 +236,16 @@ class H2Bench:
                     if time.monotonic() < deadline:
                         waiting.append(state["slot"])
                 elif isinstance(event, (StreamReset, ConnectionTerminated)):
-                    raise RuntimeError(f"H2 protocol failure: {event!r}")
+                    # Failure-only diagnostics; never mask peer resets as successful
+                    # requests, alter phase limits, or perturb passing benchmarks.
+                    raise RuntimeError(
+                        f"H2 protocol failure: {event!r} "
+                        f"scenario={self.case.get('scenario')} "
+                        f"issued_on_connection={self.issued} "
+                        f"concurrency={concurrency} "
+                        f"phase_duration={duration} "
+                        f"diagnostics={json.dumps(self.stall_snapshot(), sort_keys=True)}"
+                    )
             if time.monotonic() >= deadline:
                 waiting = []
         result = measurement.result()

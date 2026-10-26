@@ -12,6 +12,17 @@ workdir="$(mktemp -d)"
 pid=""
 
 cleanup() {
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    printf '%s\n' "Verified TLS smoke failed (exit $status)." >&2
+    if [ -f "$out" ]; then
+      jq -c '{correctness_passed, tls, successful_requests, requests_total, errors_total, timeouts_total, validation_failures, latency_ms, socket_io}' "$out" >&2 || true
+    fi
+    if [ -f "$workdir/server.log" ]; then
+      printf '%s\n' '--- verified TLS benchmark server diagnostics ---' >&2
+      tail -n 50 "$workdir/server.log" >&2
+    fi
+  fi
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
     kill -TERM "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
