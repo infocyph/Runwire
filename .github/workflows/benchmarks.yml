@@ -206,6 +206,27 @@ jobs:
             and .sequential.watchers_after == 0 and .overlap.watchers_after == 0' \
             "benchmark-results/u03-outbound-php-${{ matrix.php-version }}.json" >/dev/null
 
+      - name: Profile U10 independent real TCP pooled reuse versus fresh direct dials
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l benchmarks/u10_pool_live_profile.php
+          python3 -m py_compile tests/fixtures/independent_pool_echo_server.py
+          php benchmarks/u10_pool_live_profile.php 160 16 > "benchmark-results/u10-pool-live-php-${{ matrix.php-version }}.json"
+          jq -e '.schema == 1 and .correctness_passed == true
+            and .real_network_io == true and .independent_tcp_origin == true
+            and .development_profile_not_release_certification == true
+            and .requests_per_trial == 160 and .concurrency == 16
+            and .direct.successful_requests == 320
+            and .pooled.successful_requests == 320
+            and .pooled.reuse_hits > 0 and .pooled.reuse_hit_rate > 0.5
+            and .direct.rps > 0 and .pooled.rps > 0
+            and .direct.p99_ms > 0 and .pooled.p99_ms > 0
+            and .direct.cpu_parent_ms >= 0 and .pooled.cpu_parent_ms >= 0
+            and .direct.rss_bytes > 0 and .pooled.rss_bytes > 0
+            and .direct.peak_open_fds > 0 and .pooled.peak_open_fds > 0
+            and .pooled_vs_direct_rps_ratio > 0' "benchmark-results/u10-pool-live-php-${{ matrix.php-version }}.json" >/dev/null
+
       - name: Soak mixed real socket, CPU and timer pressure across three levels
         shell: bash
         run: |
