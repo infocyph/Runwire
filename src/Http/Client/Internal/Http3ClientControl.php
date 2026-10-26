@@ -134,5 +134,4 @@ final class Http3ClientControl
         }
         $this->peerGoawayId = $decoded[0];
     }
-
 }
