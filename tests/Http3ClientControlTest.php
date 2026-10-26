@@ -85,9 +85,9 @@ it('announces one local encoder and decoder QPACK critical stream only after SET
         ->toThrow(LogicException::class, 'must start');
     $control->start();
     expect($control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::QPACK_ENCODER))
-        ->toBe("\\x02")
+        ->toBe(chr(2))
         ->and($control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::QPACK_DECODER))
-        ->toBe("\\x03")
+        ->toBe(chr(3))
         ->and(fn() => $control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::CONTROL))
         ->toThrow(LogicException::class, 'Only HTTP/3 QPACK');
 });
