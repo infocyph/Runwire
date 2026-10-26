@@ -83,8 +83,16 @@ class IndependentH3(QuicConnectionProtocol):
                     if set(self.concurrent.values()) != {b"/multi?i=1", b"/multi?i=2", b"/multi?i=3", b"/multi?i=4"}:
                         self.close(error_code=0x10E, reason_phrase="invalid concurrent HTTP/3 sibling requests")
                         return
-                    for sibling in tuple(self.concurrent):
-                        self.respond(sibling)
+                    # Delayed peer replies ensure the fifth sibling is canceled and
+                    # RESET independently while four others are still outstanding.
+                    asyncio.get_running_loop().call_later(
+                        0.65,
+                        lambda: [self.respond(sibling) for sibling in tuple(self.concurrent)],
+                    )
+            elif method == b"GET" and path == b"/cancel" and h3_event.stream_ended:
+                self.answered.add(stream_id)
+                print(f"C1 independent H3 cancel request admitted stream={stream_id}", flush=True)
+                # Never respond; peer reset/cancel must release this sibling.
             elif method == b"GET" and path == b"/interop?q=1" and h3_event.stream_ended:
                 self.answered.add(stream_id)
                 self.respond(stream_id)

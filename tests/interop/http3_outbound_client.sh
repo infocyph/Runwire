@@ -58,7 +58,9 @@ if ! php -d display_errors=stderr -d log_errors=1 tests/fixtures/http3_outbound_
     exit 1
 fi
 jq -e '.verified and .single_quic_session and .concurrent_requests == 4
-    and .responses_completed == 4 and .exact_responses and .cleanup' "$output.multiplex" >/dev/null
+    and .responses_completed == 4 and .exact_responses
+    and .native_sibling_cancel_exactly_once and .cleanup' "$output.multiplex" >/dev/null
+grep -q "C1 independent H3 cancel request admitted" "$tmpdir/peer.log"
 if [ "$#" -ge 2 ]; then
     profile_output="$2"
     echo "C1: measuring native H3 transport"
