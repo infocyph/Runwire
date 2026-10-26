@@ -98,14 +98,22 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /** Retire queued request streams after peer GOAWAY without canceling in-flight work. */
+    private ?int $peerGoawayStreamId = null;
+
+    /** Retire queued and peer-refused request streams after GOAWAY. */
     public function drain(?int $peerGoawayStreamId): void
     {
         if ($peerGoawayStreamId === null) {
             return;
         }
+        $this->peerGoawayStreamId = $peerGoawayStreamId;
         foreach ($this->admission->drain() as $id) {
             $this->complete($id, new RuntimeException('HTTP/3 peer GOAWAY rejected queued stream admission.'));
+        }
+        foreach ($this->exchanges as $id => $state) {
+            if ($state->stream > 0 && $state->wireStreamId >= $peerGoawayStreamId) {
+                $this->cancel($id, new RuntimeException('HTTP/3 peer GOAWAY refused request stream.'));
+            }
         }
     }
 
@@ -336,15 +344,22 @@ final class Http3ClientSiblingManager
         $this->command('open_bidi', 0, '', false, function (array $opened) use ($id): void {
             $state = $this->exchanges[$id] ?? null;
             $stream = $opened['stream'] ?? null;
-            if ($state === null) {
-                return;
-            }
             $wireId = $opened['wire_stream_id'] ?? null;
             if (!is_int($stream) || $stream < 1 || !is_int($wireId) || $wireId < 0) {
                 throw new RuntimeException('Multiplexed QUIC admission has invalid worker or wire stream ID.');
             }
+            if ($state === null) {
+                $this->command('reset', $stream, '', false, $this->acceptReset(...));
+
+                return;
+            }
             $state->stream = $stream;
             $state->wireStreamId = $wireId;
+            if ($this->peerGoawayStreamId !== null && $wireId >= $this->peerGoawayStreamId) {
+                $this->cancel($id, new RuntimeException('HTTP/3 peer GOAWAY refused newly opened request stream.'));
+
+                return;
+            }
             $this->streams[$wireId] = $id;
             $state->response = new Http3ClientResponseStream(
                 $wireId,

@@ -172,7 +172,7 @@ final class Http3OutboundClient
             fn(Throwable $error) => $this->finish($error),
             fn() => $this->flushQpackFeedback(),
             fn() => $this->finishIfEmpty(),
-            maxActiveStreams: $this->options->maxOpenStreams,
+            maxActiveStreams: max(1, $this->options->maxOpenStreams - 7),
         );
         if ($this->localStreamsReady) {
             $this->siblings->start();
@@ -480,9 +480,9 @@ final class Http3OutboundClient
                 $this->openQpackStream(StreamType::QPACK_ENCODER, function (): void {
                     $this->openQpackStream(StreamType::QPACK_DECODER, function (): void {
                         $this->localStreamsReady = true;
-                        $this->siblings?->start();
                         $this->command('open_bidi', 0, '', false, function (array $opened): void {
                             $this->sendRequest(self::streamId($opened), Http3ClientOrigin::wireId($opened));
+                            $this->siblings?->start();
                         });
                     });
                 });
