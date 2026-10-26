@@ -69,6 +69,7 @@ final class U10PoolNetworkTrial
         $watchdog = $this->loop->delay(20.0, function (): void {
             $this->fail(new RuntimeException('U10 real socket workload exceeded bounded deadline.'));
         });
+
         try {
             $this->fill();
             $this->loop->run();
@@ -140,6 +141,7 @@ final class U10PoolNetworkTrial
         $owner = new stdClass();
         $this->requests[$id]['connection'] = $connection;
         $this->requests[$id]['owner'] = $owner;
+
         try {
             $connection->claimCallbacks(
                 $owner,
@@ -302,6 +304,7 @@ if (!is_resource($process)) {
 fclose($pipes[0]);
 stream_set_blocking($pipes[1], false);
 stream_set_blocking($pipes[2], false);
+
 try {
     $ready = '';
     $started = microtime(true);
