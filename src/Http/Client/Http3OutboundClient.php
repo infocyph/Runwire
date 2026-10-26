@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientControl;
+use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerAuxiliary;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamRegistry;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
@@ -37,6 +38,8 @@ final class Http3OutboundClient
 
     private const int UPLOAD_CHUNK_BYTES = 4_096;
 
+    private readonly Http3ClientPeerAuxiliary $auxiliary;
+
     private readonly Http3ClientWireCodec $codec;
 
     private readonly Closure $completion;
@@ -59,21 +62,19 @@ final class Http3OutboundClient
 
     private bool $peerControlFound = false;
 
+    private bool $peerSettingsSeen = false;
+
+    private int $qpackDecoderStream = 0;
+
     private bool $qpackFeedbackBusy = false;
 
-    private bool $peerSettingsSeen = false;
+    private string $qpackFeedbackQueue = '';
 
     private ?Http3ClientResponseStream $response = null;
 
     private int $responseStream = 0;
 
-    private int $qpackDecoderStream = 0;
-
-    private string $qpackFeedbackQueue = '';
-
     private ?int $timeout = null;
-
-    private int $unrelatedStreams = 0;
 
     private int $uploadedBytes = 0;
 
@@ -100,6 +101,7 @@ final class Http3OutboundClient
         $this->control = new Http3ClientControl(decoderCapacity: 4_096, maxBlocked: 8);
         $this->codec = new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8);
         $this->peerStreams = new Http3ClientPeerStreamRegistry();
+        $this->auxiliary = new Http3ClientPeerAuxiliary($this->codec);
     }
 
     /**
@@ -177,32 +179,14 @@ final class Http3OutboundClient
 
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
-        if ($type === StreamType::QPACK_ENCODER->value) {
-            foreach ($this->codec->receivePeerEncoderInstructions($bytes) as $ready) {
-                if ($this->response === null || $ready->streamId !== $this->responseStream) {
-                    throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'QPACK released an unknown response stream.');
-                }
-                $this->response->resumeQpack($ready);
-                if ($this->response->isFinished()) {
-                    $this->finish(null);
+        $outcome = $this->auxiliary->accept($type, $bytes, $eof, $this->response, $this->responseStream);
+        $this->flushQpackFeedback();
+        if ($outcome['completed']) {
+            $this->finish(null);
 
-                    return;
-                }
-            }
-            $this->flushQpackFeedback();
-        } elseif ($type === StreamType::QPACK_DECODER->value) {
-            $this->codec->receivePeerDecoderInstructions($bytes);
-        } elseif ($type === StreamType::PUSH->value) {
-            throw new Http3Exception(ErrorCode::ID_ERROR, 'Peer push is forbidden without MAX_PUSH_ID.');
-        } elseif (++$this->unrelatedStreams > 8) {
-            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Excessive unrecognized HTTP/3 peer streams.');
+            return;
         }
-
-        if ($eof && in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
-            throw new Http3Exception(ErrorCode::CLOSED_CRITICAL_STREAM, 'Peer QPACK critical stream ended prematurely.');
-        }
-
-        if (in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
+        if ($outcome['watch']) {
             $this->poll(fn() => $this->readPeerAuxiliary($stream, $type));
         }
     }
