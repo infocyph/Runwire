@@ -12,8 +12,10 @@ use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
+use Infocyph\Runwire\Http\Http3\Qpack\DecodedFieldSection;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
+use Infocyph\Runwire\Http\Http3\Qpack\ReadyFieldSection;
 use InvalidArgumentException;
 
 /**
@@ -29,64 +31,34 @@ final readonly class Http3ClientWireCodec
     private Encoder $encoder;
 
     /** Restrict both directions to unblocked, finite field sections. */
-    public function __construct(int $maxFieldSectionBytes = 65_536, int $maxHeaderFields = 128)
+    public function __construct(int $maxFieldSectionBytes = 65_536, int $maxHeaderFields = 128, int $decoderCapacity = 0, int $maxBlocked = 0)
     {
         $this->encoder = new Encoder(0, 0, $maxFieldSectionBytes);
-        $this->decoder = new Decoder(0, 0, $maxFieldSectionBytes, $maxHeaderFields);
+        $this->decoder = new Decoder($decoderCapacity, $maxBlocked, $maxFieldSectionBytes, $maxHeaderFields);
     }
 
-    /**
-     * Decode an HTTP/3 response HEADERS payload without allowing QPACK blocking.
-     *
-     * @return array{status:int, headers:Headers}
-     */
+    /** @return array{status:int, headers:Headers} */
+    public function decodeReadyHeaders(DecodedFieldSection $section): array
+    {
+        return self::parseHeaders($section);
+    }
+
+    public function decodeReadyTrailers(DecodedFieldSection $section): Headers
+    {
+        return self::parseTrailers($section);
+    }
+
+    /** @return array{status:int, headers:Headers} */
     public function decodeResponseHeaders(string $payload, int $streamId): array
     {
-        $decoded = $this->decoder->decode($payload, $streamId);
-        if ($decoded === null) {
-            throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response QPACK is unsupported.');
-        }
-
-        $status = null;
-        $fields = [];
-        foreach ($decoded->fields as [$name, $value]) {
-            if ($name === ':status') {
-                if ($status !== null || $fields !== [] || preg_match('/^[1-5][0-9]{2}$/D', $value) !== 1) {
-                    throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response pseudo-header ordering.');
-                }
-                $status = (int) $value;
-
-                continue;
-            }
-            $fields[] = self::responseField($name, $value);
-        }
-
-        if ($status === null) {
-            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response has no valid :status pseudo-header.');
-        }
-
-        return ['status' => $status, 'headers' => new Headers($fields)];
+        return $this->tryDecodeResponseHeaders($payload, $streamId)
+            ?? throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response QPACK is unsupported.');
     }
 
-    /**
-     * Decode a finite HTTP/3 trailer section without accepting pseudo or framing fields.
-     */
     public function decodeResponseTrailers(string $payload, int $streamId): Headers
     {
-        $decoded = $this->decoder->decode($payload, $streamId);
-        if ($decoded === null) {
-            throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response trailer QPACK is unsupported.');
-        }
-
-        $fields = [];
-        foreach ($decoded->fields as [$name, $value]) {
-            if (in_array($name, ['content-length', 'host', 'te', 'trailer'], true)) {
-                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response trailers contain forbidden framing or routing fields.');
-            }
-            $fields[] = self::responseField($name, $value);
-        }
-
-        return new Headers($fields);
+        return $this->tryDecodeResponseTrailers($payload, $streamId)
+            ?? throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response trailer QPACK is unsupported.');
     }
 
     /** Serialize HTTPS request headers for an already verified QUIC+h3 stream. */
@@ -136,12 +108,30 @@ final readonly class Http3ClientWireCodec
         $this->encoder->pushDecoderInstructions($bytes);
     }
 
-    /** Accept peer QPACK encoder instructions under our zero-capacity SETTINGS. */
-    public function receivePeerEncoderInstructions(string $bytes): void
+    /** @return list<ReadyFieldSection> */
+    public function receivePeerEncoderInstructions(string $bytes): array
     {
-        if ($this->decoder->pushEncoderInstructions($bytes) !== []) {
-            throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Static-only H3 client received blocked dynamic QPACK sections.');
-        }
+        return $this->decoder->pushEncoderInstructions($bytes);
+    }
+
+    public function takeDecoderInstructions(): string
+    {
+        return $this->decoder->takeDecoderInstructions();
+    }
+
+    /** @return array{status:int, headers:Headers}|null */
+    public function tryDecodeResponseHeaders(string $payload, int $streamId): ?array
+    {
+        $section = $this->decoder->decode($payload, $streamId);
+
+        return $section === null ? null : self::parseHeaders($section);
+    }
+
+    public function tryDecodeResponseTrailers(string $payload, int $streamId): ?Headers
+    {
+        $section = $this->decoder->decode($payload, $streamId);
+
+        return $section === null ? null : self::parseTrailers($section);
     }
 
     private static function assertRequestHeader(string $name, string $value, bool $hasBody): void
@@ -151,6 +141,43 @@ final readonly class Http3ClientWireCodec
             || ($name === 'content-length' && ($hasBody || $value !== '0'))) {
             throw new InvalidArgumentException('HTTP/3 client request includes a prohibited hop-by-hop or body header.');
         }
+    }
+
+    /** @return array{status:int, headers:Headers} */
+    private static function parseHeaders(DecodedFieldSection $decoded): array
+    {
+        $status = null;
+        $fields = [];
+        foreach ($decoded->fields as [$name, $value]) {
+            if ($name === ':status') {
+                if ($status !== null || $fields !== [] || preg_match('/^[1-5][0-9]{2}$/D', $value) !== 1) {
+                    throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response pseudo-header ordering.');
+                }
+                $status = (int) $value;
+
+                continue;
+            }
+            $fields[] = self::responseField($name, $value);
+        }
+
+        if ($status === null) {
+            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response has no valid :status pseudo-header.');
+        }
+
+        return ['status' => $status, 'headers' => new Headers($fields)];
+    }
+
+    private static function parseTrailers(DecodedFieldSection $decoded): Headers
+    {
+        $fields = [];
+        foreach ($decoded->fields as [$name, $value]) {
+            if (in_array($name, ['content-length', 'host', 'te', 'trailer'], true)) {
+                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response trailers contain forbidden framing or routing fields.');
+            }
+            $fields[] = self::responseField($name, $value);
+        }
+
+        return new Headers($fields);
     }
 
     /** @return list<array{0:string,1:string}> */

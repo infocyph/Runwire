@@ -31,7 +31,7 @@ final class Http3ClientControl
     private bool $peerTyped = false;
 
     /** Build an incremental peer control parser with bounded payloads. */
-    public function __construct(int $maxFramePayloadBytes = 65_536)
+    public function __construct(int $maxFramePayloadBytes = 65_536, private readonly int $decoderCapacity = 0, private readonly int $maxBlocked = 0)
     {
         $this->peer = new ControlStream($maxFramePayloadBytes);
     }
@@ -103,8 +103,8 @@ final class Http3ClientControl
         $this->localStarted = true;
 
         return ControlStream::preamble(new Settings([
-            SettingIdentifier::QPACK_MAX_TABLE_CAPACITY->value => 0,
-            SettingIdentifier::QPACK_BLOCKED_STREAMS->value => 0,
+            SettingIdentifier::QPACK_MAX_TABLE_CAPACITY->value => $this->decoderCapacity,
+            SettingIdentifier::QPACK_BLOCKED_STREAMS->value => $this->maxBlocked,
             SettingIdentifier::MAX_FIELD_SECTION_SIZE->value => 65_536,
         ]));
     }
