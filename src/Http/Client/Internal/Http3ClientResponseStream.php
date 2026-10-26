@@ -86,6 +86,7 @@ final class Http3ClientResponseStream
         $this->finished = true;
     }
 
+    /** Whether the response fully completed after HTTP/3 FIN and QPACK unblocking. */
     public function isFinished(): bool
     {
         return $this->finished;

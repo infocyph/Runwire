@@ -43,6 +43,7 @@ final readonly class Http3ClientWireCodec
         return self::parseHeaders($section);
     }
 
+    /** Decode one QPACK-unblocked response trailer section. */
     public function decodeReadyTrailers(DecodedFieldSection $section): Headers
     {
         return self::parseTrailers($section);
@@ -55,6 +56,7 @@ final readonly class Http3ClientWireCodec
             ?? throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response QPACK is unsupported.');
     }
 
+    /** Decode finite response trailers without exposing blocked QPACK state. */
     public function decodeResponseTrailers(string $payload, int $streamId): Headers
     {
         return $this->tryDecodeResponseTrailers($payload, $streamId)
@@ -114,6 +116,7 @@ final readonly class Http3ClientWireCodec
         return $this->decoder->pushEncoderInstructions($bytes);
     }
 
+    /** Drain decoder feedback for the locally owned HTTP/3 QPACK stream. */
     public function takeDecoderInstructions(): string
     {
         return $this->decoder->takeDecoderInstructions();
@@ -127,6 +130,7 @@ final readonly class Http3ClientWireCodec
         return $section === null ? null : self::parseHeaders($section);
     }
 
+    /** Decode trailers or report a bounded QPACK-blocked field section. */
     public function tryDecodeResponseTrailers(string $payload, int $streamId): ?Headers
     {
         $section = $this->decoder->decode($payload, $streamId);
