@@ -91,11 +91,12 @@ if [ "$#" -ge 3 ]; then
     test -s "$tmpdir/h12-ready" || { cat "$tmpdir/h12.log"; exit 1; }
     for protocol in h1 h2 h3; do
         echo "C1 matched profile: $protocol"
-        php benchmarks/u07_outbound_protocol_profile.php "$protocol" "$tcp_port" "$port" \
-            "$tmpdir/cert.pem" 24 >"$tmpdir/$protocol.json" || {
-                cat "$tmpdir/h12.log" "$tmpdir/peer.log"
-                exit 1
-            }
+        if ! php -d display_errors=stderr -d log_errors=1 benchmarks/u07_outbound_protocol_profile.php "$protocol" "$tcp_port" "$port" \
+            "$tmpdir/cert.pem" 24 >"$tmpdir/$protocol.json" 2>"$tmpdir/$protocol.err"; then
+            echo "C1 matched $protocol profile failed: stderr and stdout follow"
+            cat "$tmpdir/$protocol.err" "$tmpdir/$protocol.json" "$tmpdir/h12.log" "$tmpdir/peer.log"
+            exit 1
+        fi
         cat "$tmpdir/$protocol.json"
     done
     jq -s '{schema:1,matched_payload:true,workloads:.,release_saturation_certified:false}' \
