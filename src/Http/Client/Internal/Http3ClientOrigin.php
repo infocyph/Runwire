@@ -34,6 +34,7 @@ final readonly class Http3ClientOrigin
 
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
+
     /** @param array<string,mixed> $result */
     public static function wireId(array $result): int
     {

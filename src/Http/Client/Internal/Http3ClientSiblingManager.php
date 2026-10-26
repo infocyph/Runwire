@@ -267,7 +267,6 @@ final class Http3ClientSiblingManager
                         return;
                     }
                     try {
-                        /** @var array<string,mixed> $result */
                         $next($result);
                     } catch (Throwable $failure) {
                         ($this->fatal)($failure);

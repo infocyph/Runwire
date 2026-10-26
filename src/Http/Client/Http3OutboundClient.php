@@ -205,8 +205,6 @@ final class Http3OutboundClient
         return $stream;
     }
 
-
-
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
         $outcome = $this->auxiliary->accept(
