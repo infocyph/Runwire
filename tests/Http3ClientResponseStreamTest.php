@@ -137,3 +137,68 @@ it('shares the connection-owned QPACK decoder with the peer instruction stream',
     $owner = new ReflectionProperty($stream, 'codec');
     expect($owner->getValue($stream))->toBe($codec);
 });
+
+it('retains blocked dynamic QPACK headers and replays queued DATA only after matching encoder inserts', function (): void {
+    $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(
+        decoderCapacity: 256,
+        maxBlocked: 2,
+    );
+    $encoder = new Encoder(256, 2, dynamicTableCapacity: 256);
+    $codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions());
+    $block = $encoder->encode([[':status', '200'], ['x-dynamic', 'peer-value']], 4);
+    expect($block->blocking)->toBeTrue();
+    $instructions = $encoder->takeEncoderInstructions();
+    $headers = [];
+    $body = '';
+    $stream = new Http3ClientResponseStream(
+        4,
+        static function (int $status) use (&$headers): void { $headers[] = $status; },
+        static function (string $part) use (&$body): void { $body .= $part; },
+        codec: $codec,
+    );
+    $stream->push(new Frame(FrameType::HEADERS->value, $block->block)->encode()
+        . new Frame(FrameType::DATA->value, 'sibling-safe')->encode());
+    $stream->finish();
+    expect($headers)->toBe([])->and($body)->toBe('')->and($stream->isFinished())->toBeFalse();
+    $ready = $codec->receivePeerEncoderInstructions($instructions);
+    expect($ready)->toHaveCount(1)->and($ready[0]->streamId)->toBe(4);
+    $stream->resumeQpack($ready[0]);
+    expect($headers)->toBe([200])
+        ->and($body)->toBe('sibling-safe')
+        ->and($stream->isFinished())->toBeTrue()
+        ->and($codec->takeDecoderInstructions())->not->toBe('');
+});
+
+it('isolates QPACK-blocked sibling stream sections until each required insertion arrives', function (): void {
+    $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(
+        decoderCapacity: 512,
+        maxBlocked: 2,
+    );
+    $encoder = new Encoder(512, 2, dynamicTableCapacity: 512);
+    $codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions());
+    $first = $encoder->encode([[':status', '200'], ['x-first', 'one']], 4);
+    $firstInstructions = $encoder->takeEncoderInstructions();
+    $second = $encoder->encode([[':status', '201'], ['x-second', 'two']], 8);
+    $secondInstructions = $encoder->takeEncoderInstructions();
+    expect($first->blocking)->toBeTrue()->and($second->blocking)->toBeTrue();
+    $seen = [];
+    $one = new Http3ClientResponseStream(4, static function (int $status) use (&$seen): void {
+        $seen[] = 'one-' . $status;
+    }, static function (): void {}, codec: $codec);
+    $two = new Http3ClientResponseStream(8, static function (int $status) use (&$seen): void {
+        $seen[] = 'two-' . $status;
+    }, static function (): void {}, codec: $codec);
+    $one->push(new Frame(FrameType::HEADERS->value, $first->block)->encode());
+    $two->push(new Frame(FrameType::HEADERS->value, $second->block)->encode());
+    $one->finish();
+    $two->finish();
+    expect($seen)->toBe([]);
+    $readyFirst = $codec->receivePeerEncoderInstructions($firstInstructions);
+    expect($readyFirst)->toHaveCount(1)->and($readyFirst[0]->streamId)->toBe(4);
+    $one->resumeQpack($readyFirst[0]);
+    expect($seen)->toBe(['one-200'])->and($one->isFinished())->toBeTrue()->and($two->isFinished())->toBeFalse();
+    $readySecond = $codec->receivePeerEncoderInstructions($secondInstructions);
+    expect($readySecond)->toHaveCount(1)->and($readySecond[0]->streamId)->toBe(8);
+    $two->resumeQpack($readySecond[0]);
+    expect($seen)->toBe(['one-200', 'two-201'])->and($two->isFinished())->toBeTrue();
+});
