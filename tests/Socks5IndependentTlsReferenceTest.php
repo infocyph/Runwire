@@ -6,6 +6,8 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\Dialer;
+use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
+use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\Proxy\Socks5Handshake;
 use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Network\TlsClientOptions;
@@ -15,7 +17,7 @@ use Infocyph\Runwire\Network\TlsClientOptions;
  *
  * @return array{error:?Throwable,completed:int,verified:?string,peer:array<string,mixed>}
  */
-function runwireIndependentSocksReference(string $host, bool $remoteDns, string $behavior = 'success'): array
+function runwireIndependentSocksReference(string $host, bool $remoteDns, string $behavior = 'success', string $protocol = 'socks5'): array
 {
     $dir = sys_get_temp_dir() . '/runwire-socks-ref-' . bin2hex(random_bytes(7));
     if (!mkdir($dir, 0700)) {
@@ -33,7 +35,7 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
     file_put_contents($ca, $certPem);
     file_put_contents($privateKey, $keyPem);
 
-    $command = ['python3', __DIR__ . '/fixtures/independent_socks5_tls_server.py', $ca, $privateKey, $host, $behavior];
+    $command = ['python3', __DIR__ . '/fixtures/independent_socks5_tls_server.py', $ca, $privateKey, $host, $behavior, $protocol];
     $process = proc_open($command, [
         0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w'],
     ], $pipes);
@@ -82,7 +84,7 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
             'tcp://127.0.0.1:' . $port,
             static function (?Connection $ready, ?Throwable $dialError) use (
                 &$connection, &$error, &$completed, &$verified,
-                $loop, $host, $remoteDns,
+                $loop, $host, $remoteDns, $protocol,
             ): void {
                 if ($dialError !== null || $ready === null) {
                     $error = $dialError ?? new RuntimeException('Verified TLS dial failed.');
@@ -92,29 +94,43 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
                 }
                 $connection = $ready;
                 $verified = \Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers::peerName($ready);
-                (new Socks5Tunnel(
-                    $loop,
-                    $ready,
-                    new Socks5Handshake(
-                        remoteDns: $remoteDns,
-                        username: 'user',
-                        password: 'secret',
-                        verifiedProxyTransport: true,
-                    ),
-                    $host,
-                    443,
-                    static function (?Connection $tunneled, ?Throwable $proxyError) use (
-                        &$completed, &$error, $loop,
-                    ): void {
-                        ++$completed;
-                        $error = $proxyError;
-                        if ($proxyError === null) {
-                            expect($tunneled)->not->toBeNull();
-                        }
-                        $loop->stop();
-                    },
-                    verifiedProxyPeerName: 'localhost',
-                ))->start();
+                $completion = static function (?Connection $tunneled, ?Throwable $proxyError) use (
+                    &$completed, &$error, $loop,
+                ): void {
+                    ++$completed;
+                    $error = $proxyError;
+                    if ($proxyError === null) {
+                        expect($tunneled)->not->toBeNull();
+                    }
+                    $loop->stop();
+                };
+
+                if ($protocol === 'http') {
+                    (new HttpConnectTunnel(
+                        $loop,
+                        $ready,
+                        new HttpConnectHandshake('user', 'secret', verifiedProxyTransport: true),
+                        $host,
+                        443,
+                        $completion,
+                        verifiedProxyPeerName: 'localhost',
+                    ))->start();
+                } else {
+                    (new Socks5Tunnel(
+                        $loop,
+                        $ready,
+                        new Socks5Handshake(
+                            remoteDns: $remoteDns,
+                            username: 'user',
+                            password: 'secret',
+                            verifiedProxyTransport: true,
+                        ),
+                        $host,
+                        443,
+                        $completion,
+                        verifiedProxyPeerName: 'localhost',
+                    ))->start();
+                }
             },
             new DialOptions(tls: new TlsClientOptions('localhost', caFile: $ca, alpnProtocols: ['http/1.1'])),
         );
@@ -187,4 +203,23 @@ it('refuses an anonymous-method downgrade from the independent verified TLS refe
         ->and($proof['verified'])->toBe('localhost')
         ->and($proof['peer']['mode'])->toBe('downgrade')
         ->and($proof['peer']['extra_bytes'])->toBe(0);
+});
+
+it('authenticates HTTP CONNECT Basic against an independent Python TLS proxy reference peer', function (): void {
+    $proof = runwireIndependentSocksReference('origin.example', false, 'success', 'http');
+    expect($proof['error'])->toBeNull()
+        ->and($proof['completed'])->toBe(1)
+        ->and($proof['verified'])->toBe('localhost')
+        ->and($proof['peer']['mode'])->toBe('http-success')
+        ->and($proof['peer']['target'])->toBe('origin.example')
+        ->and($proof['peer']['authenticated'])->toBeTrue();
+});
+
+it('refuses a real Python TLS HTTP CONNECT 407 without handing out a tunnel', function (): void {
+    $proof = runwireIndependentSocksReference('origin.example', false, 'deny', 'http');
+    expect($proof['error'])->toBeInstanceOf(RuntimeException::class)
+        ->and($proof['completed'])->toBe(1)
+        ->and($proof['verified'])->toBe('localhost')
+        ->and($proof['peer']['mode'])->toBe('http-deny')
+        ->and($proof['peer']['authenticated'])->toBeFalse();
 });

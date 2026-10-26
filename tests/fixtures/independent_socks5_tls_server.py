@@ -4,6 +4,7 @@
 Never imports Runwire protocol code. Authentication and DNS/address boundaries
 are validated by this external Python process before it sends CONNECT success.
 """
+import base64
 import json
 import socket
 import ssl
@@ -22,11 +23,14 @@ def receive_exact(sock, size):
 
 
 def main():
-    if len(sys.argv) != 5:
-        raise ValueError("Usage: reference.py CERT KEY HOST success|downgrade")
-    certificate, private_key, expected_host, behavior = sys.argv[1:]
-    if behavior not in ("success", "downgrade"):
-        raise ValueError("Unsupported reference peer behavior")
+    if len(sys.argv) != 6:
+        raise ValueError("Usage: reference.py CERT KEY HOST success|downgrade|deny socks5|http")
+    certificate, private_key, expected_host, behavior, protocol = sys.argv[1:]
+    if protocol not in ("socks5", "http"):
+        raise ValueError("Unsupported reference proxy protocol")
+    if (protocol == "socks5" and behavior not in ("success", "downgrade")
+        or protocol == "http" and behavior not in ("success", "deny")):
+        raise ValueError("Unsupported protocol/behavior combination")
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(certificate, private_key)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -38,6 +42,37 @@ def main():
         accepted, _ = server.accept()
         with accepted, context.wrap_socket(accepted, server_side=True) as peer:
             peer.settimeout(3)
+            if protocol == "http":
+                header = bytearray()
+                while b"\r\n\r\n" not in header and len(header) <= 8192:
+                    chunk = peer.recv(4096)
+                    if not chunk:
+                        raise RuntimeError("HTTP CONNECT peer closed before header")
+                    header.extend(chunk)
+                if len(header) > 8192 or b"\r\n\r\n" not in header:
+                    raise RuntimeError("HTTP CONNECT header exceeded 8192 bytes")
+                head = header.split(b"\r\n\r\n", 1)[0].decode("ascii")
+                lines = head.split("\r\n")
+                expected_authority = expected_host + ":443"
+                if lines[0] != f"CONNECT {expected_authority} HTTP/1.1":
+                    raise RuntimeError("Incorrect HTTP CONNECT target or authority")
+                fields = [line.split(":", 1) for line in lines[1:] if ":" in line]
+                hosts = [value.strip() for name, value in fields if name.lower() == "host"]
+                tokens = [value.strip() for name, value in fields
+                          if name.lower() == "proxy-authorization"]
+                authorization = "Basic " + base64.b64encode(b"user:secret").decode("ascii")
+                if hosts != [expected_authority] or tokens != [authorization]:
+                    raise RuntimeError("Incorrect/duplicate proxy Host or Basic authentication")
+                if behavior == "deny":
+                    peer.sendall(b"HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\n\r\n")
+                    print(json.dumps({"mode": "http-deny", "target": expected_host,
+                                      "authenticated": False}), flush=True)
+                else:
+                    peer.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                    print(json.dumps({"mode": "http-success", "target": expected_host,
+                                      "authenticated": True}), flush=True)
+                time.sleep(0.15)
+                return
             if receive_exact(peer, 3) != b"\x05\x01\x02":
                 raise RuntimeError("Invalid password-only SOCKS5 greeting")
             if behavior == "downgrade":
