@@ -67,3 +67,14 @@ it('buffers fragmented nonminimal or multibyte type identifiers without treating
     expect($client->receivePeerControl(substr($type, 0, 1)))->toBe([])
         ->and(fn() => $client->receivePeerControl(substr($type, 1)))->toThrow(Http3Exception::class, 'wrong stream type');
 });
+
+it('accepts a fragmented two-byte zero control stream type without treating it as non-control', function (): void {
+    $client = new Http3ClientControl();
+    $client->start();
+    $frame = (new Frame(FrameType::SETTINGS->value))->encode();
+    $wire = "\x40\x00" . $frame;
+    foreach (str_split($wire) as $byte) {
+        $client->receivePeerControl($byte);
+    }
+    expect($client->peerSettings())->not->toBeNull();
+});

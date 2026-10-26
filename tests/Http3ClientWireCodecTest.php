@@ -136,3 +136,15 @@ it('encodes static QPACK trailers but rejects framing and hop-by-hop fields', fu
         ->and(fn() => $codec->encodeRequestTrailers(Headers::fromArray(['connection' => 'close']), 3))
         ->toThrow(InvalidArgumentException::class, 'prohibited');
 });
+
+it('accepts capacity-zero peer QPACK encoder stream instructions without enabling dynamic blocking', function (): void {
+    $codec = new Http3ClientWireCodec();
+    $codec->receivePeerEncoderInstructions("\x20");
+    $codec->receivePeerEncoderInstructions('');
+    expect(fn() => $codec->receivePeerEncoderInstructions("\x21"))->toThrow(Http3Exception::class);
+});
+
+it('rejects unsolicited peer QPACK acknowledgements with no outstanding dynamic sections', function (): void {
+    $codec = new Http3ClientWireCodec();
+    expect(fn() => $codec->receivePeerDecoderInstructions("\x80"))->toThrow(Http3Exception::class);
+});
