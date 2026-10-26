@@ -64,10 +64,31 @@ $client = Http3OutboundClient::connect(
 for ($id = 2; $id <= 4; ++$id) {
     $client->enqueue($request($id), $onHeaders($id), $onBody($id), $onComplete($id));
 }
-$diagnosticTimer = $loop->delay(6.0, static function () use (&$statuses, &$bodies, &$completions): void {
-    fwrite(STDERR, 'C1 multiplex QA progress status=' . json_encode($statuses, JSON_THROW_ON_ERROR)
-        . ' completed=' . json_encode($completions, JSON_THROW_ON_ERROR)
-        . ' body_lengths=' . json_encode(array_map(strlen(...), $bodies), JSON_THROW_ON_ERROR) . PHP_EOL);
+$diagnosticTimer = $loop->delay(6.0, static function () use ($client, &$statuses, &$bodies, &$completions): void {
+    $manager = (new ReflectionProperty($client, 'siblings'))->getValue($client);
+    $active = $manager === null ? [] : (new ReflectionProperty($manager, 'exchanges'))->getValue($manager);
+    $streams = [];
+    foreach ($active as $id => $state) {
+        $streams[$id] = [
+            'stream' => $state->stream,
+            'sent' => $state->sent,
+            'reading' => $state->readActive,
+            'peer_eof' => $state->peerEof,
+            'response' => $state->response !== null,
+        ];
+    }
+    $root = [
+        'stream' => (new ReflectionProperty($client, 'responseStream'))->getValue($client),
+        'settings' => (new ReflectionProperty($client, 'peerSettingsSeen'))->getValue($client),
+        'completed' => (new ReflectionProperty($client, 'rootCompleted'))->getValue($client),
+    ];
+    fwrite(STDERR, 'C1 multiplex QA progress ' . json_encode([
+        'headers' => $statuses,
+        'completed' => $completions,
+        'lengths' => array_map(strlen(...), $bodies),
+        'root' => $root,
+        'siblings' => $streams,
+    ], JSON_THROW_ON_ERROR) . PHP_EOL);
 });
 $loop->run();
 $loop->cancel($diagnosticTimer);
