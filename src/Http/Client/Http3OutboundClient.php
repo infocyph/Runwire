@@ -247,13 +247,16 @@ final class Http3OutboundClient
         }
         if ($probe['initial'] && $probe['type'] !== StreamType::CONTROL->value) {
             $this->acceptPeerAuxiliary($probe['type'], $probe['payload'], $stream, $eof);
-            if (!$this->peerControlFound) {
-                $this->receiveControl();
-            }
+            // Control SETTINGS can arrive before independently owned QPACK streams.
+            // Continue accepting critical peer streams for the whole connection.
+            $this->receiveControl();
 
             return;
         }
         $this->peerControlFound = true;
+        if ($probe['initial']) {
+            $this->receiveControl();
+        }
         $bytes = $probe['wire'];
 
         $this->control->receivePeerControl($bytes);
