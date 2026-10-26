@@ -6,6 +6,12 @@
 **Canonical tracker:** 133/175 accepted (76.0%); 42 open; 18 batches; W103 PHP 8.4/8.5 matched 2.1.2 HPACK source profiles, full quality QA and protocols accepted for U08.04 only. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## C1 exact-source QA reconciliation — 2026-10-26 (latest)
+
+**Code head before this tracker update:** [`91ffd09`](https://github.com/infocyph/Runwire/commit/91ffd09bcc8bf9fab61d5c00290d61b8111aaedc), removes unnecessary callback PHPDocs reported by PHPForge Pint; **its own CI is pending**. Independent source [`ddbe46c`](https://github.com/infocyph/Runwire/commit/ddbe46c9cb3db724a3ccdbdec9f2e3cf67505082) passed **both real PHP 8.4 and 8.5 native QUIC/H3 jobs**, both static-analysis lanes and the other seven routine PR workflows; [Security & Standards #40329734600](https://github.com/infocyph/Runwire/actions/runs/40329734600) remained RED because all four PHPForge QA configurations detected **one** `no_superfluous_phpdoc_tags` issue in `Http3ClientSiblingManager.php`. The next exact-head workflow must prove the fix. Do not count this code as new accepted checklist tasks without all task-specific conformance, QPACK cancel/reset and matched native H1/H2/H3 evidence.
+
+**Counts unchanged until independently accepted:** **C1 8/11**, open U07.06, U07.07 and U07.11; **133/175 (76.0%) QA-accepted, 42 OPEN**. C2 1/10, C3 1/9, C4 0/13 paused; C5 0/9 queued. Finish C1 whole-batch green QA before advancing. No merge/tag/release.
+
 ## Active C1 acceptance/CI reconciliation — 2026-10-26 (tracker update)
 
 - **Latest implementation candidate:** [`5b6af2f`](https://github.com/infocyph/Runwire/commit/5b6af2f2ffd98e08d64d4a9d4c7a7e9f05e3747b) adds exact-protocol stderr capture for the H1/H2/H3 matched evidence. [PHPForge formatting adjustment `f2794ad`](https://github.com/infocyph/Runwire/commit/f2794adb9fa41955861caa1e164ca68fa0dade04) corrects recent property/import/fixture issues. **Exact-current-head QA pending; neither commit is release evidence or an accepted U task.**
