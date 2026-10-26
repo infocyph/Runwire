@@ -34,4 +34,14 @@ final readonly class Http3ClientOrigin
 
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
+    /** @param array<string,mixed> $result */
+    public static function wireId(array $result): int
+    {
+        $id = $result['wire_stream_id'] ?? null;
+        if (!is_int($id) || $id < 0) {
+            throw new \RuntimeException('HTTP/3 native worker requires an authentic wire stream identifier.');
+        }
+
+        return $id;
+    }
 }

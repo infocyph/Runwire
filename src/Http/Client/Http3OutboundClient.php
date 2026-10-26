@@ -129,7 +129,7 @@ final class Http3OutboundClient
         callable $completion,
         ?callable $onTrailers = null,
     ): self {
-        $parts = self::validatedOrigin($request, $options);
+        $parts = Http3ClientOrigin::validate($request, $options);
         // Fail unsafe framing before opening any native session or DNS path.
         new Http3ClientWireCodec()->encodeRequestHeaders($request, 1);
         $client = new self($loop, $request, $options, $onHeaders, $onBody, $completion, $onTrailers);
@@ -163,7 +163,7 @@ final class Http3OutboundClient
         if ($this->finished) {
             throw new RuntimeException('HTTP/3 session is no longer accepting sibling requests.');
         }
-        if (self::validatedOrigin($request, $this->options) !== self::validatedOrigin($this->request, $this->options)) {
+        if (Http3ClientOrigin::validate($request, $this->options) !== Http3ClientOrigin::validate($this->request, $this->options)) {
             throw new InvalidArgumentException('HTTP/3 sibling must use the exact verified original HTTPS origin.');
         }
         $this->codec->encodeRequestHeaders($request, 1);
@@ -207,22 +207,7 @@ final class Http3OutboundClient
         return $stream;
     }
 
-    /** @return array{host:string,port:int} */
-    /** @param array<string,mixed> $result */
-    private static function wireStreamId(array $result): int
-    {
-        $wire = $result['wire_stream_id'] ?? null;
-        if (!is_int($wire) || $wire < 0) {
-            throw new RuntimeException('HTTP/3 native worker must expose the real QUIC wire stream ID.');
-        }
 
-        return $wire;
-    }
-
-    private static function validatedOrigin(ClientRequest $request, QuicClientOptions $options): array
-    {
-        return Http3ClientOrigin::validate($request, $options);
-    }
 
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
@@ -499,7 +484,7 @@ final class Http3OutboundClient
                         $this->localStreamsReady = true;
                         $this->siblings?->start();
                         $this->command('open_bidi', 0, '', false, function (array $opened): void {
-                            $this->sendRequest(self::streamId($opened), self::wireStreamId($opened));
+                            $this->sendRequest(self::streamId($opened), Http3ClientOrigin::wireId($opened));
                         });
                     });
                 });
