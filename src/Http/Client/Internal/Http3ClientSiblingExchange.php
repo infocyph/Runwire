@@ -31,6 +31,8 @@ final class Http3ClientSiblingExchange
 
     public int $stream = 0;
 
+    public int $wireStreamId = 0;
+
     public ?int $timeout = null;
 
     public int $uploadedBytes = 0;

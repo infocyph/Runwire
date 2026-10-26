@@ -76,6 +76,8 @@ final class Http3OutboundClient
 
     private int $responseStream = 0;
 
+    private int $responseWireStreamId = 0;
+
     private bool $rootCompleted = false;
 
     private ?Http3ClientSiblingManager $siblings = null;
@@ -206,6 +208,17 @@ final class Http3OutboundClient
     }
 
     /** @return array{host:string,port:int} */
+    /** @param array<string,mixed> $result */
+    private static function wireStreamId(array $result): int
+    {
+        $wire = $result['wire_stream_id'] ?? null;
+        if (!is_int($wire) || $wire < 0) {
+            throw new RuntimeException('HTTP/3 native worker must expose the real QUIC wire stream ID.');
+        }
+
+        return $wire;
+    }
+
     private static function validatedOrigin(ClientRequest $request, QuicClientOptions $options): array
     {
         return Http3ClientOrigin::validate($request, $options);
@@ -218,7 +231,7 @@ final class Http3OutboundClient
             $bytes,
             $eof,
             $this->response,
-            $this->responseStream,
+            $this->responseWireStreamId,
             fn(ReadyFieldSection $ready): bool => $this->siblings?->unblock($ready) ?? false,
         );
         if ($this->finished) {
@@ -486,7 +499,7 @@ final class Http3OutboundClient
                         $this->localStreamsReady = true;
                         $this->siblings?->start();
                         $this->command('open_bidi', 0, '', false, function (array $opened): void {
-                            $this->sendRequest(self::streamId($opened));
+                            $this->sendRequest(self::streamId($opened), self::wireStreamId($opened));
                         });
                     });
                 });
@@ -494,17 +507,18 @@ final class Http3OutboundClient
         );
     }
 
-    private function sendRequest(int $stream): void
+    private function sendRequest(int $stream, int $wireStreamId): void
     {
         if ($stream < 1) {
             $this->finish(new RuntimeException('HTTP/3 QUIC cannot open a bidirectional request stream.'));
 
             return;
         }
-        $bytes = $this->codec->encodeRequestHeaders($this->request, $stream);
+        $bytes = $this->codec->encodeRequestHeaders($this->request, $wireStreamId);
         $this->responseStream = $stream;
+        $this->responseWireStreamId = $wireStreamId;
         $this->response = new Http3ClientResponseStream(
-            $stream,
+            $wireStreamId,
             $this->onHeaders,
             $this->onBody,
             onTrailers: $this->onTrailers,
@@ -531,7 +545,7 @@ final class Http3OutboundClient
         }
         if ($body->eof()) {
             $trailers = $body->trailers();
-            $last = $trailers === null ? '' : $this->codec->encodeRequestTrailers($trailers, $this->responseStream);
+            $last = $trailers === null ? '' : $this->codec->encodeRequestTrailers($trailers, $this->responseWireStreamId);
             $this->writeAll($this->responseStream, $last, true, function (): void {
                 $this->receiveControl();
             });

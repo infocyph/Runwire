@@ -323,7 +323,13 @@ final class QuicWorkerSession
             $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
         }
 
-        return ['stream' => $id, 'bidirectional' => $bidirectional];
+        $wireId = method_exists($stream, 'getId') ? $stream->getId() : null;
+        if ($wireId !== null && (!is_int($wireId) || $wireId < 0)) {
+            throw new RuntimeException('Invalid native QUIC wire stream identity.');
+        }
+
+        return ['stream' => $id, 'bidirectional' => $bidirectional]
+            + ($wireId === null ? [] : ['wire_stream_id' => $wireId]);
     }
 
     /** @return array<string, int|bool|float> */

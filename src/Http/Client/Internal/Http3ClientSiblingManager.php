@@ -281,7 +281,10 @@ final class Http3ClientSiblingManager
         if ($state === null) {
             return;
         }
-        unset($this->exchanges[$id], $this->streams[$state->stream]);
+        unset($this->exchanges[$id]);
+        if ($state->stream > 0) {
+            unset($this->streams[$state->wireStreamId]);
+        }
         if ($state->timeout !== null) {
             $this->loop->cancel($state->timeout);
         }
@@ -300,19 +303,21 @@ final class Http3ClientSiblingManager
             if ($state === null) {
                 return;
             }
-            if (!is_int($stream) || $stream < 1) {
-                throw new RuntimeException('Multiplexed QUIC stream admission returned invalid handle.');
+            $wireId = $opened['wire_stream_id'] ?? null;
+            if (!is_int($stream) || $stream < 1 || !is_int($wireId) || $wireId < 0) {
+                throw new RuntimeException('Multiplexed QUIC admission has invalid worker or wire stream ID.');
             }
             $state->stream = $stream;
-            $this->streams[$stream] = $id;
+            $state->wireStreamId = $wireId;
+            $this->streams[$wireId] = $id;
             $state->response = new Http3ClientResponseStream(
-                $stream,
+                $wireId,
                 $state->onHeaders,
                 $state->onBody,
                 onTrailers: $state->onTrailers,
                 codec: $this->codec,
             );
-            $wire = $this->codec->encodeRequestHeaders($state->request, $stream);
+            $wire = $this->codec->encodeRequestHeaders($state->request, $wireId);
             $this->write($id, $wire, $state->request->body === null, function () use ($id): void {
                 $this->upload($id);
             });
@@ -365,7 +370,7 @@ final class Http3ClientSiblingManager
         }
         if ($body->eof()) {
             $trailers = $body->trailers();
-            $last = $trailers === null ? '' : $this->codec->encodeRequestTrailers($trailers, $state->stream);
+            $last = $trailers === null ? '' : $this->codec->encodeRequestTrailers($trailers, $state->wireStreamId);
             $this->write($id, $last, true, function () use ($id): void {
                 $this->sent($id);
             });
