@@ -106,10 +106,10 @@ jobs:
       - name: Enable Runwire process extensions
         shell: bash
         run: |
-          docker-php-ext-install -j"$(nproc)" pcntl
+          docker-php-ext-install -j"$(nproc)" pcntl sockets
           php -r '
-          if (!extension_loaded("pcntl") || !extension_loaded("posix")) {
-              fwrite(STDERR, "Runwire process extensions are unavailable.\n");
+          if (!extension_loaded("pcntl") || !extension_loaded("posix") || !extension_loaded("sockets")) {
+              fwrite(STDERR, "Runwire native H1/H2/H3 interop requires process and sockets extensions.\n");
               exit(1);
           }
           '
