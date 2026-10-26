@@ -59,11 +59,17 @@ final class Http3OutboundClient
 
     private bool $peerControlFound = false;
 
+    private bool $qpackFeedbackBusy = false;
+
     private bool $peerSettingsSeen = false;
 
     private ?Http3ClientResponseStream $response = null;
 
     private int $responseStream = 0;
+
+    private int $qpackDecoderStream = 0;
+
+    private string $qpackFeedbackQueue = '';
 
     private ?int $timeout = null;
 
@@ -91,8 +97,8 @@ final class Http3OutboundClient
         $this->onTrailers = $onTrailers === null ? null : Closure::fromCallable($onTrailers);
         $this->completion = Closure::fromCallable($completion);
         $this->session = new QuicClientSession($loop);
-        $this->control = new Http3ClientControl();
-        $this->codec = new Http3ClientWireCodec();
+        $this->control = new Http3ClientControl(decoderCapacity: 4_096, maxBlocked: 8);
+        $this->codec = new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8);
         $this->peerStreams = new Http3ClientPeerStreamRegistry();
     }
 
@@ -172,7 +178,18 @@ final class Http3OutboundClient
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
         if ($type === StreamType::QPACK_ENCODER->value) {
-            $this->codec->receivePeerEncoderInstructions($bytes);
+            foreach ($this->codec->receivePeerEncoderInstructions($bytes) as $ready) {
+                if ($this->response === null || $ready->streamId !== $this->responseStream) {
+                    throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'QPACK released an unknown response stream.');
+                }
+                $this->response->resumeQpack($ready);
+                if ($this->response->isFinished()) {
+                    $this->finish(null);
+
+                    return;
+                }
+            }
+            $this->flushQpackFeedback();
         } elseif ($type === StreamType::QPACK_DECODER->value) {
             $this->codec->receivePeerDecoderInstructions($bytes);
         } elseif ($type === StreamType::PUSH->value) {
@@ -289,7 +306,30 @@ final class Http3OutboundClient
     private function openQpackStream(StreamType $type, callable $completed): void
     {
         $this->command('open_uni', 0, '', false, function (array $opened) use ($type, $completed): void {
-            $this->writeAll(self::streamId($opened), $this->control->localQpackPreamble($type), false, $completed);
+            $stream = self::streamId($opened);
+            if ($type === StreamType::QPACK_DECODER) {
+                $this->qpackDecoderStream = $stream;
+            }
+            $this->writeAll($stream, $this->control->localQpackPreamble($type), false, function () use ($completed): void {
+                $this->flushQpackFeedback();
+                $completed();
+            });
+        });
+    }
+
+    /** Serialize decoder feedback on the one locally owned critical stream. */
+    private function flushQpackFeedback(): void
+    {
+        $this->qpackFeedbackQueue .= $this->codec->takeDecoderInstructions();
+        if ($this->qpackFeedbackBusy || $this->qpackFeedbackQueue === '' || $this->qpackDecoderStream < 1) {
+            return;
+        }
+        $this->qpackFeedbackBusy = true;
+        $bytes = $this->qpackFeedbackQueue;
+        $this->qpackFeedbackQueue = '';
+        $this->writeAll($this->qpackDecoderStream, $bytes, false, function (): void {
+            $this->qpackFeedbackBusy = false;
+            $this->flushQpackFeedback();
         });
     }
 
@@ -340,9 +380,12 @@ final class Http3OutboundClient
             false,
             function (array $result) use ($response): void {
                 $response->push(self::decodeBytes($result));
+                $this->flushQpackFeedback();
                 if (($result['eof'] ?? null) === true) {
                     $response->finish();
-                    $this->finish(null);
+                    if ($response->isFinished()) {
+                        $this->finish(null);
+                    }
 
                     return;
                 }
