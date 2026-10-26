@@ -40,16 +40,6 @@ final readonly class QuicClientOptions
         }
     }
 
-    /** Reserve one root request and six local/peer critical QUIC streams before siblings. */
-    public function nativeSiblingCapacity(): int
-    {
-        if ($this->maxOpenStreams <= 7) {
-            throw new RuntimeUnavailableException('HTTP/3 native stream budget cannot admit siblings alongside root and critical streams.');
-        }
-
-        return $this->maxOpenStreams - 7;
-    }
-
     /**
      * Reject application dispatch until the verified TLS 1.3 handshake has
      * completed; the native backend provides no replay-safe 0-RTT support.
@@ -157,6 +147,16 @@ final readonly class QuicClientOptions
     /**
      * @param list<string> $alpnProtocols
      */
+    /** Reserve one root request and six local/peer critical QUIC streams before siblings. */
+    public function nativeSiblingCapacity(): int
+    {
+        if ($this->maxOpenStreams <= 7) {
+            throw new RuntimeUnavailableException('HTTP/3 native stream budget cannot admit siblings alongside root and critical streams.');
+        }
+
+        return $this->maxOpenStreams - 7;
+    }
+
     private static function validateAlpn(array $alpnProtocols): void
     {
         if ($alpnProtocols === [] || count($alpnProtocols) > 16) {

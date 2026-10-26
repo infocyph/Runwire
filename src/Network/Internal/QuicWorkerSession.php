@@ -294,14 +294,6 @@ final class QuicWorkerSession
         }
     }
 
-    /** Drive retransmission and timers during an otherwise idle QUIC session. */
-    private function pollNativeEvents(): array
-    {
-        $this->driveNativeEvents();
-
-        return ['polled' => true];
-    }
-
     /**
      * Open a locally initiated QUIC stream, returning a worker-local handle.
      *
@@ -336,6 +328,14 @@ final class QuicWorkerSession
 
         return ['stream' => $id, 'bidirectional' => $bidirectional]
             + QuicWorkerStreamIdentity::fields($stream);
+    }
+
+    /** @return array{polled:bool} */
+    private function pollNativeEvents(): array
+    {
+        $this->driveNativeEvents();
+
+        return ['polled' => true];
     }
 
     /** @return array<string, int|bool|float> */
