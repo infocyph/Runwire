@@ -64,7 +64,13 @@ $client = Http3OutboundClient::connect(
 for ($id = 2; $id <= 4; ++$id) {
     $client->enqueue($request($id), $onHeaders($id), $onBody($id), $onComplete($id));
 }
+$diagnosticTimer = $loop->delay(6.0, static function () use (&$statuses, &$bodies, &$completions): void {
+    fwrite(STDERR, 'C1 multiplex QA progress status=' . json_encode($statuses, JSON_THROW_ON_ERROR)
+        . ' completed=' . json_encode($completions, JSON_THROW_ON_ERROR)
+        . ' body_lengths=' . json_encode(array_map(strlen(...), $bodies), JSON_THROW_ON_ERROR) . PHP_EOL);
+});
 $loop->run();
+$loop->cancel($diagnosticTimer);
 ksort($statuses);
 ksort($bodies);
 ksort($completions);
