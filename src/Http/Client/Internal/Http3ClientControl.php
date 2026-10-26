@@ -63,13 +63,6 @@ final class Http3ClientControl
         return $this->peerGoawayId;
     }
 
-    /** Whether GOAWAY refused an already opened but not yet completed root request. */
-    public function refusesRoot(int $wireStreamId, bool $opened, bool $completed): bool
-    {
-        return $opened && !$completed && $this->peerGoawayId !== null
-            && $wireStreamId >= $this->peerGoawayId;
-    }
-
     /** Return peer SETTINGS only once its complete first frame was parsed. */
     public function peerSettings(): ?Settings
     {
@@ -114,6 +107,13 @@ final class Http3ClientControl
         }
 
         return $frames;
+    }
+
+    /** Whether GOAWAY refused an already opened but not yet completed root request. */
+    public function refusesRoot(int $wireStreamId, bool $opened, bool $completed): bool
+    {
+        return $opened && !$completed && $this->peerGoawayId !== null
+            && $wireStreamId >= $this->peerGoawayId;
     }
 
     /** Emit local HTTP/3 stream type and SETTINGS, exactly once. */
