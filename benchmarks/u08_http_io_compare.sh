@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Paired native H1 plaintext / verified TLS response-cost profile.
-# Diagnostic acceptance only; short runs do not certify release saturation.
+# Diagnostic evidence only: procfs read/write counters exclude socket send/recv.
 set -euo pipefail
 output="${1:?Expected output evidence JSON}"
 trials="${RUNWIRE_COMPARE_TRIALS:-3}"

@@ -33,11 +33,15 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-version }}
-          extensions: pcntl, posix, opcache
+          extensions: pcntl, posix, opcache, event
           tools: composer:v2
           coverage: none
       - name: Install standalone Runwire
-        run: composer install --no-interaction --prefer-dist --no-progress
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -r 'exit(extension_loaded("event") ? 0 : 1);'
+          composer install --no-interaction --prefer-dist --no-progress
       - name: Validate benchmark and comparison commands
         shell: bash
         run: |
