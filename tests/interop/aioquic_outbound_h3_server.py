@@ -23,6 +23,10 @@ class IndependentH3(QuicConnectionProtocol):
         self.uploads = {}
         self.concurrent = {}
 
+    def close(self, error_code=0, reason_phrase=""):
+        print(f"C1 independent H3 LOCAL_CLOSE code={error_code} reason={reason_phrase}", flush=True)
+        return super().close(error_code=error_code, reason_phrase=reason_phrase)
+
     def respond(self, stream_id, with_trailers=False):
         body = b"runwire-outbound-h3-peer-ok"
         print(f"C1 independent H3 responding stream={stream_id}", flush=True)
