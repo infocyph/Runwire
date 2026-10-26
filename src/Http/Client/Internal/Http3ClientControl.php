@@ -123,6 +123,7 @@ final class Http3ClientControl
             SettingIdentifier::MAX_FIELD_SECTION_SIZE->value => 65_536,
         ]));
     }
+
     /** Accept only a complete, nonincreasing client-bidi GOAWAY request stream ID. */
     private function validateGoaway(Frame $frame): void
     {

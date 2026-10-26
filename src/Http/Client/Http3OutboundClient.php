@@ -15,7 +15,6 @@ use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientSiblingManager;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
-use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Qpack\ReadyFieldSection;
@@ -62,8 +61,6 @@ final class Http3OutboundClient
     private bool $finished = false;
 
     private bool $localStreamsReady = false;
-
-    private bool $peerDraining = false;
 
     private bool $peerSettingsSeen = false;
 
@@ -161,7 +158,7 @@ final class Http3OutboundClient
         callable $completion,
         ?callable $onTrailers = null,
     ): int {
-        if ($this->finished || $this->peerDraining) {
+        if ($this->finished || $this->control->peerGoaway() !== null) {
             throw new RuntimeException('HTTP/3 session is closed or draining after GOAWAY.');
         }
         if (Http3ClientOrigin::validate($request, $this->options) !== Http3ClientOrigin::validate($this->request, $this->options)) {
@@ -254,12 +251,8 @@ final class Http3OutboundClient
         }
         $bytes = $probe['wire'];
 
-        foreach ($this->control->receivePeerControl($bytes) as $frame) {
-            if ($frame->knownType() === FrameType::GOAWAY) {
-                $this->peerDraining = true;
-                $this->siblings?->drain();
-            }
-        }
+        $this->control->receivePeerControl($bytes);
+        $this->siblings?->drain($this->control->peerGoaway());
         if ($eof) {
             $this->control->closePeerControl();
         }

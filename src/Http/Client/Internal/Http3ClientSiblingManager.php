@@ -99,8 +99,11 @@ final class Http3ClientSiblingManager
     }
 
     /** Retire queued request streams after peer GOAWAY without canceling in-flight work. */
-    public function drain(): void
+    public function drain(?int $peerGoawayStreamId): void
     {
+        if ($peerGoawayStreamId === null) {
+            return;
+        }
         foreach ($this->admission->drain() as $id) {
             $this->complete($id, new RuntimeException('HTTP/3 peer GOAWAY rejected queued stream admission.'));
         }
