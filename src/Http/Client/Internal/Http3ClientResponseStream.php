@@ -69,7 +69,7 @@ final class Http3ClientResponseStream
         $this->codec = $codec ?? new Http3ClientWireCodec();
     }
 
-/** Require a complete response at peer FIN. */
+    /** Require a complete response at peer FIN. */
     public function finish(): void
     {
         if ($this->qpackWaiting !== null) {
@@ -86,13 +86,13 @@ final class Http3ClientResponseStream
         $this->finished = true;
     }
 
-/** Whether the response fully completed after HTTP/3 FIN and QPACK unblocking. */
+    /** Whether the response fully completed after HTTP/3 FIN and QPACK unblocking. */
     public function isFinished(): bool
     {
         return $this->finished;
     }
 
-/** Accept bytes from a worker-owned QUIC request stream. */
+    /** Accept bytes from a worker-owned QUIC request stream. */
     public function push(string $bytes): void
     {
         if ($this->finished) {
@@ -103,7 +103,7 @@ final class Http3ClientResponseStream
         }
     }
 
-/** Finish a previously blocked field section and preserve peer frame ordering. */
+    /** Finish a previously blocked field section and preserve peer frame ordering. */
     public function resumeQpack(ReadyFieldSection $ready): void
     {
         if ($ready->streamId !== $this->streamId || $this->qpackWaiting === null) {
@@ -129,7 +129,7 @@ final class Http3ClientResponseStream
         }
     }
 
-private function acceptFrame(Frame $frame): void
+    private function acceptFrame(Frame $frame): void
     {
         $type = $frame->knownType();
         if (!$this->headersSeen) {
@@ -165,7 +165,7 @@ private function acceptFrame(Frame $frame): void
         // Unknown extension frames are allowed and ignored by HTTP/3.
     }
 
-private function acceptHeaders(Frame $frame): void
+    private function acceptHeaders(Frame $frame): void
     {
         $response = $this->codec->tryDecodeResponseHeaders($frame->payload, $this->streamId);
         if ($response === null) {
@@ -176,7 +176,7 @@ private function acceptHeaders(Frame $frame): void
         $this->acceptValidatedHeaders($response);
     }
 
-private function acceptTrailers(Frame $frame): void
+    private function acceptTrailers(Frame $frame): void
     {
         if ($this->trailersSeen) {
             throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'Duplicate HTTP/3 response trailers.');
@@ -190,7 +190,7 @@ private function acceptTrailers(Frame $frame): void
         $this->acceptValidatedTrailers($trailers);
     }
 
-/** @param array{status:int, headers:Headers} $response */
+    /** @param array{status:int, headers:Headers} $response */
     private function acceptValidatedHeaders(array $response): void
     {
         $headers = $response['headers'];
@@ -210,7 +210,7 @@ private function acceptTrailers(Frame $frame): void
         ($this->onHeaders)($response['status'], $headers);
     }
 
-private function acceptValidatedTrailers(Headers $trailers): void
+    private function acceptValidatedTrailers(Headers $trailers): void
     {
         $this->trailersSeen = true;
         if ($this->onTrailers !== null) {
@@ -218,7 +218,7 @@ private function acceptValidatedTrailers(Headers $trailers): void
         }
     }
 
-/** Hold later frames behind a blocked QPACK HEADERS section. */
+    /** Hold later frames behind a blocked QPACK HEADERS section. */
     private function dispatchFrame(Frame $frame): void
     {
         if ($this->qpackWaiting !== null) {

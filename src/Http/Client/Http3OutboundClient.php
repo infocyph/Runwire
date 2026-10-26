@@ -112,7 +112,7 @@ final class Http3OutboundClient
         $this->auxiliary = new Http3ClientPeerAuxiliary($this->codec);
     }
 
-/**
+    /**
      * Enqueue one verified QUIC+h3 exchange without blocking the owner reactor.
      *
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
@@ -138,13 +138,13 @@ final class Http3OutboundClient
         return $client;
     }
 
-/** Abort exactly once and retire every native worker resource. */
+    /** Abort exactly once and retire every native worker resource. */
     public function close(): void
     {
         $this->finish(new RuntimeException('HTTP/3 exchange was closed before completion.'));
     }
 
-/**
+    /**
      * Enqueue an independently scoped sibling request on this same verified QUIC connection.
      * All siblings must use precisely the original HTTPS origin and h3-only ALPN.
      *
@@ -185,7 +185,7 @@ final class Http3OutboundClient
         return $this->siblings->enqueue($request, $onHeaders, $onBody, $completion, $onTrailers);
     }
 
-/** @param array<string,mixed> $result */
+    /** @param array<string,mixed> $result */
     private static function decodeBytes(array $result): string
     {
         $data = $result['data'] ?? null;
@@ -196,7 +196,7 @@ final class Http3OutboundClient
         return $bytes;
     }
 
-/** @param array<string,mixed> $result */
+    /** @param array<string,mixed> $result */
     private static function streamId(array $result): int
     {
         $stream = $result['stream'] ?? null;
@@ -207,13 +207,13 @@ final class Http3OutboundClient
         return $stream;
     }
 
-/** @return array{host:string,port:int} */
+    /** @return array{host:string,port:int} */
     private static function validatedOrigin(ClientRequest $request, QuicClientOptions $options): array
     {
         return Http3ClientOrigin::validate($request, $options);
     }
 
-private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
+    private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
         $outcome = $this->auxiliary->accept(
             $type,
@@ -237,7 +237,7 @@ private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool
         }
     }
 
-private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
+    private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
     {
         $probe = $this->peerStreams->push($stream, $bytes, $eof);
         if ($probe === null) {
@@ -270,7 +270,7 @@ private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
         $this->poll(fn() => $this->readControl($stream));
     }
 
-/** @param array<string,mixed> $result */
+    /** @param array<string,mixed> $result */
     private function assertWritten(array $result, int $length): void
     {
         if (($result['written'] ?? null) !== $length) {
@@ -278,7 +278,7 @@ private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
         }
     }
 
-/** @param callable(array<string,mixed>):void $next */
+    /** @param callable(array<string,mixed>):void $next */
     private function command(string $op, int $stream, string $data, bool $fin, callable $next): void
     {
         if ($this->finished) {
@@ -317,7 +317,7 @@ private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
         }
     }
 
-private function finish(?Throwable $error): void
+    private function finish(?Throwable $error): void
     {
         if ($this->finished) {
             return;
@@ -338,14 +338,14 @@ private function finish(?Throwable $error): void
         }
     }
 
-private function finishIfEmpty(): void
+    private function finishIfEmpty(): void
     {
         if ($this->rootCompleted) {
             $this->finish(null);
         }
     }
 
-/** Serialize decoder feedback on the one locally owned critical stream. */
+    /** Serialize decoder feedback on the one locally owned critical stream. */
     private function flushQpackFeedback(): void
     {
         $this->qpackFeedbackQueue .= $this->codec->takeDecoderInstructions();
@@ -361,7 +361,7 @@ private function finishIfEmpty(): void
         });
     }
 
-/** Establish one persistent local QPACK instruction stream before requests. */
+    /** Establish one persistent local QPACK instruction stream before requests. */
     private function openQpackStream(StreamType $type, callable $completed): void
     {
         $this->command('open_uni', 0, '', false, function (array $opened) use ($type, $completed): void {
@@ -376,7 +376,7 @@ private function finishIfEmpty(): void
         });
     }
 
-private function poll(callable $again): void
+    private function poll(callable $again): void
     {
         $this->loop->delay(0.01, function () use ($again): void {
             if (!$this->finished) {
@@ -385,7 +385,7 @@ private function poll(callable $again): void
         });
     }
 
-private function readControl(int $stream): void
+    private function readControl(int $stream): void
     {
         $this->command(
             'read',
@@ -402,14 +402,14 @@ private function readControl(int $stream): void
         );
     }
 
-private function readPeerAuxiliary(int $stream, int $type): void
+    private function readPeerAuxiliary(int $stream, int $type): void
     {
         $this->command('read', $stream, '', false, function (array $result) use ($stream, $type): void {
             $this->acceptPeerAuxiliary($type, self::decodeBytes($result), $stream, ($result['eof'] ?? null) === true);
         });
     }
 
-private function readResponse(): void
+    private function readResponse(): void
     {
         $response = $this->response;
         if ($response === null) {
@@ -437,7 +437,7 @@ private function readResponse(): void
         );
     }
 
-/** Locate the mandatory peer control stream before processing the response. */
+    /** Locate the mandatory peer control stream before processing the response. */
     private function receiveControl(): void
     {
         $this->command(
@@ -460,7 +460,7 @@ private function readResponse(): void
         );
     }
 
-private function retireRootDeadline(): void
+    private function retireRootDeadline(): void
     {
         if ($this->timeout !== null) {
             $this->loop->cancel($this->timeout);
@@ -470,7 +470,7 @@ private function retireRootDeadline(): void
         $this->cancellation = null;
     }
 
-private function sendControl(int $stream): void
+    private function sendControl(int $stream): void
     {
         if ($stream < 1) {
             $this->finish(new RuntimeException('HTTP/3 QUIC cannot open its control stream.'));
@@ -496,7 +496,7 @@ private function sendControl(int $stream): void
         );
     }
 
-private function sendRequest(int $stream): void
+    private function sendRequest(int $stream): void
     {
         if ($stream < 1) {
             $this->finish(new RuntimeException('HTTP/3 QUIC cannot open a bidirectional request stream.'));
@@ -522,7 +522,7 @@ private function sendRequest(int $stream): void
         );
     }
 
-/** Pull one bounded producer chunk only after the previous QUIC write completes. */
+    /** Pull one bounded producer chunk only after the previous QUIC write completes. */
     private function sendUpload(): void
     {
         $body = $this->request->body;
@@ -558,7 +558,7 @@ private function sendRequest(int $stream): void
         });
     }
 
-private function start(string $host, int $port): void
+    private function start(string $host, int $port): void
     {
         $token = $this->request->cancellation;
         if ($token?->isCancelled()) {
@@ -616,7 +616,7 @@ private function start(string $host, int $port): void
         }
     }
 
-/**
+    /**
      * Write a complete frame through partial, bounded native QUIC writes.
      *
      * @param callable():void $completed
@@ -631,7 +631,7 @@ private function start(string $host, int $port): void
         $this->writeChunk($stream, $bytes, 0, $fin, $completed);
     }
 
-/**
+    /**
      * Retain the trailing byte for the native FIN write; retry partial non-FIN
      * writes without dropping framing bytes or advancing the response early.
      *
