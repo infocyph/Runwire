@@ -252,6 +252,11 @@ final class Http3OutboundClient
         $bytes = $probe['wire'];
 
         $this->control->receivePeerControl($bytes);
+        if ($this->control->refusesRoot($this->responseWireStreamId, $this->responseStream > 0, $this->rootCompleted)) {
+            $this->finish(new RuntimeException('HTTP/3 peer GOAWAY refused the root request stream.'));
+
+            return;
+        }
         $this->siblings?->drain($this->control->peerGoaway());
         if ($eof) {
             $this->control->closePeerControl();
@@ -466,11 +471,7 @@ final class Http3OutboundClient
 
     private function sendControl(int $stream): void
     {
-        if ($stream < 1) {
-            $this->finish(new RuntimeException('HTTP/3 QUIC cannot open its control stream.'));
-
-            return;
-        }
+        // This private call site already validates the worker handle via streamId().
         $data = $this->control->start();
         $this->writeAll(
             $stream,

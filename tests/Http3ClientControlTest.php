@@ -112,3 +112,21 @@ it('rejects malformed HTTP/3 peer GOAWAY stream identities and trailing payload 
             ->toThrow(Http3Exception::class, 'invalid or increasing');
     }
 });
+
+it('applies a peer HTTP/3 GOAWAY cutoff to the root without aborting a completed response', function (): void {
+    $control = new Http3ClientControl();
+    $control->start();
+    $control->receivePeerControl("\x00" . (new Frame(FrameType::SETTINGS->value))->encode());
+    expect($control->refusesRoot(0, false, false))->toBeFalse()
+        ->and($control->refusesRoot(0, true, false))->toBeFalse();
+
+    $control->receivePeerControl(new Frame(FrameType::GOAWAY->value, VarIntCodec::encode(8))->encode());
+    expect($control->refusesRoot(0, true, false))->toBeFalse()
+        ->and($control->refusesRoot(8, true, false))->toBeTrue()
+        ->and($control->refusesRoot(8, true, true))->toBeFalse();
+
+    $control->receivePeerControl(new Frame(FrameType::GOAWAY->value, VarIntCodec::encode(0))->encode());
+    expect($control->refusesRoot(0, true, false))->toBeTrue()
+        ->and($control->refusesRoot(0, false, false))->toBeFalse()
+        ->and($control->refusesRoot(0, true, true))->toBeFalse();
+});
