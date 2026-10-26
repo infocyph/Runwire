@@ -14,9 +14,9 @@ use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
-use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
@@ -57,14 +57,14 @@ final class Http3OutboundClient
 
     private bool $peerControlFound = false;
 
+    /** @var array<int, true> */
+    private array $peerCriticalTypes = [];
+
     /** @var array<int, Http3ClientPeerStreamType> */
     private array $peerPrefixes = [];
 
     /** @var array<int, int> */
     private array $peerStreamTypes = [];
-
-    /** @var array<int, true> */
-    private array $peerCriticalTypes = [];
 
     private ?Http3ClientResponseStream $response = null;
 
@@ -173,6 +173,27 @@ final class Http3OutboundClient
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
 
+    private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
+    {
+        if ($type === StreamType::QPACK_ENCODER->value) {
+            $this->codec->receivePeerEncoderInstructions($bytes);
+        } elseif ($type === StreamType::QPACK_DECODER->value) {
+            $this->codec->receivePeerDecoderInstructions($bytes);
+        } elseif ($type === StreamType::PUSH->value) {
+            throw new Http3Exception(ErrorCode::ID_ERROR, 'Peer push is forbidden without MAX_PUSH_ID.');
+        } elseif (++$this->unrelatedStreams > 8) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Excessive unrecognized HTTP/3 peer streams.');
+        }
+
+        if ($eof && in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
+            throw new Http3Exception(ErrorCode::CLOSED_CRITICAL_STREAM, 'Peer QPACK critical stream ended prematurely.');
+        }
+
+        if (in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
+            $this->poll(fn() => $this->readPeerAuxiliary($stream, $type));
+        }
+    }
+
     private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
     {
         if (!isset($this->peerStreamTypes[$stream])) {
@@ -202,6 +223,9 @@ final class Http3OutboundClient
 
             if ($type !== StreamType::CONTROL->value) {
                 $this->acceptPeerAuxiliary($type, $probe['payload'], $stream, $eof);
+                if (!$this->peerControlFound) {
+                    $this->receiveControl();
+                }
 
                 return;
             }
@@ -218,37 +242,6 @@ final class Http3OutboundClient
         } else {
             $this->poll(fn() => $this->readControl($stream));
         }
-    }
-
-    private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
-    {
-        if ($type === StreamType::QPACK_ENCODER->value) {
-            $this->codec->receivePeerEncoderInstructions($bytes);
-        } elseif ($type === StreamType::QPACK_DECODER->value) {
-            $this->codec->receivePeerDecoderInstructions($bytes);
-        } elseif ($type === StreamType::PUSH->value) {
-            throw new Http3Exception(ErrorCode::ID_ERROR, 'Peer push is forbidden without MAX_PUSH_ID.');
-        } elseif (++$this->unrelatedStreams > 8) {
-            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Excessive unrecognized HTTP/3 peer streams.');
-        }
-
-        if ($eof && in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
-            throw new Http3Exception(ErrorCode::CLOSED_CRITICAL_STREAM, 'Peer QPACK critical stream ended prematurely.');
-        }
-
-        if (in_array($type, [StreamType::QPACK_ENCODER->value, StreamType::QPACK_DECODER->value], true)) {
-            $this->poll(fn() => $this->readPeerAuxiliary($stream, $type));
-        }
-        if (!$this->peerControlFound) {
-            $this->receiveControl();
-        }
-    }
-
-    private function readPeerAuxiliary(int $stream, int $type): void
-    {
-        $this->command('read', $stream, '', false, function (array $result) use ($stream, $type): void {
-            $this->acceptPeerAuxiliary(self::decodeBytes($result) === '' ? $type : $type, self::decodeBytes($result), $stream, ($result['eof'] ?? null) === true);
-        });
     }
 
     /** @param array<string,mixed> $result */
@@ -338,6 +331,13 @@ final class Http3OutboundClient
                 );
             },
         );
+    }
+
+    private function readPeerAuxiliary(int $stream, int $type): void
+    {
+        $this->command('read', $stream, '', false, function (array $result) use ($stream, $type): void {
+            $this->acceptPeerAuxiliary($type, self::decodeBytes($result), $stream, ($result['eof'] ?? null) === true);
+        });
     }
 
     private function readResponse(): void
