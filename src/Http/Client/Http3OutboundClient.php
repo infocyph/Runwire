@@ -8,12 +8,12 @@ use Closure;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientControl;
+use Infocyph\Runwire\Http\Client\Internal\Http3ClientOrigin;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerAuxiliary;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamRegistry;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientSiblingManager;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
-use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
@@ -210,20 +210,7 @@ final class Http3OutboundClient
     /** @return array{host:string,port:int} */
     private static function validatedOrigin(ClientRequest $request, QuicClientOptions $options): array
     {
-        $parts = parse_url($request->uri);
-        if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'https'
-            || !is_string($parts['host'] ?? null)) {
-            throw new InvalidArgumentException('HTTP/3 requires a secure absolute HTTPS origin.');
-        }
-        $host = trim($parts['host'], '[]');
-        if (strcasecmp($options->peerName, $host) !== 0 || $options->alpnProtocols !== ['h3']) {
-            throw new InvalidArgumentException('HTTP/3 QUIC must verify the original origin with h3-only ALPN.');
-        }
-        if ($request->protocol->negotiate('h3', true, true) !== ProtocolVersion::HTTP_3) {
-            throw new InvalidArgumentException('HTTP/3 client protocol policy rejected h3.');
-        }
-
-        return ['host' => $host, 'port' => $parts['port'] ?? 443];
+        return Http3ClientOrigin::validate($request, $options);
     }
 
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void

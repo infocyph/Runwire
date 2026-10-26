@@ -131,7 +131,7 @@ final class Http3ClientSiblingManager
         $state->cancellation = $token?->onCancel(function () use ($id, $token): void {
             $this->cancel($id, new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
         });
-        if ($this->ready && isset($this->exchanges[$id])) {
+        if ($this->ready && array_key_exists($id, $this->exchanges)) {
             $this->open($id);
         }
 
@@ -185,6 +185,62 @@ final class Http3ClientSiblingManager
     /**
      * @param callable(array<string,mixed>):void $next
      */
+    /** @param array<string,mixed> $result */
+    private function acceptRead(int $id, array $result): void
+    {
+        $state = $this->exchanges[$id] ?? null;
+        if ($state === null || $state->response === null) {
+            return;
+        }
+        $state->readActive = false;
+        $wire = $result['data'] ?? null;
+        $decoded = is_string($wire) ? base64_decode($wire, true) : false;
+        if (!is_string($decoded)) {
+            throw new RuntimeException('Invalid multiplexed HTTP/3 response bytes.');
+        }
+        $state->response->push($decoded);
+        ($this->feedback)();
+        if (($result['eof'] ?? null) === true) {
+            $state->peerEof = true;
+            $state->response->finish();
+            if ($state->response->isFinished()) {
+                $this->complete($id, null);
+            }
+
+            return;
+        }
+        $this->poll(fn() => $this->read($id));
+    }
+
+    /**
+     * @param array<string,mixed> $result
+     * @param callable():void $next
+     */
+    private function acceptWrite(
+        int $id,
+        array $result,
+        string $bytes,
+        bool $fin,
+        int $offset,
+        callable $next,
+        int $length,
+        bool $last,
+    ): void {
+        if (!array_key_exists($id, $this->exchanges)) {
+            return;
+        }
+        $written = $result['written'] ?? null;
+        if (!is_int($written) || $written < 0 || $written > $length || ($last && $written !== $length)) {
+            throw new RuntimeException('Invalid partial multiplexed QUIC write completion.');
+        }
+        if ($written === 0) {
+            $this->poll(fn() => $this->write($id, $bytes, $fin, $next, $offset));
+
+            return;
+        }
+        $this->write($id, $bytes, $fin, $next, $offset + $written);
+    }
+
     private function command(string $op, int $stream, string $data, bool $fin, callable $next): void
     {
         if ($this->closed) {
@@ -281,28 +337,7 @@ final class Http3ClientSiblingManager
         }
         $state->readActive = true;
         $this->command('read', $state->stream, '', false, function (array $result) use ($id): void {
-            $state = $this->exchanges[$id] ?? null;
-            if ($state === null || $state->response === null) {
-                return;
-            }
-            $state->readActive = false;
-            $wire = $result['data'] ?? null;
-            $decoded = is_string($wire) ? base64_decode($wire, true) : false;
-            if (!is_string($decoded)) {
-                throw new RuntimeException('Invalid multiplexed HTTP/3 response bytes.');
-            }
-            $state->response->push($decoded);
-            ($this->feedback)();
-            if (($result['eof'] ?? null) === true) {
-                $state->peerEof = true;
-                $state->response->finish();
-                if ($state->response->isFinished()) {
-                    $this->complete($id, null);
-                }
-
-                return;
-            }
-            $this->poll(fn() => $this->read($id));
+            $this->acceptRead($id, $result);
         });
     }
 
@@ -382,19 +417,7 @@ final class Http3ClientSiblingManager
             $length,
             $last,
         ): void {
-            if (!isset($this->exchanges[$id])) {
-                return;
-            }
-            $written = $result['written'] ?? null;
-            if (!is_int($written) || $written < 0 || $written > $length || ($last && $written !== $length)) {
-                throw new RuntimeException('Invalid partial multiplexed QUIC write completion.');
-            }
-            if ($written === 0) {
-                $this->poll(fn() => $this->write($id, $bytes, $fin, $next, $offset));
-
-                return;
-            }
-            $this->write($id, $bytes, $fin, $next, $offset + $written);
+            $this->acceptWrite($id, $result, $bytes, $fin, $offset, $next, $length, $last);
         });
     }
 }

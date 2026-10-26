@@ -34,14 +34,24 @@ for attempt in $(seq 1 100); do
 done
 test -s "$tmpdir/ready" || { cat "$tmpdir/peer.log"; exit 1; }
 mkdir -p "$(dirname "$output")"
-if ! php tests/fixtures/http3_outbound_client.php "$port" "$tmpdir/cert.pem" >"$output"; then
+echo "C1 outbound H3: independent one-shot control/QPACK acceptance"
+if ! php -d display_errors=stderr -d log_errors=1 tests/fixtures/http3_outbound_client.php "$port" "$tmpdir/cert.pem" >"$output" 2>"$tmpdir/one-shot.err"; then
+    cat "$tmpdir/one-shot.err"
     cat "$tmpdir/peer.log"
     exit 1
 fi
 jq -e '.verified and .http3_outbound_independent_peer and .tls_alpn == "h3" and .response_status == 200 and .exact_body and .finished_exactly_once and .loop_resources_released' "$output" >/dev/null
-php tests/fixtures/http3_outbound_upload.php "$port" "$tmpdir/cert.pem" >"$output.upload"
+echo "C1 outbound H3: independent upload/trailer acceptance"
+if ! php -d display_errors=stderr -d log_errors=1 tests/fixtures/http3_outbound_upload.php "$port" "$tmpdir/cert.pem" >"$output.upload" 2>"$tmpdir/upload.err"; then
+    cat "$tmpdir/upload.err" "$tmpdir/peer.log"
+    exit 1
+fi
 jq -e '.verified and .independent_upload and .trailing_headers and .exact_response and .cleanup' "$output.upload" >/dev/null
-php tests/fixtures/http3_outbound_multiplex.php "$port" "$tmpdir/cert.pem" >"$output.multiplex"
+echo "C1 outbound H3: four simultaneous QUIC stream acceptance"
+if ! php -d display_errors=stderr -d log_errors=1 tests/fixtures/http3_outbound_multiplex.php "$port" "$tmpdir/cert.pem" >"$output.multiplex" 2>"$tmpdir/multiplex.err"; then
+    cat "$tmpdir/multiplex.err" "$tmpdir/peer.log"
+    exit 1
+fi
 jq -e '.verified and .single_quic_session and .concurrent_requests == 4
     and .responses_completed == 4 and .exact_responses and .cleanup' "$output.multiplex" >/dev/null
 if [ "$#" -eq 2 ]; then
