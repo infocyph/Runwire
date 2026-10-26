@@ -16,11 +16,11 @@ final class U10PoolNetworkTrial
 {
     private readonly Dialer $dialer;
 
+    private readonly ?PoolIsolationKey $key;
+
     private readonly SelectLoop $loop;
 
     private readonly ?BoundedConnectionPool $pool;
-
-    private readonly ?PoolIsolationKey $key;
 
     private int $active = 0;
 
@@ -114,6 +114,17 @@ final class U10PoolNetworkTrial
         }
     }
 
+    private static function cpuMs(): float
+    {
+        $usage = getrusage();
+
+        return 1000.0 * (
+            ($usage['ru_utime.tv_sec'] ?? 0) + ($usage['ru_stime.tv_sec'] ?? 0)
+        ) + (
+            ($usage['ru_utime.tv_usec'] ?? 0) + ($usage['ru_stime.tv_usec'] ?? 0)
+        ) / 1000.0;
+    }
+
     private function connected(int $id, ?Connection $connection, ?Throwable $error): void
     {
         if ($error !== null || $connection === null) {
@@ -147,17 +158,6 @@ final class U10PoolNetworkTrial
         } catch (Throwable $failure) {
             $this->fail($failure);
         }
-    }
-
-    private static function cpuMs(): float
-    {
-        $usage = getrusage();
-
-        return 1000.0 * (
-            ($usage['ru_utime.tv_sec'] ?? 0) + ($usage['ru_stime.tv_sec'] ?? 0)
-        ) + (
-            ($usage['ru_utime.tv_usec'] ?? 0) + ($usage['ru_stime.tv_usec'] ?? 0)
-        ) / 1000.0;
     }
 
     private function fail(Throwable $error): void
@@ -335,7 +335,7 @@ try {
             'trials' => $rows,
         ];
     }
-    echo json_encode([
+    fwrite(STDOUT, json_encode([
         'schema' => 1,
         'real_network_io' => true,
         'independent_tcp_origin' => true,
@@ -350,7 +350,7 @@ try {
         'correctness_passed' => $summary['direct']['successful_requests'] === 2 * $count
             && $summary['pool']['successful_requests'] === 2 * $count
             && $summary['pool']['reuse_hits'] > 0,
-    ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL;
+    ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL);
 } finally {
     proc_terminate($process);
     fclose($pipes[1]);
