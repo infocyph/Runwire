@@ -38,10 +38,10 @@ final class Http3ClientGoawayState
             }
         }
     }
+
     /** Whether the peer refused a newly allocated HTTP/3 request stream. */
     public function refuses(int $wireStreamId): bool
     {
         return $this->cutoff !== null && $wireStreamId >= $this->cutoff;
     }
-
 }

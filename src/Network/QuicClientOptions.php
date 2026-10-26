@@ -144,9 +144,6 @@ final readonly class QuicClientOptions
         return $options;
     }
 
-    /**
-     * @param list<string> $alpnProtocols
-     */
     /** Reserve one root request and six local/peer critical QUIC streams before siblings. */
     public function nativeSiblingCapacity(): int
     {
@@ -157,6 +154,7 @@ final readonly class QuicClientOptions
         return $this->maxOpenStreams - 7;
     }
 
+    /** @param list<string> $alpnProtocols */
     private static function validateAlpn(array $alpnProtocols): void
     {
         if ($alpnProtocols === [] || count($alpnProtocols) > 16) {
