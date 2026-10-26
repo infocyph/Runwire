@@ -5,10 +5,15 @@ python="${RUNWIRE_AIOQUIC_PYTHON:?Independent aioquic Python is required}"
 test -x "$python"
 tmpdir="$(mktemp -d)"
 server_pid=""
+h12_pid=""
 cleanup() {
     if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
         kill -TERM "$server_pid" 2>/dev/null || true
         wait "$server_pid" 2>/dev/null || true
+    fi
+    if [ -n "$h12_pid" ] && kill -0 "$h12_pid" 2>/dev/null; then
+        kill -TERM "$h12_pid" 2>/dev/null || true
+        wait "$h12_pid" 2>/dev/null || true
     fi
     rm -rf "$tmpdir"
 }
@@ -54,7 +59,7 @@ if ! php -d display_errors=stderr -d log_errors=1 tests/fixtures/http3_outbound_
 fi
 jq -e '.verified and .single_quic_session and .concurrent_requests == 4
     and .responses_completed == 4 and .exact_responses and .cleanup' "$output.multiplex" >/dev/null
-if [ "$#" -eq 2 ]; then
+if [ "$#" -ge 2 ]; then
     profile_output="$2"
     php benchmarks/u05_native_h3_transport_profile.php "$port" "$tmpdir/cert.pem" 16 >"$profile_output"
     jq -e '.schema == 1 and .real_network_io == true and .verified_tls_alpn == true
@@ -62,4 +67,37 @@ if [ "$#" -eq 2 ]; then
         and .requests_total == 16 and .successful_requests == 16 and .errors_total == 0
         and .successful_rps > 0 and .p99_ms > 0 and .peak_memory_bytes > 0
         and .parent_cpu_ms > 0 and .full_end_to_end_certification == false' "$profile_output" >/dev/null
+fi
+
+if [ "$#" -ge 3 ]; then
+    tcp_port="$(php -r '
+        $socket = stream_socket_server("tcp://127.0.0.1:0", $code, $reason);
+        if (!is_resource($socket)) { throw new RuntimeException($reason); }
+        $name = stream_socket_get_name($socket, false);
+        fclose($socket);
+        if (!is_string($name)) { throw new RuntimeException("Missing ephemeral TCP port."); }
+        echo substr(strrchr($name, ":"), 1);
+    ')"
+    "$python" -u tests/interop/independent_outbound_h12_server.py "$tcp_port" \
+        "$tmpdir/cert.pem" "$tmpdir/key.pem" "$tmpdir/h12-ready" >"$tmpdir/h12.log" 2>&1 &
+    h12_pid=$!
+    for attempt in $(seq 1 100); do
+        if [ -s "$tmpdir/h12-ready" ]; then break; fi
+        if ! kill -0 "$h12_pid" 2>/dev/null; then cat "$tmpdir/h12.log"; exit 1; fi
+        sleep 0.03
+    done
+    test -s "$tmpdir/h12-ready" || { cat "$tmpdir/h12.log"; exit 1; }
+    for protocol in h1 h2 h3; do
+        php benchmarks/u07_outbound_protocol_profile.php "$protocol" "$tcp_port" "$port" \
+            "$tmpdir/cert.pem" 24 >"$tmpdir/$protocol.json" || {
+                cat "$tmpdir/h12.log" "$tmpdir/peer.log"
+                exit 1
+            }
+    done
+    jq -s '{schema:1,matched_payload:true,workloads:.,release_saturation_certified:false}' \
+        "$tmpdir/h1.json" "$tmpdir/h2.json" "$tmpdir/h3.json" >"$3"
+    jq -e '.schema == 1 and .matched_payload and (.workloads | length) == 3
+        and ([.workloads[] | select(.successful_requests == 24 and .errors == 0
+            and .successful_rps > 0 and .p99_ms > 0
+            and .parent_cpu_ms > 0 and .parent_peak_rss_bytes > 0)] | length) == 3' "$3" >/dev/null
 fi

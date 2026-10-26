@@ -230,7 +230,7 @@ jobs:
         shell: bash
         run: |
           python3 -m venv /tmp/runwire-aioquic
-          /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'aioquic==1.3.0'
+          /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'aioquic==1.3.0' 'h2==4.3.0'
           /tmp/runwire-aioquic/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_http3_client.py' -v
 
           tmpdir="$(mktemp -d)"
@@ -438,7 +438,8 @@ jobs:
             RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
             bash tests/interop/http3_outbound_client.sh \
             benchmark-results/outbound-h3-client.json \
-            benchmark-results/u05-native-h3-serial-profile.json
+            benchmark-results/u05-native-h3-serial-profile.json \
+            benchmark-results/u07-outbound-match.json
 
       - name: Verify real stalled peer cancellation and healthy QUIC sibling recovery
         shell: bash
@@ -470,6 +471,7 @@ jobs:
             benchmark-results/native-quic-stall-php-${{ matrix.php-version }}-peer.json
             benchmark-results/outbound-h3-client.json
             benchmark-results/u05-native-h3-serial-profile.json
+            benchmark-results/u07-outbound-match.json
             benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}.json
             benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}-peer.json
           retention-days: 90
