@@ -60,3 +60,16 @@ it('accepts the maximum supported bounded QUIC worker upload frame', function ()
         ->and(strlen($decoded['data']))->toBe(QuicWorkerCommand::MAX_DATA_BYTES)
         ->and($decoded['data'])->toBe($payload);
 });
+
+it('accepts idle native QUIC poll only with zero stream, no payload or FIN', function (): void {
+    expect(QuicWorkerCommand::decode(QuicWorkerCommand::encode(8, 'poll')))->toBe([
+        'id' => 8,
+        'op' => 'poll',
+        'stream' => 0,
+        'data' => '',
+        'fin' => false,
+    ]);
+    expect(fn() => QuicWorkerCommand::encode(9, 'poll', 1))->toThrow(InvalidArgumentException::class)
+        ->and(fn() => QuicWorkerCommand::encode(10, 'poll', 0, 'x'))->toThrow(InvalidArgumentException::class)
+        ->and(fn() => QuicWorkerCommand::encode(11, 'poll', 0, '', true))->toThrow(InvalidArgumentException::class);
+});

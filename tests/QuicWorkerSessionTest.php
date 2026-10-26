@@ -16,6 +16,8 @@ function runwireNativeQuicWorkerFixture(int $limit = 2, bool $partialWrites = fa
 
         public bool $lastBidirectional = true;
 
+        public int $pollCalls = 0;
+
         /** @var list<object> */
         public array $incoming = [];
 
@@ -66,7 +68,10 @@ function runwireNativeQuicWorkerFixture(int $limit = 2, bool $partialWrites = fa
             };
         }
 
-        public function handleEvents(): void {}
+        public function handleEvents(): void
+        {
+            ++$this->pollCalls;
+        }
 
         public function close(): void
         {
@@ -516,4 +521,18 @@ it('records native poll/read/write costs only after explicit QUIC worker profili
     expect($reset['write_calls'])->toBe(0)
         ->and($reset['poll_calls'])->toBe(0)
         ->and($reset['peak_streams'])->toBe(1);
+});
+
+it('drives native QUIC retransmission on a bounded idle poll without allocating streams', function (): void {
+    [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1);
+    expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'poll')]))
+        ->toBe(['polled' => true])
+        ->and($native->pollCalls)->toBe(1)
+        ->and($native->closed)->toBeFalse();
+    expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]))
+        ->toBe(['stream' => 1, 'bidirectional' => true]);
+    expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'poll')]))
+        ->toBe(['polled' => true])
+        ->and($native->pollCalls)->toBe(2)
+        ->and($native->closed)->toBeFalse();
 });

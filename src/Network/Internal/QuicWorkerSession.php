@@ -98,6 +98,7 @@ final class QuicWorkerSession
                 'read' => $this->readStream($command),
                 'reset' => $this->resetStream($command),
                 'close' => $this->closeSession(),
+                'poll' => $this->pollNativeEvents(),
                 'profile_start' => $this->startProfile(),
                 'profile_read' => $this->readProfile(),
                 default => throw new InvalidArgumentException('Unknown QUIC worker stream command.'),
@@ -291,6 +292,14 @@ final class QuicWorkerSession
                 $this->profilePollNanoseconds += max(0, (int) hrtime(true) - $started);
             }
         }
+    }
+
+    /** Drive retransmission and timers during an otherwise idle QUIC session. */
+    private function pollNativeEvents(): array
+    {
+        $this->driveNativeEvents();
+
+        return ['polled' => true];
     }
 
     /**

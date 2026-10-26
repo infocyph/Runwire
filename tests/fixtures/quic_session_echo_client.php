@@ -124,7 +124,20 @@ try {
                             }
                             $receipt = is_file($argv[4]) ? file_get_contents($argv[4]) : false;
                             if ($receipt === false) {
-                                $loop->delay(0.01, $poll);
+                                // The independent peer may lose the first post-handshake
+                                // packet. Worker-local QUIC retransmission must keep
+                                // progressing even with no stream reads outstanding.
+                                $session->command('poll', 0, '', false,
+                                    static function (mixed $result, ?Throwable $error) use (&$poll, $loop, $stop): void {
+                                        if ($error !== null || ($result['polled'] ?? null) !== true) {
+                                            $stop($error ?? new RuntimeException('Native QUIC idle poll failed.'));
+
+                                            return;
+                                        }
+                                        $loop->delay(0.01, $poll);
+                                    },
+                                );
+
                                 return;
                             }
                             if ($receipt !== 'one-way-quic-stream') {
