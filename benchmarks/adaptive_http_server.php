@@ -73,6 +73,7 @@ $server = new Server(
         }
 
         $size = basename($request->target);
+
         try {
             $writer->end(ctype_digit($size) ? str_repeat('x', (int) $size) : $body);
         } catch (Throwable $error) {
