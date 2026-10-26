@@ -19,6 +19,8 @@ class EchoHandler(socketserver.StreamRequestHandler):
 
 class EchoServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
+    # Preserve equal 16-way connect bursts rather than benchmarking the OS SYN backlog.
+    request_queue_size = 128
     daemon_threads = True
 
 
