@@ -52,7 +52,7 @@ final class QuicWorkerSession
 
     private bool $profiling = false;
 
-    /** @var array<int, array{stream:object, bidirectional:bool, readable:bool, writable:bool}> */
+    /** @var array<int, array{stream:object, bidirectional:bool, readable:bool, writable:bool, send_finished:bool}> */
     private array $streams = [];
 
     private function teardown(): void
@@ -145,6 +145,7 @@ final class QuicWorkerSession
             'bidirectional' => $bidirectional,
             'readable' => true,
             'writable' => $bidirectional,
+            'send_finished' => false,
         ];
         if ($this->profiling) {
             $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
@@ -318,6 +319,7 @@ final class QuicWorkerSession
             'bidirectional' => $bidirectional,
             'readable' => $bidirectional,
             'writable' => true,
+            'send_finished' => false,
         ];
         if ($this->profiling) {
             $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
@@ -399,10 +401,15 @@ final class QuicWorkerSession
         if (!method_exists($stream, 'reset')) {
             throw new RuntimeException('Native QUIC stream cannot be reset.');
         }
-        $stream->reset();
+        // QUIC RESET_STREAM is prohibited once local FIN has been emitted.
+        // Releasing the receive half remains legal and must not kill siblings.
+        $sendFinished = $this->streams[$command['stream']]['send_finished'];
+        if (!$sendFinished) {
+            $stream->reset();
+        }
         unset($this->streams[$command['stream']]);
 
-        return ['reset' => true];
+        return ['reset' => !$sendFinished];
     }
 
     /** @return array{profiling:bool} */
@@ -461,6 +468,9 @@ final class QuicWorkerSession
         if (!is_int($written) || $written < 0 || $written > strlen($command['data'])
             || ($command['fin'] && $written !== strlen($command['data']))) {
             throw new RuntimeException('Native QUIC stream returned an invalid write length.');
+        }
+        if ($command['fin']) {
+            $this->streams[$command['stream']]['send_finished'] = true;
         }
         $this->driveNativeEvents();
 
