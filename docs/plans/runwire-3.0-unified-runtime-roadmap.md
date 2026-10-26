@@ -2,7 +2,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 8/11; U08 9/10; U09 5/10; U10 4/9; U11 9/10; U12 3/9; U13 9/9; U14 7/8; U16 13/16**. **131/175 accepted tasks, 44 open across 18 batches** (74.9%). **Next milestone: 140/175 (80.0%), 9 further QA-accepted tasks needed**. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 8/11; U08 COMPLETE (10/10); U09 5/10; U10 5/9; U11 9/10; U12 3/9; U13 9/9; U14 7/8; U16 13/16**. **133/175 accepted tasks, 42 open across 18 batches** (76.0%). **Next milestone: 140/175 (80.0%), 7 further QA-accepted tasks needed**. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## Release definition
 
@@ -35,7 +35,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R0.06 | U15.01 | OPEN, fresh 3.0 QA required |
 | R0.07 | U15.02 | OPEN, fresh 3.0 QA required |
 | R1.08 | U15.03 | OPEN, fresh 3.0 QA required |
-| R3.09 | U08.09 + U15.04 | OPEN, fresh 3.0 QA required |
+| R3.09 | U08.09 + U15.04 | PARTIAL — U08.09 H1 verified TLS/plaintext 16-cell cost factor and socket syscall matrix QA accepted; U15.04 final release-wide sustained certification OPEN |
 | R4.02 | U08.04 + U15.04 | PARTIAL — U08.04 HPACK source benchmark accepted; U15.04 sustained release gate OPEN |
 | R4.04 | U08.05 + U15.04 | PARTIAL, U08.05 development profile accepted; U15.04 release gate OPEN |
 | R4.09 | U08.08 + U15.05 | PARTIAL, U08.08 native mixed peer/recycle accepted; U15.05 soak OPEN |
@@ -55,16 +55,16 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
-**Current canonical QA state: 131/175 accepted, 44 OPEN.** These are indivisible execution batches, not subdivisions. C1 contains 11 assigned U tasks (7 accepted, 4 OPEN); independent C2, C3 filesystem-measurement and C4 documentation development are also permitted, while separate full-batch acceptance QA remains mandatory. Intermediate commits, fixes and tests remain inside C1 and do not count as batch completion.
+**Current canonical QA state: 133/175 accepted, 42 OPEN.** These are indivisible execution batches, not subdivisions. C1 contains 11 assigned U tasks (8 accepted, 3 OPEN); independent C2, C3 filesystem-measurement and C4 documentation development are also permitted, while separate full-batch acceptance QA remains mandatory. Intermediate commits, fixes and tests remain inside C1 and do not count as batch completion.
 
 | Group | Original C1–C5 assigned U tasks | Open | Status |
 | --- | --- | ---: | --- |
-| C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 4 | IN DEVELOPMENT (7/11 accepted) |
-| C2 — WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 10 | IN DEVELOPMENT (0/10 accepted) |
+| C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U08.08, U08.05, U07.11, U07.08, U08.09 | 3 | IN DEVELOPMENT (8/11 accepted) |
+| C2 — WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 9 | IN DEVELOPMENT (1/10 accepted) |
 | C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 8 | IN DEVELOPMENT (1/9 accepted) |
 | C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | IN DEVELOPMENT (0/13 accepted; docs only) |
 | C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
-| **TOTAL** | **52 originally assigned; 44 now OPEN** | **44** | **In progress** |
+| **TOTAL** | **52 originally assigned; 42 now OPEN** | **42** | **In progress** |
 
 **Critical-path and CI invariant:** C1 transport/H3 → C2 WT/network services → C3 live supervisor/filesystem/security → C4 3.0 benchmarks/hosted RST → C5 frozen final certification. Repair crosscutting CI defects during the currently active group. Source-pinned opt-in evidence jobs may run with tasks still OPEN, but final release-ready aggregate continues to require **zero open tasks** plus every certification result PASS. Routine workflow GREEN does not prove conditional TLS/frozen certification. Synchronize this roadmap, detailed plan, PR body, CI links and checkboxes with each rolling group.
 ## Delivery program and initial tracker
@@ -79,9 +79,9 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U05 | UDP, outbound QUIC and unified datagram transport | 0 | 10/10 |
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0 | 8/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 3 | 8/11 |
-| U08 | Existing H1/H2/H3 server consolidation | 1 | 9/10 |
+| U08 | Existing H1/H2/H3 server consolidation | 0 | 10/10 |
 | U09 | WebSocket and WebTransport client/server | 5 | 5/10 |
-| U10 | Connection pooling, proxy negotiation and stream relay | 5 | 4/9 |
+| U10 | Connection pooling, proxy negotiation and stream relay | 4 | 5/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 1 | 9/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
 | U13 | Real host and optional extension compatibility | 0 | 9/9 |
@@ -89,7 +89,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 3 | 13/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **44** | **131/175 (74.9%)** |
+| **TOTAL** | **Full unified-runtime release program** | **42** | **133/175 (76.0%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
@@ -837,3 +837,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W129 C2 truly independent Python RFC1928/1929 TLS SOCKS5 reference peer (2026-10-26; exact-head QA PENDING):** Add an external **separate Python process** that implements its own TLS-wrapped RFC 1928 greeting/CONNECT parsing and RFC 1929 username/password challenge, validates the exact IPv4 or explicitly opted-in remote hostname, and refuses protocol downgrade. The Runwire PHP dialer verifies a generated trusted certificate for `localhost`; the SOCKS5 tunnel authenticates and completes callback once. Three real process/peer tests enforce correct remote-DNS ATYP=3 and local IPv4 ATYP=1 requests, accepted credentials, no post-downgrade password bytes, exact destination port and observer cleanup. This provides genuinely independent protocol-peer evidence (as opposed to Runwire's in-process fixture) but is **not** a nested original-target TLS certificate proof or full third-party package compatibility suite. U10.05 remains OPEN pending exact-head PHP8.4/8.5 QA and completeness review; **131/175 QA-accepted; 44 OPEN**.
+
+
+**W130 verified C1/C2 task acceptance (2026-10-26):** Promote precisely **U08.09** (R3.09 H1 transport factor comparison including 16 full workload cells, actual socket-family syscalls, 5×180s default H1 trials) and **U10.05** (real TLS authenticated SOCKS5 local/remote DNS, downgrade and separate Python RFC1928/1929 reference peer) on immutable source `cc1ec9011da10ec492d2e6e07932f1a92a2e43ea`. All nine exact-head regular workflows GREEN: [Security & Standards #40271565881](https://github.com/infocyph/Runwire/actions/runs/40271565881), [Benchmarks #40271565575](https://github.com/infocyph/Runwire/actions/runs/40271565575), [HTTP/2 reference #40271565622](https://github.com/infocyph/Runwire/actions/runs/40271565622) plus Source Audit, RC, Sphinx, hosted and portable runtimes, Swoole; independent [H1 16-case 3-repetition matrix #40267060549](https://github.com/infocyph/Runwire/actions/runs/40267060549), [socket-FD strace matrix #40267648690](https://github.com/infocyph/Runwire/actions/runs/40267648690) and [five-pair 180s H1 TLS/plaintext #40246683691](https://github.com/infocyph/Runwire/actions/runs/40246683691) both PHP 8.4/8.5 GREEN. [Frozen task-level evidence](evidence/runwire-3.0/c1-c2-h1-socks5-measured-acceptance.md) records scope and caveats. **U08 division now complete 10/10; U10 5/9.** Canonical **133/175 accepted (76.0%), 42 OPEN**. C1 8/11, C2 1/10, C3 1/9, C4 0/13, C5 0/9 remain full-batch IN DEVELOPMENT/QUEUED. Original-origin TLS, H3 QPACK and release-wide 5×180s/1800s budgets remain explicitly OPEN.
