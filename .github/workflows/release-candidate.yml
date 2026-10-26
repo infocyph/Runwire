@@ -167,6 +167,7 @@ jobs:
           # without Runwire development-only soak helpers or other repositories.
           mkdir -p "$workspace/consumer/benchmarks"
           cp benchmarks/http1_server.php "$workspace/consumer/benchmarks/http1_server.php"
+          cp benchmarks/http1_bench_workload.php "$workspace/consumer/benchmarks/http1_bench_workload.php"
           port="$(php -r '
           $listener = stream_socket_server("tcp://127.0.0.1:0", $errorCode, $error);
           if (!is_resource($listener)) {
