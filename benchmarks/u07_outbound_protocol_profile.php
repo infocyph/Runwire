@@ -37,7 +37,8 @@ $version = match ($kind) {
 };
 $port = (int) ($kind === 'h3' ? $argv[3] : $argv[2]);
 $request = new ClientRequest(
-    'GET', 'https://localhost:' . $port . '/interop?q=1',
+    'GET',
+    'https://localhost:' . $port . '/interop?q=1',
     protocol: new ClientProtocolPolicy($version, [$version]),
 );
 $latencies = [];
@@ -53,15 +54,26 @@ for ($index = -$warmups; $index < $count; ++$index) {
     $watchdog = $loop->delay(8.0, static function () use ($loop): void {
         $loop->stop();
     });
-    $headers = static function (int $code) use (&$status): void { $status = $code; };
-    $body = static function (string $part) use (&$received): void { $received .= $part; };
+    $headers = static function (int $code) use (&$status): void {
+        $status = $code;
+    };
+    $body = static function (string $part) use (&$received): void {
+        $received .= $part;
+    };
     $start = hrtime(true);
     if ($kind === 'h3') {
         $client = Http3OutboundClient::connect(
-            $loop, $request,
-            new QuicClientOptions('localhost', alpnProtocols: ['h3'], caFile: $argv[4],
-                maxOpenStreams: 16, connectTimeoutMilliseconds: 4_000),
-            $headers, $body,
+            $loop,
+            $request,
+            new QuicClientOptions(
+                'localhost',
+                alpnProtocols: ['h3'],
+                caFile: $argv[4],
+                maxOpenStreams: 16,
+                connectTimeoutMilliseconds: 4_000,
+            ),
+            $headers,
+            $body,
             static function (?Throwable $failure) use (&$error, &$completed, $loop): void {
                 $error = $failure;
                 ++$completed;
@@ -73,9 +85,13 @@ for ($index = -$warmups; $index < $count; ++$index) {
         $numeric = new Dialer($loop);
         $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
         $alpn = $kind === 'h2' ? 'h2' : 'http/1.1';
-        $options = new DialOptions(tls: new TlsClientOptions('localhost', caFile: $argv[4], alpnProtocols: [$alpn]));
+        $options = new DialOptions(
+            tls: new TlsClientOptions('localhost', caFile: $argv[4], alpnProtocols: [$alpn]),
+        );
         $done = static function (?Connection $connection, ?Throwable $failure) use (
-            &$error, &$completed, $loop,
+            &$error,
+            &$completed,
+            $loop,
         ): void {
             $error = $failure;
             ++$completed;

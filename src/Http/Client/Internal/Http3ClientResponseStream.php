@@ -233,5 +233,4 @@ final class Http3ClientResponseStream
         }
         $this->acceptFrame($frame);
     }
-
 }

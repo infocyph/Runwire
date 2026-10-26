@@ -426,5 +426,4 @@ final class Http3ClientSiblingManager
             $this->acceptWrite($id, $result, $bytes, $fin, $offset, $next, $length, $last);
         });
     }
-
 }

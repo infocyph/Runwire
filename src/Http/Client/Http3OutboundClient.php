@@ -14,11 +14,9 @@ use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamRegistry;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientSiblingManager;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
-use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Qpack\ReadyFieldSection;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\QuicClientOptions;
@@ -674,5 +672,4 @@ final class Http3OutboundClient
             $this->writeChunk($stream, $bytes, $offset + $written, $fin, $completed);
         });
     }
-
 }
