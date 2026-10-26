@@ -28,6 +28,8 @@ final class Http3ClientSiblingManager
 
     private readonly Closure $feedback;
 
+    private readonly Http3ClientGoawayState $goaway;
+
     private readonly Closure $onEmpty;
 
     private bool $closed = false;
@@ -61,6 +63,7 @@ final class Http3ClientSiblingManager
         $this->admission = new Http3ClientAdmissionGate($maxActiveStreams, 128);
         $this->fatal = Closure::fromCallable($fatal);
         $this->feedback = Closure::fromCallable($feedback);
+        $this->goaway = new Http3ClientGoawayState();
         $this->onEmpty = Closure::fromCallable($onEmpty);
     }
 
@@ -98,23 +101,16 @@ final class Http3ClientSiblingManager
         }
     }
 
-    private ?int $peerGoawayStreamId = null;
-
     /** Retire queued and peer-refused request streams after GOAWAY. */
     public function drain(?int $peerGoawayStreamId): void
     {
-        if ($peerGoawayStreamId === null) {
-            return;
-        }
-        $this->peerGoawayStreamId = $peerGoawayStreamId;
-        foreach ($this->admission->drain() as $id) {
-            $this->complete($id, new RuntimeException('HTTP/3 peer GOAWAY rejected queued stream admission.'));
-        }
-        foreach ($this->exchanges as $id => $state) {
-            if ($state->stream > 0 && $state->wireStreamId >= $peerGoawayStreamId) {
-                $this->cancel($id, new RuntimeException('HTTP/3 peer GOAWAY refused request stream.'));
-            }
-        }
+        $this->goaway->drain(
+            $peerGoawayStreamId,
+            $this->admission,
+            $this->exchanges,
+            fn(int $id) => $this->complete($id, new RuntimeException('HTTP/3 peer GOAWAY rejected queued stream admission.')),
+            fn(int $id) => $this->cancel($id, new RuntimeException('HTTP/3 peer GOAWAY refused request stream.')),
+        );
     }
 
     /**
@@ -355,7 +351,7 @@ final class Http3ClientSiblingManager
             }
             $state->stream = $stream;
             $state->wireStreamId = $wireId;
-            if ($this->peerGoawayStreamId !== null && $wireId >= $this->peerGoawayStreamId) {
+            if ($this->goaway->refuses($wireId)) {
                 $this->cancel($id, new RuntimeException('HTTP/3 peer GOAWAY refused newly opened request stream.'));
 
                 return;
