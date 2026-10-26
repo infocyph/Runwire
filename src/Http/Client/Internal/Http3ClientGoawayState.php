@@ -11,12 +11,6 @@ final class Http3ClientGoawayState
 {
     private ?int $cutoff = null;
 
-    /** Whether the peer refused a newly allocated HTTP/3 request stream. */
-    public function refuses(int $wireStreamId): bool
-    {
-        return $this->cutoff !== null && $wireStreamId >= $this->cutoff;
-    }
-
     /**
      * Drain queued admissions and only the in-flight request IDs disallowed by GOAWAY.
      *
@@ -44,4 +38,10 @@ final class Http3ClientGoawayState
             }
         }
     }
+    /** Whether the peer refused a newly allocated HTTP/3 request stream. */
+    public function refuses(int $wireStreamId): bool
+    {
+        return $this->cutoff !== null && $wireStreamId >= $this->cutoff;
+    }
+
 }

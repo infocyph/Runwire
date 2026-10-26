@@ -109,7 +109,9 @@ final class Http3ClientSiblingManager
             $this->admission,
             $this->exchanges,
             fn(int $id) => $this->complete($id, new RuntimeException('HTTP/3 peer GOAWAY rejected queued stream admission.')),
-            fn(int $id) => $this->cancel($id, new RuntimeException('HTTP/3 peer GOAWAY refused request stream.')),
+            function (int $id): void {
+                $this->cancel($id, new RuntimeException('HTTP/3 peer GOAWAY refused request stream.'));
+            },
         );
     }
 

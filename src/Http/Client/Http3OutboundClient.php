@@ -161,9 +161,6 @@ final class Http3OutboundClient
         if ($this->finished || $this->control->peerGoaway() !== null) {
             throw new RuntimeException('HTTP/3 session is closed or draining after GOAWAY.');
         }
-        if ($this->options->maxOpenStreams <= 7) {
-            throw new RuntimeException('HTTP/3 native stream budget cannot admit siblings alongside root and critical streams.');
-        }
         if (Http3ClientOrigin::validate($request, $this->options) !== Http3ClientOrigin::validate($this->request, $this->options)) {
             throw new InvalidArgumentException('HTTP/3 sibling must use the exact verified original HTTPS origin.');
         }
@@ -175,7 +172,7 @@ final class Http3OutboundClient
             fn(Throwable $error) => $this->finish($error),
             fn() => $this->flushQpackFeedback(),
             fn() => $this->finishIfEmpty(),
-            maxActiveStreams: $this->options->maxOpenStreams - 7,
+            maxActiveStreams: $this->options->nativeSiblingCapacity(),
         );
         if ($this->localStreamsReady) {
             $this->siblings->start();
