@@ -44,6 +44,7 @@ $request = new ClientRequest(
 $latencies = [];
 $warmups = 4;
 $before = getrusage();
+$childrenBefore = getrusage(-1);
 $begin = hrtime(true);
 for ($index = -$warmups; $index < $count; ++$index) {
     $loop = new SelectLoop();
@@ -60,6 +61,10 @@ for ($index = -$warmups; $index < $count; ++$index) {
     $body = static function (string $part) use (&$received): void {
         $received .= $part;
     };
+    if ($index === 0) {
+        $before = getrusage();
+        $childrenBefore = getrusage(-1);
+    }
     $start = hrtime(true);
     if ($kind === 'h3') {
         $client = Http3OutboundClient::connect(
@@ -123,7 +128,9 @@ for ($index = -$warmups; $index < $count; ++$index) {
     }
 }
 $after = getrusage();
-if (!is_array($before) || !is_array($after)) {
+$childrenAfter = getrusage(-1);
+if (!is_array($before) || !is_array($after)
+    || !is_array($childrenBefore) || !is_array($childrenAfter)) {
     throw new RuntimeException('Process CPU and RSS profiling is not available.');
 }
 $usage = static function (array $v): int {
@@ -132,6 +139,10 @@ $usage = static function (array $v): int {
         + (int) $v['ru_stime.tv_sec'] * 1_000_000
         + (int) $v['ru_stime.tv_usec'];
 };
+$parentCpuUs = max(0, $usage($after) - $usage($before));
+$childCpuUs = max(0, $usage($childrenAfter) - $usage($childrenBefore));
+$parentRssBytes = (int) ($after['ru_maxrss'] ?? 0) * 1024;
+$childrenRssBytes = (int) ($childrenAfter['ru_maxrss'] ?? 0) * 1024;
 sort($latencies, SORT_NUMERIC);
 $seconds = array_sum($latencies) / 1_000;
 if ($seconds <= 0.0 || count($latencies) !== $count) {
@@ -150,9 +161,14 @@ fwrite(STDOUT, json_encode([
     'successful_requests' => $count,
     'errors' => 0,
     'successful_rps' => round($count / $seconds, 3),
+    'successful_rpm' => round(60 * $count / $seconds, 3),
     'p99_ms' => round($latencies[(int) ceil($count * 0.99) - 1], 3),
-    'parent_cpu_ms' => round(max(0, $usage($after) - $usage($before)) / 1_000, 3),
-    'parent_peak_rss_bytes' => (int) ($after['ru_maxrss'] ?? 0) * 1024,
+    'parent_cpu_ms' => round($parentCpuUs / 1_000, 3),
+    'reaped_child_cpu_ms' => round($childCpuUs / 1_000, 3),
+    'parent_plus_reaped_child_cpu_ms' => round(($parentCpuUs + $childCpuUs) / 1_000, 3),
+    'parent_peak_rss_bytes' => $parentRssBytes,
+    'reaped_child_peak_rss_bytes' => $childrenRssBytes,
+    'rss_scope' => 'independent_process_peaks_not_additive',
     'worker_process_tree_certified' => false,
     'release_saturation_certified' => false,
 ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL);
