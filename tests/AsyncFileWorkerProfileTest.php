@@ -18,6 +18,12 @@ it('profiles real process-backed file operations without certification claims', 
         ->and($report['bytesReadWritten'])->toBe(32_768)
         ->and($report['throughputBytesPerSecond'])->toBeGreaterThan(0)
         ->and($report['parentPhpPeakRssBytes'])->toBeGreaterThan(0)
+        ->and($report['sampledMaxTickGapNanoseconds'])->toBeGreaterThanOrEqual(0)
+        ->and($report['linuxProcessTreeAvailable'])->toBe(PHP_OS_FAMILY === 'Linux')
+        ->and($report['sampledProcessTreePeakRssBytes'])->toBeGreaterThanOrEqual(0)
+        ->and($report['sampledProcessTreeCpuTicks'])->toBeGreaterThanOrEqual(0)
+        ->and($report['sampledProcessTreePeakProcessCount'])->toBeGreaterThanOrEqual(0)
+        ->and($report['processTreeSampleCount'])->toBeGreaterThanOrEqual(0)
         ->and($report['rssIncludesWorkerProcesses'])->toBeFalse()
         ->and($report['sampledMaxBusyWorkers'])->toBeGreaterThanOrEqual(0)
         ->and($report['sampledWorkerOccupancyRatio'])->toBeGreaterThanOrEqual(0)
@@ -59,6 +65,8 @@ it('profiles identical verified bytes under one and two worker processes', funct
             ->and($runs[$workerCount]['sampledMaxBusyWorkers'])->toBeLessThanOrEqual($workerCount)
             ->and($runs[$workerCount]['sampledWorkerOccupancyRatio'])->toBeLessThanOrEqual(1.0)
             ->and($runs[$workerCount]['throughputBytesPerSecond'])->toBeGreaterThan(0)
+            ->and($runs[$workerCount]['sampledMaxTickGapNanoseconds'])->toBeGreaterThanOrEqual(0)
+            ->and($runs[$workerCount]['sampledProcessTreePeakRssBytes'])->toBeGreaterThanOrEqual(0)
             ->and($runs[$workerCount]['loopTicks'])->toBeGreaterThan(0)
             ->and($runs[$workerCount]['releaseCertified'])->toBeFalse();
     }

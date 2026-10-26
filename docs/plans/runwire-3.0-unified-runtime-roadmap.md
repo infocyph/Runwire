@@ -55,13 +55,13 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
-**Current canonical QA state: 130/175 accepted, 45 OPEN.** These are indivisible execution batches, not subdivisions. C1 contains 11 assigned U tasks (7 accepted, 4 OPEN); independent C2 implementation is also now permitted, while separate full-batch acceptance QA remains mandatory. Intermediate commits, fixes and tests remain inside C1 and do not count as batch completion.
+**Current canonical QA state: 130/175 accepted, 45 OPEN.** These are indivisible execution batches, not subdivisions. C1 contains 11 assigned U tasks (7 accepted, 4 OPEN); independent C2 and C3 filesystem-measurement development are also permitted, while separate full-batch acceptance QA remains mandatory. Intermediate commits, fixes and tests remain inside C1 and do not count as batch completion.
 
 | Group | Original C1–C5 assigned U tasks | Open | Status |
 | --- | --- | ---: | --- |
 | C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 4 | IN DEVELOPMENT (7/11 accepted) |
 | C2 — WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 10 | IN DEVELOPMENT (0/10 accepted) |
-| C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 9 | QUEUED |
+| C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 9 | IN DEVELOPMENT (0/9 accepted) |
 | C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | QUEUED |
 | C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
 | **TOTAL** | **52 originally assigned; 45 now OPEN** | **45** | **In progress** |
@@ -783,3 +783,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W111 C2 hostile authenticated TLS peer QA and Sphinx capabilities (2026-10-26; exact-head QA PENDING):** Add a real verified TLS SOCKS5 server response with RFC1929 authentication rejection, proving that an invalid password result never advances to origin CONNECT, alongside positive HTTP CONNECT/SOCKS authentication and hostname-mismatch fixtures. Align the published native RST connection policy with current verified-proxy-transport credentials while explicitly retaining OPEN nested target TLS, full client orchestration and independent third-party proxy conformance. Earlier W110 source had four PHPForge QA lanes and both analysis lanes PASS; native PHP8.5 QUIC remained running. This candidate is not U10.04/U10.05/U10.06 acceptance and the canonical tally stays **130/175 accepted, 45 OPEN; C1 7/11, C2 0/10**.
+
+
+**W112 independently parallel C3 filesystem diagnostic sampling (2026-10-26; exact-head QA PENDING):** User-authorized C1/C2/C3 concurrent independent implementation begins with U11.10 process-tree resource observability. Enhance the existing real process-backed filesystem benchmark with **sampled Linux /proc parent-and-descendant RSS, CPU ticks and peak process count**, plus maximum event-loop heartbeat gap. A fixed upper bound of 64 process records and one tree read per five 2ms heartbeat ticks prevents unbounded profiling overhead; all records are explicitly snapshots, not exact high-water marks or release certification. Focused tests validate typed nonnegative counters for one-/two-worker workloads while preserving identical file round trips, bounded queues, and existing correct byte accounting. This work does **not** prove filesystem throughput improvement or accept U11.10, U11.03 or any other C3 task; C1 7/11, C2 0/10, C3 0/9, global **130/175 accepted, 45 OPEN**. All three closure batches require their own task-specific full green QA.

@@ -13,6 +13,57 @@ use Infocyph\Runwire\Loop\SelectLoop;
  */
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+/**
+ * Sample observed resident memory and kernel CPU ticks for the PHP worker tree.
+ * Linux procfs snapshots are diagnostics, not an exact process high-water mark.
+ *
+ * @return array{rssBytes:int, cpuTicks:int, processes:int}
+ */
+function runwireFileProfileProcessTree(int $root): array
+{
+    $queue = [$root];
+    $seen = [];
+    $rssBytes = 0;
+    $cpuTicks = 0;
+    $processes = 0;
+    while ($queue !== [] && count($seen) < 64) {
+        $pid = array_shift($queue);
+        if (!is_int($pid) || $pid < 1 || isset($seen[$pid])) {
+            continue;
+        }
+        $seen[$pid] = true;
+        $prefix = '/proc/' . $pid;
+        if (!is_dir($prefix)) {
+            continue;
+        }
+        ++$processes;
+        $statusFile = $prefix . '/status';
+        $status = is_readable($statusFile) ? file_get_contents($statusFile) : false;
+        if (is_string($status) && preg_match('/^VmRSS:\s+([0-9]+)\s+kB$/m', $status, $match) === 1) {
+            $rssBytes += (int) $match[1] * 1024;
+        }
+        $statFile = $prefix . '/stat';
+        $stat = is_readable($statFile) ? file_get_contents($statFile) : false;
+        if (is_string($stat) && ($end = strrpos($stat, ')')) !== false) {
+            $values = preg_split('/\s+/', trim(substr($stat, $end + 1)));
+            if (is_array($values) && isset($values[11], $values[12])) {
+                $cpuTicks += (int) $values[11] + (int) $values[12];
+            }
+        }
+        $childrenFile = $prefix . '/task/' . $pid . '/children';
+        $children = is_readable($childrenFile) ? file_get_contents($childrenFile) : false;
+        if (is_string($children) && trim($children) !== '') {
+            foreach (preg_split('/\s+/', trim($children)) ?: [] as $child) {
+                if (ctype_digit($child)) {
+                    $queue[] = (int) $child;
+                }
+            }
+        }
+    }
+
+    return ['rssBytes' => $rssBytes, 'cpuTicks' => $cpuTicks, 'processes' => $processes];
+}
+
 $args = $_SERVER['argv'] ?? null;
 if (!is_array($args) || count($args) > 4
     || (isset($args[1]) && !is_string($args[1]))
@@ -42,6 +93,13 @@ $remaining = $operations;
 $completed = 0;
 $failure = null;
 $heartbeats = 0;
+$treeSamples = 0;
+$treePeakRssBytes = 0;
+$treePeakCpuTicks = 0;
+$treePeakProcessCount = 0;
+$treeAvailable = PHP_OS_FAMILY === 'Linux' && is_readable('/proc/self/status');
+$lastTick = hrtime(true);
+$maxTickGapNanoseconds = 0;
 $maxBusyWorkers = 0;
 $activeSampleSum = 0;
 $heartbeatTimer = null;
@@ -58,12 +116,29 @@ $tick = static function () use (
     &$heartbeats,
     &$maxBusyWorkers,
     &$activeSampleSum,
+    &$treeSamples,
+    &$treePeakRssBytes,
+    &$treePeakCpuTicks,
+    &$treePeakProcessCount,
+    &$lastTick,
+    &$maxTickGapNanoseconds,
+    $treeAvailable,
     &$remaining,
     &$failure,
     $loop,
     $executor,
 ): void {
     ++$heartbeats;
+    $now = hrtime(true);
+    $maxTickGapNanoseconds = max($maxTickGapNanoseconds, $now - $lastTick);
+    $lastTick = $now;
+    if ($treeAvailable && ($heartbeats === 1 || $heartbeats % 5 === 0)) {
+        ++$treeSamples;
+        $snapshot = runwireFileProfileProcessTree(getmypid());
+        $treePeakRssBytes = max($treePeakRssBytes, $snapshot['rssBytes']);
+        $treePeakCpuTicks = max($treePeakCpuTicks, $snapshot['cpuTicks']);
+        $treePeakProcessCount = max($treePeakProcessCount, $snapshot['processes']);
+    }
     $active = $executor->diagnostics()['active'];
     $maxBusyWorkers = max($maxBusyWorkers, $active);
     $activeSampleSum += $active;
@@ -165,6 +240,12 @@ try {
         'seconds' => round($elapsed / 1_000_000_000, 6),
         'throughputBytesPerSecond' => round($completed * $bytes * 2 * 1_000_000_000 / $elapsed, 2),
         'loopTicks' => $heartbeats,
+        'sampledMaxTickGapNanoseconds' => $maxTickGapNanoseconds,
+        'linuxProcessTreeAvailable' => $treeAvailable,
+        'processTreeSampleCount' => $treeSamples,
+        'sampledProcessTreePeakRssBytes' => $treePeakRssBytes,
+        'sampledProcessTreeCpuTicks' => $treePeakCpuTicks,
+        'sampledProcessTreePeakProcessCount' => $treePeakProcessCount,
         'sampledMaxBusyWorkers' => $maxBusyWorkers,
         'sampledWorkerOccupancyRatio' => round($activeSampleSum / max(1, $heartbeats * $workers), 3),
         'executorPeakQueued' => $diagnostics['peakQueued'],
