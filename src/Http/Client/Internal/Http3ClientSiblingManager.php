@@ -260,6 +260,7 @@ final class Http3ClientSiblingManager
         if ($this->closed) {
             return;
         }
+
         try {
             $this->session->command(
                 $op,
@@ -275,6 +276,7 @@ final class Http3ClientSiblingManager
 
                         return;
                     }
+
                     try {
                         $next($result);
                     } catch (Throwable $failure) {
