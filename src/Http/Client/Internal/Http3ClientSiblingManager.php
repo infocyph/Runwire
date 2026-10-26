@@ -28,19 +28,19 @@ final class Http3ClientSiblingManager
 
     private readonly Closure $onEmpty;
 
+    private bool $closed = false;
+
     /** @var array<int, Http3ClientSiblingExchange> */
     private array $exchanges = [];
-
-    /** @var array<int, int> */
-    private array $streams = [];
-
-    private bool $closed = false;
 
     private int $nextId = 1;
 
     private bool $ready = false;
 
     private bool $settings = false;
+
+    /** @var array<int, int> */
+    private array $streams = [];
 
     /**
      * @param callable(Throwable):void $fatal
@@ -269,8 +269,6 @@ final class Http3ClientSiblingManager
                         ($this->fatal)($failure);
                     }
                 },
-                null,
-                null,
             );
         } catch (Throwable $error) {
             ($this->fatal)($error);
@@ -338,6 +336,7 @@ final class Http3ClientSiblingManager
         }
         $state->readActive = true;
         $this->command('read', $state->stream, '', false, function (array $result) use ($id): void {
+            /** @var array<string,mixed> $result */
             $this->acceptRead($id, $result);
         });
     }
@@ -418,6 +417,7 @@ final class Http3ClientSiblingManager
             $length,
             $last,
         ): void {
+            /** @var array<string,mixed> $result */
             $this->acceptWrite($id, $result, $bytes, $fin, $offset, $next, $length, $last);
         });
     }

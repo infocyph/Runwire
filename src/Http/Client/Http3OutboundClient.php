@@ -64,8 +64,6 @@ final class Http3OutboundClient
 
     private bool $localStreamsReady = false;
 
-    private bool $peerControlFound = false;
-
     private bool $peerSettingsSeen = false;
 
     private int $qpackDecoderStream = 0;
@@ -253,7 +251,6 @@ final class Http3OutboundClient
 
             return;
         }
-        $this->peerControlFound = true;
         if ($probe['initial']) {
             $this->receiveControl();
         }
@@ -312,8 +309,6 @@ final class Http3OutboundClient
                         $this->finish($failure);
                     }
                 },
-                null,
-                null,
             );
         } catch (Throwable $error) {
             $this->finish($error);

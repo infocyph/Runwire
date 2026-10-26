@@ -26,11 +26,6 @@ final class Http3ClientResponseStream
 
     private readonly ?Closure $onTrailers;
 
-    /** @var list<Frame> */
-    private array $queuedFrames = [];
-
-    private int $queuedFrameBytes = 0;
-
     private bool $eofWhileBlocked = false;
 
     private ?int $expectedBodyBytes = null;
@@ -40,6 +35,11 @@ final class Http3ClientResponseStream
     private bool $headersSeen = false;
 
     private ?string $qpackWaiting = null;
+
+    private int $queuedFrameBytes = 0;
+
+    /** @var list<Frame> */
+    private array $queuedFrames = [];
 
     private int $receivedBodyBytes = 0;
 
