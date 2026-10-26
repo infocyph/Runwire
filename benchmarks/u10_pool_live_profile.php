@@ -146,7 +146,11 @@ final class U10PoolNetworkTrial
                 function (Connection $live) use ($id): void {
                     $this->received($id, $live);
                 },
-                static function (): void {},
+                function (Connection $live): void {
+                    if ($live->state() === \Infocyph\Runwire\Network\Enum\ConnectionState::CLOSED) {
+                        $this->fail(new RuntimeException('Independent pooled socket closed during response send.'));
+                    }
+                },
                 function () use ($id): void {
                     $this->fail(new RuntimeException('Independent pool peer ended an unfinished request ' . $id));
                 },
