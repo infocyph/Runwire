@@ -11,6 +11,7 @@ use Infocyph\Runwire\Http\Client\Internal\Http3ClientControl;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerAuxiliary;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamRegistry;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
+use Infocyph\Runwire\Http\Client\Internal\Http3ClientSiblingManager;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
@@ -18,6 +19,7 @@ use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
+use Infocyph\Runwire\Http\Http3\Qpack\ReadyFieldSection;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
@@ -60,6 +62,8 @@ final class Http3OutboundClient
 
     private bool $finished = false;
 
+    private bool $localStreamsReady = false;
+
     private bool $peerControlFound = false;
 
     private bool $peerSettingsSeen = false;
@@ -73,6 +77,10 @@ final class Http3OutboundClient
     private ?Http3ClientResponseStream $response = null;
 
     private int $responseStream = 0;
+
+    private bool $rootCompleted = false;
+
+    private ?Http3ClientSiblingManager $siblings = null;
 
     private ?int $timeout = null;
 
@@ -136,6 +144,47 @@ final class Http3OutboundClient
         $this->finish(new RuntimeException('HTTP/3 exchange was closed before completion.'));
     }
 
+    /**
+     * Enqueue an independently scoped sibling request on this same verified QUIC connection.
+     * All siblings must use precisely the original HTTPS origin and h3-only ALPN.
+     *
+     * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
+     * @param callable(string):void $onBody
+     * @param callable(?Throwable):void $completion
+     * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     */
+    public function enqueue(
+        ClientRequest $request,
+        callable $onHeaders,
+        callable $onBody,
+        callable $completion,
+        ?callable $onTrailers = null,
+    ): int {
+        if ($this->finished) {
+            throw new RuntimeException('HTTP/3 session is no longer accepting sibling requests.');
+        }
+        if (self::validatedOrigin($request, $this->options) !== self::validatedOrigin($this->request, $this->options)) {
+            throw new InvalidArgumentException('HTTP/3 sibling must use the exact verified original HTTPS origin.');
+        }
+        $this->codec->encodeRequestHeaders($request, 1);
+        $this->siblings ??= new Http3ClientSiblingManager(
+            $this->loop,
+            $this->session,
+            $this->codec,
+            fn(Throwable $error) => $this->finish($error),
+            fn() => $this->flushQpackFeedback(),
+            fn() => $this->finishIfEmpty(),
+        );
+        if ($this->localStreamsReady) {
+            $this->siblings->start();
+        }
+        if ($this->peerSettingsSeen) {
+            $this->siblings->verifiedSettings();
+        }
+
+        return $this->siblings->enqueue($request, $onHeaders, $onBody, $completion, $onTrailers);
+    }
+
     /** @param array<string,mixed> $result */
     private static function decodeBytes(array $result): string
     {
@@ -179,7 +228,17 @@ final class Http3OutboundClient
 
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
-        $outcome = $this->auxiliary->accept($type, $bytes, $eof, $this->response, $this->responseStream);
+        $outcome = $this->auxiliary->accept(
+            $type,
+            $bytes,
+            $eof,
+            $this->response,
+            $this->responseStream,
+            fn(ReadyFieldSection $ready): bool => $this->siblings?->unblock($ready) ?? false,
+        );
+        if ($this->finished) {
+            return;
+        }
         $this->flushQpackFeedback();
         if ($outcome['completed']) {
             $this->finish(null);
@@ -216,6 +275,7 @@ final class Http3OutboundClient
         }
         if ($this->control->peerSettings() !== null && !$this->peerSettingsSeen) {
             $this->peerSettingsSeen = true;
+            $this->siblings?->verifiedSettings();
             $this->readResponse();
         }
         // The peer's critical control stream stays live for the entire session.
@@ -262,8 +322,8 @@ final class Http3OutboundClient
                         $this->finish($failure);
                     }
                 },
-                $this->request->cancellation,
-                $this->request->deadline,
+                null,
+                null,
             );
         } catch (Throwable $error) {
             $this->finish($error);
@@ -275,15 +335,37 @@ final class Http3OutboundClient
         if ($this->finished) {
             return;
         }
+        if ($error === null && !$this->rootCompleted && $this->siblings?->active()) {
+            $this->rootCompleted = true;
+            $this->retireRootDeadline();
+            ($this->completion)(null);
+
+            return;
+        }
         $this->finished = true;
+        $this->retireRootDeadline();
+        $this->siblings?->close($error ?? new RuntimeException('HTTP/3 connection closed.'));
+        $this->session->dispose();
+        if (!$this->rootCompleted) {
+            ($this->completion)($error);
+        }
+    }
+
+    private function finishIfEmpty(): void
+    {
+        if ($this->rootCompleted) {
+            $this->finish(null);
+        }
+    }
+
+    private function retireRootDeadline(): void
+    {
         if ($this->timeout !== null) {
             $this->loop->cancel($this->timeout);
             $this->timeout = null;
         }
         $this->cancellation?->unsubscribe();
         $this->cancellation = null;
-        $this->session->dispose();
-        ($this->completion)($error);
     }
 
     /** Establish one persistent local QPACK instruction stream before requests. */
@@ -416,6 +498,8 @@ final class Http3OutboundClient
             function (): void {
                 $this->openQpackStream(StreamType::QPACK_ENCODER, function (): void {
                     $this->openQpackStream(StreamType::QPACK_DECODER, function (): void {
+                        $this->localStreamsReady = true;
+                        $this->siblings?->start();
                         $this->command('open_bidi', 0, '', false, function (array $opened): void {
                             $this->sendRequest(self::streamId($opened));
                         });

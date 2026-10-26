@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Client\Internal;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
+use Infocyph\Runwire\Http\Http3\Qpack\ReadyFieldSection;
 
 /** @internal Dispatches peer auxiliary streams without owning a request lifecycle. */
 final class Http3ClientPeerAuxiliary
@@ -26,10 +27,11 @@ final class Http3ClientPeerAuxiliary
         bool $eof,
         ?Http3ClientResponseStream $response,
         int $responseStream,
+        ?callable $releaseSibling = null,
     ): array {
         $completed = false;
         if ($type === StreamType::QPACK_ENCODER->value) {
-            $completed = $this->acceptEncoder($bytes, $response, $responseStream);
+            $completed = $this->acceptEncoder($bytes, $response, $responseStream, $releaseSibling);
         } elseif ($type === StreamType::QPACK_DECODER->value) {
             $this->codec->receivePeerDecoderInstructions($bytes);
         } elseif ($type === StreamType::PUSH->value) {
@@ -46,15 +48,24 @@ final class Http3ClientPeerAuxiliary
         return ['watch' => $watch, 'completed' => $completed];
     }
 
-    private function acceptEncoder(string $bytes, ?Http3ClientResponseStream $response, int $responseStream): bool
-    {
+    /** @param null|callable(ReadyFieldSection):bool $releaseSibling */
+    private function acceptEncoder(
+        string $bytes,
+        ?Http3ClientResponseStream $response,
+        int $responseStream,
+        ?callable $releaseSibling,
+    ): bool {
         $completed = false;
         foreach ($this->codec->receivePeerEncoderInstructions($bytes) as $ready) {
-            if ($response === null || $ready->streamId !== $responseStream) {
+            if ($response !== null && $ready->streamId === $responseStream) {
+                $response->resumeQpack($ready);
+                $completed = $completed || $response->isFinished();
+
+                continue;
+            }
+            if ($releaseSibling === null || !$releaseSibling($ready)) {
                 throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'QPACK released an unknown response stream.');
             }
-            $response->resumeQpack($ready);
-            $completed = $completed || $response->isFinished();
         }
 
         return $completed;
