@@ -306,6 +306,16 @@ final class Http3ClientSiblingManager
         });
     }
 
+    private function sent(int $id): void
+    {
+        $state = $this->exchanges[$id] ?? null;
+        if ($state === null) {
+            return;
+        }
+        $state->sent = true;
+        $this->read($id);
+    }
+
     private function upload(int $id): void
     {
         $state = $this->exchanges[$id] ?? null;
@@ -342,16 +352,6 @@ final class Http3ClientSiblingManager
         $this->write($id, $wire, false, function () use ($id): void {
             $this->upload($id);
         });
-    }
-
-    private function sent(int $id): void
-    {
-        $state = $this->exchanges[$id] ?? null;
-        if ($state === null) {
-            return;
-        }
-        $state->sent = true;
-        $this->read($id);
     }
 
     /** @param callable():void $next */

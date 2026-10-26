@@ -41,6 +41,9 @@ fi
 jq -e '.verified and .http3_outbound_independent_peer and .tls_alpn == "h3" and .response_status == 200 and .exact_body and .finished_exactly_once and .loop_resources_released' "$output" >/dev/null
 php tests/fixtures/http3_outbound_upload.php "$port" "$tmpdir/cert.pem" >"$output.upload"
 jq -e '.verified and .independent_upload and .trailing_headers and .exact_response and .cleanup' "$output.upload" >/dev/null
+php tests/fixtures/http3_outbound_multiplex.php "$port" "$tmpdir/cert.pem" >"$output.multiplex"
+jq -e '.verified and .single_quic_session and .concurrent_requests == 4
+    and .responses_completed == 4 and .exact_responses and .cleanup' "$output.multiplex" >/dev/null
 if [ "$#" -eq 2 ]; then
     profile_output="$2"
     php benchmarks/u05_native_h3_transport_profile.php "$port" "$tmpdir/cert.pem" 16 >"$profile_output"

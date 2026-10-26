@@ -20,6 +20,7 @@ class IndependentH3(QuicConnectionProtocol):
         self.http = H3Connection(self._quic)
         self.answered = set()
         self.uploads = {}
+        self.concurrent = {}
 
     def respond(self, stream_id, with_trailers=False):
         body = b"runwire-outbound-h3-peer-ok"
@@ -66,7 +67,16 @@ class IndependentH3(QuicConnectionProtocol):
                 self.close(error_code=0x10E, reason_phrase="unexpected authority")
                 return
             method, path = fields.get(b":method"), fields.get(b":path")
-            if method == b"GET" and path == b"/interop?q=1" and h3_event.stream_ended:
+            if method == b"GET" and path.startswith(b"/multi?i=") and h3_event.stream_ended:
+                self.answered.add(stream_id)
+                self.concurrent[stream_id] = path
+                if len(self.concurrent) == 4:
+                    if set(self.concurrent.values()) != {b"/multi?i=1", b"/multi?i=2", b"/multi?i=3", b"/multi?i=4"}:
+                        self.close(error_code=0x10E, reason_phrase="invalid concurrent HTTP/3 sibling requests")
+                        return
+                    for sibling in tuple(self.concurrent):
+                        self.respond(sibling)
+            elif method == b"GET" and path == b"/interop?q=1" and h3_event.stream_ended:
                 self.answered.add(stream_id)
                 self.respond(stream_id)
             elif method == b"POST" and path == b"/upload" and not h3_event.stream_ended:
