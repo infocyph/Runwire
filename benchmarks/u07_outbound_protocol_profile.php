@@ -44,7 +44,7 @@ $request = new ClientRequest(
 $latencies = [];
 $warmups = 4;
 $before = getrusage();
-$childrenBefore = getrusage(-1);
+$childrenBefore = getrusage(1);
 $begin = hrtime(true);
 for ($index = -$warmups; $index < $count; ++$index) {
     $loop = new SelectLoop();
@@ -63,7 +63,7 @@ for ($index = -$warmups; $index < $count; ++$index) {
     };
     if ($index === 0) {
         $before = getrusage();
-        $childrenBefore = getrusage(-1);
+        $childrenBefore = getrusage(1);
     }
     $start = hrtime(true);
     if ($kind === 'h3') {
@@ -128,7 +128,7 @@ for ($index = -$warmups; $index < $count; ++$index) {
     }
 }
 $after = getrusage();
-$childrenAfter = getrusage(-1);
+$childrenAfter = getrusage(1);
 if (!is_array($before) || !is_array($after)
     || !is_array($childrenBefore) || !is_array($childrenAfter)) {
     throw new RuntimeException('Process CPU and RSS profiling is not available.');
@@ -168,7 +168,7 @@ fwrite(STDOUT, json_encode([
     'parent_plus_reaped_child_cpu_ms' => round(($parentCpuUs + $childCpuUs) / 1_000, 3),
     'parent_peak_rss_bytes' => $parentRssBytes,
     'reaped_child_peak_rss_bytes' => $childrenRssBytes,
-    'rss_scope' => 'independent_process_peaks_not_additive',
+    'rss_scope' => 'parent_and_reaped_children_independent_peaks_not_additive',
     'worker_process_tree_certified' => false,
     'release_saturation_certified' => false,
 ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL);
