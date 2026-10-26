@@ -5,6 +5,9 @@ on:
     branches: [ "plan/runwire-independent-ecosystem-roadmaps" ]
     paths:
       - ".github/workflows/c1-socket-syscall-attribution.yml"
+      - "benchmarks/u08_socket_syscall_parse.py"
+      - "benchmarks/u08_socket_syscall_trace.sh"
+      - "tests/test_u08_socket_syscall_parse.py"
   workflow_dispatch:
 
 permissions:
