@@ -78,3 +78,16 @@ it('accepts a fragmented two-byte zero control stream type without treating it a
     }
     expect($client->peerSettings())->not->toBeNull();
 });
+
+it('announces one local encoder and decoder QPACK critical stream only after SETTINGS', function (): void {
+    $control = new Http3ClientControl();
+    expect(fn() => $control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::QPACK_ENCODER))
+        ->toThrow(LogicException::class, 'must start');
+    $control->start();
+    expect($control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::QPACK_ENCODER))
+        ->toBe("\\x02")
+        ->and($control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::QPACK_DECODER))
+        ->toBe("\\x03")
+        ->and(fn() => $control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::CONTROL))
+        ->toThrow(LogicException::class, 'Only HTTP/3 QPACK');
+});

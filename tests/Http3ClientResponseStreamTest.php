@@ -119,3 +119,21 @@ it('rejects HTTP/3 response trailers with pseudo, routing and length fields', fu
         expect(fn() => $stream->push($trailer->encode()))->toThrow(Http3Exception::class);
     }
 });
+
+it('shares the connection-owned QPACK decoder with the peer instruction stream', function (): void {
+    $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec();
+    $codec->receivePeerEncoderInstructions("\\x20");
+    $seen = [];
+    $stream = new Http3ClientResponseStream(
+        4,
+        static function (int $status) use (&$seen): void { $seen[] = $status; },
+        static function (): void {},
+        codec: $codec,
+    );
+    $block = new Encoder(0, 0)->encode([[':status', '200']], 4)->block;
+    $stream->push(new Frame(FrameType::HEADERS->value, $block)->encode());
+    $stream->finish();
+    expect($seen)->toBe([200]);
+    $owner = new ReflectionProperty($stream, 'codec');
+    expect($owner->getValue($stream))->toBe($codec);
+});

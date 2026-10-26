@@ -42,6 +42,19 @@ final class Http3ClientControl
         $this->peer->close();
     }
 
+    /** Announce a local QPACK critical stream only after sending HTTP/3 SETTINGS. */
+    public function localQpackPreamble(StreamType $type): string
+    {
+        if (!$this->localStarted) {
+            throw new LogicException('HTTP/3 control stream must start before local QPACK streams.');
+        }
+        if (!in_array($type, [StreamType::QPACK_ENCODER, StreamType::QPACK_DECODER], true)) {
+            throw new LogicException('Only HTTP/3 QPACK encoder and decoder streams are permitted.');
+        }
+
+        return VarIntCodec::encode($type->value);
+    }
+
     /** Return peer SETTINGS only once its complete first frame was parsed. */
     public function peerSettings(): ?Settings
     {

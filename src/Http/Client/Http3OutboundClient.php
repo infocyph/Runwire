@@ -281,6 +281,14 @@ final class Http3OutboundClient
         ($this->completion)($error);
     }
 
+    /** Establish one persistent local QPACK instruction stream before requests. */
+    private function openQpackStream(StreamType $type, callable $completed): void
+    {
+        $this->command('open_uni', 0, '', false, function (array $opened) use ($type, $completed): void {
+            $this->writeAll(self::streamId($opened), $this->control->localQpackPreamble($type), false, $completed);
+        });
+    }
+
     private function poll(callable $again): void
     {
         $this->loop->delay(0.01, function () use ($again): void {
@@ -375,15 +383,13 @@ final class Http3OutboundClient
             $data,
             false,
             function (): void {
-                $this->command(
-                    'open_bidi',
-                    0,
-                    '',
-                    false,
-                    function (array $opened): void {
-                        $this->sendRequest(self::streamId($opened));
-                    },
-                );
+                $this->openQpackStream(StreamType::QPACK_ENCODER, function (): void {
+                    $this->openQpackStream(StreamType::QPACK_DECODER, function (): void {
+                        $this->command('open_bidi', 0, '', false, function (array $opened): void {
+                            $this->sendRequest(self::streamId($opened));
+                        });
+                    });
+                });
             },
         );
     }
@@ -397,7 +403,13 @@ final class Http3OutboundClient
         }
         $bytes = $this->codec->encodeRequestHeaders($this->request, $stream);
         $this->responseStream = $stream;
-        $this->response = new Http3ClientResponseStream($stream, $this->onHeaders, $this->onBody, onTrailers: $this->onTrailers);
+        $this->response = new Http3ClientResponseStream(
+            $stream,
+            $this->onHeaders,
+            $this->onBody,
+            onTrailers: $this->onTrailers,
+            codec: $this->codec,
+        );
         $this->writeAll(
             $stream,
             $bytes,

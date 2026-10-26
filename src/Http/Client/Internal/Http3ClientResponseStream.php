@@ -47,6 +47,7 @@ final class Http3ClientResponseStream
         private readonly int $maxBodyBytes = 1_048_576,
         int $maxFrameBytes = 65_536,
         ?callable $onTrailers = null,
+        ?Http3ClientWireCodec $codec = null,
     ) {
         if ($streamId < 0 || $maxBodyBytes < 0 || $maxFrameBytes < 1) {
             throw new \InvalidArgumentException('Invalid outbound HTTP/3 response limits.');
@@ -55,7 +56,7 @@ final class Http3ClientResponseStream
         $this->onBody = Closure::fromCallable($onBody);
         $this->onTrailers = $onTrailers === null ? null : Closure::fromCallable($onTrailers);
         $this->frames = new FrameParser($maxFrameBytes);
-        $this->codec = new Http3ClientWireCodec();
+        $this->codec = $codec ?? new Http3ClientWireCodec();
     }
 
     /** Require a complete response at peer FIN. */
