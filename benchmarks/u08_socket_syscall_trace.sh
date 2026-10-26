@@ -58,32 +58,24 @@ for mode in plain tls; do
     echo "Traced server readiness failed" >&2
     exit 1
   fi
-  php -r '
-    $mode=$argv[1];$port=(int)$argv[2];$cert=$argv[3];
-    $context=stream_context_create(["ssl"=>[
-      "verify_peer"=>true,"verify_peer_name"=>true,"peer_name"=>"localhost",
-      "cafile"=>$cert,"allow_self_signed"=>false
-    ]]);
-    for($index=0;$index<16;++$index){
-      $s=stream_socket_client(($mode==="tls"?"tls":"tcp")."://127.0.0.1:".$port,
-        $errno,$error,3,STREAM_CLIENT_CONNECT,$context);
-      if(!is_resource($s))exit(2);
-      stream_set_timeout($s,3);
-      $request="GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
-      if(fwrite($s,$request)!==strlen($request))exit(3);
-      $response="";
-      for($attempt=0;$attempt<120;++$attempt){
-        $chunk=fread($s,8192);
-        if($chunk===false)exit(4);
-        $response.=$chunk;
-        if(str_contains($response,"\r\n\r\nok"))break;
-        if(feof($s))break;
-      }
-      fclose($s);
-      if(!str_starts_with($response,"HTTP/1.1 200")||!str_contains($response,"\r\n\r\nok"))exit(5);
-    }
-    echo json_encode(["mode"=>$mode,"valid_requests"=>16,"errors"=>0],JSON_THROW_ON_ERROR);
-  ' "$mode" "$port" "$work/ca.pem" >"$output/$mode-clients.json"
+  # Exact request generator and keep-alive policy used by the 5×180s
+  # untraced measurement. Tracing is intentionally short and intrusive.
+  if [ "$mode" = plain ]; then
+    RUNWIRE_RUNTIME_BUILD="${GITHUB_SHA:-local}" php \
+      "$root/benchmarks/http1_sustained_bench.php" "$port" 2 0.1 1.2 "$tracer" \
+      >"$output/$mode-clients.json"
+  else
+    RUNWIRE_RUNTIME_BUILD="${GITHUB_SHA:-local}" RUNWIRE_BENCH_TLS=1 \
+      RUNWIRE_BENCH_TLS_CA="$work/ca.pem" php \
+      "$root/benchmarks/http1_sustained_bench.php" "$port" 2 0.1 1.2 "$tracer" \
+      >"$output/$mode-clients.json"
+  fi
+  jq -e '.correctness_passed == true
+    and .errors_total == 0 and .timeouts_total == 0
+    and .successful_requests == .requests_total and .successful_requests > 0
+    and .connection_reuse == "keep-alive"
+    and .socket_io.write_calls > 0 and .socket_io.read_calls > 0
+    and .latency_ms.p99 > 0' "$output/$mode-clients.json" >/dev/null
   kill -TERM -- "-$tracer" 2>/dev/null || true
   wait "$tracer" 2>/dev/null || true
   tracer=""
