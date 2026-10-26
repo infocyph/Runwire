@@ -22,7 +22,7 @@ use Infocyph\Runwire\Network\TlsOptions;
  *
  * @return array{received:string,verified:?string,error:?Throwable,completed:int,accepted:bool}
  */
-function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProxy = 'localhost'): array
+function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProxy = 'localhost', bool $rejectAuthentication = false): array
 {
     $dir = sys_get_temp_dir() . '/runwire-proxy-tls-' . bin2hex(random_bytes(8));
     if (!mkdir($dir, 0700)) {
@@ -60,13 +60,13 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
     });
     try {
         $listener->start($loop, static function (Connection $peer) use (
-            &$received, &$accepted, $protocol,
+            &$received, &$accepted, $protocol, $rejectAuthentication,
         ): void {
             $accepted = true;
             $state = 0;
             $pending = '';
             $peer->onData(static function (Connection $ready) use (
-                &$received, &$state, &$pending, $protocol,
+                &$received, &$state, &$pending, $protocol, $rejectAuthentication,
             ): void {
                 $pending .= $ready->read();
                 if ($protocol === 'http') {
@@ -90,8 +90,8 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
                 if ($state === 1 && strlen($pending) >= 13) {
                     expect($pending)->toBe("\x01\x04user\x06secret");
                     $pending = '';
-                    $state = 2;
-                    $ready->write("\x01\x00");
+                    $state = $rejectAuthentication ? 3 : 2;
+                    $ready->write($rejectAuthentication ? "\x01\x01" : "\x01\x00");
 
                     return;
                 }
@@ -100,6 +100,8 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
                     $pending = '';
                     $state = 3;
                     $ready->write("\x05\x00\x00\x01\x7f\x00\x00\x01\x01\xbb");
+                } elseif ($state === 3 && $pending !== '') {
+                    $received = $pending;
                 }
             });
         });
@@ -121,7 +123,9 @@ function runwireAuthenticatedProxyInterop(string $protocol, string $expectedProx
                 ): void {
                     ++$completed;
                     $failure = $failureReason;
-                    expect($tunneled)->not->toBeNull();
+                    if ($failureReason === null) {
+                        expect($tunneled)->not->toBeNull();
+                    }
                     $loop->stop();
                 };
                 try {
@@ -203,4 +207,13 @@ it('rejects authenticated CONNECT before writing credentials when configured pro
         ->and($result['verified'])->toBe('localhost')
         ->and($result['received'])->toBe('')
         ->and($result['completed'])->toBe(0);
+});
+
+it('rejects live SOCKS5 password authentication failure before submitting CONNECT', function (): void {
+    $result = runwireAuthenticatedProxyInterop('socks5', 'localhost', true);
+    expect($result['error'])->toBeInstanceOf(RuntimeException::class)
+        ->and($result['verified'])->toBe('localhost')
+        ->and($result['accepted'])->toBeTrue()
+        ->and($result['completed'])->toBe(1)
+        ->and($result['received'])->toBe('');
 });

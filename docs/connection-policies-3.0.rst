@@ -43,20 +43,17 @@ or guarantee the previous response body was fully drained.
 HTTP CONNECT and SOCKS5
 -----------------------
 
-HTTP CONNECT, proxy authentication and SOCKS5 are separate unfinished
-implementation gates. A future CONNECT must authenticate to the
-configured proxy using a scoped policy, validate a bounded successful
-tunnel response and then separately authenticate the original TLS
-server identity *through* the tunnel. The proxy identity does not
-replace the destination certificate. A failed proxy handshake must
-close sockets and clear credentials; do not retry with plaintext.
+Experimental nonblocking HTTP CONNECT and SOCKS5 adapters negotiate on a
+previously established Runwire connection. Proxy credentials may be sent
+only after the outbound Dialer verifies the proxy's TLS peer and that
+identity matches the explicitly configured proxy hostname. Plaintext or
+mismatched identities fail before transmitting credentials.
 
-A future SOCKS5 connector must explicitly choose remote versus local
-DNS based on policy, reject unexpected authentication methods and
-prevent leaking destination lookups when proxy-side DNS is required.
-Never put proxy passwords into connection keys, diagnostic logs or
-exception strings. The pool key only contains the caller-provided
-opaque credential revision, not the credential itself.
+Successful proxy negotiation does NOT verify the original destination.
+Nested end-to-end TLS to the original hostname remains unimplemented;
+proxy certificate validation must never replace destination validation.
+Automatic authenticated proxy connectors and independent third-party
+proxy conformance are still required under U10.04--U10.06.
 
 Bidirectional stream relay
 --------------------------
@@ -168,49 +165,38 @@ proxy connector or proxy credential encryption implementation.
 Outbound proxy wire negotiation (unreleased)
 --------------------------------------------
 
-The ``Network\\Proxy\\Socks5Handshake`` wire codec encodes and validates
-RFC 1928/1929 frames. Local DNS mode accepts only pre-resolved IP addresses;
-remote hostname disclosure requires explicit opt-in. Password authentication
-requires independently verified encrypted transport to the proxy and never
-permits anonymous downgrade. Socket ownership, asynchronous handshakes and
-original-target TLS identity are **not yet implemented**. U10.04–U10.06
-remain open until real peer integration.
+The Socks5Handshake codec validates RFC 1928/1929 frames. Local DNS mode
+accepts only pre-resolved numeric IP addresses; remote hostname disclosure
+requires explicit opt-in. The experimental Socks5Tunnel owns nonblocking
+method negotiation, authenticated password exchange, finite timeouts,
+cancellation and exclusive callback handoff. An authenticated method
+substitution or failed RFC 1929 password check rejects without submitting
+the target CONNECT request.
 
+The HttpConnectHandshake codec bounds the HTTP/1.1 CONNECT authority and
+200 response header. Its HttpConnectTunnel adapter supports Basic proxy
+authentication only over a verified outbound TLS connection with a matching
+proxy hostname. Invalid status, smuggling, framed response bodies and
+untrusted peer identities fail closed. Data after a valid CONNECT response
+remains available to the next protocol owner.
 
-HTTP CONNECT development (unreleased)
---------------------------------------
+These adapters do not yet provide an automatic proxied client, nested TLS
+or certificate checking for the original destination. U10.04--U10.06
+remain OPEN until independent third-party peers and the original-target
+TLS identity are verified with complete QA.
 
-``Network\\Proxy\\HttpConnectHandshake`` builds a strict HTTP/1.1
-CONNECT authority and parses complete bounded 200 response headers.
-Proxy Basic credentials require explicit verified encrypted proxy transport.
-Invalid 407/non-200 results, malformed headers and framed bodies fail closed;
-remaining bytes belong to the future target TLS handshake. Neither this codec
-nor SOCKS5 establishes transport, TLS-over-tunnel or callback ownership yet.
+Real authenticated proxy tests
+------------------------------
 
+The local TLS loopback fixture runs separately handshaken client and server
+TLS connections with an explicit trusted certificate. It checks CONNECT
+Basic credentials, RFC 1929 username/password framing, failure response
+handling, hostname mismatch before credential transmission, and callback
+cleanup. Local fixtures do not substitute for third-party peer conformance.
 
-Live HTTP CONNECT negotiation (experimental)
---------------------------------------------
+.. code-block:: console
 
-``Network\\Proxy\\HttpConnectTunnel`` runs an unauthenticated CONNECT
-handshake on a **previously established** Runwire connection with bounded
-incremental header parsing, cancellation, a finite timeout and exclusive
-callback handoff. It preserves data following the CONNECT response for the
-next connection owner. This is not HTTPS-through-proxy: neither the proxy
-credentialed TLS identity nor TLS upgrade with the original destination
-certificate identity is integrated. Credentialed live tunnels refuse to start
-rather than disclose Basic credentials to an unverified peer.
-
-
-SOCKS5 tunnel connection stage (experimental)
------------------------------------------------
-
-``Network\\Proxy\\Socks5Tunnel`` negotiates no-auth SOCKS5 on an existing
-Runwire connection with a finite deadline, callback ownership and cancellation.
-Unapproved remote DNS and credential disclosure fail before writing. Remaining
-tunnel data is preserved for the subsequent application owner. Verified proxy
-TLS credentials, nested original-endpoint TLS and external peer conformance
-are not provided by this stage and remain mandatory gates.
-
+   vendor/bin/pest tests/ProxyAuthenticatedTlsInteropTest.php
 
 Loopback TCP proxy peer verification (development)
 --------------------------------------------------
