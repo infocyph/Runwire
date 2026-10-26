@@ -61,7 +61,9 @@ jq -e '.verified and .single_quic_session and .concurrent_requests == 4
     and .responses_completed == 4 and .exact_responses and .cleanup' "$output.multiplex" >/dev/null
 if [ "$#" -ge 2 ]; then
     profile_output="$2"
+    echo "C1: measuring native H3 transport"
     php benchmarks/u05_native_h3_transport_profile.php "$port" "$tmpdir/cert.pem" 16 >"$profile_output"
+    cat "$profile_output"
     jq -e '.schema == 1 and .real_network_io == true and .verified_tls_alpn == true
         and .correctness_passed == true and .concurrency == 1
         and .requests_total == 16 and .successful_requests == 16 and .errors_total == 0
@@ -88,11 +90,13 @@ if [ "$#" -ge 3 ]; then
     done
     test -s "$tmpdir/h12-ready" || { cat "$tmpdir/h12.log"; exit 1; }
     for protocol in h1 h2 h3; do
+        echo "C1 matched profile: $protocol"
         php benchmarks/u07_outbound_protocol_profile.php "$protocol" "$tcp_port" "$port" \
             "$tmpdir/cert.pem" 24 >"$tmpdir/$protocol.json" || {
                 cat "$tmpdir/h12.log" "$tmpdir/peer.log"
                 exit 1
             }
+        cat "$tmpdir/$protocol.json"
     done
     jq -s '{schema:1,matched_payload:true,workloads:.,release_saturation_certified:false}' \
         "$tmpdir/h1.json" "$tmpdir/h2.json" "$tmpdir/h3.json" >"$3"
