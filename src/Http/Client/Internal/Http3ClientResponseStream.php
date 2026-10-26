@@ -109,7 +109,7 @@ final class Http3ClientResponseStream
         $this->queuedFrames = [];
         $this->queuedFrameBytes = 0;
         foreach ($frames as $frame) {
-            $this->acceptFrame($frame);
+            $this->dispatchFrame($frame);
         }
         if ($this->eofWhileBlocked && $this->qpackWaiting === null) {
             $this->eofWhileBlocked = false;
@@ -124,18 +124,24 @@ final class Http3ClientResponseStream
             throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'Response bytes received after QUIC FIN.');
         }
         foreach ($this->frames->push($bytes) as $frame) {
-            if ($this->qpackWaiting !== null) {
-                $size = strlen($frame->payload);
-                if ($size > 1_048_576 - $this->queuedFrameBytes || count($this->queuedFrames) >= 128) {
-                    throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Blocked HTTP/3 response frames exceeded budget.');
-                }
-                $this->queuedFrameBytes += $size;
-                $this->queuedFrames[] = $frame;
-
-                continue;
-            }
-            $this->acceptFrame($frame);
+            $this->dispatchFrame($frame);
         }
+    }
+
+    /** Hold later frames behind a blocked QPACK HEADERS section. */
+    private function dispatchFrame(Frame $frame): void
+    {
+        if ($this->qpackWaiting !== null) {
+            $size = strlen($frame->payload);
+            if ($size > 1_048_576 - $this->queuedFrameBytes || count($this->queuedFrames) >= 128) {
+                throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'Blocked HTTP/3 response frames exceeded budget.');
+            }
+            $this->queuedFrameBytes += $size;
+            $this->queuedFrames[] = $frame;
+
+            return;
+        }
+        $this->acceptFrame($frame);
     }
 
     private function acceptFrame(Frame $frame): void
