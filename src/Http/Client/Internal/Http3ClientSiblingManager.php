@@ -78,7 +78,9 @@ final class Http3ClientSiblingManager
             ($this->feedback)();
         }
         if ($state->stream > 0 && !$state->peerEof && $this->session->active()) {
-            $this->command('reset', $state->stream, '', false, static function (): void {});
+            $this->command('reset', $state->stream, '', false, static function (): void {
+                return;
+            });
         }
         $this->complete($id, $error);
 
@@ -186,9 +188,12 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /** @param array<string,mixed> $result */
-    private function acceptRead(int $id, array $result): void
+    /** Validate the native response before extracting the per-stream payload. */
+    private function acceptRead(int $id, mixed $result): void
     {
+        if (!is_array($result)) {
+            throw new RuntimeException('Invalid multiplexed native QUIC read response.');
+        }
         $state = $this->exchanges[$id] ?? null;
         if ($state === null || $state->response === null) {
             return;
@@ -214,12 +219,11 @@ final class Http3ClientSiblingManager
     }
 
     /**
-     * @param array<string,mixed> $result
      * @param callable():void $next
      */
     private function acceptWrite(
         int $id,
-        array $result,
+        mixed $result,
         string $bytes,
         bool $fin,
         int $offset,
@@ -227,6 +231,9 @@ final class Http3ClientSiblingManager
         int $length,
         bool $last,
     ): void {
+        if (!is_array($result)) {
+            throw new RuntimeException('Invalid multiplexed native QUIC write response.');
+        }
         if (!array_key_exists($id, $this->exchanges)) {
             return;
         }
