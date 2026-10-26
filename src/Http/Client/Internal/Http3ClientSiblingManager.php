@@ -78,11 +78,7 @@ final class Http3ClientSiblingManager
             ($this->feedback)();
         }
         if ($state->stream > 0 && !$state->peerEof && $this->session->active()) {
-            $this->command('reset', $state->stream, '', false, static function (array $receipt): void {
-                if (!is_bool($receipt['reset'] ?? null)) {
-                    throw new RuntimeException('Native QUIC sibling reset returned an invalid receipt.');
-                }
-            });
+            $this->command('reset', $state->stream, '', false, $this->acceptReset(...));
         }
         $this->complete($id, $error);
 
@@ -218,6 +214,14 @@ final class Http3ClientSiblingManager
             return;
         }
         $this->poll(fn() => $this->read($id));
+    }
+
+    /** @param array<string,mixed> $receipt */
+    private function acceptReset(array $receipt): void
+    {
+        if (!is_bool($receipt['reset'] ?? null)) {
+            throw new RuntimeException('Native QUIC sibling reset returned an invalid receipt.');
+        }
     }
 
     /**
