@@ -130,18 +130,18 @@ final readonly class Http3ClientWireCodec
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
+    /** Validate the peer QPACK decoder stream; no dynamic references are outstanding. */
+    public function receivePeerDecoderInstructions(string $bytes): void
+    {
+        $this->encoder->pushDecoderInstructions($bytes);
+    }
+
     /** Accept peer QPACK encoder instructions under our zero-capacity SETTINGS. */
     public function receivePeerEncoderInstructions(string $bytes): void
     {
         if ($this->decoder->pushEncoderInstructions($bytes) !== []) {
             throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Static-only H3 client received blocked dynamic QPACK sections.');
         }
-    }
-
-    /** Validate the peer QPACK decoder stream; no dynamic references are outstanding. */
-    public function receivePeerDecoderInstructions(string $bytes): void
-    {
-        $this->encoder->pushDecoderInstructions($bytes);
     }
 
     private static function assertRequestHeader(string $name, string $value, bool $hasBody): void

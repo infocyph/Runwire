@@ -8,7 +8,7 @@ use Closure;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientControl;
-use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamType;
+use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamRegistry;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
@@ -57,14 +57,7 @@ final class Http3OutboundClient
 
     private bool $peerControlFound = false;
 
-    /** @var array<int, true> */
-    private array $peerCriticalTypes = [];
-
-    /** @var array<int, Http3ClientPeerStreamType> */
-    private array $peerPrefixes = [];
-
-    /** @var array<int, int> */
-    private array $peerStreamTypes = [];
+    private readonly Http3ClientPeerStreamRegistry $peerStreams;
 
     private ?Http3ClientResponseStream $response = null;
 
@@ -98,6 +91,7 @@ final class Http3OutboundClient
         $this->session = new QuicClientSession($loop);
         $this->control = new Http3ClientControl();
         $this->codec = new Http3ClientWireCodec();
+        $this->peerStreams = new Http3ClientPeerStreamRegistry();
     }
 
     /**
@@ -196,42 +190,22 @@ final class Http3OutboundClient
 
     private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
     {
-        if (!isset($this->peerStreamTypes[$stream])) {
-            $probe = ($this->peerPrefixes[$stream] ??= new Http3ClientPeerStreamType())->push($bytes);
-            if ($probe === null) {
-                if ($eof) {
-                    throw new Http3Exception(ErrorCode::STREAM_CREATION_ERROR, 'Peer HTTP/3 stream ended before its type was complete.');
-                }
-                $this->poll(fn() => $this->readControl($stream));
+        $probe = $this->peerStreams->push($stream, $bytes, $eof);
+        if ($probe === null) {
+            $this->poll(fn() => $this->readControl($stream));
 
-                return;
-            }
-
-            unset($this->peerPrefixes[$stream]);
-            $type = $probe['type'];
-            $this->peerStreamTypes[$stream] = $type;
-            if (in_array($type, [
-                StreamType::CONTROL->value,
-                StreamType::QPACK_ENCODER->value,
-                StreamType::QPACK_DECODER->value,
-            ], true)) {
-                if (isset($this->peerCriticalTypes[$type])) {
-                    throw new Http3Exception(ErrorCode::STREAM_CREATION_ERROR, 'Duplicate HTTP/3 peer critical stream.');
-                }
-                $this->peerCriticalTypes[$type] = true;
-            }
-
-            if ($type !== StreamType::CONTROL->value) {
-                $this->acceptPeerAuxiliary($type, $probe['payload'], $stream, $eof);
-                if (!$this->peerControlFound) {
-                    $this->receiveControl();
-                }
-
-                return;
-            }
-            $this->peerControlFound = true;
-            $bytes = $probe['wire'];
+            return;
         }
+        if ($probe['initial'] && $probe['type'] !== StreamType::CONTROL->value) {
+            $this->acceptPeerAuxiliary($probe['type'], $probe['payload'], $stream, $eof);
+            if (!$this->peerControlFound) {
+                $this->receiveControl();
+            }
+
+            return;
+        }
+        $this->peerControlFound = true;
+        $bytes = $probe['wire'];
 
         $this->control->receivePeerControl($bytes);
         if ($eof) {
