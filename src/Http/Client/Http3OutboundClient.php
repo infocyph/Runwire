@@ -15,6 +15,7 @@ use Infocyph\Runwire\Http\Client\Internal\Http3ClientResponseStream;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientSiblingManager;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
+use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\Qpack\ReadyFieldSection;
@@ -63,6 +64,8 @@ final class Http3OutboundClient
     private bool $localStreamsReady = false;
 
     private bool $peerSettingsSeen = false;
+
+    private bool $peerDraining = false;
 
     private int $qpackDecoderStream = 0;
 
@@ -158,8 +161,8 @@ final class Http3OutboundClient
         callable $completion,
         ?callable $onTrailers = null,
     ): int {
-        if ($this->finished) {
-            throw new RuntimeException('HTTP/3 session is no longer accepting sibling requests.');
+        if ($this->finished || $this->peerDraining) {
+            throw new RuntimeException('HTTP/3 session is closed or draining after GOAWAY.');
         }
         if (Http3ClientOrigin::validate($request, $this->options) !== Http3ClientOrigin::validate($this->request, $this->options)) {
             throw new InvalidArgumentException('HTTP/3 sibling must use the exact verified original HTTPS origin.');
@@ -172,6 +175,7 @@ final class Http3OutboundClient
             fn(Throwable $error) => $this->finish($error),
             fn() => $this->flushQpackFeedback(),
             fn() => $this->finishIfEmpty(),
+            maxActiveStreams: $this->options->maxOpenStreams,
         );
         if ($this->localStreamsReady) {
             $this->siblings->start();
@@ -250,7 +254,11 @@ final class Http3OutboundClient
         }
         $bytes = $probe['wire'];
 
-        $this->control->receivePeerControl($bytes);
+        foreach ($this->control->receivePeerControl($bytes) as $frame) {
+            if ($frame->knownType() === FrameType::GOAWAY) {
+                $this->acceptPeerGoaway($frame->payload);
+            }
+        }
         if ($eof) {
             $this->control->closePeerControl();
         }
@@ -262,6 +270,17 @@ final class Http3OutboundClient
         // The peer's critical control stream stays live for the entire session.
         // Re-read after SETTINGS to detect premature FIN and later control frames.
         $this->poll(fn() => $this->readControl($stream));
+    }
+
+    /** RFC 9114 GOAWAY must use a complete client-bidi stream ID, never a request count. */
+    private function acceptPeerGoaway(string $payload): void
+    {
+        $decoded = VarIntCodec::tryDecode($payload);
+        if ($decoded === null || $decoded[1] !== strlen($payload) || $decoded[0] % 4 !== 0) {
+            throw new RuntimeException('HTTP/3 GOAWAY contains an invalid request stream ID.');
+        }
+        $this->peerDraining = true;
+        $this->siblings?->drain();
     }
 
     /** @param array<string,mixed> $result */
