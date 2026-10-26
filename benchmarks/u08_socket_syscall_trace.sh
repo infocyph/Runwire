@@ -15,6 +15,11 @@ cleanup() {
   rm -rf "$work"
 }
 trap cleanup EXIT
+concurrency="${RUNWIRE_TRACE_CONCURRENCY:-2}"
+if ! [[ "$concurrency" =~ ^[1-9][0-9]*$ ]] || [ "$concurrency" -gt 16 ]; then
+  echo "Traced concurrency must be a positive integer <=16" >&2
+  exit 2
+fi
 command -v strace >/dev/null || { echo "strace is required for this opt-in proof" >&2; exit 2; }
 openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 -subj '/CN=localhost' \
   -addext 'subjectAltName=DNS:localhost' -keyout "$work/key.pem" \
@@ -62,18 +67,22 @@ for mode in plain tls; do
   # untraced measurement. Tracing is intentionally short and intrusive.
   if [ "$mode" = plain ]; then
     RUNWIRE_RUNTIME_BUILD="${GITHUB_SHA:-local}" php \
-      "$root/benchmarks/http1_sustained_bench.php" "$port" 2 0.1 1.2 "$tracer" \
+      "$root/benchmarks/http1_sustained_bench.php" "$port" "$concurrency" 0.1 1.2 "$tracer" \
       >"$output/$mode-clients.json"
   else
     RUNWIRE_RUNTIME_BUILD="${GITHUB_SHA:-local}" RUNWIRE_BENCH_TLS=1 \
       RUNWIRE_BENCH_TLS_CA="$work/ca.pem" php \
-      "$root/benchmarks/http1_sustained_bench.php" "$port" 2 0.1 1.2 "$tracer" \
+      "$root/benchmarks/http1_sustained_bench.php" "$port" "$concurrency" 0.1 1.2 "$tracer" \
       >"$output/$mode-clients.json"
   fi
-  jq -e '.correctness_passed == true
+  jq -e --argjson concurrency "$concurrency" \
+    --argjson bytes "${RUNWIRE_BENCH_RESPONSE_BYTES:-2}" \
+    --arg reuse "${RUNWIRE_BENCH_CONNECTION_MODE:-keep-alive}" '
+    .correctness_passed == true
     and .errors_total == 0 and .timeouts_total == 0
     and .successful_requests == .requests_total and .successful_requests > 0
-    and .connection_reuse == "keep-alive"
+    and .concurrency == $concurrency and .response_body_bytes == $bytes
+    and .connection_reuse == $reuse
     and .socket_io.write_calls > 0 and .socket_io.read_calls > 0
     and .latency_ms.p99 > 0' "$output/$mode-clients.json" >/dev/null
   kill -TERM -- "-$tracer" 2>/dev/null || true

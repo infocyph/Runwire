@@ -49,17 +49,42 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_u08_socket_syscall_parse.py' -v
           bash -n benchmarks/u08_socket_syscall_trace.sh
-      - name: Observe correct H1 plaintext and verified TLS with network syscall attribution
-        timeout-minutes: 10
+      - name: Trace correct H1 payload/connection/concurrency variants on verified TLS and plaintext
+        timeout-minutes: 16
+        shell: bash
         run: |
           set -euo pipefail
-          bash benchmarks/u08_socket_syscall_trace.sh build/c1-socket-syscalls
-          jq -e '.correctness_passed == true and .tls == "off"
-            and .successful_requests == .requests_total and .successful_requests > 0
-            and .connection_reuse == "keep-alive"' build/c1-socket-syscalls/plain-clients.json
-          jq -e '.correctness_passed == true and .tls == "on-verified"
-            and .successful_requests == .requests_total and .successful_requests > 0
-            and .connection_reuse == "keep-alive"' build/c1-socket-syscalls/tls-clients.json
+          for bytes in 2 65536; do
+            for mode in keep-alive close; do
+              for concurrency in 1 16; do
+                export RUNWIRE_BENCH_RESPONSE_BYTES="$bytes"
+                export RUNWIRE_BENCH_CONNECTION_MODE="$mode"
+                export RUNWIRE_TRACE_CONCURRENCY="$concurrency"
+                out="build/c1-socket-syscalls/${bytes}-${mode}-${concurrency}"
+                bash benchmarks/u08_socket_syscall_trace.sh "$out"
+                jq -e --argjson size "$bytes" --arg reuse "$mode" \
+                    --argjson concurrent "$concurrency" '
+                  .correctness_passed == true and .tls == "off"
+                  and .successful_requests == .requests_total and .successful_requests > 0
+                  and .response_body_bytes == $size and .connection_reuse == $reuse
+                  and .concurrency == $concurrent' "$out/plain-clients.json" >/dev/null
+                jq -e --argjson size "$bytes" --arg reuse "$mode" \
+                    --argjson concurrent "$concurrency" '
+                  .correctness_passed == true and .tls == "on-verified"
+                  and .successful_requests == .requests_total and .successful_requests > 0
+                  and .response_body_bytes == $size and .connection_reuse == $reuse
+                  and .concurrency == $concurrent' "$out/tls-clients.json" >/dev/null
+                for population in plain tls; do
+                  jq -e '.socket_fd_read_family_successful_syscalls > 0
+                    and .socket_fd_write_family_successful_syscalls > 0
+                    and .trace_performance_overhead == true
+                    and .untraced_benchmark_equivalence_claimed == false' \
+                    "$out/$population-syscalls.json" >/dev/null
+                done
+              done
+            done
+          done
+          test "$(find build/c1-socket-syscalls -name 'tls-syscalls.json' | wc -l)" -eq 8
       - name: Archive traced server sockets and explicit perturbation caveats
         if: always()
         uses: actions/upload-artifact@v7
