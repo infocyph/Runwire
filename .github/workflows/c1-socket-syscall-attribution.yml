@@ -1,0 +1,63 @@
+name: "Runwire C1 Socket Syscall Attribution (instrumented)"
+
+on:
+  push:
+    branches: [ "plan/runwire-independent-ecosystem-roadmaps" ]
+    paths:
+      - ".github/workflows/c1-socket-syscall-attribution.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1-socket-calls-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  real-socket-syscalls:
+    name: "C1 H1 plaintext/TLS socket syscalls - PHP ${{ matrix.php-version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: pcntl, posix, event, opcache, openssl
+          tools: composer:v2
+          coverage: none
+      - name: Install immutable dependencies and scoped instrumentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq strace
+          strace -V
+      - name: Validate independent socket-FD classifier fixtures
+        run: |
+          python3 -m unittest discover -s tests -p 'test_u08_socket_syscall_parse.py' -v
+          bash -n benchmarks/u08_socket_syscall_trace.sh
+      - name: Observe correct H1 plaintext and verified TLS with network syscall attribution
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          bash benchmarks/u08_socket_syscall_trace.sh build/c1-socket-syscalls
+          jq -e '.valid_requests == 16 and .errors == 0' build/c1-socket-syscalls/plain-clients.json
+          jq -e '.valid_requests == 16 and .errors == 0' build/c1-socket-syscalls/tls-clients.json
+      - name: Archive traced server sockets and explicit perturbation caveats
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: c1-socket-syscall-php-${{ matrix.php-version }}-${{ github.sha }}
+          path: build/c1-socket-syscalls/
+          retention-days: 90
+          if-no-files-found: warn
