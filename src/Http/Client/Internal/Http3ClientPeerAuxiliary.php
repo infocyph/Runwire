@@ -14,6 +14,7 @@ final class Http3ClientPeerAuxiliary
 {
     private int $unknownStreams = 0;
 
+    /** Share the same bounded QPACK decoder across peer streams. */
     public function __construct(private readonly Http3ClientWireCodec $codec) {}
 
     /**

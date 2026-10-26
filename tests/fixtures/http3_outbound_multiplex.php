@@ -78,11 +78,11 @@ if ($statuses !== [1 => 200, 2 => 200, 3 => 200, 4 => 200]
     throw new RuntimeException('Independent concurrently gated HTTP/3 siblings failed or leaked loop resources.');
 }
 $client->close();
-echo json_encode([
+fwrite(STDOUT, json_encode([
     'verified' => true,
     'single_quic_session' => true,
     'concurrent_requests' => 4,
     'responses_completed' => count($completions),
     'exact_responses' => true,
     'cleanup' => true,
-], JSON_THROW_ON_ERROR) . PHP_EOL;
+], JSON_THROW_ON_ERROR) . PHP_EOL);

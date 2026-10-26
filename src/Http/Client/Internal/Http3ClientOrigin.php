@@ -12,7 +12,11 @@ use InvalidArgumentException;
 /** @internal Rejects cross-origin and downgrade attempts before any native QUIC I/O. */
 final readonly class Http3ClientOrigin
 {
-    /** Validate the TLS peer and h3 ALPN against one immutable origin. @return array{host:string,port:int} */
+    /**
+     * Validate the TLS peer and h3 ALPN against one immutable origin.
+     *
+     * @return array{host:string,port:int}
+     */
     public static function validate(ClientRequest $request, QuicClientOptions $options): array
     {
         $parts = parse_url($request->uri);
@@ -30,5 +34,4 @@ final readonly class Http3ClientOrigin
 
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
-
 }

@@ -70,6 +70,7 @@ class IndependentH3(QuicConnectionProtocol):
             if method == b"GET" and path.startswith(b"/multi?i=") and h3_event.stream_ended:
                 self.answered.add(stream_id)
                 self.concurrent[stream_id] = path
+                print(f"C1 independent H3 peer: stream={stream_id} path={path!r} admitted={len(self.concurrent)}", flush=True)
                 if len(self.concurrent) == 4:
                     if set(self.concurrent.values()) != {b"/multi?i=1", b"/multi?i=2", b"/multi?i=3", b"/multi?i=4"}:
                         self.close(error_code=0x10E, reason_phrase="invalid concurrent HTTP/3 sibling requests")

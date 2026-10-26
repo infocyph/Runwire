@@ -60,13 +60,13 @@ final class Http3ClientSiblingManager
         $this->onEmpty = Closure::fromCallable($onEmpty);
     }
 
-    /** Whether any sibling still owns pending admission or a live response. */
+/** Whether any sibling still owns pending admission or a live response. */
     public function active(): bool
     {
         return $this->exchanges !== [];
     }
 
-    /** Cancel just one sibling and reset its native stream when present. */
+/** Cancel just one sibling and reset its native stream when present. */
     public function cancel(int $id, Throwable $error): bool
     {
         $state = $this->exchanges[$id] ?? null;
@@ -81,7 +81,7 @@ final class Http3ClientSiblingManager
         return true;
     }
 
-    /** Finish all pending siblings when their owning connection closes. */
+/** Finish all pending siblings when their owning connection closes. */
     public function close(Throwable $error): void
     {
         $this->closed = true;
@@ -90,7 +90,7 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /**
+/**
      * Register an independently cancellable request without allocating a second QUIC session.
      *
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
@@ -138,7 +138,7 @@ final class Http3ClientSiblingManager
         return $id;
     }
 
-    /** Permit request streams only once control and local QPACK critical streams exist. */
+/** Permit request streams only once control and local QPACK critical streams exist. */
     public function start(): void
     {
         if ($this->ready || $this->closed) {
@@ -150,7 +150,7 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /** Release a QPACK-blocked sibling after matching peer encoder instructions. */
+/** Release a QPACK-blocked sibling after matching peer encoder instructions. */
     public function unblock(ReadyFieldSection $ready): bool
     {
         $id = $this->streams[$ready->streamId] ?? null;
@@ -170,7 +170,7 @@ final class Http3ClientSiblingManager
         return true;
     }
 
-    /** Allow independently read-ready sibling responses after verified peer SETTINGS. */
+/** Allow independently read-ready sibling responses after verified peer SETTINGS. */
     public function verifiedSettings(): void
     {
         if ($this->settings) {
@@ -185,7 +185,8 @@ final class Http3ClientSiblingManager
     /**
      * @param callable(array<string,mixed>):void $next
      */
-    /** @param array<string,mixed> $result */
+
+/** @param array<string,mixed> $result */
     private function acceptRead(int $id, array $result): void
     {
         $state = $this->exchanges[$id] ?? null;
@@ -212,7 +213,7 @@ final class Http3ClientSiblingManager
         $this->poll(fn() => $this->read($id));
     }
 
-    /**
+/**
      * @param array<string,mixed> $result
      * @param callable():void $next
      */
@@ -241,7 +242,7 @@ final class Http3ClientSiblingManager
         $this->write($id, $bytes, $fin, $next, $offset + $written);
     }
 
-    private function command(string $op, int $stream, string $data, bool $fin, callable $next): void
+private function command(string $op, int $stream, string $data, bool $fin, callable $next): void
     {
         if ($this->closed) {
             return;
@@ -276,7 +277,7 @@ final class Http3ClientSiblingManager
         }
     }
 
-    private function complete(int $id, ?Throwable $error): void
+private function complete(int $id, ?Throwable $error): void
     {
         $state = $this->exchanges[$id] ?? null;
         if ($state === null) {
@@ -293,7 +294,7 @@ final class Http3ClientSiblingManager
         }
     }
 
-    private function open(int $id): void
+private function open(int $id): void
     {
         $this->command('open_bidi', 0, '', false, function (array $opened) use ($id): void {
             $state = $this->exchanges[$id] ?? null;
@@ -320,7 +321,7 @@ final class Http3ClientSiblingManager
         });
     }
 
-    private function poll(callable $again): void
+private function poll(callable $again): void
     {
         $this->loop->delay(0.01, function () use ($again): void {
             if (!$this->closed) {
@@ -329,7 +330,7 @@ final class Http3ClientSiblingManager
         });
     }
 
-    private function read(int $id): void
+private function read(int $id): void
     {
         $state = $this->exchanges[$id] ?? null;
         if (!$this->settings || $state === null || !$state->sent || $state->readActive || $state->peerEof) {
@@ -341,7 +342,7 @@ final class Http3ClientSiblingManager
         });
     }
 
-    private function sent(int $id): void
+private function sent(int $id): void
     {
         $state = $this->exchanges[$id] ?? null;
         if ($state === null) {
@@ -351,7 +352,7 @@ final class Http3ClientSiblingManager
         $this->read($id);
     }
 
-    private function upload(int $id): void
+private function upload(int $id): void
     {
         $state = $this->exchanges[$id] ?? null;
         if ($state === null) {
@@ -389,7 +390,7 @@ final class Http3ClientSiblingManager
         });
     }
 
-    /** @param callable():void $next */
+/** @param callable():void $next */
     private function write(int $id, string $bytes, bool $fin, callable $next, int $offset = 0): void
     {
         $state = $this->exchanges[$id] ?? null;
@@ -420,4 +421,5 @@ final class Http3ClientSiblingManager
             $this->acceptWrite($id, $result, $bytes, $fin, $offset, $next, $length, $last);
         });
     }
+
 }
