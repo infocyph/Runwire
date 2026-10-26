@@ -89,7 +89,8 @@ RUNWIRE_BENCH_TLS=1 RUNWIRE_BENCH_TLS_CA="$workdir/ca.pem" \
   RUNWIRE_RUNTIME_VERSION=3.0-smoke \
   php "$root/benchmarks/http1_sustained_bench.php" "$port" 2 0.1 1.0 "$pid" > "$out"
 
-jq -e '.tls == "on-verified" and .workload == "verified-tls-keepalive"
+jq -e '.tls == "on-verified" and .workload == "verified-tls-H1"
+  and .connection_reuse == "keep-alive" and .response_body_bytes == 2
   and .correctness_passed == true and .requests_total > 0
   and .successful_requests == .requests_total
   and .errors_total == 0 and .timeouts_total == 0
