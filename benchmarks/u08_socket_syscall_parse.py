@@ -11,7 +11,7 @@ from pathlib import Path
 
 SYSCALL = re.compile(
     r"^(?P<operation>read|readv|recvfrom|recvmsg|recvmmsg|write|writev|sendto|sendmsg|sendmmsg)"
-    r"\\((?P<fd>[0-9]+)<(?P<kind>TCP|UDP|socket):"
+    r"\((?P<fd>[0-9]+)<(?P<kind>TCP|UDP|socket):"
 )
 READ_FAMILIES = {"read", "readv", "recvfrom", "recvmsg", "recvmmsg"}
 WRITE_FAMILIES = {"write", "writev", "sendto", "sendmsg", "sendmmsg"}
@@ -70,7 +70,7 @@ def main() -> int:
         "untraced_benchmark_equivalence_claimed": False,
         "includes_client_process_calls": False,
     })
-    Path(sys.argv[2]).write_text(json.dumps(result, indent=2) + "\\n", encoding="utf-8")
+    Path(sys.argv[2]).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
     return 0
 
