@@ -55,9 +55,11 @@ context. Do not repurpose insecure server-side TLS defaults for dialing.
 
 The unreleased ``HttpNegotiatingOutboundClient`` selects HTTP/1.1 or
 HTTP/2 only **after verified TLS/ALPN negotiation**. Explicitly allowing
-fallback limits how a peer can choose a nonpreferred version. HTTP/3
-remains unsupported for outbound HTTP requests; a requested H3 policy
-is rejected rather than silently downgraded to H2/H1 or plaintext.
+fallback limits how a peer can choose a nonpreferred version. The experimental native HTTP/3 outbound client is a separate
+one-shot HTTPS/h3 path over verified QUIC. It does not yet offer
+multiplexed sibling requests, dynamic QPACK unblocking or release
+performance certification. The H1/H2 negotiating client cannot satisfy
+an H3-only policy and must reject it rather than silently downgrade.
 
 .. code-block:: php
 
@@ -129,14 +131,20 @@ not an authenticated TLS close_notify.
 Experimental HTTP CONNECT and SOCKS5 stages
 --------------------------------------------
 
-The unreleased HTTP CONNECT and SOCKS5 tunnel types are limited to
-unauthenticated handshake stages on an already established Runwire Connection.
-Their bounded framing, DNS disclosure policy, cancellation, and callback
-ownership are development building blocks, **not an HTTPS-through-proxy client**.
-Neither authenticated proxy TLS ownership nor the original target's
-nested TLS handshake, verified certificate identity and ALPN have been
-implemented. A 200 CONNECT reply or successful SOCKS5 handshake does
-not prove original target identity or authorize weakening TLS checks.
+The experimental HTTP CONNECT and SOCKS5 tunnel adapters support
+authenticated negotiation on already established Runwire connections,
+but remain **not an HTTPS-through-proxy client**. The outbound
+TLS dialer must first verify the proxy certificate and hostname;
+the configured proxy name must match the authenticated peer before
+Basic or RFC 1929 credentials may be transmitted. Constructing a codec
+with a verified-transport flag alone does not authorize credentials.
+Local/remote DNS policy, bounded framing, cancellation and callback
+handoff remain explicit.
+
+The original destination's nested TLS handshake, certificate identity
+and ALPN are still unimplemented across authenticated proxy tunnels.
+A 200 CONNECT reply or successful SOCKS5 handshake proves neither
+the original target identity nor permission to weaken TLS checks.
 
 Keep production HTTPS proxy clients unchanged until independently verified
 proxy and original-target TLS reference tests have passed U10.04–U10.06.
@@ -149,8 +157,10 @@ RoadRunner and Swoole continue to own their host-specific listener/worker
 lifecycle. Optional ext-event, ext-swoole and ext-quic are not mandatory
 Composer dependencies. HTTP/2 has independently tested one-shot and
 experimental multiplexed TLS clients in 3.0 development. The HTTP/3 request
-client, CONNECT/SOCKS5, WebTransport and final release benchmarks are
-**not complete**; no unreleased APIs should be treated as shipped.
+client has a verified one-shot experimental implementation, but full
+H3 QPACK/multiplexing, CONNECT/SOCKS5 original-target TLS, WebTransport
+and final release benchmarks are **not complete**; no unreleased APIs
+should be treated as shipped.
 
 The final migration acceptance requires an exact reflected 2.1.2 versus
 3.0 manifest diff for removed/renamed symbols, changed public parameters,
