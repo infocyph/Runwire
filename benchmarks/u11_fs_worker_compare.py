@@ -14,6 +14,9 @@ TRIALS = 5
 SAMPLES = 8
 OPERATIONS = 64
 PAYLOAD_BYTES = 65536
+# Conservative per-process-tree sampled limits for this development worker fixture.
+MAX_SAMPLED_TREE_RSS_BYTES = 384 * 1024 * 1024
+MAX_LOOP_TICK_GAP_NS = 50_000_000
 
 
 def records(path: Path, workers: int) -> dict[int, list[dict]]:
@@ -44,12 +47,21 @@ def records(path: Path, workers: int) -> dict[int, list[dict]]:
             "sampledMaxTickGapNanoseconds",
             "sampledWorkerOccupancyRatio",
             "processTreeSampleCount",
+            "sampledMaxBusyWorkers",
+            "executorPeakQueued",
+            "executorWorkers",
+            "executorJobsCompleted",
         ):
             value = item.get(field)
             if not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
                 raise ValueError(f"Invalid measurement {field}")
         if item["throughputBytesPerSecond"] <= 0 or item["sampledProcessTreePeakRssBytes"] <= 0:
             raise ValueError("Missing measured throughput or process-tree resident memory")
+        if (item["processTreeSampleCount"] < 1
+            or item["executorWorkers"] != workers
+            or item["sampledMaxBusyWorkers"] > workers
+            or item["executorPeakQueued"] > 128):
+            raise ValueError("Missing samples or worker admission budget exceeded")
         if item["trial"] not in range(1, TRIALS + 1) or item["sample"] not in range(1, SAMPLES + 1):
             raise ValueError("Out-of-range trial/sample")
         if any(existing["sample"] == item["sample"] for existing in groups[item["trial"]]):
@@ -100,6 +112,20 @@ def main() -> int:
     one = summarize(records(Path(sys.argv[1]), 1))
     two = summarize(records(Path(sys.argv[2]), 2))
     speedup = two["median_throughput_bytes_per_second"] / one["median_throughput_bytes_per_second"]
+    observed_peak_rss = max(
+        entry["sampled_process_tree_peak_rss_bytes"]
+        for summary in (one, two)
+        for entry in summary["trial_summaries"]
+    )
+    observed_tick_gap = max(
+        entry["sampled_max_tick_gap_nanoseconds"]
+        for summary in (one, two)
+        for entry in summary["trial_summaries"]
+    )
+    bounded_overhead = (
+        observed_peak_rss <= MAX_SAMPLED_TREE_RSS_BYTES
+        and observed_tick_gap <= MAX_LOOP_TICK_GAP_NS
+    )
     variance_qualified = (
         one["throughput_cv_percent"] < 2.5 and two["throughput_cv_percent"] < 2.5
     )
@@ -116,7 +142,12 @@ def main() -> int:
         "two_workers": two,
         "speedup_median": round(speedup, 4),
         "variance_qualified": variance_qualified,
-        "measured_improvement_candidate": variance_qualified and speedup > 1.05,
+        "sampled_max_process_tree_rss_bytes": observed_peak_rss,
+        "sampled_max_event_loop_tick_gap_nanoseconds": observed_tick_gap,
+        "sampled_tree_rss_budget_bytes": MAX_SAMPLED_TREE_RSS_BYTES,
+        "sampled_tick_gap_budget_nanoseconds": MAX_LOOP_TICK_GAP_NS,
+        "resource_budget_passed": bounded_overhead,
+        "measured_improvement_candidate": variance_qualified and bounded_overhead and speedup > 1.05,
         "qualification_note": (
             "Only the specific warmed development workload; not sustained end-to-end "
             "file/mixed-network production certification"
