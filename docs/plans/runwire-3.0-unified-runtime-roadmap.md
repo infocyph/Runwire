@@ -60,9 +60,9 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | Group | Original C1–C5 assigned U tasks | Open | Status |
 | --- | --- | ---: | --- |
 | C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U08.08, U08.05, U07.11, U07.08, U08.09 | 3 | IN DEVELOPMENT (8/11 accepted) |
-| C2 — WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 9 | IN DEVELOPMENT (1/10 accepted) |
-| C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 8 | IN DEVELOPMENT (1/9 accepted) |
-| C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | IN DEVELOPMENT (0/13 accepted; docs only) |
+| C2 — WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 9 | PAUSED — next after C1 (1/10 accepted) |
+| C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 8 | PAUSED (1/9 accepted) |
+| C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | PAUSED (0/13 accepted) |
 | C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
 | **TOTAL** | **52 originally assigned; 42 now OPEN** | **42** | **In progress** |
 
@@ -852,3 +852,6 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 
 **W130 C1 native QA repair / critical-stream registry (2026-10-26; exact-head QA PENDING):** Immutable [Security & Standards #40277142527](https://github.com/infocyph/Runwire/actions/runs/40277142527) reported PHP8.5 static complexity 85 class limit <80 and `acceptPeerControl()` 19 >12; PHPForge Pint required ordering of `Http3ClientWireCodec` QPACK decoder/encoder methods. Extract bounded QUIC stream-type prefix classification and duplicate critical stream rejection to internal `Http3ClientPeerStreamRegistry` with new fragmented-type, sibling and FIN tests. The client control handler now only dispatches an already-validated stream, reducing nesting without removing QPACK validation; reorder QPACK feedback methods for PHPForge. Native independent aioquic PHP8.4 already passed on original code; require both native PHP versions, all four QA, both analyzers and full exact-head CI on this candidate. **No additional C1 acceptance; 8/11 C1, 133/175 overall, 42 OPEN**. Other closure batches paused until C1 fully closes.
+
+
+**W131 strict C1-only closure discipline + PHPForge property-order correction (2026-10-26; exact-head QA PENDING):** Confirmed [source e95ad95](https://github.com/infocyph/Runwire/commit/e95ad9593fe17eb346282cdc25663a0e5ce8ad75) both PHPStan analyzers PASS, native PHP8.4 aioquic PASS and Pest PASS; PHPForge Pint on all four QA lanes rejected only `Http3OutboundClient.php` `ordered_class_elements` because the new readonly peer-stream registry was declared after mutable properties. Move its declaration alongside the other readonly collaborators without changing socket behavior. The user's latest instruction **revokes overlapping C2/C3/C4 development until C1 as a complete 11-task batch has independently passed all QA**. Update canonical status tables and PR accordingly. Do not count interim commits as batches, and do not promote tasks without complete QPACK/QUIC sibling conformance and outbound H1/H2/H3 matched profiling. **C1 8/11; overall 133/175, 42 OPEN**.

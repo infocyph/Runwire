@@ -49,6 +49,8 @@ final class Http3OutboundClient
 
     private readonly ?Closure $onTrailers;
 
+    private readonly Http3ClientPeerStreamRegistry $peerStreams;
+
     private readonly QuicClientSession $session;
 
     private ?CancellationSubscription $cancellation = null;
@@ -56,8 +58,6 @@ final class Http3OutboundClient
     private bool $finished = false;
 
     private bool $peerControlFound = false;
-
-    private readonly Http3ClientPeerStreamRegistry $peerStreams;
 
     private ?Http3ClientResponseStream $response = null;
 
