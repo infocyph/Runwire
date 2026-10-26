@@ -59,6 +59,8 @@ final class Http3OutboundClient
 
     private bool $peerControlFound = false;
 
+    private bool $peerSettingsSeen = false;
+
     private ?Http3ClientResponseStream $response = null;
 
     private int $responseStream = 0;
@@ -211,11 +213,13 @@ final class Http3OutboundClient
         if ($eof) {
             $this->control->closePeerControl();
         }
-        if ($this->control->peerSettings() !== null) {
+        if ($this->control->peerSettings() !== null && !$this->peerSettingsSeen) {
+            $this->peerSettingsSeen = true;
             $this->readResponse();
-        } else {
-            $this->poll(fn() => $this->readControl($stream));
         }
+        // The peer's critical control stream stays live for the entire session.
+        // Re-read after SETTINGS to detect premature FIN and later control frames.
+        $this->poll(fn() => $this->readControl($stream));
     }
 
     /** @param array<string,mixed> $result */
