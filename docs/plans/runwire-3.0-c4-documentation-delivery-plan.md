@@ -4,6 +4,14 @@
 PR #9, Sphinx-native reStructuredText public documentation only.
 No Foundation/Infbyte/Core/Cells edits, merge, tag or release.
 
+## W196 — Runwire 3.0 exact-head QA and C4 tracker reconciliation (2026-10-27)
+
+**Verified immutable source:** [`8565d415`](https://github.com/infocyph/Runwire/commit/8565d4157f6ab62ad5bf8b400a530eea6296e6e8). All **ten** expected Runwire workflow checks reached **SUCCESS** on that exact commit, including [Security & Standards #40501019287](https://github.com/infocyph/Runwire/actions/runs/40501019287), [Benchmarks #40501018864](https://github.com/infocyph/Runwire/actions/runs/40501018864), [HTTP/2 independent #40501018745](https://github.com/infocyph/Runwire/actions/runs/40501018745), [Real Hosted Runtime Acceptance #40501018725](https://github.com/infocyph/Runwire/actions/runs/40501018725), [Portable Native #40501018912](https://github.com/infocyph/Runwire/actions/runs/40501018912), [Swoole/OpenSwoole #40501018769](https://github.com/infocyph/Runwire/actions/runs/40501018769), [C3 native PHP 8.4/8.5 #40501018715](https://github.com/infocyph/Runwire/actions/runs/40501018715), [Release Candidate #40501018741](https://github.com/infocyph/Runwire/actions/runs/40501018741), [Source Audit #40501018770](https://github.com/infocyph/Runwire/actions/runs/40501018770), and [strict Sphinx documentation #40501018773](https://github.com/infocyph/Runwire/actions/runs/40501018773). The earlier W194/W195 *QA pending* notes are archived checkpoints, superseded by this successful exact-source matrix.
+
+**Canonical checklist recount:** **147/169 QA-accepted (87.0%), 22 OPEN**; closure groups **C1 11/11 DONE**, **C2 5/5 DONE**, **C3 9/9 DONE**, **C4 0/13 ACTIVE**, **C5 0/9 QUEUED**. The extensive 20-chapter source-aligned Sphinx manual and local strict HTML documentation QA are complete. They do **not** prove C4's ten independent U15 matched baseline/saturation/1800-second benchmark tasks, U16.02/.16 external hosted Read the Docs preview/search/version evidence, or U16.12 final migration behavior signoff. No acceptance checkboxes have been promoted for documentation alone.
+
+**Evidence boundary:** this tracker-only synchronization commit changes the exact branch head; its CI must be evaluated on its own SHA. Do not transfer the green state of `8565d415` to a later SHA until that SHA has actually passed. No release, merge, tag, unrelated-repository edit, or security/QA waiver.
+
 ## W193 — Strict Sphinx QA accepted for 20-chapter source documentation (2026-10-27)
 
 The completed [Sphinx #40499541538](https://github.com/infocyph/Runwire/actions/runs/40499541538)

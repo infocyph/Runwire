@@ -6,6 +6,14 @@
 **Canonical tracker:** 147/169 accepted (87.0%); 22 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W196 — Runwire 3.0 exact-head QA and C4 tracker reconciliation (2026-10-27)
+
+**Verified immutable source:** [`8565d415`](https://github.com/infocyph/Runwire/commit/8565d4157f6ab62ad5bf8b400a530eea6296e6e8). All **ten** expected Runwire workflow checks reached **SUCCESS** on that exact commit, including [Security & Standards #40501019287](https://github.com/infocyph/Runwire/actions/runs/40501019287), [Benchmarks #40501018864](https://github.com/infocyph/Runwire/actions/runs/40501018864), [HTTP/2 independent #40501018745](https://github.com/infocyph/Runwire/actions/runs/40501018745), [Real Hosted Runtime Acceptance #40501018725](https://github.com/infocyph/Runwire/actions/runs/40501018725), [Portable Native #40501018912](https://github.com/infocyph/Runwire/actions/runs/40501018912), [Swoole/OpenSwoole #40501018769](https://github.com/infocyph/Runwire/actions/runs/40501018769), [C3 native PHP 8.4/8.5 #40501018715](https://github.com/infocyph/Runwire/actions/runs/40501018715), [Release Candidate #40501018741](https://github.com/infocyph/Runwire/actions/runs/40501018741), [Source Audit #40501018770](https://github.com/infocyph/Runwire/actions/runs/40501018770), and [strict Sphinx documentation #40501018773](https://github.com/infocyph/Runwire/actions/runs/40501018773). The earlier W194/W195 *QA pending* notes are archived checkpoints, superseded by this successful exact-source matrix.
+
+**Canonical checklist recount:** **147/169 QA-accepted (87.0%), 22 OPEN**; closure groups **C1 11/11 DONE**, **C2 5/5 DONE**, **C3 9/9 DONE**, **C4 0/13 ACTIVE**, **C5 0/9 QUEUED**. The extensive 20-chapter source-aligned Sphinx manual and local strict HTML documentation QA are complete. They do **not** prove C4's ten independent U15 matched baseline/saturation/1800-second benchmark tasks, U16.02/.16 external hosted Read the Docs preview/search/version evidence, or U16.12 final migration behavior signoff. No acceptance checkboxes have been promoted for documentation alone.
+
+**Evidence boundary:** this tracker-only synchronization commit changes the exact branch head; its CI must be evaluated on its own SHA. Do not transfer the green state of `8565d415` to a later SHA until that SHA has actually passed. No release, merge, tag, unrelated-repository edit, or security/QA waiver.
+
 ## W195 — Strict hyper-h2 GOAWAY continuation regression (2026-10-27; exact-head QA pending)
 
 After the prior H2 shutdown peer fix, independent local reproduction against hyper-h2 4.3.0 proved `H2Connection.receive_data` raises `ProtocolError` when valid DATA follows graceful GOAWAY, because the client library advances to a terminal connection state. This is a **client fixture limitation**, not proof that already accepted streams were corrupt. A strict 9-byte-frame-boundary filter validates each GOAWAY frame's stream zero, minimum payload size, NO_ERROR code and last processed stream >= the highest of eight accepted requests; it passes all other complete frames **unchanged** into hyper-h2 to verify exact DATA, END_STREAM, headers, sibling resets, EOF and deadlines. Fragmented wire frames and malformed, failing and insufficient GOAWAY receive independent regression tests, now required in the PHP 8.5 native protocol QA workflow. Sphinx navigation caption assertion was aligned in W194. Do not downgrade C4 or native release QA; C3 remains already accepted, program **147/169**, **22 OPEN**, C4 **0/13** until exact-head complete CI.
@@ -332,16 +340,16 @@ Commits [`62d6717`](https://github.com/infocyph/Runwire/commit/62d6717f34d0e3120
 
 ## Complete-the-entire-batch QA workflow (mandatory)
 
-**An execution batch is the complete set of assigned canonical U tasks, not a commit, a task group, or a QA correction.** C1 and C2 are complete; C3 is active, with exact-head whole-batch QA still required before C4. Each retains its separate whole-batch acceptance. All 11 task acceptance criteria are required in full, including real independent TLS/QUIC/HTTP peers, rollback/cancel/flow controls, matched benchmarks and performance evidence. Routine QA alone does not close C1.
+**An execution batch is the complete set of assigned canonical U tasks, not a commit, a task group, or a QA correction.** C1, C2 and C3 are QA accepted; C4 is the active whole-batch workstream and C5 remains queued. Each retains its separate whole-batch acceptance. All 11 task acceptance criteria are required in full, including real independent TLS/QUIC/HTTP peers, rollback/cancel/flow controls, matched benchmarks and performance evidence. Routine QA alone does not close C4's performance and externally hosted documentation gates.
 
-1. Implement every remaining C1 task within Runwire and the existing PR #9. Intermediate commits are allowed to obtain evidence, but they **are not additional batches**.
-2. Diagnose every red check; require green PHPForge PHP8.4/8.5 stable/lowest, static analyzers, native QUIC, host, benchmarks and every C1-specific independent gate on the exact final source. Do not bypass or soften acceptance.
+1. Finish C4's ten U15 independently measured performance tasks and U16.02/.12/.16 hosted-documentation/migration tasks in the existing Runwire branch and PR #9. Documentation source completeness is not individual U-task acceptance; intermediate commits are not separate closure batches.
+2. Diagnose each failed check; require PHPForge PHP8.4/8.5 stable/lowest, static analyzers, native QUIC and H2/H3 peers, hosted runtime, benchmarks, Sphinx, and all task-specific C4 independent measurements on the exact accepted source. Never bypass or soften acceptance.
 3. Use the canonical U task checklist to record proof and immutable Actions links. Count an accepted item only after every stated criterion is met. A pending, canceled, skipped or red job cannot prove acceptance.
 4. Keep both plan and roadmap synchronized with every push; retain accurate status and do not advance completion percentages on feature scaffolding.
-5. Only after C1 is 11/11 accepted with all required exact-head QA green mark C1 DONE; then activate C2 and require its own independent full QA. Apply the same whole-batch completion rule to C2, C3, C4 and C5.
+5. Preserve the completed C1/C2/C3 acceptance. Only after C4 is 13/13 accepted with the required exact-head QA and external evidence may C4 be marked DONE and C5 activated.
 6. Stay on the existing Runwire branch and draft PR #9. No merge, tag, release, new branch, work in Foundation/Infbyte/Core/Cells, or publishing.
 
-## Five grouped completion batches (47 scoped tasks; 22 still open, C1/C2/C3 complete; C4 next)
+## Five grouped completion batches (47 scoped tasks; 22 still open, C1/C2/C3 complete; C4 active)
 
 The five re-scoped closure groups contain **47** unique Uxx.yy IDs (25 accepted, 22 open). Five formerly assigned U09 implementation IDs have been retired; U09.05's previously accepted design is removed from the 3.0 task baseline as well. The **169-task canonical checklist** is authoritative; historical progress notes below remain archival, not promises of retained excluded functionality. Trackers, PHPForge QA and frozen certification apply only to this approved 3.0 scope.
 
@@ -350,9 +358,9 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (25 accepted,
 | C1 | Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 0 | COMPLETE (11/11 accepted) | Real TLS, QUIC and H1/H2/H3 peer conformance; bounded loss/reset/fallback; matched evidence |
 | C2 | Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 0 | DONE — 5/5 QA accepted in supported scope | Verified origin TLS over cleartext CONNECT, HTTPS-proxy nesting fail-closed, authenticated proxy, pooling, H2/H3 multiplex |
 | C3 | Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 0 | DONE (9/9 QA accepted) | Real live worker scaling/drain/crash tests, mixed transports, bounded file executor and fuzz |
-| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | PAUSED (0/13 accepted) | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
+| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | ACTIVE (0/13 accepted; detailed documentation source QA green, acceptance pending) | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
 | C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED | Exact-head PHPForge/host/interop/packaging gates, independent reviewer acceptance and no automatic release |
-| **TOTAL** | **Five closure groups; no extra task IDs** | **47 assigned; 25 accepted** | **22** | **C1/C2/C3 DONE; C4 NEXT, C5 queued** | **169 canonical tasks** |
+| **TOTAL** | **Five closure groups; no extra task IDs** | **47 assigned; 25 accepted** | **22** | **C1/C2/C3 DONE; C4 ACTIVE, C5 queued** | **169 canonical tasks** |
 
 ### Cross-batch delivery and QA discipline
 
@@ -361,7 +369,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (25 accepted,
 - **C3:** connect bounded autoscale *decisions* to real native supervisor lifecycle and its crash/drain QA, prove filesystem acceleration/performance and adversarial session limits.
 - **C4:** run genuine matching and resource telemetry once real protocol capabilities exist; perform the complete RST migration/hosted docs preview while code stabilizes.
 - **C5:** certify an immutable final head. No U17 checkbox and no release-ready claim is permitted without its task-specific proof, including U15 performance, U16 hosted preview, independently verified peers and full PHP 8.4/8.5 gates.
-- **Whole-batch gate:** all eleven C1 tasks must be individually accepted and exact-source CI plus independent H3 peer/matched benchmark evidence GREEN before C1 DONE. **C1 and C2 already closed; do not promote C3 until exact-head full QA is green.** Intermediate commits remain within C1, not sub-batches. Keep both trackers and PR in sync.
+- **Whole-batch gate:** all eleven C1 tasks must be individually accepted and exact-source CI plus independent H3 peer/matched benchmark evidence GREEN before C1 DONE. **C1/C2/C3 are complete. Do not promote C4 tasks without their specific performance/hosted-documentation proofs and exact-head QA.** Intermediate commits remain within C1, not sub-batches. Keep both trackers and PR in sync.
 - **Evidence/preflight distinction:** opt-in immutable-source certification must be runnable to *produce* U15/U17 evidence before all tasks are checked; the authoritative final aggregation **still refuses** release readiness unless exactly 169/169 tasks and every required job succeed. Never downgrade a failed/skipped gate to green.
 
 ## Canonical batch summary
