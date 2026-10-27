@@ -13,6 +13,7 @@ on:
       - tests/**
       - composer.json
       - composer.lock
+      - tools/c5-carry-forward-qa.sh
       - .github/workflows/source-audit.yml
   pull_request:
     paths:
@@ -125,6 +126,10 @@ jobs:
             php -l "$file" >/dev/null
           done < <(find src -type f -name '*.php' -print0 | sort -z)
           printf 'syntax-ok files=%s\n' "$(find src -type f -name '*.php' | wc -l)"
+
+      - name: Verify all 20 historical 2.2 task migrations against canonical 3.0 acceptance
+        shell: bash
+        run: bash tools/c5-carry-forward-qa.sh
 
       - name: Risk-pattern scan
         shell: bash

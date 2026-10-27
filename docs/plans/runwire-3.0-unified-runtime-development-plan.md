@@ -798,6 +798,8 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 
 ## Complete leftover carry-forward (20 / 20)
 
+**W211 C5 preflight (2026-10-27):** The historical crosswalk now reads the current Uxx.yy QA-accepted checkboxes, not the pre-C3 project state: 15/20 mappings have all target tasks accepted, and 5/20 map to intentionally OPEN final-release U17 checks. All 20 remain explicitly mapped; `tools/c5-carry-forward-qa.sh` fail-closes unknown/duplicate IDs, missing or unchecked mapped tasks wrongly labeled accepted, and stale OPEN labels on accepted targets. This reconciliation does **not** accept U17.01 or start C5 certification: the canonical tracker stays **157/169 accepted, C4 10/13, C5 0/9** pending required release evidence.
+
 The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/plans/runwire-2.2-runtime-improvement-plan.md) has **95 historical IDs, 75 previously checked, 20 unchecked**. It remains accessible at its immutable Git commit but is not in the active working tree. The 20 unchecked include seven R5.02-R5.08 dialer items that were deferred under 2.2, but **are mandatory in 3.0**. Prior checked work is regression coverage only; 3.0 starts at zero accepted tasks.
 
 | Old unfinished 2.2 ID | 3.0 acceptance task(s) | Status |
@@ -809,14 +811,14 @@ The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e
 | R4.02 | U08.04 + U15.04 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
 | R4.04 | U08.05 + U15.04 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
 | R4.09 | U08.08 + U15.05 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
-| R5.02 | U03.01 | OPEN; retest against 3.0 |
-| R5.03 | U02.06 + U06.03 | OPEN; retest against 3.0 |
-| R5.04 | U02.04 | OPEN; retest against 3.0 |
+| R5.02 | U03.01 | ACCEPTED; U03.01 endpoint/URI QA #39929786108 |
+| R5.03 | U02.06 + U06.03 | ACCEPTED; owner-scope QA #39926291446 and transfer QA #40050545361 |
+| R5.04 | U02.04 | ACCEPTED; slow-peer/bounded-watermark QA #39923215737 |
 | R5.05 | U04.02 + U04.06 | ACCEPTED; both tasks passed QA #39995711371 |
 | R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
-| R5.07 | U03.09 + U13.03 | OPEN; retest against 3.0 |
+| R5.07 | U03.09 + U13.03 | ACCEPTED; Swoole/OpenSwoole hosted QA #39976909971 / #40064041118 |
 | R5.08 | U03.10 + U15.06 | ACCEPTED; U15.06 live GitHub #40509100579 |
-| R6.02 | U12.05 | OPEN; retest against 3.0 |
+| R6.02 | U12.05 | ACCEPTED; native mixed lifecycle QA #40490979414 / #40490978809 |
 | R8.05 | U17.06 | OPEN; retest against 3.0 |
 | R8.10 | U17.07 | OPEN; retest against 3.0 |
 | R9.06 | U17.08 | OPEN; retest against 3.0 |
