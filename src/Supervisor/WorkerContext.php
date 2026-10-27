@@ -11,6 +11,8 @@ use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
+use Infocyph\Runwire\Network\BoundedConnectionPool;
+use Infocyph\Runwire\Network\QuicClientSession;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
@@ -37,6 +39,12 @@ final class WorkerContext
 
     /** @var array<int, ProcessExecutor> */
     private array $ownedExecutors = [];
+
+    /** @var array<int, BoundedConnectionPool> */
+    private array $ownedPools = [];
+
+    /** @var array<int, QuicClientSession> */
+    private array $ownedQuicSessions = [];
 
     private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
@@ -176,6 +184,26 @@ final class WorkerContext
         $this->ownedExecutors[spl_object_id($executor)] = $executor;
     }
 
+    /** Explicitly transfer one connection pool's shutdown to this worker. */
+    public function ownPool(BoundedConnectionPool $pool): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept pool ownership.');
+        }
+
+        $this->ownedPools[spl_object_id($pool)] = $pool;
+    }
+
+    /** Explicitly transfer a native QUIC session's shutdown to this worker. */
+    public function ownQuicSession(QuicClientSession $session): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept QUIC session ownership.');
+        }
+
+        $this->ownedQuicSessions[spl_object_id($session)] = $session;
+    }
+
     /**
      * Close worker lifecycle, stop-wake, periodic-task, and coroutine resources.
      */
@@ -185,6 +213,7 @@ final class WorkerContext
         $this->stopping = true;
         $this->backgroundCoroutines?->close();
         $this->periodicTasks->close();
+        $this->closeOwnedNetworkResources();
         $this->closeOwnedExecutors();
         if ($this->controlWatcher !== null && $this->controlLoop !== null) {
             $this->controlLoop->cancel($this->controlWatcher);
@@ -464,6 +493,29 @@ final class WorkerContext
                 }
             },
         );
+    }
+
+    private function closeOwnedNetworkResources(): void
+    {
+        $pools = $this->ownedPools;
+        $sessions = $this->ownedQuicSessions;
+        $this->ownedPools = [];
+        $this->ownedQuicSessions = [];
+
+        foreach ($pools as $pool) {
+            try {
+                $pool->close();
+            } catch (\Throwable) {
+                // Release other worker resources even when application observers fail.
+            }
+        }
+        foreach ($sessions as $session) {
+            try {
+                $session->dispose();
+            } catch (\Throwable) {
+                // A failed QUIC callback must not prevent other sessions closing.
+            }
+        }
     }
 
     private function closeOwnedExecutors(): void
