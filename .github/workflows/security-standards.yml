@@ -487,6 +487,12 @@ jobs:
         run: |
           /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0'
 
+      - name: Verify strict GOAWAY filtering and post-GOAWAY accepted DATA
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          /tmp/runwire-aioquic/bin/python benchmarks/test_mixed_native_goaway.py
+
       - name: Real simultaneous H1/H2/H3/TCP/UDP native crash and rolling recycle
         if: matrix.php-version == '8.5'
         shell: bash

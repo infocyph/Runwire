@@ -78,6 +78,53 @@ async def request_http1(port):
         await writer.wait_closed()
 
 
+class GracefulH2GoAwayFilter:
+    """Validate native GOAWAY without closing hyper-h2's active request decoder.
+
+    hyper-h2 4.3 treats received GOAWAY as terminal and rejects later DATA
+    frames, although HTTP/2 permits already accepted streams to finish. This
+    strict frame-boundary filter validates GOAWAY itself and feeds all other
+    unmodified wire frames into hyper-h2 for complete payload verification.
+    """
+
+    def __init__(self, last_accepted_stream):
+        self.last_accepted_stream = last_accepted_stream
+        self.pending = bytearray()
+        self.goaways = 0
+
+    def receive(self, data):
+        self.pending.extend(data)
+        decoded = bytearray()
+        while len(self.pending) >= 9:
+            length = int.from_bytes(self.pending[0:3], "big")
+            frame_length = 9 + length
+            if len(self.pending) < frame_length:
+                break
+
+            frame = bytes(self.pending[:frame_length])
+            del self.pending[:frame_length]
+            if frame[3] != 7:
+                decoded.extend(frame)
+                continue
+
+            stream_id = int.from_bytes(frame[5:9], "big")
+            if stream_id != 0 or length < 8:
+                raise ConnectionError("Malformed native HTTP/2 GOAWAY frame")
+            last_processed = int.from_bytes(frame[9:13], "big") & 0x7FFFFFFF
+            error_code = int.from_bytes(frame[13:17], "big")
+            if error_code != 0 or last_processed < self.last_accepted_stream:
+                raise ConnectionError(
+                    f"Native HTTP/2 GOAWAY invalidates accepted siblings: "
+                    f"error={error_code}, last={last_processed}"
+                )
+            self.goaways += 1
+        return bytes(decoded)
+
+    def assert_complete(self):
+        if self.pending:
+            raise ConnectionError("Truncated HTTP/2 frame after graceful drain")
+
+
 async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted=None):
     # Admit eight real independent H2 streams with different body lengths;
     # cancellation of a ninth stream must not abort accepted sibling traffic.
@@ -93,6 +140,7 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
         completed = set()
         update_write_failed = False
         response_bodies = {stream: bytearray() for stream in expected}
+        goaway_filter = GracefulH2GoAwayFilter(max(expected))
         writer = None
         try:
             reader, writer = await asyncio.wait_for(
@@ -126,7 +174,9 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
                 data = await asyncio.wait_for(reader.read(65535), 4)
                 if not data:
                     raise ConnectionError("H2 transport retired before response completion")
-                for event in h2.receive_data(data):
+                # Independently validate GOAWAY, but retain DATA decoding for
+                # already accepted streams after graceful server drain.
+                for event in h2.receive_data(goaway_filter.receive(data)):
                     if isinstance(event, (ResponseReceived, DataReceived, StreamEnded, StreamReset)) \
                             and event.stream_id == cancelled_id:
                         if isinstance(event, DataReceived):
@@ -150,15 +200,7 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
                     elif isinstance(event, StreamReset):
                         raise ConnectionError(f"H2 request reset during native reload: {event.stream_id}")
                     elif isinstance(event, ConnectionTerminated):
-                        # A normal GOAWAY announces graceful drain; it does
-                        # not terminate streams already admitted by the server.
-                        # hyper-h2 uses ConnectionTerminated for GOAWAY too.
-                        # Only a nonzero error or an unadmitted stream fails.
-                        if event.error_code != 0 or event.last_stream_id < max(expected):
-                            raise ConnectionError(
-                                f"Native H2 GOAWAY invalidates accepted siblings: "
-                                f"error={event.error_code}, last={event.last_stream_id}"
-                            )
+                        raise ConnectionError("Unfiltered terminal HTTP/2 control frame")
                 if submitted is not None and len(headers_seen) == len(expected):
                     submitted.set()
                     submitted = None
@@ -186,6 +228,7 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
                         # if any flow-control update was actually needed,
                         # a missing byte, reset or EOF still fails the wave.
                         update_write_failed = True
+            goaway_filter.assert_complete()
             return len(completed)
         except (ConnectionError, OSError, ssl.SSLError):
             # A supervisor may retire a TLS session before any response is
