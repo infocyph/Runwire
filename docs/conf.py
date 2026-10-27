@@ -20,7 +20,7 @@ lexers["php"] = PhpLexer(startinline=True)
 html_theme = "sphinx_book_theme"
 html_theme_options = {
     "repository_url": "https://github.com/infocyph/Runwire",
-    "repository_branch": "main",
+    "repository_branch": os.getenv("READTHEDOCS_GIT_IDENTIFIER", os.getenv("GITHUB_HEAD_REF", "main")),
     "path_to_docs": "docs",
     "use_repository_button": True,
     "use_issues_button": True,
