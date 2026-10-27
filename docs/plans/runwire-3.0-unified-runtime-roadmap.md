@@ -130,6 +130,10 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
+## W158 — C3 QA installation security blocker (2026-10-27; unresolved)
+
+The temporary Runwire-only compatibility pin at `ec9c586` was **reverted** by [`a77ec31`](https://github.com/infocyph/Runwire/commit/a77ec31e99a42d31f5589edc7a4424011b9d9870) after [H2 job #122042288673](https://github.com/infocyph/Runwire/actions/runs/40460072073) proved Composer rejects PHPUnit 13.4.1–13.4.5 due to published security advisory `PKSA-qhjm-rpqc-qkn6`, not merely dependency incompatibility. Disabling Composer advisory enforcement or forcing a vulnerable package is **not permitted**. Original PHPForge dev-main demands ParaTest >=7.26.0 <7.26.1, while current Pest requires a newer ParaTest; clean installs cannot currently certify new C3 commits. Preserve all red install evidence; require a secure PHPForge/Pest/ParaTest/PHPUnit version set before QA acceptance. No out-of-repository modifications, no fake green QA, **C3 remains 2/9, program 140/169, 29 OPEN**. The earlier W157 pin is historical and reversed.
+
 ## W157 — CI dependency resolution repair, Runwire-only (2026-10-27; QA pending)
 
 The exact `459b78f` CI source failed real hosted and independent H2 matrix **before tests** at Composer install because `infocyph/phpforge dev-main` requires `brianium/paratest >=7.26.0 <7.26.1`, while Pest 5.3.2/5.3.3 demand ParaTest ^7.26.1, and a newer PHPUnit patch conflicts with available older Pest. Both failure suites show Composer solver errors, not assertions or runtime regressions. [`ec9c586`](https://github.com/infocyph/Runwire/commit/ec9c5868d05883af90a128e3199aa465041d8e7c) pins only Runwire **dev** dependencies Pest 5.3.1 and PHPUnit 13.4.1, matching the PHPForge-constrained ParaTest 7.26.0 lineage. This is a temporary compatible CI solver hypothesis requiring confirmation on all QA lanes; it neither weakens tests nor edits PHPForge or other repositories. Unpin once PHPForge supports the newer ParaTest/Pest combination. **C3 stays 2/9, 140/169 accepted (29 OPEN)** until full exact-head QA. No 3.0 release or merge authorization.
