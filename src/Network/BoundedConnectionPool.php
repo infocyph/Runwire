@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Network;
 use Closure;
 use Infocyph\Runwire\Loop\LoopInterface;
 use InvalidArgumentException;
+use LogicException;
 use OverflowException;
 use RuntimeException;
 use Throwable;
@@ -45,6 +46,8 @@ final class BoundedConnectionPool
 
     private int $nextId = 1;
 
+    private readonly int $ownerPid;
+
     /** @var array<int, array{key:PoolIsolationKey, callback:Closure, timer:int}> */
     private array $waiting = [];
 
@@ -62,6 +65,11 @@ final class BoundedConnectionPool
             throw new InvalidArgumentException('Connection pool lease and waiter limits are invalid.');
         }
 
+        $pid = getmypid();
+        if (!is_int($pid)) {
+            throw new RuntimeException('Unable to establish connection pool process ownership.');
+        }
+        $this->ownerPid = $pid;
         $this->idle = new IdleConnectionPool($loop, $maxIdle, $idleTtlSeconds);
     }
 
@@ -71,6 +79,7 @@ final class BoundedConnectionPool
      */
     public function acquire(PoolIsolationKey $key, callable $ready, float $waitSeconds = 10.0): int
     {
+        $this->assertProcessOwner();
         if ($this->closed || !is_finite($waitSeconds) || $waitSeconds <= 0
             || $this->nextId === PHP_INT_MAX) {
             throw new InvalidArgumentException('Pool is closed or waiter deadline/identity is invalid.');
@@ -116,6 +125,7 @@ final class BoundedConnectionPool
     /** Cancel a queued waiter exactly once; active leases use release(). */
     public function cancel(int $id): bool
     {
+        $this->assertProcessOwner();
         if (!isset($this->waiting[$id])) {
             return false;
         }
@@ -130,6 +140,7 @@ final class BoundedConnectionPool
     /** Shut down all idle connections and settle queued waiters. Active leases are caller-owned. */
     public function close(): void
     {
+        $this->assertProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -180,6 +191,7 @@ final class BoundedConnectionPool
     /** Retire a lease; unhealthy, foreign or closed-pool sockets are aborted. */
     public function release(int $id, ?Connection $connection = null): bool
     {
+        $this->assertProcessOwner();
         $key = $this->active[$id] ?? null;
         if ($key === null) {
             $connection?->abort();
@@ -202,6 +214,13 @@ final class BoundedConnectionPool
     public function waitingCount(): int
     {
         return count($this->waiting);
+    }
+
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('Connection pools cannot be used by a forked child; create a pool after forking.');
+        }
     }
 
     private function dispatch(): void
