@@ -46,9 +46,9 @@ $supervisor->autoscale(
         ++$samples;
 
         return [
-            'cpuRatio' => $samples <= 2 ? 0.01 : 0.90,
-            'queued' => $samples <= 2 ? 0 : 2,
-            'successfulRps' => $samples <= 2 ? 0.0 : 10.0,
+            'cpuRatio' => $samples <= 4 ? 0.01 : 0.90,
+            'queued' => $samples <= 4 ? 0 : 2,
+            'successfulRps' => $samples <= 4 ? 0.0 : 10.0,
             'p99Milliseconds' => 1.0,
         ];
     },
@@ -69,13 +69,13 @@ $observer = $loop->repeat(0.1, static function () use ($supervisor, &$seenOne, &
         $slots[$worker->slot] = true;
     }
 });
-$loop->delay(6.5, static fn() => $supervisor->stop());
+$loop->delay(10.5, static fn() => $supervisor->stop());
 
 try {
     $supervisor->run();
     $loop->cancel($observer);
     $status = $supervisor->status();
-    if (!$seenOne || !$seenTwo || $duplicateSlot || $status->workerCount !== 0 || $samples < 4) {
+    if (!$seenOne || !$seenTwo || $duplicateSlot || $status->workerCount !== 0 || $samples < 7) {
         throw new RuntimeException(sprintf(
             'C3 native autoscale smoke failed: min=%d max=%d duplicate=%d remaining=%d samples=%d.',
             (int) $seenOne,
