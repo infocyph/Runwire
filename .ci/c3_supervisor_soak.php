@@ -112,7 +112,7 @@ try {
         'elapsedSeconds' => round(microtime(true) - $started, 2),
         'finalWorkerCount' => $supervisor->status()->workerCount,
     ];
-    echo json_encode($record, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n";
+    fwrite(STDOUT, json_encode($record, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
 
     if ($duplicateOwners || $changes < 3 || $samples < 19 || !in_array(1, $counts, true)
         || !in_array(2, $counts, true) || $p99 > 1_000.0
@@ -122,5 +122,5 @@ try {
     }
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . "\n");
-    exit(1);
+    throw $error;
 }

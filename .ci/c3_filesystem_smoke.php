@@ -68,7 +68,7 @@ try {
         throw new RuntimeException('C3 portable filesystem IPC/cancellation/cleanup invariants failed: '
             . json_encode(['checks' => $checks, 'ticks' => $ticks, 'executor' => $diag]));
     }
-    echo "C3 off-reactor binary filesystem read/write/rename/unlink and heartbeat passed.\n";
+    fwrite(STDOUT, "C3 off-reactor binary filesystem read/write/rename/unlink and heartbeat passed.\n");
 } finally {
     $executor->close();
     if (is_file($path)) {

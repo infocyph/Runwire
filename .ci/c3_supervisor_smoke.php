@@ -21,7 +21,7 @@ use Infocyph\Runwire\Supervisor\WorkerGroup;
 
 if (!function_exists('pcntl_fork') || !function_exists('posix_getpid')) {
     fwrite(STDERR, "C3 supervisor smoke requires native pcntl and posix.\n");
-    exit(2);
+    throw new RuntimeException('Native process extensions are required for this fixture.');
 }
 
 $loop = new SelectLoop();
@@ -86,8 +86,8 @@ try {
         ));
     }
 
-    echo "C3 native autoscale smoke passed.\n";
+    fwrite(STDOUT, "C3 native autoscale smoke passed.\n");
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . "\n");
-    exit(1);
+    throw $error;
 }

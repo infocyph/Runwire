@@ -27,4 +27,4 @@ if ($gate->pendingWindows() !== 0 || $gate->observe(1, 0.9, 2, 10.0, 300.0, 2.0)
     || $gate->observe(1, 0.9, 2, 10.0, 300.0, 3.0) !== 2) {
     throw new RuntimeException('Invalid metric window did not break consecutive pressure voting.');
 }
-echo "C3 autoscale telemetry safety contract passed.\n";
+fwrite(STDOUT, "C3 autoscale telemetry safety contract passed.\n");

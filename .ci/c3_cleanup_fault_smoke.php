@@ -78,4 +78,4 @@ if ($diagnostics->timersActive !== 0 || $diagnostics->readWatchers !== 0 || $dia
     throw new RuntimeException('Worker-owned resources remained after injected timer-cancel fault.');
 }
 
-echo "C3 worker stop fault isolation and retryable periodic timer cleanup PASS\n";
+fwrite(STDOUT, "C3 worker stop fault isolation and retryable periodic timer cleanup PASS\n");

@@ -140,7 +140,7 @@ try {
         'duplicateSlots' => $overlap,
         'remainingWorkers' => $supervisor->status()->workerCount,
     ];
-    echo json_encode($results, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n";
+    fwrite(STDOUT, json_encode($results, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
     if ($success < 60 || $failures !== [] || $p99 > 1_000.0 || $overlap
         || !in_array(1, $counts, true) || !in_array(2, $counts, true)
         || $supervisor->status()->workerCount !== 0) {

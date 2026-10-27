@@ -152,7 +152,7 @@ try {
         || count(array_unique($pids)) !== 4 || $supervisor->status()->workerCount !== 0) {
         throw new RuntimeException('Mixed-peer crash, recycle, reload, or stop did not fully complete.');
     }
-    echo "C3 live HTTP/1 + TCP + UDP across SIGKILL/recycle/reload/stop passed.\n";
+    fwrite(STDOUT, "C3 live HTTP/1 + TCP + UDP across SIGKILL/recycle/reload/stop passed.\n");
 } finally {
     fclose($http);
     fclose($tcp);
