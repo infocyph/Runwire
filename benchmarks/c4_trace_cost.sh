@@ -65,7 +65,7 @@ YAML
       url="http://127.0.0.1:$port/rr?case=bench"
     fi
     if [ "$tracing" = on ]; then
-      setsid taskset -c "$server_cpu" strace -ff -qq -e trace=network,read,write,readv,writev \
+      setsid taskset -c "$server_cpu" strace -ff -qq -e trace=network \
         -o "$out/$runtime-trace" "${server[@]}" > "$out/$runtime-on-server.log" 2>&1 &
     else
       setsid taskset -c "$server_cpu" "${server[@]}" > "$out/$runtime-off-server.log" 2>&1 &
@@ -92,7 +92,11 @@ YAML
     python3 benchmarks/c4_process_resource_sampler.py "$pid" "$sample_flag" \
       "$out/$runtime-$tracing-resources.json" &
     sampler_pid=$!
-    taskset -c "$client_cpu" wrk -t1 -c4 -d12s --latency \
+    # Per-request host fixture also performs real file/socket/pool work.
+    # Match on/off at C=1 for RoadRunner; keep native C=4 independently.
+    concurrency=4
+    if [ "$runtime" = roadrunner ]; then concurrency=1; fi
+    taskset -c "$client_cpu" wrk -t1 -c"$concurrency" -d12s --latency \
       -s benchmarks/c4_trace_response.lua "$url" > "$out/$runtime-$tracing-client.log"
     rm -f "$sample_flag"
     sample_flag=""
@@ -104,7 +108,12 @@ YAML
     jq -e '.correctness_passed == true and .successful_requests == .requests_total
       and .errors_total == 0 and .timeouts_total == 0
       and .validation_failures == 0 and .latency_ms.p99 > 0
-      and .throughput_rps > 0' "$out/$runtime-$tracing-client.json" >/dev/null
+      and .throughput_rps > 0' "$out/$runtime-$tracing-client.json" >/dev/null || {
+        echo "::error::Real $runtime/$tracing HTTP correctness and latency gate failed." >&2
+        cat "$out/$runtime-$tracing-client.json" >&2
+        tail -45 "$out/$runtime-$tracing-client.log" >&2
+        exit 1
+      }
     jq -e '.samples >= 10 and .rss_peak_bytes > 0 and
       .fd_peak_count > 0 and .cpu_percent >= 0' "$out/$runtime-$tracing-resources.json" >/dev/null
     if [ "$tracing" = on ]; then
@@ -124,7 +133,7 @@ YAML
     --slurpfile on "$out/$runtime-on-client.json" \
     --slurpfile offResources "$out/$runtime-off-resources.json" \
     --slurpfile onResources "$out/$runtime-on-resources.json" \
-    '{source_sha:$sha,runtime:$runtime,trace_type:"kernel-strace-network-read-write",
+    '{source_sha:$sha,runtime:$runtime,trace_type:"kernel-strace-network-control-syscalls-only",
       trace_off:$off[0],trace_on:$on[0],
       off_resources:$offResources[0],on_resources:$onResources[0],
       throughput_retained_ratio:($on[0].throughput_rps/$off[0].throughput_rps),
