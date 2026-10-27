@@ -81,7 +81,7 @@ if elapsed <= 0 or user < 0 or system < 0:
 resource = dict(generator_cpu_percent_one_core=round(100 * (user+system) / elapsed, 3),
                 user_seconds=user, system_seconds=system, elapsed_seconds=elapsed,
                 isolated_client_physical_core=True)
-pathlib.Path(sys.argv[2]).write_text(json.dumps(resource, indent=2) + "\\n")
+pathlib.Path(sys.argv[2]).write_text(json.dumps(resource, indent=2) + "\n")
 PY
   jq -e '.generator_cpu_percent_one_core >= 0 and .elapsed_seconds >= 12
     and .generator_cpu_percent_one_core < 85' "$output_dir/generator-$concurrency.json" >/dev/null || {
@@ -112,7 +112,7 @@ if fds <= 0:
     raise SystemExit("missing live supervisor and child FD samples")
 pathlib.Path(sys.argv[2]).write_text(json.dumps(
     {"server_process_tree_sampled_fds": fds, "sampled_pids": len(seen)}
-) + "\\n")
+) + "\n")
 PY
   jq -e --argjson requested "$concurrency" \
     '.correctness_passed == true and .concurrency == $requested and
