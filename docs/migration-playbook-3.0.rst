@@ -145,6 +145,9 @@ Capability changes and exclusions
 Behavioral compatibility audit
 ------------------------------
 
+The current exhaustive symbol-level behavior mapping, intentional
+capability exclusions and runnable before/after migration examples
+are documented in :doc:`compatibility-audit-3.0`.
 The source manifest guard checks public declarations, promoted
 properties, constants, enum cases and reviewed constructor
 signatures, but it does not prove behavior. Check these manually and
@@ -164,9 +167,14 @@ The exact manifest and comparison tools are
 `tools/public-api-manifest.php` and
 `tools/public-api-migration-audit.php`. Run the published
 baseline and candidate through the **same** version of those tools
-and archive raw diffs. The prior reviewed audit identified 26
-implementation hash changes, which need behavioral review before
-the final release freeze.
+and archive raw diffs. The older W97 audit identified 26 changed implementation hashes.
+The newer C4 property-aware [Source Audit #40525557734] identified
+32 changed public implementations and the test-backed exact-diff
+disposition ledger under
+``docs/plans/evidence/runwire-3.0/c4-migration-behavior-ledger.json``.
+The source audit now fails if a changed public implementation lacks a
+migration disposition and executable regression test. The C5 release
+freeze still requires revalidation and maintainer approval.
 
 Migration phases and rollback
 -----------------------------

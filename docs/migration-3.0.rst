@@ -56,9 +56,10 @@ context. Do not repurpose insecure server-side TLS defaults for dialing.
 The unreleased ``HttpNegotiatingOutboundClient`` selects HTTP/1.1 or
 HTTP/2 only **after verified TLS/ALPN negotiation**. Explicitly allowing
 fallback limits how a peer can choose a nonpreferred version. The experimental native HTTP/3 outbound client is a separate
-one-shot HTTPS/h3 path over verified QUIC. It does not yet offer
-multiplexed sibling requests, dynamic QPACK unblocking or release
-performance certification. The H1/H2 negotiating client cannot satisfy
+HTTPS/h3 transport over verified QUIC, with independent interop-tested
+sibling streams and bounded QPACK handling. These are specific
+peer-tested capabilities, not a general browser client or completed
+release-wide performance certification. The H1/H2 negotiating client cannot satisfy
 an H3-only policy and must reject it rather than silently downgrade.
 
 .. code-block:: php
