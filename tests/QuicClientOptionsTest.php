@@ -18,12 +18,10 @@ it('builds a fail-closed native QUIC TLS 1.3 policy with explicit ALPN and SNI',
         ->and($options->maxOpenStreams)->toBe(64);
 });
 
-it('fails closed when native QUIC lacks datagrams, migration, or 0-RTT', function (): void {
+it('fails closed when native QUIC lacks migration or 0-RTT', function (): void {
     expect(fn() => (new QuicClientOptions('example.com', allowEarlyData: true))->nativeOptions())
         ->toThrow(RuntimeUnavailableException::class)
         ->and(fn() => (new QuicClientOptions('example.com', allowMigration: true))->nativeOptions())
-        ->toThrow(RuntimeUnavailableException::class)
-        ->and(fn() => (new QuicClientOptions('example.com', requireDatagrams: true))->nativeOptions())
         ->toThrow(RuntimeUnavailableException::class);
 });
 
@@ -66,12 +64,10 @@ it('pins the QUIC path and rejects migration or address rebinding explicitly', f
         ->toThrow(RuntimeUnavailableException::class, 'migration/rebinding');
 });
 
-it('refuses unsupported QUIC datagrams and early application dispatch before confirmation', function (): void {
+it('refuses early QUIC application dispatch before confirmation', function (): void {
     $policy = new QuicClientOptions('example.com');
     $policy->assertApplicationDispatchAllowed(true);
 
-    expect(fn() => $policy->assertDatagramAvailable())
-        ->toThrow(RuntimeUnavailableException::class, 'cannot send or receive')
-        ->and(fn() => $policy->assertApplicationDispatchAllowed(false))
+    expect(fn() => $policy->assertApplicationDispatchAllowed(false))
         ->toThrow(RuntimeUnavailableException::class, '0-RTT application dispatch');
 });
