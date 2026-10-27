@@ -56,6 +56,7 @@ If this is your first visit, read :doc:`start` and
    supervision-handbook-3.0
    host-compatibility-3.0
    production-operations-3.0
+   operations-exercises-3.0
    observability-handbook-3.0
    troubleshooting-handbook-3.0
    security-handbook-3.0
@@ -69,6 +70,7 @@ If this is your first visit, read :doc:`start` and
 
    api-reference-3.0
    migration-playbook-3.0
+   compatibility-audit-3.0
    migration-3.0
    documentation-maintenance-3.0
 
