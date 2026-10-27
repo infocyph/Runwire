@@ -3,6 +3,21 @@
 set -euo pipefail
 plan="docs/plans/runwire-3.0-unified-runtime-development-plan.md"
 test -s "$plan"
+# Final GitHub-worker-only 3.0 scope: no external hosted-site tasks.
+total="$(grep -Ec '^- \[[x ]\] \*\*U[0-9]{2}\.[0-9]{2}\*\*' "$plan")"
+done_count="$(grep -Ec '^- \[x\] \*\*U[0-9]{2}\.[0-9]{2}\*\*' "$plan")"
+test "$total" -eq 167 || {
+  echo "Expected 167 GitHub-executable U tasks, got $total" >&2
+  exit 1
+}
+test "$done_count" -le "$total"
+for removed in U16.02 U16.16; do
+  if grep -Eq "^- \[[x ]\] \*\*${removed//./\\.}\*\*" "$plan"; then
+    echo "Retired externally hosted task reappeared: $removed" >&2
+    exit 1
+  fi
+done
+
 expected=(R0.06 R0.07 R1.08 R3.09 R4.02 R4.04 R4.09 R5.02 R5.03 R5.04 R5.05 R5.06 R5.07 R5.08 R6.02 R8.05 R8.10 R9.06 R9.07 R9.09)
 declare -A found=()
 accepted=0
