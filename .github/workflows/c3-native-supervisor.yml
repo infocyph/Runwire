@@ -2,9 +2,6 @@ name: C3 Native Supervisor Smoke
 
 on:
   pull_request:
-  push:
-    branches:
-      - plan/runwire-independent-ecosystem-roadmaps
   workflow_dispatch:
 
 concurrency:
