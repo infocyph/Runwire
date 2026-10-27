@@ -4,6 +4,11 @@
 PR #9, Sphinx-native reStructuredText public documentation only.
 No Foundation/Infbyte/Core/Cells edits, merge, tag or release.
 
+## W199 — Real hosted docs and current GitHub worker QA limits (2026-10-27)
+
+The GitHub worker [hosted Read the Docs verification workflow](https://github.com/infocyph/Runwire/blob/plan/runwire-independent-ecosystem-roadmaps/.github/workflows/c4-hosted-docs.yml) is opt-in and fails closed until repository variable RUNWIRE_RTD_PREVIEW_URL is an actual HTTPS hosted preview. It verifies public index/features/search pages and the generated search index with retained GitHub artifact provenance, but an interactive Read the Docs version selector, source parity and reviewer signoff still need actual proof; do not count only this probe as complete U16.02/.16.
+
+The [C4 diagnostic run #40504523373](https://github.com/infocyph/Runwire/actions/runs/40504523373) uncovered the affinity JSON fixture mistake repaired by [001a13a1](https://github.com/infocyph/Runwire/commit/001a13a17cac999a65669b0db4f5ac41e03d4355). The opt-in [release run #40504576622](https://github.com/infocyph/Runwire/actions/runs/40504576622) caught a missing standalone HTTP fixture helper repaired in [df75e134](https://github.com/infocyph/Runwire/commit/df75e134cf1649723e104658864ba69e0a29d987). Both require exact-new-head QA. Complete C4 remains 0/13, overall 147/169 QA-accepted, C5 queued.
 ## W198 — GitHub Actions-only C4 execution and hosted-documentation boundary (2026-10-27)
 
 Runwire source edits and execution use GitHub repository operations and GitHub Actions workers exclusively. The new GitHub C4 qualification workflow produces source-pinned PHP 8.4/8.5 real network/host/file and H1/TLS syscall diagnostic artifacts; it is distinct from U15's independent performance and long-duration release gates. The matched baseline runner now rejects short trials and accidental baseline/candidate ephemeral-port aliasing.

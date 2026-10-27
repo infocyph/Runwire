@@ -6,6 +6,13 @@
 **Canonical tracker:** 147/169 accepted (87.0%); 22 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W199 — C4 live GitHub Actions QA findings and remediation (2026-10-27; new head QA pending)
+
+GitHub-hosted C4 qualification [#40504523373](https://github.com/infocyph/Runwire/actions/runs/40504523373) returned a successful native H1/TLS syscall trace but found an incorrect affinity JSON write in the new native capacity sweep; [001a13a1](https://github.com/infocyph/Runwire/commit/001a13a17cac999a65669b0db4f5ac41e03d4355) preserves the validated JSON rather than the jq boolean. This is a harness-only correction; do not count C4 profiling accepted before rerun.
+
+The opt-in GitHub [Release Certification #40504576622](https://github.com/infocyph/Runwire/actions/runs/40504576622) was launched at immutable 61b9294e. Its standalone consumer PHP 8.4/8.5 job found the fixture omitted the required http1_bench_workload.php; [df75e134](https://github.com/infocyph/Runwire/commit/df75e134cf1649723e104658864ba69e0a29d987) copies the helper into the isolated installed consumer. A run on the earlier SHA remains historical and cannot certify this correction. [aabbb24c](https://github.com/infocyph/Runwire/commit/aabbb24c1cb5e4f4fc2db3e6fbadbfa734463984) provides a GitHub-worker-only fail-closed hosted Read the Docs probe, requiring a real configured HTTPS preview; static docs CI alone cannot satisfy U16.02/.16.
+
+**Acceptance freeze:** 147/169 QA-accepted (87.0%), 22 OPEN; C4 0/13 ACTIVE; C5 0/9 QUEUED. The completed W198 development and current QA fixes do not close any U15 performance or U16 hosted/migration task. Need exact final-head passing C4 profile/matched 5x180s/1800s soak/hosted RTD/behavioral review evidence before C4 DONE.
 ## W198 — GitHub-worker C4 rolling implementation and QA (2026-10-27; exact-head QA pending)
 
 **Execution boundary:** Runwire only, existing PR #9, GitHub repository actions and GitHub Actions workers. Do not run code locally, touch external repositories, merge, tag, or release. Work task-by-task with an independently verified immutable QA result per acceptance gate; cancelled/superseded workflows are not proof.
