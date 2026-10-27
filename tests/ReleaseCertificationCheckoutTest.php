@@ -24,10 +24,10 @@ it('collects immutable certification evidence without accepting an incomplete re
     $workflow = file_get_contents(dirname(__DIR__) . '/.github/workflows/release-certification.yml');
 
     expect($workflow)->toBeString()
-        ->toContain('if [ "$total" -ne 175 ]; then')
+        ->toContain('if [ "$total" -ne 169 ]; then')
         ->toContain('task_open=$open')
         ->toContain('($task_open == "0")')
         ->toContain('certification_ready: (')
         ->toContain('matched == "success"', 'soak == "success"')
-        ->not->toContain('if [ "$total" -ne 175 ] || [ "$open" -ne 0 ]; then');
+        ->not->toContain('if [ "$total" -ne 169 ] || [ "$open" -ne 0 ]; then');
 });

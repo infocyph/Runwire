@@ -6,7 +6,7 @@ it('requires a complete canonical release preflight and exactly one candidate ch
     $workflow = file_get_contents(dirname(__DIR__) . '/.github/workflows/release-certification.yml');
     expect($workflow)->toBeString();
     $preflight = explode('  matched-performance:', explode('  release-preflight:', $workflow, 2)[1], 2)[0];
-    expect($preflight)->toContain('if [ "$total" -ne 175 ]; then')
+    expect($preflight)->toContain('if [ "$total" -ne 169 ]; then')
         ->toContain('Malformed 3.0 canonical tracker:')
         ->toContain('exit 1' . "\n" . '          fi');
     $matched = explode('  candidate-soak:', explode('  matched-performance:', $workflow, 2)[1], 2)[0];
