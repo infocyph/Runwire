@@ -175,11 +175,11 @@ final class QuicClientSession
         $this->state = 'closed';
         $this->executor->close();
     }
+
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
             throw new LogicException('QUIC sessions cannot cross a fork; connect in the owning child process.');
         }
     }
-
 }
