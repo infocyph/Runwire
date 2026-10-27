@@ -62,3 +62,17 @@ it('does not oscillate during 240 alternating overload and idle windows', functi
     expect(fn() => new AutoscaleWindowController(new AutoscalePolicy(), consecutiveWindows: 1))
         ->toThrow(InvalidArgumentException::class);
 });
+
+it('invalidates partial pressure votes when one metrics window is missing or malformed', function (): void {
+    $controller = new AutoscaleWindowController(new AutoscalePolicy(
+        minWorkers: 1, maxWorkers: 3, scaleOutQueueDepth: 1,
+        sampleSeconds: 1.0, cooldownSeconds: 1.0,
+    ));
+    expect($controller->observe(1, 0.9, 2, 10.0, 300.0, 1.0))->toBe(1)
+        ->and($controller->pendingWindows())->toBe(1);
+    $controller->invalidateSample();
+    expect($controller->pendingWindows())->toBe(0)
+        ->and($controller->observe(1, 0.9, 2, 10.0, 300.0, 2.0))->toBe(1)
+        ->and($controller->pendingWindows())->toBe(1)
+        ->and($controller->observe(1, 0.9, 2, 10.0, 300.0, 3.0))->toBe(2);
+});
