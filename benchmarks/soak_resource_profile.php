@@ -52,7 +52,11 @@ function soakReadProcessTree(int $root): array
         }
         $fds = @scandir($fdPath);
         if (!is_array($fds)) {
-            if ($pid !== $root && !is_dir($proc)) {
+            // /proc/<pid> remains present while a just-exited child becomes
+            // a zombie. Its fd directory may already be inaccessible.
+            $latestStatus = @file_get_contents($statusPath);
+            if ($pid !== $root && (!is_dir($proc)
+                || (is_string($latestStatus) && preg_match('/^State:\s+(?:Z|X|x)\b/m', $latestStatus) === 1))) {
                 continue;
             }
 
