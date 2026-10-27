@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W161 — C3 QA/preflight class-order cleanup (2026-10-27; unaccepted)
+
+[`f655b4e`](https://github.com/infocyph/Runwire/commit/f655b4e9485edbe97cf79247a159171de6afeb02) and [`15cb46d`](https://github.com/infocyph/Runwire/commit/15cb46dd39076f9806d648aa777257864d9a472e) put new executor/QUIC private fork-ownership helpers after public methods; [`de48441`](https://github.com/infocyph/Runwire/commit/de4844175ce2bdaf40325a4f3ed73278ed59b7e2) and [`d4d4794`](https://github.com/infocyph/Runwire/commit/d4d479494901d26c577e0131b6a8775708940062) normalize separation/closing braces. These formatting-only corrections carry no new task acceptance. The Composer advisory and PHPForge dependency incompatibility remain external QA blockers. **C3 2/9; overall 140/169 accepted, 29 OPEN**. Next active engineering is live supervisor scaling, listener handoff and multi-resource drain; no release/tag/merge.
+
 ## W160 — C3 fork-state snapshot isolation (2026-10-27; QA pending)
 
 [`890e870`](https://github.com/infocyph/Runwire/commit/890e870fcff728a28c6a03c1298d340b1dfc616e) and [`98af154`](https://github.com/infocyph/Runwire/commit/98af154fc1c408a776df25213c24ebdf9d77d35e) extend process ownership assertions to pool active/idle/waiter counters and optional metrics. This prevents a forked child interpreting an inherited parent's counters as its own live capacity. [`819d448`](https://github.com/infocyph/Runwire/commit/819d448ccbb82eb46bccdf4a71e592fee07a6d87) extends the real fork test to cover eleven prohibited inherited operations while leaving parent resource accounting functional. This is **partial U12.02** only; listener handoff, live scaling, full QA and secure dependency resolution remain open. Accepted totals **unchanged at 140/169, C3 2/9, 29 OPEN**.
