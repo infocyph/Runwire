@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: c4-ws-180-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: c4-ws-180-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'manual' }}
+  cancel-in-progress: false
 
 jobs:
   matched-ws-baseline:
