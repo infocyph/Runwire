@@ -88,7 +88,7 @@ it('rejects mismatched release topologies rather than comparing incomparable res
     foreach ([
         'workers' => 2,
         'concurrency' => 32,
-        'duration_seconds_per_trial' => 30.0,
+        'duration_seconds_per_trial' => 240.0,
         'tls' => 'on',
         'opcache' => 'disabled',
         'extension_versions' => ['event' => 'different'],
