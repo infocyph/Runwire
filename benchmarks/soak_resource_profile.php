@@ -41,11 +41,21 @@ function soakReadProcessTree(int $root): array
         // the mandatory root; all measured resource bounds remain unchanged.
         $status = @file_get_contents($statusPath);
         if (!is_string($status)) {
-            if ($pid !== $root && !is_dir($proc)) {
-                continue;
+            // Descendants can vanish immediately after appearing in their
+            // parent's children list. Retry boundedly before checking /stat.
+            for ($attempt = 0; $attempt < 3 && !is_string($status); ++$attempt) {
+                time_nanosleep(0, 2_000_000);
+                $status = @file_get_contents($statusPath);
             }
+            if (!is_string($status)) {
+                $stat = @file_get_contents($proc . '/stat');
+                if ($pid !== $root && (!is_string($stat)
+                    || preg_match('/^\d+\s+\(.*\)\s+[ZXx]\s/s', $stat) === 1)) {
+                    continue;
+                }
 
-            throw new RuntimeException('Cannot read required Linux worker resource metrics.');
+                throw new RuntimeException('Cannot read required Linux worker resource metrics.');
+            }
         }
         if ($pid !== $root && preg_match('/^State:\s+Z\b/m', $status) === 1) {
             continue;
