@@ -13,7 +13,7 @@ it('documents every planned public capability with released and candidate host e
         $rows,
         PREG_SET_ORDER,
     );
-    expect($matched)->toBeGreaterThanOrEqual(30);
+    expect($matched)->toBeGreaterThanOrEqual(29);
 
     $labels = [];
     foreach ($rows as $row) {
@@ -40,7 +40,6 @@ it('documents every planned public capability with released and candidate host e
         'WebSocket server',
         'WebSocket client',
         'H2/H3 extended CONNECT',
-        'WebTransport',
         'Inbound and outbound UDP',
         'Native QUIC outbound',
         'TCP/TLS/Unix dialer',
@@ -62,4 +61,5 @@ it('documents every planned public capability with released and candidate host e
     foreach ($required as $capability) {
         expect($labels)->toContain($capability);
     }
+    expect($labels)->not->toContain('WebTransport');
 });
