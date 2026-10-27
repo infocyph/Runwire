@@ -11,7 +11,7 @@ source_sha="$(git -C "$root" rev-parse HEAD)"
 printf '%s\n' "$source_sha" > "$out/source-sha.txt"
 printf '%s\n' "mixed-c4-full-1800-seconds" > "$out/workload.txt"
 
-for bin in php jq; do command -v "$bin" >/dev/null; done
+for bin in php jq curl; do command -v "$bin" >/dev/null; done
 port="$(php -r '$s=stream_socket_server("tcp://127.0.0.1:0",$e,$m);if(!is_resource($s))throw new RuntimeException($m);$n=stream_socket_get_name($s,false);fclose($s);echo substr(strrchr($n,":"),1);')"
 server_pid=""
 tree_sampler_pid=""
@@ -36,7 +36,7 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$root"
-php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port" > "$out/server.log" 2>&1 &
+RUNWIRE_SOAK_DIAGNOSTICS=1 php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port" > "$out/server.log" 2>&1 &
 server_pid=$!
 ready=0
 for _ in $(seq 1 250); do
@@ -53,6 +53,22 @@ done
 if [ "$ready" -ne 1 ]; then
   echo "Runwire mixed soak native HTTP server did not become ready." >&2
   exit 1
+fi
+
+# Fail early: the internal 1800s GC/OPcache sampler must use the exact
+# admitted diagnostics endpoint of the worker, never a fabricated local metric.
+curl --fail --show-error --silent --max-time 5 -H 'Connection: close' \
+  "http://127.0.0.1:$port/__runwire_soak_diagnostics" \
+  > "$out/internal-initial.json"
+jq -e '.gc_enabled == true and .opcache_enabled == true
+  and .allocated_bytes > 0 and .gc_roots >= 0 and .opcache_used_bytes > 0' \
+  "$out/internal-initial.json" >/dev/null
+
+# Reuse the *same* startup and telemetry admission path in quick GitHub CI;
+# the actual U15.10 proof still requires every genuine 1800-second workload.
+if [ "${RUNWIRE_C4_PREFLIGHT_ONLY:-0}" = "1" ]; then
+  printf 'Real mixed-soak telemetry admission verified; full 1800s not run.\n'
+  exit 0
 fi
 
 # The root process is this orchestrator, whose descendants include all three

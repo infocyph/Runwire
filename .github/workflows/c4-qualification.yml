@@ -35,6 +35,15 @@ jobs:
           coverage: none
       - name: Secure Composer installation
         run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Verify real mixed-soak diagnostic endpoint before 1800s certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c4-evidence/mixed-soak-preflight
+          RUNWIRE_C4_PREFLIGHT_ONLY=1 bash benchmarks/c4_mixed_release_soak.sh c4-evidence/mixed-soak-preflight
+          jq -e '.gc_enabled == true and .opcache_enabled == true
+            and .allocated_bytes > 0 and .opcache_used_bytes > 0' \
+            c4-evidence/mixed-soak-preflight/internal-initial.json >/dev/null
       - name: Record immutable runner provenance
         shell: bash
         run: |
