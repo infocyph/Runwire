@@ -1,5 +1,10 @@
 # Runwire 3.0 — unified runtime detailed development plan and tracker
 
+## W217 — QA repair: 167-task canonical scope and 45 closure IDs (2026-10-27)
+
+**Zero tasks promoted:** On [Security & Standards #40543186665](https://github.com/infocyph/Runwire/actions/runs/40543186665) the PHP8.4 stable Pest suite passed 1074 cases but failed 6 stale tracker/release-contract expectations based on the old **169** IDs and missing external-only U16.02/U16.16, not on production runtime behavior. Replace those assertions with strict **167** canonical IDs and **45** unique closure-group IDs, preserve unique/task-disposition checks, and synchronize active U16, U17, closure and roadmap tables to **159 accepted/8 OPEN (95.2%); C4 10/11, C5 2/9**. No release proof is claimed until fresh PHP8.4/8.5 stable/lowest Pest/PHPForge and native QA pass. Extra H2 matched diagnostic [#40534241187](https://github.com/infocyph/Runwire/actions/runs/40534241187) failed independent client CPU headroom without meeting the <=85% requirement; it is not a passing performance result and no budget is lowered.
+
+
 ## W216 — U17.04 GitHub-only complete documentation certification (2026-10-27)
 
 **U17.04 ACCEPTED:** The exact source [`865278002`](https://github.com/infocyph/Runwire/commit/865278002f40464c4785045f93945bbeb0de2337) passed [Documentation/Sphinx #40542561935](https://github.com/infocyph/Runwire/actions/runs/40542561935): Python 3.13 pinned Sphinx, `-n -W --keep-going -b html`, real source-SHA stamp on index page, **41 indexed native RST pages with generated HTML and search-index entries**. The passing job uploaded preserved [`runwire-sphinx-rst-preview` artifact #12751068496](https://github.com/infocyph/Runwire/actions/runs/40542561935/artifacts/12751068496) with complete HTML/search output. Source-backed generated API/migration/snippets received exact [Source Audit #40542561492](https://github.com/infocyph/Runwire/actions/runs/40542561492) and [C4 immutable migration behavior #40542561731](https://github.com/infocyph/Runwire/actions/runs/40542561731) SUCCESS; earlier U16.13/.15 accepted runnable fixture/Sphinx/PHP parser coverage remains unchanged. No hosted external site is claimed. **159/167 QA accepted, 8 OPEN; C4 10/11, C5 2/9.** Final native/security/frozen performance/release audits remain outstanding.
@@ -486,9 +491,9 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 | C1 | Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 0 | COMPLETE (11/11 accepted) | Real TLS, QUIC and H1/H2/H3 peer conformance; bounded loss/reset/fallback; matched evidence |
 | C2 | Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 0 | DONE — 5/5 QA accepted in supported scope | Verified origin TLS over cleartext CONNECT, HTTPS-proxy nesting fail-closed, authenticated proxy, pooling, H2/H3 multiplex |
 | C3 | Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 0 | DONE (9/9 QA accepted) | Real live worker scaling/drain/crash tests, mixed transports, bounded file executor and fuzz |
-| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 3 | ACTIVE (10/13 accepted; U15.10 and external RTD U16.02/.16 pending) | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
-| C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED | Exact-head PHPForge/host/interop/packaging gates, independent reviewer acceptance and no automatic release |
-| **TOTAL** | **Five closure groups; no extra task IDs** | **47 assigned; 35 accepted** | **12** | **C1/C2/C3 DONE; C4 ACTIVE, C5 queued** | **169 canonical tasks** |
+| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.12 | 1 | ACTIVE (10/11 accepted; U15.10 soak pending) | Real counterpart profiling, strict five-pair 180s and genuine 1800s soak, GitHub Sphinx HTML |
+| C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 7 | ACTIVE (2/9 accepted) | Exact-head PHPForge/host/interop/packaging, risk evidence and no automatic release |
+| **TOTAL** | **Five closure groups; no extra task IDs** | **45 assigned; 37 accepted** | **8** | **C1/C2/C3 DONE; C4/C5 ACTIVE** | **167 canonical tasks** |
 
 ### Cross-batch delivery and QA discipline
 
@@ -520,11 +525,11 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 | U13 | Real host and optional extension compatibility | 9/9 | 0 | DONE | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 8/8 | 0 | Complete | U03-U13 |
 | U15 | Performance attribution, regressions and soak | 9/10 | 1 | In progress | U02-U14 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 14/16 | 2 | In progress | U00-U15 |
-| U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **157/169** | **12** | **U00–U14 complete; U15–U17 in progress** | U00-U17 |
+| U16 | GitHub-worker Sphinx documentation and complete public catalog | 14/14 | 0 | Done | U00-U15 |
+| U17 | Final certification, risk evidence and maintainer handoff | 2/9 | 7 | In progress | U00-U16 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **159/167** | **8** | **U00–U14/U16 complete; U15/U17 in progress** | U00-U17 |
 
-**Progress counter:** 157/169 (92.9% complete), 12 open.
+**Progress counter:** 159/167 (95.2% complete), 8 open.
 
 ## Detailed implementation acceptance checklist
 

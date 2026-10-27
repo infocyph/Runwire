@@ -10,7 +10,8 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
     expect($roadmap)->toBeString();
 
     preg_match_all('/^- \[([ x])\] \*\*(U[0-9]{2}\.[0-9]{2})\*\* (.+)$/m', $plan, $tasks, PREG_SET_ORDER);
-    expect($tasks)->toHaveCount(169);
+    expect($tasks)->toHaveCount(167);
+    expect(array_column($tasks, 2))->not->toContain('U16.02', 'U16.16');
     $taskIds = [];
     $acceptedTaskIds = [];
     $totals = [];
@@ -59,8 +60,8 @@ it('synchronizes the unified Runwire 3.0 detailed tracker and the historical 2.2
     );
 
     expect($roadmap)->toContain(
-        '**' . $done . '/169 accepted tasks, ' . $open . ' open across 18 batches**',
-        '| **TOTAL** | **Full unified-runtime release program** | **' . $open . '** | **' . $done . '/169',
+        '**' . $done . '/' . $total . ' accepted tasks, ' . $open . ' open across 18 batches**',
+        '| **TOTAL** | **Full unified-runtime release program** | **' . $open . '** | **' . $done . '/' . $total,
     );
 
     // Validate each roadmap batch, not just the aggregate total. This catches
@@ -159,6 +160,6 @@ it('keeps all five original closure groups disjoint and their open counts synchr
         expect((int) $group[3])->toBe($unaccepted);
         $stillOpen += $unaccepted;
     }
-    expect($assigned)->toHaveCount(47)
+    expect($assigned)->toHaveCount(45)
         ->and($stillOpen)->toBe(count(array_filter($states, static fn(string $state): bool => $state === ' ')));
 });

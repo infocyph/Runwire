@@ -1,5 +1,10 @@
 # Runwire 3.0 — consolidated unified-runtime roadmap
 
+## W217 — QA repair: 167-task canonical scope and 45 closure IDs (2026-10-27)
+
+**Zero tasks promoted:** On [Security & Standards #40543186665](https://github.com/infocyph/Runwire/actions/runs/40543186665) the PHP8.4 stable Pest suite passed 1074 cases but failed 6 stale tracker/release-contract expectations based on the old **169** IDs and missing external-only U16.02/U16.16, not on production runtime behavior. Replace those assertions with strict **167** canonical IDs and **45** unique closure-group IDs, preserve unique/task-disposition checks, and synchronize active U16, U17, closure and roadmap tables to **159 accepted/8 OPEN (95.2%); C4 10/11, C5 2/9**. No release proof is claimed until fresh PHP8.4/8.5 stable/lowest Pest/PHPForge and native QA pass. Extra H2 matched diagnostic [#40534241187](https://github.com/infocyph/Runwire/actions/runs/40534241187) failed independent client CPU headroom without meeting the <=85% requirement; it is not a passing performance result and no budget is lowered.
+
+
 ## W216 — U17.04 GitHub-only complete documentation certification (2026-10-27)
 
 **U17.04 ACCEPTED:** The exact source [`865278002`](https://github.com/infocyph/Runwire/commit/865278002f40464c4785045f93945bbeb0de2337) passed [Documentation/Sphinx #40542561935](https://github.com/infocyph/Runwire/actions/runs/40542561935): Python 3.13 pinned Sphinx, `-n -W --keep-going -b html`, real source-SHA stamp on index page, **41 indexed native RST pages with generated HTML and search-index entries**. The passing job uploaded preserved [`runwire-sphinx-rst-preview` artifact #12751068496](https://github.com/infocyph/Runwire/actions/runs/40542561935/artifacts/12751068496) with complete HTML/search output. Source-backed generated API/migration/snippets received exact [Source Audit #40542561492](https://github.com/infocyph/Runwire/actions/runs/40542561492) and [C4 immutable migration behavior #40542561731](https://github.com/infocyph/Runwire/actions/runs/40542561731) SUCCESS; earlier U16.13/.15 accepted runnable fixture/Sphinx/PHP parser coverage remains unchanged. No hosted external site is claimed. **159/167 QA accepted, 8 OPEN; C4 10/11, C5 2/9.** Final native/security/frozen performance/release audits remain outstanding.
@@ -37,7 +42,7 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 14/14**. **157/169 accepted tasks, 12 open across 18 batches** (92.9%). C3 complete at 9/9; C4 active, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 14/14**. **159/167 accepted tasks, 8 open across 18 batches** (95.2%). C3 complete at 9/9; C4 active, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
 ## W208 — C4/C5 handoff integrity and public feature inventory reconciliation (2026-10-27)
 
@@ -521,9 +526,9 @@ U14.04 WebSocket-only hostile fragmentation, control frames, budget, slow-peer b
 | U13 | Real host and optional extension compatibility | 0 | 9/9 |
 | U14 | Security, fuzzing and adversarial resilience | 0 | 8/8 |
 | U15 | Performance attribution, regressions and soak | 1 | 9/10 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 2 | 14/16 |
-| U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **12** | **157/169 (92.9%)** |
+| U16 | GitHub-worker Sphinx documentation and complete public catalog | 0 | 14/14 |
+| U17 | Final certification, risk evidence and maintainer handoff | 7 | 2/9 |
+| **TOTAL** | **Full unified-runtime release program** | **8** | **159/167 (95.2%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
