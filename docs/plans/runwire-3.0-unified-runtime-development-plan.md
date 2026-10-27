@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W175 — C3 worker-owned teardown fault isolation (2026-10-27; QA pending)
+
+With PHPForge `dev-main` restored and the prior exact-head H2, hosted, native portable and C3 smoke gates green, harden **partial U12.06**: one periodic timer cancellation fault no longer prevents other timers from cancelling or the worker stop wake and executor drain. Failed timer handles remain available for a retry during terminal `close()`. Worker terminal cleanup always attempts independent coroutine, periodic, network, executor, channel and watcher teardown before rethrowing the first failure; a failed control-watcher cancellation remains retryable. Added a Composer-free fault-injected `.ci/c3_cleanup_fault_smoke.php` gate to the dual-version native C3 workflow. Require positive exact-head PHP8.4/8.5 evidence plus complete QA and all remaining U12 session/fairness acceptance. **No early U12.06 completion: C3 2/9, 140/169 accepted, 29 OPEN.**
+
 ## W174 — Restore updated PHPForge main and re-run unwaived CI (2026-10-27; QA pending)
 
 Following maintainer confirmation of an updated PHPForge main, Runwire restores `infocyph/phpforge: dev-main@dev` and removes the temporary fork/commit VCS override from W173. The observed upstream main now specifies ParaTest `>=7.25.0 <7.26.0` and Pest `^5.3.0`; compatibility with secure PHPUnit and current Pest must be resolved by **real Composer CI**, not guessed or waived. Re-run all standard workflows plus PHP 8.4/8.5 native C3 smoke; keep C3 **2/9** and canonical **140/169, 29 OPEN** pending exact-head QA. No changes to upstream PHPForge, security enforcement or other libraries.

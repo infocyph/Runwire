@@ -32,6 +32,7 @@ jobs:
           for file in \
             src/Supervisor/Supervisor.php \
             src/Supervisor/WorkerContext.php \
+            src/Supervisor/Internal/PeriodicTaskRegistry.php \
             src/Supervisor/WorkerGroup.php \
             src/Executor/ProcessExecutor.php \
             src/Network/QuicClientSession.php \
@@ -45,7 +46,8 @@ jobs:
             tests/WorkerOwnedNetworkDrainTest.php \
             tests/ProcessExecutorForkOwnershipTest.php \
             tests/TcpListenerForkOwnershipTest.php \
-            .ci/c3_listener_fork_smoke.php; do
+            .ci/c3_listener_fork_smoke.php \
+            .ci/c3_cleanup_fault_smoke.php; do
             php -l "$file"
           done
       - name: Autoscale missing-telemetry hysteresis contract
@@ -56,6 +58,8 @@ jobs:
         run: php .ci/c3_dialer_smoke.php
       - name: Prefork TCP listener PID ownership and inherited active-loop rejection
         run: php .ci/c3_listener_fork_smoke.php
+      - name: Fault-isolated worker shutdown and periodic timer cancellation
+        run: php .ci/c3_cleanup_fault_smoke.php
       - name: Native autoscale real-fork smoke without Composer dependencies
         run: php .ci/c3_supervisor_smoke.php
       - name: Native SIGKILL recovery and bounded crash-loop smoke

@@ -24,6 +24,7 @@ use Infocyph\Runwire\Supervisor\Internal\PeriodicTaskRegistry;
 use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
 use LogicException;
 use RuntimeException;
+use Throwable;
 
 /**
  * Exposes worker identity, lifecycle signaling, recycling, periodic work, and background coroutine controls.
@@ -253,15 +254,31 @@ final class WorkerContext
     {
         // A retired generation must never advertise background-work admission.
         $this->stopping = true;
-        $this->backgroundCoroutines?->close();
-        $this->periodicTasks->close();
-        $this->closeOwnedNetworkResources();
-        $this->closeOwnedExecutors();
-        if ($this->controlWatcher !== null && $this->controlLoop !== null) {
-            $this->controlLoop->cancel($this->controlWatcher);
+        $failure = null;
+        foreach ([
+            fn(): mixed => $this->backgroundCoroutines?->close(),
+            fn(): mixed => $this->periodicTasks->close(),
+            fn(): mixed => $this->closeOwnedNetworkResources(),
+            fn(): mixed => $this->closeOwnedExecutors(),
+        ] as $cleanup) {
+            try {
+                $cleanup();
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
         }
-        $this->controlWatcher = null;
-        $this->controlLoop = null;
+
+        if ($this->controlWatcher !== null && $this->controlLoop !== null) {
+            try {
+                $this->controlLoop->cancel($this->controlWatcher);
+                $this->controlWatcher = null;
+                $this->controlLoop = null;
+            } catch (Throwable $error) {
+                // Keep the handle to allow a later close() to retry its cancellation.
+                $failure ??= $error;
+            }
+        }
+
         if (is_resource($this->readyStream)) {
             fclose($this->readyStream);
         }
@@ -271,6 +288,10 @@ final class WorkerContext
                 fclose($this->{$property});
             }
             $this->{$property} = null;
+        }
+
+        if ($failure !== null) {
+            throw $failure;
         }
     }
 
@@ -608,11 +629,25 @@ final class WorkerContext
 
         $this->shutdownReason = $reason;
         $this->stopping = true;
-        $this->periodicTasks->drain();
-        $this->backgroundCoroutines?->drain();
-        $this->closeOwnedExecutors();
+        $failure = null;
+        foreach ([
+            fn(): mixed => $this->periodicTasks->drain(),
+            fn(): mixed => $this->backgroundCoroutines?->drain(),
+            fn(): mixed => $this->closeOwnedExecutors(),
+        ] as $cleanup) {
+            try {
+                $cleanup();
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
+        }
+
         if (is_resource($this->stopWrite)) {
             fwrite($this->stopWrite, 'S');
+        }
+
+        if ($failure !== null) {
+            throw $failure;
         }
     }
 
