@@ -41,7 +41,7 @@ against upstream Python ``hyper-h2`` under pinned 8.4/8.5 PHP matrices,
 including verified CA/SAN/TLS, ALPN, HPACK HEADERS and streamed body.
 The single-request H2 client deliberately does not multiplex, while the
 separate verified shared-session transport does. H2 server push, extended
-CONNECT and H3/WT remain outside these development client contracts.
+CONNECT and H3 extended CONNECT remain outside these development client contracts.
 An independent negotiated H1/H2 client supports **explicit** TLS fallback.
 
 .. code-block:: console
@@ -65,8 +65,8 @@ datagrams, path migration and application early 0-RTT are unsupported.
 
    vendor/bin/pest tests/Http3SessionTest.php tests/Http3AbuseFaultAcceptanceTest.php
 
-WebSocket and WebTransport status
----------------------------------
+WebSocket status
+----------------
 
 Inbound HTTP/1.1 WebSocket upgrade validates request headers, masking,
 bounded fragmentation, UTF-8, ping/pong, close and session ownership.
@@ -77,8 +77,9 @@ subprotocol, preserves coalesced frames, and uses the same WebSocket
 session lifecycle with client masking. Real independent WSS/close and 128 concurrent-peer fragmentation and
 heartbeat regression suites have passed the branch PHPForge matrices;
 this remains unreleased 3.0 development rather than production support.
-HTTP/2 and HTTP/3 extended CONNECT and WebTransport client/server
-are not implemented.
+HTTP/2 and HTTP/3 extended CONNECT are not implemented.
+For excluded protocols and native QUIC constraints, see the limitations
+in :doc:`features`.
 
 .. code-block:: console
 
@@ -86,8 +87,6 @@ are not implemented.
    vendor/bin/pest tests/WebSocketOutboundClientTest.php tests/WebSocketOutboundTlsTest.php
    vendor/bin/pest tests/WebSocketConcurrentSessionsTest.php tests/WebSocketBackpressureAcceptanceTest.php
    vendor/bin/pest tests/WebSocketDeterministicFuzzTest.php
-
-The webtransport-design-3.0 document records planned session ownership.
 
 Budgets, cancellation and safety
 --------------------------------

@@ -27,7 +27,6 @@ Those proposed capabilities have **not** yet been released.
    performance-security-3.0
    api-reference-3.0
    migration-3.0
-   webtransport-design-3.0
 
 .. toctree::
    :maxdepth: 1

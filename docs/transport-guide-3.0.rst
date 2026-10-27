@@ -150,8 +150,9 @@ tests/fixtures/quic_session_echo_client.php require a real peer,
 appropriate endpoint options and certificate material. The reproducible
 real-peer build and invocation is in
 .github/workflows/security-standards.yml, not a standalone no-argument
-CLI example. Native datagrams, path migration, application 0-RTT and
-WebTransport are unsupported and must fail closed.
+CLI example. Native QUIC datagrams, path migration and application 0-RTT are
+unsupported and must fail closed. The separate :doc:`features`
+limitations section documents excluded 3.0 protocol scope.
 
 Ownership, hosts and failures
 -----------------------------

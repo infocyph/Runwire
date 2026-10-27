@@ -71,11 +71,6 @@ Network, protocols and worker capabilities
      - Not qualified
      - HTTP/2 or HTTP/3
      - No support claim
-   * - WebTransport
-     - No client/server
-     - Planned only
-     - H3 sessions/streams
-     - Conformance OPEN
    * - Inbound and outbound UDP
      - Datagram server
      - Connected/unconnected endpoint budgets
@@ -162,13 +157,24 @@ Network, protocols and worker capabilities
      - Host/worker/connection scopes
      - Final fuzz/security QA OPEN
 
-Release status interpretation
------------------------------
+Release status interpretation and limitations
+------------------------------------------
 
 The stable column describes currently shipped 2.1.2 features. The candidate
 column describes implementation or planned status **on the draft Runwire 3.0
 branch**, not final certification. Explicitly unsupported native QUIC datagrams,
 connection migration and 0-RTT dispatch fail closed; they are not emulated.
+
+**WebTransport is not included in Runwire 3.0.** At release planning time,
+the available PHP native QUIC backend (``ext-quic`` with OpenSSL) did not
+expose the RFC 9221 QUIC DATAGRAM send/receive capability needed for full
+WebTransport over HTTP/3. Therefore Runwire does not ship or advertise a
+WebTransport client, server, session API or datagram fallback in 3.0.
+This is a limitation of the selected PHP native backend at this release,
+not a limitation of QUIC itself. Ordinary HTTP/3, QUIC streams, UDP
+datagrams and WebSocket remain in scope and are not WebTransport substitutes.
+No promise of support in a future release is implied.
+
 
 PHP-FPM has request-owned execution, FrankenPHP/RoadRunner workers can span
 requests, and Swoole/OpenSwoole own their reactors. No host offers universal
@@ -179,5 +185,5 @@ native prefork supervision requires PCNTL and POSIX.
 The host compatibility matrix, coroutine ownership guide and async-file
 development guide provide the host-specific lifecycle, quotas and errors.
 The source-linked complete PHP API reference, frozen migration guide, H2/H3
-client integration, WebTransport interoperability and release benchmarks
+client integration and release benchmarks
 are separate incomplete 3.0 acceptance tasks.

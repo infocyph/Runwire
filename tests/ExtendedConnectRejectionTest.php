@@ -5,10 +5,10 @@ declare(strict_types=1);
 use Infocyph\Runwire\Http\Internal\HeaderValidationException;
 use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 
-it('rejects unsupported HTTP2 HTTP3 WebSocket and WebTransport extended CONNECT', function (): void {
+it('rejects unsupported HTTP2 HTTP3 extended CONNECT protocol tokens', function (): void {
     foreach (['HTTP/2', 'HTTP/3'] as $version) {
         $validator = new RequestHeaderValidator($version);
-        foreach (['websocket', 'webtransport'] as $protocol) {
+        foreach (['websocket', 'unsupported-protocol'] as $protocol) {
             $fields = [
                 [':method', 'CONNECT'],
                 [':scheme', 'https'],
