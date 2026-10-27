@@ -52,7 +52,8 @@ jobs:
             tests/ProcessExecutorForkOwnershipTest.php \
             tests/TcpListenerForkOwnershipTest.php \
             .ci/c3_listener_fork_smoke.php \
-            .ci/c3_cleanup_fault_smoke.php; do
+            .ci/c3_cleanup_fault_smoke.php \
+            .ci/c3_concurrent_fault_smoke.php; do
             php -l "$file"
           done
       - name: Autoscale missing-telemetry hysteresis contract
@@ -71,7 +72,13 @@ jobs:
         run: php .ci/c3_supervisor_fault_smoke.php
       - name: Mixed HTTP1 TCP UDP native peers across crash recycle reload stop
         run: php .ci/c3_mixed_peer_smoke.php
+      - name: Concurrent SIGKILL, native autoscale, rolling reload and recycle injection
+        run: php .ci/c3_concurrent_fault_smoke.php
       - name: Sustained adaptive worker process-tree soak and resource sampling
+        run: php .ci/c3_supervisor_soak.php
+      - name: Extended 120-second process-tree CPU RSS and p99 native autoscale certification
+        env:
+          RUNWIRE_C3_SOAK_SECONDS: '120'
         run: php .ci/c3_supervisor_soak.php
       - name: Sustained correct HTTP peer traffic during native scale-in and scale-out
         run: php .ci/c3_autoscale_http_traffic.php

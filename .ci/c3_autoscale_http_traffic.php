@@ -80,18 +80,34 @@ $supervisor->autoscale(
 );
 
 $success = 0;
+$attempted = 0;
 $failures = [];
 $latencies = [];
 $counts = [];
 $overlap = false;
+$oscillation = false;
+$transitions = 0;
+$lastWorkerCount = null;
+$lastTransitionAt = null;
 $loop->repeat(0.15, static function () use (
-    $supervisor, $address, &$success, &$failures, &$latencies, &$counts, &$overlap,
+    $supervisor, $address, &$success, &$attempted, &$failures, &$latencies, &$counts, &$overlap,
+    &$oscillation, &$transitions, &$lastWorkerCount, &$lastTransitionAt,
 ): void {
     $snapshot = $supervisor->status();
     if ($snapshot->readyWorkerCount === 0) {
         return;
     }
-    $counts[] = $snapshot->currentWorkerCount;
+    $count = $snapshot->currentWorkerCount;
+    $counts[] = $count;
+    if ($lastWorkerCount !== null && $count !== $lastWorkerCount) {
+        $observedAt = microtime(true);
+        if ($lastTransitionAt !== null && $observedAt - $lastTransitionAt < 1.0) {
+            $oscillation = true;
+        }
+        $lastTransitionAt = $observedAt;
+        ++$transitions;
+    }
+    $lastWorkerCount = $count;
     $seen = [];
     foreach ($snapshot->workers as $worker) {
         if (isset($seen[$worker->slot])) {
@@ -100,6 +116,7 @@ $loop->repeat(0.15, static function () use (
         $seen[$worker->slot] = true;
     }
 
+    ++$attempted;
     $start = hrtime(true);
     set_error_handler(static function (int $severity, string $message): bool {
         return $severity === E_WARNING && str_starts_with($message, 'stream_socket_client():');
@@ -139,7 +156,10 @@ try {
     $results = [
         'runtime' => PHP_VERSION,
         'success' => $success,
+        'attemptedWhileReady' => $attempted,
         'failures' => count($failures),
+        'transitions' => $transitions,
+        'oscillationBelowCooldown' => $oscillation,
         'successfulRPM' => round($success * 60 / $elapsed, 1),
         'p99Ms' => round($p99, 3),
         'scaleInObserved' => in_array(1, $counts, true),
@@ -148,7 +168,8 @@ try {
         'remainingWorkers' => $supervisor->status()->workerCount,
     ];
     fwrite(STDOUT, json_encode($results, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
-    if ($success < 60 || $failures !== [] || $p99 > 1_000.0 || $overlap
+    if ($success < 60 || $success !== $attempted || $failures !== [] || $p99 > 1_000.0
+        || $overlap || $oscillation || $transitions < 2
         || !in_array(1, $counts, true) || !in_array(2, $counts, true)
         || $supervisor->status()->workerCount !== 0) {
         throw new RuntimeException('Live autoscale lost correct admitted HTTP responses or violated latency/slot bounds.');

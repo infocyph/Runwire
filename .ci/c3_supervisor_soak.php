@@ -52,6 +52,11 @@ $supervisor->autoscale(
 $counts = [];
 $delays = [];
 $baselineRss = memory_get_usage(true);
+$durationSeconds = (float) (getenv('RUNWIRE_C3_SOAK_SECONDS') ?: '23.5');
+if (!is_finite($durationSeconds) || $durationSeconds < 20.0 || $durationSeconds > 600.0) {
+    throw new RuntimeException('Native autoscale soak duration must be between 20 and 600 seconds.');
+}
+$cpuStart = getrusage();
 $peakChildRssBytes = 0;
 $duplicateOwners = false;
 $maximumFds = 0;
@@ -99,7 +104,7 @@ $loop->repeat(0.2, static function () use (
     $maximumFds = max($maximumFds, is_array($fds) ? count($fds) : 0);
 });
 
-$loop->delay(23.5, static fn() => $supervisor->stop());
+$loop->delay($durationSeconds, static fn() => $supervisor->stop());
 $started = microtime(true);
 
 try {
@@ -112,8 +117,25 @@ try {
             ++$changes;
         }
     }
+    $cpuEnd = getrusage();
+    $childCpu = getrusage(1);
+    $elapsed = microtime(true) - $started;
+    $parentCpuSeconds = (
+        ($cpuEnd['ru_utime.tv_sec'] ?? 0) - ($cpuStart['ru_utime.tv_sec'] ?? 0)
+        + (($cpuEnd['ru_utime.tv_usec'] ?? 0) - ($cpuStart['ru_utime.tv_usec'] ?? 0)) / 1_000_000
+        + ($cpuEnd['ru_stime.tv_sec'] ?? 0) - ($cpuStart['ru_stime.tv_sec'] ?? 0)
+        + (($cpuEnd['ru_stime.tv_usec'] ?? 0) - ($cpuStart['ru_stime.tv_usec'] ?? 0)) / 1_000_000
+    );
+    $childrenCpuSeconds = ($childCpu['ru_utime.tv_sec'] ?? 0)
+        + ($childCpu['ru_utime.tv_usec'] ?? 0) / 1_000_000
+        + ($childCpu['ru_stime.tv_sec'] ?? 0)
+        + ($childCpu['ru_stime.tv_usec'] ?? 0) / 1_000_000;
     $record = [
         'runtime' => PHP_VERSION,
+        'configuredSoakSeconds' => $durationSeconds,
+        'parentCpuSeconds' => round($parentCpuSeconds, 4),
+        'reapedChildCpuSeconds' => round($childrenCpuSeconds, 4),
+        'parentCpuShare' => round($parentCpuSeconds / max(0.001, $elapsed), 4),
         'samples' => $samples,
         'observedTransitions' => $changes,
         'p99LoopJitterMilliseconds' => round($p99, 3),
@@ -121,12 +143,16 @@ try {
         'parentHeapGrowthBytes' => memory_get_usage(true) - $baselineRss,
         'peakChildRssBytes' => $peakChildRssBytes,
         'maxParentFdCount' => $maximumFds,
-        'elapsedSeconds' => round(microtime(true) - $started, 2),
+        'elapsedSeconds' => round($elapsed, 2),
         'finalWorkerCount' => $supervisor->status()->workerCount,
     ];
     fwrite(STDOUT, json_encode($record, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
 
-    if ($duplicateOwners || $changes < 3 || $samples < 19 || !in_array(1, $counts, true)
+    $minimumSamples = max(19, (int) floor($durationSeconds * 0.8));
+    if ($duplicateOwners || $changes < 3 || $samples < $minimumSamples
+        || $parentCpuSeconds < 0 || $parentCpuSeconds / max(0.001, $elapsed) > 1.25
+        || $childrenCpuSeconds < 0 || $childrenCpuSeconds / max(0.001, $elapsed) > 2.5
+        || !in_array(1, $counts, true)
         || !in_array(2, $counts, true) || $p99 > 1_000.0
         || $maximumFds > 200 || memory_get_usage(true) - $baselineRss > 64 * 1024 * 1024
         || $supervisor->status()->workerCount !== 0) {
