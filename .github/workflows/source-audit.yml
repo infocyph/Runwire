@@ -90,6 +90,15 @@ jobs:
             > api-baseline/migration-reviewed-contract.json
           jq -e '.reviewed == true and .traitRelocations == 2 and .reviewedSignatureChanges == 6 and .behavioralCompatibilityCertified == false' \
             api-baseline/migration-reviewed-contract.json >/dev/null
+          php -l tools/c4-migration-behavior-audit.php
+          php tools/c4-migration-behavior-audit.php \
+            api-baseline/migration-source-diff.json \
+            docs/plans/evidence/runwire-3.0/c4-migration-behavior-ledger.json \
+            | tee api-baseline/c4-migration-behavior-coverage.json
+          jq -e '.allChangedSymbolsDispositioned == true and
+            .behavioralCompatibilityCertified == false and
+            .testBackedDispositionCount == .changedPublicImplementationSymbols' \
+            api-baseline/c4-migration-behavior-coverage.json >/dev/null
           {
             echo "### Source-only 2.1.2 to 3.0 migration diff (not behavioral certification)"
             jq -r '[.breakingCount,.changeCount,.additionCount] | "Breaking: \(.[0]); signature/declaration changes: \(.[1]); new types: \(.[2])"' api-baseline/migration-source-diff.json
