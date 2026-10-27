@@ -94,7 +94,11 @@ jobs:
             echo "### Source-only 2.1.2 to 3.0 migration diff (not behavioral certification)"
             jq -r '[.breakingCount,.changeCount,.additionCount] | "Breaking: \(.[0]); signature/declaration changes: \(.[1]); new types: \(.[2])"' api-baseline/migration-source-diff.json
             echo "Published 2.1.2 comparator: 7e9bf20ad073; checked-out source: ${GITHUB_SHA}"
+            echo "### Full implementation-change ledger pending behavioral disposition"
+            jq -r '.changed[] | select(.type == "source_changed") | "- \\(.symbol)"' api-baseline/migration-source-diff.json
           } >> "${GITHUB_STEP_SUMMARY}"
+          echo "Changed 2.1.2-to-3.0 public implementation symbols requiring behavioral disposition:"
+          jq -r '.changed[] | select(.type == "source_changed") | .symbol' api-baseline/migration-source-diff.json
 
       - name: Preserve reproducible API baselines
         if: always()
