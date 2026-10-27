@@ -52,15 +52,31 @@ function soakReadProcessTree(int $root): array
         }
         $fds = @scandir($fdPath);
         if (!is_array($fds)) {
-            // /proc/<pid> remains present while a just-exited child becomes
-            // a zombie. Its fd directory may already be inaccessible.
-            $latestStatus = @file_get_contents($statusPath);
-            if ($pid !== $root && (!is_dir($proc)
-                || (is_string($latestStatus) && preg_match('/^State:\s+(?:Z|X|x)\b/m', $latestStatus) === 1))) {
-                continue;
+            // A process may retire between reading status and its fd table.
+            // Recheck the actual kernel state; allow up to 3 bounded 2ms
+            // retries for transient procfs teardown without losing the root.
+            for ($attempt = 0; $attempt < 3; ++$attempt) {
+                $latestStatus = @file_get_contents($statusPath);
+                if ($pid !== $root && (!is_dir($proc)
+                    || (is_string($latestStatus) && preg_match('/^State:\s+(?:Z|X|x)\b/m', $latestStatus) === 1))) {
+                    continue 2;
+                }
+                time_nanosleep(0, 2_000_000);
+                $fds = @scandir($fdPath);
+                if (is_array($fds)) {
+                    break;
+                }
             }
-
-            throw new RuntimeException('Cannot read required Linux worker resource metrics.');
+            if (!is_array($fds)) {
+                $latestStatus = @file_get_contents($statusPath);
+                throw new RuntimeException(sprintf(
+                    'Cannot read required Linux worker resource metrics: pid=%d state=%s.',
+                    $pid,
+                    is_string($latestStatus) && preg_match('/^State:\s+([^\n]+)/m', $latestStatus, $state) === 1
+                        ? trim($state[1])
+                        : 'unreadable',
+                ));
+            }
         }
         if (preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $rss) !== 1
             || preg_match('/^VmSize:\s+(\d+)\s+kB/m', $status, $virtual) !== 1) {
