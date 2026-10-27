@@ -5,7 +5,8 @@ This is unreleased Runwire 3.0 development documentation, not
 production certification for client pools or proxy connectors.
 The branch includes bounded H1 connections, a constrained experimental
 H2 one-shot TLS client, idle pool admission and TCP/Unix relay primitives;
-active H2 multiplex reuse and CONNECT/SOCKS5 remain unfinished.
+automatic pool-backed H2 multiplex reuse remains unfinished; bounded
+CONNECT/SOCKS5 negotiation has independently verified standalone adapters.
 
 Connection identity and reuse
 -----------------------------
@@ -21,8 +22,8 @@ An experimental ``BoundedConnectionPool`` now adds finite active lease
 slots, FIFO waiter admission, explicit waiter timeouts/cancellation, and
 caller-owned release of successful or failed dials. A null connection
 with no error grants a reserved dial slot; it is NOT a dial itself.
-There is still no automatic connection dialing, no HTTP/2 or HTTP/3
-multiplex slot management, and no GOAWAY-aware reuse.
+There is still no automatic connection dialing; H2/H3 admission and GOAWAY
+handling exist but are not automatically integrated into pooled dialing.
 An experimental ``IdleConnectionPool`` can retain a finite number of
 already verified, fully quiescent streams for a finite TTL, in separate
 ``PoolIsolationKey`` identity buckets. It installs its own exclusive
@@ -50,10 +51,21 @@ identity matches the explicitly configured proxy hostname. Plaintext or
 mismatched identities fail before transmitting credentials.
 
 Successful proxy negotiation does NOT verify the original destination.
-Nested end-to-end TLS to the original hostname remains unimplemented;
-proxy certificate validation must never replace destination validation.
-Automatic authenticated proxy connectors and independent third-party
-proxy conformance are still required under U10.04--U10.06.
+For **cleartext HTTP CONNECT**, ``Connection::upgradeToVerifiedTls()``
+nonblockingly upgrades a quiescent tunnel with the original origin's
+trusted roots, certificate-name/SNI and ALPN policy. Independent TLS peer
+tests verify actual application bytes and reject the wrong origin name.
+
+An **HTTPS proxy followed by an HTTPS origin** instead needs two distinct
+TLS record layers. PHP's existing OpenSSL stream transport does not
+expose a general second TLS layer over an already-encrypted stream.
+The attempted nested upgrade is therefore explicitly rejected and
+the proxy connection is aborted, preventing reuse as an origin-verified
+stream or silent credential/verification downgrade. U10.06 remains
+OPEN for full TLS-over-TLS acceptance; this fail-closed behavior is
+not advertised as functional nested TLS. It does not remove the
+successfully verified proxy identity or the independent origin check
+required for future implementation.
 
 Bidirectional stream relay
 --------------------------
@@ -179,10 +191,12 @@ proxy hostname. Invalid status, smuggling, framed response bodies and
 untrusted peer identities fail closed. Data after a valid CONNECT response
 remains available to the next protocol owner.
 
-These adapters do not yet provide an automatic proxied client, nested TLS
-or certificate checking for the original destination. U10.04--U10.06
-remain OPEN until independent third-party peers and the original-target
-TLS identity are verified with complete QA.
+The standalone authenticated proxy CONNECT adapter and independent
+reference-based proxy-leg TLS QA are accepted under U10.04. Independently
+verified original-target TLS exists over a cleartext CONNECT tunnel,
+but there is no automatic high-level proxied client or supported
+TLS-over-TLS stream. U10.06 remains OPEN until the separately verified
+nested case meets independent peer and complete QA requirements.
 
 Real authenticated proxy tests
 ------------------------------
@@ -196,6 +210,7 @@ cleanup. Local fixtures do not substitute for third-party peer conformance.
 .. code-block:: console
 
    vendor/bin/pest tests/ProxyAuthenticatedTlsInteropTest.php
+   vendor/bin/pest tests/VerifiedOriginalTargetTlsInteropTest.php tests/VerifiedTargetTlsUpgradeGuardTest.php
 
 Loopback TCP proxy peer verification (development)
 --------------------------------------------------

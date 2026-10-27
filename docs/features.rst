@@ -175,6 +175,16 @@ not a limitation of QUIC itself. Ordinary HTTP/3, QUIC streams, UDP
 datagrams and WebSocket remain in scope and are not WebTransport substitutes.
 No promise of support in a future release is implied.
 
+**Nested TLS over an HTTPS proxy is not yet supported.** A cleartext
+HTTP CONNECT tunnel can be upgraded to TLS independently verified for the
+original destination, including certificate name, SNI and ALPN. A
+separately TLS-encrypted HTTPS proxy cannot currently be used as a
+second independently verified origin-TLS transport through the PHP
+stream backend. Attempted TLS-over-TLS upgrading closes the proxy socket
+and refuses the operation; it never uses the proxy's certificate as
+the origin's identity. See :doc:`connection-policies-3.0`.
+This does not affect ordinary verified TLS dials.
+
 
 PHP-FPM has request-owned execution, FrankenPHP/RoadRunner workers can span
 requests, and Swoole/OpenSwoole own their reactors. No host offers universal
