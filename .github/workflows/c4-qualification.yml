@@ -68,7 +68,25 @@ jobs:
           php benchmarks/u10_pool_live_profile.php 160 16 > c4-evidence/pool.json
           jq -e '.correctness_passed == true and .real_network_io == true
             and .pooled.reuse_hits > 0 and .pooled.successful_requests == 320
-            and .direct.successful_requests == 320' c4-evidence/pool.json >/dev/null
+            and .direct.successful_requests == 320
+            and .pooled.fresh_dials < .direct.fresh_dials
+            and .pooled.rps > 0 and .direct.rps > 0
+            and .pooled.p99_ms > 0 and .direct.p99_ms > 0
+            and .pooled.cpu_parent_ms >= 0 and .direct.cpu_parent_ms >= 0
+            and .pooled.rss_bytes > 0 and .direct.rss_bytes > 0
+            and .pooled.peak_open_fds > 0 and .direct.peak_open_fds > 0' c4-evidence/pool.json >/dev/null
+          echo 'Measured real sequential and overlapped TCP dials:'
+          jq '{runtime_build, sequential, overlap}' c4-evidence/outbound-dial.json
+          echo 'Measured real independent TCP pooled versus fresh dials:'
+          jq '{requests_per_trial, concurrency, pooled_vs_direct_rps_ratio,
+            pooled_vs_direct_p99_ratio, direct: {rps: .direct.rps,
+            p99_ms: .direct.p99_ms, fresh_dials: .direct.fresh_dials,
+            cpu_parent_ms: .direct.cpu_parent_ms, rss_bytes: .direct.rss_bytes,
+            peak_open_fds: .direct.peak_open_fds},
+            pooled: {rps: .pooled.rps, p99_ms: .pooled.p99_ms,
+            fresh_dials: .pooled.fresh_dials, reuse_hits: .pooled.reuse_hits,
+            cpu_parent_ms: .pooled.cpu_parent_ms, rss_bytes: .pooled.rss_bytes,
+            peak_open_fds: .pooled.peak_open_fds}}' c4-evidence/pool.json
       - name: Sample real native HTTP concurrency curve on isolated physical cores
         run: bash benchmarks/c4_native_concurrency_sweep.sh c4-evidence/native-h1
       - name: Preserve complete measured GitHub-worker evidence
