@@ -2,10 +2,19 @@
 
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
-**Snapshot date:** 2026-10-27. **QA-accepted:** **148/169 (87.6%)**; **21 OPEN**. WebTransport excluded. Scoped U10.06 accepts independently verified TLS over cleartext CONNECT and fail-closed rejection of HTTPS-proxy nesting; successful TLS-over-TLS is not claimed. C2 closed after immutable nine-green QA; final release gates are still open.
-**Canonical tracker:** 148/169 accepted (87.6%); 21 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
+**Snapshot date:** 2026-10-27. **QA-accepted:** **151/169 (89.3%)**; **18 OPEN**. WebTransport excluded. Scoped U10.06 accepts independently verified TLS over cleartext CONNECT and fail-closed rejection of HTTPS-proxy nesting; successful TLS-over-TLS is not claimed. C2 closed after immutable nine-green QA; final release gates are still open.
+**Canonical tracker:** 151/169 accepted (89.3%); 18 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W202 — Rolling C4 source-verified protocol and resource acceptance (2026-10-27)
+
+Three further tasks accepted on **immutable all-green Runwire HEAD `52c8f33d`** (full [Security & Standards #40509728838](https://github.com/infocyph/Runwire/actions/runs/40509728838), [Benchmarks #40509745518](https://github.com/infocyph/Runwire/actions/runs/40509745518), [native C4 qualification #40509728229](https://github.com/infocyph/Runwire/actions/runs/40509728229), [C3 supervisor #40509728120](https://github.com/infocyph/Runwire/actions/runs/40509728120) and strict [Sphinx #40509728133](https://github.com/infocyph/Runwire/actions/runs/40509728133)). Accepted **U15.01** genuine separate cold/warm handler/context/loop and socket syscall attribution; **U15.04** real H1 plaintext/TLS, H2 HPACK/flow pressure and H3 QUIC/QPACK/upload pressure; **U15.05** live multi-protocol slow-peer/cancel/recycle behavior. Each canonical task carries task-specific immutable evidence; R0.06/R3.09/R4.02/R4.04/R4.09 historical crosswalks now ACCEPTED.
+
+The H1/TLS old/new 5-pair 180-second benchmark passed at 52c8f33d: verified TLS baseline/candidate both 390.31 RPS, 41.88ms p99, CV 0.005% or less. The separate plaintext H1 5-pair 180s and 1800s H1 process-tree soak also passed on earlier immutable 61b9294e with no src/ changes since. **U15.09 remains OPEN** for remaining protocol/workload matched certification; **U15.10 remains OPEN** for representative 1800-second *mixed* network/file/recycle/GC/FD soak. No short profile counts for these long-duration gates.
+
+Current proof closes three additional U15 tasks (previous U15.06 accepted), not the whole C4. Source-only Sphinx is green; **externally hosted Read the Docs preview is still not configured** (`RUNWIRE_RTD_PREVIEW_URL` missing), so U16.02 and U16.16 remain blocked. U16.12 final frozen behavior audit, U15.02 generator headroom, U15.03 trace on/off, U15.07 complete WebSocket counterpart resource measurements, U15.08 mixed files/autoscale, U15.09/.10 long gates remain OPEN. New real WS server CPU/RSS snapshot step submitted for GitHub worker QA; do not count U15.07 before it passes.
+
+**Canonical count 151/169 (89.3%) accepted, 18 OPEN; C4 4/13 ACTIVE; C5 0/9 QUEUED.** No new release, tag or merge.
 ## W201 — Accept real outbound pooling U15.06; preserve scoped H1 release evidence (2026-10-27)
 
 **Accepted U15.06 on immutable GitHub-worker evidence:** [C4 qualification #40509100579](https://github.com/infocyph/Runwire/actions/runs/40509100579) PASSED all three jobs at [7eb72b48](https://github.com/infocyph/Runwire/commit/7eb72b4877b9ea2de376a286aeb70697daf471db): PHP 8.4/8.5 independently compared 24 sequential vs 24 overlapped real TCP dials, and 320 successful fresh versus 320 successful pooled requests to an independent network origin. Both PHP versions show 320 to **32** fresh dials (90% reduction) and 288 actual reuse hits; PHP 8.5 pooled/direct throughput 3254.422/2275.911 RPS (1.4299x), p99 5.636/6.723 ms; PHP 8.4 5948.245/2648.061 RPS (2.2463x), p99 4.703/7.443 ms. CPU/RSS/FD metrics and raw JSON retained with the GitHub run. These results are environment-specific and do not guarantee a generic production throughput gain. R5.08 crosswalk is fully accepted via U03.10 plus U15.06.
@@ -402,9 +411,9 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (25 accepted,
 | C1 | Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 0 | COMPLETE (11/11 accepted) | Real TLS, QUIC and H1/H2/H3 peer conformance; bounded loss/reset/fallback; matched evidence |
 | C2 | Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 0 | DONE — 5/5 QA accepted in supported scope | Verified origin TLS over cleartext CONNECT, HTTPS-proxy nesting fail-closed, authenticated proxy, pooling, H2/H3 multiplex |
 | C3 | Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 0 | DONE (9/9 QA accepted) | Real live worker scaling/drain/crash tests, mixed transports, bounded file executor and fuzz |
-| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 12 | ACTIVE (1/13 accepted; U15.06 verified, other release/hosted gates pending) | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
+| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 9 | ACTIVE (4/13 accepted; U15.01/.04/.05/.06 verified) | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
 | C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED | Exact-head PHPForge/host/interop/packaging gates, independent reviewer acceptance and no automatic release |
-| **TOTAL** | **Five closure groups; no extra task IDs** | **47 assigned; 26 accepted** | **21** | **C1/C2/C3 DONE; C4 ACTIVE, C5 queued** | **169 canonical tasks** |
+| **TOTAL** | **Five closure groups; no extra task IDs** | **47 assigned; 29 accepted** | **18** | **C1/C2/C3 DONE; C4 ACTIVE, C5 queued** | **169 canonical tasks** |
 
 ### Cross-batch delivery and QA discipline
 
@@ -435,12 +444,12 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (25 accepted,
 | U12 | Native supervisor and adaptive worker autoscaling | 9/9 | 0 | Done | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 9/9 | 0 | DONE | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 8/8 | 0 | Complete | U03-U13 |
-| U15 | Performance attribution, regressions and soak | 1/10 | 9 | In progress | U02-U14 |
+| U15 | Performance attribution, regressions and soak | 4/10 | 6 | In progress | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 13/16 | 3 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **148/169** | **21** | **U00–U14 complete; U15–U17 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **151/169** | **18** | **U00–U14 complete; U15–U17 in progress** | U00-U17 |
 
-**Progress counter:** 148/169 (87.6% complete), 21 open.
+**Progress counter:** 151/169 (89.3% complete), 18 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -695,18 +704,18 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (25 accepted,
 
 **Prerequisite:** U02-U14. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U15.01** Attribute real cold and warmed handler, context, loop and syscall overhead. **Acceptance:** Old R0.06 traced with hot-path evidence. **Proof:** PENDING.
+- [x] **U15.01** Attribute real cold and warmed handler, context, loop and syscall overhead. **Acceptance:** Old R0.06 traced with hot-path evidence. **Proof:** Real cold/warm 5,000-request host handler normalization/context allocation/dispatch attribution and measured live H1/TLS read/write syscall traffic on PHP 8.4/8.5 with pinned source and artifact logs. C4 native [#40509728229](https://github.com/infocyph/Runwire/actions/runs/40509728229) all three jobs PASS, [real HTTP network and syscall #40509745518](https://github.com/infocyph/Runwire/actions/runs/40509745518) PASS; separate loop/tick and resource diagnostics in archived native evidence. Neither synthetic host handler phases nor syscall probes alone are presented as entire wire-path latency..
 - [ ] **U15.02** Establish warmed successful throughput concurrency curves with load generator headroom. **Acceptance:** Old R0.07 p50/p95/p99/CPU/RSS/FD. **Proof:** PENDING.
 - [ ] **U15.03** Compare native/hosted tracing enabled versus disabled. **Acceptance:** Old R1.08 overhead bounded. **Proof:** PENDING.
-- [ ] **U15.04** Profile H1 plaintext/TLS, H2 HPACK and H3 QPACK/QUIC real hot paths. **Acceptance:** Old R3.09/R4.02/R4.04 measured. **Proof:** PENDING.
-- [ ] **U15.05** Stress mixed transport slow-peer and cancellation under recycle. **Acceptance:** Old R4.09 accepted with no hidden failures. **Proof:** PENDING.
+- [x] **U15.04** Profile H1 plaintext/TLS, H2 HPACK and H3 QPACK/QUIC real hot paths. **Acceptance:** Old R3.09/R4.02/R4.04 measured. **Proof:** Real PHP 8.4/8.5 plaintext and verified TLS native H1 kernel/stream I/O, 5x180-second independently pinned 2.1.2-vs-3.0 H1/TLS baseline [#40509745518](https://github.com/infocyph/Runwire/actions/runs/40509745518) PASS (CV <=0.005%, measured 390.31 successful RPS per version, p99 41.88ms); independent hyper-h2 HPACK, flow control and slow-peer pressure with actual RPS/p99/CPU/RSS [#40509745518](https://github.com/infocyph/Runwire/actions/runs/40509745518); independent aioquic H3 QPACK blocking, upload and churn, real QUIC transport/CPU/RSS/p99 [#40509728838](https://github.com/infocyph/Runwire/actions/runs/40509728838) PASS. HPACK/QPACK source-only microprofiles explicitly separate from real protocol costs. Still no H2/H3 5x180 matched certification; U15.09 separate..
+- [x] **U15.05** Stress mixed transport slow-peer and cancellation under recycle. **Acceptance:** Old R4.09 accepted with no hidden failures. **Proof:** Independent live mixed H1/H2/H3/TCP/UDP fault and accepted-body checks during worker reload/recycle, GOAWAY, cancellation/reset and real independent H2 slow-peer / H3 QPACK/upload/churn pressure; [native supervisor #40509728120](https://github.com/infocyph/Runwire/actions/runs/40509728120) PASS PHP8.4/8.5, [mixed native lifecycle + HTTP3 QUIC #40509728838](https://github.com/infocyph/Runwire/actions/runs/40509728838) PASS, [real H2 slow-peer #40509745518](https://github.com/infocyph/Runwire/actions/runs/40509745518) PASS. No claim that this short multi-protocol stress replaces independent 1800s mixed soak U15.10..
 - [x] **U15.06** Compare sequential and concurrent outbound I/O and connection pooling. **Acceptance:** Old R5.08 measured benefit. **Proof:** Real independent TCP origin on PHP 8.4/8.5; 24 sequential/24 overlapped dial completions and 320/320 direct/pooled successful responses each version; 320 direct fresh dials versus 32 pooled fresh dials, 288 reuse hits and lower p99/higher RPS in both measured lanes, with CPU/RSS/FD and raw artifacts. Exact source [GitHub C4 qualification #40509100579](https://github.com/infocyph/Runwire/actions/runs/40509100579) PASSED all 3 jobs at 7eb72b48. Benefits confined to measured workload, not universal claims.
 - [ ] **U15.07** Benchmark H1/H2/H3 and WebSocket clients and servers with real counterparts. **Acceptance:** CPU/RSS/p99 and errors captured. **Proof:** PENDING.
 - [ ] **U15.08** Benchmark file executor and autoscale under mixed network load. **Acceptance:** No loop starvation or excessive overhead. **Proof:** PENDING.
 - [ ] **U15.09** Run exact baseline 2.1.2 versus 3.0 five paired 180s comparisons. **Acceptance:** Both variance CV less than 2.5 percent and strict p99/RSS/RPS gates. **Proof:** PENDING.
 - [ ] **U15.10** Run full 1800-second process-tree and GC/OPcache/FD soak. **Acceptance:** No errors, unbounded growth or stale workers. **Proof:** PENDING.
 
-**Batch tracker:** 1/10 accepted; 9 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 4/10 accepted; 6 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ### U16 — Read the Docs-compatible Sphinx documentation and full feature catalog
 
@@ -753,13 +762,13 @@ The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e
 
 | Old unfinished 2.2 ID | 3.0 acceptance task(s) | Status |
 | --- | --- | --- |
-| R0.06 | U15.01 | OPEN; retest against 3.0 |
+| R0.06 | U15.01 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
 | R0.07 | U15.02 | OPEN; retest against 3.0 |
 | R1.08 | U15.03 | OPEN; retest against 3.0 |
-| R3.09 | U08.09 + U15.04 | OPEN; retest against 3.0 |
-| R4.02 | U08.04 + U15.04 | OPEN; retest against 3.0 |
-| R4.04 | U08.05 + U15.04 | PARTIAL; U08.05 development profiling accepted, U15.04 release certification OPEN |
-| R4.09 | U08.08 + U15.05 | PARTIAL; U08.08 independent mixed peer/recycle accepted; U15.05 long-soak remains OPEN |
+| R3.09 | U08.09 + U15.04 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
+| R4.02 | U08.04 + U15.04 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
+| R4.04 | U08.05 + U15.04 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
+| R4.09 | U08.08 + U15.05 | ACCEPTED; GitHub task-specific PHP 8.4/8.5 C4 QA #40509728229 / #40509728838 / #40509745518 |
 | R5.02 | U03.01 | OPEN; retest against 3.0 |
 | R5.03 | U02.06 + U06.03 | OPEN; retest against 3.0 |
 | R5.04 | U02.04 | OPEN; retest against 3.0 |
