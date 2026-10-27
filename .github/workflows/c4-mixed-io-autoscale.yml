@@ -1,0 +1,95 @@
+name: C4 concurrent filesystem, network and autoscale QA
+
+on:
+  pull_request:
+    branches: [main, master, develop, development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c4-mixed-io-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live-file-network-autoscale:
+    name: Mixed async file/TCP + native autoscale PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup PHP process and socket support
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          extensions: pcntl, posix, event, sockets, opcache
+          coverage: none
+      - name: Install code under test
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Run independently verified live interleaving
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c4-mixed-evidence
+          git rev-parse HEAD > c4-mixed-evidence/source-sha.txt
+          export RUNWIRE_RUNTIME_BUILD="$(cat c4-mixed-evidence/source-sha.txt)"
+          php -d opcache.enable_cli=1 .ci/c3_autoscale_http_traffic.php > c4-mixed-evidence/autoscale.json &
+          autoscale_pid=$!
+          cleanup() {
+            if kill -0 "$autoscale_pid" 2>/dev/null; then
+              kill -TERM "$autoscale_pid" || true
+            fi
+          }
+          trap cleanup EXIT
+          for sample in $(seq 1 8); do
+            php -d opcache.enable_cli=1 benchmarks/c4_mixed_file_network.php > "c4-mixed-evidence/file-tcp-$sample.json"
+            jq -e --arg sha "$RUNWIRE_RUNTIME_BUILD" \
+              '.correctness_passed == true and .source_sha == $sha
+                and .network_connected == 48 and .network_accepted == 48
+                and .completed_binary_file_roundtrips == 48
+                and .loop_ticks >= 4 and .peak_timer_tick_gap_ms < 150
+                and .parent_peak_rss_bytes > 0 and .max_parent_fds > 0
+                and .max_parent_fds < 256 and .executor_queued_after == 0
+                and .dialer_pending_after == 0 and (.errors | length) == 0' \
+              "c4-mixed-evidence/file-tcp-$sample.json" >/dev/null
+            sleep 2
+          done
+          wait "$autoscale_pid"
+          jq -e '.success >= 60 and .success == .attemptedWhileReady
+            and .failures == 0 and .scaleInObserved == true
+            and .scaleOutObserved == true and .duplicateSlots == false
+            and .remainingWorkers == 0 and .p99Ms < 1000' \
+            c4-mixed-evidence/autoscale.json >/dev/null
+          jq -s --arg source "$RUNWIRE_RUNTIME_BUILD" \
+            '{source_sha:$source, observations:length,
+              same_reactor_file_and_network:true, autoscale_run_in_parallel:true,
+              correct_runs:([.[]|select(.correctness_passed == true)]|length),
+              max_tick_gap_ms:([.[].peak_timer_tick_gap_ms]|max),
+              total_completed_binary_roundtrips:([.[].completed_binary_file_roundtrips]|add),
+              total_connected_tcp_sockets:([.[].network_connected]|add),
+              p99_tcp_dial_ms:([.[].network_p99_ms]|max),
+              max_parent_fds:([.[].max_parent_fds]|max),
+              max_parent_rss_bytes:([.[].parent_peak_rss_bytes]|max)}' \
+            c4-mixed-evidence/file-tcp-{1,2,3,4,5,6,7,8}.json \
+            > c4-mixed-evidence/summary.json
+          jq -e '.observations == 8 and .correct_runs == 8
+            and .total_completed_binary_roundtrips == 384
+            and .total_connected_tcp_sockets == 384
+            and .max_tick_gap_ms < 150' c4-mixed-evidence/summary.json
+          cat c4-mixed-evidence/summary.json
+      - name: Retain source-pinned mixed-resource and autoscale evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-mixed-io-php-${{ matrix.php }}
+          path: c4-mixed-evidence/
+          retention-days: 90
