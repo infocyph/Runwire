@@ -67,6 +67,25 @@ final readonly class WorkerGroup
         $this->reloadable = $reloadable ?? $role->defaultReloadable();
     }
 
+    /** Return the same immutable worker group contract with a new live slot count. */
+    public function withCount(int $count): self
+    {
+        return new self(
+            name: $this->name,
+            count: $count,
+            bootstrap: $this->bootstrap,
+            restartPolicy: $this->restartPolicy,
+            recyclePolicy: $this->recyclePolicy,
+            admissionPolicy: $this->admissionPolicy,
+            privilegeDropPolicy: $this->privilegeDropPolicy,
+            automaticReady: $this->automaticReady,
+            readyTimeoutSeconds: $this->readyTimeoutSeconds,
+            shutdownTimeoutSeconds: $this->shutdownTimeoutSeconds,
+            reloadable: $this->reloadable,
+            role: $this->role,
+        );
+    }
+
     /**
      * Create a worker group from a callback factory.
      *
