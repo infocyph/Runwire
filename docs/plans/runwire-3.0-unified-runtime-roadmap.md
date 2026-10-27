@@ -130,6 +130,10 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
+## W153 — C3 U12.06 worker-owned executor drain (2026-10-27; QA pending)
+
+[`6940706`](https://github.com/infocyph/Runwire/commit/6940706022c49ea53ce91e19f035877dd1499606) adds explicit opt-in process-executor ownership to native `WorkerContext`: stopping/closing a worker requests cancellation and shutdown of registered owned process executors, whereas borrowed executors are unaffected. [`3fdc3a3`](https://github.com/infocyph/Runwire/commit/3fdc3a3c0e3353ef6dbbec9efd8e7e51e578283b) and follow-up [`3d742fa`](https://github.com/infocyph/Runwire/commit/3d742faf634ba870c45c5b8ef710488e46ed2ab9) add the real queued/active job cancellation and watcher cleanup test. This is a **partial U12.06** implementation: full ownership/drain of sessions, pools, pending dials, QUIC, coroutines and the file executor remains required, as do exact-head PHPForge QA and live worker fault acceptance. **U12.06 remains OPEN; C3 2/9; overall 140/169, 29 OPEN.** U11.03 source-boundary guard remains QA pending at the latest code head. No tracker checkbox is promoted on unverified new source.
+
 ## W152 — C3 U11.03 backend capability proof (2026-10-27; QA pending)
 
 Commits [`62d6717`](https://github.com/infocyph/Runwire/commit/62d6717f34d0e312086395f28fdb2076a3983f19) and [`3a7ee99`](https://github.com/infocyph/Runwire/commit/3a7ee99f5be9d36914b3c7031b7fe290d0386438) add an executable constructor/source capability guard and clarify the native filesystem limitation in RST. The only qualified implementation remains a bounded off-reactor `ProcessExecutor`, never reactor-thread blocking I/O; native event-loop acceleration is not native disk I/O. **U11.03 remains OPEN** until the source-pinned PHP 8.4/8.5 security/functional matrix and all relevant nine routines are green, then accept only the explicitly supported no-unqualified-acceleration scope; never claim kernel async or an unused native extension. Canonical 140/169 QA-accepted, 29 OPEN; C3 2/9. This paragraph and its tracker-only commit must receive their own exact-head QA.
