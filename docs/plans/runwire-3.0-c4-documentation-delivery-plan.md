@@ -4,6 +4,11 @@
 PR #9, Sphinx-native reStructuredText public documentation only.
 No Foundation/Infbyte/Core/Cells edits, merge, tag or release.
 
+## W201 — GitHub C4 U15.06 qualified; matched/plaintext H1 and 1800s scope recorded (2026-10-27)
+
+[C4 GitHub qualification #40509100579](https://github.com/infocyph/Runwire/actions/runs/40509100579) passed independent PHP 8.4/8.5 real TCP sequential/overlap and fresh/pooled network comparisons with logged CPU/RSS/FD/p99/RPS; 320 fresh dials became 32 under reuse (288 hits), and both PHP lanes measured improved throughput and p99 in that bounded fixture. **U15.06 ACCEPTED, R5.08 historical crosswalk ACCEPTED.** [Release Certificate #40504576622](https://github.com/infocyph/Runwire/actions/runs/40504576622) separately passed five paired 180-second plaintext H1 comparison and a 1800-second H1 GC/OPcache/FD soak (16,909,187 correct responses, zero errors), while overall release workflow FAILED old PHPForge/consumer QA. Other U15.09 protocol/workload cells and U15.10 mixed file/recycle/autoscale 1800s stress remain OPEN. Full C4 cannot close without those, hosted RTD preview/search/version and complete migration audit. New SHA-pinned matched TLS comparison can be triggered by PR label c4-matched-tls. No generic throughput claim.
+
+**Canonical 148/169 QA accepted (87.6%), 21 OPEN; C4 1/13, C5 0/9.** Keep exact source QA, no threshold waiver or release.
 ## W200 — GitHub C4 live migration and measured pooling QA (2026-10-27)
 
 [Immutable real 2.1.2 vs 3.0 migration workflow #40508637661](https://github.com/infocyph/Runwire/actions/runs/40508637661) passed independent native HTTP status/body/header cases on PHP 8.4 and 8.5 (partial U16.12). [97c1d457](https://github.com/infocyph/Runwire/commit/97c1d457d876bbc299cbe12481de0d101f30ec8b) repairs an invalid short-duration comparator fixture while retaining strict >=180s release rules. [C4 real profiling #40505102868](https://github.com/infocyph/Runwire/actions/runs/40505102868) passed three jobs; [1663c1b7](https://github.com/infocyph/Runwire/commit/1663c1b75361ea312bc99fa67fecc0e2fa0e1e03) strengthens fresh-dial benefit proof and emits actual RPS/p99/CPU/RSS/FD metrics in GitHub job logs. New exact-head QA required before any acceptance.
