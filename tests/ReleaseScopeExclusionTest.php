@@ -20,3 +20,23 @@ it('keeps excluded WebTransport out of the Runwire 3.0 implementation and releas
         ->and(is_file($root . '/docs/webtransport-design-3.0.rst'))->toBeFalse()
         ->and($plan)->not->toMatch('/^- \[[ x]\] \*\*U(?:15\\.07|17\\.03)\*\*.*(?:WebTransport|WS\\/WT)/m');
 });
+
+it('contains no WebTransport implementation or protocol placeholders in Runwire source', function (): void {
+    $root = dirname(__DIR__);
+    $files = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($root . '/src', FilesystemIterator::SKIP_DOTS),
+    );
+    $count = 0;
+
+    foreach ($files as $file) {
+        if (!$file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+        ++$count;
+        $contents = file_get_contents($file->getPathname());
+        expect($contents)->toBeString()
+            ->not->toMatch('/webtransport|web_transport|web-transport/i');
+    }
+
+    expect($count)->toBeGreaterThan(300);
+});
