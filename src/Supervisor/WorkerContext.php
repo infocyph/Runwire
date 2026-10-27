@@ -12,6 +12,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\BoundedConnectionPool;
+use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\QuicClientSession;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
@@ -42,6 +43,9 @@ final class WorkerContext
 
     /** @var array<int, BoundedConnectionPool> */
     private array $ownedPools = [];
+
+    /** @var array<int, Connection> */
+    private array $ownedConnections = [];
 
     /** @var array<int, QuicClientSession> */
     private array $ownedQuicSessions = [];
@@ -192,6 +196,16 @@ final class WorkerContext
         }
 
         $this->ownedPools[spl_object_id($pool)] = $pool;
+    }
+
+    /** Take responsibility for aborting a socket still active when this worker retires. */
+    public function ownConnection(Connection $connection): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept connection ownership.');
+        }
+
+        $this->ownedConnections[spl_object_id($connection)] = $connection;
     }
 
     /** Explicitly transfer a native QUIC session's shutdown to this worker. */
@@ -497,11 +511,20 @@ final class WorkerContext
 
     private function closeOwnedNetworkResources(): void
     {
+        $connections = $this->ownedConnections;
         $pools = $this->ownedPools;
         $sessions = $this->ownedQuicSessions;
         $this->ownedPools = [];
+        $this->ownedConnections = [];
         $this->ownedQuicSessions = [];
 
+        foreach ($connections as $connection) {
+            try {
+                $connection->abort();
+            } catch (\Throwable) {
+                // Continue retiring other owned sockets and sessions.
+            }
+        }
         foreach ($pools as $pool) {
             try {
                 $pool->close();
