@@ -91,6 +91,7 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
     for attempt in range(3):
         headers_seen = set()
         completed = set()
+        update_write_failed = False
         response_bodies = {stream: bytearray() for stream in expected}
         writer = None
         try:
@@ -164,9 +165,19 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
                 if len(completed) == len(expected):
                     break
                 outgoing = h2.data_to_send()
-                if outgoing:
-                    writer.write(outgoing)
-                    await writer.drain()
+                if outgoing and not update_write_failed:
+                    try:
+                        writer.write(outgoing)
+                        await writer.drain()
+                    except (BrokenPipeError, ConnectionResetError):
+                        # A server may already have sent graceful GOAWAY
+                        # and TLS close while the independent client is
+                        # writing an optional WINDOW_UPDATE. The write is
+                        # not an admitted request or a response. Continue
+                        # *reading and verifying every body and END_STREAM*;
+                        # if any flow-control update was actually needed,
+                        # a missing byte, reset or EOF still fails the wave.
+                        update_write_failed = True
             return len(completed)
         except (ConnectionError, OSError, ssl.SSLError):
             # A supervisor may retire a TLS session before any response is
