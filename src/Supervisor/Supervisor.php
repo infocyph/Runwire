@@ -16,6 +16,7 @@ use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
+use Infocyph\Runwire\Supervisor\Internal\AutoscaleWindowController;
 use Infocyph\Runwire\Supervisor\Internal\ChildExitTransition;
 use Infocyph\Runwire\Supervisor\Internal\ChildReaper;
 use Infocyph\Runwire\Supervisor\Internal\ChildRecord;
@@ -28,6 +29,8 @@ use Infocyph\Runwire\Supervisor\Internal\SignalBridge;
 use Infocyph\Runwire\Supervisor\Internal\SupervisorStatusBuilder;
 use Infocyph\Runwire\Supervisor\Internal\WorkerChildRuntime;
 use Infocyph\Runwire\Supervisor\Internal\WorkerLifecycleCoordinator;
+use Closure;
+use InvalidArgumentException;
 use LogicException;
 
 /**
@@ -78,6 +81,12 @@ final class Supervisor
 
     /** @var array<string, WorkerGroup> */
     private array $groups = [];
+
+    /** @var array<string, array{controller:AutoscaleWindowController,policy:AutoscalePolicy,sample:Closure}> */
+    private array $autoscale = [];
+
+    /** @var array<string, int> */
+    private array $autoscaleTimers = [];
 
     private bool $running = false;
 
@@ -154,6 +163,35 @@ final class Supervisor
 
         $this->groups[$group->name] = $group;
         $this->restartCoordinator->register($group);
+
+        return $this;
+    }
+
+    /**
+     * Configure live worker scaling before run(), using an explicit metrics sampler.
+     *
+     * The initial group count must lie within the policy's bounds. Sampling,
+     * fork ownership and drain are all executed by the owning supervisor.
+     *
+     * @param callable():array{cpuRatio:float,queued:int,successfulRps:float,p99Milliseconds:float} $sample
+     */
+    public function autoscale(string $group, AutoscalePolicy $policy, callable $sample): self
+    {
+        if ($this->started) {
+            throw new LogicException('Cannot modify autoscale configuration after supervisor startup.');
+        }
+        $definition = $this->groups[$group] ?? null;
+        if ($definition === null) {
+            throw new InvalidArgumentException('Autoscale requires an already registered worker group.');
+        }
+        if ($definition->count < $policy->minWorkers || $definition->count > $policy->maxWorkers) {
+            throw new InvalidArgumentException('Initial worker count is outside autoscale policy bounds.');
+        }
+        $this->autoscale[$group] = [
+            'controller' => new AutoscaleWindowController($policy),
+            'policy' => $policy,
+            'sample' => Closure::fromCallable($sample),
+        ];
 
         return $this;
     }
@@ -252,12 +290,14 @@ final class Supervisor
             }
             $this->signalBridge->open($this->processSignals(...));
             $this->spawnInitialWorkers();
+            $this->startAutoscaleSampling();
             $this->startDevelopmentWatcher();
             $this->loop->run();
         } catch (SupervisorException $exception) {
             $this->failure ??= $exception;
         } finally {
             $this->running = false;
+            $this->stopAutoscaleSampling();
             $this->developmentWatcher?->stop();
             $this->developmentWatcherFailures = $this->developmentWatcher?->failureCount()
                 ?? $this->developmentWatcherFailures;
@@ -324,6 +364,7 @@ final class Supervisor
         }
 
         $this->stopping = true;
+        $this->stopAutoscaleSampling();
         $this->reloadCoordinator->resetForStop();
         $this->emit(new SupervisorEvent(SupervisorEventType::SUPERVISOR_STOPPING, $this->now()));
         $this->restartCoordinator->cancelAll();
@@ -718,6 +759,75 @@ final class Supervisor
         ));
         if ($setCurrent) {
             $this->currentSlots[$group->name][$slot] = $pid;
+        }
+    }
+
+    private function startAutoscaleSampling(): void
+    {
+        foreach ($this->autoscale as $name => $configuration) {
+            $this->autoscaleTimers[$name] = $this->loop->repeat(
+                $configuration['policy']->sampleSeconds,
+                function () use ($name): void {
+                    if ($this->stopping || $this->reloadCoordinator->reloading()) {
+                        return;
+                    }
+                    $entry = $this->autoscale[$name];
+                    $metrics = ($entry['sample'])();
+                    $group = $this->groups[$name];
+                    $target = $entry['controller']->observe(
+                        currentWorkers: $group->count,
+                        cpuRatio: $metrics['cpuRatio'],
+                        queued: $metrics['queued'],
+                        successfulRps: $metrics['successfulRps'],
+                        p99Milliseconds: $metrics['p99Milliseconds'],
+                        observedAtSeconds: $this->now(),
+                    );
+                    if ($target !== $group->count) {
+                        $this->resizeWorkers($group, $target);
+                    }
+                },
+            );
+        }
+    }
+
+    private function stopAutoscaleSampling(): void
+    {
+        foreach ($this->autoscaleTimers as $timer) {
+            $this->loop->cancel($timer);
+        }
+        $this->autoscaleTimers = [];
+    }
+
+    private function resizeWorkers(WorkerGroup $group, int $target): void
+    {
+        $current = $group->count;
+        $name = $group->name;
+        $this->groups[$name] = $group->withCount($target);
+        if ($target > $current) {
+            for ($slot = $current; $slot < $target; ++$slot) {
+                $this->spawnWorker(
+                    $this->groups[$name],
+                    $slot,
+                    $this->reloadCoordinator->generation(),
+                    $this->restartCoordinator->count($name, $slot),
+                    null,
+                    true,
+                );
+            }
+
+            return;
+        }
+        for ($slot = $target; $slot < $current; ++$slot) {
+            $this->restartCoordinator->cancel($name . ':' . $slot);
+            $pid = $this->currentSlots[$name][$slot] ?? null;
+            if ($pid !== null && isset($this->children[$pid])) {
+                $this->stopChild(
+                    $this->children[$pid],
+                    WorkerState::DRAINING,
+                    false,
+                    ShutdownReason::SUPERVISOR_STOP,
+                );
+            }
         }
     }
 
