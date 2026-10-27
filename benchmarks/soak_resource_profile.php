@@ -69,6 +69,13 @@ function soakReadProcessTree(int $root): array
             }
             if (!is_array($fds)) {
                 $latestStatus = @file_get_contents($statusPath);
+                // The status was successfully read at admission. If it is
+                // now gone as well as the fd table, this descendant exited
+                // during traversal. Never apply this exception to the root.
+                if ($pid !== $root && !is_string($latestStatus)) {
+                    continue;
+                }
+
                 throw new RuntimeException(sprintf(
                     'Cannot read required Linux worker resource metrics: pid=%d state=%s.',
                     $pid,
