@@ -793,7 +793,11 @@ final class Supervisor
                     $entry = $this->autoscale[$name];
                     try {
                         $metrics = ($entry['sample'])();
-                        if (!is_array($metrics)) {
+                        if (!is_array($metrics)
+                            || !is_float($metrics['cpuRatio'] ?? null)
+                            || !is_int($metrics['queued'] ?? null)
+                            || !is_float($metrics['successfulRps'] ?? null)
+                            || !is_float($metrics['p99Milliseconds'] ?? null)) {
                             return;
                         }
                         $group = $this->groups[$name];
