@@ -9,7 +9,7 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 
 it('cancels owned queued file jobs once when the worker stops and rejects late ownership', function (): void {
     $loop = new SelectLoop();
-    $worker = new WorkerContext('executor-owner', 0, 1, getmypid(), getmypid());
+    $worker = new WorkerContext('executor-owner', 0, 1, posix_getpid(), posix_getpid());
     $executor = new ProcessExecutor($loop, 1, 4);
     $callbacks = [];
 
