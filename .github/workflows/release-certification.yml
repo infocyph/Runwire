@@ -424,6 +424,7 @@ jobs:
           workspace="$(cat release-certification/standalone/workspace-path)"
           mkdir -p "$workspace/consumer/benchmarks"
           cp runwire/benchmarks/http1_server.php "$workspace/consumer/benchmarks/http1_server.php"
+          cp runwire/benchmarks/http1_bench_workload.php "$workspace/consumer/benchmarks/http1_bench_workload.php"
           port="$(php -r '
             $socket = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
             if (!is_resource($socket)) { throw new RuntimeException($error); }
