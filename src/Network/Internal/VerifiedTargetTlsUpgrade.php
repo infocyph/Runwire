@@ -10,11 +10,23 @@ use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\ConnectionLimits;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use LogicException;
 use Throwable;
 
 /** @internal Exclusive post-CONNECT original-target TLS handshake ownership. */
 final class VerifiedTargetTlsUpgrade
 {
+    /** Refuse upgrades unless the cleartext tunnel is exclusively quiescent. */
+    public static function assertAllowed(Connection $connection, mixed $stream): void
+    {
+        if ($connection->isEncrypted()) {
+            throw new LogicException('TLS-over-TLS proxy nesting is unavailable; original-target verification cannot be guaranteed.');
+        }
+        if (!$connection->isPoolIdleSafe() || !is_resource($stream)) {
+            throw new LogicException('TLS upgrade requires an unowned, quiescent cleartext tunnel.');
+        }
+    }
+
     /**
      * The old cleartext Connection has already retired all watchers and given
      * this worker unique ownership of its socket.

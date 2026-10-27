@@ -21,8 +21,8 @@ use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
 use Infocyph\Runwire\Network\Internal\VerifiedTargetTlsUpgrade;
 use InvalidArgumentException;
-use LogicException;
 use RuntimeException;
+use Throwable;
 
 /**
  * Manages a non-blocking stream connection with bounded buffering, callbacks, backpressure, and timeouts.
@@ -500,12 +500,7 @@ final class Connection
      */
     public function upgradeToVerifiedTls(TlsClientOptions $policy, callable $completion): void
     {
-        if ($this->encrypted) {
-            throw new LogicException('TLS-over-TLS proxy nesting is unavailable; original-target verification cannot be guaranteed.');
-        }
-        if (!$this->isPoolIdleSafe() || !is_resource($this->stream)) {
-            throw new LogicException('TLS upgrade requires an unowned, quiescent cleartext tunnel.');
-        }
+        VerifiedTargetTlsUpgrade::assertAllowed($this, $this->stream);
 
         $stream = $this->stream;
         $this->stream = null;
