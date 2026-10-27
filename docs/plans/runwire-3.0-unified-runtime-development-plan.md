@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W174 — Restore updated PHPForge main and re-run unwaived CI (2026-10-27; QA pending)
+
+Following maintainer confirmation of an updated PHPForge main, Runwire restores `infocyph/phpforge: dev-main@dev` and removes the temporary fork/commit VCS override from W173. The observed upstream main now specifies ParaTest `>=7.25.0 <7.26.0` and Pest `^5.3.0`; compatibility with secure PHPUnit and current Pest must be resolved by **real Composer CI**, not guessed or waived. Re-run all standard workflows plus PHP 8.4/8.5 native C3 smoke; keep C3 **2/9** and canonical **140/169, 29 OPEN** pending exact-head QA. No changes to upstream PHPForge, security enforcement or other libraries.
+
 ## W173 — Runwire-only secure Composer QA dependency bridge (2026-10-27; CI verification pending)
 
 The standard QA and H2/H3 workflows fail Composer resolution before running tests: PHPForge main freezes ParaTest 7.26.0, while current Pest expects ParaTest 7.26.1+ and the available secure PHPUnit conflicts with older Pest. Runwire's development-only `composer.json` now requests the one-commit-ahead PHPForge Dependabot branch (`1f1c7c11f80f`, ParaTest ^7.27.3) through an explicit VCS repository, pinned to that immutable revision, while retaining all PHPForge tooling, four PHPForge QA lanes, both static analyzers and Composer security advisories. This is a **temporary Runwire-only QA bridge**, not an authorized upstream PHPForge update, QA waiver or final releasable dependency contract. Require green exact-head clean installs and nine workflows before any task acceptance. Program **140/169 accepted (29 OPEN); C3 2/9** unchanged.
