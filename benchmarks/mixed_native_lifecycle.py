@@ -116,11 +116,11 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
             h2.reset_stream(cancelled_id, error_code=0x8)
             writer.write(h2.data_to_send())
             await writer.drain()
-            if submitted is not None:
-                submitted.set()
-            # Intentionally slow receive/flow-control updates while multiple
-            # server streams remain in flight through rollover and recycling.
-            await asyncio.sleep(slow_receiver_seconds)
+            # Do not treat client-side submission as server admission.
+            # For the shutdown wave, wait for real response headers on all
+            # eight streams before signaling SIGTERM to the native master.
+            if submitted is None:
+                await asyncio.sleep(slow_receiver_seconds)
             while len(completed) < len(expected):
                 data = await asyncio.wait_for(reader.read(65535), 4)
                 if not data:
@@ -150,6 +150,12 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
                         raise ConnectionError(f"H2 request reset during native reload: {event.stream_id}")
                     elif isinstance(event, ConnectionTerminated) and len(completed) < len(expected):
                         raise ConnectionError("Native H2 connection closed before all responses completed")
+                if submitted is not None and len(headers_seen) == len(expected):
+                    submitted.set()
+                    submitted = None
+                    # Keep accepted data under backpressure while shutdown
+                    # starts; no unacknowledged stream is silently retried.
+                    await asyncio.sleep(slow_receiver_seconds)
                 outgoing = h2.data_to_send()
                 if outgoing:
                     writer.write(outgoing)
@@ -314,9 +320,10 @@ async def exercise():
             )
             observed["after_manual_recycle"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
 
-            # Stop after a real H2 client has transmitted eight parallel request
-            # streams (before slow-flow-control receive) and H3 siblings have
-            # started transmitting. Do not treat merely opening sockets as
+            # Stop only after the H2 server has sent response headers for all
+            # eight independently admitted streams and H3 siblings have
+            # begun transmission. Client-side submission alone is not proof
+            # of server admission and would make shutdown acceptance invalid. Do not treat merely opening sockets as
             # evidence that an active request survived native shutdown.
             h2_submitted, h3_submitted = asyncio.Event(), asyncio.Event()
             during_stop = asyncio.create_task(complete_wave(
