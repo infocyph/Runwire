@@ -31,6 +31,8 @@ final class Dialer
 
     private int $nextId = 1;
 
+    private readonly int $ownerPid;
+
     /**
      * @var array<int, array{
      *   stream:resource, state:DialAttemptLifecycle,
@@ -47,11 +49,17 @@ final class Dialer
         if ($maxPending < 1 || $maxPending > 65_536) {
             throw new InvalidArgumentException('Maximum pending dial count must be 1–65536.');
         }
+        $pid = getmypid();
+        if (!is_int($pid)) {
+            throw new RuntimeException('Unable to establish outbound dial process ownership.');
+        }
+        $this->ownerPid = $pid;
     }
 
     /** Cancel one pending dial without invoking its completion twice. */
     public function cancel(int $id): bool
     {
+        $this->assertProcessOwner();
         if (!array_key_exists($id, $this->pending)) {
             return false;
         }
@@ -63,12 +71,21 @@ final class Dialer
     /** Close all pending sockets and reject future attempts. */
     public function close(): void
     {
+        $this->assertProcessOwner();
         if ($this->closed) {
             return;
         }
         $this->closed = true;
+        $error = null;
         foreach (array_keys($this->pending) as $id) {
-            $this->cancel($id);
+            try {
+                $this->cancel($id);
+            } catch (Throwable $failure) {
+                $error ??= $failure;
+            }
+        }
+        if ($error !== null) {
+            throw $error;
         }
     }
 
@@ -141,6 +158,8 @@ final class Dialer
     /** Number of pending, not-yet-handed-off outgoing sockets. */
     public function pendingCount(): int
     {
+        $this->assertProcessOwner();
+        $this->assertProcessOwner();
         return count($this->pending);
     }
 
@@ -155,6 +174,13 @@ final class Dialer
         }
 
         $options->addressPolicy->assertCandidate($endpoint->host ?? '');
+    }
+
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('Outbound dial ownership cannot cross a fork; create a new dialer in the worker.');
+        }
     }
 
     private function attachCancellation(int $id, DialOptions $options): void
