@@ -305,7 +305,11 @@ final class TcpListener
             throw new LogicException('Listener is already attached to an event loop.');
         }
 
-        $this->activeOwnerPid = getmypid();
+        $ownerPid = getmypid();
+        if (!is_int($ownerPid)) {
+            throw new LogicException('Unable to establish active TCP listener process ownership.');
+        }
+        $this->activeOwnerPid = $ownerPid;
         $this->loop = $loop;
         $this->connectionCallback = Closure::fromCallable($onConnection);
         $this->syncAcceptWatcher();

@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W177 — Runwire PHPStan type and worker resource-complexity QA repair (2026-10-27; QA pending)
+
+React to the **real PHP8.4 PHPStan** failure at [Security & Standards #40481628259](https://github.com/infocyph/Runwire/actions/runs/40481628259): fix the misplaced Happy Eyeballs completion PHPDoc, remove redundant process assertions, reject noninteger TCP listener PID, and replace invalid void-expression arrow callbacks in worker shutdown with explicit void closures. Move the fault-isolated network/executor resource retirement loops into a cohesive typed `Internal/WorkerOwnedResourceCleanup` helper, preserving the exact teardown order and existing ownership/retry behavior while reducing WorkerContext class and function cognitive complexity without waiving PHPForge rules. Additional Supervisor complexity QA is tracked separately; **do not mark security QA green until both analyzers and full CI pass**. C3 **2/9**, total **140/169**, **29 OPEN**.
+
 ## W175 — C3 worker-owned teardown fault isolation (2026-10-27; QA pending)
 
 With PHPForge `dev-main` restored and the prior exact-head H2, hosted, native portable and C3 smoke gates green, harden **partial U12.06**: one periodic timer cancellation fault no longer prevents other timers from cancelling or the worker stop wake and executor drain. Failed timer handles remain available for a retry during terminal `close()`. Worker terminal cleanup always attempts independent coroutine, periodic, network, executor, channel and watcher teardown before rethrowing the first failure; a failed control-watcher cancellation remains retryable. Added a Composer-free fault-injected `.ci/c3_cleanup_fault_smoke.php` gate to the dual-version native C3 workflow. Require positive exact-head PHP8.4/8.5 evidence plus complete QA and all remaining U12 session/fairness acceptance. **No early U12.06 completion: C3 2/9, 140/169 accepted, 29 OPEN.**

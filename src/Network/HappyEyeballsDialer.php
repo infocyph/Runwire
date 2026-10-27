@@ -138,14 +138,9 @@ final class HappyEyeballsDialer
     public function pendingCount(): int
     {
         $this->assertProcessOwner();
-        $this->assertProcessOwner();
-        $this->assertProcessOwner();
         return count($this->pending);
     }
 
-    /**
-     * @param callable(?Connection, ?Throwable):void $completion
-     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -153,6 +148,7 @@ final class HappyEyeballsDialer
         }
     }
 
+    /** @param callable(?Connection, ?Throwable):void $completion */
     private function register(callable $completion, DialOptions $options): int
     {
         if ($this->closed) {

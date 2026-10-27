@@ -21,6 +21,7 @@ use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Internal\PeriodicTaskRegistry;
+use Infocyph\Runwire\Supervisor\Internal\WorkerOwnedResourceCleanup;
 use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
 use LogicException;
 use RuntimeException;
@@ -256,10 +257,18 @@ final class WorkerContext
         $this->stopping = true;
         $failure = null;
         foreach ([
-            fn(): mixed => $this->backgroundCoroutines?->close(),
-            fn(): mixed => $this->periodicTasks->close(),
-            fn(): mixed => $this->closeOwnedNetworkResources(),
-            fn(): mixed => $this->closeOwnedExecutors(),
+            function (): void {
+                $this->backgroundCoroutines?->close();
+            },
+            function (): void {
+                $this->periodicTasks->close();
+            },
+            function (): void {
+                $this->closeOwnedNetworkResources();
+            },
+            function (): void {
+                $this->closeOwnedExecutors();
+            },
         ] as $cleanup) {
             try {
                 $cleanup();
@@ -571,54 +580,14 @@ final class WorkerContext
         $this->ownedHappyDialers = [];
         $this->ownedQuicSessions = [];
 
-        foreach ($happyDialers as $dialer) {
-            try {
-                $dialer->close();
-            } catch (\Throwable) {
-                // Keep draining independent owner resources despite failed completion observers.
-            }
-        }
-        foreach ($dialers as $dialer) {
-            try {
-                $dialer->close();
-            } catch (\Throwable) {
-                // The next connector still owns independent pending sockets.
-            }
-        }
-        foreach ($connections as $connection) {
-            try {
-                $connection->abort();
-            } catch (\Throwable) {
-                // Continue retiring other owned sockets and sessions.
-            }
-        }
-        foreach ($pools as $pool) {
-            try {
-                $pool->close();
-            } catch (\Throwable) {
-                // Release other worker resources even when application observers fail.
-            }
-        }
-        foreach ($sessions as $session) {
-            try {
-                $session->dispose();
-            } catch (\Throwable) {
-                // A failed QUIC callback must not prevent other sessions closing.
-            }
-        }
+        WorkerOwnedResourceCleanup::network($happyDialers, $dialers, $connections, $pools, $sessions);
     }
 
     private function closeOwnedExecutors(): void
     {
         $executors = $this->ownedExecutors;
         $this->ownedExecutors = [];
-        foreach ($executors as $executor) {
-            try {
-                $executor->close();
-            } catch (\Throwable) {
-                // Application completion observers must not block other worker-owned cleanup.
-            }
-        }
+        WorkerOwnedResourceCleanup::executors($executors);
     }
 
     private function beginStop(ShutdownReason $reason): void
@@ -631,9 +600,15 @@ final class WorkerContext
         $this->stopping = true;
         $failure = null;
         foreach ([
-            fn(): mixed => $this->periodicTasks->drain(),
-            fn(): mixed => $this->backgroundCoroutines?->drain(),
-            fn(): mixed => $this->closeOwnedExecutors(),
+            function (): void {
+                $this->periodicTasks->drain();
+            },
+            function (): void {
+                $this->backgroundCoroutines?->drain();
+            },
+            function (): void {
+                $this->closeOwnedExecutors();
+            },
         ] as $cleanup) {
             try {
                 $cleanup();
