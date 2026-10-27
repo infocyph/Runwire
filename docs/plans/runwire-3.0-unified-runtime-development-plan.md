@@ -2,9 +2,13 @@
 
 **Target:** Runwire 3.0.0 after published 2.1.2 (commit 7e9bf20ad0737a187dfed77b723791b141b36378); 2.2 is an unpublished historical engineering candidate.
 **Location:** infocyph/Runwire only, existing branch plan/runwire-independent-ecosystem-roadmaps and existing draft PR #9. No merge, new branch, tag, release or updates to Foundation, Infbyte, Runwire-Core or Runwire-Cells.
-**Snapshot date:** 2026-10-26. **QA-accepted:** **138/175 (78.9%)**; **37 OPEN**. Next milestone: **140/175 (80.0%)**, requiring **2** independently QA-accepted tasks. W103 `c56090b50c58` exact-head review proves U08.04 matched HPACK source profiling; development performance evidence is not release certification. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
-**Canonical tracker:** 138/175 accepted (78.9%); 37 open; 18 batches; W103 PHP 8.4/8.5 matched 2.1.2 HPACK source profiles, full quality QA and protocols accepted for U08.04 only. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
+**Snapshot date:** 2026-10-26. **QA-accepted:** **139/175 (79.4%)**; **36 OPEN**. Next milestone: **140/175 (80.0%)**, requiring **1** independently QA-accepted tasks. W103 `c56090b50c58` exact-head review proves U08.04 matched HPACK source profiling; development performance evidence is not release certification. **State:** **U00 COMPLETE (10/10)** with public API manifest, signed architecture/connection handoff contract, executable illegal-transition matrix, real benchmark runner topology and focused PHPForge QA. **U01 COMPLETE (9/9)**; full 3.0 dialer/transport is not yet implemented.
+**Canonical tracker:** 139/175 accepted (79.4%); 36 open; 18 batches; W103 PHP 8.4/8.5 matched 2.1.2 HPACK source profiles, full quality QA and protocols accepted for U08.04 only. The batch table and checked tasks are authoritative; prior 2.2 counts are historical and do not count toward 3.0.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
+
+## W145 — C2 U10.09 independently measured pool profile and immutable QA accepted (2026-10-27)
+
+**U10.09 ACCEPTED:** immutable [8a62ac31](https://github.com/infocyph/Runwire/commit/8a62ac3111edfba7c2fd32b3b29f55aedbbda5cd), all nine routine CI workflows GREEN including [Security & Standards #40362606052](https://github.com/infocyph/Runwire/actions/runs/40362606052) and [Benchmarks #40362605349](https://github.com/infocyph/Runwire/actions/runs/40362605349). Independent persistent TCP peer with paired direct/pooled ABBA trials on PHP8.4 and PHP8.5; real successful requests, 90% reuse, true fresh dials, CPU, RSS, FD, RPS, p99 all recorded. PHP8.4 RPS pooled/direct ratio **2.057x**, p99 improves from 5.341 to 4.211 ms; PHP8.5 RPS **1.2498x**, p99 worsens from 4.038 to 4.945 ms (22.5% regression, explicitly disclosed). Both PHP versions show lower parent CPU. Development proof, not sustained final release certification. **Canonical tracker: 139/175 (79.4%), 36 OPEN; C2 4/10 (6 OPEN); U10 8/9 (U10.06 OPEN).** Next C2 task U10.06 validates nested end-to-end origin TLS/SNI/ALPN over actual proxy without confusing verified proxy transport for target certificate identity; U09 WebTransport remains blocked on genuine RFC9221 datagram capability.
 
 ## W144 — C2 U10.04 immutable QA acceptance and U10.09 activation (2026-10-26)
 
@@ -72,18 +76,18 @@
 5. Only after C1 is 11/11 accepted with all required exact-head QA green mark C1 DONE; then activate C2 and require its own independent full QA. Apply the same whole-batch completion rule to C2, C3, C4 and C5.
 6. Stay on the existing Runwire branch and draft PR #9. No merge, tag, release, new branch, work in Foundation/Infbyte/Core/Cells, or publishing.
 
-## Five grouped completion batches (original 52 tasks; 37 still open, C1 complete; C2 active)
+## Five grouped completion batches (original 52 tasks; 36 still open, C1 complete; C2 active)
 
-The original **52** Uxx.yy IDs are assigned exactly once (all eleven C1, three C2 and one C3 ID accepted, 37 remain open overall) across these five **execution batches**. They are not extra acceptance items: the canonical 18 U-divisions, 175-task total and proof thresholds above remain authoritative. Shared release-infrastructure fixes, trackers, workflow repairs and QA recovery follow the batch currently in progress; they never count as new accepted tasks. Previous C2/C3/C4 overlapping development is paused by the user's latest explicit whole-batch-first direction; C5 remains queued. C1 is complete and C2 is the next sole active batch. Each closure batch still requires its own full green QA and independently proven prerequisites.
+The original **52** Uxx.yy IDs are assigned exactly once (all eleven C1, four C2 and one C3 ID accepted, 36 remain open overall) across these five **execution batches**. They are not extra acceptance items: the canonical 18 U-divisions, 175-task total and proof thresholds above remain authoritative. Shared release-infrastructure fixes, trackers, workflow repairs and QA recovery follow the batch currently in progress; they never count as new accepted tasks. Previous C2/C3/C4 overlapping development is paused by the user's latest explicit whole-batch-first direction; C5 remains queued. C1 is complete and C2 is the next sole active batch. Each closure batch still requires its own full green QA and independently proven prerequisites.
 
 | Closure batch | Coherent workstream | Assigned canonical task IDs | Open | Status | Acceptance boundary |
 | --- | --- | --- | ---: | --- | --- |
 | C1 | Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 0 | COMPLETE (11/11 accepted) | Real TLS, QUIC and H1/H2/H3 peer conformance; bounded loss/reset/fallback; matched evidence |
-| C2 | WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 7 | ACTIVE — sequential task/QA (3/10 accepted) | Independent WT peer tests, authenticated proxy TLS, origin identity, pool and multiplex QA |
+| C2 | WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 6 | ACTIVE — sequential task/QA (4/10 accepted) | Independent WT peer tests, authenticated proxy TLS, origin identity, pool and multiplex QA |
 | C3 | Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 8 | PAUSED (1/9 accepted) | Real live worker scaling/drain/crash tests, mixed transports, bounded file executor and fuzz |
 | C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | PAUSED (0/13 accepted) | Real counterpart profiling, frozen five-pair 180s and 1800s soak, complete hosted RST preview |
 | C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED | Exact-head PHPForge/host/interop/packaging gates, independent reviewer acceptance and no automatic release |
-| **TOTAL** | **Five closure groups; no extra task IDs** | **52 originally assigned; 15 accepted** | **37** | **1 complete / 1 active / 2 paused / 1 queued** | **175 canonical tasks unchanged** |
+| **TOTAL** | **Five closure groups; no extra task IDs** | **52 originally assigned; 16 accepted** | **36** | **1 complete / 1 active / 2 paused / 1 queued** | **175 canonical tasks unchanged** |
 
 ### Cross-batch delivery and QA discipline
 
@@ -109,7 +113,7 @@ The original **52** Uxx.yy IDs are assigned exactly once (all eleven C1, three C
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 11/11 | 0 | Complete | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 10/10 | 0 | DONE | U02,U04,U05,U06 |
 | U09 | WebSocket and WebTransport client/server | 5/10 | 5 | In progress | U05,U07,U08 |
-| U10 | Connection pooling, proxy negotiation and stream relay | 7/9 | 2 | In progress | U03,U04,U06,U07 |
+| U10 | Connection pooling, proxy negotiation and stream relay | 8/9 | 1 | In progress | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 9/10 | 1 | In progress | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 3/9 | 6 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 9/9 | 0 | DONE | U01,U03,U04,U06,U12 |
@@ -117,9 +121,9 @@ The original **52** Uxx.yy IDs are assigned exactly once (all eleven C1, three C
 | U15 | Performance attribution, regressions and soak | 0/10 | 10 | Not started | U02-U14 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 13/16 | 3 | In progress | U00-U15 |
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **138/175** | **37** | **U00–U08 complete; U09/U10/U11/U12/U14/U16 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **139/175** | **36** | **U00–U08 complete; U09/U10/U11/U12/U14/U16 in progress** | U00-U17 |
 
-**Progress counter:** 138/175 (78.9% complete), 37 open.
+**Progress counter:** 139/175 (79.4% complete), 36 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -308,9 +312,9 @@ The original **52** Uxx.yy IDs are assigned exactly once (all eleven C1, three C
 - [ ] **U10.06** Verify nested TLS and original endpoint certificate identity. **Acceptance:** No proxy-induced verification downgrade. **Proof:** PENDING.
 - [x] **U10.07** Implement bounded bidirectional TCP/Unix stream relay. **Acceptance:** Large hash-valid transfer with backpressure. **Proof:** Two-way SHA-valid real socket relay and 1-MiB slow-peer transfer with a bounded 65,536-byte outgoing queue; cancellation/leak proof in tests/StreamRelayTest.php, StreamRelayLargeTransferTest.php, StreamRelayLifecycleTest.php. PHPForge four lanes and analyzers PASSED at 3426f3c [#40103162591](https://github.com/infocyph/Runwire/actions/runs/40103162591). U10.08 half-close still OPEN.
 - [x] **U10.08** Support half-close, cancellation, timeout and worker-drain cleanup. **Acceptance:** No deadlock or orphan relay task. **Proof:** src/Network/Connection.php plus ConnectionLifecycleOperationsTrait.php and StreamRelay.php propagate cleartext TCP/Unix peer FIN only after accepted writes drain while the reverse direction stays live. Real tests/StreamRelayHalfCloseTest.php confirms request-FIN followed by complete response, WORKER_SHUTDOWN cancellation, zero watchers and subscriptions; tests/StreamRelayLifecycleTest.php covers host cancellation and monotonic deadlines. All PHPForge and static QA pass [Security & Standards #40107078104](https://github.com/infocyph/Runwire/actions/runs/40107078104) at [3e31268](https://github.com/infocyph/Runwire/commit/3e31268cf9112c8c809936ee4dad2e6d844a5793). Raw TLS FIN is not presented as TLS close_notify.
-- [ ] **U10.09** Measure pool hit rate, p99, CPU, FD and RSS versus direct dial. **Acceptance:** Useful gains evidenced under saturation. **Proof:** PENDING.
+- [x] **U10.09** Measure pool hit rate, p99, CPU, FD and RSS versus direct dial. **Acceptance:** Useful gains evidenced under saturation. **Proof:** [8a62ac31](https://github.com/infocyph/Runwire/commit/8a62ac3111edfba7c2fd32b3b29f55aedbbda5cd) all nine exact-source workflows GREEN: [Security #40362606052](https://github.com/infocyph/Runwire/actions/runs/40362606052), [Benchmarks #40362605349](https://github.com/infocyph/Runwire/actions/runs/40362605349), [H2 #40362604757](https://github.com/infocyph/Runwire/actions/runs/40362604757), [Hosted #40362604732](https://github.com/infocyph/Runwire/actions/runs/40362604732), [Portable #40362604774](https://github.com/infocyph/Runwire/actions/runs/40362604774), [Swoole #40362604769](https://github.com/infocyph/Runwire/actions/runs/40362604769), [Source audit #40362604827](https://github.com/infocyph/Runwire/actions/runs/40362604827), [RST #40362604857](https://github.com/infocyph/Runwire/actions/runs/40362604857), [RC #40362604726](https://github.com/infocyph/Runwire/actions/runs/40362604726). ABBA paired real independent persistent TCP peer; two 160-request trials per mode per PHP version with 16 concurrent requests and exact 320 successful responses per mode. Pool 288/320 real reused socket hits (90%), 32 fresh pooled dials vs 320 direct, FD peak 26; captured RSS. PHP8.4 pooled/direct RPS 8686.179/4222.680 (2.057x), p99 4.211/5.341ms, CPU 18.109/35.691ms. PHP8.5 pooled/direct RPS 5094.577/4076.459 (1.2498x), p99 4.945/4.038ms (22.5% regression disclosed), CPU 31.412/39.148ms. This is developmental measured useful gain, NOT release certification.
 
-**Batch tracker:** 7/9 accepted; 2 open — Accepted: U10.01, U10.02, U10.03, U10.04, U10.05, U10.07, U10.08. Open: U10.06, U10.09. **Exit:** all remaining task-specific evidence, required QA and trackers synchronized.
+**Batch tracker:** 8/9 accepted; 1 open — Accepted: U10.01, U10.02, U10.03, U10.04, U10.05, U10.07, U10.08, U10.09. Open: U10.06. **Exit:** all remaining task-specific evidence, required QA and trackers synchronized.
 
 ### U11 — Truly asynchronous filesystem and file streaming
 
