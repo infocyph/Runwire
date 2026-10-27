@@ -1,0 +1,82 @@
+name: "C4 mixed soak failure evidence analysis"
+on:
+  pull_request:
+    branches: [main, master, develop, development]
+    paths:
+      - .github/workflows/c4-soak-failure-diagnostics.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose-existing-soak:
+    name: "Analyze genuine C4 1800s PHP 8.4 and 8.5 failure artifacts"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN: '40538869349'
+    steps:
+      - name: Confirm selected failed job evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run view "$SOURCE_RUN" --repo "$GH_REPO" --json status,conclusion,headSha \
+            | jq -e '.status == "completed" and .conclusion == "failure" and (.headSha | length == 40)'
+      - name: Download original immutable source artifacts inside GitHub worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c4-soak-diagnostics
+          for php in 8.4 8.5; do
+            path="c4-soak-diagnostics/php-$php"
+            mkdir -p "$path"
+            gh run download "$SOURCE_RUN" --repo "$GH_REPO" \
+              --name "runwire-c4-full-mixed-1800-php-$php" --dir "$path"
+          done
+      - name: Report exact failed dimensions without accepting incomplete runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for php in 8.4 8.5; do
+            path="c4-soak-diagnostics/php-$php"
+            printf '\n===== PHP %s ORIGINAL EVIDENCE =====\n' "$php"
+            find "$path" -maxdepth 2 -type f -printf '%P %s bytes\n' | sort
+            for name in source-sha.txt workload.txt file-tcp-passed-iterations.txt autoscale-passed-iterations.txt; do
+              if [ -s "$path/$name" ]; then
+                printf '%s=' "$name"
+                head -c 150 "$path/$name"
+                printf '\n'
+              fi
+            done
+            for name in process-tree-analysis.json internal-analysis.json h1-1800.json mixed-soak-result.json; do
+              if [ -s "$path/$name" ]; then
+                printf '\n%s:\n' "$name"
+                jq -c '.' "$path/$name"
+              else
+                printf 'MISSING %s\n' "$name"
+              fi
+            done
+            for name in server.log internal-sampler.log tree-sampler.log file-tcp-loop.log autoscale-loop.log; do
+              if [ -s "$path/$name" ]; then
+                printf '\n%s (last 15 lines):\n' "$name"
+                tail -15 "$path/$name"
+              fi
+            done
+            if [ -s "$path/process-tree.csv" ]; then
+              printf '\nTree sample first and last:\n'
+              head -4 "$path/process-tree.csv"
+              tail -4 "$path/process-tree.csv"
+              printf '\nSample rows: '
+              wc -l < "$path/process-tree.csv"
+            fi
+          done
+      - name: Retain inspection evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-failed-soak-diagnostics
+          path: c4-soak-diagnostics/
+          retention-days: 30
