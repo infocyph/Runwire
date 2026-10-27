@@ -791,16 +791,24 @@ final class Supervisor
                         return;
                     }
                     $entry = $this->autoscale[$name];
-                    $metrics = ($entry['sample'])();
-                    $group = $this->groups[$name];
-                    $target = $entry['controller']->observe(
-                        currentWorkers: $group->count,
-                        cpuRatio: $metrics['cpuRatio'],
-                        queued: $metrics['queued'],
-                        successfulRps: $metrics['successfulRps'],
-                        p99Milliseconds: $metrics['p99Milliseconds'],
-                        observedAtSeconds: $this->now(),
-                    );
+                    try {
+                        $metrics = ($entry['sample'])();
+                        if (!is_array($metrics)) {
+                            return;
+                        }
+                        $group = $this->groups[$name];
+                        $target = $entry['controller']->observe(
+                            currentWorkers: $group->count,
+                            cpuRatio: $metrics['cpuRatio'],
+                            queued: $metrics['queued'],
+                            successfulRps: $metrics['successfulRps'],
+                            p99Milliseconds: $metrics['p99Milliseconds'],
+                            observedAtSeconds: $this->now(),
+                        );
+                    } catch (\Throwable) {
+                        // Telemetry failure is not authority to kill or fork workers.
+                        return;
+                    }
                     if ($target !== $group->count) {
                         $this->resizeWorkers($group, $target);
                     }
