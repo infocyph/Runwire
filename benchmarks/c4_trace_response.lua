@@ -11,8 +11,12 @@ function response(status, headers, body)
     first_response = tostring(status) .. " " .. string.sub(body or "<nil>", 1, 600)
   end
   local native = body == "ok"
+  -- json_encode() legitimately escapes the slash as \\/. Validate both
+  -- semantically equivalent serialized forms, never a different route.
+  local expectedTarget = '"target":"' .. string.char(92) .. '/rr?case=bench"'
   local hosted = body:find('"method":"GET"', 1, true)
-    and body:find('"target":"/rr?case=bench"', 1, true)
+    and (body:find('"target":"/rr?case=bench"', 1, true)
+      or body:find(expectedTarget, 1, true))
     and body:find('"pool_roundtrip":true', 1, true)
     and body:find('"socket_roundtrip":true', 1, true)
     and body:find('"file_roundtrip":true', 1, true)
