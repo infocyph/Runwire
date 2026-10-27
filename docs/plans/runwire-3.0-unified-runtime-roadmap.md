@@ -130,6 +130,10 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
+## W163 — C3 active worker-owned TCP teardown (2026-10-27; QA pending)
+
+[`aaa4a9f`](https://github.com/infocyph/Runwire/commit/aaa4a9f48c1098cbade42db62242673b060fda0a) adds explicit active `Connection` ownership to the worker context. Existing pool close retires queued waiters and idle sockets, but intentionally leaves active leases to their owners; the new opt-in `ownConnection` closes those active accepted connections on drain/stop without claiming pool ownership automatically transfers outstanding leases. [`8eb07e3`](https://github.com/infocyph/Runwire/commit/8eb07e3f548a68357c782ae37bdb2995be3bb705) adds live loopback TCP proof for active socket retirement, idempotent stop, and zero terminal loop watchers. **This is partial U12.06, not closure**: full cross-transport session ownership and exact-head green QA remain mandatory. C3 2/9, overall 140/169 (29 OPEN) unchanged; current PHPForge Composer install blocker remains. No Foundation/Infbyte/PHPForge changes, merge, tag or release.
+
 ## W162 — C3 owned network resource teardown (2026-10-27; QA pending)
 
 [`c78c83b`](https://github.com/infocyph/Runwire/commit/c78c83bfc0bd697b5c485039c0293c6bb500da10) adds explicit opt-in worker ownership of bounded connection pools and native QUIC client sessions and closes them during both stop/drain and final close, independently of worker-owned file executors. The [`053d0b2`](https://github.com/infocyph/Runwire/commit/053d0b2842a2b89f38b0d2df0d55e5d92771ea1a) regression covers pending connection-pool waiter cancellation, repeated stop and timer/watcher retirement. **Partial U12.06 only; QA pending.** Outstanding are full pending outbound dial cancellation, protocol session ownership, listener handoff, supervisor autoscaling and fault/soak tests. Clean-install CI remains blocked by PHPForge `brianium/paratest` pin and Composer security resolution; no disablement of audit. Canonical **140/169 accepted, 29 OPEN, C3 2/9** unchanged.
