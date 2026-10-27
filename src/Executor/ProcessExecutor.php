@@ -412,11 +412,11 @@ final class ProcessExecutor
             $this->schedulePump();
         }
     }
+
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
             throw new LogicException('Process executors cannot be used or closed by a forked child; create an executor after forking.');
         }
     }
-
 }
