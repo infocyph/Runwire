@@ -56,6 +56,8 @@ final class ProcessExecutor
 
     private int $nextJobId = 1;
 
+    private readonly int $ownerPid;
+
     private int $nextWorkerId = 1;
 
     private int $peakPending = 0;
@@ -83,7 +85,19 @@ final class ProcessExecutor
             || !function_exists('proc_terminate') || !function_exists('proc_close')) {
             throw new RuntimeException('A usable PHP CLI binary and nonblocking process pipes are required for the executor.');
         }
+        $pid = getmypid();
+        if (!is_int($pid)) {
+            throw new RuntimeException('Unable to establish executor process ownership.');
+        }
+        $this->ownerPid = $pid;
         $this->pending = new SplQueue();
+    }
+
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('Process executors cannot be used or closed by a forked child; create an executor after forking.');
+        }
     }
 
     /** Cancel queued or active work and complete the callback exactly once. */
@@ -91,6 +105,7 @@ final class ProcessExecutor
         int $id,
         CancellationReason $reason = CancellationReason::HOST_CANCELLED,
     ): bool {
+        $this->assertProcessOwner();
         $job = $this->jobs[$id] ?? null;
         if ($job === null) {
             return false;
@@ -111,6 +126,7 @@ final class ProcessExecutor
      */
     public function close(): void
     {
+        $this->assertProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -164,6 +180,7 @@ final class ProcessExecutor
         ?CancellationToken $token = null,
         ?RequestDeadline $deadline = null,
     ): int {
+        $this->assertProcessOwner();
         if ($this->closed) {
             throw new LogicException('Executor is closed.');
         }
