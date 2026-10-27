@@ -165,13 +165,6 @@ final class QuicClientSession
         }
     }
 
-    private function assertProcessOwner(): void
-    {
-        if (getmypid() !== $this->ownerPid) {
-            throw new LogicException('QUIC sessions cannot cross a fork; connect in the owning child process.');
-        }
-    }
-
     /** Abort pending operations and destroy worker-local QUIC resources. */
     public function dispose(): void
     {
@@ -182,4 +175,11 @@ final class QuicClientSession
         $this->state = 'closed';
         $this->executor->close();
     }
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('QUIC sessions cannot cross a fork; connect in the owning child process.');
+        }
+    }
+
 }
