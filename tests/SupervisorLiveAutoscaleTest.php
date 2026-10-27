@@ -41,9 +41,17 @@ it('resizes real native worker slots after sustained windows and drains scaled-i
     );
 
     $observedCounts = [];
-    $loop->repeat(0.15, static function () use ($supervisor, &$observedCounts): void {
+    $overlappingSlots = 0;
+    $loop->repeat(0.15, static function () use ($supervisor, &$observedCounts, &$overlappingSlots): void {
         $status = $supervisor->status();
         $observedCounts[] = count(array_filter($status->workers, static fn($worker): bool => $worker->current));
+        $slots = [];
+        foreach ($status->workers as $worker) {
+            if (isset($slots[$worker->slot])) {
+                ++$overlappingSlots;
+            }
+            $slots[$worker->slot] = true;
+        }
     });
     $loop->delay(6.2, static fn() => $supervisor->stop());
     $supervisor->run();
@@ -51,5 +59,6 @@ it('resizes real native worker slots after sustained windows and drains scaled-i
     expect($samples)->toBeGreaterThanOrEqual(4)
         ->and($observedCounts)->toContain(1)
         ->and($observedCounts)->toContain(2)
+        ->and($overlappingSlots)->toBe(0)
         ->and($supervisor->status()->workers)->toBe([]);
 });
