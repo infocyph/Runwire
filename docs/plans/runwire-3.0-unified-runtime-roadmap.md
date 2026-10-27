@@ -2,7 +2,15 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 13/16**. **154/169 accepted tasks, 15 open across 18 batches** (91.1%). C3 complete at 9/9; C4 active, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 14/16**. **155/169 accepted tasks, 14 open across 18 batches** (91.7%). C3 complete at 9/9; C4 active, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+
+## W206 — U16.12 comprehensive 2.1.2-to-3.0 migration guide accepted (2026-10-27)
+
+**U16.12 ACCEPTED — documentation/migration analysis, not release approval:** [Source Audit #40526482857](https://github.com/infocyph/Runwire/actions/runs/40526482857) **SUCCESS** on immutable final migration-doc source 8417ed97. The checked original published 2.1.2 property-aware PHP public API compared against the current 3.0 candidate has **32** public implementations with changed source hashes, not the earlier W97 snapshot's 26. The canonical [32-entry exact-diff migration ledger](../evidence/runwire-3.0/c4-migration-behavior-ledger.json) records for each changed symbol its operation/ownership/security migration, executable PHP regression test and explicit C5 release revalidation flag. A new strict PHP source-audit guard rejects any unknown/duplicate/missing symbol or migration without a real test and rejects unreviewed API declaration/signature changes. All six optional constructor changes and both preserved trait-composed public methods retain their independent reflected compatibility checks. [Strict Sphinx #40526482791](https://github.com/infocyph/Runwire/actions/runs/40526482791) **SUCCESS** for extensive source-aligned :doc-like public compatibility guide and before/after application code including retained server/connection method calls, opt-in out-of-reactor filesystem, H3 separate client and explicit security/process limitations. [Real independent PHP 8.4/8.5 2.1.2-vs-3.0 wire behavior #40508637661](https://github.com/infocyph/Runwire/actions/runs/40508637661) passed. All intentional available migration choices and excluded features have documentation dispositions. No claim of blanket exception or binary compatibility and **C5 U17 final frozen-source certification/maintainer signoff remains separate**.
+
+**Still C4 OPEN:** U15.03 tracing-on/off native and real hosted; U15.09 final 5-paired 180-second protocol/workload scope beyond proven H1 plain/TLS; U15.10 final genuine mixed 1800-second whole-process-tree/GC/OPcache soak currently [running in GitHub #40523841421](https://github.com/infocyph/Runwire/actions/runs/40523841421); U16.02 and U16.16 actual Read the Docs externally hosted preview/search/version check still blocked without `RUNWIRE_RTD_PREVIEW_URL`. Do not convert GitHub Sphinx into hosted RTD evidence.
+
+**Canonical 155/169 QA accepted (91.7%), 14 OPEN; C4 8/13 ACTIVE, 5 OPEN; C5 0/9 QUEUED.** No QA waiver, release, merge or tag.
 
 ## W205 — U15.02 true independent generator CPU-headroom qualification (2026-10-27)
 
@@ -439,9 +447,9 @@ U14.04 WebSocket-only hostile fragmentation, control frames, budget, slow-peer b
 | C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U08.08, U08.05, U07.11, U07.08, U08.09 | 0 | COMPLETE (11/11 accepted) |
 | C2 — Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 0 | DONE — 5/5 supported scope QA accepted |
 | C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 0 | DONE (9/9 accepted) |
-| C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 6 | ACTIVE (7/13 accepted; U15.01/.02/.04/.05/.06/.07/.08 verified) |
+| C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 5 | ACTIVE (8/13 accepted; U15.01/.02/.04/.05/.06/.07/.08 and U16.12 verified) |
 | C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
-| **TOTAL** | **47 scoped closure tasks; 15 now OPEN** | **15** | **C1/C2/C3 complete; C4 active** |
+| **TOTAL** | **47 scoped closure tasks; 14 now OPEN** | **14** | **C1/C2/C3 complete; C4 active** |
 
 **Critical-path and CI invariant:** C1 transport/H3 → C2 scoped network services → C3 live supervisor/filesystem/security → C4 3.0 benchmarks/hosted RST → C5 frozen final certification. Repair crosscutting CI defects during the currently active group. Source-pinned opt-in evidence jobs may run with tasks still OPEN, but final release-ready aggregate continues to require **zero open tasks** plus every certification result PASS. Routine workflow GREEN does not prove conditional TLS/frozen certification. Synchronize this roadmap, detailed plan, PR body, CI links and checkboxes with each rolling group.
 ## Delivery program and initial tracker
@@ -464,9 +472,9 @@ U14.04 WebSocket-only hostile fragmentation, control frames, budget, slow-peer b
 | U13 | Real host and optional extension compatibility | 0 | 9/9 |
 | U14 | Security, fuzzing and adversarial resilience | 0 | 8/8 |
 | U15 | Performance attribution, regressions and soak | 3 | 7/10 |
-| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 3 | 13/16 |
+| U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 2 | 14/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **15** | **154/169 (91.1%)** |
+| **TOTAL** | **Full unified-runtime release program** | **14** | **155/169 (91.7%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
