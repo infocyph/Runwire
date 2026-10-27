@@ -105,10 +105,9 @@ Runnable focused regressions
    vendor/bin/pest tests/PoolIsolationKeyTest.php tests/OutboundAddressPolicyTest.php
    vendor/bin/pest tests/TlsClientDialerTest.php tests/ExtendedConnectRejectionTest.php
 
-HTTP/2 and HTTP/3 extended CONNECT for WebSocket/WebTransport are
-explicitly unsupported; the shared request-header validator rejects
-the unrecognized protocol pseudo-header rather than silently
-advertising unsupported protocol variants. Ordinary CONNECT
+HTTP/2 and HTTP/3 extended CONNECT are not advertised; the shared
+request-header validator rejects unsupported ``:protocol`` values
+rather than silently advertising unimplemented protocol variants. Ordinary CONNECT
 parsing does not constitute successful proxy negotiation.
 
 Active pool isolation caveats

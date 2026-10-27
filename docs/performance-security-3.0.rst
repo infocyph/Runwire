@@ -122,7 +122,7 @@ The Benchmarks workflow runs smaller noncertification diagnostics.
 The independent TLS, QUIC, host and security gates retain their own
 immutable workflow-run evidence in the canonical plan. In particular,
 a green profile job or a green Sphinx build **must not** turn U15/U17
-release performance, matched TLS or WebTransport certifications green.
+release performance or matched TLS certifications green.
 
 
 HTTP/1.1 diagnostic send-buffer contention

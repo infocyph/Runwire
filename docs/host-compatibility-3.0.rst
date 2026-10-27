@@ -61,9 +61,6 @@ Transport and workload features
    * - WebSocket
      - Inbound HTTP/1.1 upgrade and experimental outbound ws/wss TLS upgrade with shared masking, fragmentation and close
      - Outbound client QA is not yet accepted; H2/H3 extended CONNECT remains unavailable
-   * - WebTransport
-     - Planned H3 session, stream, deadline and datagram ownership
-     - No advertised end-to-end WebTransport client or server; native QUIC datagram capability is unavailable
    * - Asynchronous file I/O
      - Bounded off-loop subprocess read/write/stat/rename/unlink, development-scoped Fiber adapter and file-to-network bridge
      - No persistent file handles, symlink-safe sandbox, crash-atomic fsync, platform native AIO or final throughput certification

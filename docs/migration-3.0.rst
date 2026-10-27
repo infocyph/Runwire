@@ -158,8 +158,8 @@ lifecycle. Optional ext-event, ext-swoole and ext-quic are not mandatory
 Composer dependencies. HTTP/2 has independently tested one-shot and
 experimental multiplexed TLS clients in 3.0 development. The HTTP/3 request
 client has a verified one-shot experimental implementation, but full
-H3 QPACK/multiplexing, CONNECT/SOCKS5 original-target TLS, WebTransport
-and final release benchmarks are **not complete**; no unreleased APIs
+H3 QPACK/multiplexing, CONNECT/SOCKS5 original-target TLS and final
+release benchmarks are **not complete**; no unreleased APIs
 should be treated as shipped.
 
 The final migration acceptance requires an exact reflected 2.1.2 versus
