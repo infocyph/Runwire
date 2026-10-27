@@ -1,5 +1,5 @@
 Operations exercises: worker failures, rolling reload and rollback
-=================================================================
+==================================================================
 
 Audience and release boundary
 -----------------------------

@@ -4,6 +4,27 @@
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
 **Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 13/16**. **147/169 accepted tasks, 22 open across 18 batches** (87.0%). C3 complete at 9/9; C4 is next, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
+## W190 — Expanded C4 documentation laboratory and migration checklists (2026-10-27; QA pending)
+
+The maintainer requested **vast, detailed documentation and C4 completion**.
+Beyond W189's 15 public RST chapters, add [five more task-oriented manuals](../quickstart-lab-3.0.rst):
+[developer learning lab](../quickstart-lab-3.0.rst),
+[protocol failure atlas](../protocol-failure-atlas-3.0.rst),
+[operations exercises](../operations-exercises-3.0.rst),
+[2.1.2 migration audit checklist](../compatibility-audit-3.0.rst), and
+[ten-task U15 performance certification lab](../performance-lab-3.0.rst).
+Together the 20-chapter handbook provides source-backed implementation,
+configuration, admission/drain, incident response, rollback and evidence
+acceptance methods, with an indexed public Sphinx source and README links.
+The first [Sphinx #40498818005](https://github.com/infocyph/Runwire/actions/runs/40498818005)
+reported five short heading underlines in these new chapters; correction
+requires clean **exact-head** Sphinx and PHPForge QA. None of the U15
+five-pair 180-second baseline comparisons or 1800-second soak is
+certified merely because methodology is documented. Hosted Read the Docs
+preview and exhaustive frozen 2.1.2 behavioral migration review still
+need independent proof. **C4 0/13, U16.02/.12/.16 OPEN; canonical
+147/169 (87.0%), 22 OPEN; C5 queued**. No release or cross-repo edits.
+
 ## W189 — C4 expansive Runwire 3.0 documentation implementation (2026-10-27; exact-head QA pending)
 
 The maintainer requested **vast, detailed 3.0 documentation**. Start the C4 documentation workstream with [15 full Sphinx RST manual chapters](../handbook-3.0.rst) covering architecture, host/runtime and process ownership, configuration, all supported inbound/outbound transports and protocols, Fiber scopes, native autoscale, bounded off-reactor filesystem, trust and proxy limitations, production operation, diagnostics, U15 performance methodology, 2.1.2-to-3.0 migration, troubleshooting and documentation maintenance. Preserve the existing indexed feature matrix, generated source-linked API, protocol and 2.x history. Add [explicit delivery/QA plan](runwire-3.0-c4-documentation-delivery-plan.md), update stale C3-as-pending text, and require strict warnings-as-errors Sphinx + the actual test matrix. **No premature U16.02/12/16 or U15 acceptance from prose**: hosted Read the Docs preview, final migration behavioral freeze and release performance certification require independent gates. **Canonical remains 147/169 (87.0%), 22 OPEN, C4 0/13, C5 0/9** until proof.

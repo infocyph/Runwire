@@ -1,5 +1,5 @@
 C4 reproducible performance laboratory
-=====================================
+======================================
 
 Release gate, not a marketing benchmark
 ----------------------------------------

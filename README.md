@@ -6,6 +6,12 @@ Runwire provides the low-level runtime boundary for process supervision, event l
 
 **Current stable: Runwire 2.1.x.** The planned next major release is **Runwire 3.0.0**, with the [consolidated unified-runtime roadmap](docs/plans/runwire-3.0-unified-runtime-roadmap.md) and [canonical 169-task implementation tracker](docs/plans/runwire-3.0-unified-runtime-development-plan.md). The unpublished 2.2 [plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/plans/runwire-2.2-runtime-improvement-plan.md) and [draft release notes](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/release-notes-2.2.md) remain accessible in Git history, with [historical QA evidence](docs/plans/evidence/runwire-2.2/README.md) retained in-repository. There is **one active tracker for 3.0 only**. See the 2.0 migration guide when upgrading from 1.x.
 
+## Runwire 3.0 developer documentation (unreleased)
+
+The complete source-aligned **[Runwire 3.0 developer handbook](docs/index.rst)** now includes an [executable first-use lab](docs/quickstart-lab-3.0.rst), [protocol failure and drain atlas](docs/protocol-failure-atlas-3.0.rst), [operations exercises](docs/operations-exercises-3.0.rst), [2.1.2 migration audit](docs/compatibility-audit-3.0.rst), and [C4 performance certification lab](docs/performance-lab-3.0.rst), alongside API signatures, native/host runtime configuration, security, troubleshooting and full feature inventory.
+
+**Version boundary:** These pages describe the current **unreleased 3.0** branch. `composer require infocyph/runwire` continues to install published stable **2.1.2** unless the consuming application explicitly selects another available version. A source-complete local Sphinx build is not the hosted Read the Docs preview; final U15 performance and U16 hosted/migration gates are tracked separately.
+
 ## Requirements
 
 Hard package requirements:
