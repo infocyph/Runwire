@@ -61,11 +61,12 @@ TLS record layers. PHP's existing OpenSSL stream transport does not
 expose a general second TLS layer over an already-encrypted stream.
 The attempted nested upgrade is therefore explicitly rejected and
 the proxy connection is aborted, preventing reuse as an origin-verified
-stream or silent credential/verification downgrade. U10.06 remains
-OPEN for full TLS-over-TLS acceptance; this fail-closed behavior is
-not advertised as functional nested TLS. It does not remove the
-successfully verified proxy identity or the independent origin check
-required for future implementation.
+stream or silent credential/verification downgrade. Runwire 3.0
+**excludes successful nested TLS over HTTPS proxies** from its
+supported contract: this refusal is a safety guarantee, not
+functional TLS-over-TLS. The original destination's independently
+verified identity remains required on the supported cleartext
+CONNECT path.
 
 Bidirectional stream relay
 --------------------------
@@ -195,8 +196,9 @@ The standalone authenticated proxy CONNECT adapter and independent
 reference-based proxy-leg TLS QA are accepted under U10.04. Independently
 verified original-target TLS exists over a cleartext CONNECT tunnel,
 but there is no automatic high-level proxied client or supported
-TLS-over-TLS stream. U10.06 remains OPEN until the separately verified
-nested case meets independent peer and complete QA requirements.
+TLS-over-TLS stream. The scoped U10.06 acceptance tests prove
+original-target TLS through cleartext CONNECT and fail-closed refusal
+of encrypted-proxy nesting, not successful double TLS.
 
 Real authenticated proxy tests
 ------------------------------

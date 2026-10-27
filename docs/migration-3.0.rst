@@ -141,13 +141,17 @@ with a verified-transport flag alone does not authorize credentials.
 Local/remote DNS policy, bounded framing, cancellation and callback
 handoff remain explicit.
 
-The original destination's nested TLS handshake, certificate identity
-and ALPN are still unimplemented across authenticated proxy tunnels.
-A 200 CONNECT reply or successful SOCKS5 handshake proves neither
-the original target identity nor permission to weaken TLS checks.
+For a **cleartext CONNECT tunnel**, the opt-in `Connection` TLS upgrade
+verifies the original destination's certificate and hostname, SNI and
+ALPN independently. An independent origin confirms real application
+bytes; the wrong host is rejected before sending application data.
+A 200 CONNECT or SOCKS5 handshake alone never verifies the origin.
 
-Keep production HTTPS proxy clients unchanged until independently verified
-proxy and original-target TLS reference tests have passed U10.04–U10.06.
+For an **HTTPS proxy to HTTPS origin**, this release does not support a
+nested TLS record layer. Attempting that upgrade aborts the proxy
+connection and fails closed. Do not treat this as a working HTTPS-to-
+HTTPS proxy client or reuse the proxy TLS identity as the origin.
+Never substitute a plaintext downgrade to bypass this restriction.
 
 Compatibility and release verification
 --------------------------------------
