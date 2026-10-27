@@ -34,9 +34,9 @@ it('keeps historical manuals and explicit proxy TLS migration limitations', func
         ->and($migration)->toBeString()
         ->toContain('Experimental HTTP CONNECT and SOCKS5 stages')
         ->toContain('not an HTTPS-through-proxy client')
-        ->toContain('original target')
+        ->toContain('original destination')
         ->toContain('one-shot HTTPS/h3', 'authenticated negotiation')
-        ->toContain('nested TLS handshake', 'not an HTTPS-through-proxy client')
+        ->toContain('nested TLS record layer', 'fails closed', 'not an HTTPS-through-proxy client')
         ->toContain('unreleased');
 });
 

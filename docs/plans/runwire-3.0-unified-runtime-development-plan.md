@@ -141,7 +141,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (17 accepted,
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 11/11 | 0 | Complete | U03,U04,U05,U06 |
 | U08 | Existing H1/H2/H3 server consolidation | 10/10 | 0 | DONE | U02,U04,U05,U06 |
 | U09 | WebSocket client/server | 4/4 | 0 | DONE | U05,U07,U08 |
-| U10 | Connection pooling, proxy negotiation and stream relay | 9/9 | 0 | DONE — scoped C2 green QA | U03,U04,U06,U07 |
+| U10 | Connection pooling, proxy negotiation and stream relay | 9/9 | 0 | DONE | U03,U04,U06,U07 |
 | U11 | Truly asynchronous filesystem and file streaming | 9/10 | 1 | In progress | U01,U02,U06 |
 | U12 | Native supervisor and adaptive worker autoscaling | 3/9 | 6 | In progress | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 9/9 | 0 | DONE | U01,U03,U04,U06,U12 |
