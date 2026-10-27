@@ -38,7 +38,8 @@ $start = hrtime(true);
 $cpuStart = getrusage() ?: [];
 $networkLatency = [];
 $listenerWatcher = $loop->onReadable($listener, static function () use ($listener, &$networkAccepted): void {
-    while (is_resource($accepted = @stream_socket_accept($listener, 0))) {
+    $accepted = stream_socket_accept($listener, 0);
+    if (is_resource($accepted)) {
         ++$networkAccepted;
         fclose($accepted);
     }
@@ -74,16 +75,18 @@ $timeoutWatcher = $loop->delay(12, static function () use ($loop, &$errors): voi
     $loop->stop();
 });
 $payload = str_repeat("file-data\0", 4096);
+
 try {
     $executor->submit('sleep', ['milliseconds' => 85], static function (mixed $value, ?Throwable $error) use (
         &$sleepFinished,
         &$errors,
     ): void {
-        $sleepFinished = $error === null;
+        $sleepFinished = $error === null && $value !== false;
         if (!$sleepFinished) {
             $errors[] = 'off-loop sleep failed';
         }
     });
+
     for ($i = 0; $i < 48; ++$i) {
         $path = sys_get_temp_dir() . '/runwire-c4-mix-' . bin2hex(random_bytes(8)) . '-' . $i;
         $paths[] = $path;
@@ -122,6 +125,7 @@ try {
             });
         });
     }
+
     for ($i = 0; $i < $networkAttempted; ++$i) {
         $started = hrtime(true);
         $dialer->connect('tcp://' . $address, static function (?Connection $connection, ?Throwable $error) use (
@@ -139,6 +143,7 @@ try {
             $connection?->abort();
         });
     }
+
     $loop->run();
     $diag = $executor->diagnostics();
     $loopDiag = $loop->diagnostics();
@@ -178,6 +183,7 @@ try {
         'correctness_passed' => $passed,
     ];
     fwrite(STDOUT, json_encode($record, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . PHP_EOL);
+
     if (!$passed) {
         throw new RuntimeException('C4 genuine mixed reactor network and filesystem resource gate failed.');
     }
