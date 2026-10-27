@@ -130,6 +130,10 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
+## W152 — C3 U11.03 backend capability proof (2026-10-27; QA pending)
+
+Commits [`62d6717`](https://github.com/infocyph/Runwire/commit/62d6717f34d0e312086395f28fdb2076a3983f19) and [`3a7ee99`](https://github.com/infocyph/Runwire/commit/3a7ee99f5be9d36914b3c7031b7fe290d0386438) add an executable constructor/source capability guard and clarify the native filesystem limitation in RST. The only qualified implementation remains a bounded off-reactor `ProcessExecutor`, never reactor-thread blocking I/O; native event-loop acceleration is not native disk I/O. **U11.03 remains OPEN** until the source-pinned PHP 8.4/8.5 security/functional matrix and all relevant nine routines are green, then accept only the explicitly supported no-unqualified-acceleration scope; never claim kernel async or an unused native extension. Canonical 140/169 QA-accepted, 29 OPEN; C3 2/9. This paragraph and its tracker-only commit must receive their own exact-head QA.
+
 ## W151 — C3 scope-reviewed QA acceptance
 
 U14.04 WebSocket-only hostile fragmentation, control frames, budget, slow-peer backpressure and cancellation are accepted on exact `3e5b96b` (nine routine PR workflows successful; Security & Standards #40457097152). U14 is 8/8. C3 is **2/9**, seven open; overall **140/169 (82.8%), 29 OPEN**. This tracker-only sync awaits exact-head QA; the remaining C3 tasks are U11.03 and U12.02/.04/.05/.06/.08/.09.
