@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Supervisor;
 use Infocyph\Runwire\Coroutine\CoroutineDiagnosticsSnapshot;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Task;
+use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
@@ -33,6 +34,9 @@ final class WorkerContext
     private readonly WorkerRecycleState $recycleState;
 
     private int $activeRequests = 0;
+
+    /** @var array<int, ProcessExecutor> */
+    private array $ownedExecutors = [];
 
     private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
@@ -158,6 +162,21 @@ final class WorkerContext
     }
 
     /**
+     * Register an executor whose lifetime belongs to this worker.
+     *
+     * The caller explicitly transfers shutdown responsibility; borrowed
+     * executors must not be registered.
+     */
+    public function ownExecutor(ProcessExecutor $executor): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept executor ownership.');
+        }
+
+        $this->ownedExecutors[spl_object_id($executor)] = $executor;
+    }
+
+    /**
      * Close worker lifecycle, stop-wake, periodic-task, and coroutine resources.
      */
     public function close(): void
@@ -166,6 +185,7 @@ final class WorkerContext
         $this->stopping = true;
         $this->backgroundCoroutines?->close();
         $this->periodicTasks->close();
+        $this->closeOwnedExecutors();
         if ($this->controlWatcher !== null && $this->controlLoop !== null) {
             $this->controlLoop->cancel($this->controlWatcher);
         }
@@ -446,6 +466,15 @@ final class WorkerContext
         );
     }
 
+    private function closeOwnedExecutors(): void
+    {
+        $executors = $this->ownedExecutors;
+        $this->ownedExecutors = [];
+        foreach ($executors as $executor) {
+            $executor->close();
+        }
+    }
+
     private function beginStop(ShutdownReason $reason): void
     {
         if ($this->stopping) {
@@ -456,6 +485,7 @@ final class WorkerContext
         $this->stopping = true;
         $this->periodicTasks->drain();
         $this->backgroundCoroutines?->drain();
+        $this->closeOwnedExecutors();
         if (is_resource($this->stopWrite)) {
             fwrite($this->stopWrite, 'S');
         }
