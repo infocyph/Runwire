@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W162 — C3 owned network resource teardown (2026-10-27; QA pending)
+
+[`c78c83b`](https://github.com/infocyph/Runwire/commit/c78c83bfc0bd697b5c485039c0293c6bb500da10) adds explicit opt-in worker ownership of bounded connection pools and native QUIC client sessions and closes them during both stop/drain and final close, independently of worker-owned file executors. The [`053d0b2`](https://github.com/infocyph/Runwire/commit/053d0b2842a2b89f38b0d2df0d55e5d92771ea1a) regression covers pending connection-pool waiter cancellation, repeated stop and timer/watcher retirement. **Partial U12.06 only; QA pending.** Outstanding are full pending outbound dial cancellation, protocol session ownership, listener handoff, supervisor autoscaling and fault/soak tests. Clean-install CI remains blocked by PHPForge `brianium/paratest` pin and Composer security resolution; no disablement of audit. Canonical **140/169 accepted, 29 OPEN, C3 2/9** unchanged.
+
 ## W161 — C3 QA/preflight class-order cleanup (2026-10-27; unaccepted)
 
 [`f655b4e`](https://github.com/infocyph/Runwire/commit/f655b4e9485edbe97cf79247a159171de6afeb02) and [`15cb46d`](https://github.com/infocyph/Runwire/commit/15cb46dd39076f9806d648aa777257864d9a472e) put new executor/QUIC private fork-ownership helpers after public methods; [`de48441`](https://github.com/infocyph/Runwire/commit/de4844175ce2bdaf40325a4f3ed73278ed59b7e2) and [`d4d4794`](https://github.com/infocyph/Runwire/commit/d4d479494901d26c577e0131b6a8775708940062) normalize separation/closing braces. These formatting-only corrections carry no new task acceptance. The Composer advisory and PHPForge dependency incompatibility remain external QA blockers. **C3 2/9; overall 140/169 accepted, 29 OPEN**. Next active engineering is live supervisor scaling, listener handoff and multi-resource drain; no release/tag/merge.
