@@ -130,6 +130,10 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
+## W171 — C3 prefork listener event-loop isolation (2026-10-27; QA pending)
+
+[`f16a6ab`](https://github.com/infocyph/Runwire/commit/f16a6aba69878fe2796385c298661f458d1e11dd) preserves legitimate socket binding before `pcntl_fork`, while restricting an *already started* TCP listener to its owning PID on `start`, `close` and accept pause/resume. The real [`b6ab070`](https://github.com/infocyph/Runwire/commit/b6ab070f7efc3d37d0745c062c771af344c8af1b) fork test proves a prebound child can attach its own loop, the parent can subsequently attach its separate loop, and a later inherited *active* listener rejects child-side lifecycle operations. **Partial U12.02; QA pending**. All nine standard QA lanes remain subject to secure PHPForge/ParaTest/Pest/PHPUnit resolution. **C3 2/9 and total 140/169 accepted (29 OPEN) unchanged**; no premature completion.
+
 ## W170 — C3 independent native ownership and QA closeout checkpoint (2026-10-27)
 
 [**C3 Native Supervisor Smoke #40464286037**](https://github.com/infocyph/Runwire/actions/runs/40464286037) **PASSED both PHP 8.4 and PHP 8.5** on immutable `945e7ed`. It exercises the source syntax of changed executor, worker context, worker groups, pools and dialers; off-reactor file operations; fork-safe executor, QUIC, pool and outgoing connector ownership; worker-owned pending dial cancellation and exact-once cleanup; real HTTP1/TCP/UDP across SIGKILL, recycle, **completed** reload, shutdown; bounded crash-loop restarts; invalid telemetry hysteresis; real autoscale live HTTP traffic with 136/136 correct responses on both PHP versions; and ~23s process/RSS/FD/p99 soak with zero remaining PIDs. These new native gates do **not** silently replace existing PHPForge QA or the independent H2/H3 protocol requirements. `src/Network/Dialer.php`, `HappyEyeballsDialer.php` and worker ownership changes from W169 are independently green.
