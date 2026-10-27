@@ -32,9 +32,14 @@ it('rejects inherited executor use and close in a fork without disrupting parent
         } catch (LogicException) {
             ++$rejections;
         }
+        try {
+            $executor->onDrained(static function (): void {});
+        } catch (LogicException) {
+            ++$rejections;
+        }
         fwrite($writer, (string) $rejections);
         fclose($writer);
-        exit($rejections === 3 ? 0 : 1);
+        exit($rejections === 4 ? 0 : 1);
     }
 
     fclose($writer);
@@ -44,7 +49,7 @@ it('rejects inherited executor use and close in a fork without disrupting parent
         expect($waited)->toBe($pid)
             ->and(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
-            ->and($childOutput)->toBe('3');
+            ->and($childOutput)->toBe('4');
 
         $observed = [];
         $executor->submit('sleep', ['milliseconds' => 1], static function (mixed $value, ?Throwable $error) use (&$observed): void {
