@@ -78,7 +78,7 @@ async def request_http1(port):
         await writer.wait_closed()
 
 
-async def request_http2(port, _server_pid):
+async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted=None):
     # Admit eight real independent H2 streams with different body lengths;
     # cancellation of a ninth stream must not abort accepted sibling traffic.
     expected = {stream: b"x" * (1024 if stream % 4 == 1 else 16384)
@@ -116,9 +116,11 @@ async def request_http2(port, _server_pid):
             h2.reset_stream(cancelled_id, error_code=0x8)
             writer.write(h2.data_to_send())
             await writer.drain()
+            if submitted is not None:
+                submitted.set()
             # Intentionally slow receive/flow-control updates while multiple
             # server streams remain in flight through rollover and recycling.
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(slow_receiver_seconds)
             while len(completed) < len(expected):
                 data = await asyncio.wait_for(reader.read(65535), 4)
                 if not data:
@@ -170,7 +172,7 @@ async def request_http2(port, _server_pid):
     raise RuntimeError("H2 replacement never became ready")
 
 
-async def request_http3(port):
+async def request_http3(port, submitted=None):
     config = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN)
     config.verify_mode = ssl.CERT_NONE
     config.server_name = "localhost"
@@ -184,6 +186,8 @@ async def request_http3(port):
         ]
         try:
             await asyncio.sleep(0.01)
+            if submitted is not None:
+                submitted.set()
             cancelled_id = protocol._quic.get_next_available_stream_id()
             protocol.http.send_headers(cancelled_id, [
                 (b":method", b"GET"), (b":scheme", b"https"),
@@ -223,12 +227,13 @@ def request_udp(port):
             raise RuntimeError("Raw UDP reply invalid")
 
 
-async def complete_wave(tls_port, tcp_port, udp_port, server_pid):
+async def complete_wave(tls_port, tcp_port, udp_port, server_pid,
+                        h2_slow=0.02, h2_submitted=None, h3_submitted=None):
     results = await asyncio.wait_for(
         asyncio.gather(
             request_http1(tls_port),
-            request_http2(tls_port, server_pid),
-            request_http3(tls_port),
+            request_http2(tls_port, server_pid, h2_slow, h2_submitted),
+            request_http3(tls_port, h3_submitted),
             request_tcp(tcp_port),
             asyncio.to_thread(request_udp, udp_port),
         ),
@@ -236,7 +241,7 @@ async def complete_wave(tls_port, tcp_port, udp_port, server_pid):
     )
     return {"http1": 1, "http2": results[1], "http3": results[2], "tcp": 1, "udp": 1,
             "cancelled_h2_streams": 1, "cancelled_h3_streams": 1,
-            "slow_h2_receiver_delay_ms": 20}
+            "slow_h2_receiver_delay_ms": int(h2_slow * 1000)}
 
 
 async def exercise():
@@ -308,6 +313,22 @@ async def exercise():
                 process, events_file, "manual recycle replacement generations", 25,
             )
             observed["after_manual_recycle"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
+
+            # Stop after a real H2 client has transmitted eight parallel request
+            # streams (before slow-flow-control receive) and H3 siblings have
+            # started transmitting. Do not treat merely opening sockets as
+            # evidence that an active request survived native shutdown.
+            h2_submitted, h3_submitted = asyncio.Event(), asyncio.Event()
+            during_stop = asyncio.create_task(complete_wave(
+                tls_port, tcp_port, udp_port, process.pid,
+                h2_slow=0.25, h2_submitted=h2_submitted, h3_submitted=h3_submitted,
+            ))
+            await asyncio.wait_for(
+                asyncio.gather(h2_submitted.wait(), h3_submitted.wait()), timeout=5,
+            )
+            process.send_signal(signal.SIGTERM)
+            observed["during_stop"] = await during_stop
+            await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=7)
             return {
                 "correctness_passed": True,
                 "independent_live_clients": ["tls-http1", "tls-h2", "quic-h3", "framed-tcp", "udp"],

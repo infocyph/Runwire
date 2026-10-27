@@ -36,29 +36,39 @@ $supervisor->group(WorkerGroup::callbacks(
         stream_set_blocking($http, false);
         $stop = $context->stopStream();
         $context->ready();
-        while (!$context->stopping()) {
-            $read = [$http, $stop];
-            $write = [];
-            $except = [];
-            if (stream_select($read, $write, $except, 0, 50_000) === false) {
-                throw new RuntimeException('Adaptive worker accept poll failed.');
+        set_error_handler(static function (int $severity, string $message): bool {
+            return $severity === E_WARNING
+                && str_starts_with($message, 'stream_socket_accept(): Accept failed:')
+                && (str_contains($message, 'Resource temporarily unavailable')
+                    || str_contains($message, 'Connection timed out'));
+        });
+        try {
+            while (!$context->stopping()) {
+                $read = [$http, $stop];
+                $write = [];
+                $except = [];
+                if (stream_select($read, $write, $except, 0, 50_000) === false) {
+                    throw new RuntimeException('Adaptive worker accept poll failed.');
+                }
+                foreach ($read as $socket) {
+                    if ($socket === $stop) {
+                        $context->consumeStopWake();
+                        continue;
+                    }
+                    $client = stream_socket_accept($http, 0);
+                    if (!is_resource($client)) {
+                        continue;
+                    }
+                    stream_set_timeout($client, 1);
+                    $request = fread($client, 1_024);
+                    if (is_string($request) && str_starts_with($request, 'GET /alive HTTP/1.1')) {
+                        fwrite($client, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+                    }
+                    fclose($client);
+                }
             }
-            foreach ($read as $socket) {
-                if ($socket === $stop) {
-                    $context->consumeStopWake();
-                    continue;
-                }
-                $client = stream_socket_accept($http, 0);
-                if (!is_resource($client)) {
-                    continue;
-                }
-                stream_set_timeout($client, 1);
-                $request = fread($client, 1_024);
-                if (is_string($request) && str_starts_with($request, 'GET /alive HTTP/1.1')) {
-                    fwrite($client, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
-                }
-                fclose($client);
-            }
+        } finally {
+            restore_error_handler();
         }
     },
     shutdownTimeoutSeconds: 0.5,
