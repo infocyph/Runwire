@@ -13,6 +13,8 @@ use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\BoundedConnectionPool;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Dialer;
+use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\QuicClientSession;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
@@ -46,6 +48,12 @@ final class WorkerContext
 
     /** @var array<int, Connection> */
     private array $ownedConnections = [];
+
+    /** @var array<int, Dialer> */
+    private array $ownedDialers = [];
+
+    /** @var array<int, HappyEyeballsDialer> */
+    private array $ownedHappyDialers = [];
 
     /** @var array<int, QuicClientSession> */
     private array $ownedQuicSessions = [];
@@ -206,6 +214,26 @@ final class WorkerContext
         }
 
         $this->ownedConnections[spl_object_id($connection)] = $connection;
+    }
+
+    /** Take ownership of an underlying numeric TCP/Unix connector and pending dials. */
+    public function ownDialer(Dialer $dialer): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept dialer ownership.');
+        }
+
+        $this->ownedDialers[spl_object_id($dialer)] = $dialer;
+    }
+
+    /** Own a hostname-racing dialer without implicitly owning its borrowed dependencies. */
+    public function ownHappyEyeballsDialer(HappyEyeballsDialer $dialer): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept dialer ownership.');
+        }
+
+        $this->ownedHappyDialers[spl_object_id($dialer)] = $dialer;
     }
 
     /** Explicitly transfer a native QUIC session's shutdown to this worker. */
@@ -512,12 +540,30 @@ final class WorkerContext
     private function closeOwnedNetworkResources(): void
     {
         $connections = $this->ownedConnections;
+        $dialers = $this->ownedDialers;
+        $happyDialers = $this->ownedHappyDialers;
         $pools = $this->ownedPools;
         $sessions = $this->ownedQuicSessions;
         $this->ownedPools = [];
         $this->ownedConnections = [];
+        $this->ownedDialers = [];
+        $this->ownedHappyDialers = [];
         $this->ownedQuicSessions = [];
 
+        foreach ($happyDialers as $dialer) {
+            try {
+                $dialer->close();
+            } catch (\Throwable) {
+                // Keep draining independent owner resources despite failed completion observers.
+            }
+        }
+        foreach ($dialers as $dialer) {
+            try {
+                $dialer->close();
+            } catch (\Throwable) {
+                // The next connector still owns independent pending sockets.
+            }
+        }
         foreach ($connections as $connection) {
             try {
                 $connection->abort();
