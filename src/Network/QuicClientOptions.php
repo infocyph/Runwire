@@ -52,15 +52,6 @@ final readonly class QuicClientOptions
     }
 
     /**
-     * The native backend cannot negotiate RFC 9221 datagrams.
-     * Application writers must not treat reliable streams as datagrams.
-     */
-    public function assertDatagramAvailable(): never
-    {
-        throw new RuntimeUnavailableException('Native QUIC RFC9221 datagrams are unavailable; cannot send or receive an unreliable datagram.');
-    }
-
-    /**
      * Refuse a synchronous handshake on the owner event-loop thread.
      * A worker/process backend must own the native connection lifecycle
      * before this interface may be used to expose an async dialer.

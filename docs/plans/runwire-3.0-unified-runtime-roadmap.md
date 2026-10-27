@@ -348,7 +348,7 @@ Only Runwire code/docs/QA. The obsolete 2.2 plan and unpublished release notes w
 
 **S7 PHPForge QA corrections staged (2026-10-24):** Extract bounded address preflight from dial connect (cognitive complexity) and Pint spacing fix. Waiting exact-head QA, U14.01 not yet accepted. **91/175, 84 open.**
 
-**P7 (2026-10-24):** Sphinx e26477b strict green #40073761998 accepts U09.05 WT architecture only and U16.06 HTTP/WS/WT documentation. Actual WT and extended CONNECT remain unsupported. Other P6/S7 tasks code-QA gated. **93/175 accepted (53.1%), 82 open, 39 to 75.4%.**
+**P7 (2026-10-24):** Sphinx e26477b strict green #40073761998 accepts U09.05 WT architecture only and U16.06 HTTP/WebSocket documentation. Actual WT and extended CONNECT remain unsupported. Other P6/S7 tasks code-QA gated. **93/175 accepted (53.1%), 82 open, 39 to 75.4%.**
 
 **P8 H3 shared owner and trust test acceptance (2026-10-24):** U08.03 H3 native peer-reset/sibling ownership, U14.02 TLS/mTLS/ALPN and proxy-key negatives accepted on 00291e1 all green #40072263291. Full H3 client/proxy tunnel not claimed. **95/175 (54.3%), 80 open.**
 

@@ -398,7 +398,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (16 accepted,
 - [ ] **U15.04** Profile H1 plaintext/TLS, H2 HPACK and H3 QPACK/QUIC real hot paths. **Acceptance:** Old R3.09/R4.02/R4.04 measured. **Proof:** PENDING.
 - [ ] **U15.05** Stress mixed transport slow-peer and cancellation under recycle. **Acceptance:** Old R4.09 accepted with no hidden failures. **Proof:** PENDING.
 - [ ] **U15.06** Compare sequential and concurrent outbound I/O and connection pooling. **Acceptance:** Old R5.08 measured benefit. **Proof:** PENDING.
-- [ ] **U15.07** Benchmark H1/H2/H3, WS/WT clients and servers with real counterparts. **Acceptance:** CPU/RSS/p99 and errors captured. **Proof:** PENDING.
+- [ ] **U15.07** Benchmark H1/H2/H3 and WebSocket clients and servers with real counterparts. **Acceptance:** CPU/RSS/p99 and errors captured. **Proof:** PENDING.
 - [ ] **U15.08** Benchmark file executor and autoscale under mixed network load. **Acceptance:** No loop starvation or excessive overhead. **Proof:** PENDING.
 - [ ] **U15.09** Run exact baseline 2.1.2 versus 3.0 five paired 180s comparisons. **Acceptance:** Both variance CV less than 2.5 percent and strict p99/RSS/RPS gates. **Proof:** PENDING.
 - [ ] **U15.10** Run full 1800-second process-tree and GC/OPcache/FD soak. **Acceptance:** No errors, unbounded growth or stale workers. **Proof:** PENDING.
@@ -434,7 +434,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (16 accepted,
 
 - [ ] **U17.01** Reconcile 2.2 carry-forward with final 3.0 public feature inventory. **Acceptance:** No applicable old or new task unexplained. **Proof:** PENDING.
 - [ ] **U17.02** Run all PHP8.4/8.5 PHPForge QA, analysis and security checks. **Acceptance:** Zero release-blocking issues. **Proof:** PENDING.
-- [ ] **U17.03** Run real native, hosts and independent H1/H2/H3/WS/WT/QUIC acceptance. **Acceptance:** Every supported mode certified at frozen source. **Proof:** PENDING.
+- [ ] **U17.03** Run real native, hosts and independent H1/H2/H3/WebSocket/QUIC acceptance. **Acceptance:** Every supported mode certified at frozen source. **Proof:** PENDING.
 - [ ] **U17.04** Verify Sphinx/Read the Docs full docs, API and runnable example coverage. **Acceptance:** Zero warnings, broken links or undocumented features. **Proof:** PENDING.
 - [ ] **U17.05** Validate standalone Composer packaging and optional extension matrix. **Acceptance:** No external repo integration gates. **Proof:** PENDING.
 - [ ] **U17.06** Run exact frozen SHA 2.1.2 matched 5x180s and 30m process-tree soak. **Acceptance:** Strict variance, p99, successful RPS and RSS budgets satisfied. **Proof:** PENDING.

@@ -66,12 +66,10 @@ it('pins the QUIC path and rejects migration or address rebinding explicitly', f
         ->toThrow(RuntimeUnavailableException::class, 'migration/rebinding');
 });
 
-it('refuses unsupported QUIC datagrams and early application dispatch before confirmation', function (): void {
+it('rejects unverified early QUIC application dispatch before confirmation', function (): void {
     $policy = new QuicClientOptions('example.com');
     $policy->assertApplicationDispatchAllowed(true);
 
-    expect(fn() => $policy->assertDatagramAvailable())
-        ->toThrow(RuntimeUnavailableException::class, 'cannot send or receive')
-        ->and(fn() => $policy->assertApplicationDispatchAllowed(false))
+    expect(fn() => $policy->assertApplicationDispatchAllowed(false))
         ->toThrow(RuntimeUnavailableException::class, '0-RTT application dispatch');
 });
