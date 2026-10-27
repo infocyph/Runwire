@@ -35,7 +35,7 @@ $lastTick = hrtime(true);
 $maxFdCount = 0;
 $sleepFinished = false;
 $start = hrtime(true);
-$cpuStart = getrusage();
+$cpuStart = getrusage() ?: [];
 $networkLatency = [];
 $listenerWatcher = $loop->onReadable($listener, static function () use ($listener, &$networkAccepted): void {
     while (is_resource($accepted = @stream_socket_accept($listener, 0))) {
@@ -143,13 +143,13 @@ try {
     $diag = $executor->diagnostics();
     $loopDiag = $loop->diagnostics();
     $elapsed = (hrtime(true) - $start) / 1_000_000_000;
-    $cpuEnd = getrusage();
+    $cpuEnd = getrusage() ?: [];
     sort($networkLatency, SORT_NUMERIC);
     $cpuSeconds = ((int) ($cpuEnd['ru_utime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_sec'] ?? 0))
         + ((int) ($cpuEnd['ru_utime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_usec'] ?? 0)) / 1_000_000
         + ((int) ($cpuEnd['ru_stime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_sec'] ?? 0))
         + ((int) ($cpuEnd['ru_stime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_usec'] ?? 0)) / 1_000_000;
-    $rss = (int) (getrusage()['ru_maxrss'] ?? 0) * 1024;
+    $rss = (int) ((getrusage() ?: [])['ru_maxrss'] ?? 0) * 1024;
     $passed = $errors === [] && $networkConnected === $networkAttempted
         && $networkAccepted === $networkAttempted && $fileCompleted === 48
         && $timerTicks >= 4 && $maxGapMs < 150 && $sleepFinished
@@ -158,7 +158,7 @@ try {
     $record = [
         'schema' => 1,
         'real_same_reactor_tcp_and_offloop_file_io' => true,
-        'source_sha' => getenv('GITHUB_SHA') ?: 'git-worker',
+        'source_sha' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'network_attempted' => $networkAttempted,
         'network_accepted' => $networkAccepted,
         'network_connected' => $networkConnected,
