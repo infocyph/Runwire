@@ -41,6 +41,9 @@ final class TcpListener
 
     private ?LoopInterface $loop = null;
 
+    /** A bound socket can be inherited before start; active loop ownership cannot. */
+    private ?int $activeOwnerPid = null;
+
     private int $rejectedConnections = 0;
 
     /** @var resource|null */
@@ -182,6 +185,7 @@ final class TcpListener
      */
     public function close(): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -239,6 +243,7 @@ final class TcpListener
      */
     public function pauseAccepting(): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -267,6 +272,7 @@ final class TcpListener
      */
     public function resumeAccepting(): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -289,6 +295,7 @@ final class TcpListener
     /** @param callable(Connection): void $onConnection */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             throw new LogicException('Closed listener cannot be started.');
         }
@@ -296,9 +303,17 @@ final class TcpListener
             throw new LogicException('Listener is already attached to an event loop.');
         }
 
+        $this->activeOwnerPid = getmypid();
         $this->loop = $loop;
         $this->connectionCallback = Closure::fromCallable($onConnection);
         $this->syncAcceptWatcher();
+    }
+
+    private function assertActiveProcessOwner(): void
+    {
+        if ($this->activeOwnerPid !== null && getmypid() !== $this->activeOwnerPid) {
+            throw new LogicException('An active listener cannot cross a fork; bind before forking and start on the child loop.');
+        }
     }
 
     private static function ignoreAcceptWarning(int $severity, string $message): bool
