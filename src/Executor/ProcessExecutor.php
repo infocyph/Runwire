@@ -131,13 +131,30 @@ final class ProcessExecutor
             return;
         }
         $this->closed = true;
+        $failure = null;
         foreach (array_keys($this->workers) as $workerId) {
-            $this->retire($workerId, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
+            try {
+                $this->retire($workerId, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
         }
         foreach (array_keys($this->jobs) as $id) {
-            $this->settle($id, null, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
+            try {
+                $this->settle($id, null, new CancelledException(CancellationReason::WORKER_SHUTDOWN));
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
         }
-        $this->notifyDrained();
+        try {
+            $this->notifyDrained();
+        } catch (Throwable $error) {
+            $failure ??= $error;
+        }
+
+        if ($failure !== null) {
+            throw $failure;
+        }
     }
 
     /** @return array{submitted:int, completed:int, failed:int, cancelled:int, active:int, queued:int, workers:int, peakQueued:int} */
