@@ -12,6 +12,27 @@ use Infocyph\Runwire\Loop\LoopInterface;
 final class ReadinessChannel
 {
     /**
+     * Decode bounded parent lifecycle stream chunks without retaining partial lines across generations.
+     *
+     * @param resource $stream
+     * @param callable(string): void $onMessage
+     */
+    public static function readMessages(ChildRecord $record, mixed $stream, callable $onMessage): void
+    {
+        $payload = fread($stream, 8_192);
+        if (!is_string($payload) || $payload === '') {
+            return;
+        }
+
+        $record->lifecycleBuffer .= $payload;
+        while (($newline = strpos($record->lifecycleBuffer, "\n")) !== false) {
+            $message = substr($record->lifecycleBuffer, 0, $newline);
+            $record->lifecycleBuffer = substr($record->lifecycleBuffer, $newline + 1);
+            $onMessage($message);
+        }
+    }
+
+    /**
      * Close a worker readiness channel and cancel its watcher and timeout.
      */
     public static function close(LoopInterface $loop, ChildRecord $record): void

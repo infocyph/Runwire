@@ -37,6 +37,12 @@ final class ChildSet
     }
 
     /** @param array<int, ChildRecord> $children */
+    public static function canRecycle(?ChildRecord $record, array $children, int $pid): bool
+    {
+        return $record !== null && $record->state->serving() && !self::hasReplacementFor($children, $pid);
+    }
+
+    /** @param array<int, ChildRecord> $children */
     public static function hasReplacementFor(array $children, int $pid): bool
     {
         return array_any($children, fn(ChildRecord $record): bool => $record->replacesPid === $pid);

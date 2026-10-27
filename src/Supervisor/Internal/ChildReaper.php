@@ -13,6 +13,27 @@ use Infocyph\Runwire\Internal\MonotonicTime;
 final class ChildReaper
 {
     /**
+     * Force-stop owned children and return PIDs still unreaped after the deadline.
+     *
+     * @param array<int, ChildRecord> $children
+     * @return list<int>
+     */
+    public static function forceKillAndWait(array $children, int $deadlineNanoseconds): array
+    {
+        foreach ($children as $record) {
+            posix_kill($record->pid, SIGKILL);
+        }
+        $unreaped = [];
+        foreach (array_keys($children) as $pid) {
+            if (!self::waitForUntil($pid, $deadlineNanoseconds)) {
+                $unreaped[] = $pid;
+            }
+        }
+
+        return $unreaped;
+    }
+
+    /**
      * Extract the child exit code when the wait status represents a normal exit.
      */
     public static function exitCode(int $status): ?int
