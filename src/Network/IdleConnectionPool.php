@@ -7,6 +7,8 @@ namespace Infocyph\Runwire\Network;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use InvalidArgumentException;
+use LogicException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -23,6 +25,8 @@ final class IdleConnectionPool
 
     private int $nextId = 1;
 
+    private readonly int $ownerPid;
+
     /** Set finite idle retention and hard connection admission limit. */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -33,11 +37,17 @@ final class IdleConnectionPool
             || !is_finite($idleTtlSeconds) || $idleTtlSeconds <= 0) {
             throw new InvalidArgumentException('Idle connection retention limits must be positive and finite.');
         }
+        $pid = getmypid();
+        if (!is_int($pid)) {
+            throw new RuntimeException('Unable to establish idle connection pool process ownership.');
+        }
+        $this->ownerPid = $pid;
     }
 
     /** Close the store and all borrowed-but-not-yet-issued idle sockets. */
     public function close(): void
     {
+        $this->assertProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -59,6 +69,7 @@ final class IdleConnectionPool
      */
     public function store(PoolIsolationKey $key, Connection $connection): bool
     {
+        $this->assertProcessOwner();
         if ($this->closed || !$connection->isPoolIdleSafe() || !$key->acceptsTransport($connection)) {
             $connection->abort();
 
@@ -141,6 +152,7 @@ final class IdleConnectionPool
      */
     public function take(PoolIsolationKey $key): ?Connection
     {
+        $this->assertProcessOwner();
         if ($this->closed) {
             return null;
         }
@@ -157,6 +169,13 @@ final class IdleConnectionPool
         }
 
         return null;
+    }
+
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('Idle pools cannot be used by a forked child; create a pool after forking.');
+        }
     }
 
     private function discard(int $id): void
