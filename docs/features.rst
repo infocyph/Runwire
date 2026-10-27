@@ -158,7 +158,7 @@ Network, protocols and worker capabilities
      - Final fuzz/security QA OPEN
 
 Release status interpretation and limitations
-------------------------------------------
+---------------------------------------------
 
 The stable column describes currently shipped 2.1.2 features. The candidate
 column describes implementation or planned status **on the draft Runwire 3.0
