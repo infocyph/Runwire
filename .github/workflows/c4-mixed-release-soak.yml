@@ -1,0 +1,54 @@
+name: C4 full 1800s mixed workload certification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+    branches: [main, master, develop, development]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c4-release-soak-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  thirty-minute-mixed-tree-soak:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'c4-mixed-1800'
+    name: C4 actual 1800s process-tree/GC/OPcache/file/TCP/autoscale PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - name: Checkout exact immutable unreleased candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install PHP with process, event and opcache
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          extensions: pcntl, posix, sockets, event, opcache
+          coverage: none
+      - name: Install locked code
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Reproduce source-pinned genuine mixed 1800s qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          php -r 'if (!function_exists("opcache_get_status") || !is_array(opcache_get_status(false))) exit(1);' \
+            -d opcache.enable_cli=1
+          bash benchmarks/c4_mixed_release_soak.sh c4-mixed-soak-evidence
+      - name: Save exact source, raw 1800s records and fail-closed analyses
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-full-mixed-1800-php-${{ matrix.php }}
+          path: c4-mixed-soak-evidence/
+          retention-days: 90
