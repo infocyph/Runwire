@@ -65,8 +65,29 @@ export RUNWIRE_EXTENSION_VERSIONS="$(php -r '$a=[]; foreach(["pcntl", "posix", "
 # A capacity curve is not a matched baseline regression or proof of generator headroom.
 for concurrency in 1 4 16 32 64; do
   output="$output_dir/h1-concurrency-$concurrency.json"
-  taskset -c "$client_cpu" php -d opcache.enable_cli=1 "$root/benchmarks/http1_sustained_bench.php" \
+  /usr/bin/time -f '%U %S %e' -o "$output_dir/generator-$concurrency.time" \
+    taskset -c "$client_cpu" php -d opcache.enable_cli=1 "$root/benchmarks/http1_sustained_bench.php" \
     "$port" "$concurrency" 3 12 "$server_pid" > "$output"
+  python3 - "$output_dir/generator-$concurrency.time" "$output_dir/generator-$concurrency.json" <<'PY'
+import json
+import pathlib
+import sys
+parts = pathlib.Path(sys.argv[1]).read_text().strip().split()
+if len(parts) != 3:
+    raise SystemExit("missing real client CPU/elapsed time from GNU time")
+user, system, elapsed = [float(x) for x in parts]
+if elapsed <= 0 or user < 0 or system < 0:
+    raise SystemExit("invalid generator CPU measurement")
+resource = dict(generator_cpu_percent_one_core=round(100 * (user+system) / elapsed, 3),
+                user_seconds=user, system_seconds=system, elapsed_seconds=elapsed,
+                isolated_client_physical_core=True)
+pathlib.Path(sys.argv[2]).write_text(json.dumps(resource, indent=2) + "\\n")
+PY
+  jq -e '.generator_cpu_percent_one_core >= 0 and .elapsed_seconds >= 12
+    and .generator_cpu_percent_one_core < 85' "$output_dir/generator-$concurrency.json" >/dev/null || {
+      echo "::error::No proven independent client CPU headroom at concurrency $concurrency." >&2
+      exit 1
+    }
   jq -e --argjson requested "$concurrency" \
     '.correctness_passed == true and .concurrency == $requested and
      .successful_requests == .requests_total and .successful_requests > 0 and
