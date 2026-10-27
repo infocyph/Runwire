@@ -1,0 +1,61 @@
+name: C4 hosted Read the Docs verification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+    branches: [main, master, develop, development]
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-readthedocs:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'c4-hosted-docs'
+    name: Inspect actual hosted Read the Docs preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RUNWIRE_RTD_PREVIEW_URL: ${{ vars.RUNWIRE_RTD_PREVIEW_URL }}
+    steps:
+      - name: Checkout exact Runwire PR source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Require configured HTTPS hosted preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RUNWIRE_RTD_PREVIEW_URL" =~ ^https://[^[:space:]]+$ ]]; then
+            echo "::error::Configure repository Actions variable RUNWIRE_RTD_PREVIEW_URL to the real hosted Read the Docs preview before U16.02/U16.16 can pass."
+            exit 1
+          fi
+      - name: Verify hosted public pages and Sphinx search index
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p hosted-docs-evidence
+          git rev-parse HEAD > hosted-docs-evidence/source-sha.txt
+          base="${RUNWIRE_RTD_PREVIEW_URL%/}"
+          curl --fail --show-error --silent --location --retry 3 --max-time 60 \
+            "$base/index.html" > hosted-docs-evidence/index.html
+          curl --fail --show-error --silent --location --retry 3 --max-time 60 \
+            "$base/features.html" > hosted-docs-evidence/features.html
+          curl --fail --show-error --silent --location --retry 3 --max-time 60 \
+            "$base/search.html" > hosted-docs-evidence/search.html
+          curl --fail --show-error --silent --location --retry 3 --max-time 60 \
+            "$base/searchindex.js" > hosted-docs-evidence/searchindex.js
+          grep -qi 'Runwire' hosted-docs-evidence/index.html
+          grep -qi 'WebTransport' hosted-docs-evidence/features.html
+          grep -Eqi 'search' hosted-docs-evidence/search.html
+          grep -Eq 'Search\.setIndex|terms|filenames' hosted-docs-evidence/searchindex.js
+          printf '%s\n' "$base" > hosted-docs-evidence/preview-url.txt
+          printf '%s\n' 'GitHub worker verified reachable hosted pages and search index; interactive version switch/search and source SHA alignment require separate review.' \
+            > hosted-docs-evidence/verification-limits.txt
+      - name: Upload verifiable hosted-documentation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-readthedocs-hosted
+          path: hosted-docs-evidence/
+          retention-days: 90
