@@ -5,7 +5,7 @@ Runwire 3.0 development: async file I/O
 This document describes **unreleased development APIs**, not the published
 Runwire 2.1.2 package. Production support is conditional on full U11 QA.
 
-The preliminary ``Filesystem\AsyncFileSystem`` delegates each bounded
+The ``Filesystem\AsyncFileSystem`` facade delegates each bounded
 operation to a reusable ``Executor\ProcessExecutor`` running blocking PHP
 filesystem calls inside separate worker processes. The event loop only
 reads and writes nonblocking IPC pipes, never calling ``file_get_contents``
@@ -41,7 +41,13 @@ scope/worker shutdown.
 **Important limitations:** This is not kernel async I/O, filesystem
 sandboxing, atomic durable replacement, cross-device atomic renaming,
 symlink/TOCTOU protection, or an indefinitely open file-descriptor API.
-Native acceleration and file-to-network streaming are separate tasks.
+No native filesystem accelerator is currently qualified or selected: the
+portable process-backed executor is the only supported implementation.
+Optional native loop extensions accelerate socket/event readiness, not disk
+I/O. A future native file backend must separately demonstrate off-reactor
+execution, correct cancellation and deadline ownership, and equivalent real
+file tests before capability detection may select it. Existing callers never
+silently switch to a synchronous file path when an extension is absent.
 Untrusted path handling needs explicit U11.09 access policy. A successful
 ``fflush`` does not imply durable ``fsync`` across power failure.
 
