@@ -26,10 +26,20 @@ cleanup() {
   fi
   rm -rf "$tmp"
 }
-trap cleanup EXIT
+trap 'status=$?; if [ "$status" -ne 0 ]; then
+  echo "::error::C4 trace-on/off step failed (phase: ${runtime:-init}/${tracing:-init}; code=$status)" >&2
+  for serverLog in "$out"/*-server.log; do
+    if [ -f "$serverLog" ]; then
+      echo "--- $serverLog ---" >&2
+      tail -80 "$serverLog" >&2 || true
+    fi
+  done
+fi
+cleanup' EXIT
 cd "$repo"
 for runtime in native roadrunner; do
   for tracing in off on; do
+    echo "Starting source-pinned C4 trace comparison $runtime/$tracing"
     port="$(php -r '$s=stream_socket_server("tcp://127.0.0.1:0",$e,$m);if(!is_resource($s))throw new RuntimeException($m);$n=stream_socket_get_name($s,false);fclose($s);echo substr(strrchr($n,":"),1);')"
     if [ "$runtime" = native ]; then
       server=(php -d opcache.enable_cli=1 benchmarks/http1_server.php "$port")
@@ -61,6 +71,7 @@ YAML
       setsid taskset -c "$server_cpu" "${server[@]}" > "$out/$runtime-off-server.log" 2>&1 &
     fi
     pid=$!
+    echo "Started $runtime/$tracing real server pid=$pid (client CPU=$client_cpu server CPU=$server_cpu)"
     ready=0
     for _ in $(seq 1 200); do
       if ! kill -0 "$pid" 2>/dev/null; then
