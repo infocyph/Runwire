@@ -132,7 +132,7 @@ all protocol clients, optional extensions, async disk features or worker
 autoscaling are available on that host.
 
 Native autoscale policy (implemented on capable native hosts)
----------------------------------------
+-------------------------------------------------------------
 
 ``Supervisor\AutoscalePolicy`` is a development-branch native worker scaling policy, integrated
 with the running Supervisor and its worker generation lifecycle. Its defaults bound workers to 1..8,
@@ -149,7 +149,7 @@ scale-in passed C3 QA; the 30-minute release saturation/soak is an
 independent incomplete U15 requirement.
 
 Pure autoscale decision model and native integration
-----------------------------------------------
+----------------------------------------------------
 
 ``Supervisor\AutoscaleDecisionEngine`` computes a bounded desired worker
 count from one CPU/queue/successful-RPS/p99 observation and a policy. It
