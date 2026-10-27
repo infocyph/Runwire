@@ -165,6 +165,7 @@ final class ProcessExecutor
      */
     public function onDrained(callable $callback): void
     {
+        $this->assertProcessOwner();
         $this->drainCallbacks[] = Closure::fromCallable($callback);
         $this->notifyDrained();
     }
