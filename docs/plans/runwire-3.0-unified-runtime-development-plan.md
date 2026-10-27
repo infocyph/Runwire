@@ -6,6 +6,10 @@
 **Canonical tracker:** 147/169 accepted (87.0%); 22 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W194 — Repair exact-head PHPForge documentation expectation and independent H2 GOAWAY semantics (2026-10-27; QA pending)
+
+[Security & Standards #40499712758](https://github.com/infocyph/Runwire/actions/runs/40499712758) exposed exactly two blocking checks: one Pest assertion expected the obsolete Sphinx toctree caption ending in 'guides' although the Sphinx-approved index intentionally says 'manuals', and the independent native H2 stop-during-traffic peer treated receipt of HTTP/2 **GOAWAY(NO_ERROR)** as if the TCP connection had closed while already accepted sibling responses remained in flight. Update the documentation test to match the published toctree caption. Update the hyper-h2 peer to allow a valid, non-error GOAWAY whose last processed stream covers all eight accepted request streams while **still requiring all eight exact byte bodies and END_STREAM**, rejecting nonzero GOAWAY error, insufficient last-stream-id, reset, unexpected EOF, truncated body or timeout. This repairs **test correctness**, not server behavior, and does not bypass any QA gate. Four stable/lowest PHPForge configurations and independent native H3 must pass on the new immutable head before C4/C3 evidence can be treated as green. Canonical **147/169 accepted; 22 open; C4 0/13**, no release.
+
 ## W193 — Strict Sphinx QA accepted for 20-chapter source documentation (2026-10-27)
 
 The completed [Sphinx #40499541538](https://github.com/infocyph/Runwire/actions/runs/40499541538)

@@ -149,8 +149,16 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
                         completed.add(event.stream_id)
                     elif isinstance(event, StreamReset):
                         raise ConnectionError(f"H2 request reset during native reload: {event.stream_id}")
-                    elif isinstance(event, ConnectionTerminated) and len(completed) < len(expected):
-                        raise ConnectionError("Native H2 connection closed before all responses completed")
+                    elif isinstance(event, ConnectionTerminated):
+                        # A normal GOAWAY announces graceful drain; it does
+                        # not terminate streams already admitted by the server.
+                        # hyper-h2 uses ConnectionTerminated for GOAWAY too.
+                        # Only a nonzero error or an unadmitted stream fails.
+                        if event.error_code != 0 or event.last_stream_id < max(expected):
+                            raise ConnectionError(
+                                f"Native H2 GOAWAY invalidates accepted siblings: "
+                                f"error={event.error_code}, last={event.last_stream_id}"
+                            )
                 if submitted is not None and len(headers_seen) == len(expected):
                     submitted.set()
                     submitted = None
