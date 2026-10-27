@@ -54,6 +54,19 @@ jobs:
           grep -qi 'WebTransport' hosted-docs-evidence/features.html
           grep -Eqi 'search' hosted-docs-evidence/search.html
           grep -Eq 'Search\.setIndex|terms|filenames' hosted-docs-evidence/searchindex.js
+          mapfile -t pages < <(awk '/^   [a-z0-9][a-z0-9-]*$/ {print $1}' docs/index.rst)
+          test "${#pages[@]}" -ge 35
+          for page in "${pages[@]}"; do
+            curl --fail --show-error --silent --location --retry 2 --max-time 45 \
+              "$base/${page}.html" > "hosted-docs-evidence/${page}.html"
+            test -s "hosted-docs-evidence/${page}.html" || {
+              echo "::error::Empty hosted indexed page: ${page}"; exit 1;
+            }
+            grep -Fq "${page}" hosted-docs-evidence/searchindex.js || {
+              echo "::error::Hosted search index missing page: ${page}"; exit 1;
+            }
+          done
+          printf 'Validated %s hosted pages and search entries.\n' "${#pages[@]}" > hosted-docs-evidence/complete-inventory.txt
           printf '%s\n' "$base" > hosted-docs-evidence/preview-url.txt
           printf '%s\n' 'GitHub worker verified reachable hosted pages, exact source SHA and search index; interactive version switch/search require separate review.' \
             > hosted-docs-evidence/verification-limits.txt

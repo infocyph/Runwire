@@ -61,6 +61,21 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq "$(git rev-parse HEAD)" build/sphinx-html/index.html
+      - name: Prove all indexed public handbook pages exist and are searchable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t pages < <(awk '/^   [a-z0-9][a-z0-9-]*$/ {print $1}' docs/index.rst)
+          test "${#pages[@]}" -ge 35
+          for page in "${pages[@]}"; do
+            test -s "build/sphinx-html/${page}.html" || {
+              echo "::error::Missing indexed page: ${page}"; exit 1;
+            }
+            grep -Fq "${page}" build/sphinx-html/searchindex.js || {
+              echo "::error::Page absent from search index: ${page}"; exit 1;
+            }
+          done
+          printf 'Verified %s indexed HTML/search pages.\n' "${#pages[@]}"
       - name: Preserve Sphinx HTML preview
         if: always()
         uses: actions/upload-artifact@v7
