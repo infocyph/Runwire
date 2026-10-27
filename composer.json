@@ -31,9 +31,7 @@
         "ext-event": "*",
         "ext-pcntl": "*",
         "ext-posix": "*",
-        "infocyph/phpforge": "dev-main@dev",
-        "pestphp/pest": "5.3.1",
-        "phpunit/phpunit": "13.4.1"
+        "infocyph/phpforge": "dev-main@dev"
     },
     "suggest": {
         "ext-event": "Enables the scalable native event-loop backend.",
