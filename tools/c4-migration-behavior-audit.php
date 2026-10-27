@@ -8,14 +8,16 @@ declare(strict_types=1);
  * This is a documentation coverage gate, not proof that all historical
  * runtime behavior is backward compatible.
  */
-if ($argc !== 3) {
+/** @var list<string> $arguments */
+$arguments = $_SERVER['argv'] ?? [];
+if (count($arguments) !== 3) {
     throw new InvalidArgumentException(
         'Usage: php tools/c4-migration-behavior-audit.php <source-diff.json> <ledger.json>',
     );
 }
 
-$diff = json_decode((string) file_get_contents($argv[1]), true, flags: JSON_THROW_ON_ERROR);
-$ledger = json_decode((string) file_get_contents($argv[2]), true, flags: JSON_THROW_ON_ERROR);
+$diff = json_decode((string) file_get_contents($arguments[1]), true, flags: JSON_THROW_ON_ERROR);
+$ledger = json_decode((string) file_get_contents($arguments[2]), true, flags: JSON_THROW_ON_ERROR);
 if (!is_array($diff) || !is_array($ledger) || ($diff['schemaVersion'] ?? null) !== 1
     || ($ledger['schemaVersion'] ?? null) !== 1
     || ($ledger['publishedRevision'] ?? null) !== $diff['baselineRevision']
@@ -27,6 +29,9 @@ if (!is_array($diff) || !is_array($ledger) || ($diff['schemaVersion'] ?? null) !
 
 $changed = [];
 foreach ($diff['changed'] as $record) {
+    if (!is_array($record)) {
+        throw new RuntimeException('Invalid source diff record.');
+    }
     if (($record['type'] ?? null) !== 'source_changed') {
         continue;
     }
@@ -54,7 +59,7 @@ foreach ($ledger['entries'] as $entry) {
         || !is_string($migration) || strlen($migration) < 35
         || ($entry['disposition'] ?? null) !== 'documented_test_backed_contract'
         || ($entry['requiresReleaseSignoff'] ?? null) !== true) {
-        throw new RuntimeException('Unreviewed, untested or incorrectly classified migration: ' . (string) $symbol);
+        throw new RuntimeException('Unreviewed, untested or incorrectly classified migration: ' . (is_string($symbol) ? $symbol : '(unknown)'));
     }
     $reviewed[$symbol] = true;
 }
@@ -65,7 +70,7 @@ if ($missing !== [] || count($reviewed) !== count($changed)) {
         . implode(', ', array_keys($missing)));
 }
 
-echo json_encode([
+fwrite(STDOUT, json_encode([
     'publishedRevision' => $diff['baselineRevision'],
     'candidateRevision' => $diff['candidateRevision'],
     'changedPublicImplementationSymbols' => count($changed),
@@ -73,4 +78,4 @@ echo json_encode([
     'allChangedSymbolsDispositioned' => true,
     'behavioralCompatibilityCertified' => false,
     'maintainerReleaseSignoffClaimed' => false,
-], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL;
+], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL);
