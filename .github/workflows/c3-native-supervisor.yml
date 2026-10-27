@@ -33,6 +33,11 @@ jobs:
             src/Supervisor/Supervisor.php \
             src/Supervisor/WorkerContext.php \
             src/Supervisor/Internal/PeriodicTaskRegistry.php \
+            src/Supervisor/Internal/SupervisorAutoscaler.php \
+            src/Supervisor/Internal/WorkerOwnedResourceCleanup.php \
+            src/Supervisor/Internal/ChildSet.php \
+            src/Supervisor/Internal/ChildReaper.php \
+            src/Supervisor/Internal/ReadinessChannel.php \
             src/Supervisor/WorkerGroup.php \
             src/Executor/ProcessExecutor.php \
             src/Network/QuicClientSession.php \

@@ -252,7 +252,7 @@ final class Supervisor
 
         $oldPid = $this->currentSlots[$group][$slot] ?? null;
         $old = $oldPid === null ? null : ($this->children[$oldPid] ?? null);
-        if (!ChildSet::canRecycle($old, $this->children, $oldPid)) {
+        if ($oldPid === null || $old === null || !ChildSet::canRecycle($old, $this->children, $oldPid)) {
             return false;
         }
 
@@ -557,11 +557,14 @@ final class Supervisor
         // shutdown was still draining. Wait for the old PID to be reaped
         // before issuing a new owner for that slot.
         $name = $record->group->name;
-        $target = $this->groups[$name]->count ?? 0;
-        if (!$this->stopping && !$this->reloadCoordinator->reloading()
-            && $record->expectedStop && $record->slot < $target
-            && !isset($this->currentSlots[$name][$record->slot])
-            && !array_any($this->children, static fn(ChildRecord $child): bool => $child->group->name === $name && $child->slot === $record->slot)) {
+        if (ChildSet::shouldRestoreAfterScaleIn(
+            $record,
+            $this->groups,
+            $this->currentSlots,
+            $this->children,
+            $this->stopping,
+            $this->reloadCoordinator->reloading(),
+        )) {
             $this->spawnWorker(
                 $this->groups[$name],
                 $record->slot,
