@@ -28,6 +28,7 @@ If this is your first visit, read :doc:`start` and
    start
    features
    handbook-3.0
+   quickstart-lab-3.0
    architecture
    runtime-lifecycle-3.0
    configuration-reference-3.0
@@ -40,6 +41,7 @@ If this is your first visit, read :doc:`start` and
    outbound-handbook-3.0
    transport-guide-3.0
    protocols-3.0
+   protocol-failure-atlas-3.0
    connection-policies-3.0
    concurrency-handbook-3.0
    coroutine-network-3.0
@@ -58,6 +60,7 @@ If this is your first visit, read :doc:`start` and
    troubleshooting-handbook-3.0
    security-handbook-3.0
    performance-qa-handbook-3.0
+   performance-lab-3.0
    performance-security-3.0
 
 .. toctree::
