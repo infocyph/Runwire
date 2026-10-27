@@ -133,9 +133,9 @@ Network, protocols and worker capabilities
      - PCNTL and POSIX required
    * - Automatic autoscaling
      - Not built in
-     - Validated policy and pure decision engine; no worker scaling
-     - Native worker groups only
-     - Policy and soak tests OPEN
+     - Real hysteresis-controlled native worker scale-out/scale-in; C3 QA accepted
+     - Native PCNTL/POSIX worker groups only
+     - Full U15 release-performance soak remains OPEN
    * - FPM/FrankenPHP/RoadRunner
      - Host adapters
      - Real-host request isolation tested
