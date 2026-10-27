@@ -2,9 +2,17 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 5/10; U10 8/9; U11 9/10; U12 3/9; U13 9/9; U14 7/8; U16 13/16**. **139/175 accepted tasks, 36 open across 18 batches** (79.4%). **Next milestone: 140/175 (80.0%), 1 further QA-accepted task needed**. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 8/9; U11 9/10; U12 3/9; U13 9/9; U14 7/8; U16 13/16**. **138/169 accepted tasks, 31 open across 18 batches** (81.7%). Next accepted milestone: 140/169 (82.8%), requiring 2 independently accepted tasks. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
-## W146 — C2 U10.06 original-target TLS implementation / capability blockers (2026-10-27)
+## W147 — Approved Runwire 3.0 protocol exclusion and rebaseline (2026-10-27)
+
+**Current approved scope:** WebTransport is intentionally **removed entirely from Runwire 3.0**, not partially implemented and not a mandatory release gate. The selected PHP native QUIC backend (ext-quic/OpenSSL) does not expose the RFC 9221 QUIC DATAGRAM capability required for the originally scoped implementation. This is **not** a restriction on ordinary QUIC, HTTP/3, WebSocket or UDP datagrams. No fake datagram emulation, unused client/server sessions or public protocol API is shipped. The superseded `docs/webtransport-design-3.0.rst` and its Sphinx index/catalog entries were deleted; see `docs/features.rst` (Release status interpretation and limitations) and `docs/transport-guide-3.0.rst` for the clear release note.
+
+**Canonical rebaseline, not fake task completion:** Retire U09.05 (accepted architecture-only task) and U09.06–U09.10 (five never accepted). Original 175 becomes **169 in-scope canonical tasks**, accepted 139 becomes **138**, remaining 36 becomes **31**, so **138/169 (81.7%)**; U09 becomes **4/4 complete**. Rebaseline C1–C5 from 52 to **47 assigned tasks**, 16 accepted and 31 open. C2 now covers exactly U10.03, U10.04, U10.05, U10.06, U10.09: **4/5 accepted and 1 OPEN (U10.06)**. U14.04 is retained as a WebSocket-only hostile-frame/cancellation requirement. U16.06 remains accepted for HTTP/1.1/2/3 and WebSocket documentation, not for the removed architecture design. Existing native QUIC DATAGRAM capability checks continue failing closed rather than promising a feature.
+
+**Still mandatory:** U10.06's original-target identity and unsupported nested TLS require their existing security decision; C3–C5 and full immutable-source release certification remain OPEN. Rebaseline `release-certification.yml`, associated preflight/tests and both plan trackers to **169**. Historical W-prefixed notes below retain prior source observations only; they are superseded wherever they describe excluded work or old 175-task totals. No merge/tag/release.
+
+## W146 — historical TLS/QUIC capability checkpoint (superseded WebTransport plan) (2026-10-27)
 
 **U10.06 implementation PARTIAL / NOT ACCEPTED:** Candidate [`26ce43df`](https://github.com/infocyph/Runwire/commit/26ce43dfde4785a2303b324bee2d18529c17673d) adds `Connection::upgradeToVerifiedTls()` and `Internal/VerifiedTargetTlsUpgrade` to transfer a quiescent **cleartext CONNECT tunnel** into an independently verified nonblocking TLS client to the **original origin**, with SNI, certificate/name verification, ALPN and verified peer registration. The old connection's read/write watchers and lifetime ownership are retired before TLS start; failure closes the raw stream. Independent [`VerifiedOriginalTargetTlsInteropTest.php`](../../tests/VerifiedOriginalTargetTlsInteropTest.php) and [Python reference fixture](../../tests/fixtures/independent_original_target_tls_proxy.py) test positive end-to-end origin TLS and negative wrong-certificate identity over a genuinely relaying **unencrypted** CONNECT proxy. PHPForge four PHP 8.4/8.5 stable/lowest QA variants and both static-analysis lanes were green at the immutable candidate; native PHP 8.5 QUIC and adaptive H1/H2 workflows were still active when this checkpoint was recorded. [Candidate checks](https://github.com/infocyph/Runwire/commit/26ce43dfde4785a2303b324bee2d18529c17673d/checks).
 
@@ -68,7 +76,7 @@ Deliver one **complete, bidirectional asynchronous network and I/O runtime for P
 | Pillar | Required scope for Runwire 3.0.0 |
 | --- | --- |
 | Unified transport | TCP, TLS, Unix streams, UDP and QUIC: listening and outbound clients; IPv4/IPv6, nonblocking DNS, Happy Eyeballs, per-scope resources and limits |
-| Unified protocol execution | HTTP/1.1, HTTP/2, HTTP/3 clients and servers; WebSocket clients and servers; WebTransport clients and servers |
+| Unified protocol execution | HTTP/1.1, HTTP/2, HTTP/3 clients and servers; WebSocket clients and servers |
 | Networking services | Secure client TLS/mTLS, SNI/ALPN, pooling, HTTP CONNECT, SOCKS5, stream relay and half-close |
 | Unified concurrency | Select/ext-event/Swoole readiness, Fibers, Future, cancellation, inherited deadlines, typed errors and structured task scopes |
 | Unified asynchronous I/O | Genuine off-event-loop filesystem and DNS operations, bounded executor, file/network transfer with backpressure |
@@ -112,18 +120,18 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
-**Current canonical QA state: 139/175 accepted, 36 OPEN.** These are indivisible execution batches, not subdivisions. **C1 DONE (11/11); C2 next active (4/10, 6 OPEN)** after C1's exact-source peer, task-level evidence and nine green QA workflows. **C3/C4 paused, C5 queued**; this supersedes older parallel-development wording. Intermediate commits, fixes and tests stay within C1 and do not count as separately completed batches.
+**Current canonical QA state: 138/169 accepted (81.7%), 31 OPEN.** C1 DONE (11/11), C2 ACTIVE (4/5, U10.06 OPEN), C3/C4 paused and C5 queued. The revised 3.0 program excludes six WebTransport task IDs. Archived W history and 175-task milestones below are superseded.
 
 | Group | Original C1–C5 assigned U tasks | Open | Status |
 | --- | --- | ---: | --- |
 | C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U08.08, U08.05, U07.11, U07.08, U08.09 | 0 | COMPLETE (11/11 accepted) |
-| C2 — WebTransport, proxy, pooling and relay | U09.06, U09.07, U09.08, U09.09, U09.10, U10.03, U10.04, U10.05, U10.06, U10.09 | 6 | ACTIVE — task/QA sequential (4/10 accepted) |
+| C2 — Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 1 | ACTIVE — U10.06 open (4/5 accepted) |
 | C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 8 | PAUSED (1/9 accepted) |
 | C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | PAUSED (0/13 accepted) |
 | C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
-| **TOTAL** | **52 originally assigned; 36 now OPEN** | **36** | **C1 complete; C2 active** |
+| **TOTAL** | **47 scoped closure tasks; 31 now OPEN** | **31** | **C1 complete; C2 active** |
 
-**Critical-path and CI invariant:** C1 transport/H3 → C2 WT/network services → C3 live supervisor/filesystem/security → C4 3.0 benchmarks/hosted RST → C5 frozen final certification. Repair crosscutting CI defects during the currently active group. Source-pinned opt-in evidence jobs may run with tasks still OPEN, but final release-ready aggregate continues to require **zero open tasks** plus every certification result PASS. Routine workflow GREEN does not prove conditional TLS/frozen certification. Synchronize this roadmap, detailed plan, PR body, CI links and checkboxes with each rolling group.
+**Critical-path and CI invariant:** C1 transport/H3 → C2 scoped network services → C3 live supervisor/filesystem/security → C4 3.0 benchmarks/hosted RST → C5 frozen final certification. Repair crosscutting CI defects during the currently active group. Source-pinned opt-in evidence jobs may run with tasks still OPEN, but final release-ready aggregate continues to require **zero open tasks** plus every certification result PASS. Routine workflow GREEN does not prove conditional TLS/frozen certification. Synchronize this roadmap, detailed plan, PR body, CI links and checkboxes with each rolling group.
 ## Delivery program and initial tracker
 
 | Batch | Division | Open acceptance tasks | Progress |
@@ -137,7 +145,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U06 | Structured concurrency, tasks, deadlines and scopes | 0 | 8/8 |
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 0 | 11/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 0 | 10/10 |
-| U09 | WebSocket and WebTransport client/server | 5 | 5/10 |
+| U09 | WebSocket client/server | 0 | 4/4 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 1 | 8/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 1 | 9/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
@@ -146,9 +154,9 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 3 | 13/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **36** | **139/175 (79.4%)** |
+| **TOTAL** | **Full unified-runtime release program** | **31** | **138/169 (81.7%)** |
 
-**Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket/WebTransport → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
+**Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
 ## Read the Docs and Sphinx: first-class 3.0 release requirement
 
@@ -156,7 +164,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 **Required full feature catalog:** for every user-facing 3.0 capability record its category, public PHP API, client/server applicability, optional extension/OS/runtime requirements, timeouts, cancellation and resource ownership, defaults, security considerations, errors and real tested examples. Cross-link every entry to the generated public PHP API reference. Include the old 2.1.2 behavior, all intentional breaking changes and before/after migration snippets.
 
-**Required sections:** getting started, installation, feature catalog, API, TCP/TLS/Unix/UDP/QUIC, DNS/dialer/racing, H1/H2/H3 client-server, WebSocket/WebTransport, pooling/HTTP CONNECT/SOCKS5/relay, Fiber/scheduler/scopes, async filesystem, worker lifecycle/autoscaling, host capabilities, production deployment, security, profiling/metrics/performance, troubleshooting, recipes and release QA.
+**Required sections:** getting started, installation, feature catalog, API, TCP/TLS/Unix/UDP/QUIC, DNS/dialer/racing, H1/H2/H3 client-server, WebSocket, pooling/HTTP CONNECT/SOCKS5/relay, Fiber/scheduler/scopes, async filesystem, worker lifecycle/autoscaling, host capabilities, production deployment, security, profiling/metrics/performance, troubleshooting, recipes and release QA.
 
 **RST-only policy:** Publish only `.rst` pages through Sphinx. Convert existing user-facing `.md` guides before release; never load internal `.md` plans/evidence into Sphinx. No MyST parser. Follow InterMix's `docs/conf.py`, `docs/index.rst` and `.readthedocs.yaml` convention.
 
@@ -167,7 +175,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 - **True async:** DNS and filesystem must execute off the event-loop thread through a bounded executor or equivalent nonblocking facility. No silent synchronous blocking fallback.
 - **Portable package:** PHP 8.4+ 64-bit and Composer; optional ext-event, ext-sockets, ext-openssl, ext-quic, PCNTL/POSIX and host extensions remain optional capability gates, not unconditional dependencies.
 - **Hosted semantics:** Swoole/OpenSwoole reactor ownership; native portable/fork modes; genuine RoadRunner/FrankenPHP/FPM requests. Native autoscaling may not falsely claim it can control host-owned worker pools.
-- **Protocol QA:** real independent client and server peers for H1/H2/H3, WebSocket, WebTransport, TCP, UDP and QUIC; malformed streams, peer resets, cancellations, slow receivers, TLS and SSRF policies and overload limits.
+- **Protocol QA:** real independent client and server peers for H1/H2/H3, WebSocket, TCP, UDP and QUIC; malformed streams, peer resets, cancellations, slow receivers, TLS and SSRF policies and overload limits.
 - **Performance QA:** compare exact published 2.1.2 with a frozen 3.0 SHA, five paired 180-second warmed successful-RPS trials, **both populations CV below 2.5%**, strict correctness/p99/RSS limits, generator headroom and a real **1800-second process-tree/worker-GC/OPcache/FD soak**.
 - **Per-batch discipline:** design → implementation → targeted QA → full relevant PHPForge/real-peer CI → evidence links → checkbox, batch row and PR synchronization. A plan description alone proves nothing.
 
