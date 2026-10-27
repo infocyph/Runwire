@@ -4,6 +4,11 @@
 PR #9, Sphinx-native reStructuredText public documentation only.
 No Foundation/Infbyte/Core/Cells edits, merge, tag or release.
 
+## W200 — GitHub C4 live migration and measured pooling QA (2026-10-27)
+
+[Immutable real 2.1.2 vs 3.0 migration workflow #40508637661](https://github.com/infocyph/Runwire/actions/runs/40508637661) passed independent native HTTP status/body/header cases on PHP 8.4 and 8.5 (partial U16.12). [97c1d457](https://github.com/infocyph/Runwire/commit/97c1d457d876bbc299cbe12481de0d101f30ec8b) repairs an invalid short-duration comparator fixture while retaining strict >=180s release rules. [C4 real profiling #40505102868](https://github.com/infocyph/Runwire/actions/runs/40505102868) passed three jobs; [1663c1b7](https://github.com/infocyph/Runwire/commit/1663c1b75361ea312bc99fa67fecc0e2fa0e1e03) strengthens fresh-dial benefit proof and emits actual RPS/p99/CPU/RSS/FD metrics in GitHub job logs. New exact-head QA required before any acceptance.
+
+Externally hosted Read the Docs [#40505123251](https://github.com/infocyph/Runwire/actions/runs/40505123251) is blocked by missing RUNWIRE_RTD_PREVIEW_URL, and 5x180s plus 1800s release-performance/other protocol qualifications remain outstanding. Full U16.12 also needs release-frozen behavioral audit. Tracker stays 147/169 accepted, 22 OPEN, C4 0/13, C5 0/9. No cross-repo work, merge/tag or release.
 ## W199 — Real hosted docs and current GitHub worker QA limits (2026-10-27)
 
 The GitHub worker [hosted Read the Docs verification workflow](https://github.com/infocyph/Runwire/blob/plan/runwire-independent-ecosystem-roadmaps/.github/workflows/c4-hosted-docs.yml) is opt-in and fails closed until repository variable RUNWIRE_RTD_PREVIEW_URL is an actual HTTPS hosted preview. It verifies public index/features/search pages and the generated search index with retained GitHub artifact provenance, but an interactive Read the Docs version selector, source parity and reviewer signoff still need actual proof; do not count only this probe as complete U16.02/.16.

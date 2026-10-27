@@ -189,6 +189,21 @@ A custom unreviewed manifest schema is not equivalent evidence.
 
    vendor/bin/pest tests/PublicApiMigrationCompatibilityTest.php
 
+Real 2.1.2 versus 3.0 HTTP behavioral check on GitHub workers
+-------------------------------------------------------------
+
+The GitHub C4 migration workflow runs published 2.1.2 and the exact
+3.0 candidate from independent checked-out sources. It verifies
+real HTTP/1.1 GET, valid subpath, bad path and disallowed POST
+status, body, Content-Length and Content-Type on PHP 8.4 and 8.5.
+The immutable GitHub `workflow run #40508637661
+<https://github.com/infocyph/Runwire/actions/runs/40508637661>`_
+passed both runtime versions with saved source-pinned evidence.
+
+That is a scoped behavioral regression only. Changed exception
+ordering, process shutdown/reload, TLS/QUIC/H2/H3 handling, all
+intentional API breaks and maintained callback contracts still need
+the full frozen-candidate migration review before U16.12 closes.
 Before accepting U16.12
 -----------------------
 
