@@ -125,7 +125,10 @@ test -s "$out/process-tree.csv"
 kill -TERM "$server_pid"
 wait "$server_pid"
 server_pid=""
-wait "$tree_sampler_pid"
+# The external sampler watches this orchestrator, so terminate it only once
+# the measured workload has drained; its records cover the entire 1800s run.
+kill -TERM "$tree_sampler_pid"
+wait "$tree_sampler_pid" || true
 tree_sampler_pid=""
 wait "$internal_sampler_pid"
 internal_sampler_pid=""
