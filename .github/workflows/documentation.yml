@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t pages < <(awk '/^   [a-z0-9][a-z0-9-]*$/ {print $1}' docs/index.rst)
+          mapfile -t pages < <(awk '/^   [a-z0-9][a-z0-9._-]*$/ {print $1}' docs/index.rst)
           test "${#pages[@]}" -ge 35
           for page in "${pages[@]}"; do
             test -s "build/sphinx-html/${page}.html" || {

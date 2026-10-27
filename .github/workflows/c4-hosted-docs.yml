@@ -54,7 +54,7 @@ jobs:
           grep -qi 'WebTransport' hosted-docs-evidence/features.html
           grep -Eqi 'search' hosted-docs-evidence/search.html
           grep -Eq 'Search\.setIndex|terms|filenames' hosted-docs-evidence/searchindex.js
-          mapfile -t pages < <(awk '/^   [a-z0-9][a-z0-9-]*$/ {print $1}' docs/index.rst)
+          mapfile -t pages < <(awk '/^   [a-z0-9][a-z0-9._-]*$/ {print $1}' docs/index.rst)
           test "${#pages[@]}" -ge 35
           for page in "${pages[@]}"; do
             curl --fail --show-error --silent --location --retry 2 --max-time 45 \
