@@ -11,7 +11,8 @@ command -v taskset >/dev/null
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sha="$(git -C "$root" rev-parse HEAD)"
 cpu_json="$(python3 "$root/benchmarks/release_cpu_affinity.py")"
-printf '%s\n' "$cpu_json" | jq -e '.client_separate_physical_core == true' > "$output_dir/affinity.json"
+printf '%s\n' "$cpu_json" | jq -e '.client_separate_physical_core == true and .server_cpu != .client_cpu' >/dev/null
+printf '%s\n' "$cpu_json" > "$output_dir/affinity.json"
 server_cpu="$(jq -r '.server_cpu' "$output_dir/affinity.json")"
 client_cpu="$(jq -r '.client_cpu' "$output_dir/affinity.json")"
 
