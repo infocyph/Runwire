@@ -741,6 +741,11 @@ function http1SustainedMain(array $argv): array
             'p99' => http1SustainedPercentile($measured['histogram'], 0.99),
         ],
         'errors_total' => $counter['errors_total'],
+        'error_breakdown' => [
+            'connect' => $counter['connect_errors'],
+            'response_read' => $counter['response_read_errors'],
+            'write' => $counter['write_errors'],
+        ],
         'timeouts_total' => $counter['timeouts_total'],
         'validation_failures' => $counter['validation_failures'],
         'reconnects_total' => $counter['reconnects_total'],

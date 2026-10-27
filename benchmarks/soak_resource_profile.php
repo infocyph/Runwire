@@ -27,18 +27,38 @@ function soakReadProcessTree(int $root): array
         $seen[$pid] = true;
         $proc = '/proc/' . $pid;
         if (!is_dir($proc)) {
+            if ($pid === $root) {
+                throw new RuntimeException('Runwire root process vanished during sampling.');
+            }
+
             continue;
         }
 
         $statusPath = $proc . '/status';
         $fdPath = $proc . '/fd';
-        if (!is_readable($statusPath) || !is_readable($fdPath)) {
+        // Descendants retire between /proc traversal and measurement. Skip
+        // only confirmed vanished or zombie children, never a live worker or
+        // the mandatory root; all measured resource bounds remain unchanged.
+        $status = @file_get_contents($statusPath);
+        if (!is_string($status)) {
+            if ($pid !== $root && !is_dir($proc)) {
+                continue;
+            }
+
             throw new RuntimeException('Cannot read required Linux worker resource metrics.');
         }
-        $status = file_get_contents($statusPath);
-        $fds = scandir($fdPath);
-        if (!is_string($status) || !is_array($fds)
-            || preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $rss) !== 1
+        if ($pid !== $root && preg_match('/^State:\s+Z\b/m', $status) === 1) {
+            continue;
+        }
+        $fds = @scandir($fdPath);
+        if (!is_array($fds)) {
+            if ($pid !== $root && !is_dir($proc)) {
+                continue;
+            }
+
+            throw new RuntimeException('Cannot read required Linux worker resource metrics.');
+        }
+        if (preg_match('/^VmRSS:\s+(\d+)\s+kB/m', $status, $rss) !== 1
             || preg_match('/^VmSize:\s+(\d+)\s+kB/m', $status, $virtual) !== 1) {
             throw new RuntimeException('Linux worker resource metrics are incomplete.');
         }
@@ -50,8 +70,12 @@ function soakReadProcessTree(int $root): array
 
         $childrenPath = $proc . '/task/' . $pid . '/children';
         if (is_readable($childrenPath)) {
-            $children = file_get_contents($childrenPath);
+            $children = @file_get_contents($childrenPath);
             if (!is_string($children)) {
+                if ($pid !== $root && !is_dir($proc)) {
+                    continue;
+                }
+
                 throw new RuntimeException('Cannot inspect Linux worker descendants.');
             }
             foreach (preg_split('/\s+/', trim($children)) ?: [] as $child) {

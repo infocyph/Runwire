@@ -93,3 +93,25 @@ it('flags an increasing persistent worker process count as resource growth', fun
         ->and($result['status'])->toBe('resource_growth')
         ->and($result['peak_process_count'])->toBeGreaterThan(2);
 });
+
+it('fails closed if the root itself has disappeared', function (): void {
+    if (PHP_OS_FAMILY !== 'Linux') {
+        return;
+    }
+
+    $missingPid = PHP_INT_MAX;
+    expect(is_dir('/proc/' . $missingPid))->toBeFalse()
+        ->and(fn() => soakReadProcessTree($missingPid))->toThrow(RuntimeException::class);
+});
+
+it('preserves strict duration and resource drift evidence gates', function (): void {
+    $stable = soakAnalyzeSamples(soakResourceTestSamples());
+    $short = soakAnalyzeSamples(array_slice(soakResourceTestSamples(), 0, 60));
+    $drift = soakAnalyzeSamples(soakResourceTestSamples(0, 1));
+
+    expect($stable['passed'])->toBeTrue()
+        ->and($short['passed'])->toBeFalse()
+        ->and($short['status'])->toBe('insufficient_evidence')
+        ->and($drift['passed'])->toBeFalse()
+        ->and($drift['status'])->toBe('resource_growth');
+});
