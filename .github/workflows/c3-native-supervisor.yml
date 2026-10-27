@@ -1,0 +1,50 @@
+name: C3 Native Supervisor Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - plan/runwire-independent-ecosystem-roadmaps
+  workflow_dispatch:
+
+concurrency:
+  group: c3-native-supervisor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-supervisor:
+    name: C3 native supervisor PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP runtime and native signal extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pcntl, posix, sockets
+          coverage: none
+      - name: Validate all C3 changed PHP source syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            src/Supervisor/Supervisor.php \
+            src/Supervisor/WorkerContext.php \
+            src/Supervisor/WorkerGroup.php \
+            src/Executor/ProcessExecutor.php \
+            src/Network/QuicClientSession.php \
+            src/Network/BoundedConnectionPool.php \
+            src/Network/IdleConnectionPool.php \
+            tests/SupervisorLiveAutoscaleTest.php \
+            tests/WorkerOwnedTcpDrainTest.php \
+            tests/WorkerOwnedNetworkDrainTest.php \
+            tests/ProcessExecutorForkOwnershipTest.php; do
+            php -l "$file"
+          done
+      - name: Native autoscale real-fork smoke without Composer dependencies
+        run: php .ci/c3_supervisor_smoke.php
