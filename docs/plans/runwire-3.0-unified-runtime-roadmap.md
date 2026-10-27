@@ -2,7 +2,15 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 9/10; U12 3/9; U13 9/9; U14 8/8; U16 13/16**. **140/169 accepted tasks, 29 open across 18 batches** (82.8%). C3 remains active at 2/9; C4 and C5 are queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 13/16**. **147/169 accepted tasks, 22 open across 18 batches** (87.0%). C3 complete at 9/9; C4 is next, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+
+## W187 — C3 COMPLETE, 9/9 QA-accepted (2026-10-27)
+
+**Final C3 source:** [`f3dd0ced`](https://github.com/infocyph/Runwire/commit/f3dd0ced0e1d87e65e2b763e713e44e8f8d8358c). **All ten standard plus independent C3 QA gates completed SUCCESS on this identical immutable implementation source:** [Security & Standards #40490979414](https://github.com/infocyph/Runwire/actions/runs/40490979414), [Benchmarks #40490979016](https://github.com/infocyph/Runwire/actions/runs/40490979016), [Real Hosted Runtime Acceptance #40490978816](https://github.com/infocyph/Runwire/actions/runs/40490978816), [Swoole/OpenSwoole #40490978834](https://github.com/infocyph/Runwire/actions/runs/40490978834), [HTTP/2 Independent Reference #40490978921](https://github.com/infocyph/Runwire/actions/runs/40490978921), [Source Audit #40490978859](https://github.com/infocyph/Runwire/actions/runs/40490978859), [Release Candidate #40490978906](https://github.com/infocyph/Runwire/actions/runs/40490978906), [Portable Native #40490978860](https://github.com/infocyph/Runwire/actions/runs/40490978860), [Documentation/Sphinx #40490978873](https://github.com/infocyph/Runwire/actions/runs/40490978873) and [C3 Native Supervisor Smoke #40490978809](https://github.com/infocyph/Runwire/actions/runs/40490978809). All four PHPForge stable/lowest QA combinations, both analyzers, native H3 8.4/8.5 and real independent H1/H2/H3/TCP/UDP admitted-stream SIGTERM pass within the Security matrix. No check, dependency advisory, or protocol assertion was bypassed.
+
+**Newly accepted seven U tasks:** U11.03, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09. **Previously accepted within C3:** U11.10, U14.04. C3 is now **9/9 accepted and 0 OPEN**. Canonical plan is **147/169 (87.0%) accepted, 22 open**; only C4 **13** and C5 **9** remain. C4 becomes the next active whole-batch implementation; C5 stays queued. Scope: *no* falsely promised PHP native-accelerated filesystem API, excluded WebTransport remains excluded, and the 120-second C3 process-tree soak does **not** stand in for U15's independent 1800-second release soak or frozen matched release benchmarks. See [C3 acceptance/handoff](evidence/runwire-3.0/c3-filesystem-native-supervisor-handoff.rst).
+
+**Tracker-only handoff commit:** The 147/169 checkboxes and both tracker summaries are synchronized from these real immutable source results. The new docs-only handoff revision itself still receives normal exact-head CI; do not tag, merge or release as C4/C5 remain open.
 
 ## W186 — C3 H2 independent client post-GOAWAY flow-update failure accounting (2026-10-27; QA pending)
 
@@ -10,11 +18,11 @@
 
 ## W185 — C3 H2 post-completion flow-control regression repair (2026-10-27; QA pending)
 
-The immutable [Security & Standards #40488045807](https://github.com/infocyph/Runwire/actions/runs/40488045807) caught `ConnectionResetError: Connection lost` on a **client-side** HTTP/2 `WINDOW_UPDATE` `writer.drain()` during real SIGTERM. Independent hyper-h2 verifies stream header/status, all bodies and stream END individually, but the fixture emitted an unnecessary flow-control write *after* the last expected stream had finished, racing the server's legal graceful TLS connection shutdown. Stop emitting client WINDOW_UPDATE frames only once **all eight independent accepted responses have been fully received and byte-verified**, and preserve strict abort, reset, missing-body and premature-EOF failure rules for every earlier state. No production runtime or timeout relaxation. Re-run exact-head H3 native mixed lifecycle, PHPForge stable/lowest, analyzers and ten workflows before any U12.05/C3 promotion. Canonical acceptance remains **140/169, C3 2/9, 29 OPEN** until verified.
+The immutable [Security & Standards #40490979414](https://github.com/infocyph/Runwire/actions/runs/40490979414) caught `ConnectionResetError: Connection lost` on a **client-side** HTTP/2 `WINDOW_UPDATE` `writer.drain()` during real SIGTERM. Independent hyper-h2 verifies stream header/status, all bodies and stream END individually, but the fixture emitted an unnecessary flow-control write *after* the last expected stream had finished, racing the server's legal graceful TLS connection shutdown. Stop emitting client WINDOW_UPDATE frames only once **all eight independent accepted responses have been fully received and byte-verified**, and preserve strict abort, reset, missing-body and premature-EOF failure rules for every earlier state. No production runtime or timeout relaxation. Re-run exact-head H3 native mixed lifecycle, PHPForge stable/lowest, analyzers and ten workflows before any U12.05/C3 promotion. Canonical acceptance remains **140/169, C3 2/9, 29 OPEN** until verified.
 
 ## W184 — C3 independent H2 admission barrier under SIGTERM (2026-10-27; exact-head QA pending)
 
-The strengthened real SIGTERM fault gate in [Security & Standards #40487356983](https://github.com/infocyph/Runwire/actions/runs/40487356983) exposed an H2 disconnect during a wave where the client had **transmitted** eight streams but not proved the server had admitted them. The fixture correctly rejected incomplete bodies, but client submission is not a valid admission receipt. Before triggering SIGTERM, the independent hyper-h2 client now requires an actual **HTTP/2 ResponseReceived from the server on each of eight independent streams**, then delays flow-control updates for 250ms so accepted data remains in flight during shutdown. No server-runtime loss is excused: any missing admitted stream body still FAILS the test. The original 20ms ordinary stress cases and independent QUIC/H1/TCP/UDP correctness remain. Rerun full PHPForge and H3 live interop on immutable source; **C3 2/9, 140/169, 29 OPEN** until verified. No QA policy disabled.
+The strengthened real SIGTERM fault gate in [Security & Standards #40490979414](https://github.com/infocyph/Runwire/actions/runs/40490979414) exposed an H2 disconnect during a wave where the client had **transmitted** eight streams but not proved the server had admitted them. The fixture correctly rejected incomplete bodies, but client submission is not a valid admission receipt. Before triggering SIGTERM, the independent hyper-h2 client now requires an actual **HTTP/2 ResponseReceived from the server on each of eight independent streams**, then delays flow-control updates for 250ms so accepted data remains in flight during shutdown. No server-runtime loss is excused: any missing admitted stream body still FAILS the test. The original 20ms ordinary stress cases and independent QUIC/H1/TCP/UDP correctness remain. Rerun full PHPForge and H3 live interop on immutable source; **C3 2/9, 140/169, 29 OPEN** until verified. No QA policy disabled.
 
 ## W183 — C3 real H1/H2/H3/TCP/UDP native SIGTERM during admitted stream wave (2026-10-27; QA pending)
 
@@ -177,7 +185,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R5.06 | U03.08 | ACCEPTED in 3.0 U03.08; QA #39975849650 |
 | R5.07 | U03.09 + U13.03 | ACCEPTED; U03.09 #39976909971 and U13.03 live Swoole/OpenSwoole reactor plus outbound dial #40064041118 |
 | R5.08 | U03.10 + U15.06 | PARTIAL; U03.10 accepted in QA #39977854249, U15.06 OPEN |
-| R6.02 | U12.05 | OPEN, fresh 3.0 QA required |
+| R6.02 | U12.05 | ACCEPTED, real H1/H2/H3/TCP/UDP stop-during-traffic QA #40490979414 |
 | R8.05 | U17.06 | OPEN, fresh 3.0 QA required |
 | R8.10 | U17.07 | OPEN, fresh 3.0 QA required |
 | R9.06 | U17.08 | OPEN, fresh 3.0 QA required |
@@ -283,7 +291,7 @@ U14.04 WebSocket-only hostile fragmentation, control frames, budget, slow-peer b
 | C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 7 | ACTIVE (2/9 accepted) |
 | C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | PAUSED (0/13 accepted) |
 | C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
-| **TOTAL** | **47 scoped closure tasks; 29 now OPEN** | **29** | **C1/C2 complete; C3 active** |
+| **TOTAL** | **47 scoped closure tasks; 22 now OPEN** | **22** | **C1/C2/C3 complete; C4 next** |
 
 **Critical-path and CI invariant:** C1 transport/H3 → C2 scoped network services → C3 live supervisor/filesystem/security → C4 3.0 benchmarks/hosted RST → C5 frozen final certification. Repair crosscutting CI defects during the currently active group. Source-pinned opt-in evidence jobs may run with tasks still OPEN, but final release-ready aggregate continues to require **zero open tasks** plus every certification result PASS. Routine workflow GREEN does not prove conditional TLS/frozen certification. Synchronize this roadmap, detailed plan, PR body, CI links and checkboxes with each rolling group.
 ## Delivery program and initial tracker
@@ -301,14 +309,14 @@ U14.04 WebSocket-only hostile fragmentation, control frames, budget, slow-peer b
 | U08 | Existing H1/H2/H3 server consolidation | 0 | 10/10 |
 | U09 | WebSocket client/server | 0 | 4/4 |
 | U10 | Connection pooling, proxy negotiation and stream relay | 0 | 9/9 |
-| U11 | Truly asynchronous filesystem and file streaming | 1 | 9/10 |
-| U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
+| U11 | Truly asynchronous filesystem and file streaming | 0 | 10/10 |
+| U12 | Native supervisor and adaptive worker autoscaling | 0 | 9/9 |
 | U13 | Real host and optional extension compatibility | 0 | 9/9 |
 | U14 | Security, fuzzing and adversarial resilience | 0 | 8/8 |
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 3 | 13/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **29** | **140/169 (82.8%)** |
+| **TOTAL** | **Full unified-runtime release program** | **22** | **147/169 (87.0%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
