@@ -81,6 +81,7 @@ $supervisor->group(WorkerGroup::callbacks(
 
 $rounds = 0;
 $pids = [];
+$reloadCompleted = false;
 $exchange = static function (string $address, string $payload): string {
     $peer = stream_socket_client('tcp://' . $address, $code, $message, 1.0);
     if (!is_resource($peer)) {
@@ -98,8 +99,16 @@ $exchange = static function (string $address, string $payload): string {
 };
 
 $supervisor->onEvent(static function ($event) use (
-    $supervisor, $loop, $httpAddress, $tcpAddress, $udpAddress, $exchange, &$rounds, &$pids,
+    $supervisor, $loop, $httpAddress, $tcpAddress, $udpAddress, $exchange, &$rounds, &$pids, &$reloadCompleted,
 ): void {
+    if ($event->type === SupervisorEventType::RELOAD_COMPLETED) {
+        $reloadCompleted = true;
+        if ($rounds === 4) {
+            $supervisor->stop();
+        }
+
+        return;
+    }
     if ($event->type !== SupervisorEventType::WORKER_READY || $event->pid === null) {
         return;
     }
@@ -131,7 +140,7 @@ $supervisor->onEvent(static function ($event) use (
         }
     } elseif ($rounds === 3) {
         $loop->delay(0.05, static fn() => $supervisor->reload());
-    } elseif ($rounds === 4) {
+    } elseif ($rounds === 4 && $reloadCompleted) {
         $supervisor->stop();
     }
 });
@@ -139,7 +148,8 @@ $supervisor->onEvent(static function ($event) use (
 $loop->delay(7.0, static fn() => $supervisor->stop(true));
 try {
     $supervisor->run();
-    if ($rounds !== 4 || count(array_unique($pids)) !== 4 || $supervisor->status()->workerCount !== 0) {
+    if ($rounds !== 4 || !$reloadCompleted
+        || count(array_unique($pids)) !== 4 || $supervisor->status()->workerCount !== 0) {
         throw new RuntimeException('Mixed-peer crash, recycle, reload, or stop did not fully complete.');
     }
     echo "C3 live HTTP/1 + TCP + UDP across SIGKILL/recycle/reload/stop passed.\n";
