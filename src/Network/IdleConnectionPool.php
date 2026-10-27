@@ -60,6 +60,8 @@ final class IdleConnectionPool
     /** Number of connections retained in the pool. */
     public function count(): int
     {
+        $this->assertProcessOwner();
+
         return count($this->entries);
     }
 
