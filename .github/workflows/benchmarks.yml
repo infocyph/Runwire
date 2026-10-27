@@ -721,6 +721,27 @@ jobs:
             and .validation_failures == 0
           ' "$result" >/dev/null
 
+          # Sample the actual live native WebSocket supervisor; a parent-only
+          # snapshot is distinct from full-process-tree peak certification.
+          sampled="$(ps -p "$server_pid" -o pcpu=,rss= --no-headers)"
+          read -r parent_cpu_pct parent_rss_kib <<< "$sampled"
+          test -n "$parent_cpu_pct" && test -n "$parent_rss_kib"
+          jq -n --argjson cpu "$parent_cpu_pct" --argjson rss "$parent_rss_kib" \
+            --slurpfile ws "$result" \
+            '{source:"live-native-websocket-supervisor-post-load",
+              scope:"parent-process-snapshot-not-process-tree-peak",
+              server_cpu_percent_sample:$cpu,
+              server_rss_kib_sample:$rss,
+              websocket_success_messages:$ws[0].successful_messages,
+              websocket_p99_ms:$ws[0].median_p99_ms,
+              correctness_passed:($ws[0].correctness_passed == true)}' \
+            > "benchmark-results/c4-websocket-resource-php-${{ matrix.php-version }}.json"
+          jq -e '.correctness_passed == true and .server_rss_kib_sample > 0
+            and .server_cpu_percent_sample >= 0 and .websocket_p99_ms > 0
+            and .websocket_success_messages > 0' \
+            "benchmark-results/c4-websocket-resource-php-${{ matrix.php-version }}.json" >/dev/null
+          cat "benchmark-results/c4-websocket-resource-php-${{ matrix.php-version }}.json"
+
           kill -TERM "$server_pid"
           wait "$server_pid"
           server_pid=""
