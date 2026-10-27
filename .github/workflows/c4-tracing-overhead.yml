@@ -1,0 +1,67 @@
+name: C4 native and real hosted tracing overhead
+
+on:
+  pull_request:
+    branches: [main, master, develop, development]
+    paths:
+      - benchmarks/c4_trace_response.lua
+      - benchmarks/c4_trace_cost.sh
+      - .github/workflows/c4-tracing-overhead.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c4-tracing-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  comparative-kernel-trace:
+    name: Native plus real RoadRunner hosted trace-on/off PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          extensions: pcntl, posix, sockets, event, opcache
+          coverage: none
+      - name: Install source and real RoadRunner hosted adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          composer require 'roadrunner/http:^4.0' --no-interaction \
+            --prefer-dist --no-progress --with-all-dependencies
+          sudo apt-get update -qq
+          sudo apt-get install -y wrk strace
+          mkdir -p c4-tracing-evidence c4-rr-bin
+          curl -fsSL --retry 3 \
+            'https://github.com/roadrunner-server/roadrunner/releases/download/v3.0.1/roadrunner-3.0.1-linux-amd64.tar.gz' \
+            -o c4-rr-bin/rr.tar.gz
+          tar -xzf c4-rr-bin/rr.tar.gz -C c4-rr-bin
+          find c4-rr-bin -name rr -type f -exec chmod +x '{}' ';'
+      - name: Measure strict matched tracing on/off with exact peer acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          rr="$(find c4-rr-bin -name rr -type f -print -quit)"
+          test -n "$rr"
+          bash benchmarks/c4_trace_cost.sh "$PWD/$rr" c4-tracing-evidence
+      - name: Retain real trace logs, capacity, p99, CPU/RSS/FD and exact SHA
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-native-roadrunner-trace-php-${{ matrix.php }}
+          path: c4-tracing-evidence/
+          retention-days: 45
