@@ -1,5 +1,12 @@
 # Runwire 3.0 — C4 expansive documentation delivery plan
 
+## W214 — GitHub-worker-only rebaseline, externally hosted tasks removed (2026-10-27)
+
+**Explicit maintainer scope decision:** External Read the Docs project provisioning, external preview URL/version switch and service-hosted search validation are outside GitHub worker-only execution. Retire **U16.02** and **U16.16** from the canonical active checkbox ledger, *not* by marking them accepted. Preserve `.readthedocs.yaml` for optional future downstream hosting but do not require or dispatch the `c4-hosted-docs` workflow as a release gate. Native Sphinx RST HTML generation, full **41-page** index and search coverage, source-SHA stamping, runnable documentation examples and GitHub Actions artifact preservation remain mandatory under U16.01/.03–.15 and revised U17.04. No claim of a published external documentation site is made. GitHub-worker risk audit is evidence-only; maintainer approval remains separate from task acceptance and publication authorization.
+
+**Rebased canonical progress: 157/167 QA accepted (94.0%), 10 OPEN. C4 10/11 with only U15.10 OPEN, C5 0/9.** U15.10 still requires both PHP 8.4 and 8.5 passing genuine continuous 1800s workloads (fixed telemetry run [#40538869349](https://github.com/infocyph/Runwire/actions/runs/40538869349) remains subject to conclusion). All U17.01–09 GitHub-worker-source-certification tasks remain OPEN, with strict independent PHPForge/security/native/host/protocol/packaging/matched-baseline/frozen-artifact proof required. No merge, tag, release, blocked task promotion, or reduced performance threshold. Earlier W213/W212/W207 snapshots below are historical and not current counters.
+
+
 ## W213 — C4 real mixed-soak diagnostics admission QA correction (2026-10-27)
 
 **U15.10 remains OPEN; no acceptance inflation.** Audit of the genuine [old C4 1800s source `953af837`](https://github.com/infocyph/Runwire/commit/953af8376f48d4bc156dc4b022efb994147bed69) found that `benchmarks/c4_mixed_release_soak.sh` started the real HTTP benchmark worker without `RUNWIRE_SOAK_DIAGNOSTICS=1`. The internally sampled `/__runwire_soak_diagnostics` endpoint would therefore respond with HTTP 400, making GC/OPcache resource certification invalid regardless of HTTP throughput. **Do not accept [old soak #40533856692](https://github.com/infocyph/Runwire/actions/runs/40533856692) as U15.10** without complete qualifying evidence; old in-flight work retains historical diagnostic value only.

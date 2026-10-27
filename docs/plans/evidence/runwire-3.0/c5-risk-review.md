@@ -13,7 +13,7 @@
 | U17.01 | Published 2.1.2 and unfinished 2.2 crosswalk to every 3.0 feature and exclusion; source-audit-verified 20/20 mapping | Preflight check implemented; final review OPEN |
 | U17.02 | PHP 8.4/8.5 stable/lowest PHPForge, PHPStan/Psalm, PHPCS/Pint/Rector and security QA | OPEN until exact frozen-head all green |
 | U17.03 | Independent H1/H2/H3/QUIC/WS, native portable/fork, real hosted peers and shutdown correctness | OPEN until exact frozen-head matrix |
-| U17.04 | Complete warning-free Sphinx, hosted Read the Docs preview/search/version/navigation and reviewed examples | BLOCKED until U16 hosted acceptance |
+| U17.04 | GitHub Actions complete warning-free Sphinx HTML, generated API, 41 indexed/searchable pages and runnable examples with source SHA | OPEN until source-pinned artifact green |
 | U17.05 | Standalone Composer archive install on PHP 8.4/8.5, host/optional extension contract | OPEN until exact frozen-head archive proof |
 | U17.06 | Immutable 2.1.2-vs-3.0 five paired 180s comparison and continuous real 1800s whole-process soak | OPEN; short-lived or cancelled runs cannot substitute |
 | U17.07 | Independent fuzz/security/performance/migration risk review with explicit maintainer decision | OPEN; approval not supplied |
@@ -32,7 +32,7 @@
 | Native supervisor and autoscale | C3 9/9 accepted; independent mixed H1/H2/H3/TCP/UDP SIGTERM/crash/recycle testing | Requires native PCNTL/POSIX; verify no process leaks after real 1800s mixed soak and exact frozen-head fault suite |
 | Performance comparisons | U15.09 scoped 2.1.2 vs 3.0 plaintext H1 -3.288% successful RPS, within declared -5% gate; verified-TLS H1 matched comparisons passed | No universal 3.0 speedup claim, no baseline fiction for new H2/H3/WS; full mixed 1800s U15.10 and final U17.06 still OPEN |
 | Instrumentation | U15.03 measured actual native/hosted heavy strace overhead with large throughput reduction | strace is diagnostic-only, not production always-on tracing; final benchmark must remain untraced |
-| Documentation | Strict source-aligned Sphinx builds accepted; source revision and all indexed pages now checked on GitHub | Hosted RTD `RUNWIRE_RTD_PREVIEW_URL` and real external version/search/navigation still OPEN (U16.02, U16.16) |
+| Documentation | Strict source-aligned Sphinx builds and source-revision-stamped 41-page/search inventory | GitHub-worker HTML artifact and examples remain U17.04; external hosted RTD U16.02/U16.16 retired from active scope, not declared passed |
 | Migration | U16.12 tested 32 source-changed public implementations and six constructor/two trait cases against immutable 2.1.2 | This is a source/test disposition ledger, not unqualified behavior/binary compatibility or U17 release signoff |
 | Package integrity | Regular Release Candidate workflow exercises isolated Composer archive, native HTTP, and safe defaults | Final immutable candidate PHP8.4/8.5 packaging and optional extension matrix remains U17.05 |
 

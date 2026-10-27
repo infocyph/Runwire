@@ -28,7 +28,7 @@ env:
 
 jobs:
   release-preflight:
-    name: "Immutable source and 169-task tracker preflight"
+    name: "Immutable source and 167-task tracker preflight"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -58,8 +58,8 @@ jobs:
           echo "task_open=$open" >> "$GITHUB_OUTPUT"
           # An immutable opt-in evidence run is valid before all U tasks close.
           # The final evidence gate still rejects OPEN tasks and nonpassing results.
-          if [ "$total" -ne 169 ]; then
-            echo "::error::Malformed 3.0 canonical tracker: expected 169 tasks, got $total."
+          if [ "$total" -ne 167 ]; then
+            echo "::error::Malformed 3.0 canonical tracker: expected 167 tasks, got $total."
             exit 1
           fi
 
