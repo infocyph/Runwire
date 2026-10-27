@@ -4,8 +4,12 @@ function setup(thread)
 end
 function init(args)
   failed = 0
+  first_response = nil
 end
 function response(status, headers, body)
+  if first_response == nil then
+    first_response = tostring(status) .. " " .. string.sub(body or "<nil>", 1, 600)
+  end
   local native = body == "ok"
   local hosted = body:find('"method":"GET"', 1, true)
     and body:find('"target":"/rr?case=bench"', 1, true)
@@ -17,6 +21,12 @@ function response(status, headers, body)
   end
 end
 function done(summary, latency, requests)
+  for _, child in ipairs(children) do
+    local sample = child:get("first_response")
+    if sample ~= nil then
+      io.write("RUNWIRE_FIRST_REAL_RESPONSE:" .. sample:gsub("[\r\n]", " ") .. "\n")
+    end
+  end
   local failures = 0
   for _, child in ipairs(children) do
     failures = failures + (child:get("failed") or 0)

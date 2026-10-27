@@ -65,7 +65,7 @@ YAML
       url="http://127.0.0.1:$port/rr?case=bench"
     fi
     if [ "$tracing" = on ]; then
-      setsid taskset -c "$server_cpu" strace -ff -qq -e trace=network \
+      setsid taskset -c "$server_cpu" strace -ff -qq -e trace=accept,accept4,connect,shutdown \
         -o "$out/$runtime-trace" "${server[@]}" > "$out/$runtime-on-server.log" 2>&1 &
     else
       setsid taskset -c "$server_cpu" "${server[@]}" > "$out/$runtime-off-server.log" 2>&1 &
@@ -87,6 +87,11 @@ YAML
       sleep 0.04
     done
     if [ "$ready" -ne 1 ]; then echo "Real $runtime $tracing trace peer not ready" >&2; exit 1; fi
+    if [ "$runtime" = roadrunner ] && [ "$tracing" = off ]; then
+      printf "Real RoadRunner warmup response: "
+      head -c 600 "$tmp/ready"
+      echo
+    fi
     sample_flag="$out/sampling-$runtime-$tracing.flag"
     touch "$sample_flag"
     python3 benchmarks/c4_process_resource_sampler.py "$pid" "$sample_flag" \
@@ -133,7 +138,7 @@ YAML
     --slurpfile on "$out/$runtime-on-client.json" \
     --slurpfile offResources "$out/$runtime-off-resources.json" \
     --slurpfile onResources "$out/$runtime-on-resources.json" \
-    '{source_sha:$sha,runtime:$runtime,trace_type:"kernel-strace-network-control-syscalls-only",
+    '{source_sha:$sha,runtime:$runtime,trace_type:"kernel-strace-network-admission-and-shutdown-only",
       trace_off:$off[0],trace_on:$on[0],
       off_resources:$offResources[0],on_resources:$onResources[0],
       throughput_retained_ratio:($on[0].throughput_rps/$off[0].throughput_rps),
