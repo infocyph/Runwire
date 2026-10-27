@@ -87,8 +87,12 @@ jobs:
             fresh_dials: .pooled.fresh_dials, reuse_hits: .pooled.reuse_hits,
             cpu_parent_ms: .pooled.cpu_parent_ms, rss_bytes: .pooled.rss_bytes,
             peak_open_fds: .pooled.peak_open_fds}}' c4-evidence/pool.json
-      - name: Sample real native HTTP concurrency curve on isolated physical cores
-        run: bash benchmarks/c4_native_concurrency_sweep.sh c4-evidence/native-h1
+      - name: Install independent C HTTP/1.1 generator
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y wrk
+      - name: Sample exact-response real native HTTP capacity with measured generator headroom
+        run: bash benchmarks/c4_wrk_capacity_sweep.sh c4-evidence/native-h1
       - name: Preserve complete measured GitHub-worker evidence
         if: always()
         uses: actions/upload-artifact@v7
