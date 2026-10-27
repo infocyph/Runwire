@@ -72,6 +72,15 @@ final class WebSocketFrameParser
         return strlen($this->buffer);
     }
 
+    /** Discard any incomplete wire data and release its worker-wide byte reservation. */
+    public function discardBuffered(): void
+    {
+        $reserved = $this->budgetBytes;
+        $this->buffer = '';
+        $this->budgetBytes = 0;
+        $this->release($reserved);
+    }
+
     /**
      * Parse up to the requested number of complete frames.
      *

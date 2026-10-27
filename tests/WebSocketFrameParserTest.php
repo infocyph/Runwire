@@ -133,3 +133,22 @@ it('enforces client and server masking directions without admitting invalid fram
     $valid->append(WebSocketWireCodec::frame(0x1, 'clear-from-server'));
     expect($valid->parse(1)[0]->payload)->toBe('clear-from-server');
 });
+
+it('releases incomplete hostile WebSocket parser bytes immediately when the session ends', function (): void {
+    $budget = new ByteBudget(256);
+    $parser = new WebSocketFrameParser(
+        new WebSocketOptions(maxFramePayloadBytes: 64, maxMessageBytes: 128, maxBufferedBytes: 256),
+        $budget,
+    );
+    $parser->append("\x09\x80\x01\x02\x03\x04");
+    expect(fn() => $parser->parse(1))->toThrow(WebSocketProtocolException::class);
+    expect($budget->used())->toBe(6);
+
+    $parser->discardBuffered();
+    expect($budget->used())->toBe(0)
+        ->and($parser->bufferedBytes())->toBe(0);
+
+    $parser->append(WebSocketWireCodec::clientFrame(0x1, 'ready'));
+    expect($parser->parse(1)[0]->payload)->toBe('ready')
+        ->and($budget->used())->toBe(0);
+});

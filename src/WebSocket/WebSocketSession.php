@@ -362,6 +362,7 @@ final class WebSocketSession
         $this->cancelTimer($this->closeTimer);
         $this->heartbeatTimer = $this->closeTimer = null;
         $this->clearFragment();
+        $this->parser->discardBuffered();
 
         try {
             $this->connection->releaseCallbacks($this);
