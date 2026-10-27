@@ -6,6 +6,26 @@
 **Canonical tracker:** 147/169 accepted (87.0%); 22 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W193 — Strict Sphinx QA accepted for 20-chapter source documentation (2026-10-27)
+
+The completed [Sphinx #40499541538](https://github.com/infocyph/Runwire/actions/runs/40499541538)
+workflow **PASSED** the warnings-as-errors native RST HTML build at
+immutable [`b6d9bcf4`](https://github.com/infocyph/Runwire/commit/b6d9bcf4eb3dc3bd08b62c5e4278ed45b4a3147a).
+The validated public documentation includes 20 indexed source-aligned
+manual chapters, source-generated API signatures, first-use examples,
+native H1/H2/H3/WebSocket/TCP/Unix/UDP failure and lifecycle guides,
+operation and incident exercises, reviewed 2.1.2 migration matrix,
+and explicit C4 performance lab describing the genuine five-pair
+180-second baseline tool. Read the Docs v2 config is present.
+
+**Accepted deliverable:** the *local/CI Sphinx source documentation*,
+not C4's ten U15 benchmark tasks, the external hosted RTD
+preview/version/search check, or final frozen 2.1.2 behavior migration
+review. Those acceptance tasks require independent evidence.
+Canonical remains **147/169 accepted (87.0%), 22 open;
+C4 0/13; C5 queued** until all U15 and U16 gates pass.
+No merge/tag/release, QA bypass or cross-repository edit.
+
 ## W192 — C4 matched-pair handbook strict Sphinx follow-up (2026-10-27; exact-head QA pending)
 
 The [Sphinx #40499360022](https://github.com/infocyph/Runwire/actions/runs/40499360022)
