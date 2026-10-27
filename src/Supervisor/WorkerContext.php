@@ -471,7 +471,11 @@ final class WorkerContext
         $executors = $this->ownedExecutors;
         $this->ownedExecutors = [];
         foreach ($executors as $executor) {
-            $executor->close();
+            try {
+                $executor->close();
+            } catch (\Throwable) {
+                // Application completion observers must not block other worker-owned cleanup.
+            }
         }
     }
 
