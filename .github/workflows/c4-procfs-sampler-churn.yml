@@ -1,0 +1,80 @@
+name: "C4 procfs live child-churn sampler regression"
+on:
+  pull_request:
+    branches: [main, master, develop, development]
+    paths:
+      - benchmarks/soak_resource_profile.php
+      - tests/SoakResourceProfileTest.php
+      - .github/workflows/c4-procfs-sampler-churn.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  churn:
+    name: "Real Linux disappearing-child traversal PHP ${{ matrix.php }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Fail closed on missing root and exercise real child forks/retirement
+        shell: bash
+        run: |
+          set -euo pipefail
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          require 'benchmarks/soak_resource_profile.php';
+
+          $root = getmypid();
+          if (!is_int($root) || !is_dir('/proc/' . $root)) {
+              throw new RuntimeException('Missing real Linux sampler root.');
+          }
+          $shell = proc_open(
+              'for i in $(seq 1 1400); do (sleep 0.002) & if [ "$((i % 10))" = 0 ]; then wait; fi; done; wait',
+              [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+              $pipes,
+          );
+          if (!is_resource($shell)) {
+              throw new RuntimeException('Unable to start the real child churn.');
+          }
+          foreach ($pipes as $pipe) {
+              fclose($pipe);
+          }
+          $samples = 0;
+          $maxProcesses = 0;
+          $start = hrtime(true);
+          do {
+              $record = soakReadProcessTree($root);
+              if ($record['processes'] < 1 || $record['rss'] <= 0
+                  || $record['virtual'] <= 0 || $record['fd'] < 0) {
+                  throw new RuntimeException('Real Linux procfs sampling became invalid.');
+              }
+              ++$samples;
+              $maxProcesses = max($maxProcesses, $record['processes']);
+              time_nanosleep(0, 1_000_000);
+          } while ((hrtime(true) - $start) < 5_000_000_000);
+          $code = proc_close($shell);
+          if ($code !== 0 || $samples < 250 || $maxProcesses < 2) {
+              throw new RuntimeException('The real fork/exit stress evidence is incomplete.');
+          }
+          $missing = PHP_INT_MAX;
+          try {
+              soakReadProcessTree($missing);
+              throw new RuntimeException('Missing sampler root was incorrectly accepted.');
+          } catch (RuntimeException $error) {
+              if ($error->getMessage() === 'Missing sampler root was incorrectly accepted.') {
+                  throw $error;
+              }
+          }
+          printf("real_procfs_samples=%d peak_live_processes=%d\n", $samples, $maxProcesses);
+          PHP
