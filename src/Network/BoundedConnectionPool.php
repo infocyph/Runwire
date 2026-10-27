@@ -119,6 +119,7 @@ final class BoundedConnectionPool
     /** Number of leased (including pending dial) active connection slots. */
     public function activeCount(): int
     {
+        $this->assertProcessOwner();
         return count($this->active);
     }
 
@@ -169,6 +170,7 @@ final class BoundedConnectionPool
     /** Number of quiescent, verified sockets available for identity-safe reuse. */
     public function idleCount(): int
     {
+        $this->assertProcessOwner();
         return $this->idle->count();
     }
 
@@ -179,6 +181,8 @@ final class BoundedConnectionPool
      */
     public function metrics(): array
     {
+        $this->assertProcessOwner();
+
         return [
             'enabled' => $this->enableMetrics,
             ...$this->metricCounts,
@@ -213,6 +217,7 @@ final class BoundedConnectionPool
     /** Number of bounded FIFO acquisitions awaiting a lease permit. */
     public function waitingCount(): int
     {
+        $this->assertProcessOwner();
         return count($this->waiting);
     }
 
