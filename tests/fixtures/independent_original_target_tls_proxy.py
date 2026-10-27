@@ -69,10 +69,21 @@ def proxy_serve(conn, port):
                         part = incoming.recv(65536)
                     except BlockingIOError:
                         continue
+                    except (BrokenPipeError, ConnectionResetError):
+                        # The negative certificate-identity test deliberately
+                        # aborts its TLS stream. A reset is an orderly end of
+                        # this independent test relay, not a lost JSON result.
+                        return
                     if not part:
                         return
                     outgoing = target if incoming is conn else conn
-                    outgoing.sendall(part)
+                    try:
+                        outgoing.sendall(part)
+                    except (BrokenPipeError, ConnectionResetError):
+                        # The client can close immediately after rejecting the
+                        # origin certificate; let main() join the origin peer
+                        # and report its observed SNI/received-byte evidence.
+                        return
 
 
 def main():
