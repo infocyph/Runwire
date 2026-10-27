@@ -42,7 +42,7 @@ final readonly class HttpNegotiatingOutboundClient
         $policy = $request->protocol;
         if ($policy->preferred === ProtocolVersion::HTTP_3
             || in_array(ProtocolVersion::HTTP_3, $policy->allowedVersions, true)) {
-            throw new RuntimeUnavailableException('HTTP/3 cannot fall back before an outbound QUIC client is implemented.');
+            throw new RuntimeUnavailableException('HTTP/3 is not supported by this H1/H2 negotiator; use Http3OutboundClient with native QUIC.');
         }
         $parts = parse_url($request->uri);
         if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
