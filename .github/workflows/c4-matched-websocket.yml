@@ -1,0 +1,58 @@
+name: C4 exact 2.1.2 vs 3.0 WebSocket 5x180 release comparison
+
+on:
+  pull_request:
+    types: [labeled]
+    branches: [main, master, develop, development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c4-ws-180-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matched-ws-baseline:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'c4-matched-websocket'
+    name: Real independent 2.1.2-versus-3.0 RFC6455 five paired 180s - PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: baseline
+          ref: 7e9bf20ad0737a187dfed77b723791b141b36378
+      - uses: actions/checkout@v7
+        with:
+          path: candidate
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pcntl, posix, event, opcache, sockets
+          tools: composer:v2
+          coverage: none
+      - name: Install independent locked published and candidate code
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer install --working-dir=baseline --no-dev --no-interaction --prefer-dist --no-progress --no-scripts
+          composer install --working-dir=candidate --no-dev --no-interaction --prefer-dist --no-progress --no-scripts
+          test "$(git -C baseline rev-parse HEAD)" = 7e9bf20ad0737a187dfed77b723791b141b36378
+          test "$(git -C candidate rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Compare five paired 180-second correct RFC6455 wire profiles
+        shell: bash
+        run: bash candidate/benchmarks/c4_matched_ws_180.sh baseline candidate c4-ws-paired-evidence
+      - name: Keep raw 2.1.2 and candidate worker evidence and comparator
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-ws-five-pair-php-${{ matrix.php }}
+          path: c4-ws-paired-evidence/
+          retention-days: 90
