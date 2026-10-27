@@ -42,8 +42,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
-          php -r 'if (!function_exists("opcache_get_status") || !is_array(opcache_get_status(false))) exit(1);' \
-            -d opcache.enable_cli=1
+          php -d opcache.enable_cli=1 \
+            -r 'if (!function_exists("opcache_get_status") || !is_array(opcache_get_status(false))) exit(1);'
           bash benchmarks/c4_mixed_release_soak.sh c4-mixed-soak-evidence
       - name: Save exact source, raw 1800s records and fail-closed analyses
         if: always()

@@ -127,7 +127,7 @@ wait "$server_pid"
 server_pid=""
 # The external sampler watches this orchestrator, so terminate it only once
 # the measured workload has drained; its records cover the entire 1800s run.
-kill -TERM "$tree_sampler_pid"
+kill -TERM "$tree_sampler_pid" 2>/dev/null || true
 wait "$tree_sampler_pid" || true
 tree_sampler_pid=""
 wait "$internal_sampler_pid"
