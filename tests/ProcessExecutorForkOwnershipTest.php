@@ -54,6 +54,7 @@ it('rejects inherited executor use and close in a fork without disrupting parent
 
         $observed = [];
         $executor->submit('sleep', ['milliseconds' => 1], static function (mixed $value, ?Throwable $error) use (&$observed): void {
+            unset($value);
             $observed[] = $error;
         });
         $executor->onDrained(static function () use ($executor): void {

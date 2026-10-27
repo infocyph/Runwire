@@ -78,7 +78,19 @@ $loop->repeat(0.2, static function () use (
         }
         $slots[$worker->slot] = true;
         $path = '/proc/' . $worker->pid . '/status';
-        $contents = @file_get_contents($path);
+        $contents = false;
+        if (is_readable($path)) {
+            set_error_handler(static function (int $severity, string $message): bool {
+                return $severity === E_WARNING
+                    && str_starts_with($message, 'file_get_contents(')
+                    && str_contains($message, 'Failed to open stream');
+            });
+            try {
+                $contents = file_get_contents($path);
+            } finally {
+                restore_error_handler();
+            }
+        }
         if (is_string($contents) && preg_match('/^VmRSS:\\s+(\\d+)\\s+kB/m', $contents, $match) === 1) {
             $peakChildRssBytes = max($peakChildRssBytes, ((int) $match[1]) * 1024);
         }

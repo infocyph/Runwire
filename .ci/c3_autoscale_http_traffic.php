@@ -101,7 +101,14 @@ $loop->repeat(0.15, static function () use (
     }
 
     $start = hrtime(true);
-    $stream = @stream_socket_client('tcp://' . $address, $code, $error, 0.6);
+    set_error_handler(static function (int $severity, string $message): bool {
+        return $severity === E_WARNING && str_starts_with($message, 'stream_socket_client():');
+    });
+    try {
+        $stream = stream_socket_client('tcp://' . $address, $code, $error, 0.6);
+    } finally {
+        restore_error_handler();
+    }
     if (!is_resource($stream)) {
         $failures[] = 'connect';
         return;

@@ -35,7 +35,7 @@ jobs:
         run: vendor/bin/pint --config vendor/infocyph/phpforge/resources/pint.json src
       - name: Verify formatter convergence
         run: vendor/bin/pint --test --config vendor/infocyph/phpforge/resources/pint.json src
-      - name: Commit only style-conformant PHP source
+      - name: Commit formatted source after full PHPForge pre-commit verification
         shell: bash
         run: |
           set -euo pipefail
