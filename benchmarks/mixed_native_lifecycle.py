@@ -156,6 +156,13 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
                     # Keep accepted data under backpressure while shutdown
                     # starts; no unacknowledged stream is silently retried.
                     await asyncio.sleep(slow_receiver_seconds)
+                # Once every admitted stream ended with its verified body,
+                # do not write further WINDOW_UPDATE frames to a peer that
+                # may already have completed its graceful TLS shutdown.
+                # Sending post-completion flow-control frames can fail with
+                # ECONNRESET even though every accepted byte arrived intact.
+                if len(completed) == len(expected):
+                    break
                 outgoing = h2.data_to_send()
                 if outgoing:
                     writer.write(outgoing)
