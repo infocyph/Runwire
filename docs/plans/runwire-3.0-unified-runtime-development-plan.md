@@ -6,6 +6,10 @@
 **Canonical tracker:** 157/169 accepted (92.9%); 12 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W208 — C4/C5 handoff integrity and public feature inventory reconciliation (2026-10-27)
+
+**Source-only documentation correction; no task promoted.** The feature catalog now distinguishes accepted U07.04–07 HTTP/2/3 client control, QPACK, multiplex and task-scoped peer proofs from unfinished U15.10 soak and U17 final release certification. It also recognizes accepted U09.02 WSS and U16.11/.12 API/migration work without advertising H2/H3 extended CONNECT, WebTransport, nested HTTPS-proxy TLS or kernel-native async file I/O. The C4/C5 closure-map prose is reconciled with the real 169-checkbox count (**157 accepted, 12 open; C4 10/13, C5 0/9**); historical W-era snapshots below are explicitly archival. External Read the Docs U16.02/U16.16 still requires genuine hosted evidence; GitHub Sphinx alone is insufficient. U15.10 requires completed PHP8.4/8.5 full 1800s mixed soak and source-pinned raw artifacts. C5 U17 items remain queued and require new frozen-head certification; no PR merge, release or acceptance bypass.
+
 ## W207 — Real 2.1.2 matched H1 and native/hosted trace attribution (2026-10-27)
 
 **U15.03 accepted within declared tracing scope:** Exact Runwire source [C4 tracing #40531507589](https://github.com/infocyph/Runwire/actions/runs/40531507589) passed PHP 8.4/8.5 native and live RoadRunner hosted independent, exact-response trace-off versus kernel strace-on scenarios with actual process CPU/RSS/FD, p99 and successful RPS. The heavy external strace probes showed native/hosted trace-on throughput retention roughly **29–48%** depending on runtime/host, increased p99 (about **1.38–2.91×**) and bounded RSS (about **1.01–1.04×**). These severe throughput losses are explicitly documented: **strace is diagnostic-only**, not free, a recommended always-on production tracer or equivalent to lighter application telemetry. Both jobs passed the predeclared bounded-trace correctness/overhead guards; R1.08 historical crosswalk accepted.
@@ -438,9 +442,9 @@ Commits [`62d6717`](https://github.com/infocyph/Runwire/commit/62d6717f34d0e3120
 5. Preserve the completed C1/C2/C3 acceptance. Only after C4 is 13/13 accepted with the required exact-head QA and external evidence may C4 be marked DONE and C5 activated.
 6. Stay on the existing Runwire branch and draft PR #9. No merge, tag, release, new branch, work in Foundation/Infbyte/Core/Cells, or publishing.
 
-## Five grouped completion batches (47 scoped tasks; 22 still open, C1/C2/C3 complete; C4 active)
+## Five grouped completion batches (47 scoped tasks; 12 still open, C1/C2/C3 complete; C4 active)
 
-The five re-scoped closure groups contain **47** unique Uxx.yy IDs (25 accepted, 22 open). Five formerly assigned U09 implementation IDs have been retired; U09.05's previously accepted design is removed from the 3.0 task baseline as well. The **169-task canonical checklist** is authoritative; historical progress notes below remain archival, not promises of retained excluded functionality. Trackers, PHPForge QA and frozen certification apply only to this approved 3.0 scope.
+The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted, 12 open). Five formerly assigned U09 implementation IDs have been retired; U09.05's previously accepted design is removed from the 3.0 task baseline as well. The **169-task canonical checklist** is authoritative; historical progress notes below remain archival, not promises of retained excluded functionality. Trackers, PHPForge QA and frozen certification apply only to this approved 3.0 scope.
 
 | Closure batch | Coherent workstream | Assigned canonical task IDs | Open | Status | Acceptance boundary |
 | --- | --- | --- | ---: | --- | --- |

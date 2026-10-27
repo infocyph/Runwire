@@ -48,14 +48,14 @@ Network, protocols and worker capabilities
      - No general-purpose H2/H3 fallback
    * - HTTP/2 outbound
      - No complete client
-     - Experimental verified H2 exchange and bounded multiplexing; full acceptance OPEN
+     - Verified H2 request/response, bounded multiplex, flow control and peer GOAWAY; U07 accepted, U17 final certification pending
      - Outgoing TLS with ALPN
-     - HPACK and multiplex OPEN
+     - Independent TLS/ALPN hyper-h2 peer QA passed; no H2 extended CONNECT
    * - HTTP/3 outbound
      - No complete client
-     - Verified native QUIC stream primitives
+     - Verified H3 client control streams, bounded QPACK, sibling requests and cancellation; U07 accepted
      - Outgoing QUIC
-     - H3 control/QPACK OPEN
+     - Native ext-quic and independent aioquic/ngtcp2 QA; final U17 certification pending
    * - WebSocket server
      - Inbound H1 upgrade
      - H1 upgrade/close verified
@@ -63,9 +63,9 @@ Network, protocols and worker capabilities
      - Masking and frame limits
    * - WebSocket client
      - No built-in client
-     - Experimental verified ws/wss HTTP/1.1 dial/upgrade and masked session
+     - Verified outbound ws/wss HTTP/1.1 handshake, subprotocols and masked framing; U09 accepted
      - Outbound TCP/TLS, Select loop
-     - Real WSS/close, cancellation and multi-peer QA; unreleased
+     - Independent WSS/close/cancellation/multi-peer QA passed; no H2/H3 extended CONNECT
    * - H2/H3 extended CONNECT
      - Not advertised
      - Not qualified
@@ -194,6 +194,7 @@ native prefork supervision requires PCNTL and POSIX.
 
 The host compatibility matrix, coroutine ownership guide and async-file
 development guide provide the host-specific lifecycle, quotas and errors.
-The source-linked complete PHP API reference, frozen migration guide, H2/H3
-client integration and release benchmarks
-are separate incomplete 3.0 acceptance tasks.
+The source-linked complete PHP API reference, 2.1.2-to-3.0 migration
+ledger and bounded H2/H3 client integration have task-scoped QA acceptance.
+The full mixed 1800-second soak, externally hosted Read the Docs preview
+and final frozen-source release certification remain incomplete.
