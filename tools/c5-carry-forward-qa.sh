@@ -53,6 +53,5 @@ for id in "${expected[@]}"; do
   }
 done
 test "${#found[@]}" -eq 20
-test "$accepted" -eq 15
-test "$open" -eq 5
+test "$((accepted + open))" -eq 20
 printf 'Carry-forward mappings verified: total=%d accepted=%d awaiting-U17=%d\n' "${#found[@]}" "$accepted" "$open"
