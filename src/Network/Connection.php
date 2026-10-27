@@ -16,15 +16,13 @@ use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionCloseObserverTrait;
 use Infocyph\Runwire\Network\Internal\ConnectionLifecycleOperationsTrait;
 use Infocyph\Runwire\Network\Internal\ConnectionScopeOwnership;
-use Infocyph\Runwire\Network\Internal\ClientTlsHandshake;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
-use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
+use Infocyph\Runwire\Network\Internal\VerifiedTargetTlsUpgrade;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
-use Throwable;
 
 /**
  * Manages a non-blocking stream connection with bounded buffering, callbacks, backpressure, and timeouts.
@@ -496,11 +494,7 @@ final class Connection
     }
 
     /**
-     * Promote a completed cleartext CONNECT/SOCKS tunnel to end-to-end verified
-     * TLS for its original destination, without a blocking handshake.
-     *
-     * This deliberately refuses TLS-on-TLS proxy sockets: PHP stream crypto
-     * cannot provide an independently verified nested second TLS context.
+     * Upgrade a quiescent cleartext tunnel to original-target verified TLS.
      *
      * @param callable(?self, ?Throwable):void $completion
      */
@@ -516,50 +510,18 @@ final class Connection
         $stream = $this->stream;
         $this->stream = null;
         $this->finalize(CloseReason::LOCAL_GRACEFUL);
-        $notify = Closure::fromCallable($completion);
-
-        try {
-            ClientTlsHandshake::start(
-                $this->loop,
-                $stream,
-                $policy,
-                function (?string $alpn) use ($stream, $policy, $notify): void {
-                    try {
-                        $encrypted = ConnectionFactory::accepted(
-                            $this->loop,
-                            $stream,
-                            $this->limits,
-                            negotiatedProtocol: $alpn,
-                            encrypted: true,
-                            tcpTransport: $this->tcpTransport,
-                            tcpNoDelayOverride: $this->tcpNoDelayOverride,
-                            strictTlsPeerEof: true,
-                        );
-                        VerifiedOutboundTlsPeers::register($encrypted, $policy->peerName);
-                        $notify($encrypted, null);
-                    } catch (Throwable $error) {
-                        if (is_resource($stream)) {
-                            fclose($stream);
-                        }
-                        $notify(null, $error);
-                    }
-                },
-                function (Throwable $error) use ($stream, $notify): void {
-                    if (is_resource($stream)) {
-                        fclose($stream);
-                    }
-                    $notify(null, $error);
-                },
-            );
-        } catch (Throwable $error) {
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-            $notify(null, $error);
-        }
+        VerifiedTargetTlsUpgrade::start(
+            $this->loop,
+            $stream,
+            $policy,
+            $this->limits,
+            $this->tcpTransport,
+            $this->tcpNoDelayOverride,
+            $completion,
+        );
     }
 
-    private static function nowNanoseconds(): int
+        private static function nowNanoseconds(): int
     {
         $now = hrtime(true);
 
