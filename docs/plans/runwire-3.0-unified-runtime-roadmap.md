@@ -130,6 +130,10 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
+## W156 — C3 U12.06 shutdown callback-failure isolation (2026-10-27; QA pending)
+
+[`4bbcb89`](https://github.com/infocyph/Runwire/commit/4bbcb89443455e519d181d0fbe90e3b956560c37) ensures `ProcessExecutor::close()` retires remaining workers, queued jobs and drain watchers even when application completion observers throw; the first exception is preserved after cleanup. [`df4e1b5`](https://github.com/infocyph/Runwire/commit/df4e1b5dbb76d2b186c1c3cb2fbbca8e870ae0a6) isolates worker-owned executor close exceptions so one failed observer cannot prevent shutdown of other owned executors. [`11e3b8e`](https://github.com/infocyph/Runwire/commit/11e3b8e02fa2846405d93ed55ee19c0943e22b6e) proves two separate executors release their jobs and watcher resources despite a throwing completion observer. **Partial U12.06 only**: pending exact-head green QA and ownership/drain proof for non-executor resource classes. C3 remains 2/9, program 140/169 (29 OPEN); no release.
+
 ## W155 — C3 process-fork drain-observer hardening (2026-10-27; QA pending)
 
 [`c54098c`](https://github.com/infocyph/Runwire/commit/c54098c1dc31cccbf996e614b1412c06338d61df) extends the executor PID ownership guard to `onDrained` subscriptions (not just submit/cancel/close); [`080fd22`](https://github.com/infocyph/Runwire/commit/080fd2244150196d4d7896932b7cd15541ad9b13) extends the live `pcntl_fork` regression to four rejected child-side operations, then validates parent-side work remains functional. This strengthens **partial U12.02**. Full listener/pool/QUIC fork-safety proof, exact-source native/PHPForge QA, and whole C3 completion remain open. **No change** to 140/169 QA-accepted, 29 open, C3 2/9.
