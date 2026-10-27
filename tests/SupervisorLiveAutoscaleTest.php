@@ -32,9 +32,9 @@ it('resizes real native worker slots after sustained windows and drains scaled-i
             ++$samples;
 
             return [
-                'cpuRatio' => $samples <= 2 ? 0.01 : 0.9,
-                'queued' => $samples <= 2 ? 0 : 2,
-                'successfulRps' => $samples <= 2 ? 0.0 : 10.0,
+                'cpuRatio' => $samples <= 4 ? 0.01 : 0.9,
+                'queued' => $samples <= 4 ? 0 : 2,
+                'successfulRps' => $samples <= 4 ? 0.0 : 10.0,
                 'p99Milliseconds' => 1.0,
             ];
         },
@@ -53,10 +53,10 @@ it('resizes real native worker slots after sustained windows and drains scaled-i
             $slots[$worker->slot] = true;
         }
     });
-    $loop->delay(6.2, static fn() => $supervisor->stop());
+    $loop->delay(10.5, static fn() => $supervisor->stop());
     $supervisor->run();
 
-    expect($samples)->toBeGreaterThanOrEqual(4)
+    expect($samples)->toBeGreaterThanOrEqual(7)
         ->and($observedCounts)->toContain(1)
         ->and($observedCounts)->toContain(2)
         ->and($overlappingSlots)->toBe(0)
