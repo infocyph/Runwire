@@ -16,6 +16,7 @@ on:
   push:
     branches: [ "main", "master" ]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     branches: [ "main", "master", "develop", "development" ]
 
 concurrency:
@@ -25,7 +26,7 @@ concurrency:
 jobs:
   matched-tls:
     name: "U04 matched verified TLS - PHP 8.4"
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.tls_certification }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.tls_certification) || (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'c4-matched-tls') }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -34,11 +35,12 @@ jobs:
       - name: Checkout immutable Runwire 2.1.2 baseline
         uses: actions/checkout@v7
         with:
-          ref: "2.1.2"
+          ref: "7e9bf20ad0737a187dfed77b723791b141b36378"
           path: baseline
       - name: Checkout Runwire 3.0 candidate
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: candidate
       - name: Setup pinned PHP
         uses: shivammathur/setup-php@v2
