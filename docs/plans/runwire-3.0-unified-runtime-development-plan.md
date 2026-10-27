@@ -1,5 +1,10 @@
 # Runwire 3.0 — unified runtime detailed development plan and tracker
 
+## W215 — U17.01 accepted from GitHub-source crosswalk validation (2026-10-27)
+
+**U17.01 ACCEPTED, C5 1/9.** Immutable [GitHub Source Audit #40542104606](https://github.com/infocyph/Runwire/actions/runs/40542104606) succeeded on [`bbd2e4ed`](https://github.com/infocyph/Runwire/commit/bbd2e4edd81d285a5e8bd93d7d83c464234ead0a). The audit executes `tools/c5-carry-forward-qa.sh`, which verifies all 20 distinct historical unfinished 2.2 task IDs map to existing 3.0 tasks, validates every source checkbox against the mapping's ACCEPTED/OPEN status, rejects missing/duplicate mappings, asserts **167** scoped canonical task IDs and rejects restoration of retired external-hosted tasks U16.02/U16.16. Complete public protocol feature inventory, removed WebTransport and 2.1.2 source migration ledger have independent QA from accepted U07/U09/U16.12; this acceptance is **inventory reconciliation only**, not U17.02–09 final candidate certification. **158/167 accepted, 9 OPEN; C4 10/11 (U15.10 still OPEN), C5 1/9**. PR stays draft and unmerged; release QA remains nonpublishing.
+
+
 ## W214 — GitHub-worker-only rebaseline, externally hosted tasks removed (2026-10-27)
 
 **Explicit maintainer scope decision:** External Read the Docs project provisioning, external preview URL/version switch and service-hosted search validation are outside GitHub worker-only execution. Retire **U16.02** and **U16.16** from the canonical active checkbox ledger, *not* by marking them accepted. Preserve `.readthedocs.yaml` for optional future downstream hosting but do not require or dispatch the `c4-hosted-docs` workflow as a release gate. Native Sphinx RST HTML generation, full **41-page** index and search coverage, source-SHA stamping, runnable documentation examples and GitHub Actions artifact preservation remain mandatory under U16.01/.03–.15 and revised U17.04. No claim of a published external documentation site is made. GitHub-worker risk audit is evidence-only; maintainer approval remains separate from task acceptance and publication authorization.
@@ -807,7 +812,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 
 **Prerequisite:** U00-U16. **Batch QA:** targeted unit, fault and real endpoint tests; PHP8.4/8.5 stable/lowest PHPForge QA where relevant; CI evidence; tracker sync before proceeding.
 
-- [ ] **U17.01** Reconcile 2.2 carry-forward with final 3.0 public feature inventory. **Acceptance:** No applicable old or new task unexplained. **Proof:** PENDING.
+- [x] **U17.01** Reconcile 2.2 carry-forward with final 3.0 public feature inventory. **Acceptance:** No applicable old or new task unexplained. **Proof:** Exact [Source Audit #40542104606](https://github.com/infocyph/Runwire/actions/runs/40542104606) PASS on immutable `bbd2e4edd81d285a5e8bd93d7d83c464234ead0a`; strict `tools/c5-carry-forward-qa.sh` verifies all 20 historical mappings/ACCEPTED/OPEN dispositions, 167 canonical tasks, excluded external RTD IDs; U07/U09/U16.12 feature and published-API migration ledgers accepted independently. Final frozen release and remaining eight U17 tasks still OPEN.
 - [ ] **U17.02** Run all PHP8.4/8.5 PHPForge QA, analysis and security checks. **Acceptance:** Zero release-blocking issues. **Proof:** PENDING.
 - [ ] **U17.03** Run real native, hosts and independent H1/H2/H3/WebSocket/QUIC acceptance. **Acceptance:** Every supported mode certified at frozen source. **Proof:** PENDING.
 - [ ] **U17.04** Verify complete GitHub Actions Sphinx HTML, API, 41-page index/search and runnable examples. **Acceptance:** Warning-free source-stamped HTML and searchable complete feature coverage in retained worker artifacts, with no external publishing requirement. **Proof:** PENDING.
@@ -817,7 +822,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 - [ ] **U17.08** Synchronize final source audit, QA run IDs, PR and canonical tracker. **Acceptance:** All evidence pinned to final immutable SHA. **Proof:** PENDING.
 - [ ] **U17.09** Keep PR draft, unmerged, untagged and unpublished until explicit direction. **Acceptance:** READY FOR MAINTAINER RELEASE only on full pass. **Proof:** PENDING.
 
-**Batch tracker:** 0/9 accepted; 9 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 1/9 accepted; 8 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
 
 ## Complete leftover carry-forward (20 / 20)
 

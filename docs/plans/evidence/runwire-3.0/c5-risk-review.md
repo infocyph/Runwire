@@ -10,7 +10,7 @@
 
 | U17 ID | Proof required for a frozen candidate | Decision |
 | --- | --- | --- |
-| U17.01 | Published 2.1.2 and unfinished 2.2 crosswalk to every 3.0 feature and exclusion; source-audit-verified 20/20 mapping | Preflight check implemented; final review OPEN |
+| U17.01 | Published 2.1.2 and unfinished 2.2 crosswalk to every 3.0 feature and exclusion; source-audit-verified 20/20 mapping | ACCEPTED scoped 20/20 crosswalk, 167-task Source Audit #40542104606 |
 | U17.02 | PHP 8.4/8.5 stable/lowest PHPForge, PHPStan/Psalm, PHPCS/Pint/Rector and security QA | OPEN until exact frozen-head all green |
 | U17.03 | Independent H1/H2/H3/QUIC/WS, native portable/fork, real hosted peers and shutdown correctness | OPEN until exact frozen-head matrix |
 | U17.04 | GitHub Actions complete warning-free Sphinx HTML, generated API, 41 indexed/searchable pages and runnable examples with source SHA | OPEN until source-pinned artifact green |
