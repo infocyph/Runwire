@@ -171,13 +171,19 @@ run_evidence() {
   ' "$result" >/dev/null
 }
 
+# Reserve the baseline port before selecting the candidate's port. Selecting
+# both free ports before either server binds may return the same ephemeral port.
 baseline_port="$(find_port)"
-candidate_port="$(find_port)"
 start_server "$baseline_dir" "$baseline_port" "$output_dir/baseline-server.log"
 baseline_pid="$LAST_PID"
+wait_ready "$baseline_port" "$baseline_pid" "$output_dir/baseline-server.log"
+candidate_port="$(find_port)"
+if [ "$candidate_port" = "$baseline_port" ]; then
+  echo "Candidate and baseline cannot share a listening port." >&2
+  exit 1
+fi
 start_server "$candidate_dir" "$candidate_port" "$output_dir/candidate-server.log"
 candidate_pid="$LAST_PID"
-wait_ready "$baseline_port" "$baseline_pid" "$output_dir/baseline-server.log"
 wait_ready "$candidate_port" "$candidate_pid" "$output_dir/candidate-server.log"
 
 # One explicit 30-second warm-up per server before the five measured trials.
