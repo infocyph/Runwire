@@ -1,0 +1,123 @@
+name: C4 GitHub-worker qualification
+
+on:
+  pull_request:
+    branches: [ main, master, develop, development ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c4-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-capacity-and-ownership:
+    name: C4 native diagnostic evidence - PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - name: Checkout immutable PR source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+      - name: Secure Composer installation
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Record immutable runner provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c4-evidence
+          git rev-parse HEAD > c4-evidence/source-sha.txt
+          php -v > c4-evidence/php.txt
+          php -m > c4-evidence/extensions.txt
+          uname -a > c4-evidence/host.txt
+          python3 benchmarks/release_topology_inventory.py > c4-evidence/topology.json
+          jq -e '.physical_core_affinity != null or .published_baseline != null' c4-evidence/topology.json >/dev/null
+      - name: Cold/warmed hosted request-path attribution
+        run: |
+          set -euo pipefail
+          php benchmarks/r0_host_profile.php 5000 0 > c4-evidence/host-cold.json
+          php benchmarks/r0_host_profile.php 5000 1000 > c4-evidence/host-warm.json
+          for f in c4-evidence/host-cold.json c4-evidence/host-warm.json; do
+            jq -e '.schema == 1 and .correctness_passed == true and .completed == 5000
+              and .host_network_included == false and .phases.total.p99_us > 0' "$f" >/dev/null
+          done
+      - name: Verify real outbound and off-loop filesystem diagnostics
+        run: |
+          set -euo pipefail
+          php benchmarks/u01_executor_profile.php > c4-evidence/executor.json
+          jq -e '.correctness_passed == true and .jobs_completed == .jobs_submitted
+            and .jobs_failed == 0 and .worker_count_after == 0 and .loop_ticks > 0' c4-evidence/executor.json >/dev/null
+          php benchmarks/u03_dial_profile.php > c4-evidence/outbound-dial.json
+          jq -e '.correctness_passed == true and .real_socket_io == true
+            and .sequential.failed == 0 and .overlap.failed == 0
+            and .sequential.completed == 24 and .overlap.completed == 24' c4-evidence/outbound-dial.json >/dev/null
+          php benchmarks/u10_pool_live_profile.php 160 16 > c4-evidence/pool.json
+          jq -e '.correctness_passed == true and .real_network_io == true
+            and .pooled.reuse_hits > 0 and .pooled.successful_requests == 320
+            and .direct.successful_requests == 320' c4-evidence/pool.json >/dev/null
+      - name: Sample real native HTTP concurrency curve on isolated physical cores
+        run: bash benchmarks/c4_native_concurrency_sweep.sh c4-evidence/native-h1
+      - name: Preserve complete measured GitHub-worker evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-github-native-php-${{ matrix.php }}
+          path: c4-evidence/
+          retention-days: 90
+
+  syscall-attribution:
+    name: C4 real TCP and TLS syscall attribution - PHP 8.5
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout immutable PR source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          extensions: pcntl, posix, event, opcache
+          coverage: none
+      - name: Secure Composer installation
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Install Linux syscall tracer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y strace
+      - name: Trace verified native H1 plaintext and TLS endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p c4-evidence
+          git rev-parse HEAD > c4-evidence/source-sha.txt
+          bash benchmarks/u08_socket_syscall_trace.sh c4-evidence/socket-traces
+          for mode in plain tls; do
+            jq -e '.socket_fd_read_family_successful_syscalls > 0
+              and .socket_fd_write_family_successful_syscalls > 0
+              and .trace_performance_overhead == true' \
+              "c4-evidence/socket-traces/${mode}-syscalls.json" >/dev/null
+          done
+      - name: Upload H1/TLS syscall and correctness traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-c4-github-syscall-php-8.5
+          path: c4-evidence/
+          retention-days: 90
