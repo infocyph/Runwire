@@ -37,7 +37,7 @@ function loadSummary(string $path): array
             throw new RuntimeException(sprintf('Summary "%s" requires finite numeric "%s".', $path, $field));
         }
     }
-    if (($decoded['trials'] < 5) || $decoded['duration_seconds_per_trial'] <= 0
+    if (($decoded['trials'] < 5) || $decoded['duration_seconds_per_trial'] < 180
         || $decoded['workers'] <= 0 || $decoded['concurrency'] <= 0
         || $decoded['median_successful_rps'] <= 0 || $decoded['median_successful_rpm'] <= 0
         || $decoded['rps_cv_percent'] < 0 || $decoded['median_p99_ms'] < 0
