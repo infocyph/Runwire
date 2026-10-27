@@ -532,6 +532,25 @@ final class Supervisor
         }
 
         $this->performExitAction($transition->action, $record);
+
+        // A scale-out may have restored a slot while its earlier scale-in
+        // shutdown was still draining. Wait for the old PID to be reaped
+        // before issuing a new owner for that slot.
+        $name = $record->group->name;
+        $target = $this->groups[$name]->count ?? 0;
+        if (!$this->stopping && !$this->reloadCoordinator->reloading()
+            && $record->expectedStop && $record->slot < $target
+            && !isset($this->currentSlots[$name][$record->slot])
+            && !array_any($this->children, static fn(ChildRecord $child): bool => $child->group->name === $name && $child->slot === $record->slot)) {
+            $this->spawnWorker(
+                $this->groups[$name],
+                $record->slot,
+                $this->reloadCoordinator->generation(),
+                $this->restartCoordinator->count($name, $record->slot),
+                null,
+                true,
+            );
+        }
     }
 
     /** @param resource $stream */
@@ -805,6 +824,10 @@ final class Supervisor
         $this->groups[$name] = $group->withCount($target);
         if ($target > $current) {
             for ($slot = $current; $slot < $target; ++$slot) {
+                // Do not overlap a still-draining child from the old size.
+                if (array_any($this->children, static fn(ChildRecord $child): bool => $child->group->name === $name && $child->slot === $slot)) {
+                    continue;
+                }
                 $this->spawnWorker(
                     $this->groups[$name],
                     $slot,
