@@ -39,10 +39,13 @@ jobs:
             src/Network/IdleConnectionPool.php \
             src/Network/Dialer.php \
             src/Network/HappyEyeballsDialer.php \
+            src/Network/TcpListener.php \
             tests/SupervisorLiveAutoscaleTest.php \
             tests/WorkerOwnedTcpDrainTest.php \
             tests/WorkerOwnedNetworkDrainTest.php \
-            tests/ProcessExecutorForkOwnershipTest.php; do
+            tests/ProcessExecutorForkOwnershipTest.php \
+            tests/TcpListenerForkOwnershipTest.php \
+            .ci/c3_listener_fork_smoke.php; do
             php -l "$file"
           done
       - name: Autoscale missing-telemetry hysteresis contract
@@ -51,6 +54,8 @@ jobs:
         run: php .ci/c3_filesystem_smoke.php
       - name: Fork-safe outgoing dials and worker-owned socket drain
         run: php .ci/c3_dialer_smoke.php
+      - name: Prefork TCP listener PID ownership and inherited active-loop rejection
+        run: php .ci/c3_listener_fork_smoke.php
       - name: Native autoscale real-fork smoke without Composer dependencies
         run: php .ci/c3_supervisor_smoke.php
       - name: Native SIGKILL recovery and bounded crash-loop smoke

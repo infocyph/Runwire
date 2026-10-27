@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W172 — C3 inherited active TCP listener lifecycle guard (2026-10-27; exact-head QA pending)
+
+Runwire-only C3 continuation strengthens `TcpListener` after an active listener is inherited across `pcntl_fork`: active connection abort, graceful shutdown, accept dispatch and connection activation now reject lifecycle operations from the wrong PID. A socket bound but **not started** remains safe to share with forked native workers. Extends the real fork Pest fixture from two to six prohibited operations and adds an independent Composer-free native `.ci/c3_listener_fork_smoke.php` executed on PHP 8.4/8.5 in the C3 workflow. **Partial U12.02 only; no acceptance claimed** until immutable CI, real mixed protocol handoff/ownership and full standard QA pass. C3 stays **2/9**, program **140/169**, **29 OPEN**. Dependency solver remains subject to the unweakened Composer security policy.
+
 ## W171 — C3 prefork listener event-loop isolation (2026-10-27; QA pending)
 
 [`f16a6ab`](https://github.com/infocyph/Runwire/commit/f16a6aba69878fe2796385c298661f458d1e11dd) preserves legitimate socket binding before `pcntl_fork`, while restricting an *already started* TCP listener to its owning PID on `start`, `close` and accept pause/resume. The real [`b6ab070`](https://github.com/infocyph/Runwire/commit/b6ab070f7efc3d37d0745c062c771af344c8af1b) fork test proves a prebound child can attach its own loop, the parent can subsequently attach its separate loop, and a later inherited *active* listener rejects child-side lifecycle operations. **Partial U12.02; QA pending**. All nine standard QA lanes remain subject to secure PHPForge/ParaTest/Pest/PHPUnit resolution. **C3 2/9 and total 140/169 accepted (29 OPEN) unchanged**; no premature completion.
@@ -176,14 +180,14 @@ Commits [`62d6717`](https://github.com/infocyph/Runwire/commit/62d6717f34d0e3120
 - No hidden blocking: DNS and filesystem use genuine non-event-loop execution or explicitly reject unsupported modes; keep optional native extensions optional.
 - Full 3.0 scope includes networking (TCP/TLS/Unix/UDP/QUIC), async DNS, dialing, pooling, proxies, relay, HTTP1/2/3 and WebSocket clients/servers, filesystem, Fiber concurrency, autoscaling, all hosted integrations, security, observability and complete docs.
 - 64-bit PHP 8.4+ and Composer remain the baseline. No new dependency or release gate on unrelated Infocyph repositories.
-- A closure batch is accepted only after every assigned U task and complete required exact-source green QA. **C1 is the sole active closure batch; C2/C3/C4 are paused until C1 is fully accepted.** Prior parallel-development authorization is superseded by the latest whole-batch-first direction. Intermediate commits are not sub-batches. Update both trackers and PR together on each push. Only independently QA-proven tasks count as accepted.
+- A closure batch is accepted only after every assigned U task and complete required exact-source green QA. **C1 and C2 have completed their whole-batch QA; C3 is the active closure batch. C4/C5 remain paused until C3 acceptance.** Historical C1-only execution notes below describe an already-completed prerequisite. Intermediate commits are not sub-batches. Update both trackers and PR together on each push. Only independently QA-proven tasks count as accepted.
 - Keep 2.1.2 as immutable baseline. Final matched throughput requires five 180-second pairs, warmup, successful RPS, both CV below 2.5%, strict p99/RSS/correctness budgets, generator headroom, and 1800-second process-tree soak. A passing mock or microbenchmark cannot replace real protocol QA.
 - **Sphinx documentation is mandatory:** use **exclusively native reStructuredText (.rst)** for all published documentation pages, with an InterMix-style `docs/conf.py`, `docs/index.rst`, Read the Docs configuration v2, and no MyST or `.md` Sphinx pages. Convert legacy end-user Markdown guides to RST before release. Internal trackers/evidence are outside the published Sphinx source graph. Require, complete detailed feature list, generated PHP API reference, migration guides and strict docs CI. All U16 tasks are required for 3.0.
 - **Task proof convention:** change [ ] to [x] only after Acceptance is verified and update Proof from PENDING to immutable commit, real test and Actions/artifact link. No plan-only task completion.
 
 ## Complete-the-entire-batch QA workflow (mandatory)
 
-**An execution batch is the complete set of assigned canonical U tasks, not a commit, a task group, or a QA correction.** Latest 2026-10-26 direction supersedes earlier parallel authorization: **finish C1 first**; keep C2/C3/C4 paused, and only resume the next closure group after complete C1 green QA. Each retains its separate whole-batch acceptance. All 11 task acceptance criteria are required in full, including real independent TLS/QUIC/HTTP peers, rollback/cancel/flow controls, matched benchmarks and performance evidence. Routine QA alone does not close C1.
+**An execution batch is the complete set of assigned canonical U tasks, not a commit, a task group, or a QA correction.** C1 and C2 are complete; C3 is active, with exact-head whole-batch QA still required before C4. Each retains its separate whole-batch acceptance. All 11 task acceptance criteria are required in full, including real independent TLS/QUIC/HTTP peers, rollback/cancel/flow controls, matched benchmarks and performance evidence. Routine QA alone does not close C1.
 
 1. Implement every remaining C1 task within Runwire and the existing PR #9. Intermediate commits are allowed to obtain evidence, but they **are not additional batches**.
 2. Diagnose every red check; require green PHPForge PHP8.4/8.5 stable/lowest, static analyzers, native QUIC, host, benchmarks and every C1-specific independent gate on the exact final source. Do not bypass or soften acceptance.
@@ -194,7 +198,7 @@ Commits [`62d6717`](https://github.com/infocyph/Runwire/commit/62d6717f34d0e3120
 
 ## Five grouped completion batches (47 scoped tasks; 30 still open, C1/C2 complete; C3 next)
 
-The five re-scoped closure groups contain **47** unique Uxx.yy IDs (17 accepted, 30 open). Five formerly assigned U09 implementation IDs have been retired; U09.05's previously accepted design is removed from the 3.0 task baseline as well. The **169-task canonical checklist** is authoritative; historical progress notes below remain archival, not promises of retained excluded functionality. Trackers, PHPForge QA and frozen certification apply only to this approved 3.0 scope.
+The five re-scoped closure groups contain **47** unique Uxx.yy IDs (18 accepted, 29 open). Five formerly assigned U09 implementation IDs have been retired; U09.05's previously accepted design is removed from the 3.0 task baseline as well. The **169-task canonical checklist** is authoritative; historical progress notes below remain archival, not promises of retained excluded functionality. Trackers, PHPForge QA and frozen certification apply only to this approved 3.0 scope.
 
 | Closure batch | Coherent workstream | Assigned canonical task IDs | Open | Status | Acceptance boundary |
 | --- | --- | --- | ---: | --- | --- |
@@ -212,7 +216,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (17 accepted,
 - **C3:** connect bounded autoscale *decisions* to real native supervisor lifecycle and its crash/drain QA, prove filesystem acceleration/performance and adversarial session limits.
 - **C4:** run genuine matching and resource telemetry once real protocol capabilities exist; perform the complete RST migration/hosted docs preview while code stabilizes.
 - **C5:** certify an immutable final head. No U17 checkbox and no release-ready claim is permitted without its task-specific proof, including U15 performance, U16 hosted preview, independently verified peers and full PHP 8.4/8.5 gates.
-- **Whole-batch gate:** all eleven C1 tasks must be individually accepted and exact-source CI plus independent H3 peer/matched benchmark evidence GREEN before C1 DONE. **Do not start or continue C2/C3/C4 work before C1 closes.** Intermediate commits remain within C1, not sub-batches. Keep both trackers and PR in sync.
+- **Whole-batch gate:** all eleven C1 tasks must be individually accepted and exact-source CI plus independent H3 peer/matched benchmark evidence GREEN before C1 DONE. **C1 and C2 already closed; do not promote C3 until exact-head full QA is green.** Intermediate commits remain within C1, not sub-batches. Keep both trackers and PR in sync.
 - **Evidence/preflight distinction:** opt-in immutable-source certification must be runnable to *produce* U15/U17 evidence before all tasks are checked; the authoritative final aggregation **still refuses** release readiness unless exactly 169/169 tasks and every required job succeed. Never downgrade a failed/skipped gate to green.
 
 ## Canonical batch summary
@@ -239,7 +243,7 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (17 accepted,
 | U17 | Final certification, risk signoff and maintainer handoff | 0/9 | 9 | Not started | U00-U16 |
 | **TOTAL** | **Runwire 3.0.0 unified runtime** | **140/169** | **29** | **U00–U10 complete; U11–U17 still in progress** | U00-U17 |
 
-**Progress counter:** 139/169 (82.2% complete), 30 open.
+**Progress counter:** 140/169 (82.8% complete), 29 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -603,7 +607,7 @@ All of these pages are **required deliverables** inside the proposed docs docume
 | Event loops | Portable Select, ext-event and compatible host-owned reactors |
 | Hosts | Native prefork/portable, real FPM/FrankenPHP/RoadRunner/Swoole/OpenSwoole |
 | Transport | Independent client/server TCP/TLS/Unix/UDP/QUIC, IPv4/IPv6 |
-| Protocol | Independent H1/H2/H3/WS/WT client and server, malformed and cancel storms |
+| Protocol | Independent H1/H2/H3/WS client and server, malformed and cancel storms (WebTransport excluded) |
 | Async work | Actual nonblocking DNS and filesystem, executor quota/stop/error coverage |
 | Worker lifecycle | Crash/backoff, hot reload, recycle, autoscale and active stop |
 | Performance | 2.1.2 matched baseline + CV, p99/RSS, 1800-second process-tree/GC/OPcache/FD soak |

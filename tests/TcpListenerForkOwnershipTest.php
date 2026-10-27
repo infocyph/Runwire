@@ -39,6 +39,18 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
         expect($second)->not->toBe(-1);
         if ($second === 0) {
             $rejected = 0;
+            foreach ([
+                static fn() => $listener->abortConnections(),
+                static fn() => $listener->closeConnectionsGracefully(),
+                static fn() => $listener->resumeAccepting(),
+                static fn() => $listener->start(new SelectLoop(), static function (): void {}),
+            ] as $operation) {
+                try {
+                    $operation();
+                } catch (LogicException) {
+                    ++$rejected;
+                }
+            }
             try {
                 $listener->pauseAccepting();
             } catch (LogicException) {
@@ -49,7 +61,7 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
             } catch (LogicException) {
                 ++$rejected;
             }
-            exit($rejected === 2 ? 0 : 1);
+            exit($rejected === 6 ? 0 : 1);
         }
         pcntl_waitpid($second, $secondStatus);
         expect(pcntl_wifexited($secondStatus))->toBeTrue()

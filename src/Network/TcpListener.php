@@ -125,6 +125,7 @@ final class TcpListener
      */
     public function abortConnections(): void
     {
+        $this->assertActiveProcessOwner();
         foreach ($this->connections as $connection) {
             $connection->abort();
         }
@@ -209,6 +210,7 @@ final class TcpListener
      */
     public function closeConnectionsGracefully(): void
     {
+        $this->assertActiveProcessOwner();
         foreach ($this->connections as $connection) {
             $connection->closeGracefully();
         }
@@ -338,6 +340,7 @@ final class TcpListener
     /** @param resource $stream */
     private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
     {
+        $this->assertActiveProcessOwner();
         $loop = $this->loop;
         $callback = $this->connectionCallback;
         if (!is_resource($stream)) {
@@ -390,6 +393,7 @@ final class TcpListener
 
     private function handleAccept(): void
     {
+        $this->assertActiveProcessOwner();
         $loop = $this->loop;
         $callback = $this->connectionCallback;
         $listener = $this->stream;
