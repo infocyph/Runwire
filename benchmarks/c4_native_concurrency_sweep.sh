@@ -88,6 +88,32 @@ PY
       echo "::error::No proven independent client CPU headroom at concurrency $concurrency." >&2
       exit 1
     }
+  python3 - "$server_pid" "$output_dir/fds-$concurrency.json" <<'PY'
+import json
+import pathlib
+import sys
+root = int(sys.argv[1])
+todo = [root]
+seen = set()
+fds = 0
+while todo:
+    pid = todo.pop()
+    if pid in seen:
+        continue
+    seen.add(pid)
+    proc = pathlib.Path("/proc") / str(pid)
+    if not proc.is_dir():
+        continue
+    fds += len(list((proc / "fd").glob("*")))
+    children = proc / "task" / str(pid) / "children"
+    if children.is_file():
+        todo.extend(int(c) for c in children.read_text().split())
+if fds <= 0:
+    raise SystemExit("missing live supervisor and child FD samples")
+pathlib.Path(sys.argv[2]).write_text(json.dumps(
+    {"server_process_tree_sampled_fds": fds, "sampled_pids": len(seen)}
+) + "\\n")
+PY
   jq -e --argjson requested "$concurrency" \
     '.correctness_passed == true and .concurrency == $requested and
      .successful_requests == .requests_total and .successful_requests > 0 and
@@ -96,8 +122,14 @@ PY
      .rss_peak_bytes > 0 and .cpu_percent >= 0' "$output" >/dev/null
 done
 
+jq -s '{headroom_verified:all(.[]; .generator_cpu_percent_one_core < 85),
+  samples: .}' "$output_dir"/generator-{1,4,16,32,64}.json > "$output_dir/loadgen-headroom.json"
+
 jq -s --arg sha "$sha" --slurpfile affinity "$output_dir/affinity.json" \
-  '{schema:1, source_sha:$sha, release_certified:false, generator_headroom_verified:false,
+  --slurpfile headroom "$output_dir/loadgen-headroom.json" \
+  '{schema:1, source_sha:$sha, release_certified:false,
+    generator_headroom_verified:$headroom[0].headroom_verified,
+    generator_cpu_percent_samples:$headroom[0].samples,
     methodology:"isolated distinct physical cores, 3s warmup and 12s measured per concurrency",
     affinity:$affinity[0], samples:[.[] | {
       concurrency, throughput_rps, latency_ms, cpu_percent, rss_peak_bytes,
@@ -105,8 +137,8 @@ jq -s --arg sha "$sha" --slurpfile affinity "$output_dir/affinity.json" \
     }]}' \
   "$output_dir"/h1-concurrency-{1,4,16,32,64}.json > "$output_dir/concurrency-summary.json"
 
-jq -e '.source_sha | test("^[0-9a-f]{40}$")' "$output_dir/concurrency-summary.json" >/dev/null
-jq -e '.release_certified == false and .generator_headroom_verified == false and
-  (.samples | length) == 5 and
+jq -e '.release_certified == false and .generator_headroom_verified == true and
+  (.source_sha | test("^[0-9a-f]{40}$")) and
+  (.samples | length) == 5 and (.generator_cpu_percent_samples | length) == 5 and
   ([.samples[] | select(.correctness_passed != true or .errors_total != 0 or
     .timeouts_total != 0)] | length) == 0' "$output_dir/concurrency-summary.json" >/dev/null
