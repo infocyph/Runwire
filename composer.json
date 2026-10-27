@@ -31,7 +31,7 @@
         "ext-event": "*",
         "ext-pcntl": "*",
         "ext-posix": "*",
-        "infocyph/phpforge": "dev-main@dev"
+        "infocyph/phpforge": "dev-dependabot/composer/brianium/paratest-tw-7.27.3#1f1c7c11f80f@dev"
     },
     "suggest": {
         "ext-event": "Enables the scalable native event-loop backend.",
@@ -90,5 +90,12 @@
         "classmap-authoritative": true,
         "optimize-autoloader": true,
         "sort-packages": true
-    }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/infocyph/PHPForge.git",
+            "canonical": true
+        }
+    ]
 }

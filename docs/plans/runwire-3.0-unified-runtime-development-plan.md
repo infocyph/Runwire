@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W173 — Runwire-only secure Composer QA dependency bridge (2026-10-27; CI verification pending)
+
+The standard QA and H2/H3 workflows fail Composer resolution before running tests: PHPForge main freezes ParaTest 7.26.0, while current Pest expects ParaTest 7.26.1+ and the available secure PHPUnit conflicts with older Pest. Runwire's development-only `composer.json` now requests the one-commit-ahead PHPForge Dependabot branch (`1f1c7c11f80f`, ParaTest ^7.27.3) through an explicit VCS repository, pinned to that immutable revision, while retaining all PHPForge tooling, four PHPForge QA lanes, both static analyzers and Composer security advisories. This is a **temporary Runwire-only QA bridge**, not an authorized upstream PHPForge update, QA waiver or final releasable dependency contract. Require green exact-head clean installs and nine workflows before any task acceptance. Program **140/169 accepted (29 OPEN); C3 2/9** unchanged.
+
 ## W172 — C3 inherited active TCP listener lifecycle guard (2026-10-27; exact-head QA pending)
 
 Runwire-only C3 continuation strengthens `TcpListener` after an active listener is inherited across `pcntl_fork`: active connection abort, graceful shutdown, accept dispatch and connection activation now reject lifecycle operations from the wrong PID. A socket bound but **not started** remains safe to share with forked native workers. Extends the real fork Pest fixture from two to six prohibited operations and adds an independent Composer-free native `.ci/c3_listener_fork_smoke.php` executed on PHP 8.4/8.5 in the C3 workflow. **Partial U12.02 only; no acceptance claimed** until immutable CI, real mixed protocol handoff/ownership and full standard QA pass. C3 stays **2/9**, program **140/169**, **29 OPEN**. Dependency solver remains subject to the unweakened Composer security policy.
