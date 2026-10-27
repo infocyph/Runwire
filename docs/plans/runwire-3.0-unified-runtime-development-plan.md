@@ -6,6 +6,25 @@
 **Canonical tracker:** 147/169 accepted (87.0%); 22 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W198 — GitHub-worker C4 rolling implementation and QA (2026-10-27; exact-head QA pending)
+
+**Execution boundary:** Runwire only, existing PR #9, GitHub repository actions and GitHub Actions workers. Do not run code locally, touch external repositories, merge, tag, or release. Work task-by-task with an independently verified immutable QA result per acceptance gate; cancelled/superseded workflows are not proof.
+
+**Implemented, not yet C4-accepted:**
+- benchmark metadata: [dd51f55b](https://github.com/infocyph/Runwire/commit/dd51f55bdfb5de448e3ad22a20848e1ece98a08c)
+- H3 negotiation: [f7ee3f55](https://github.com/infocyph/Runwire/commit/f7ee3f55b2c6072f8c28c1154c50802524d602f2)
+- docs source links: [52808c7a](https://github.com/infocyph/Runwire/commit/52808c7a70ecf038e8d2eb2713fed691c61e31c2)
+- duration guard: [35bf30ab](https://github.com/infocyph/Runwire/commit/35bf30abc75b6296bff1757da8c7d21357e77068)
+- negative regression: [a9f960b4](https://github.com/infocyph/Runwire/commit/a9f960b49778d3945ad087df30bd21b46b8c4ddb)
+- port isolation: [34f3d90f](https://github.com/infocyph/Runwire/commit/34f3d90f0f691c817ff8527415b00990ca248444)
+- isolated H1 sweep: [26505a5b](https://github.com/infocyph/Runwire/commit/26505a5b445e21550ae0cc9ec97922111b8f7db0)
+- GitHub-worker qualification workflow: [c4851c89](https://github.com/infocyph/Runwire/commit/c4851c896c4d343b91fc7fe568b1bee6b4c3beda)
+
+**New GitHub-runner instrumentation:** isolated-physical-core real native H1 capacity diagnostics on PHP 8.4/8.5, hosted-path cold/warm request phases, actual outbound connections and pooling, off-loop executor metrics and H1 plaintext/TLS syscall traces. Generated artifacts distinguish 12-second diagnostic phases from release-duration measurements. Success in these short-lived probes does not establish load-generator headroom, H2/H3/WebSocket hot-path release profiles or 2.1.2-vs-3.0 regression certification.
+
+**C4 mandatory gates:** U15.01–U15.08 require genuine task-specific protocol and resource qualification; U15.09 requires immutable 2.1.2-vs-3.0 five paired 180-second measurements with strict correctness, CV, p99, RSS and RPS budgets; U15.10 requires a full 1800-second whole-process-tree and internal GC/OPcache/FD soak. U16.02/U16.16 require externally hosted Read the Docs preview/search/versioning and U16.12 must finish the final migration behavioral audit. The release-certification GitHub workflow remains opt-in and fail-closed at final aggregation while tasks are open.
+
+**No acceptance inflation:** 147/169 accepted (87.0%), 22 OPEN; C4 0/13 ACTIVE; C5 0/9 QUEUED. Collect successful immutable workflow URLs and artifacts before changing these counters. Synchronize all three planning files and PR whenever acceptance is proven.
 ## W196 — Runwire 3.0 exact-head QA and C4 tracker reconciliation (2026-10-27)
 
 **Verified immutable source:** [`8565d415`](https://github.com/infocyph/Runwire/commit/8565d4157f6ab62ad5bf8b400a530eea6296e6e8). All **ten** expected Runwire workflow checks reached **SUCCESS** on that exact commit, including [Security & Standards #40501019287](https://github.com/infocyph/Runwire/actions/runs/40501019287), [Benchmarks #40501018864](https://github.com/infocyph/Runwire/actions/runs/40501018864), [HTTP/2 independent #40501018745](https://github.com/infocyph/Runwire/actions/runs/40501018745), [Real Hosted Runtime Acceptance #40501018725](https://github.com/infocyph/Runwire/actions/runs/40501018725), [Portable Native #40501018912](https://github.com/infocyph/Runwire/actions/runs/40501018912), [Swoole/OpenSwoole #40501018769](https://github.com/infocyph/Runwire/actions/runs/40501018769), [C3 native PHP 8.4/8.5 #40501018715](https://github.com/infocyph/Runwire/actions/runs/40501018715), [Release Candidate #40501018741](https://github.com/infocyph/Runwire/actions/runs/40501018741), [Source Audit #40501018770](https://github.com/infocyph/Runwire/actions/runs/40501018770), and [strict Sphinx documentation #40501018773](https://github.com/infocyph/Runwire/actions/runs/40501018773). The earlier W194/W195 *QA pending* notes are archived checkpoints, superseded by this successful exact-source matrix.
