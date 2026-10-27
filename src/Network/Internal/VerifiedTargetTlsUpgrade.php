@@ -51,7 +51,13 @@ final class VerifiedTargetTlsUpgrade
                 $stream,
                 $policy,
                 function (?string $alpn) use (
-                    $loop, $stream, $policy, $limits, $tcpTransport, $tcpNoDelayOverride, $notify,
+                    $loop,
+                    $stream,
+                    $policy,
+                    $limits,
+                    $tcpTransport,
+                    $tcpNoDelayOverride,
+                    $notify,
                 ): void {
                     self::verified($loop, $stream, $policy, $limits, $tcpTransport, $tcpNoDelayOverride, $notify, $alpn);
                 },

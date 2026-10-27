@@ -502,6 +502,7 @@ final class Connection
     {
         VerifiedTargetTlsUpgrade::assertAllowed($this, $this->stream);
 
+        /** @var resource $stream */
         $stream = $this->stream;
         $this->stream = null;
         $this->finalize(CloseReason::LOCAL_GRACEFUL);
@@ -516,7 +517,7 @@ final class Connection
         );
     }
 
-        private static function nowNanoseconds(): int
+    private static function nowNanoseconds(): int
     {
         $now = hrtime(true);
 
