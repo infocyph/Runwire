@@ -130,6 +130,10 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
+## W155 — C3 process-fork drain-observer hardening (2026-10-27; QA pending)
+
+[`c54098c`](https://github.com/infocyph/Runwire/commit/c54098c1dc31cccbf996e614b1412c06338d61df) extends the executor PID ownership guard to `onDrained` subscriptions (not just submit/cancel/close); [`080fd22`](https://github.com/infocyph/Runwire/commit/080fd2244150196d4d7896932b7cd15541ad9b13) extends the live `pcntl_fork` regression to four rejected child-side operations, then validates parent-side work remains functional. This strengthens **partial U12.02**. Full listener/pool/QUIC fork-safety proof, exact-source native/PHPForge QA, and whole C3 completion remain open. **No change** to 140/169 QA-accepted, 29 open, C3 2/9.
+
 ## W154 — C3 U12.02 cross-fork executor ownership guard (2026-10-27; QA pending)
 
 [`defac448`](https://github.com/infocyph/Runwire/commit/defac4483cfb38b5f5be6151b2645e65ddb6cd6f) binds process-backed executor submit/cancel/close to the creating PID, refusing inherited child use or child-side termination of a parent's worker process. [`9b516b9`](https://github.com/infocyph/Runwire/commit/9b516b9b4df4bef455e0fb7b9fad293e8406deee) adds an actual `pcntl_fork` regression checking child-side refusal and continued correct parent executor work. This addresses only **one U12.02 resource class**: listener, outbound pool, native QUIC, loop reactor ownership and complete supervisor fork-cleanup proof still require implementation/real-peer acceptance. **U12.02 remains OPEN; U12.06 remains OPEN; U11.03 remains QA pending.** No new acceptance beyond 140/169 (82.8%), 29 OPEN, C3 2/9. Full exact-head PHPForge/interop QA is mandatory.
