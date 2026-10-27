@@ -7,6 +7,7 @@ use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
+use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
 use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
@@ -29,6 +30,7 @@ function runwireAuthenticatedProxyInterop(
     string $targetHost = '127.0.0.1',
     bool $remoteDns = false,
     bool $rejectMethod = false,
+    ?Closure $onTunnel = null,
 ): array
 {
     $dir = sys_get_temp_dir() . '/runwire-proxy-tls-' . bin2hex(random_bytes(8));
@@ -126,6 +128,7 @@ function runwireAuthenticatedProxyInterop(
             'tcp://' . $listener->address(),
             static function (?Connection $ready, ?Throwable $error) use (
                 &$client, &$verified, &$failure, &$completed, $loop, $protocol, $expectedProxy, $targetHost, $remoteDns,
+                $onTunnel,
             ): void {
                 if ($error !== null || $ready === null) {
                     $failure = $error ?? new RuntimeException('Authenticated proxy TLS dial failed.');
@@ -136,12 +139,15 @@ function runwireAuthenticatedProxyInterop(
                 $client = $ready;
                 $verified = \Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers::peerName($ready);
                 $done = static function (?Connection $tunneled, ?Throwable $failureReason) use (
-                    &$failure, &$completed, $loop,
+                    &$failure, &$completed, $loop, $onTunnel,
                 ): void {
                     ++$completed;
                     $failure = $failureReason;
                     if ($failureReason === null) {
                         expect($tunneled)->not->toBeNull();
+                        if ($tunneled !== null) {
+                            $onTunnel?->__invoke($tunneled);
+                        }
                     }
                     $loop->stop();
                 };
@@ -267,4 +273,28 @@ it('rejects mismatched SOCKS5 verified TLS proxy identity before any request byt
         ->and($result['verified'])->toBe('localhost')
         ->and($result['received'])->toBe('')
         ->and($result['completed'])->toBe(0);
+});
+
+it('closes a real verified HTTPS CONNECT proxy when nested origin TLS is unavailable', function (): void {
+    $nestedState = null;
+    $nestedCompleted = 0;
+    $result = runwireAuthenticatedProxyInterop(
+        'http',
+        onTunnel: static function (Connection $proxy) use (&$nestedState, &$nestedCompleted): void {
+            expect(fn() => $proxy->upgradeToVerifiedTls(
+                new TlsClientOptions('origin.example'),
+                static function () use (&$nestedCompleted): void {
+                    ++$nestedCompleted;
+                },
+            ))->toThrow(LogicException::class, 'TLS-over-TLS proxy nesting is unavailable');
+            $nestedState = $proxy->state();
+        },
+    );
+
+    expect($result['error'])->toBeNull()
+        ->and($result['verified'])->toBe('localhost')
+        ->and($result['completed'])->toBe(1)
+        ->and($result['received'])->toContain('CONNECT 127.0.0.1:443 HTTP/1.1')
+        ->and($nestedState)->toBe(ConnectionState::CLOSED)
+        ->and($nestedCompleted)->toBe(0);
 });
