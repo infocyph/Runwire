@@ -4,6 +4,17 @@
 PR #9, Sphinx-native reStructuredText public documentation only.
 No Foundation/Infbyte/Core/Cells edits, merge, tag or release.
 
+## W192 — C4 matched-pair handbook strict Sphinx follow-up (2026-10-27; exact-head QA pending)
+
+The [Sphinx #40499360022](https://github.com/infocyph/Runwire/actions/runs/40499360022)
+check on W191 found a single under-length RST subsection underline in the
+new documented matched 180-second release benchmark instructions.
+Correct the title underline without changing any measured protocol,
+release baseline or acceptance gate. Preserve C4 **0/13**, overall
+**147/169**, with independent hosted Read the Docs and U15 certification
+still outstanding. The next exact-source Sphinx and PHPForge CI must verify
+this correction.
+
 ## W191 — Strict Sphinx handbook proof and executable performance baseline (2026-10-27)
 
 **[Sphinx #40499078612](https://github.com/infocyph/Runwire/actions/runs/40499078612)

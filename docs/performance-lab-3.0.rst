@@ -115,7 +115,7 @@ Five paired 180-second baseline comparisons
 --------------------------------------------
 
 Repository matched-pair runner
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The repository already provides a guarded end-to-end comparator:
 ``benchmarks/matched_release_certification.sh``. It expects

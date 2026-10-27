@@ -4,6 +4,17 @@
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
 **Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 13/16**. **147/169 accepted tasks, 22 open across 18 batches** (87.0%). C3 complete at 9/9; C4 is next, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
+## W192 — C4 matched-pair handbook strict Sphinx follow-up (2026-10-27; exact-head QA pending)
+
+The [Sphinx #40499360022](https://github.com/infocyph/Runwire/actions/runs/40499360022)
+check on W191 found a single under-length RST subsection underline in the
+new documented matched 180-second release benchmark instructions.
+Correct the title underline without changing any measured protocol,
+release baseline or acceptance gate. Preserve C4 **0/13**, overall
+**147/169**, with independent hosted Read the Docs and U15 certification
+still outstanding. The next exact-source Sphinx and PHPForge CI must verify
+this correction.
+
 ## W191 — Twenty-chapter public documentation Sphinx acceptance (2026-10-27; C4 source complete, U15/hosted open)
 
 The expanded [20-chapter Runwire 3.0 manual](../index.rst) now passed
