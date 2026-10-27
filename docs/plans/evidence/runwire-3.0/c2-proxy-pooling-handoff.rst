@@ -1,7 +1,7 @@
 C2 — Proxy, pooling and relay: scoped handoff (Runwire 3.0)
 =============================================================
 
-Status: QA checkpoint, acceptance requires the exact-head nine-workflow gate.
+Status: C2 QA-accepted 5/5 in explicitly supported Runwire 3.0 scope.
 This file is internal engineering handoff evidence, not a release certificate.
 
 Scope
@@ -58,16 +58,27 @@ Acceptance must be based on all nine PR workflows passing on one immutable
 source. For U10.03, U10.04, U10.05 and U10.09 immutable links remain on
 their checklist rows. The implementation checkpoint before the C2
 plan freeze was commit 7d71b589acfb9e2fa6b88c6513e08dd22c1fad2c.
-Its Security & Standards, Source Audit, Sphinx, H2, RC, Portable
-Native, Hosted and Swoole workflows passed; the adaptive benchmark
-was still running when this note was drafted. New exact-source checks
-must be reverified before promoting C2.
+All nine routine PR workflows GREEN at that immutable implementation SHA:
+- Security: https://github.com/infocyph/Runwire/actions/runs/40455457270
+- Benchmarks: https://github.com/infocyph/Runwire/actions/runs/40455456942
+- Source Audit: https://github.com/infocyph/Runwire/actions/runs/40455456949
+- Sphinx: https://github.com/infocyph/Runwire/actions/runs/40455456992
+- Independent HTTP2: https://github.com/infocyph/Runwire/actions/runs/40455456939
+- Release Candidate: https://github.com/infocyph/Runwire/actions/runs/40455456938
+- Portable Native: https://github.com/infocyph/Runwire/actions/runs/40455456940
+- Hosted: https://github.com/infocyph/Runwire/actions/runs/40455456972
+- Swoole: https://github.com/infocyph/Runwire/actions/runs/40455456937
+
+Adaptive H1/H2 Benchmarks passed too; the implementation source has
+complete nine-green QA. Subsequent tracker and handoff document commits
+require independent exact-source QA before claiming the final branch
+tip itself is green.
 
 Handoff
 -------
 
-After all exact-source QA passes, update both canonical trackers as
-U10 9/9, C2 5/5, 139/169 accepted with 30 open, then proceed to C3.
+Both canonical trackers now record U10 9/9, C2 5/5, 139/169 accepted
+with 30 open. Proceed to C3 once the handoff head passes routine QA.
 Do not silently alter 2.1.2-compatible public behavior, remove ordinary
 HTTP/3 or native QUIC protections, count WebTransport tasks, or
 merge/tag/release. The major/minor decision remains pending the final

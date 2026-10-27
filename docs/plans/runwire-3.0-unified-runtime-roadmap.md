@@ -2,7 +2,11 @@
 
 **Decision (2026-10-23):** The next planned stable release is **3.0.0**, compared directly to published **2.1.2** at commit 7e9bf20ad0737a187dfed77b723791b141b36378. **Do not release 2.2.0.** Preserve the source work and evidence produced under its unfinished development plan.
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
-**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 8/9; U11 9/10; U12 3/9; U13 9/9; U14 7/8; U16 13/16**. **138/169 accepted tasks, 31 open across 18 batches** (81.7%). Next accepted milestone: 140/169 (82.8%), requiring 2 independently accepted tasks. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+**Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 9/10; U12 3/9; U13 9/9; U14 7/8; U16 13/16**. **139/169 accepted tasks, 30 open across 18 batches** (82.2%). Next milestone 140/169 (82.8%) needs one accepted task. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
+
+## W150 — C2 QA ACCEPTED and fully handed off (2026-10-27)
+
+**C2 DONE 5/5 in explicitly supported Runwire 3.0 scope** (U10.03, U10.04, U10.05, U10.06, U10.09); U10 now **9/9**. Exact source [`7d71b589`](https://github.com/infocyph/Runwire/commit/7d71b589acfb9e2fa6b88c6513e08dd22c1fad2c) passed **all nine** PR QA workflows: [Security #40455457270](https://github.com/infocyph/Runwire/actions/runs/40455457270); [Benchmarks #40455456942](https://github.com/infocyph/Runwire/actions/runs/40455456942); [Source Audit #40455456949](https://github.com/infocyph/Runwire/actions/runs/40455456949); [Sphinx #40455456992](https://github.com/infocyph/Runwire/actions/runs/40455456992); [Independent HTTP2 #40455456939](https://github.com/infocyph/Runwire/actions/runs/40455456939); [Release Candidate #40455456938](https://github.com/infocyph/Runwire/actions/runs/40455456938); [Portable Native #40455456940](https://github.com/infocyph/Runwire/actions/runs/40455456940); [Hosted #40455456972](https://github.com/infocyph/Runwire/actions/runs/40455456972); [Swoole #40455456937](https://github.com/infocyph/Runwire/actions/runs/40455456937). U10.06 independently proves original-target TLS certificate/SNI/ALPN and application data over a cleartext CONNECT tunnel, wrong-host refusal, and safe termination of an encrypted HTTPS proxy socket on attempted TLS-within-TLS. **Successful HTTPS-proxy-to-HTTPS-origin nesting is unsupported/excluded, not completed.** All WebTransport capabilities are removed; native QUIC refusal remains independently useful to non-WebTransport consumers. Final C2 handoff: [c2-proxy-pooling-handoff.rst](evidence/runwire-3.0/c2-proxy-pooling-handoff.rst). **Canonical accepted: 139/169 (82.2%), 30 OPEN; closure groups C1 11/11, C2 5/5, C3 1/9, C4 0/13, C5 0/9.** Handoff documentation/source-head CI must also be green; U16/U17 final release certification is still pending. Retain the planned major version until the 2.1.2 backward-behavior audit is complete; no tag/merge/release.
 
 ## W149 — C2 scope freeze, WebTransport removal audit and QA handoff (2026-10-27)
 
@@ -126,16 +130,16 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 
 ## Five-batch 3.0 closure execution map
 
-**Current canonical QA state: 138/169 accepted (81.7%), 31 OPEN.** C1 DONE (11/11), C2 ACTIVE (4/5, U10.06 OPEN), C3/C4 paused and C5 queued. The revised 3.0 program excludes six WebTransport task IDs. Archived W history and 175-task milestones below are superseded.
+**Current canonical QA state: 139/169 accepted (82.2%), 30 OPEN. C1 DONE (11/11), C2 DONE (5/5 supported scope), C3 NEXT (1/9), C4/C5 not complete. No WebTransport; HTTPS-proxy nested TLS is excluded and fails closed.
 
 | Group | Original C1–C5 assigned U tasks | Open | Status |
 | --- | --- | ---: | --- |
 | C1 — Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U08.08, U08.05, U07.11, U07.08, U08.09 | 0 | COMPLETE (11/11 accepted) |
-| C2 — Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 1 | ACTIVE — U10.06 open (4/5 accepted) |
+| C2 — Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 0 | DONE — 5/5 supported scope QA accepted |
 | C3 — Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 8 | PAUSED (1/9 accepted) |
 | C4 — Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.02, U16.12, U16.16 | 13 | PAUSED (0/13 accepted) |
 | C5 — Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 9 | QUEUED |
-| **TOTAL** | **47 scoped closure tasks; 31 now OPEN** | **31** | **C1 complete; C2 active** |
+| **TOTAL** | **47 scoped closure tasks; 30 now OPEN** | **30** | **C1/C2 complete; C3 next** |
 
 **Critical-path and CI invariant:** C1 transport/H3 → C2 scoped network services → C3 live supervisor/filesystem/security → C4 3.0 benchmarks/hosted RST → C5 frozen final certification. Repair crosscutting CI defects during the currently active group. Source-pinned opt-in evidence jobs may run with tasks still OPEN, but final release-ready aggregate continues to require **zero open tasks** plus every certification result PASS. Routine workflow GREEN does not prove conditional TLS/frozen certification. Synchronize this roadmap, detailed plan, PR body, CI links and checkboxes with each rolling group.
 ## Delivery program and initial tracker
@@ -152,7 +156,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U07 | HTTP/1.1, HTTP/2 and HTTP/3 clients | 0 | 11/11 |
 | U08 | Existing H1/H2/H3 server consolidation | 0 | 10/10 |
 | U09 | WebSocket client/server | 0 | 4/4 |
-| U10 | Connection pooling, proxy negotiation and stream relay | 1 | 8/9 |
+| U10 | Connection pooling, proxy negotiation and stream relay | 0 | 9/9 |
 | U11 | Truly asynchronous filesystem and file streaming | 1 | 9/10 |
 | U12 | Native supervisor and adaptive worker autoscaling | 6 | 3/9 |
 | U13 | Real host and optional extension compatibility | 0 | 9/9 |
@@ -160,7 +164,7 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | U15 | Performance attribution, regressions and soak | 10 | 0/10 |
 | U16 | Read the Docs-compatible Sphinx documentation and full feature catalog | 3 | 13/16 |
 | U17 | Final certification, risk signoff and maintainer handoff | 9 | 0/9 |
-| **TOTAL** | **Full unified-runtime release program** | **31** | **138/169 (81.7%)** |
+| **TOTAL** | **Full unified-runtime release program** | **30** | **139/169 (82.2%)** |
 
 **Work order:** U00 source/API baseline and migration → U01 event loop/executor → U02 established transport → U03 asynchronous dialer/DNS → U04 TLS → U05 UDP/QUIC → U06 scopes/concurrency → U07/U08 clients and server protocols → U09 WebSocket → U10 pooling/proxy/relay → U11 async filesystem → U12 native autoscaling → U13 hosts → U14 security → U15 performance → U16 Sphinx/Read the Docs → U17 immutable release certification. Documentation must be written alongside implementation; U16 is the full documentation acceptance gate.
 
