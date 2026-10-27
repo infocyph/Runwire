@@ -39,7 +39,8 @@ it('rejects inherited executor use and close in a fork without disrupting parent
         }
         fwrite($writer, (string) $rejections);
         fclose($writer);
-        exit($rejections === 4 ? 0 : 1);
+        pcntl_exec(PHP_BINARY, ['-r', ($rejections === 4) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+        throw new RuntimeException('Unable to replace forked QA child process.');
     }
 
     fclose($writer);

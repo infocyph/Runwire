@@ -29,7 +29,8 @@ it('does not let a forked worker inherit ownership of a native QUIC session', fu
         }
         fwrite($writer, (string) $rejected);
         fclose($writer);
-        exit($rejected === 2 ? 0 : 1);
+        pcntl_exec(PHP_BINARY, ['-r', ($rejected === 2) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+        throw new RuntimeException('Unable to replace forked QA child process.');
     }
 
     fclose($writer);

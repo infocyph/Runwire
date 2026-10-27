@@ -37,7 +37,8 @@ it('rejects inherited outbound dial state but keeps the original process owner v
         }
         fwrite($writer, (string) $rejected);
         fclose($writer);
-        exit($rejected === 6 ? 0 : 1);
+        pcntl_exec(PHP_BINARY, ['-r', ($rejected === 6) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+        throw new RuntimeException('Unable to replace forked QA child process.');
     }
 
     fclose($writer);

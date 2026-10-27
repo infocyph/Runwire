@@ -19,7 +19,7 @@ use Infocyph\Runwire\Network\TcpListener;
 
 if (!function_exists('pcntl_fork') || !function_exists('pcntl_waitpid')) {
     fwrite(STDERR, "Native listener fork smoke requires pcntl.\n");
-    exit(2);
+    throw new RuntimeException('Native process extensions are required for this fixture.');
 }
 
 $listener = TcpListener::bind('127.0.0.1:0');
@@ -32,7 +32,8 @@ if ($child === 0) {
     $listener->start($loop, static function (): void {});
     $healthy = $listener->isAccepting();
     $listener->close();
-    exit($healthy && $loop->diagnostics()->readWatchers === 0 ? 0 : 1);
+    pcntl_exec(PHP_BINARY, ['-r', ($healthy && $loop->diagnostics()->readWatchers === 0) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+    throw new RuntimeException('Unable to replace forked QA child process.');
 }
 pcntl_waitpid($child, $status);
 if (!pcntl_wifexited($status) || pcntl_wexitstatus($status) !== 0) {
@@ -65,7 +66,8 @@ if ($child === 0) {
             ++$rejected;
         }
     }
-    exit($rejected === 6 ? 0 : 1);
+    pcntl_exec(PHP_BINARY, ['-r', ($rejected === 6) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+    throw new RuntimeException('Unable to replace forked QA child process.');
 }
 pcntl_waitpid($child, $status);
 if (!pcntl_wifexited($status) || pcntl_wexitstatus($status) !== 0) {

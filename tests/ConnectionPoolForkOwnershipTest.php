@@ -43,7 +43,8 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
         }
         fwrite($writer, (string) $rejected);
         fclose($writer);
-        exit($rejected === 11 ? 0 : 1);
+        pcntl_exec(PHP_BINARY, ['-r', ($rejected === 11) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+        throw new RuntimeException('Unable to replace forked QA child process.');
     }
 
     fclose($writer);

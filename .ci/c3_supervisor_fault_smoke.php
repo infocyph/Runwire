@@ -22,7 +22,7 @@ use Infocyph\Runwire\Supervisor\WorkerGroup;
 
 if (!function_exists('pcntl_fork') || !function_exists('posix_kill')) {
     fwrite(STDERR, "Native process signals required.\n");
-    exit(2);
+    throw new RuntimeException('Native process extensions are required for this fixture.');
 }
 
 try {
@@ -93,8 +93,8 @@ try {
         ));
     }
 
-    echo "C3 native SIGKILL recovery and bounded crash-loop smoke passed.\n";
+    fwrite(STDOUT, "C3 native SIGKILL recovery and bounded crash-loop smoke passed.\n");
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . "\n");
-    exit(1);
+    throw $error;
 }

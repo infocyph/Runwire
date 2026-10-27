@@ -22,7 +22,8 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
         $listener->close();
         fwrite($writer, $acceptsInChild ? '1' : '0');
         fclose($writer);
-        exit($acceptsInChild ? 0 : 1);
+        pcntl_exec(PHP_BINARY, ['-r', ($acceptsInChild) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+        throw new RuntimeException('Unable to replace forked QA child process.');
     }
 
     fclose($writer);
@@ -61,7 +62,8 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
             } catch (LogicException) {
                 ++$rejected;
             }
-            exit($rejected === 6 ? 0 : 1);
+            pcntl_exec(PHP_BINARY, ['-r', ($rejected === 6) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+            throw new RuntimeException('Unable to replace forked QA child process.');
         }
         pcntl_waitpid($second, $secondStatus);
         expect(pcntl_wifexited($secondStatus))->toBeTrue()

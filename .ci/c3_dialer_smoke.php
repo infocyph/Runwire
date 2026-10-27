@@ -46,7 +46,8 @@ if ($pid === 0) {
     }
     fwrite($writer, (string) $rejected);
     fclose($writer);
-    exit($rejected === 4 ? 0 : 1);
+    pcntl_exec(PHP_BINARY, ['-r', ($rejected === 4) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
+    throw new RuntimeException('Unable to replace forked QA child process.');
 }
 fclose($writer);
 $childResult = stream_get_contents($reader);
@@ -77,7 +78,7 @@ try {
         || $diag->readWatchers !== 0 || $diag->writeWatchers !== 0 || $diag->timersActive !== 0) {
         throw new RuntimeException('Owned pending dials did not cancel exactly once and retire watchers.');
     }
-    echo "C3 fork-safe outbound dial and worker-owned pending cancellation passed.\n";
+    fwrite(STDOUT, "C3 fork-safe outbound dial and worker-owned pending cancellation passed.\n");
 } finally {
     fclose($server);
     $context->close();
