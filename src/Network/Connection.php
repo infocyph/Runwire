@@ -16,11 +16,11 @@ use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionCloseObserverTrait;
 use Infocyph\Runwire\Network\Internal\ConnectionLifecycleOperationsTrait;
 use Infocyph\Runwire\Network\Internal\ConnectionScopeOwnership;
-use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\ClientTlsHandshake;
-use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
+use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
@@ -225,70 +225,6 @@ final class Connection
         }
         if ($this->peerReadClosed) {
             $this->invoke($this->eofCallback);
-        }
-    }
-
-    /**
-     * Promote a completed cleartext CONNECT/SOCKS tunnel to end-to-end verified
-     * TLS for its original destination, without a blocking handshake.
-     *
-     * This deliberately refuses TLS-on-TLS proxy sockets: PHP stream crypto
-     * cannot provide an independently verified nested second TLS context.
-     *
-     * @param callable(?self, ?Throwable):void $completion
-     */
-    public function upgradeToVerifiedTls(TlsClientOptions $policy, callable $completion): void
-    {
-        if ($this->encrypted) {
-            throw new LogicException('TLS-over-TLS proxy nesting is unavailable; original-target verification cannot be guaranteed.');
-        }
-        if (!$this->isPoolIdleSafe() || !is_resource($this->stream)) {
-            throw new LogicException('TLS upgrade requires an unowned, quiescent cleartext tunnel.');
-        }
-
-        $stream = $this->stream;
-        $this->stream = null;
-        $this->finalize(CloseReason::LOCAL_GRACEFUL);
-        $notify = Closure::fromCallable($completion);
-
-        try {
-            ClientTlsHandshake::start(
-                $this->loop,
-                $stream,
-                $policy,
-                function (?string $alpn) use ($stream, $policy, $notify): void {
-                    try {
-                        $encrypted = ConnectionFactory::accepted(
-                            $this->loop,
-                            $stream,
-                            $this->limits,
-                            negotiatedProtocol: $alpn,
-                            encrypted: true,
-                            tcpTransport: $this->tcpTransport,
-                            tcpNoDelayOverride: $this->tcpNoDelayOverride,
-                            strictTlsPeerEof: true,
-                        );
-                        VerifiedOutboundTlsPeers::register($encrypted, $policy->peerName);
-                        $notify($encrypted, null);
-                    } catch (Throwable $error) {
-                        if (is_resource($stream)) {
-                            fclose($stream);
-                        }
-                        $notify(null, $error);
-                    }
-                },
-                function (Throwable $error) use ($stream, $notify): void {
-                    if (is_resource($stream)) {
-                        fclose($stream);
-                    }
-                    $notify(null, $error);
-                },
-            );
-        } catch (Throwable $error) {
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-            $notify(null, $error);
         }
     }
 
@@ -557,6 +493,70 @@ final class Connection
     public function tlsPeerFingerprint(): ?string
     {
         return $this->tlsPeerFingerprint;
+    }
+
+    /**
+     * Promote a completed cleartext CONNECT/SOCKS tunnel to end-to-end verified
+     * TLS for its original destination, without a blocking handshake.
+     *
+     * This deliberately refuses TLS-on-TLS proxy sockets: PHP stream crypto
+     * cannot provide an independently verified nested second TLS context.
+     *
+     * @param callable(?self, ?Throwable):void $completion
+     */
+    public function upgradeToVerifiedTls(TlsClientOptions $policy, callable $completion): void
+    {
+        if ($this->encrypted) {
+            throw new LogicException('TLS-over-TLS proxy nesting is unavailable; original-target verification cannot be guaranteed.');
+        }
+        if (!$this->isPoolIdleSafe() || !is_resource($this->stream)) {
+            throw new LogicException('TLS upgrade requires an unowned, quiescent cleartext tunnel.');
+        }
+
+        $stream = $this->stream;
+        $this->stream = null;
+        $this->finalize(CloseReason::LOCAL_GRACEFUL);
+        $notify = Closure::fromCallable($completion);
+
+        try {
+            ClientTlsHandshake::start(
+                $this->loop,
+                $stream,
+                $policy,
+                function (?string $alpn) use ($stream, $policy, $notify): void {
+                    try {
+                        $encrypted = ConnectionFactory::accepted(
+                            $this->loop,
+                            $stream,
+                            $this->limits,
+                            negotiatedProtocol: $alpn,
+                            encrypted: true,
+                            tcpTransport: $this->tcpTransport,
+                            tcpNoDelayOverride: $this->tcpNoDelayOverride,
+                            strictTlsPeerEof: true,
+                        );
+                        VerifiedOutboundTlsPeers::register($encrypted, $policy->peerName);
+                        $notify($encrypted, null);
+                    } catch (Throwable $error) {
+                        if (is_resource($stream)) {
+                            fclose($stream);
+                        }
+                        $notify(null, $error);
+                    }
+                },
+                function (Throwable $error) use ($stream, $notify): void {
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
+                    $notify(null, $error);
+                },
+            );
+        } catch (Throwable $error) {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+            $notify(null, $error);
+        }
     }
 
     private static function nowNanoseconds(): int
