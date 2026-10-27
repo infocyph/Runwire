@@ -27,6 +27,8 @@ final class QuicClientSession
 {
     private readonly ProcessExecutor $executor;
 
+    private readonly int $ownerPid;
+
     private int $epoch = 0;
 
     private int $nextRequestId = 1;
@@ -37,11 +39,18 @@ final class QuicClientSession
     public function __construct(LoopInterface $loop, int $maxQueuedOperations = 64)
     {
         $this->executor = new ProcessExecutor($loop, 1, $maxQueuedOperations);
+        $pid = getmypid();
+        if (!is_int($pid)) {
+            throw new RuntimeException('Unable to establish QUIC session process ownership.');
+        }
+        $this->ownerPid = $pid;
     }
 
     /** Whether this session still has a valid dedicated native worker. */
     public function active(): bool
     {
+        $this->assertProcessOwner();
+
         return $this->state === 'ready';
     }
 
@@ -59,6 +68,7 @@ final class QuicClientSession
         ?CancellationToken $token = null,
         ?RequestDeadline $deadline = null,
     ): int {
+        $this->assertProcessOwner();
         if ($this->state !== 'ready') {
             throw new LogicException('QUIC worker session must be connected and alive.');
         }
@@ -103,6 +113,7 @@ final class QuicClientSession
         ?CancellationToken $token = null,
         ?RequestDeadline $deadline = null,
     ): int {
+        $this->assertProcessOwner();
         if ($this->state !== 'new') {
             throw new LogicException('QUIC session has already been opened or closed.');
         }
@@ -154,9 +165,17 @@ final class QuicClientSession
         }
     }
 
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('QUIC sessions cannot cross a fork; connect in the owning child process.');
+        }
+    }
+
     /** Abort pending operations and destroy worker-local QUIC resources. */
     public function dispose(): void
     {
+        $this->assertProcessOwner();
         if ($this->state === 'closed') {
             return;
         }
