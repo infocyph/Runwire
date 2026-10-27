@@ -204,6 +204,172 @@ That is a scoped behavioral regression only. Changed exception
 ordering, process shutdown/reload, TLS/QUIC/H2/H3 handling, all
 intentional API breaks and maintained callback contracts still need
 the full frozen-candidate migration review before U16.12 closes.
+Complete public implementation migration ledger (2.1.2 to 3.0)
+---------------------------------------------------------------
+
+In addition to the old/new HTTP-wire regression, Source Audit exports
+the *current* property-aware manifest and compares all public declarations,
+public methods, public properties, constants and enum cases against the
+published 2.1.2 revision. The canonical machine-reviewed file is
+``docs/plans/evidence/runwire-3.0/c4-migration-behavior-ledger.json``.
+Each changed implementation must have an explicit behavioral description,
+application migration instruction, real executable regression filename,
+and release-review flag; ``tools/c4-migration-behavior-audit.php``
+requires set equality against the source-generated change list. New
+unreviewed changes fail the independent GitHub Source Audit.
+
+At the reviewed candidate snapshot **32 public implementation source
+hashes have changed** (as distinct from the 26 at the older W97 snapshot).
+These are *not* automatically breaking declaration changes. The source
+and runtime contracts below govern applications upgrading the published
+package, especially applications using custom host adapters.
+
+.. list-table:: Migration groups represented by all 32 changed public implementations
+   :header-rows: 1
+   :widths: 20 44 36
+
+   * - Group
+     - Covered changed implementations
+     - Executable review and disposition
+   * - Structured coroutines
+     - CoroutineScope, FutureState, AsyncConnection
+     - CoroutineHardeningTest, BatchLCoroutineSchedulerTest,
+       AsyncConnectionTest: closed-scope rejection, exactly-once completion
+       and worker-owned connection cleanup
+   * - HTTP/2
+     - Http2Connection, ControlFrameBudget, ResponseScheduler
+     - Http2ConnectionTest, Http2ControlFrameBudgetTest,
+       Http2AdaptiveResponseStrategyTest: accepted streams drain after
+       GOAWAY; scheduling credit callback remains optional
+   * - Native HTTP/3
+     - PhpQuicHttp3Connection, PhpQuicHttp3Worker, PhpQuicTransport
+     - PhpQuicHttp3ConnectionTest, PhpQuicHttp3WorkerTest,
+       QuicWorkerSessionTest: extension/capability, bounded streams
+       and optional connection failure observer
+   * - Event loop
+     - SelectLoop
+     - SelectLoopTest: bounded watcher/timer lifetime and select fallback
+   * - Connections/transport
+     - Connection, DatagramListener, CloseReason, ConnectionState,
+       ByteQueue, ConnectionCallbackOwnership, TcpSocketTuner,
+       TlsHandshake, TcpListener, TlsOptions, UnixListener
+     - ConnectionTest, ConnectionStateOwnershipTest, ByteQueueReadTest,
+       ConnectionScopeOwnershipTest, ConnectionSocketPolicyTest,
+       TlsHandshakeReadinessTest, TcpListenerForkOwnershipTest,
+       TlsListenerTest, UnixListenerTest, DatagramListenerTest:
+       strict EOF, origin verification, resource ownership, budgets
+   * - Hosted runtime
+     - HostRequestFactory
+     - HostRuntimeTest and real hosted worker workflows:
+       host request ownership, no duplicate native supervisor
+   * - Supervisor/process
+     - ChildReaper, ChildSet, PeriodicTaskRegistry,
+       ReadinessChannel, Supervisor, WorkerContext, WorkerGroup
+     - SupervisorLifecycleTest, SupervisorRecycleTest,
+       SupervisorLiveAutoscaleTest, NativeWorkerLifecycleTest,
+       WorkerContextTest, WorkerRecyclePolicyTest: readiness,
+       generation isolation, scale transitions and orderly drain
+   * - WebSocket
+     - WebSocketFrameParser, WebSocketWireCodec, WebSocketSession
+     - WebSocketFrameParserTest, WebSocketBidirectionalWireTest,
+       WebSocketClientRoleTest: role-specific mask and close behavior
+
+Before/after: existing public connection methods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Before, published 2.1.2:** Calling the existing connection's
+``write()`` and ``onClose()`` methods remains supported:
+
+.. code-block:: php
+
+   <?php
+   $connection->onClose($onClosed);
+   $result = $connection->write($payload);
+
+**After, unreleased 3.0:** The identical application call shape is
+retained, although the two method implementations now come from
+internal composing traits. There is **no** need to rewrite callers
+merely because a declaration-only file scanner reports these as
+removed. Preserve exact byte limits and callback ownership.
+
+Before/after: an explicitly asynchronous file read
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Before, published 2.1.2:** Ordinary PHP file reads are blocking.
+Applications must not assume they become nonblocking inside a
+coroutine:
+
+.. code-block:: php
+
+   <?php
+   $contents = file_get_contents($path);
+
+**After, unreleased 3.0 (opt-in):** An application that needs
+nonblocking reactor progress can own a bounded worker executor
+and file facade, and close the executor after all callbacks drain:
+
+.. code-block:: php
+
+   <?php
+   use Infocyph\Runwire\Executor\ProcessExecutor;
+   use Infocyph\Runwire\Filesystem\AsyncFileSystem;
+   use Infocyph\Runwire\Loop\SelectLoop;
+
+   $loop = new SelectLoop();
+   $executor = new ProcessExecutor($loop, 1, 8);
+   $files = new AsyncFileSystem($executor);
+
+   $files->read($path, 4096, static function (
+       string $bytes,
+       ?Throwable $error
+   ) use ($loop): void {
+       if ($error !== null) {
+           // Route the failure to your application error policy.
+       } else {
+           // Consume a bounded immutable chunk.
+       }
+       $loop->stop();
+   });
+
+   $loop->run();
+   $executor->close();
+
+This uses bounded **PHP subprocesses**, not qualified kernel AIO,
+and new public file/loop classes do not exist in the published
+2.1.2 package. Do not replace synchronous file operations
+unconditionally without evaluating cancellation and side effects.
+
+Before/after: transport and native host capability decisions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Before:** A 2.1.2 application continues to own its established
+server entrypoint:
+
+.. code-block:: php
+
+   <?php
+   use Infocyph\Runwire\Runtime;
+   use Infocyph\Runwire\Server;
+
+   Runtime::create()->listen(Server::http('127.0.0.1:8080', $handler))->run();
+
+**After:** The server entrypoint remains the same. For 3.0-only
+native outbound HTTP/3 you must select the separate QUIC-specific
+client, enable an actually supported native extension, and verify
+the peer; the HTTP/1.1/2 negotiating client cannot silently
+downgrade an H3-only request. FPM, FrankenPHP and RoadRunner are
+host-owned and must **not** start a second prefork supervisor.
+There is no 3.0 WebTransport implementation. A verified TLS
+connection through a cleartext CONNECT proxy remains supported;
+nested TLS through an HTTPS proxy deliberately fails closed.
+Keep 2.1.2 artifacts/configuration for rollback.
+
+The reviewed ledger and source audit **do not** assert blanket
+binary, API-behavior or exception equivalence. Unknown API changes,
+a missing test or an additional modified public symbol invalidate
+the ledger until explicitly dispositioned. Revalidate in C5
+against the frozen release candidate.
+
 Before accepting U16.12
 -----------------------
 
