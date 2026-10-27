@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W152 — C3 U11.03 backend capability proof (2026-10-27; QA pending)
+
+Commits [`62d6717`](https://github.com/infocyph/Runwire/commit/62d6717f34d0e312086395f28fdb2076a3983f19) and [`3a7ee99`](https://github.com/infocyph/Runwire/commit/3a7ee99f5be9d36914b3c7031b7fe290d0386438) add an executable constructor/source capability guard and clarify the native filesystem limitation in RST. The only qualified implementation remains a bounded off-reactor `ProcessExecutor`, never reactor-thread blocking I/O; native event-loop acceleration is not native disk I/O. **U11.03 remains OPEN** until the source-pinned PHP 8.4/8.5 security/functional matrix and all relevant nine routines are green, then accept only the explicitly supported no-unqualified-acceleration scope; never claim kernel async or an unused native extension. Canonical 140/169 QA-accepted, 29 OPEN; C3 2/9. This paragraph and its tracker-only commit must receive their own exact-head QA.
+
 ## W151 — C3 WebSocket hostile-session acceptance (2026-10-27)
 
 **U14.04 accepted on immutable nine-green `3e5b96b`:** the previously committed real hostile-session, parser-fuzz and stalled-peer backpressure tests meet its WebSocket-only acceptance without reintroducing WebTransport. [Security & Standards #40457097152](https://github.com/infocyph/Runwire/actions/runs/40457097152) passed together with the other eight routine workflows at that exact source. C3 **2/9 accepted, 7 OPEN**; overall **140/169 (82.8%), 29 OPEN**. The next scoped task is U11.03; native acceleration must never be claimed without a qualified backend. U12.02/.04/.05/.06/.08/.09 remain open. This is an evidence-only tracker promotion; the present tracker commit requires independent exact-head QA.
