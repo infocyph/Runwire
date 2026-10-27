@@ -13,7 +13,7 @@
 | U17.01 | Published 2.1.2 and unfinished 2.2 crosswalk to every 3.0 feature and exclusion; source-audit-verified 20/20 mapping | ACCEPTED scoped 20/20 crosswalk, 167-task Source Audit #40542104606 |
 | U17.02 | PHP 8.4/8.5 stable/lowest PHPForge, PHPStan/Psalm, PHPCS/Pint/Rector and security QA | OPEN until exact frozen-head all green |
 | U17.03 | Independent H1/H2/H3/QUIC/WS, native portable/fork, real hosted peers and shutdown correctness | OPEN until exact frozen-head matrix |
-| U17.04 | GitHub Actions complete warning-free Sphinx HTML, generated API, 41 indexed/searchable pages and runnable examples with source SHA | OPEN until source-pinned artifact green |
+| U17.04 | GitHub Actions complete warning-free Sphinx HTML, generated API, 41 indexed/searchable pages and runnable examples with source SHA | ACCEPTED: exact Sphinx #40542561935 and 41-page HTML artifact #12751068496 |
 | U17.05 | Standalone Composer archive install on PHP 8.4/8.5, host/optional extension contract | OPEN until exact frozen-head archive proof |
 | U17.06 | Immutable 2.1.2-vs-3.0 five paired 180s comparison and continuous real 1800s whole-process soak | OPEN; short-lived or cancelled runs cannot substitute |
 | U17.07 | Independent fuzz/security/performance/migration risk review with explicit maintainer decision | OPEN; approval not supplied |
