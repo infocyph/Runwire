@@ -6,6 +6,23 @@
 **Canonical tracker:** 147/169 accepted (87.0%); 22 open; 18 U divisions. C1, C2 and C3 are complete (C3 9/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W191 — Twenty-chapter public documentation Sphinx acceptance (2026-10-27; C4 source complete, U15/hosted open)
+
+The expanded [20-chapter Runwire 3.0 manual](../index.rst) now passed
+[strict Sphinx #40499078612](https://github.com/infocyph/Runwire/actions/runs/40499078612)
+on source `e1518c05b2dfd61e1356ae0e33e2f1f6fc6d3da0` with warnings-as-errors; all chapters are indexed,
+with generated source-linked symbols and explicit stable-versus-unreleased
+version boundary. [C4 performance lab](../performance-lab-3.0.rst)
+now links to the existing five-pair 180-second
+`benchmarks/matched_release_certification.sh` with complete
+published-baseline and frozen-candidate worktree, OPcache/CPU-core
+separation, correctness/CV and evidence instructions.
+This Sphinx proof does **not** validate actual
+Read the Docs hosted preview, search/version selector or the complete
+C4 U15 performance runs; those remain separate.
+Canonical **147/169 (87.0%), 22 open, C4 0/13** until exact task
+acceptance and full QA. C5 remains queued.
+
 ## W190 — Expanded C4 documentation laboratory and migration checklists (2026-10-27; QA pending)
 
 The maintainer requested **vast, detailed documentation and C4 completion**.

@@ -4,6 +4,21 @@
 PR #9, Sphinx-native reStructuredText public documentation only.
 No Foundation/Infbyte/Core/Cells edits, merge, tag or release.
 
+## W191 — Strict Sphinx handbook proof and executable performance baseline (2026-10-27)
+
+**[Sphinx #40499078612](https://github.com/infocyph/Runwire/actions/runs/40499078612)
+PASSED** strict native RST warnings-as-errors and generated source-linked
+API navigation on the 20-guide handbook at immutable `e1518c05b2`.
+The performance laboratory now documents the actual built-in
+`benchmarks/matched_release_certification.sh` 2.1.2/3.0
+five-pair 180-second comparator, its separate worktrees, pinned
+baseline SHA, dependency installation, CPU affinity, OPcache,
+success and variance gates, immutable candidate and output artifacts.
+This is a **documented executable workflow**, not an executed 180s
+performance release certification. Full C4 U15, hosted RTD
+preview/version/search and exhaustive migration review remain open.
+**No task acceptance counted: 147/169, C4 0/13**.
+
 ## W190 — Documentation depth and failure-atlas expansion (2026-10-27; QA pending)
 
 Added a further **five fully indexed public RST chapters** (~35.8k source

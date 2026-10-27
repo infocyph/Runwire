@@ -4,6 +4,23 @@
 **Work location:** infocyph/Runwire only. **Stay on the existing plan/runwire-independent-ecosystem-roadmaps branch and draft PR #9.** No new branch or changes to Foundation, Infbyte, Runwire-Core, Runwire-Cells or other repositories.
 **Implementation:** **U00 COMPLETE (10/10), U01 COMPLETE (9/9), U02 COMPLETE (9/9), U03 COMPLETE (10/10); U04 COMPLETE (8/8); U05 COMPLETE (10/10); U06 COMPLETE (8/8); U07 COMPLETE (11/11); U08 COMPLETE (10/10); U09 4/4; U10 9/9; U11 COMPLETE (10/10); U12 COMPLETE (9/9); U13 9/9; U14 8/8; U16 13/16**. **147/169 accepted tasks, 22 open across 18 batches** (87.0%). C3 complete at 9/9; C4 is next, C5 queued. W103 `c56090b50c58` completed QA; U08.04 matched source profile quantified without claiming release-level performance certification. The unified established-stream factory, off-loop DNS and verified outbound TCP/TLS dialing are implemented; full 3.0 transport and QUIC certification remain open. The [detailed 3.0 plan and canonical task tracker](runwire-3.0-unified-runtime-development-plan.md) is the one progress source of truth.
 
+## W191 — Twenty-chapter public documentation Sphinx acceptance (2026-10-27; C4 source complete, U15/hosted open)
+
+The expanded [20-chapter Runwire 3.0 manual](../index.rst) now passed
+[strict Sphinx #40499078612](https://github.com/infocyph/Runwire/actions/runs/40499078612)
+on source `e1518c05b2dfd61e1356ae0e33e2f1f6fc6d3da0` with warnings-as-errors; all chapters are indexed,
+with generated source-linked symbols and explicit stable-versus-unreleased
+version boundary. [C4 performance lab](../performance-lab-3.0.rst)
+now links to the existing five-pair 180-second
+`benchmarks/matched_release_certification.sh` with complete
+published-baseline and frozen-candidate worktree, OPcache/CPU-core
+separation, correctness/CV and evidence instructions.
+This Sphinx proof does **not** validate actual
+Read the Docs hosted preview, search/version selector or the complete
+C4 U15 performance runs; those remain separate.
+Canonical **147/169 (87.0%), 22 open, C4 0/13** until exact task
+acceptance and full QA. C5 remains queued.
+
 ## W190 — Expanded C4 documentation laboratory and migration checklists (2026-10-27; QA pending)
 
 The maintainer requested **vast, detailed documentation and C4 completion**.

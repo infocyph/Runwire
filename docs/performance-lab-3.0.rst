@@ -114,6 +114,44 @@ or U15.10 release proof.
 Five paired 180-second baseline comparisons
 --------------------------------------------
 
+Repository matched-pair runner
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The repository already provides a guarded end-to-end comparator:
+``benchmarks/matched_release_certification.sh``. It expects
+**three** arguments: a complete published 2.1.2 source checkout,
+a complete frozen 3.0 candidate checkout and an output directory.
+Do not pass the same source directory for both versions.
+
+For example, from the Runwire repository root, substitute a reviewed
+immutable 3.0 SHA for ``<candidate-SHA>``:
+
+.. code-block:: console
+
+   git worktree add --detach /tmp/runwire-2.1.2 7e9bf20ad0737a187dfed77b723791b141b36378
+   git worktree add --detach /tmp/runwire-3.0 <candidate-SHA>
+   cd /tmp/runwire-2.1.2
+   composer install --no-dev --no-interaction --prefer-dist --no-progress
+   cd /tmp/runwire-3.0
+   composer install --no-dev --no-interaction --prefer-dist --no-progress
+   RUNWIRE_CANDIDATE_BUILD=<candidate-SHA> bash benchmarks/matched_release_certification.sh /tmp/runwire-2.1.2 /tmp/runwire-3.0 benchmark-results/c4-matched
+
+The shell harness validates OPcache enabled for CLI, Linux CPU affinity
+using distinct physical client/server cores, exact runtime hashes, a
+30-second warmup per server, 5 alternating baseline/candidate runs
+lasting 180 seconds each, full successful-response correctness and
+the candidate-versus-baseline regression comparison. It emits separate
+raw trial JSON, both summaries and ``comparison.json``; a failed
+correctness/variance/budget gate exits nonzero.
+
+Do **not** substitute diagnostic 5-second scripts, a shared saturated
+client/server CPU, a baseline from the wrong package revision or an
+incomplete trial. The current runner covers its **specified H1
+baseline workload**; additional H1/TLS, H2, H3 and WebSocket real
+counterpart profile cells remain independent U15 gates. A successful
+H1 matched run is not full C4 certification.
+
+
 For each required protocol/workload cell:
 
 #. Freeze both revisions and publish the exact source and QA identities.
