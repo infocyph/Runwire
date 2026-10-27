@@ -10,19 +10,19 @@ use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
-use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\BoundedConnectionPool;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\QuicClientSession;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Internal\PeriodicTaskRegistry;
-use Infocyph\Runwire\Supervisor\Internal\WorkerOwnedResourceCleanup;
 use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
+use Infocyph\Runwire\Supervisor\Internal\WorkerOwnedResourceCleanup;
 use LogicException;
 use RuntimeException;
 use Throwable;
@@ -42,24 +42,6 @@ final class WorkerContext
 
     private int $activeRequests = 0;
 
-    /** @var array<int, ProcessExecutor> */
-    private array $ownedExecutors = [];
-
-    /** @var array<int, BoundedConnectionPool> */
-    private array $ownedPools = [];
-
-    /** @var array<int, Connection> */
-    private array $ownedConnections = [];
-
-    /** @var array<int, Dialer> */
-    private array $ownedDialers = [];
-
-    /** @var array<int, HappyEyeballsDialer> */
-    private array $ownedHappyDialers = [];
-
-    /** @var array<int, QuicClientSession> */
-    private array $ownedQuicSessions = [];
-
     private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
     private ?LoopInterface $controlLoop = null;
@@ -67,6 +49,24 @@ final class WorkerContext
     private ?int $controlWatcher = null;
 
     private string $lifecycleBuffer = '';
+
+    /** @var array<int, Connection> */
+    private array $ownedConnections = [];
+
+    /** @var array<int, Dialer> */
+    private array $ownedDialers = [];
+
+    /** @var array<int, ProcessExecutor> */
+    private array $ownedExecutors = [];
+
+    /** @var array<int, HappyEyeballsDialer> */
+    private array $ownedHappyDialers = [];
+
+    /** @var array<int, BoundedConnectionPool> */
+    private array $ownedPools = [];
+
+    /** @var array<int, QuicClientSession> */
+    private array $ownedQuicSessions = [];
 
     private bool $ready = false;
 
@@ -184,71 +184,6 @@ final class WorkerContext
     }
 
     /**
-     * Register an executor whose lifetime belongs to this worker.
-     *
-     * The caller explicitly transfers shutdown responsibility; borrowed
-     * executors must not be registered.
-     */
-    public function ownExecutor(ProcessExecutor $executor): void
-    {
-        if ($this->stopping) {
-            throw new LogicException('Stopping workers cannot accept executor ownership.');
-        }
-
-        $this->ownedExecutors[spl_object_id($executor)] = $executor;
-    }
-
-    /** Explicitly transfer one connection pool's shutdown to this worker. */
-    public function ownPool(BoundedConnectionPool $pool): void
-    {
-        if ($this->stopping) {
-            throw new LogicException('Stopping workers cannot accept pool ownership.');
-        }
-
-        $this->ownedPools[spl_object_id($pool)] = $pool;
-    }
-
-    /** Take responsibility for aborting a socket still active when this worker retires. */
-    public function ownConnection(Connection $connection): void
-    {
-        if ($this->stopping) {
-            throw new LogicException('Stopping workers cannot accept connection ownership.');
-        }
-
-        $this->ownedConnections[spl_object_id($connection)] = $connection;
-    }
-
-    /** Take ownership of an underlying numeric TCP/Unix connector and pending dials. */
-    public function ownDialer(Dialer $dialer): void
-    {
-        if ($this->stopping) {
-            throw new LogicException('Stopping workers cannot accept dialer ownership.');
-        }
-
-        $this->ownedDialers[spl_object_id($dialer)] = $dialer;
-    }
-
-    /** Own a hostname-racing dialer without implicitly owning its borrowed dependencies. */
-    public function ownHappyEyeballsDialer(HappyEyeballsDialer $dialer): void
-    {
-        if ($this->stopping) {
-            throw new LogicException('Stopping workers cannot accept dialer ownership.');
-        }
-
-        $this->ownedHappyDialers[spl_object_id($dialer)] = $dialer;
-    }
-
-    /** Explicitly transfer a native QUIC session's shutdown to this worker. */
-    public function ownQuicSession(QuicClientSession $session): void
-    {
-        if ($this->stopping) {
-            throw new LogicException('Stopping workers cannot accept QUIC session ownership.');
-        }
-
-        $this->ownedQuicSessions[spl_object_id($session)] = $session;
-    }
-
-    /**
      * Close worker lifecycle, stop-wake, periodic-task, and coroutine resources.
      */
     public function close(): void
@@ -358,6 +293,71 @@ final class WorkerContext
     public function markUnhealthy(): void
     {
         $this->signal('U');
+    }
+
+    /** Take responsibility for aborting a socket still active when this worker retires. */
+    public function ownConnection(Connection $connection): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept connection ownership.');
+        }
+
+        $this->ownedConnections[spl_object_id($connection)] = $connection;
+    }
+
+    /** Take ownership of an underlying numeric TCP/Unix connector and pending dials. */
+    public function ownDialer(Dialer $dialer): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept dialer ownership.');
+        }
+
+        $this->ownedDialers[spl_object_id($dialer)] = $dialer;
+    }
+
+    /**
+     * Register an executor whose lifetime belongs to this worker.
+     *
+     * The caller explicitly transfers shutdown responsibility; borrowed
+     * executors must not be registered.
+     */
+    public function ownExecutor(ProcessExecutor $executor): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept executor ownership.');
+        }
+
+        $this->ownedExecutors[spl_object_id($executor)] = $executor;
+    }
+
+    /** Own a hostname-racing dialer without implicitly owning its borrowed dependencies. */
+    public function ownHappyEyeballsDialer(HappyEyeballsDialer $dialer): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept dialer ownership.');
+        }
+
+        $this->ownedHappyDialers[spl_object_id($dialer)] = $dialer;
+    }
+
+    /** Explicitly transfer one connection pool's shutdown to this worker. */
+    public function ownPool(BoundedConnectionPool $pool): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept pool ownership.');
+        }
+
+        $this->ownedPools[spl_object_id($pool)] = $pool;
+    }
+
+    /** Explicitly transfer a native QUIC session's shutdown to this worker. */
+    public function ownQuicSession(QuicClientSession $session): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept QUIC session ownership.');
+        }
+
+        $this->ownedQuicSessions[spl_object_id($session)] = $session;
     }
 
     /**
@@ -567,29 +567,6 @@ final class WorkerContext
         );
     }
 
-    private function closeOwnedNetworkResources(): void
-    {
-        $connections = $this->ownedConnections;
-        $dialers = $this->ownedDialers;
-        $happyDialers = $this->ownedHappyDialers;
-        $pools = $this->ownedPools;
-        $sessions = $this->ownedQuicSessions;
-        $this->ownedPools = [];
-        $this->ownedConnections = [];
-        $this->ownedDialers = [];
-        $this->ownedHappyDialers = [];
-        $this->ownedQuicSessions = [];
-
-        WorkerOwnedResourceCleanup::network($happyDialers, $dialers, $connections, $pools, $sessions);
-    }
-
-    private function closeOwnedExecutors(): void
-    {
-        $executors = $this->ownedExecutors;
-        $this->ownedExecutors = [];
-        WorkerOwnedResourceCleanup::executors($executors);
-    }
-
     private function beginStop(ShutdownReason $reason): void
     {
         if ($this->stopping) {
@@ -624,6 +601,29 @@ final class WorkerContext
         if ($failure !== null) {
             throw $failure;
         }
+    }
+
+    private function closeOwnedExecutors(): void
+    {
+        $executors = $this->ownedExecutors;
+        $this->ownedExecutors = [];
+        WorkerOwnedResourceCleanup::executors($executors);
+    }
+
+    private function closeOwnedNetworkResources(): void
+    {
+        $connections = $this->ownedConnections;
+        $dialers = $this->ownedDialers;
+        $happyDialers = $this->ownedHappyDialers;
+        $pools = $this->ownedPools;
+        $sessions = $this->ownedQuicSessions;
+        $this->ownedPools = [];
+        $this->ownedConnections = [];
+        $this->ownedDialers = [];
+        $this->ownedHappyDialers = [];
+        $this->ownedQuicSessions = [];
+
+        WorkerOwnedResourceCleanup::network($happyDialers, $dialers, $connections, $pools, $sessions);
     }
 
     private function readControl(): ?ShutdownReason

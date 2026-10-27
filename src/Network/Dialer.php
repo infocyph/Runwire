@@ -27,11 +27,11 @@ use Throwable;
  */
 final class Dialer
 {
+    private readonly int $ownerPid;
+
     private bool $closed = false;
 
     private int $nextId = 1;
-
-    private readonly int $ownerPid;
 
     /**
      * @var array<int, array{
@@ -160,6 +160,7 @@ final class Dialer
     {
         $this->assertProcessOwner();
         $this->assertProcessOwner();
+
         return count($this->pending);
     }
 

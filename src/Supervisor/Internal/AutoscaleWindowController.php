@@ -37,6 +37,12 @@ final class AutoscaleWindowController
         }
     }
 
+    /** Discard consecutive-window pressure when telemetry is missing or invalid. */
+    public function invalidateSample(): void
+    {
+        $this->resetPressure();
+    }
+
     /** Return the last accepted worker-count adjustment timestamp. */
     public function lastChangeAt(): ?float
     {
@@ -91,12 +97,6 @@ final class AutoscaleWindowController
         }
 
         return $this->vote($currentWorkers, $desired, $observedAtSeconds);
-    }
-
-    /** Discard consecutive-window pressure when telemetry is missing or invalid. */
-    public function invalidateSample(): void
-    {
-        $this->resetPressure();
     }
 
     /** Return how many validated samples agree on the next scaling direction. */

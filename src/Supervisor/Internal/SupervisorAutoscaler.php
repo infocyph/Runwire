@@ -18,20 +18,20 @@ use Throwable;
  */
 final class SupervisorAutoscaler
 {
-    /** @var array<string, array{controller:AutoscaleWindowController,policy:AutoscalePolicy,sample:Closure}> */
-    private array $configurations = [];
-
-    /** @var array<string, int> */
-    private array $timers = [];
+    /** @var Closure(string):WorkerGroup */
+    private readonly Closure $getGroup;
 
     /** @var Closure():bool */
     private readonly Closure $isBlocked;
 
-    /** @var Closure(string):WorkerGroup */
-    private readonly Closure $getGroup;
+    /** @var Closure():float */
+    private readonly Closure $now;
 
     /** @var Closure(WorkerGroup):void */
     private readonly Closure $putGroup;
+
+    /** @var Closure(string,int):void */
+    private readonly Closure $retire;
 
     /** @var Closure(string,int):bool */
     private readonly Closure $slotOccupied;
@@ -39,11 +39,11 @@ final class SupervisorAutoscaler
     /** @var Closure(WorkerGroup,int):void */
     private readonly Closure $spawn;
 
-    /** @var Closure(string,int):void */
-    private readonly Closure $retire;
+    /** @var array<string, array{controller:AutoscaleWindowController,policy:AutoscalePolicy,sample:Closure}> */
+    private array $configurations = [];
 
-    /** @var Closure():float */
-    private readonly Closure $now;
+    /** @var array<string, int> */
+    private array $timers = [];
 
     /**
      * @param callable():bool $isBlocked
@@ -105,21 +105,6 @@ final class SupervisorAutoscaler
         $this->timers = [];
     }
 
-    private function sample(string $name): void
-    {
-        if (($this->isBlocked)()) {
-            return;
-        }
-        $configuration = $this->configurations[$name];
-        $group = ($this->getGroup)($name);
-        $target = $this->observe($configuration, $group->count);
-        if ($target === null || $target === $group->count) {
-            return;
-        }
-
-        $this->resize($group, $target);
-    }
-
     /**
      * @param array{controller:AutoscaleWindowController,policy:AutoscalePolicy,sample:Closure} $configuration
      */
@@ -172,5 +157,20 @@ final class SupervisorAutoscaler
         for ($slot = $target; $slot < $old; ++$slot) {
             ($this->retire)($group->name, $slot);
         }
+    }
+
+    private function sample(string $name): void
+    {
+        if (($this->isBlocked)()) {
+            return;
+        }
+        $configuration = $this->configurations[$name];
+        $group = ($this->getGroup)($name);
+        $target = $this->observe($configuration, $group->count);
+        if ($target === null || $target === $group->count) {
+            return;
+        }
+
+        $this->resize($group, $target);
     }
 }

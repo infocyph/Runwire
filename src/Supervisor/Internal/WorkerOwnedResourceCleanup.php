@@ -18,6 +18,18 @@ use Throwable;
  */
 final class WorkerOwnedResourceCleanup
 {
+    /** @param array<int, ProcessExecutor> $executors */
+    public static function executors(array $executors): void
+    {
+        foreach ($executors as $executor) {
+            try {
+                $executor->close();
+            } catch (Throwable) {
+                // Independent owned resources must still be retired.
+            }
+        }
+    }
+
     /**
      * @param array<int, HappyEyeballsDialer> $happyDialers
      * @param array<int, Dialer> $dialers
@@ -39,26 +51,14 @@ final class WorkerOwnedResourceCleanup
         self::sessions($sessions);
     }
 
-    /** @param array<int, ProcessExecutor> $executors */
-    public static function executors(array $executors): void
+    /** @param array<int, Connection> $items */
+    private static function connections(array $items): void
     {
-        foreach ($executors as $executor) {
+        foreach ($items as $connection) {
             try {
-                $executor->close();
+                $connection->abort();
             } catch (Throwable) {
-                // Independent owned resources must still be retired.
-            }
-        }
-    }
-
-    /** @param array<int, HappyEyeballsDialer> $items */
-    private static function happyDialers(array $items): void
-    {
-        foreach ($items as $dialer) {
-            try {
-                $dialer->close();
-            } catch (Throwable) {
-                // Continue retiring other pending connector races.
+                // Continue retiring other active connections.
             }
         }
     }
@@ -75,14 +75,14 @@ final class WorkerOwnedResourceCleanup
         }
     }
 
-    /** @param array<int, Connection> $items */
-    private static function connections(array $items): void
+    /** @param array<int, HappyEyeballsDialer> $items */
+    private static function happyDialers(array $items): void
     {
-        foreach ($items as $connection) {
+        foreach ($items as $dialer) {
             try {
-                $connection->abort();
+                $dialer->close();
             } catch (Throwable) {
-                // Continue retiring other active connections.
+                // Continue retiring other pending connector races.
             }
         }
     }

@@ -23,6 +23,9 @@ final class TcpListener
 
     private ?int $acceptWatcher = null;
 
+    /** A bound socket can be inherited before start; active loop ownership cannot. */
+    private ?int $activeOwnerPid = null;
+
     private ?ByteBudget $bufferBudget = null;
 
     private bool $closed = false;
@@ -40,9 +43,6 @@ final class TcpListener
     private array $handshakes = [];
 
     private ?LoopInterface $loop = null;
-
-    /** A bound socket can be inherited before start; active loop ownership cannot. */
-    private ?int $activeOwnerPid = null;
 
     private int $rejectedConnections = 0;
 
@@ -315,13 +315,6 @@ final class TcpListener
         $this->syncAcceptWatcher();
     }
 
-    private function assertActiveProcessOwner(): void
-    {
-        if ($this->activeOwnerPid !== null && getmypid() !== $this->activeOwnerPid) {
-            throw new LogicException('An active listener cannot cross a fork; bind before forking and start on the child loop.');
-        }
-    }
-
     private static function ignoreAcceptWarning(int $severity, string $message): bool
     {
         return $severity === E_WARNING
@@ -392,6 +385,13 @@ final class TcpListener
             }
 
             throw $throwable;
+        }
+    }
+
+    private function assertActiveProcessOwner(): void
+    {
+        if ($this->activeOwnerPid !== null && getmypid() !== $this->activeOwnerPid) {
+            throw new LogicException('An active listener cannot cross a fork; bind before forking and start on the child loop.');
         }
     }
 

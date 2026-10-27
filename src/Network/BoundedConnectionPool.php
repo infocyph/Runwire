@@ -23,6 +23,8 @@ final class BoundedConnectionPool
 {
     private readonly IdleConnectionPool $idle;
 
+    private readonly int $ownerPid;
+
     /** @var array<int, PoolIsolationKey> */
     private array $active = [];
 
@@ -45,8 +47,6 @@ final class BoundedConnectionPool
     ];
 
     private int $nextId = 1;
-
-    private readonly int $ownerPid;
 
     /** @var array<int, array{key:PoolIsolationKey, callback:Closure, timer:int}> */
     private array $waiting = [];
@@ -121,6 +121,7 @@ final class BoundedConnectionPool
     public function activeCount(): int
     {
         $this->assertProcessOwner();
+
         return count($this->active);
     }
 
@@ -172,6 +173,7 @@ final class BoundedConnectionPool
     public function idleCount(): int
     {
         $this->assertProcessOwner();
+
         return $this->idle->count();
     }
 
@@ -219,6 +221,7 @@ final class BoundedConnectionPool
     public function waitingCount(): int
     {
         $this->assertProcessOwner();
+
         return count($this->waiting);
     }
 

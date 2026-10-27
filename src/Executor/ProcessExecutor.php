@@ -35,6 +35,8 @@ final class ProcessExecutor
 
     private const int MAX_PACKET_BYTES = 1_600_000;
 
+    private readonly int $ownerPid;
+
     /** @var SplQueue<int> */
     private readonly SplQueue $pending;
 
@@ -55,8 +57,6 @@ final class ProcessExecutor
     private array $jobs = [];
 
     private int $nextJobId = 1;
-
-    private readonly int $ownerPid;
 
     private int $nextWorkerId = 1;
 
@@ -139,6 +139,7 @@ final class ProcessExecutor
                 $failure ??= $error;
             }
         }
+
         try {
             $this->notifyDrained();
         } catch (Throwable $error) {
@@ -231,6 +232,13 @@ final class ProcessExecutor
         $this->schedulePump();
 
         return $id;
+    }
+
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('Process executors cannot be used or closed by a forked child; create an executor after forking.');
+        }
     }
 
     private function attachCancellation(int $id, ?CancellationToken $token): void
@@ -410,13 +418,6 @@ final class ProcessExecutor
         } finally {
             $this->notifyDrained();
             $this->schedulePump();
-        }
-    }
-
-    private function assertProcessOwner(): void
-    {
-        if (getmypid() !== $this->ownerPid) {
-            throw new LogicException('Process executors cannot be used or closed by a forked child; create an executor after forking.');
         }
     }
 }

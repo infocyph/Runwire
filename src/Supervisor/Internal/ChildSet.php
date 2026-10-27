@@ -11,6 +11,12 @@ use Infocyph\Runwire\Supervisor\WorkerGroup;
  */
 final class ChildSet
 {
+    /** @param array<int, ChildRecord> $children */
+    public static function canRecycle(ChildRecord $record, array $children, int $pid): bool
+    {
+        return $record->state->serving() && !self::hasReplacementFor($children, $pid);
+    }
+
     /**
      * @param array<string, WorkerGroup> $groups
      * @param array<string, array<int, int>> $currentSlots
@@ -34,39 +40,6 @@ final class ChildSet
         }
 
         return true;
-    }
-
-    /** @param array<int, ChildRecord> $children */
-    public static function canRecycle(ChildRecord $record, array $children, int $pid): bool
-    {
-        return $record->state->serving() && !self::hasReplacementFor($children, $pid);
-    }
-
-    /**
-     * Return whether a retired scale-in slot is safe to reissue after reaping its old owner.
-     *
-     * @param array<string, WorkerGroup> $groups
-     * @param array<string, array<int,int>> $currentSlots
-     * @param array<int, ChildRecord> $children
-     */
-    public static function shouldRestoreAfterScaleIn(
-        ChildRecord $record,
-        array $groups,
-        array $currentSlots,
-        array $children,
-        bool $stopping,
-        bool $reloading,
-    ): bool {
-        $name = $record->group->name;
-        $target = $groups[$name]->count ?? 0;
-
-        return !$stopping && !$reloading
-            && $record->expectedStop && $record->slot < $target
-            && !isset($currentSlots[$name][$record->slot])
-            && !array_any(
-                $children,
-                static fn(ChildRecord $child): bool => $child->group->name === $name && $child->slot === $record->slot,
-            );
     }
 
     /** @param array<int, ChildRecord> $children */
@@ -102,6 +75,33 @@ final class ChildSet
             static fn(ChildRecord $record): bool => !$record->group->reloadable
                 || $record->generation >= $generation,
         );
+    }
+
+    /**
+     * Return whether a retired scale-in slot is safe to reissue after reaping its old owner.
+     *
+     * @param array<string, WorkerGroup> $groups
+     * @param array<string, array<int,int>> $currentSlots
+     * @param array<int, ChildRecord> $children
+     */
+    public static function shouldRestoreAfterScaleIn(
+        ChildRecord $record,
+        array $groups,
+        array $currentSlots,
+        array $children,
+        bool $stopping,
+        bool $reloading,
+    ): bool {
+        $name = $record->group->name;
+        $target = $groups[$name]->count ?? 0;
+
+        return !$stopping && !$reloading
+            && $record->expectedStop && $record->slot < $target
+            && !isset($currentSlots[$name][$record->slot])
+            && !array_any(
+                $children,
+                static fn(ChildRecord $child): bool => $child->group->name === $name && $child->slot === $record->slot,
+            );
     }
 
     /**

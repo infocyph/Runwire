@@ -18,14 +18,14 @@ use Throwable;
  */
 final class IdleConnectionPool
 {
+    private readonly int $ownerPid;
+
     private bool $closed = false;
 
     /** @var array<int, array{key:string, connection:Connection, observer:?int, timer:?int}> */
     private array $entries = [];
 
     private int $nextId = 1;
-
-    private readonly int $ownerPid;
 
     /** Set finite idle retention and hard connection admission limit. */
     public function __construct(

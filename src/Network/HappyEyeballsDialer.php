@@ -21,11 +21,11 @@ use Throwable;
  */
 final class HappyEyeballsDialer
 {
+    private readonly int $ownerPid;
+
     private bool $closed = false;
 
     private int $nextId = 1;
-
-    private readonly int $ownerPid;
 
     /** @var array<int, HappyEyeballsAttempt> */
     private array $pending = [];
@@ -138,6 +138,7 @@ final class HappyEyeballsDialer
     public function pendingCount(): int
     {
         $this->assertProcessOwner();
+
         return count($this->pending);
     }
 

@@ -13,6 +13,20 @@ use Infocyph\Runwire\Internal\MonotonicTime;
 final class ChildReaper
 {
     /**
+     * Extract the child exit code when the wait status represents a normal exit.
+     */
+    public static function exitCode(int $status): ?int
+    {
+        if (!pcntl_wifexited($status)) {
+            return null;
+        }
+
+        $exitCode = pcntl_wexitstatus($status);
+
+        return is_int($exitCode) ? $exitCode : null;
+    }
+
+    /**
      * Force-stop owned children and return PIDs still unreaped after the deadline.
      *
      * @param array<int, ChildRecord> $children
@@ -31,20 +45,6 @@ final class ChildReaper
         }
 
         return $unreaped;
-    }
-
-    /**
-     * Extract the child exit code when the wait status represents a normal exit.
-     */
-    public static function exitCode(int $status): ?int
-    {
-        if (!pcntl_wifexited($status)) {
-            return null;
-        }
-
-        $exitCode = pcntl_wexitstatus($status);
-
-        return is_int($exitCode) ? $exitCode : null;
     }
 
     /**

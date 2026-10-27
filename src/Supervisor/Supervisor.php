@@ -16,7 +16,6 @@ use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Enum\WorkerExitReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerState;
-use Infocyph\Runwire\Supervisor\Internal\SupervisorAutoscaler;
 use Infocyph\Runwire\Supervisor\Internal\ChildExitTransition;
 use Infocyph\Runwire\Supervisor\Internal\ChildReaper;
 use Infocyph\Runwire\Supervisor\Internal\ChildRecord;
@@ -26,6 +25,7 @@ use Infocyph\Runwire\Supervisor\Internal\ReadinessChannel;
 use Infocyph\Runwire\Supervisor\Internal\ReloadCoordinator;
 use Infocyph\Runwire\Supervisor\Internal\RestartCoordinator;
 use Infocyph\Runwire\Supervisor\Internal\SignalBridge;
+use Infocyph\Runwire\Supervisor\Internal\SupervisorAutoscaler;
 use Infocyph\Runwire\Supervisor\Internal\SupervisorStatusBuilder;
 use Infocyph\Runwire\Supervisor\Internal\WorkerChildRuntime;
 use Infocyph\Runwire\Supervisor\Internal\WorkerLifecycleCoordinator;
@@ -40,6 +40,8 @@ final class Supervisor
     private const int FORCE_CLEANUP_NANOSECONDS = 1_000_000_000;
 
     private const int NANOS_PER_SECOND = 1_000_000_000;
+
+    private readonly SupervisorAutoscaler $autoscaler;
 
     private readonly LifecycleEmitter $events;
 
@@ -80,8 +82,6 @@ final class Supervisor
 
     /** @var array<string, WorkerGroup> */
     private array $groups = [];
-
-    private readonly SupervisorAutoscaler $autoscaler;
 
     private bool $running = false;
 
@@ -166,6 +166,31 @@ final class Supervisor
     }
 
     /**
+     * Configure live worker scaling before run(), using an explicit metrics sampler.
+     *
+     * The initial group count must lie within the policy's bounds. Sampling,
+     * fork ownership and drain are all executed by the owning supervisor.
+     *
+     * @param callable():array{cpuRatio:float,queued:int,successfulRps:float,p99Milliseconds:float} $sample
+     */
+    public function autoscale(string $group, AutoscalePolicy $policy, callable $sample): self
+    {
+        if ($this->started) {
+            throw new LogicException('Cannot modify autoscale configuration after supervisor startup.');
+        }
+        $definition = $this->groups[$group] ?? null;
+        if ($definition === null) {
+            throw new InvalidArgumentException('Autoscale requires an already registered worker group.');
+        }
+        if ($definition->count < $policy->minWorkers || $definition->count > $policy->maxWorkers) {
+            throw new InvalidArgumentException('Initial worker count is outside autoscale policy bounds.');
+        }
+        $this->autoscaler->configure($group, $policy, $sample);
+
+        return $this;
+    }
+
+    /**
      * Configure the supervisor control endpoint before startup.
      */
     public function control(ControlOptions $options): self
@@ -193,31 +218,6 @@ final class Supervisor
 
         $this->groups[$group->name] = $group;
         $this->restartCoordinator->register($group);
-
-        return $this;
-    }
-
-    /**
-     * Configure live worker scaling before run(), using an explicit metrics sampler.
-     *
-     * The initial group count must lie within the policy's bounds. Sampling,
-     * fork ownership and drain are all executed by the owning supervisor.
-     *
-     * @param callable():array{cpuRatio:float,queued:int,successfulRps:float,p99Milliseconds:float} $sample
-     */
-    public function autoscale(string $group, AutoscalePolicy $policy, callable $sample): self
-    {
-        if ($this->started) {
-            throw new LogicException('Cannot modify autoscale configuration after supervisor startup.');
-        }
-        $definition = $this->groups[$group] ?? null;
-        if ($definition === null) {
-            throw new InvalidArgumentException('Autoscale requires an already registered worker group.');
-        }
-        if ($definition->count < $policy->minWorkers || $definition->count > $policy->maxWorkers) {
-            throw new InvalidArgumentException('Initial worker count is outside autoscale policy bounds.');
-        }
-        $this->autoscaler->configure($group, $policy, $sample);
 
         return $this;
     }
