@@ -798,6 +798,8 @@ final class Supervisor
                             || !is_int($metrics['queued'] ?? null)
                             || !is_float($metrics['successfulRps'] ?? null)
                             || !is_float($metrics['p99Milliseconds'] ?? null)) {
+                            $entry['controller']->invalidateSample();
+
                             return;
                         }
                         $group = $this->groups[$name];
@@ -811,6 +813,8 @@ final class Supervisor
                         );
                     } catch (\Throwable) {
                         // Telemetry failure is not authority to kill or fork workers.
+                        $entry['controller']->invalidateSample();
+
                         return;
                     }
                     if ($target !== $group->count) {
