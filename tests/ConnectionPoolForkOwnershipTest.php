@@ -27,8 +27,13 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
             static fn() => $pool->cancel(1),
             static fn() => $pool->release(1),
             static fn() => $pool->close(),
+            static fn() => $pool->activeCount(),
+            static fn() => $pool->idleCount(),
+            static fn() => $pool->waitingCount(),
+            static fn() => $pool->metrics(),
             static fn() => $idle->take($key),
             static fn() => $idle->close(),
+            static fn() => $idle->count(),
         ] as $operation) {
             try {
                 $operation();
@@ -38,7 +43,7 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
         }
         fwrite($writer, (string) $rejected);
         fclose($writer);
-        exit($rejected === 6 ? 0 : 1);
+        exit($rejected === 11 ? 0 : 1);
     }
 
     fclose($writer);
@@ -47,7 +52,7 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
         pcntl_waitpid($pid, $status);
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
-            ->and($childOutput)->toBe('6');
+            ->and($childOutput)->toBe('11');
 
         $observed = [];
         $id = $pool->acquire($key, static function (int $lease, mixed $connection, ?Throwable $error) use (&$observed): void {
