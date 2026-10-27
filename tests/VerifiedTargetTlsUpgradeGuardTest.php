@@ -40,16 +40,14 @@ it('refuses an unowned TLS upgrade while another consumer owns the tunnel', func
     $owner = new stdClass();
 
     try {
-        $tunnel->claimCallbacks(
-            $owner,
-            static function (): void {},
-            static function (): void {},
-            static function (): void {},
-        );
+        $unexpected = static function (): void {
+            throw new RuntimeException('A forbidden TLS upgrade must not dispatch callbacks.');
+        };
+        $tunnel->claimCallbacks($owner, $unexpected, $unexpected, $unexpected);
 
         expect(fn() => $tunnel->upgradeToVerifiedTls(
             new TlsClientOptions('origin.example'),
-            static function (): void {},
+            $unexpected,
         ))->toThrow(LogicException::class, 'unowned, quiescent cleartext tunnel');
 
         expect($tunnel->state())->not->toBe(ConnectionState::CLOSED)
