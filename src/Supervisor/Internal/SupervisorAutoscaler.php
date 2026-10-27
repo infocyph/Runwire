@@ -83,6 +83,7 @@ final class SupervisorAutoscaler
         ];
     }
 
+    /** Register bounded recurring native worker scale observations. */
     public function start(): void
     {
         foreach ($this->configurations as $name => $configuration) {
@@ -95,6 +96,7 @@ final class SupervisorAutoscaler
         }
     }
 
+    /** Cancel all native autoscale observations during shutdown or restart. */
     public function stop(): void
     {
         foreach ($this->timers as $timer) {

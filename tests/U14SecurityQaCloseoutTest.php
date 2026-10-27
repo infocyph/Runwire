@@ -12,6 +12,6 @@ it('pins the security QA closeout to its real PHPForge and locked Composer audit
         ->toContain('PHP 8.4', 'PHP 8.5', 'Audit exact locked dependencies')
         ->toContain('U17.02');
     expect($plan)->toBeString()
-        ->toContain('- [x] **U14.08**', '- [ ] **U14.04**')
+        ->toContain('- [x] **U14.08**', '- [x] **U14.04**')
         ->toContain('- [ ] **U17.02**');
 });

@@ -56,10 +56,11 @@ final class BoundedConnectionPool
         private readonly LoopInterface $loop,
         private readonly int $maxActive = 16,
         private readonly int $maxWaiting = 128,
-        int $maxIdle = 16,
+        ?int $maxIdle = null,
         float $idleTtlSeconds = 30.0,
         private readonly bool $enableMetrics = false,
     ) {
+        $maxIdle ??= min($maxActive, 16);
         if ($maxActive < 1 || $maxActive > 65_536 || $maxWaiting < 1
             || $maxWaiting > 65_536 || $maxIdle < 1 || $maxIdle > $maxActive) {
             throw new InvalidArgumentException('Connection pool lease and waiter limits are invalid.');

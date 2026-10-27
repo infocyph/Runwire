@@ -6,6 +6,10 @@
 **Canonical tracker:** 140/169 accepted (82.8%); 29 open; 18 U divisions. C1 and C2 are complete; C3 active (2/9). Historical 175-task and pre-C2 acceptance notes below are archived.
 **Decision index:** [Consolidation roadmap](runwire-3.0-unified-runtime-roadmap.md).
 
+## W180 — C3 concrete Pest and tracker QA repairs (2026-10-27; QA pending)
+
+The exact-head PHPForge prefer-lowest job [#40483183022](https://github.com/infocyph/Runwire/actions/runs/40483183022) surfaced five distinct Pest failures (1,074 passed): two 1-slot bounded connection pools rejected their implicit idle default of 16; one tracking assertion expected the exact `batches` label; a stale U14.04 evidence assertion incorrectly demanded unchecked status after acceptance; a newly extracted internal autoscaler lacked two public-method docblocks. Default max-idle capacity to **min(16, maxActive)** only when omitted, keeping explicitly out-of-range callers invalid. Repair evidence labels and method documentation, not loosen assertions. PHPStan and Psalm already pass on PHP8.4/8.5; other **Pint and PHPCS** policy violations exposed by updated PHPForge remain tracked and **block** acceptance. No accepted tasks promoted; **140/169, C3 2/9, 29 OPEN**.
+
 ## W179 — C3 real PHPStan remaining 4 diagnostics (2026-10-27; QA pending)
 
 [Security & Standards #40482615326](https://github.com/infocyph/Runwire/actions/runs/40482615326) confirmed the prior twelve PHPStan findings were reduced to **four**: nullable worker recycle PID/record accesses (three errors) and Supervisor class cognitive complexity **81 vs max 80**. Guard nullable owner before `ChildSet::canRecycle()` and remove nullable handling from that now-explicit contract; preserve old worker generation and slot replacement semantics. Relocate the post-reap scale-in resurrection safety predicate into `ChildSet::shouldRestoreAfterScaleIn()` alongside other existing child-set predicates, rather than bypassing complexity thresholds. Native C3 CI also now syntax-checks new internal worker and autoscale helpers. **Do not claim PHPStan/Psalm green until immutable CI confirms it**; overall **140/169, C3 2/9, 29 OPEN** unchanged.
