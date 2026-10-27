@@ -6,6 +6,8 @@ Runwire developer handbook
 
 **Published stable:** Runwire 2.1.2.
 
+**Documentation source revision:** |runwire_source_revision| (actual checkout, not a published release tag).
+
 **In development:** The Runwire 3.0 branch includes its unified
 asynchronous networking, client protocol, file executor and real native
 autoscale implementation, with C3 functional acceptance completed.

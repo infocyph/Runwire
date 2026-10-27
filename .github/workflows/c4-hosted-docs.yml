@@ -45,12 +45,17 @@ jobs:
             "$base/search.html" > hosted-docs-evidence/search.html
           curl --fail --show-error --silent --location --retry 3 --max-time 60 \
             "$base/searchindex.js" > hosted-docs-evidence/searchindex.js
+          expected_sha="$(git rev-parse HEAD)"
+          if ! grep -Fq "$expected_sha" hosted-docs-evidence/index.html; then
+            echo "::error::Read the Docs preview does not match immutable candidate $expected_sha."
+            exit 1
+          fi
           grep -qi 'Runwire' hosted-docs-evidence/index.html
           grep -qi 'WebTransport' hosted-docs-evidence/features.html
           grep -Eqi 'search' hosted-docs-evidence/search.html
           grep -Eq 'Search\.setIndex|terms|filenames' hosted-docs-evidence/searchindex.js
           printf '%s\n' "$base" > hosted-docs-evidence/preview-url.txt
-          printf '%s\n' 'GitHub worker verified reachable hosted pages and search index; interactive version switch/search and source SHA alignment require separate review.' \
+          printf '%s\n' 'GitHub worker verified reachable hosted pages, exact source SHA and search index; interactive version switch/search require separate review.' \
             > hosted-docs-evidence/verification-limits.txt
       - name: Upload verifiable hosted-documentation evidence
         if: always()

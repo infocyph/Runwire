@@ -56,6 +56,11 @@ jobs:
           PY
       - name: Strict Sphinx HTML build (native reStructuredText only)
         run: sphinx-build -n -W --keep-going -b html docs build/sphinx-html
+      - name: Verify rendered HTML matches its checked-out source SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "$(git rev-parse HEAD)" build/sphinx-html/index.html
       - name: Preserve Sphinx HTML preview
         if: always()
         uses: actions/upload-artifact@v7

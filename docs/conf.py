@@ -1,5 +1,7 @@
 """Runwire RST-only Sphinx site; internal Markdown plans are excluded."""
 import os
+import re
+import subprocess
 import sys
 from pathlib import Path
 from pygments.lexers.web import PhpLexer
@@ -31,3 +33,15 @@ html_title = "Runwire Manual (" + version + ")"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_api_reference import generate as generate_api_reference
 generate_api_reference()
+
+# The hosted build must display its actual checkout revision, not a claimed tag.
+try:
+    _revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parent.parent,
+        text=True, stderr=subprocess.DEVNULL,
+    ).strip()
+except (OSError, subprocess.CalledProcessError):
+    _revision = ""
+if not re.fullmatch(r"[0-9a-f]{40}", _revision):
+    _revision = "unavailable"
+rst_prolog = f".. |runwire_source_revision| replace:: ``{_revision}``"
