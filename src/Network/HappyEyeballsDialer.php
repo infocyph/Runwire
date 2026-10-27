@@ -10,6 +10,7 @@ use Infocyph\Runwire\Network\Internal\HappyEyeballsAttempt;
 use InvalidArgumentException;
 use LogicException;
 use OverflowException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -23,6 +24,8 @@ final class HappyEyeballsDialer
     private bool $closed = false;
 
     private int $nextId = 1;
+
+    private readonly int $ownerPid;
 
     /** @var array<int, HappyEyeballsAttempt> */
     private array $pending = [];
@@ -39,11 +42,17 @@ final class HappyEyeballsDialer
             || !is_finite($staggerSeconds) || $staggerSeconds <= 0 || $staggerSeconds > 2) {
             throw new InvalidArgumentException('Invalid Happy Eyeballs concurrency or stagger policy.');
         }
+        $pid = getmypid();
+        if (!is_int($pid)) {
+            throw new RuntimeException('Unable to establish outbound dial process ownership.');
+        }
+        $this->ownerPid = $pid;
     }
 
     /** Cancel a pending address race and close all unhanded-off candidates. */
     public function cancel(int $id): bool
     {
+        $this->assertProcessOwner();
         $attempt = $this->pending[$id] ?? null;
         if ($attempt === null) {
             return false;
@@ -56,12 +65,21 @@ final class HappyEyeballsDialer
     /** Abort pending races without closing the shared socket connector or resolver. */
     public function close(): void
     {
+        $this->assertProcessOwner();
         if ($this->closed) {
             return;
         }
         $this->closed = true;
+        $error = null;
         foreach (array_keys($this->pending) as $id) {
-            $this->cancel($id);
+            try {
+                $this->cancel($id);
+            } catch (Throwable $failure) {
+                $error ??= $failure;
+            }
+        }
+        if ($error !== null) {
+            throw $error;
         }
     }
 
@@ -119,12 +137,22 @@ final class HappyEyeballsDialer
     /** Return pending host races, excluding underlying candidate socket counts. */
     public function pendingCount(): int
     {
+        $this->assertProcessOwner();
+        $this->assertProcessOwner();
+        $this->assertProcessOwner();
         return count($this->pending);
     }
 
     /**
      * @param callable(?Connection, ?Throwable):void $completion
      */
+    private function assertProcessOwner(): void
+    {
+        if (getmypid() !== $this->ownerPid) {
+            throw new LogicException('Outbound dial ownership cannot cross a fork; create a new dialer in the worker.');
+        }
+    }
+
     private function register(callable $completion, DialOptions $options): int
     {
         if ($this->closed) {
