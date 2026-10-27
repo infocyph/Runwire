@@ -13,6 +13,34 @@ declare(strict_types=1);
  *
  * @return array{processes:int,rss:int,virtual:int,fd:int}
  */
+/**
+ * Read a procfs file across process exit without emitting an expected
+ * disappearing-PID warning into the GitHub worker's strict error pipeline.
+ * Live missing metrics are still rejected by the caller.
+ */
+function soakProcfsRead(string $path): string|false
+{
+    set_error_handler(static fn(): bool => true);
+
+    try {
+        return file_get_contents($path);
+    } finally {
+        restore_error_handler();
+    }
+}
+
+/** @return array<int, string>|false */
+function soakProcfsEntries(string $path): array|false
+{
+    set_error_handler(static fn(): bool => true);
+
+    try {
+        return scandir($path);
+    } finally {
+        restore_error_handler();
+    }
+}
+
 function soakReadProcessTree(int $root): array
 {
     $pending = [$root];
@@ -39,16 +67,16 @@ function soakReadProcessTree(int $root): array
         // Descendants retire between /proc traversal and measurement. Skip
         // only confirmed vanished or zombie children, never a live worker or
         // the mandatory root; all measured resource bounds remain unchanged.
-        $status = @file_get_contents($statusPath);
+        $status = soakProcfsRead($statusPath);
         if (!is_string($status)) {
             // Descendants can vanish immediately after appearing in their
             // parent's children list. Retry boundedly before checking /stat.
             for ($attempt = 0; $attempt < 3 && !is_string($status); ++$attempt) {
                 time_nanosleep(0, 2_000_000);
-                $status = @file_get_contents($statusPath);
+                $status = soakProcfsRead($statusPath);
             }
             if (!is_string($status)) {
-                $stat = @file_get_contents($proc . '/stat');
+                $stat = soakProcfsRead($proc . '/stat');
                 if ($pid !== $root && (!is_string($stat)
                     || preg_match('/^\d+\s+\(.*\)\s+[ZXx]\s/s', $stat) === 1)) {
                     continue;
@@ -60,25 +88,25 @@ function soakReadProcessTree(int $root): array
         if ($pid !== $root && preg_match('/^State:\s+Z\b/m', $status) === 1) {
             continue;
         }
-        $fds = @scandir($fdPath);
+        $fds = soakProcfsEntries($fdPath);
         if (!is_array($fds)) {
             // A process may retire between reading status and its fd table.
             // Recheck the actual kernel state; allow up to 3 bounded 2ms
             // retries for transient procfs teardown without losing the root.
             for ($attempt = 0; $attempt < 3; ++$attempt) {
-                $latestStatus = @file_get_contents($statusPath);
+                $latestStatus = soakProcfsRead($statusPath);
                 if ($pid !== $root && (!is_dir($proc)
                     || (is_string($latestStatus) && preg_match('/^State:\s+(?:Z|X|x)\b/m', $latestStatus) === 1))) {
                     continue 2;
                 }
                 time_nanosleep(0, 2_000_000);
-                $fds = @scandir($fdPath);
+                $fds = soakProcfsEntries($fdPath);
                 if (is_array($fds)) {
                     break;
                 }
             }
             if (!is_array($fds)) {
-                $latestStatus = @file_get_contents($statusPath);
+                $latestStatus = soakProcfsRead($statusPath);
                 // The status was successfully read at admission. If it is
                 // now gone as well as the fd table, this descendant exited
                 // during traversal. Never apply this exception to the root.
@@ -107,7 +135,7 @@ function soakReadProcessTree(int $root): array
 
         $childrenPath = $proc . '/task/' . $pid . '/children';
         if (is_readable($childrenPath)) {
-            $children = @file_get_contents($childrenPath);
+            $children = soakProcfsRead($childrenPath);
             if (!is_string($children)) {
                 if ($pid !== $root && !is_dir($proc)) {
                     continue;
