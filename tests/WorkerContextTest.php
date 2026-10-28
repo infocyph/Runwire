@@ -124,3 +124,20 @@ it('coalesces sustained worker request activity without saturating the lifecycle
         fclose($readyParent);
     }
 });
+
+it('retains immediate busy and idle state when a worker has no attached loop', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray();
+    [$parent, $child] = $pair;
+    $context = new WorkerContext('without-loop', 0, 1, posix_getpid(), posix_getppid(), $child);
+
+    try {
+        $context->ready();
+        $context->recordRequestStarted();
+        $context->recordRequestCompleted();
+        expect(fread($parent, 6))->toBe("R\nB\nI\n");
+    } finally {
+        $context->close();
+        fclose($parent);
+    }
+});

@@ -21,6 +21,7 @@ use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Internal\PeriodicTaskRegistry;
+use Infocyph\Runwire\Supervisor\Internal\WorkerActivitySignals;
 use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
 use Infocyph\Runwire\Supervisor\Internal\WorkerOwnedResourceCleanup;
 use LogicException;
@@ -32,8 +33,6 @@ use Throwable;
  */
 final class WorkerContext
 {
-    private const float IDLE_SIGNAL_QUIET_SECONDS = 0.05;
-
     private const int MAX_DIAGNOSTIC_MESSAGE_BYTES = 6_144;
 
     public readonly ByteBudget $bufferBudget;
@@ -42,9 +41,7 @@ final class WorkerContext
 
     private readonly WorkerRecycleState $recycleState;
 
-    private int $activeRequests = 0;
-
-    private int $activityEpoch = 0;
+    private readonly WorkerActivitySignals $activitySignals;
 
     private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
@@ -52,11 +49,7 @@ final class WorkerContext
 
     private ?int $controlWatcher = null;
 
-    private ?int $idleTransitionTimer = null;
-
     private string $lifecycleBuffer = '';
-
-    private bool $lifecycleBusy = false;
 
     /** @var array<int, Connection> */
     private array $ownedConnections = [];
@@ -112,6 +105,9 @@ final class WorkerContext
             }
         }
 
+        $this->activitySignals = new WorkerActivitySignals(function (string $message): void {
+            $this->signal($message);
+        });
         $this->bufferBudget = new ByteBudget($this->admissionPolicy->maxQueuedBytes);
         $this->periodicTasks = new PeriodicTaskRegistry();
         $this->recycleState = new WorkerRecycleState(
@@ -144,6 +140,7 @@ final class WorkerContext
      */
     public function attachLoop(LoopInterface $loop, float $backgroundShutdownGraceSeconds = 10.0): void
     {
+        $this->activitySignals->attach($loop);
         $this->periodicTasks->attach($loop);
         $this->attachControlWatcher($loop);
         if (!$this->role->background()) {
@@ -207,6 +204,9 @@ final class WorkerContext
                 $this->periodicTasks->close();
             },
             function (): void {
+                $this->activitySignals->close();
+            },
+            function (): void {
                 $this->closeOwnedNetworkResources();
             },
             function (): void {
@@ -215,15 +215,6 @@ final class WorkerContext
         ] as $cleanup) {
             try {
                 $cleanup();
-            } catch (Throwable $error) {
-                $failure ??= $error;
-            }
-        }
-
-        if ($this->idleTransitionTimer !== null && $this->controlLoop !== null) {
-            try {
-                $this->controlLoop->cancel($this->idleTransitionTimer);
-                $this->idleTransitionTimer = null;
             } catch (Throwable $error) {
                 $failure ??= $error;
             }
@@ -403,12 +394,7 @@ final class WorkerContext
      */
     public function recordRequestCompleted(): bool
     {
-        if ($this->activeRequests > 0) {
-            --$this->activeRequests;
-            if ($this->activeRequests === 0 && !$this->stopping && $this->lifecycleBusy) {
-                $this->scheduleIdleSignal();
-            }
-        }
+        $this->activitySignals->completed();
 
         $recycle = $this->recycleState->recordRequestCompleted();
         if ($recycle) {
@@ -425,12 +411,7 @@ final class WorkerContext
      */
     public function recordRequestStarted(): void
     {
-        ++$this->activeRequests;
-        ++$this->activityEpoch;
-        if ($this->activeRequests === 1 && !$this->stopping && !$this->lifecycleBusy) {
-            $this->signal('B');
-            $this->lifecycleBusy = true;
-        }
+        $this->activitySignals->started();
     }
 
     /**
@@ -594,6 +575,7 @@ final class WorkerContext
 
         $this->shutdownReason = $reason;
         $this->stopping = true;
+        $this->activitySignals->close();
         $failure = null;
         foreach ([
             function (): void {
@@ -673,40 +655,6 @@ final class WorkerContext
         }
 
         return $observed;
-    }
-
-    /**
-     * Coalesce fast B/I request churn into a bounded supervisor state signal.
-     * A truly idle worker is reported after 50ms without a new request; only
-     * one recurring timer exists regardless of request rate or concurrency.
-     */
-    private function scheduleIdleSignal(): void
-    {
-        $loop = $this->controlLoop;
-        if ($loop === null) {
-            $this->signal('I');
-            $this->lifecycleBusy = false;
-
-            return;
-        }
-        if ($this->idleTransitionTimer !== null) {
-            return;
-        }
-
-        $lastEpoch = $this->activityEpoch;
-        $this->idleTransitionTimer = $loop->repeat(self::IDLE_SIGNAL_QUIET_SECONDS, function () use ($loop, &$lastEpoch): void {
-            if (!$this->stopping && $this->lifecycleBusy && $this->activeRequests === 0
-                && $lastEpoch === $this->activityEpoch) {
-                $this->signal('I');
-                $this->lifecycleBusy = false;
-            } else {
-                $lastEpoch = $this->activityEpoch;
-            }
-            if ($this->stopping || !$this->lifecycleBusy) {
-                $loop->cancel($this->idleTransitionTimer);
-                $this->idleTransitionTimer = null;
-            }
-        });
     }
 
     private function signal(string $message): void
