@@ -30,11 +30,13 @@ final class WorkerActivitySignals
     /** @param Closure(string): void $signal */
     public function __construct(private readonly Closure $signal) {}
 
+    /** Attach the event loop that schedules delayed idle notification. */
     public function attach(LoopInterface $loop): void
     {
         $this->loop = $loop;
     }
 
+    /** Stop lifecycle activity reporting and cancel its pending idle timer. */
     public function close(): void
     {
         $this->stopping = true;
@@ -48,6 +50,7 @@ final class WorkerActivitySignals
         $this->loop = null;
     }
 
+    /** Record one completed request and schedule idle reporting when quiescent. */
     public function completed(): void
     {
         if ($this->active === 0) {
@@ -59,6 +62,7 @@ final class WorkerActivitySignals
         }
     }
 
+    /** Record a newly started request and report the first busy transition. */
     public function started(): void
     {
         ++$this->active;
