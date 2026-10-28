@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Client;
 
 use Infocyph\Runwire\CancellationSource;
+use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\LoopInterface;
@@ -60,7 +61,7 @@ final class PooledHttp1Session
         $parts = parse_url($origin);
         if (!is_array($parts) || !is_string($parts['host'] ?? null)
             || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
-            || isset($parts['user'], $parts['pass']) || isset($parts['query'])
+            || (isset($parts['user']) || isset($parts['pass'])) || isset($parts['query'])
             || isset($parts['fragment']) || !in_array($parts['path'] ?? '', ['', '/'], true)) {
             throw new InvalidArgumentException('H1 session requires an absolute credential-free HTTP origin.');
         }
@@ -118,11 +119,14 @@ final class PooledHttp1Session
             $request->method, $request->uri, $request->headers, $request->body,
             $request->protocol, $source->token(), $request->deadline,
         );
-        $this->pool->acquire($this->key, function (int $lease, ?Connection $connection, ?Throwable $error) use (
-            $owned, $handle, $onHeaders, $onBody, $completion,
+        $pendingId = null;
+        $cancelWaiter = null;
+        $pendingId = $this->pool->acquire($this->key, function (int $lease, ?Connection $connection, ?Throwable $error) use (
+            $owned, $handle, $onHeaders, $onBody, $completion, &$cancelWaiter,
         ): void {
             $this->inFlight[$lease] = $handle;
-            $finish = function (?Connection $idle, ?Throwable $failure) use ($lease, $handle, $completion): void {
+            $finish = function (?Connection $idle, ?Throwable $failure) use ($lease, $handle, $completion, &$cancelWaiter): void {
+                $cancelWaiter?->unsubscribe();
                 unset($this->inFlight[$lease]);
                 $this->pool->release($lease, $idle);
                 $handle->complete();
@@ -158,6 +162,16 @@ final class PooledHttp1Session
                 $finish(null, $failure);
             }
         });
+        // Queued requests must be able to cancel before a dial permit becomes
+        // available, instead of waiting for the queue's admission timeout.
+        $cancelWaiter = $source->token()->onCancel(function () use (&$pendingId): void {
+            if ($pendingId !== null) {
+                $this->pool->cancel($pendingId);
+            }
+        });
+        if ($handle->settled()) {
+            $cancelWaiter->unsubscribe();
+        }
 
         return $handle;
     }

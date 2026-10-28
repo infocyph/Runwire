@@ -116,3 +116,39 @@ it('reuses the same real keep-alive H1 socket for two requests and frees all lea
         fclose($listener);
     }
 });
+
+
+it('immediately cancels a queued same-origin lease without waiting for pool timeout', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $session = new PooledHttp1Session($loop, $dialer, 'http://127.0.0.1:8098', 'tenant', maxConnections: 1);
+    $policy = new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true);
+    $errors = [];
+    try {
+        $first = $session->send(
+            new ClientRequest('GET', 'http://127.0.0.1:8098/one', protocol: $policy),
+            static function (): void {}, static function (): void {},
+            static function (?Throwable $error) use (&$errors): void { $errors[] = $error; },
+        );
+        $second = $session->send(
+            new ClientRequest('GET', 'http://127.0.0.1:8098/two', protocol: $policy),
+            static function (): void {}, static function (): void {},
+            static function (?Throwable $error) use (&$errors): void { $errors[] = $error; },
+        );
+        expect($session->metrics()['active'])->toBe(1)
+            ->and($session->metrics()['waiting'])->toBe(1)
+            ->and($second->cancel())->toBeTrue()
+            ->and($second->settled())->toBeTrue()
+            ->and($session->metrics()['waiting'])->toBe(0)
+            ->and($errors)->toHaveCount(1)
+            ->and($errors[0])->toBeInstanceOf(Throwable::class);
+        $first->cancel();
+    } finally {
+        $session->close();
+        $dialer->close();
+        $numeric->close();
+        $executor->close();
+    }
+});
