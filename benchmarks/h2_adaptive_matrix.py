@@ -29,6 +29,14 @@ class H2Bench:
     def __init__(self, port: int, server_pid: int, payload_bytes: int) -> None:
         self.port, self.server_pid, self.payload_bytes = port, server_pid, payload_bytes
         self.case = workload()
+        # The five-pair fixed workload sends identical immutable headers and
+        # expected payloads; avoid allocating these on every client request.
+        self.fixed_headers = [
+            (":method", "GET"), (":scheme", "https"), (":authority", "localhost"),
+            (":path", "/benchmark"),
+        ]
+        self.fixed_header_bytes = sum(len(k) + len(v) for k, v in self.fixed_headers)
+        self.fixed_expected = b"x" * payload_bytes
         self.active: dict[int, dict[str, Any]] = {}
         self.request_index = 0
         self.request_header_payload_bytes = 0
@@ -101,23 +109,31 @@ class H2Bench:
 
     def open_stream(self, slot: int) -> None:
         stream_id = self.conn.get_next_available_stream_id()
-        sizes = [2, 1024, 16384, 65536] if self.case.get("scenario") == "mixed" else [self.payload_bytes]
-        size = sizes[self.request_index % len(sizes)]
         self.request_index += 1
         self.issued += 1
-        headers = [
-            (":method", "GET"), (":scheme", "https"), (":authority", "localhost"),
-            (":path", f"/benchmark/{size}" if self.case else "/benchmark"),
-        ]
-        if self.case.get("scenario") == "hpack":
-            # Repeat values across streams but rotate them frequently enough to
-            # pressure the real HPACK dynamic table on this independent client.
-            headers.append(("x-hpack-pressure", f"bucket-{self.request_index // 4}-" + "h" * 128))
-        self.request_header_payload_bytes += sum(len(k) + len(v) for k, v in headers)
+        if not self.case:
+            # Same wire headers and payload as before, with no per-request copy.
+            headers = self.fixed_headers
+            expected = self.fixed_expected
+            header_bytes = self.fixed_header_bytes
+        else:
+            sizes = [2, 1024, 16384, 65536] if self.case.get("scenario") == "mixed" else [self.payload_bytes]
+            size = sizes[(self.request_index - 1) % len(sizes)]
+            headers = [
+                (":method", "GET"), (":scheme", "https"), (":authority", "localhost"),
+                (":path", f"/benchmark/{size}"),
+            ]
+            if self.case.get("scenario") == "hpack":
+                # Repeat values across streams but rotate them frequently enough to
+                # pressure the real HPACK dynamic table on this independent client.
+                headers.append(("x-hpack-pressure", f"bucket-{self.request_index // 4}-" + "h" * 128))
+            expected = b"x" * size
+            header_bytes = sum(len(k) + len(v) for k, v in headers)
+        self.request_header_payload_bytes += header_bytes
         self.conn.send_headers(stream_id, headers, end_stream=True)
         self.active[stream_id] = {
             "slot": slot, "started": time.perf_counter(), "status": None,
-            "body": bytearray(), "expected": b"x" * size,
+            "body": bytearray(), "expected": expected,
         }
 
     def stall_snapshot(self) -> dict[str, Any]:
