@@ -38,7 +38,7 @@ This additional pre-release program is separate from and does not inflate the or
 | H03 | SOURCE MIGRATION AUDIT ACCEPTED; final QA pending | [Source Audit #40666665763](https://github.com/infocyph/Runwire/actions/runs/40666665763) PASS: immutable 2.1.2 API manifest, property-level diff, all 35 changed published-type source hash dispositions including `SystemResourceProbe` and test-backed compatibility. Does **not** claim universal behavioral compatibility. |
 | H04 | CODE/TESTS COMPLETE; full QA pending | [`510d3e0`](https://github.com/infocyph/Runwire/commit/510d3e096477084ca2cedec75cbfa9ab36158c54) canonical binary endpoint identity for IPv4-mapped IPv6 connected peers, preserve private/loopback rejection, real rebinding fail-closed, `tests/OutboundAddressPolicyTest.php`. Existing security/cancellation/native QUIC independent QA must remain green. |
 | H05 | EXPLICIT 3.0 SCOPE DECISION | Existing correct and individually qualified H1/H2/H3 outbound protocol APIs stay public; do **not** fabricate high-level H1/H2/H3 automatic sessions or silently downgrade transport. A unified pooled client needs full session/tenant/GOAWAY/cancellation contract and can be added separately only after measured acceptance; not a must-have breaking change to already tested clients. |
-| H06–H08 | DEFERRED BY COHESION/SECURITY DESIGN | Optional PSR/Revolt, tracing SDK and DNS cache/coalescing require separately owned framework/tenant cancellation and cache semantics. No extra core dependency, unsound pooling, or unqualified public ABI introduced during release freeze. |
+| H06–H08 | SUPERSEDED BY H13/H15 SOURCE WORK | Opt-in PSR-7/15/17, W3C Fiber scope and owner-local DNS coalescing were implemented after this historical snapshot. PSR-18/Revolt, automatic process trace propagation, and remaining exact-head QA remain open; see H15. |
 | H09 | CODE/TESTS COMPLETE; full QA pending | [`e12d90c`](https://github.com/infocyph/Runwire/commit/e12d90cf79b762a0ec2d43076f821f1c6886191c) cgroup cpuset duplicate/overlap/overflow rejection and fail-safe one-CPU fallback with fractional-quota tests, `tests/SystemResourceProbeCgroupTest.php`; independent 1800s mixed/autoscale and slow-receiver/relay qualification retain their previous scope. |
 | H10 | PENDING | Exact last immutable SHA PHPForge/Sphinx/source/portable/host/native plus freshly pinned opt-in 5×180s H2/WS, true 1800s mixed and Release Certification `certification_ready=true`, `open_tasks=0`, `release_tag_created=false`, `package_published=false`. |
 
@@ -50,12 +50,12 @@ This additional pre-release program is separate from and does not inflate the or
 - **H07 partial implementation:** [`4601ac6`](https://github.com/infocyph/Runwire/commit/4601ac6ddeb66da3bbc7d32d0a4b492cb7fe38de) adds strict W3C `Tracing\\TraceContext`, traceparent/tracestate validation, child span creation, immutable header injection, spoofed duplicate rejection, explicit `RequestContext` binding and lifecycle cleanup. No global trace scope, automatic Fiber/executor boundary or OpenTelemetry SDK installation is claimed. New `tests/TraceContextTest.php` and observability manual.
 - **H08 implementation:** [`7dcac7c`](https://github.com/infocyph/Runwire/commit/7dcac7c9a315a0b8aa58a8b447e9193f57b2c60f) and [`369b3d4`](https://github.com/infocyph/Runwire/commit/369b3d41b30badf0d4b767b1bb73ffa6df83a911) introduce opt-in `CachedDnsResolver`, `DnsResolverInterface`, Happy Eyeballs wiring, positive and explicit negative TTLs, hostname capacity, independent per-caller deadline/cancellation and last-waiter upstream cancel, with deterministic regression tests. Cache instances are worker/tenant owned, not global. The dialer's SSRF connected-peer recheck remains mandatory. No authoritative upstream DNS TTL claim.
 - **P0 test gate repair:** [`8b2b71b`](https://github.com/infocyph/Runwire/commit/8b2b71bdcce56877f7cc2cda0bd3053ecfa4eaaa) restores mandatory measurement-warning language after `PerformanceDocsProvenanceTest` caught stale wording in four PHPForge lanes. This is a real QA repair, not a lowered gate.
-- **Not yet delivered:** complete unified H1/H2/H3 session pooling and safe reuse, optional PSR-7/15/17/18 adapters (must avoid executing blocking PSR streams on reactor), automatic distributed tracing across all worker/Fiber ownership boundaries, comprehensive new streaming/backpressure and memory-autoscale QA, final exhaustive cross-version release certification. Those are **OPEN**, regardless of the original 167/167 counter. Do not label H01–H10 COMPLETE or release-ready on these partial changes.
+- **Remaining beyond this historical snapshot:** complete unified H1/H2/H3 session pooling and safe reuse, PSR-18/Revolt integration (PSR-7/15/17 were subsequently added), automatic trace propagation across executor/worker boundaries, comprehensive new streaming/backpressure and memory-autoscale qualification, final exhaustive cross-version release certification. Those are **OPEN**, regardless of the original 167/167 counter. Do not label H01–H10 COMPLETE or release-ready on these partial changes.
 
 
 ## H13 — Implemented upgrade batches pending latest GitHub QA
 
-**Latest source:** `a0c9fb85d29802f9794a7e63093dee8a045ba52d`. These additions are *outside* the original 167 tasks and MUST NOT be called fully accepted until exact-source QA and real end-to-end test evidence pass.
+**Implementation snapshot source:** `a0c9fb85d29802f9794a7e63093dee8a045ba52d`. These additions are *outside* the original 167 tasks and MUST NOT be called fully accepted until exact-source QA and real end-to-end test evidence pass.
 
 | Upgrade | Source implementation | Test-backed boundary | Remaining |
 | --- | --- | --- | --- |
@@ -75,3 +75,23 @@ This additional pre-release program is separate from and does not inflate the or
 **Updated H06:** [`a0c9fb8`](https://github.com/infocyph/Runwire/commit/a0c9fb85d29802f9794a7e63093dee8a045ba52d) added bounded PSR-15 host middleware to PSR-7/17 metadata adapters; PSR-18 synchronous client and native Revolt adapter remain open. Do not claim those interfaces are ready or block Runwire's reactor with middleware.
 
 **Current QA rule:** Every new implementation change must pass PHPForge strict cognitive complexity <=12/method, public-migration Source Audit, Sphinx, QA PHP8.4+8.5 and independent protocol/soak release certification. The latest head has not yet passed the entire matrix. No merge, tag or release.
+
+
+## H15 — Latest release-hardening truth table (2026-10-28)
+
+**Production implementation candidate:** [`3765739`](https://github.com/infocyph/Runwire/commit/37657398e5688d85172fee6a6f9ad39fdeea75b5). Earlier H11–H14 tables are dated implementation snapshots; **this table supersedes their status rows**, not the original 167/167 accepted U work. The source tree will need a further documentation-only commit for this reconciliation. The final exact revision MUST be requalified before freezing.
+
+| Item | Current disposition | Remaining evidence / implementation |
+| --- | --- | --- |
+| H01 | IMPLEMENTED | Source-linked supported/experimental/unsupported capability docs; strict Sphinx release-source green required |
+| H02 | IMPLEMENTED | Feature-claim fail-closed Source Audit; must remain green |
+| H03 | IMPLEMENTED MIGRATION LEDGER | 2.1.2 source / changed-behavior reconciliation; freeze exact final SHA and verify all new public APIs under the migration guard |
+| H04 | TARGETED HARDENING IMPLEMENTED | Canonical IPv4-mapped IPv6 connected-peer validation, fail-closed DNS/cgroup limits, bounded worker/cancellation contract; PHPForge and lifecycle QA required |
+| H05 | **PARTIAL — SESSION POOLING OPEN** | `HttpOutboundDispatcher` provides one H1/H2/H3 policy and cancellation contract. Cross-version, origin/tenant/TLS-scoped pooled reuse with GOAWAY and admission is NOT implemented; do not claim it |
+| H06 | **PSR-7/15/17 IMPLEMENTED; PSR-18/REVOLT OPEN** | Optional `PsrMessageBridge` and host-only `PsrMiddlewareAdapter`, with Nyholm integration tests; synchronous PSR body reads must never run on reactor |
+| H07 | **W3C/FIBER IMPLEMENTED; PROCESS/SDK OPEN** | `TraceContext` and `TraceScope`; explicit executor and worker propagation or optional OpenTelemetry SDK bridging not qualified |
+| H08 | IMPLEMENTED; QA ACCEPTANCE OPEN | Bounded owner-local positive/negative DNS TTL, dedup and independently cancellable waiters, per-peer SSRF recheck; PHPForge matrix and real client stress evidence remain required |
+| H09 | TESTED PRIMITIVES; FINAL FULL-SOAK OPEN | Existing real 1MiB stalled-relay hash, 512KiB file/socket backpressure heartbeat, live autoscale and fractional CPU tests; final 1800s mixed PHP8.4/8.5 evidence required |
+| H10 | **OPEN** | Exact final SHA: all Security & Standards, docs, Source Audit, hosted, portable, H2/WS 5×180s, mixed 1800s, release certification green and `open_tasks=0`; no merge, no tag, no publish |
+
+**Release gate remains CLOSED.** No roadmap work is marked complete solely because a draft source commit exists or short tests pass. H05 and the remaining H06/H07 contracts require explicit implementation or an explicitly approved scope change before saying all ten requested improvements are done.
