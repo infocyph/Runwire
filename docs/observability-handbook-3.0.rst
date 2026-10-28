@@ -153,3 +153,23 @@ dedicated automated workflows. File a bug with minimal steps, actual
 and expected wire behavior, PHP/runtime version, ext-quic capability
 and exact source SHA. See :doc:`performance-qa-handbook-3.0` and
 :doc:`production-operations-3.0`.
+
+
+Explicit W3C trace context propagation
+--------------------------------------
+
+Runwire 3.0 provides an opt-in, dependency-free
+`Tracing\\TraceContext` carrier that strictly validates version-00
+`traceparent` and bounded `tracestate`, creates child span IDs and
+injects or extracts sanitized HTTP headers. Bind the carrier to an
+explicit `RequestContext`; completion clears the owned attributes.
+Fiber/executor code must carry that request context explicitly.
+No ambient global trace context, automatic distributed context forwarding
+or OpenTelemetry SDK is claimed. An application may bridge the carrier to
+an OpenTelemetry SDK on its own integration boundary.
+
+Do not automatically reuse inbound trace headers across tenants. Parsing
+rejects duplicate traceparent, all-zero identities and malformed or
+oversized tracestate. The outbound `inject()` method replaces earlier
+trace headers, retaining other headers. Validation is covered by
+`tests/TraceContextTest.php`.
