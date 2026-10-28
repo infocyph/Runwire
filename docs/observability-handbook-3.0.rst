@@ -176,7 +176,7 @@ trace headers, retaining other headers. Validation is covered by
 
 
 Scoped Fiber trace propagation
------------------------------
+------------------------------
 
 `Tracing\\TraceScope` adds explicit per-owner Fiber propagation without
 process-wide static context. Use `run($trace, $callback)` for request-local
