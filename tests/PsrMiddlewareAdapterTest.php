@@ -50,7 +50,7 @@ it('fails closed on more than 32 PSR-15 middleware rather than recursing without
     $terminal = new class implements RequestHandlerInterface {
         public function handle(ServerRequestInterface $request): ResponseInterface
         {
-            return new Response(200);
+            return new Response($request->getMethod() === 'GET' ? 200 : 405);
         }
     };
     expect(fn() => new PsrMiddlewareAdapter(array_fill(0, 33, $middleware), $terminal))

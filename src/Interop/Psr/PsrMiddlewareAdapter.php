@@ -19,9 +19,12 @@ use Psr\Http\Server\RequestHandlerInterface;
  */
 final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
 {
-    /** @param list<MiddlewareInterface> $middleware */
+    /** @var list<MiddlewareInterface> */
+    private array $middleware;
+
+    /** @param array<array-key,mixed> $middleware */
     public function __construct(
-        private array $middleware,
+        array $middleware,
         private RequestHandlerInterface $terminal,
     ) {
         if (count($middleware) > 32 || !array_is_list($middleware)) {
@@ -32,19 +35,23 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
                 throw new InvalidArgumentException('Every PSR-15 middleware must implement MiddlewareInterface.');
             }
         }
+        $this->middleware = array_values($middleware);
     }
 
+    /** Execute a bounded host-side PSR-15 middleware stack. */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $handler = $this->terminal;
         for ($index = count($this->middleware) - 1; $index >= 0; --$index) {
             $middleware = $this->middleware[$index];
             $handler = new class($middleware, $handler) implements RequestHandlerInterface {
+                /** Construct an immutable next-handler for one middleware layer. */
                 public function __construct(
                     private readonly MiddlewareInterface $middleware,
                     private readonly RequestHandlerInterface $next,
                 ) {}
 
+                /** Delegate to the owned middleware and next request handler. */
                 public function handle(ServerRequestInterface $request): ResponseInterface
                 {
                     return $this->middleware->process($request, $this->next);

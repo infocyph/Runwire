@@ -23,6 +23,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
  */
 final readonly class PsrMessageBridge
 {
+    /** Convert bounded PSR-7 HTTP header metadata without consuming the body stream. */
     public static function headers(MessageInterface $message): Headers
     {
         $headers = $message->getHeaders();
@@ -49,13 +50,14 @@ final readonly class PsrMessageBridge
         return Headers::fromArray($normalized);
     }
 
+    /** Safely adapt a bodyless PSR-7 request without a synchronous stream read. */
     public static function outboundRequest(
         RequestInterface $request,
         ?ClientProtocolPolicy $policy = null,
         ?CancellationToken $cancellation = null,
         ?RequestDeadline $deadline = null,
     ): ClientRequest {
-        if ($request->getBody()->getSize() !== 0 || !$request->getBody()->eof()) {
+        if ($request->getBody()->getSize() !== 0) {
             throw new RuntimeUnavailableException(
                 'PSR stream reads may block the reactor; only bodyless requests are adapted directly.',
             );

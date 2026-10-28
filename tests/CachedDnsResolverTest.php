@@ -7,6 +7,7 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\CachedDnsResolver;
 use Infocyph\Runwire\Network\DnsResolverInterface;
 use Infocyph\Runwire\RequestDeadline;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Throwable;
 
 function cachedDnsFake(): DnsResolverInterface
@@ -66,7 +67,7 @@ it('coalesces pending host lookups but independently cancels each caller', funct
     });
     expect($upstream->requests)->toBe(1)
         ->and($resolver->diagnostics()['pendingHosts'])->toBe(1);
-    $source->cancel();
+    $source->cancel(CancellationReason::HOST_CANCELLED);
     expect($results['one'][1])->toBeInstanceOf(Throwable::class)
         ->and($resolver->cancel($one))->toBeFalse()
         ->and($upstream->cancelled)->toBe(0);
