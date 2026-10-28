@@ -184,7 +184,20 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
+          # Retry transient upstream registry/gateway errors only. Hard Composer
+          # conflicts, invalid dependencies and platform failures remain fatal.
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event > /tmp/runwire-quic-composer.log 2>&1; then
+              cat /tmp/runwire-quic-composer.log
+              break
+            fi
+            cat /tmp/runwire-quic-composer.log
+            if [ "$attempt" -eq 3 ] || ! grep -Eiq 'HTTP/[0-9.]+ (502|503|504)|curl error (7|28|52|56)|timed out|Temporary failure in name resolution' /tmp/runwire-quic-composer.log; then
+              echo "::error::Composer QUIC dependencies failed for a non-transient reason or exhausted retries."
+              exit 1
+            fi
+            sleep "$((attempt * 5))"
+          done
 
       - name: Verify Runwire QUIC capability detection
         shell: bash
