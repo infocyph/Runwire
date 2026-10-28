@@ -17,9 +17,9 @@ use Throwable;
 
 /**
  * Explicit cross-protocol outbound request owner with one cancellation contract.
- * No transparent H3 downgrade or hidden tenant reuse. Optional H1-only
- * pooling must be injected with one fixed origin and TLS trust policy; H2/H3
- * retain their separately verified connection and stream lifetimes.
+ * No transparent H3 downgrade or hidden tenant reuse. Optional H1 pooled,
+ * H2 multiplexed and H3 sibling sessions must be caller-owned and independently
+ * verified. A provided pre-established session never triggers a fallback dial.
  */
 final readonly class HttpOutboundDispatcher
 {
@@ -29,6 +29,8 @@ final readonly class HttpOutboundDispatcher
         private HappyEyeballsDialer $dialer,
         private ?QuicClientOptions $quic = null,
         private ?PooledHttp1Session $h1Session = null,
+        private ?Http2MultiplexConnection $h2Session = null,
+        private ?Http3OutboundClient $h3Session = null,
     ) {}
 
     /**
@@ -45,7 +47,7 @@ final readonly class HttpOutboundDispatcher
         ?DialOptions $options = null,
     ): OutboundHttpHandle {
         $isH3 = $request->protocol->preferred === ProtocolVersion::HTTP_3;
-        if ($isH3 && ($this->quic === null
+        if ($isH3 && (($this->quic === null && $this->h3Session === null)
             || $request->protocol->allowedVersions !== [ProtocolVersion::HTTP_3])) {
             throw new RuntimeUnavailableException('H3 needs explicit QUIC options and an h3-only protocol policy.');
         }
@@ -72,7 +74,32 @@ final readonly class HttpOutboundDispatcher
 
         try {
             if ($isH3) {
-                $this->sendH3($owned, $handle, $onHeaders, $onBody, $completion);
+                if ($this->h3Session !== null) {
+                    $this->h3Session->enqueue(
+                        $owned, $onHeaders, $onBody,
+                        static function (?Throwable $error) use ($handle, $completion): void {
+                            $handle->complete();
+                            $completion($error);
+                        },
+                    );
+                } else {
+                    $this->sendH3($owned, $handle, $onHeaders, $onBody, $completion);
+                }
+
+                return $handle;
+            }
+            if ($this->h2Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_2
+                && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_2]) {
+                if ($options !== null) {
+                    throw new InvalidArgumentException('An established H2 session cannot accept per-request TLS/dial overrides.');
+                }
+                $this->h2Session->request(
+                    $owned, $onHeaders, $onBody,
+                    static function (?Throwable $error) use ($handle, $completion): void {
+                        $handle->complete();
+                        $completion($error);
+                    },
+                );
 
                 return $handle;
             }
