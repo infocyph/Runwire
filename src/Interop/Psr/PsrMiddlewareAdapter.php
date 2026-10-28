@@ -51,22 +51,3 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
     }
 }
 
-/**
- * @internal One immutable PSR-15 invocation layer for host-owned execution.
- * An explicit named class keeps PHPForge's public-API documentation contract
- * enforceable without anonymous class reflection exceptions.
- */
-final readonly class PsrMiddlewareHandlerLayer implements RequestHandlerInterface
-{
-    /** Own exactly one PSR-15 middleware and the following handler. */
-    public function __construct(
-        private MiddlewareInterface $middleware,
-        private RequestHandlerInterface $next,
-    ) {}
-
-    /** Delegate to the bounded synchronous middleware chain. */
-    public function handle(ServerRequestInterface $request): ResponseInterface
-    {
-        return $this->middleware->process($request, $this->next);
-    }
-}
