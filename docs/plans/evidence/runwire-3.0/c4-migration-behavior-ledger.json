@@ -200,6 +200,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\SystemResourceProbe",
+      "executableTest": "tests/SystemResourceProbeCgroupTest.php",
+      "behavior": "Conservative effective CPU and memory capacity detection across Linux cgroup quotas, malformed cpusets, and host limits",
+      "migration": "Valid, ordered Linux cpuset ranges retain the same host and cgroup resource semantics; malformed, duplicate or overlapping cpuset ranges now fail closed to a conservative one-CPU worker sizing value rather than incorrectly allowing full host capacity.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\ChildReaper",
       "executableTest": "tests/SupervisorLifecycleTest.php",
       "behavior": "Exit notification and reaped child generation",
