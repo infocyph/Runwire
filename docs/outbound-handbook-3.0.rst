@@ -246,3 +246,27 @@ connection count is in `tests/PooledHttp1SessionTest.php`.
 This is **H1 connection pooling only**, not a general H1/H2/H3 automatic
 pooled session manager. Keep the `HttpOutboundDispatcher` policy separate;
 H2 multiplex and native H3 session siblings retain their own explicit lifecycle.
+
+
+Unified explicit transport and reusable session routing
+------------------------------------------------------
+
+The `Http\\Client\\HttpOutboundDispatcher` provides one request ownership,
+cancellation and completion contract. With constructor opt-ins, it can
+route strict H1 requests into a fixed `PooledHttp1Session` (bounded real
+keep-alive sockets), strict H2 requests into a caller-established,
+verified and SETTINGS-ready `Http2MultiplexConnection` (bounded independent
+stream owners), and strict H3 requests into a caller-established
+`Http3OutboundClient` session's independently cancellable siblings.
+Without those injected sessions it continues using the existing verified
+H1/H2 ALPN dialer or explicitly configured native H3 QUIC transport.
+
+The supplied sessions must be created by the same worker/tenant trust
+scope, must be explicitly closed by their owners, and must enforce their
+original origin and TLS/ALPN policy. H2/H3 session reuse requires the
+caller to establish the protocol session first; this facade does **not**
+automatically cache QUIC or multiplex sockets across distinct origins,
+tenants or trust-policy revisions. Per-request TCP dial/TLS options on an
+injected pooled H1/H2 session are rejected rather than ignored. No H3
+fallback to H2 or H1 is attempted. Completion always disposes the request
+cancellation source and never silently retains an unverified socket.
