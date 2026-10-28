@@ -35,7 +35,7 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
                 throw new InvalidArgumentException('Every PSR-15 middleware must implement MiddlewareInterface.');
             }
         }
-        $this->middleware = array_values($middleware);
+        $this->middleware = $middleware;
     }
 
     /** Execute a bounded host-side PSR-15 middleware stack. */

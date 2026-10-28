@@ -26,6 +26,9 @@ function cachedDnsFake(): DnsResolverInterface
             ?\Infocyph\Runwire\CancellationToken $token = null,
             ?RequestDeadline $deadline = null,
         ): int {
+            if ($hostname === '' || $token?->isCancelled() || $deadline?->expired()) {
+                throw new InvalidArgumentException('Test DNS lookup requires a live hostname and caller.');
+            }
             ++$this->requests;
             $this->jobs[$this->requests] = $completion;
 
@@ -94,9 +97,11 @@ it('cancels upstream only when last waiter goes away and never leaks watchers', 
     $resolver = new CachedDnsResolver($loop, $upstream);
     $errors = [];
     $one = $resolver->resolve('example.org', function ($ips, $failure) use (&$errors): void {
+        expect($ips)->toBe([]);
         $errors[] = $failure;
     });
     $two = $resolver->resolve('EXAMPLE.ORG', function ($ips, $failure) use (&$errors): void {
+        expect($ips)->toBe([]);
         $errors[] = $failure;
     });
     expect($resolver->cancel($one))->toBeTrue()
@@ -115,12 +120,14 @@ it('bounds admissions and negative-caches only explicit DNS misses', function ()
     $resolver = new CachedDnsResolver($loop, $upstream, maxEntries: 1, maxPending: 1, maxWaiters: 2);
     $errors = [];
     $resolver->resolve('missing.invalid', function ($ips, $failure) use (&$errors): void {
+        expect($ips)->toBe([]);
         $errors[] = $failure;
     });
     expect(fn() => $resolver->resolve('other.invalid', static function (): void {}))
         ->toThrow(OverflowException::class);
     $upstream->complete(1, [], new RuntimeException('DNS returned no A or AAAA addresses.'));
     $resolver->resolve('missing.invalid', function ($ips, $failure) use (&$errors): void {
+        expect($ips)->toBe([]);
         $errors[] = $failure;
     });
     $loop->run();
@@ -128,10 +135,12 @@ it('bounds admissions and negative-caches only explicit DNS misses', function ()
         ->and($errors)->toHaveCount(2)
         ->and($errors[1])->toBeInstanceOf(RuntimeException::class);
     $resolver->resolve('other.invalid', function ($ips, $failure) use (&$errors): void {
+        expect($ips)->toBe([]);
         $errors[] = $failure;
     });
     $upstream->complete(2, [], new RuntimeException('transient worker failure'));
     $resolver->resolve('other.invalid', function ($ips, $failure) use (&$errors): void {
+        expect($ips)->toBe([]);
         $errors[] = $failure;
     });
     expect($upstream->requests)->toBe(3);
@@ -144,6 +153,7 @@ it('rejects expired caller deadlines without submitting upstream DNS', function 
     $resolver = new CachedDnsResolver($loop, $upstream);
     $received = [];
     $resolver->resolve('example.com', function ($ips, $failure) use (&$received): void {
+        expect($ips)->toBe([]);
         $received[] = $failure;
     }, deadline: new RequestDeadline(0));
 
