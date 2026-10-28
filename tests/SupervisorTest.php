@@ -29,7 +29,16 @@ it('starts multiple workers and reaps them during graceful shutdown', function (
         shutdownTimeoutSeconds: 0.1,
     ));
 
-    $loop->delay(0.03, static function () use ($supervisor): void {
+    $safety = $loop->delay(2.0, static function () use ($supervisor): void {
+        $supervisor->stop(true);
+    });
+    $loop->repeat(0.005, static function (int $timer) use ($loop, $safety, $supervisor, &$workerPids): void {
+        if (count($workerPids) < 2) {
+            return;
+        }
+
+        $loop->cancel($timer);
+        $loop->cancel($safety);
         $supervisor->stop();
     });
 
