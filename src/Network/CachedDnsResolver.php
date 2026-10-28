@@ -35,6 +35,7 @@ final class CachedDnsResolver implements DnsResolverInterface
     /** @var array<int,array{host:string,callback:Closure,subscription:?CancellationSubscription,timer:?int,deferred:?int}> */
     private array $waiters = [];
 
+    /** Configure a bounded owner-local TTL cache without changing shared resolver ownership. */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly DnsResolverInterface $upstream,
@@ -57,6 +58,7 @@ final class CachedDnsResolver implements DnsResolverInterface
         $this->pid = $pid;
     }
 
+    /** Cancel exactly one caller; preserve unrelated coalesced waiters. */
     public function cancel(int $id): bool
     {
         $this->assertOwner();
@@ -68,6 +70,7 @@ final class CachedDnsResolver implements DnsResolverInterface
         return true;
     }
 
+    /** Cancel pending callers and drop cache entries without closing the shared upstream. */
     public function close(): void
     {
         $this->assertOwner();

@@ -19,6 +19,7 @@ final readonly class TraceContext
 {
     private const string ATTRIBUTE = 'runwire.trace_context';
 
+    /** Validate a W3C trace identity before exposing it to application code. */
     public function __construct(
         public string $traceId,
         public string $spanId,
@@ -35,6 +36,7 @@ final readonly class TraceContext
         }
     }
 
+    /** Parse one inbound W3C traceparent and optional tracestate header. */
     public static function fromHeaders(Headers $headers): ?self
     {
         $parents = $headers->all('traceparent');
@@ -80,6 +82,7 @@ final readonly class TraceContext
         $request->setAttribute(self::ATTRIBUTE, $this);
     }
 
+    /** Look up the trace carrier explicitly bound to the request lifecycle. */
     public static function forRequest(RequestContext $request): ?self
     {
         $context = $request->attribute(self::ATTRIBUTE);

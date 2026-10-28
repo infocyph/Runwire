@@ -11,6 +11,7 @@ use Throwable;
 /** A cancellable off-loop DNS lookup used by Happy Eyeballs. */
 interface DnsResolverInterface
 {
+    /** Cancel one DNS job or coalesced caller by its handle. */
     public function cancel(int $id): bool;
 
     /** @param callable(list<string>,?Throwable):void $completion */

@@ -22,6 +22,7 @@ final class TraceScope
 
     private readonly int $pid;
 
+    /** Initialize request-owned Fiber tracking without global process context. */
     public function __construct()
     {
         $this->fibers = new WeakMap();
@@ -32,6 +33,7 @@ final class TraceScope
         $this->pid = $pid;
     }
 
+    /** Read the current explicitly owned trace context. */
     public function current(): ?TraceContext
     {
         $this->assertOwner();

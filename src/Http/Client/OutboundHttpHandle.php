@@ -12,13 +12,16 @@ final class OutboundHttpHandle
 {
     private bool $settled = false;
 
+    /** Create an owned outbound cancellation handle. */
     public function __construct(private readonly CancellationSource $source) {}
 
+    /** Cancel the owned exchange once. */
     public function cancel(): bool
     {
         return !$this->settled && $this->source->cancel(CancellationReason::HOST_CANCELLED);
     }
 
+    /** Dispose cancellation links on terminal completion. */
     public function complete(): void
     {
         if ($this->settled) {
@@ -28,6 +31,7 @@ final class OutboundHttpHandle
         $this->source->dispose();
     }
 
+    /** Report whether the exchange reached a terminal state. */
     public function settled(): bool
     {
         return $this->settled;

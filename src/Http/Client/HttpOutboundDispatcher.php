@@ -21,6 +21,7 @@ use Throwable;
  */
 final readonly class HttpOutboundDispatcher
 {
+    /** Bind the dispatcher to the owner loop and verified dialer. */
     public function __construct(
         private LoopInterface $loop,
         private HappyEyeballsDialer $dialer,
