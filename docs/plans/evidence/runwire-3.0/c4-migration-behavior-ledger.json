@@ -16,6 +16,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Internal\\FiberScheduler",
+      "executableTest": "tests/BatchLCoroutineSchedulerTest.php",
+      "behavior": "Bounded coroutine ready-depth high-water measurement, task lifecycle, and FIFO resume fairness",
+      "migration": "The internal scheduler retains the same bounded ready queue and diagnostic high-water metric; verify FIFO resume, cancellation and task cleanup after inline sampling. Internal implementation changes do not introduce new caller migration requirements.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Internal\\FutureState",
       "executableTest": "tests/BatchLCoroutineSchedulerTest.php",
       "behavior": "Future readiness and failed-child propagation",
