@@ -50,4 +50,3 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
         return $handler->handle($request);
     }
 }
-

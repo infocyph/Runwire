@@ -58,16 +58,10 @@ final class PooledHttp1Session
         ?string $tlsPolicyIdentity = null,
         int $maxConnections = 8,
     ) {
-        $parts = parse_url($origin);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)
-            || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
-            || (isset($parts['user']) || isset($parts['pass'])) || isset($parts['query'])
-            || isset($parts['fragment']) || !in_array($parts['path'] ?? '', ['', '/'], true)) {
-            throw new InvalidArgumentException('H1 session requires an absolute credential-free HTTP origin.');
-        }
-        $this->scheme = strtolower($parts['scheme']);
-        $this->host = strtolower($parts['host']);
-        $this->port = $parts['port'] ?? ($this->scheme === 'https' ? 443 : 80);
+        $parts = self::parseOrigin($origin);
+        $this->scheme = $parts['scheme'];
+        $this->host = $parts['host'];
+        $this->port = $parts['port'];
         $endpoint = DialEndpoint::parse('tcp://' . $this->host . ':' . $this->port);
         $options ??= new DialOptions();
         if ($options->cancellation !== null || $options->deadline !== null) {
@@ -119,50 +113,19 @@ final class PooledHttp1Session
             $request->method, $request->uri, $request->headers, $request->body,
             $request->protocol, $source->token(), $request->deadline,
         );
-        $pendingId = null;
         $cancelWaiter = null;
         try {
-            $pendingId = $this->pool->acquire($this->key, function (int $lease, ?Connection $connection, ?Throwable $error) use (
-                $owned, $handle, $onHeaders, $onBody, $completion, &$cancelWaiter,
-            ): void {
-                $this->inFlight[$lease] = $handle;
-                $finish = function (?Connection $idle, ?Throwable $failure) use ($lease, $handle, $completion, &$cancelWaiter): void {
-                    $cancelWaiter?->unsubscribe();
-                    unset($this->inFlight[$lease]);
-                    $this->pool->release($lease, $idle);
-                    $handle->complete();
-                    $completion($failure);
-                };
-                if ($error !== null || $owned->cancellation?->isCancelled()) {
-                    $finish(null, $error ?? new CancelledException(CancellationReason::HOST_CANCELLED));
-    
-                    return;
-                }
-                try {
-                    if ($connection !== null) {
-                        (new Http1ConnectedExchange(
-                            $this->loop, $connection, $owned, $onHeaders, $onBody, $finish,
-                        ))->start();
-    
-                        return;
-                    }
-                    Http1OutboundClient::connect(
-                        $this->loop, $this->dialer, $owned, $onHeaders, $onBody, $finish,
-                        new DialOptions(
-                            $this->options->connectTimeoutSeconds,
-                            $owned->deadline,
-                            $owned->cancellation,
-                            $this->options->connectionLimits,
-                            $this->options->tcpNoDelay,
-                            $this->options->tls,
-                            $this->options->addressPolicy,
-                        ),
+            $pendingId = $this->pool->acquire(
+                $this->key,
+                function (int $lease, ?Connection $connection, ?Throwable $error) use (
+                    $owned, $handle, $onHeaders, $onBody, $completion, &$cancelWaiter,
+                ): void {
+                    $this->startLease(
+                        $lease, $connection, $error, $owned, $handle,
+                        $onHeaders, $onBody, $completion, $cancelWaiter,
                     );
-                } catch (Throwable $failure) {
-                    $connection?->abort();
-                    $finish(null, $failure);
-                }
-            });
+                },
+            );
         } catch (Throwable $error) {
             $handle->complete();
 
@@ -170,10 +133,8 @@ final class PooledHttp1Session
         }
         // Queued requests must be able to cancel before a dial permit becomes
         // available, instead of waiting for the queue's admission timeout.
-        $cancelWaiter = $source->token()->onCancel(function () use (&$pendingId): void {
-            if ($pendingId !== null) {
-                $this->pool->cancel($pendingId);
-            }
+        $cancelWaiter = $source->token()->onCancel(function () use ($pendingId): void {
+            $this->pool->cancel($pendingId);
         });
         if ($handle->settled()) {
             $cancelWaiter->unsubscribe();
@@ -199,9 +160,91 @@ final class PooledHttp1Session
     }
 
     /** Bounded pool counters, including actual healthy keep-alive reuse. */
+    /** @return array<string, int|bool> */
     public function metrics(): array
     {
         return $this->pool->metrics();
+    }
+
+    /**
+     * @return array{scheme: string, host: string, port: int}
+     */
+    private static function parseOrigin(string $origin): array
+    {
+        $parts = parse_url($origin);
+        if (!is_array($parts) || !is_string($parts['host'] ?? null)
+            || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+            || isset($parts['user']) || isset($parts['pass']) || isset($parts['query'])
+            || isset($parts['fragment']) || !in_array($parts['path'] ?? '', ['', '/'], true)) {
+            throw new InvalidArgumentException('H1 session requires an absolute credential-free HTTP origin.');
+        }
+        $scheme = strtolower($parts['scheme']);
+
+        return [
+            'scheme' => $scheme,
+            'host' => strtolower($parts['host']),
+            'port' => $parts['port'] ?? ($scheme === 'https' ? 443 : 80),
+        ];
+    }
+
+    /**
+     * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
+     * @param callable(string):void $onBody
+     * @param callable(?Throwable):void $completion
+     */
+    private function startLease(
+        int $lease,
+        ?Connection $connection,
+        ?Throwable $error,
+        ClientRequest $owned,
+        OutboundHttpHandle $handle,
+        callable $onHeaders,
+        callable $onBody,
+        callable $completion,
+        ?CancellationSubscription &$cancelWaiter,
+    ): void {
+        $this->inFlight[$lease] = $handle;
+        $finish = function (?Connection $idle, ?Throwable $failure) use (
+            $lease, $handle, $completion, &$cancelWaiter,
+        ): void {
+            if ($cancelWaiter instanceof CancellationSubscription) {
+                $cancelWaiter->unsubscribe();
+            }
+            unset($this->inFlight[$lease]);
+            $this->pool->release($lease, $idle);
+            $handle->complete();
+            $completion($failure);
+        };
+
+        if ($error !== null || $owned->cancellation?->isCancelled()) {
+            $finish(null, $error ?? new CancelledException(CancellationReason::HOST_CANCELLED));
+
+            return;
+        }
+        try {
+            if ($connection !== null) {
+                new Http1ConnectedExchange(
+                    $this->loop, $connection, $owned, $onHeaders, $onBody, $finish,
+                )->start();
+
+                return;
+            }
+            Http1OutboundClient::connect(
+                $this->loop, $this->dialer, $owned, $onHeaders, $onBody, $finish,
+                new DialOptions(
+                    $this->options->connectTimeoutSeconds,
+                    $owned->deadline,
+                    $owned->cancellation,
+                    $this->options->connectionLimits,
+                    $this->options->tcpNoDelay,
+                    $this->options->tls,
+                    $this->options->addressPolicy,
+                ),
+            );
+        } catch (Throwable $failure) {
+            $connection?->abort();
+            $finish(null, $failure);
+        }
     }
 
     private function verifyRequest(ClientRequest $request): void
