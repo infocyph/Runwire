@@ -30,6 +30,21 @@ it('rejects rebinding between approved DNS candidate and actual connected peer',
         ->and(fn() => $policy->assertConnected('8.8.8.8', 'example.com:443'))->toThrow(RuntimeException::class);
 });
 
+it('compares canonical kernel peers across IPv4 and IPv4-mapped IPv6 without allowing rebinding', function (): void {
+    $policy = new OutboundAddressPolicy();
+
+    $policy->assertCandidate('::ffff:8.8.8.8');
+    $policy->assertConnected('8.8.8.8', '[::ffff:8.8.8.8]:443');
+    $policy->assertConnected('::ffff:8.8.8.8', '8.8.8.8:443');
+
+    expect(fn() => $policy->assertConnected('::ffff:8.8.8.8', '[::ffff:1.1.1.1]:443'))
+        ->toThrow(RuntimeException::class)
+        ->and(fn() => $policy->assertConnected('::ffff:8.8.8.8', '10.1.1.1:443'))
+        ->toThrow(RuntimeException::class)
+        ->and(fn() => $policy->assertConnected('8.8.8.8', '[::ffff:127.0.0.1]:443'))
+        ->toThrow(RuntimeException::class);
+});
+
 it('denies unsafe direct and resolved dials before opening sockets or retaining watchers', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);

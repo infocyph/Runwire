@@ -53,8 +53,23 @@ final readonly class OutboundAddressPolicy
         }
         $this->assertCandidate($peer->host);
 
-        if (inet_pton($approvedIp) !== inet_pton($peer->host)) {
+        // Some kernels report an IPv4 peer through an IPv4-mapped IPv6
+        // address. Match the same 32-bit endpoint, never merely the textual IP.
+        if (self::canonicalAddress($approvedIp) !== self::canonicalAddress($peer->host)) {
             throw new RuntimeException('Connected peer differs from the authorized resolved IP.');
         }
+    }
+
+    private static function canonicalAddress(string $ip): string
+    {
+        $packed = inet_pton($ip);
+        if (!is_string($packed)) {
+            throw new RuntimeException('Connected peer must have a valid numeric IP.');
+        }
+
+        return strlen($packed) === 16
+            && substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff"
+                ? substr($packed, 12)
+                : $packed;
     }
 }
