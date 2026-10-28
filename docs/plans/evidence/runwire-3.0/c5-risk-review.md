@@ -6,6 +6,10 @@
 **Candidate:** an immutable SHA must be explicitly selected only after C4 closure. A moving branch head is not certification.
 **Boundaries:** Runwire repository and GitHub-hosted QA only; no merge, tag, package publish, other-repository edits or security gate waivers.
 
+## W220 — QA and frozen-source handoff update (2026-10-28)
+
+**Pre-signoff and all eight tasks remain OPEN, except already-accepted U17.01/U17.04.** PHPForge Security & Standards [#40629832470](https://github.com/infocyph/Runwire/actions/runs/40629832470) exposed PHPStan `ByteQueue::read()` cognitive complexity 14 against max 12 and Pint `EventLoop.php` ordered-class-elements; failed 8.4/8.5 stable/lowest and analysis lanes are **real release blockers**. Corrective next-source commit must re-run the complete same QA without suppression. Earlier 4d1b5b4 1800s mixed soak, independent H2/WS and release-certification runs are not final evidence for any subsequent changed candidate. Do not claim U15.10, U17.02, U17.03, U17.05, U17.06 or U17.07–09 accepted until their exact frozen-source requirements finish. No maintainer release signoff supplied.
+
 ## Required C5 evidence and release authority
 
 | U17 ID | Proof required for a frozen candidate | Decision |

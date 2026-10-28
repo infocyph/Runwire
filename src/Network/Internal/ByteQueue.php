@@ -183,18 +183,11 @@ final class ByteQueue
         }
 
         $remaining = min($maxBytes, $this->bytes);
-        // Avoid allocating a parts list for the common single-chunk consume case.
+        // Reuse the existing audited accounting path for one-chunk reads:
+        // no temporary parts array, no duplicate budget/compaction logic.
         if ($remaining <= strlen($this->chunks[$this->head]) - $this->headOffset) {
             $result = $this->front($remaining);
-            $this->headOffset += $remaining;
-            $this->bytes -= $remaining;
-            $this->budget?->release($remaining);
-            if ($this->headOffset === strlen($this->chunks[$this->head])) {
-                unset($this->chunks[$this->head]);
-                ++$this->head;
-                $this->headOffset = 0;
-                $this->compact();
-            }
+            $this->discard($remaining);
 
             return $result;
         }

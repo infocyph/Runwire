@@ -41,11 +41,11 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     private bool $running = false;
 
-    /** @var array<int, int> */
-    private array $writeIndex = [];
-
     /** @var array<int, array{0: int, 1: bool}> */
     private array $watcherResources = [];
+
+    /** @var array<int, int> */
+    private array $writeIndex = [];
 
     /**
      * Create an ext-event loop with the callback-overrun threshold.
