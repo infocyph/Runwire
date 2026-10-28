@@ -84,6 +84,18 @@ final readonly class HttpOutboundDispatcher
     }
 
     /**
+     * @param callable(?Throwable):void $completion
+     * @return \Closure(?Throwable):void
+     */
+    private static function settle(OutboundHttpHandle $handle, callable $completion): \Closure
+    {
+        return static function (?Throwable $error) use ($handle, $completion): void {
+            $handle->complete();
+            $completion($error);
+        };
+    }
+
+    /**
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
@@ -131,18 +143,7 @@ final readonly class HttpOutboundDispatcher
     }
 
     /**
-     * @param callable(?Throwable):void $completion
-     * @return \Closure(?Throwable):void
-     */
-    private static function settle(OutboundHttpHandle $handle, callable $completion): \Closure
-    {
-        return static function (?Throwable $error) use ($handle, $completion): void {
-            $handle->complete();
-            $completion($error);
-        };
-    }
-
-    /** @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
+     * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      */
