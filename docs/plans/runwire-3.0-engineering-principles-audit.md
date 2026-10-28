@@ -4,6 +4,10 @@
 **Scope:** repository-wide production-source inventory and targeted ownership/hot-path inspection; subsequent proof requires exact-source PHPForge QA and GitHub-worker benchmarks. This is **not** a claim of a completed line-by-line review or production-measured performance improvement.
 **Release ledger:** 159/167 QA accepted, 8 OPEN; C4 U15.10 and seven C5 U17 tasks remain OPEN. No task count inflation, merge, tag, external publishing, new repository, or threshold relaxation.
 
+## W224 — Verified exact-head mixed-soak closure, not a universal speedup
+
+Original lifecycle saturation is no longer reproduced by the qualified [C4 PHP8.4/8.5 exact-source mixed 1800s #40641852591](https://github.com/infocyph/Runwire/actions/runs/40641852591) on `307f51ffe619d96777db3a724c16d630106a732f`: both PHP8.4/8.5 passed exact 1800s mixed HTTP/file/TCP/autoscale, complete whole-process and worker-GC/OPcache review, and zero HTTP errors. This is sufficient acceptance for U15.10 and C4 completion. The current 5×180s independent H2 comparator [#40646541373](https://github.com/infocyph/Runwire/actions/runs/40646541373) fails real client CPU headroom despite RPS/p99/CV passing: baseline median ~11,711 RPS and candidate ~11,585 RPS, client ~95–98% on both. Baseline and candidate must remain comparable; no performance/correctness claim may bypass a CPU-bound load generator. Current canonical scope 163/167, C4 11/11; four U17.06–09 OPEN, no release. Historical lower counts below are snapshots of earlier source.
+
 ## Engineering decision order
 
 1. Correctness, protocol/security contracts, ownership and deterministic cleanup precede speed.

@@ -1,5 +1,11 @@
 # Runwire 3.0 — unified runtime detailed development plan and tracker
 
+## W224 — C4 completed on exact-source PHP 8.4/8.5 full mixed 1800s evidence (2026-10-28)
+
+**Canonical: 163/167 QA-accepted; 4 OPEN. C4 COMPLETE 11/11, C5 ACTIVE 5/9.** Candidate source `307f51ffe619d96777db3a724c16d630106a732f` has mandatory [C4 PHP8.4/8.5 exact-source mixed 1800s #40641852591](https://github.com/infocyph/Runwire/actions/runs/40641852591) SUCCESS on both PHP versions, identical immutable source SHA, genuine uninterrupted 1800-second independent H1 traffic, zero HTTP/validation/timeout errors, continuously interleaved real file/TCP and autoscale cycles, whole-process RSS/FD/child-tree samples and direct worker GC/OPcache observations. PHP8.4: 14,623,178 successful H1 requests; 570 file/TCP cycles, 89 autoscale cycles, 368 process and GC/OPcache snapshots; PHP8.5: 24,316,060 successful requests; 574 file/TCP cycles, 89 autoscale cycles, 367 snapshots. Both final JSON summaries mark `process_tree.passed`, `worker_gc_opcache.passed` and `release_qualified` true; worker OPcache remained stable. This certifies U15.10 on exact production source and closes C4 without removing its original hard gates. Future production edits must still undergo final exact-source QA.
+
+**C5 U17.06 remains OPEN:** [C4 PHP8.4/8.5 exact-source mixed 1800s #40641852591](https://github.com/infocyph/Runwire/actions/runs/40641852591) and [H1 matched/1800s package #40642104478](https://github.com/infocyph/Runwire/actions/runs/40642104478) and [both WebSocket 5×180s #40641945314](https://github.com/infocyph/Runwire/actions/runs/40641945314) passed, but [latest exact-source H2 #40646541373](https://github.com/infocyph/Runwire/actions/runs/40646541373) FAILS its mandatory independent Python client CPU <85%: baseline samples ~95–97%, candidate samples ~96–98% despite throughput, p99, CV, RSS and correctness gates passing. Prior H2 #40635088787 PASSED at older candidate `5fdb57e`, so do not misuse it for current-source certification. No threshold change, automatic release, or C5 task promotion. U17.07–09 remain OPEN until exact-source final risk disposition, evidence reconciliation, and maintainer-ready unpublished handoff. PR stays draft/unmerged/untagged.
+
 ## W223 — C5 release-blocker root cause, bounded worker lifecycle and PHPForge complexity remediation (2026-10-28)
 
 **Canonical tasks unchanged: 162/167 QA-accepted, five OPEN; C4 10/11, C5 5/9.** The exact-source production [mixed PHP8.5 #40634940450](https://github.com/infocyph/Runwire/actions/runs/40634940450) failed at **760.587 actual seconds** (15,222,694 HTTP requests attempted; 15,222,678 succeeded; 16 read errors), with artifact [#12793663954](https://github.com/infocyph/Runwire/actions/runs/40634940450/artifacts/12793663954) proving `RuntimeException: Unable to signal worker lifecycle state` in `src/Supervisor/WorkerContext.php` from native HTTP request admission. The worker emitted one B/I pair **per fast request** into a nonblocking Unix socket, eventually saturating the parent lifecycle channel. No result was incorrectly represented as 1800s; resource/GC/OPcache end-state evidence remained incomplete. This is a **real runtime bug** and release blocker, not a benchmark capacity waiver.
@@ -541,9 +547,9 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 | C1 | Transport, QUIC and HTTP | U04.08, U05.05, U05.09, U05.10, U07.06, U07.07, U07.08, U07.11, U08.05, U08.08, U08.09 | 0 | COMPLETE (11/11 accepted) | Real TLS, QUIC and H1/H2/H3 peer conformance; bounded loss/reset/fallback; matched evidence |
 | C2 | Proxy, pooling and relay | U10.03, U10.04, U10.05, U10.06, U10.09 | 0 | DONE — 5/5 QA accepted in supported scope | Verified origin TLS over cleartext CONNECT, HTTPS-proxy nesting fail-closed, authenticated proxy, pooling, H2/H3 multiplex |
 | C3 | Filesystem, native supervision and security | U11.03, U11.10, U12.02, U12.04, U12.05, U12.06, U12.08, U12.09, U14.04 | 0 | DONE (9/9 QA accepted) | Real live worker scaling/drain/crash tests, mixed transports, bounded file executor and fuzz |
-| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.12 | 1 | ACTIVE (10/11 accepted; U15.10 soak pending) | Real counterpart profiling, strict five-pair 180s and genuine 1800s soak, GitHub Sphinx HTML |
+| C4 | Full performance and documentation | U15.01, U15.02, U15.03, U15.04, U15.05, U15.06, U15.07, U15.08, U15.09, U15.10, U16.12 | 0 | COMPLETE (11/11 QA accepted; exact 1800s PHP8.4/8.5) | Real counterpart profiling, strict five-pair 180s and genuine 1800s soak, GitHub Sphinx HTML |
 | C5 | Frozen release certification and maintainer handoff | U17.01, U17.02, U17.03, U17.04, U17.05, U17.06, U17.07, U17.08, U17.09 | 4 | ACTIVE (5/9 accepted) | Exact-head PHPForge/host/interop/packaging, risk evidence and no automatic release |
-| **TOTAL** | **Five closure groups; no extra task IDs** | **45 assigned; 40 accepted** | **5** | **C1/C2/C3 DONE; C4/C5 ACTIVE** | **167 canonical tasks** |
+| **TOTAL** | **Five closure groups; no extra task IDs** | **45 assigned; 41 accepted** | **4** | **C1/C2/C3/C4 DONE; C5 ACTIVE** | **167 canonical tasks** |
 
 ### Cross-batch delivery and QA discipline
 
@@ -574,12 +580,12 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 | U12 | Native supervisor and adaptive worker autoscaling | 9/9 | 0 | Done | U01,U02,U06 |
 | U13 | Real host and optional extension compatibility | 9/9 | 0 | DONE | U01,U03,U04,U06,U12 |
 | U14 | Security, fuzzing and adversarial resilience | 8/8 | 0 | Complete | U03-U13 |
-| U15 | Performance attribution, regressions and soak | 9/10 | 1 | In progress | U02-U14 |
+| U15 | Performance attribution, regressions and soak | 10/10 | 0 | Done | U02-U14 |
 | U16 | GitHub-worker Sphinx documentation and complete public catalog | 14/14 | 0 | Done | U00-U15 |
 | U17 | Final certification, risk evidence and maintainer handoff | 5/9 | 4 | In progress | U00-U16 |
-| **TOTAL** | **Runwire 3.0.0 unified runtime** | **162/167** | **5** | **U00–U14/U16 complete; U15/U17 in progress** | U00-U17 |
+| **TOTAL** | **Runwire 3.0.0 unified runtime** | **163/167** | **4** | **U00–U16 complete; U17 in progress** | U00-U17 |
 
-**Progress counter:** 162/167 (97.0% complete), 5 open.
+**Progress counter:** 163/167 (97.6% complete), 4 open.
 
 ## Detailed implementation acceptance checklist
 
@@ -843,9 +849,9 @@ The five re-scoped closure groups contain **47** unique Uxx.yy IDs (35 accepted,
 - [x] **U15.07** Benchmark H1/H2/H3 and WebSocket clients and servers with real counterparts. **Acceptance:** CPU/RSS/p99 and errors captured. **Proof:** Independent H1/H2/H3 client+server tests under GitHub [Security #40509728838](https://github.com/infocyph/Runwire/actions/runs/40509728838) and [Benchmarks #40509745518](https://github.com/infocyph/Runwire/actions/runs/40509745518); independent RFC6455 WebSocket real server/client on PHP8.4/8.5 with CPU/RSS snapshots, p99 0.612/0.358 ms, 177036/299483 correct messages, zero errors [Benchmarks #40516979142](https://github.com/infocyph/Runwire/actions/runs/40516979142). Short protocol samples; not comparative release-duration U15.09.
 - [x] **U15.08** Benchmark file executor and autoscale under mixed network load. **Acceptance:** No loop starvation or excessive overhead. **Proof:** Real parallel binary file/TCP same-reactor and autoscale HTTP eight rounds on both PHP8.4/8.5, 384 accepted file round trips and 384 independent real TCP connections per version, worst loop gap 12.116/13.132 ms, peak FDs 62, RSS 79MB/89MB, zero failed autoscale responses or stale workers [GitHub worker #40522428193](https://github.com/infocyph/Runwire/actions/runs/40522428193) and four PHPForge QA lanes [#40522429213](https://github.com/infocyph/Runwire/actions/runs/40522429213); 1800s continuous mixed release soak remains independent U15.10.
 - [x] **U15.09** Run exact baseline 2.1.2 versus 3.0 five paired 180s comparisons. **Acceptance:** Both variance CV less than 2.5 percent and strict p99/RSS/RPS gates. **Proof:** GitHub [plaintext H1 5×180s #40504576622](https://github.com/infocyph/Runwire/actions/runs/40504576622) matched job PASS: published 2.1.2 RPS 5695.347 vs 3.0 5508.078 (-3.288%, within -5%), CV .199/.205%, p99 5.26/5.44ms, RSS -0.745%; independently verified-TLS H1 [5×180s #40509745518](https://github.com/infocyph/Runwire/actions/runs/40509745518) PASS: baseline/candidate ~390.31 RPS, CV .005/.003%, p99 ~41.88ms, both within gates. Production source and matched-comparator implementations unchanged since tested. Comparable H1 and H1/TLS published-baseline cells accepted; H2/H3/WebSocket 3.0-only peers covered independently U15.04/.07, not falsely compared to unavailable 2.1.2 baseline. Overall old release workflow still failed unrelated QA, not a final release signoff.
-- [ ] **U15.10** Run full 1800-second process-tree and GC/OPcache/FD soak. **Acceptance:** No errors, unbounded growth or stale workers. **Proof:** PENDING.
+- [x] **U15.10** Run full 1800-second process-tree and GC/OPcache/FD soak. **Acceptance:** No errors, unbounded growth or stale workers. **Proof:** Immutable source `307f51ffe619d96777db3a724c16d630106a732f` [C4 PHP8.4/8.5 exact-source mixed 1800s #40641852591](https://github.com/infocyph/Runwire/actions/runs/40641852591) SUCCESS on PHP8.4 and PHP8.5: full uninterrupted 1800s of independent HTTP requests (14,623,178 / 24,316,060, zero errors); concurrently 570/574 real file/TCP cycles, 89/89 autoscale cycles, 368/367 whole-process + GC/OPcache observations, with both resource summaries and `release_qualified` true. Artifact IDs #12797715222 and #12796314993. No historical failed/short run credited.
 
-**Batch tracker:** 9/10 accepted; 1 open. **Exit:** all evidence linked, required QA green, no unresolved critical regression.
+**Batch tracker:** 10/10 accepted; 0 open — **U15 COMPLETE, C4 CLOSED**. Exit proof: [C4 PHP8.4/8.5 exact-source mixed 1800s #40641852591](https://github.com/infocyph/Runwire/actions/runs/40641852591) exact-source two-PHP real mixed workloads, all resource checks passed. U17.06 still requires independent H2 CPU-headroom and release-wide paired comparison.
 
 ### U16 — Read the Docs-compatible Sphinx documentation and full feature catalog
 
