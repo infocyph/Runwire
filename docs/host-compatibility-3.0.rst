@@ -175,8 +175,12 @@ not required runtime packages. A PSR stream's `read()` may block,
 so the adapter fails closed on nonempty or unbounded request bodies;
 it never reads PSR stream bodies on the Runwire reactor.
 
-This is not a PSR-15 middleware runner nor a blocking PSR-18 synchronous
-HTTP client. Those contracts must execute in compatible host-owned
-environments or use separately qualified asynchronous adapters.
+An opt-in bounded `Interop\\Psr\\PsrMiddlewareAdapter` also runs a PSR-15
+middleware stack on **host-owned synchronous request boundaries only**,
+with explicit request/response ownership and a 32-middleware cap.
+Do not invoke arbitrary synchronous PSR middleware from native Runwire
+reactor callbacks. A synchronous PSR-18 HTTP client is **not** provided;
+that contract requires a separate off-loop, transport and body-stream
+integration with its own acceptance suite.
 `tests/PsrMessageBridgeTest.php` uses an independent Nyholm PSR-17
 implementation as a development-only interoperability fixture.

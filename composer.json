@@ -32,7 +32,9 @@
         "ext-pcntl": "*",
         "ext-posix": "*",
         "infocyph/phpforge": "dev-main@dev",
-        "nyholm/psr7": "^1.8"
+        "nyholm/psr7": "^1.8",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0"
     },
     "suggest": {
         "ext-event": "Enables the scalable native event-loop backend.",
