@@ -36,6 +36,14 @@ final readonly class TraceContext
         }
     }
 
+    /** Look up the trace carrier explicitly bound to the request lifecycle. */
+    public static function forRequest(RequestContext $request): ?self
+    {
+        $context = $request->attribute(self::ATTRIBUTE);
+
+        return $context instanceof self ? $context : null;
+    }
+
     /** Parse one inbound W3C traceparent and optional tracestate header. */
     public static function fromHeaders(Headers $headers): ?self
     {
@@ -50,6 +58,12 @@ final readonly class TraceContext
         }
 
         return new self($match[1], $match[2], (int) hexdec($match[3]), $states[0] ?? null);
+    }
+
+    /** Bind trace identity to an explicitly owned request, never a global Fiber slot. */
+    public function bind(RequestContext $request): void
+    {
+        $request->setAttribute(self::ATTRIBUTE, $this);
     }
 
     /** Create an independent span while preserving the trace and bounded tracestate. */
@@ -74,20 +88,6 @@ final readonly class TraceContext
         }
 
         return new Headers($fields);
-    }
-
-    /** Bind trace identity to an explicitly owned request, never a global Fiber slot. */
-    public function bind(RequestContext $request): void
-    {
-        $request->setAttribute(self::ATTRIBUTE, $this);
-    }
-
-    /** Look up the trace carrier explicitly bound to the request lifecycle. */
-    public static function forRequest(RequestContext $request): ?self
-    {
-        $context = $request->attribute(self::ATTRIBUTE);
-
-        return $context instanceof self ? $context : null;
     }
 
     private static function validateState(string $state): void

@@ -22,12 +22,12 @@ final class CachedDnsResolver implements DnsResolverInterface
 {
     private readonly int $pid;
 
+    /** @var array<string,array{addresses:list<string>,expires:float,negative:bool}> */
+    private array $cache = [];
+
     private bool $closed = false;
 
     private int $nextId = 1;
-
-    /** @var array<string,array{addresses:list<string>,expires:float,negative:bool}> */
-    private array $cache = [];
 
     /** @var array<string,array{job:int,waiters:array<int,true>}> */
     private array $pending = [];
@@ -131,6 +131,13 @@ final class CachedDnsResolver implements DnsResolverInterface
         return strtolower($hostname);
     }
 
+    private function assertOwner(): void
+    {
+        if (getmypid() !== $this->pid) {
+            throw new LogicException('DNS cache may not cross process/fork ownership boundaries.');
+        }
+    }
+
     /** @return array{addresses:list<string>,expires:float,negative:bool}|null */
     private function cachedEntry(string $host): ?array
     {
@@ -142,72 +149,6 @@ final class CachedDnsResolver implements DnsResolverInterface
         }
 
         return $entry;
-    }
-
-    private function rejectCancelledCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): bool
-    {
-        if (!$token?->isCancelled() && !$deadline?->expired()) {
-            return false;
-        }
-        $reason = $deadline?->expired() ? CancellationReason::DEADLINE_EXCEEDED
-            : ($token?->reason() ?? CancellationReason::HOST_CANCELLED);
-        $this->settle($id, [], new CancelledException($reason));
-
-        return true;
-    }
-
-    /** @param array{addresses:list<string>,expires:float,negative:bool}|null $entry */
-    private function dispatch(string $host, int $id, ?array $entry): void
-    {
-        if ($entry !== null) {
-            $this->waiters[$id]['deferred'] = $this->loop->defer(function () use ($id, $entry): void {
-                if (isset($this->waiters[$id])) {
-                    $this->completeCached($id, $entry);
-                }
-            });
-
-            return;
-        }
-        if (isset($this->pending[$host])) {
-            $this->pending[$host]['waiters'][$id] = true;
-
-            return;
-        }
-        $this->pending[$host] = ['job' => 0, 'waiters' => [$id => true]];
-        try {
-            $job = $this->upstream->resolve($host, function (array $addresses, ?Throwable $error) use ($host): void {
-                $this->completeHost($host, $addresses, $error);
-            });
-            if (isset($this->pending[$host])) {
-                $this->pending[$host]['job'] = $job;
-            }
-        } catch (Throwable $error) {
-            $this->completeHost($host, [], $error);
-        }
-    }
-
-    private function watchCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): void
-    {
-        $remaining = $deadline?->remainingSeconds();
-        $tokenRemaining = $token?->deadline()->remainingSeconds();
-        if ($tokenRemaining !== null) {
-            $remaining = $remaining === null ? $tokenRemaining : min($remaining, $tokenRemaining);
-        }
-        if ($remaining !== null) {
-            $this->waiters[$id]['timer'] = $this->loop->delay(max(0, $remaining), function () use ($id): void {
-                $this->settle($id, [], new CancelledException(CancellationReason::DEADLINE_EXCEEDED));
-            });
-        }
-        if ($token !== null) {
-            $subscription = $token->onCancel(function () use ($id): void {
-                $this->cancel($id);
-            });
-            if (isset($this->waiters[$id])) {
-                $this->waiters[$id]['subscription'] = $subscription;
-            } else {
-                $subscription->unsubscribe();
-            }
-        }
     }
 
     /** @param array{addresses:list<string>,expires:float,negative:bool} $entry */
@@ -241,6 +182,59 @@ final class CachedDnsResolver implements DnsResolverInterface
     }
 
     /** @param list<string> $addresses */
+    private function deliver(int $id, array $addresses, bool $negative): void
+    {
+        $this->settle(
+            $id,
+            $negative ? [] : $addresses,
+            $negative ? new RuntimeException('DNS returned no A or AAAA addresses.') : null,
+        );
+    }
+
+    /** @param array{addresses:list<string>,expires:float,negative:bool}|null $entry */
+    private function dispatch(string $host, int $id, ?array $entry): void
+    {
+        if ($entry !== null) {
+            $this->waiters[$id]['deferred'] = $this->loop->defer(function () use ($id, $entry): void {
+                if (isset($this->waiters[$id])) {
+                    $this->completeCached($id, $entry);
+                }
+            });
+
+            return;
+        }
+        if (isset($this->pending[$host])) {
+            $this->pending[$host]['waiters'][$id] = true;
+
+            return;
+        }
+        $this->pending[$host] = ['job' => 0, 'waiters' => [$id => true]];
+
+        try {
+            $job = $this->upstream->resolve($host, function (array $addresses, ?Throwable $error) use ($host): void {
+                $this->completeHost($host, $addresses, $error);
+            });
+            if (isset($this->pending[$host])) {
+                $this->pending[$host]['job'] = $job;
+            }
+        } catch (Throwable $error) {
+            $this->completeHost($host, [], $error);
+        }
+    }
+
+    private function rejectCancelledCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): bool
+    {
+        if (!$token?->isCancelled() && !$deadline?->expired()) {
+            return false;
+        }
+        $reason = $deadline?->expired() ? CancellationReason::DEADLINE_EXCEEDED
+            : ($token?->reason() ?? CancellationReason::HOST_CANCELLED);
+        $this->settle($id, [], new CancelledException($reason));
+
+        return true;
+    }
+
+    /** @param list<string> $addresses */
     private function rememberHost(string $host, array $addresses, ?Throwable $error): void
     {
         $negative = $error !== null && $error->getMessage() === 'DNS returned no A or AAAA addresses.';
@@ -256,13 +250,6 @@ final class CachedDnsResolver implements DnsResolverInterface
         }
         $this->cache[$host] = ['addresses' => $addresses, 'expires' => $this->loop->now() + $ttl,
             'negative' => $negative];
-    }
-
-    /** @param list<string> $addresses */
-    private function deliver(int $id, array $addresses, bool $negative): void
-    {
-        $this->settle($id, $negative ? [] : $addresses,
-            $negative ? new RuntimeException('DNS returned no A or AAAA addresses.') : null);
     }
 
     /** @param list<string> $addresses */
@@ -293,10 +280,27 @@ final class CachedDnsResolver implements DnsResolverInterface
         ($waiter['callback'])($addresses, $error);
     }
 
-    private function assertOwner(): void
+    private function watchCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): void
     {
-        if (getmypid() !== $this->pid) {
-            throw new LogicException('DNS cache may not cross process/fork ownership boundaries.');
+        $remaining = $deadline?->remainingSeconds();
+        $tokenRemaining = $token?->deadline()->remainingSeconds();
+        if ($tokenRemaining !== null) {
+            $remaining = $remaining === null ? $tokenRemaining : min($remaining, $tokenRemaining);
+        }
+        if ($remaining !== null) {
+            $this->waiters[$id]['timer'] = $this->loop->delay(max(0, $remaining), function () use ($id): void {
+                $this->settle($id, [], new CancelledException(CancellationReason::DEADLINE_EXCEEDED));
+            });
+        }
+        if ($token !== null) {
+            $subscription = $token->onCancel(function () use ($id): void {
+                $this->cancel($id);
+            });
+            if (isset($this->waiters[$id])) {
+                $this->waiters[$id]['subscription'] = $subscription;
+            } else {
+                $subscription->unsubscribe();
+            }
         }
     }
 }

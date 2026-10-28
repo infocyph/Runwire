@@ -15,12 +15,12 @@ use WeakMap;
  */
 final class TraceScope
 {
+    private readonly int $pid;
+
     /** @var WeakMap<Fiber<mixed,mixed,mixed,mixed>,TraceContext> */
     private WeakMap $fibers;
 
     private ?TraceContext $root = null;
-
-    private readonly int $pid;
 
     /** Initialize request-owned Fiber tracking without global process context. */
     public function __construct()
@@ -73,6 +73,13 @@ final class TraceScope
         );
     }
 
+    private function assertOwner(): void
+    {
+        if (getmypid() !== $this->pid) {
+            throw new LogicException('A tracing scope must be recreated after fork.');
+        }
+    }
+
     /** @param Fiber<mixed,mixed,mixed,mixed>|null $fiber */
     private function set(?Fiber $fiber, ?TraceContext $context): void
     {
@@ -87,12 +94,5 @@ final class TraceScope
             return;
         }
         $this->fibers[$fiber] = $context;
-    }
-
-    private function assertOwner(): void
-    {
-        if (getmypid() !== $this->pid) {
-            throw new LogicException('A tracing scope must be recreated after fork.');
-        }
     }
 }

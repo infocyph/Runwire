@@ -58,8 +58,13 @@ final readonly class HttpOutboundDispatcher
             : CancellationSource::linked($request->cancellation, $request->deadline);
         $handle = new OutboundHttpHandle($source);
         $owned = new ClientRequest(
-            $request->method, $request->uri, $request->headers, $request->body,
-            $request->protocol, $source->token(), $request->deadline,
+            $request->method,
+            $request->uri,
+            $request->headers,
+            $request->body,
+            $request->protocol,
+            $source->token(),
+            $request->deadline,
         );
 
         try {
@@ -70,7 +75,11 @@ final readonly class HttpOutboundDispatcher
             }
 
             HttpNegotiatingOutboundClient::connect(
-                $this->loop, $this->dialer, $owned, $onHeaders, $onBody,
+                $this->loop,
+                $this->dialer,
+                $owned,
+                $onHeaders,
+                $onBody,
                 static function (?Connection $connection, ?Throwable $error) use ($handle, $completion): void {
                     $connection?->abort();
                     $handle->complete();
@@ -88,8 +97,8 @@ final readonly class HttpOutboundDispatcher
     }
 
     /** @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
-     *  @param callable(string):void $onBody
-     *  @param callable(?Throwable):void $completion
+     * @param callable(string):void $onBody
+     * @param callable(?Throwable):void $completion
      */
     private function sendH3(
         ClientRequest $request,
@@ -102,7 +111,11 @@ final readonly class HttpOutboundDispatcher
             throw new RuntimeUnavailableException('Missing native QUIC client policy.');
         }
         Http3OutboundClient::connect(
-            $this->loop, $request, $this->quic, $onHeaders, $onBody,
+            $this->loop,
+            $request,
+            $this->quic,
+            $onHeaders,
+            $onBody,
             static function (?Throwable $error) use ($handle, $completion): void {
                 $handle->complete();
                 $completion($error);

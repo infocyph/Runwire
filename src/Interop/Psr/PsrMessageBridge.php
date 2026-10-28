@@ -12,10 +12,10 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\RequestDeadline;
 use InvalidArgumentException;
 use Psr\Http\Message\MessageInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Opt-in PSR-7/17 metadata adapter; the Runwire runtime has no required PSR dependencies.
