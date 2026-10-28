@@ -17,7 +17,7 @@ use Throwable;
  * The resolver does not own the executor lifetime. There is no fallback
  * to blocking DNS in the loop thread.
  */
-final readonly class AsyncDnsResolver
+final readonly class AsyncDnsResolver implements DnsResolverInterface
 {
     /** Reuse a loop-bound executor with explicit worker and queue limits. */
     public function __construct(private ProcessExecutor $executor) {}

@@ -16,7 +16,7 @@ use Throwable;
 /**
  * Staggers verified IPv6/IPv4 candidates through the same underlying Dialer.
  *
- * DNS and socket construction remain owned by AsyncDnsResolver and Dialer;
+ * DNS and socket construction remain owned by DnsResolverInterface and Dialer;
  * this class only owns the per-host address race and its cleanup.
  */
 final class HappyEyeballsDialer
@@ -34,7 +34,7 @@ final class HappyEyeballsDialer
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Dialer $dialer,
-        private readonly AsyncDnsResolver $resolver,
+        private readonly DnsResolverInterface $resolver,
         private readonly int $maxPending = 32,
         private readonly float $staggerSeconds = 0.25,
     ) {

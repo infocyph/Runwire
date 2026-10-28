@@ -8,7 +8,7 @@ use Closure;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\LoopInterface;
-use Infocyph\Runwire\Network\AsyncDnsResolver;
+use Infocyph\Runwire\Network\DnsResolverInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
@@ -57,7 +57,7 @@ final class HappyEyeballsAttempt
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Dialer $dialer,
-        private readonly AsyncDnsResolver $resolver,
+        private readonly DnsResolverInterface $resolver,
         private readonly DialOptions $options,
         private readonly float $staggerSeconds,
         private readonly Closure $completion,
