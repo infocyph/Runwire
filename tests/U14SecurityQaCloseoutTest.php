@@ -13,5 +13,5 @@ it('pins the security QA closeout to its real PHPForge and locked Composer audit
         ->toContain('U17.02');
     expect($plan)->toBeString()
         ->toContain('- [x] **U14.08**', '- [x] **U14.04**')
-        ->toContain('- [ ] **U17.02**');
+        ->toContain('- [x] **U17.02**', '/actions/runs/40630724053');
 });
