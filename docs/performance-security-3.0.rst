@@ -117,7 +117,7 @@ that unreleased Runwire 3.0 has achieved them.
        ``tests/PoolIsolationKeyTest.php``
 
 The Benchmarks workflow runs smaller noncertification diagnostics.
-The independent TLS, QUIC, host and security gates retain their own immutable workflow-run evidence in the canonical plan. The exact-source 2026-10-28 H2 five-pair, WebSocket five-pair on PHP8.4/8.5 and continuous full 1800s mixed resource trials passed; the prior fail-closed Release Certification rejected only still-open tracker tasks. Profile jobs and Sphinx builds alone never certify those performance gates. A new release decision must check the **final** source SHA and zero-open canonical ledger.
+The independent TLS, QUIC, host and security gates retain their own immutable workflow-run evidence in the canonical plan. The exact-source 2026-10-28 H2 five-pair, WebSocket five-pair on PHP8.4/8.5 and continuous full 1800s mixed resource trials passed; the prior fail-closed Release Certification rejected only still-open tracker tasks. A green profile job or Sphinx build **must not** be treated as a complete protocol performance certification; only the matched source-pinned comparisons and continuous mixed soaks qualify those performance gates. A new release decision must check the **final** source SHA and zero-open canonical ledger.
 
 
 HTTP/1.1 diagnostic send-buffer contention
