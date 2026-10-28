@@ -24,6 +24,7 @@ on:
       - docs/compatibility-audit-3.0.rst
       - docs/performance-qa-handbook-3.0.rst
       - docs/protocols-3.0.rst
+      - docs/plans/runwire-3.0-pre-release-hardening.md
       - README.md
       - .github/workflows/source-audit.yml
   pull_request:
@@ -47,6 +48,7 @@ on:
       - docs/compatibility-audit-3.0.rst
       - docs/performance-qa-handbook-3.0.rst
       - docs/protocols-3.0.rst
+      - docs/plans/runwire-3.0-pre-release-hardening.md
       - README.md
       - .github/workflows/source-audit.yml
 

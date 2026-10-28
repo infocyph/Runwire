@@ -26,3 +26,20 @@ The branch implements native and hosted runtimes, H1/H2/H3 servers, verified H1/
 ## Rolling validation
 
 Apply H01/H02 first. Each additional source change must have focused Pest tests, complete two-PHP QA/static analysis and source-audit evidence before raising the handoff state. Re-run release certification on the final SHA. The GitHub-only 167-task tracker stays intact; these H IDs are not U tasks and must not be counted as accepted without proof.
+
+## H11 — Execution and evidence status (2026-10-28)
+
+This additional pre-release program is separate from and does not inflate the original **167/167** accepted U tasks. **The publication gate is still CLOSED until full exact-head QA and the release-certification decision pass.**
+
+| H item | Status | Source/proof |
+| --- | --- | --- |
+| H01 | ACCEPTED (docs/build) | [`b5b9b0d`](https://github.com/infocyph/Runwire/commit/b5b9b0d5381373e146c48acee0fa9f98f14a683a) and [`359bd6e`](https://github.com/infocyph/Runwire/commit/359bd6ecb37222e4270f74ed2d858a122946ae6a), strict 41-page Sphinx [#40666665830](https://github.com/infocyph/Runwire/actions/runs/40666665830) SUCCESS, [Source Audit #40666665763](https://github.com/infocyph/Runwire/actions/runs/40666665763) SUCCESS. Preserved H3, WebTransport, HTTPS-proxy and fsync exclusions. |
+| H02 | ACCEPTED (automated guard) | `tools/pre-release-feature-qa.sh` executes in Source Audit, [#40666665763](https://github.com/infocyph/Runwire/actions/runs/40666665763) SUCCESS and checks accepted canonical 167 ID ledger, unavailable capabilities and outdated release-status claims. |
+| H03 | SOURCE MIGRATION AUDIT ACCEPTED; final QA pending | [Source Audit #40666665763](https://github.com/infocyph/Runwire/actions/runs/40666665763) PASS: immutable 2.1.2 API manifest, property-level diff, all 35 changed published-type source hash dispositions including `SystemResourceProbe` and test-backed compatibility. Does **not** claim universal behavioral compatibility. |
+| H04 | CODE/TESTS COMPLETE; full QA pending | [`510d3e0`](https://github.com/infocyph/Runwire/commit/510d3e096477084ca2cedec75cbfa9ab36158c54) canonical binary endpoint identity for IPv4-mapped IPv6 connected peers, preserve private/loopback rejection, real rebinding fail-closed, `tests/OutboundAddressPolicyTest.php`. Existing security/cancellation/native QUIC independent QA must remain green. |
+| H05 | EXPLICIT 3.0 SCOPE DECISION | Existing correct and individually qualified H1/H2/H3 outbound protocol APIs stay public; do **not** fabricate high-level H1/H2/H3 automatic sessions or silently downgrade transport. A unified pooled client needs full session/tenant/GOAWAY/cancellation contract and can be added separately only after measured acceptance; not a must-have breaking change to already tested clients. |
+| H06–H08 | DEFERRED BY COHESION/SECURITY DESIGN | Optional PSR/Revolt, tracing SDK and DNS cache/coalescing require separately owned framework/tenant cancellation and cache semantics. No extra core dependency, unsound pooling, or unqualified public ABI introduced during release freeze. |
+| H09 | CODE/TESTS COMPLETE; full QA pending | [`e12d90c`](https://github.com/infocyph/Runwire/commit/e12d90cf79b762a0ec2d43076f821f1c6886191c) cgroup cpuset duplicate/overlap/overflow rejection and fail-safe one-CPU fallback with fractional-quota tests, `tests/SystemResourceProbeCgroupTest.php`; independent 1800s mixed/autoscale and slow-receiver/relay qualification retain their previous scope. |
+| H10 | PENDING | Exact last immutable SHA PHPForge/Sphinx/source/portable/host/native plus freshly pinned opt-in 5×180s H2/WS, true 1800s mixed and Release Certification `certification_ready=true`, `open_tasks=0`, `release_tag_created=false`, `package_published=false`. |
+
+**Release governance:** H05–H08 are architecture decisions, not falsely accepted implementations. This freeze covers demonstrable correctness, documentation and security improvements before 3.0. Any high-level API expansion requires a new explicit acceptance program, not reusing U17 proof. PR remains draft. No merge, tag, deployment, release or publication.

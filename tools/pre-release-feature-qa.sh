@@ -21,7 +21,9 @@ for blocked in \
   'full mixed 1800-second soak, externally hosted' \
   'autoscale policy and pure' \
   'remain separate unimplemented feature gates'; do
-  if grep -Fq -- "$blocked" "$catalog" docs/performance-security-3.0.rst; then
+  if grep -Fq -- "$blocked" "$catalog" docs/performance-security-3.0.rst \
+      docs/host-compatibility-3.0.rst docs/migration-3.0.rst \
+      docs/compatibility-audit-3.0.rst docs/protocols-3.0.rst; then
     echo "Stale release-capability assertion: $blocked" >&2
     exit 1
   fi
