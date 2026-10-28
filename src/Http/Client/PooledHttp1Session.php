@@ -123,45 +123,45 @@ final class PooledHttp1Session
         $cancelWaiter = null;
         try {
             $pendingId = $this->pool->acquire($this->key, function (int $lease, ?Connection $connection, ?Throwable $error) use (
-            $owned, $handle, $onHeaders, $onBody, $completion, &$cancelWaiter,
-        ): void {
-            $this->inFlight[$lease] = $handle;
-            $finish = function (?Connection $idle, ?Throwable $failure) use ($lease, $handle, $completion, &$cancelWaiter): void {
-                $cancelWaiter?->unsubscribe();
-                unset($this->inFlight[$lease]);
-                $this->pool->release($lease, $idle);
-                $handle->complete();
-                $completion($failure);
-            };
-            if ($error !== null || $owned->cancellation?->isCancelled()) {
-                $finish(null, $error ?? new CancelledException(CancellationReason::HOST_CANCELLED));
-
-                return;
-            }
-            try {
-                if ($connection !== null) {
-                    (new Http1ConnectedExchange(
-                        $this->loop, $connection, $owned, $onHeaders, $onBody, $finish,
-                    ))->start();
-
+                $owned, $handle, $onHeaders, $onBody, $completion, &$cancelWaiter,
+            ): void {
+                $this->inFlight[$lease] = $handle;
+                $finish = function (?Connection $idle, ?Throwable $failure) use ($lease, $handle, $completion, &$cancelWaiter): void {
+                    $cancelWaiter?->unsubscribe();
+                    unset($this->inFlight[$lease]);
+                    $this->pool->release($lease, $idle);
+                    $handle->complete();
+                    $completion($failure);
+                };
+                if ($error !== null || $owned->cancellation?->isCancelled()) {
+                    $finish(null, $error ?? new CancelledException(CancellationReason::HOST_CANCELLED));
+    
                     return;
                 }
-                Http1OutboundClient::connect(
-                    $this->loop, $this->dialer, $owned, $onHeaders, $onBody, $finish,
-                    new DialOptions(
-                        $this->options->connectTimeoutSeconds,
-                        $owned->deadline,
-                        $owned->cancellation,
-                        $this->options->connectionLimits,
-                        $this->options->tcpNoDelay,
-                        $this->options->tls,
-                        $this->options->addressPolicy,
-                    ),
-                );
-            } catch (Throwable $failure) {
-                $connection?->abort();
-                $finish(null, $failure);
-            }
+                try {
+                    if ($connection !== null) {
+                        (new Http1ConnectedExchange(
+                            $this->loop, $connection, $owned, $onHeaders, $onBody, $finish,
+                        ))->start();
+    
+                        return;
+                    }
+                    Http1OutboundClient::connect(
+                        $this->loop, $this->dialer, $owned, $onHeaders, $onBody, $finish,
+                        new DialOptions(
+                            $this->options->connectTimeoutSeconds,
+                            $owned->deadline,
+                            $owned->cancellation,
+                            $this->options->connectionLimits,
+                            $this->options->tcpNoDelay,
+                            $this->options->tls,
+                            $this->options->addressPolicy,
+                        ),
+                    );
+                } catch (Throwable $failure) {
+                    $connection?->abort();
+                    $finish(null, $failure);
+                }
             });
         } catch (Throwable $error) {
             $handle->complete();
