@@ -64,17 +64,21 @@ final class PooledHttp1Session
         $this->port = $parts['port'];
         $endpoint = DialEndpoint::parse('tcp://' . $this->host . ':' . $this->port);
         $options ??= new DialOptions();
+
         if ($options->cancellation !== null || $options->deadline !== null) {
             throw new InvalidArgumentException('H1 session deadlines and cancellation belong to each request.');
         }
         $secure = $this->scheme === 'https';
+
         if ($secure && $tlsPolicyIdentity === null) {
             throw new InvalidArgumentException('HTTPS session pooling needs an explicit revisioned TLS policy identity.');
         }
+
         if (!$secure && ($options->tls !== null || $tlsPolicyIdentity !== null)) {
             throw new InvalidArgumentException('Plaintext session cannot hold a TLS trust policy.');
         }
         $tls = $secure ? ($options->tls ?? new TlsClientOptions($this->host, alpnProtocols: ['http/1.1'])) : null;
+
         if ($tls !== null && (strcasecmp($tls->peerName, $this->host) !== 0
             || $tls->alpnProtocols !== ['http/1.1'])) {
             throw new InvalidArgumentException('Session TLS must verify the exact original peer and H1 ALPN.');
@@ -188,6 +192,7 @@ final class PooledHttp1Session
         $cancelWaiter = $source->token()->onCancel(function () use ($pendingId): void {
             $this->pool->cancel($pendingId);
         });
+
         if ($handle->settled()) {
             $cancelWaiter->unsubscribe();
         }
@@ -201,6 +206,7 @@ final class PooledHttp1Session
     private static function parseOrigin(string $origin): array
     {
         $parts = parse_url($origin);
+
         if (!is_array($parts) || !is_string($parts['host'] ?? null)
             || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
             || isset($parts['user']) || isset($parts['pass']) || isset($parts['query'])
@@ -242,6 +248,7 @@ final class PooledHttp1Session
             if ($cancelWaiter instanceof CancellationSubscription) {
                 $cancelWaiter->unsubscribe();
             }
+
             unset($this->inFlight[$lease]);
             $this->pool->release($lease, $idle);
             $handle->complete();
@@ -253,6 +260,7 @@ final class PooledHttp1Session
 
             return;
         }
+
         try {
             if ($connection !== null) {
                 new Http1ConnectedExchange(
@@ -266,6 +274,7 @@ final class PooledHttp1Session
 
                 return;
             }
+
             Http1OutboundClient::connect(
                 $this->loop,
                 $this->dialer,
