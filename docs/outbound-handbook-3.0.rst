@@ -225,3 +225,24 @@ per-request transport lifecycle is unified; multi-request H2/H3
 pooling and same-origin capacity management remain separately exposed
 protocol APIs, pending independent lifecycle, performance and
 cross-tenant acceptance.
+
+
+Explicit bounded HTTP/1.1 keep-alive session
+--------------------------------------------
+
+An opt-in `Http\\Client\\PooledHttp1Session` combines the existing verified
+`HappyEyeballsDialer`, `BoundedConnectionPool` and `Http1ConnectedExchange`
+for a fixed HTTP origin and worker/tenant scope. The constructor requires an
+explicit revisioned TLS trust identity when using HTTPS. TLS ALPN is fixed to
+`http/1.1`; no H2/H3 reuse or implicit downgrade is advertised. Each request
+uses an H1-only protocol policy, owns cancellation and deadlines independently,
+and can return a completely drained, keep-alive-eligible socket to the bounded
+idle store. The pool rejects stale, buffered or foreign-identity connections,
+stops admissions on close, and exposes bounded reuse/retirement counters.
+Caller must reconstruct a new session after TLS trust policy, proxy route or
+tenant changes. A live two-request same-socket regression with exact accepted
+connection count is in `tests/PooledHttp1SessionTest.php`.
+
+This is **H1 connection pooling only**, not a general H1/H2/H3 automatic
+pooled session manager. Keep the `HttpOutboundDispatcher` policy separate;
+H2 multiplex and native H3 session siblings retain their own explicit lifecycle.

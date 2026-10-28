@@ -91,7 +91,7 @@ final class PooledHttp1Session
         $this->key = new PoolIsolationKey(
             $endpoint, $scope, $tls, $tlsPolicyIdentity, $secure ? 'http/1.1' : null,
         );
-        $this->pool = new BoundedConnectionPool($loop, maxActive: $maxConnections);
+        $this->pool = new BoundedConnectionPool($loop, maxActive: $maxConnections, enableMetrics: true);
     }
 
     /**

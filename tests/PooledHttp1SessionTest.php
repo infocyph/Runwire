@@ -83,26 +83,30 @@ it('reuses the same real keep-alive H1 socket for two requests and frees all lea
         );
     };
     $watchdog = $loop->delay(2.0, static fn() => $loop->stop());
+    $sentSecond = false;
+    $poll = $loop->repeat(0.02, static function () use (&$done, $start, &$sentSecond): void {
+        if (!$sentSecond && count($done) === 1) {
+            $sentSecond = true;
+            $start('/two');
+        }
+    });
     try {
         $start('/one');
-        $loop->repeat(0.02, static function () use (&$done, $start): void {
-            if (count($done) === 1) {
-                $start('/two');
-            }
-        });
         $loop->run();
         expect($done)->toHaveCount(2)
             ->and($done[0])->toBeNull()
             ->and($done[1])->toBeNull()
             ->and($accepted)->toBe(1)
             ->and($served)->toBe(2)
-            ->and($session->metrics()['reuse_hits'])->toBeGreaterThanOrEqual(0);
+            ->and($session->metrics()['reuse_hits'])->toBe(1)
+            ->and($session->metrics()['active'])->toBe(0);
     } finally {
         $session->close();
         foreach ($watchers as $watcher) {
             $loop->cancel($watcher);
         }
         $loop->cancel($watchdog);
+        $loop->cancel($poll);
         foreach ($sockets as $socket) {
             fclose($socket);
         }
