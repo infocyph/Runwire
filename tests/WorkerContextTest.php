@@ -81,3 +81,46 @@ it('observes supervisor stop control through the attached worker loop', function
     $context->close();
     fclose($readyParent);
 });
+
+it('coalesces sustained worker request activity without saturating the lifecycle channel', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray();
+    [$readyParent, $readyChild] = $pair;
+    stream_set_blocking($readyParent, false);
+    $context = new WorkerContext('high-rps', 0, 1, posix_getpid(), posix_getppid(), $readyChild);
+    $loop = new SelectLoop();
+
+    try {
+        $context->attachLoop($loop);
+        $context->ready();
+        expect(stream_get_contents($readyParent))->toBe("R\n");
+
+        for ($request = 0; $request < 50_000; ++$request) {
+            $context->recordRequestStarted();
+            $context->recordRequestCompleted();
+        }
+        // The parent is intentionally NOT drained during the burst. Without
+        // lifecycle coalescing, 100,000 B/I frames overflow the nonblocking pipe.
+        expect($context->requestsTotal())->toBe(50_000)
+            ->and(stream_get_contents($readyParent))->toBe("B\n");
+
+        $loop->delay(0.12, static function () use ($loop): void {
+            $loop->stop();
+        });
+        $loop->run();
+        expect(stream_get_contents($readyParent))->toBe("I\n");
+
+        $context->recordRequestStarted();
+        $context->recordRequestCompleted();
+        expect(stream_get_contents($readyParent))->toBe("B\n");
+
+        $loop->delay(0.12, static function () use ($loop): void {
+            $loop->stop();
+        });
+        $loop->run();
+        expect(stream_get_contents($readyParent))->toBe("I\n");
+    } finally {
+        $context->close();
+        fclose($readyParent);
+    }
+});
