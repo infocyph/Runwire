@@ -38,7 +38,15 @@ final readonly class PsrMessageBridge
             throw new InvalidArgumentException('PSR HTTP header count or size exceeded bounded Runwire limits.');
         }
 
-        return Headers::fromArray($headers);
+        $normalized = [];
+        foreach ($headers as $name => $values) {
+            if (!is_string($name)) {
+                throw new InvalidArgumentException('PSR header names must be strings.');
+            }
+            $normalized[$name] = array_values($values);
+        }
+
+        return Headers::fromArray($normalized);
     }
 
     public static function outboundRequest(

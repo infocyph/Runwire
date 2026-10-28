@@ -47,7 +47,7 @@ final readonly class TraceContext
             throw new InvalidArgumentException('Malformed or duplicate W3C traceparent header.');
         }
 
-        return new self($match[1], $match[2], hexdec($match[3]), $states[0] ?? null);
+        return new self($match[1], $match[2], (int) hexdec($match[3]), $states[0] ?? null);
     }
 
     /** Create an independent span while preserving the trace and bounded tracestate. */
@@ -97,7 +97,7 @@ final readonly class TraceContext
             throw new InvalidArgumentException('W3C tracestate has too many members.');
         }
         foreach ($members as $member) {
-            if (preg_match('/^[a-z0-9][a-z0-9_\\-*/@]{0,255}=([\x20-\x2B\x2D-\x3C\x3E-\x7E]+)$/D', trim($member)) !== 1) {
+            if (preg_match('~^[a-z0-9][a-z0-9_\\-*/@]{0,255}=([\x20-\x2B\x2D-\x3C\x3E-\x7E]+)$~D', trim($member)) !== 1) {
                 throw new InvalidArgumentException('W3C tracestate contains an invalid member.');
             }
         }

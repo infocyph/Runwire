@@ -15,7 +15,7 @@ use WeakMap;
  */
 final class TraceScope
 {
-    /** @var WeakMap<Fiber,TraceContext> */
+    /** @var WeakMap<Fiber<mixed,mixed,mixed,mixed>,TraceContext> */
     private WeakMap $fibers;
 
     private ?TraceContext $root = null;
@@ -71,6 +71,7 @@ final class TraceScope
         );
     }
 
+    /** @param Fiber<mixed,mixed,mixed,mixed>|null $fiber */
     private function set(?Fiber $fiber, ?TraceContext $context): void
     {
         if ($fiber === null) {
