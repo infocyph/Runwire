@@ -80,11 +80,18 @@ final class PooledHttp1Session
             throw new InvalidArgumentException('Session TLS must verify the exact original peer and H1 ALPN.');
         }
         $this->options = new DialOptions(
-            $options->connectTimeoutSeconds, connectionLimits: $options->connectionLimits,
-            tcpNoDelay: $options->tcpNoDelay, tls: $tls, addressPolicy: $options->addressPolicy,
+            $options->connectTimeoutSeconds,
+            connectionLimits: $options->connectionLimits,
+            tcpNoDelay: $options->tcpNoDelay,
+            tls: $tls,
+            addressPolicy: $options->addressPolicy,
         );
         $this->key = new PoolIsolationKey(
-            $endpoint, $scope, $tls, $tlsPolicyIdentity, $secure ? 'http/1.1' : null,
+            $endpoint,
+            $scope,
+            $tls,
+            $tlsPolicyIdentity,
+            $secure ? 'http/1.1' : null,
         );
         $this->pool = new BoundedConnectionPool($loop, maxActive: $maxConnections, enableMetrics: true);
     }
@@ -135,8 +142,13 @@ final class PooledHttp1Session
             : CancellationSource::linked($request->cancellation, $request->deadline);
         $handle = new OutboundHttpHandle($source);
         $owned = new ClientRequest(
-            $request->method, $request->uri, $request->headers, $request->body,
-            $request->protocol, $source->token(), $request->deadline,
+            $request->method,
+            $request->uri,
+            $request->headers,
+            $request->body,
+            $request->protocol,
+            $source->token(),
+            $request->deadline,
         );
         $cancelWaiter = null;
         try {
@@ -146,8 +158,15 @@ final class PooledHttp1Session
                     $owned, $handle, $onHeaders, $onBody, $completion, &$cancelWaiter,
                 ): void {
                     $this->startLease(
-                        $lease, $connection, $error, $owned, $handle,
-                        $onHeaders, $onBody, $completion, $cancelWaiter,
+                        $lease,
+                        $connection,
+                        $error,
+                        $owned,
+                        $handle,
+                        $onHeaders,
+                        $onBody,
+                        $completion,
+                        $cancelWaiter,
                     );
                 },
             );
@@ -226,13 +245,23 @@ final class PooledHttp1Session
         try {
             if ($connection !== null) {
                 new Http1ConnectedExchange(
-                    $this->loop, $connection, $owned, $onHeaders, $onBody, $finish,
+                    $this->loop,
+                    $connection,
+                    $owned,
+                    $onHeaders,
+                    $onBody,
+                    $finish,
                 )->start();
 
                 return;
             }
             Http1OutboundClient::connect(
-                $this->loop, $this->dialer, $owned, $onHeaders, $onBody, $finish,
+                $this->loop,
+                $this->dialer,
+                $owned,
+                $onHeaders,
+                $onBody,
+                $finish,
                 new DialOptions(
                     $this->options->connectTimeoutSeconds,
                     $owned->deadline,

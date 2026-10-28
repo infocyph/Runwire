@@ -132,7 +132,11 @@ final readonly class HttpOutboundDispatcher
             return;
         }
         HttpNegotiatingOutboundClient::connect(
-            $this->loop, $this->dialer, $request, $onHeaders, $onBody,
+            $this->loop,
+            $this->dialer,
+            $request,
+            $onHeaders,
+            $onBody,
             static function (?Connection $conn, ?Throwable $error) use ($handle, $completion): void {
                 $conn?->abort();
                 $handle->complete();
@@ -163,7 +167,11 @@ final readonly class HttpOutboundDispatcher
             throw new RuntimeUnavailableException('Missing native QUIC client policy.');
         }
         Http3OutboundClient::connect(
-            $this->loop, $request, $this->quic, $onHeaders, $onBody,
+            $this->loop,
+            $request,
+            $this->quic,
+            $onHeaders,
+            $onBody,
             self::settle($handle, $completion),
         );
     }
