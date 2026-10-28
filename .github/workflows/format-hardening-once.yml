@@ -1,0 +1,34 @@
+name: One-shot PHPForge formatting for Runwire 3 hardening
+on:
+  push:
+    branches:
+      - plan/runwire-independent-ecosystem-roadmaps
+    paths:
+      - .github/workflows/format-hardening-once.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          extensions: mbstring, dom, xml, pcntl, posix
+      - name: Install PHPForge quality tooling
+        run: composer install --no-interaction --no-progress --prefer-dist --ignore-platform-req=ext-event
+      - name: Fix code style with the actual PHPForge config
+        run: vendor/bin/pint --config=vendor/infocyph/phpforge/resources/pint.json
+      - name: Push formatting changes if present
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- src tests
+          if ! git diff --cached --quiet; then
+            git commit -m 'style: apply PHPForge Pint formatting to release hardening'
+            git push origin HEAD:plan/runwire-independent-ecosystem-roadmaps
+          fi
