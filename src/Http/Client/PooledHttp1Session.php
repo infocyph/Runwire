@@ -27,17 +27,17 @@ use Throwable;
  */
 final class PooledHttp1Session
 {
-    private readonly BoundedConnectionPool $pool;
+    private readonly string $host;
 
     private readonly PoolIsolationKey $key;
 
     private readonly DialOptions $options;
 
-    private readonly string $host;
-
-    private readonly string $scheme;
+    private readonly BoundedConnectionPool $pool;
 
     private readonly int $port;
+
+    private readonly string $scheme;
 
     private bool $closed = false;
 
@@ -87,6 +87,31 @@ final class PooledHttp1Session
             $endpoint, $scope, $tls, $tlsPolicyIdentity, $secure ? 'http/1.1' : null,
         );
         $this->pool = new BoundedConnectionPool($loop, maxActive: $maxConnections, enableMetrics: true);
+    }
+
+    /** Close idle connections and cancel active work; remaining callbacks settle once. */
+    public function close(): void
+    {
+        if ($this->closed) {
+            return;
+        }
+        $this->closed = true;
+        try {
+            $this->pool->close();
+        } finally {
+            foreach ($this->inFlight as $handle) {
+                $handle->cancel();
+            }
+        }
+    }
+
+    /**
+     * Bounded pool counters, including actual healthy keep-alive reuse.
+     * @return array<string, int|bool>
+     */
+    public function metrics(): array
+    {
+        return $this->pool->metrics();
     }
 
     /**
@@ -141,29 +166,6 @@ final class PooledHttp1Session
         }
 
         return $handle;
-    }
-
-    /** Close idle connections and cancel active work; remaining callbacks settle once. */
-    public function close(): void
-    {
-        if ($this->closed) {
-            return;
-        }
-        $this->closed = true;
-        try {
-            $this->pool->close();
-        } finally {
-            foreach ($this->inFlight as $handle) {
-                $handle->cancel();
-            }
-        }
-    }
-
-    /** Bounded pool counters, including actual healthy keep-alive reuse. */
-    /** @return array<string, int|bool> */
-    public function metrics(): array
-    {
-        return $this->pool->metrics();
     }
 
     /**
