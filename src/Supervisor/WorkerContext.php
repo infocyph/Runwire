@@ -575,9 +575,11 @@ final class WorkerContext
 
         $this->shutdownReason = $reason;
         $this->stopping = true;
-        $this->activitySignals->close();
         $failure = null;
         foreach ([
+            function (): void {
+                $this->activitySignals->close();
+            },
             function (): void {
                 $this->periodicTasks->drain();
             },

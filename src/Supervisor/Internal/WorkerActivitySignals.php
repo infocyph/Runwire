@@ -40,11 +40,12 @@ final class WorkerActivitySignals
         $this->stopping = true;
         $id = $this->timer;
         $loop = $this->loop;
-        $this->timer = null;
-        $this->loop = null;
         if ($id !== null && $loop !== null) {
+            // Preserve the handle if cancellation throws so close() can retry.
             $loop->cancel($id);
         }
+        $this->timer = null;
+        $this->loop = null;
     }
 
     public function completed(): void
