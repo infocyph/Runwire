@@ -79,7 +79,7 @@ This additional pre-release program is separate from and does not inflate the or
 
 ## H15 — Latest release-hardening truth table (2026-10-28)
 
-**Production implementation candidate:** [`3765739`](https://github.com/infocyph/Runwire/commit/37657398e5688d85172fee6a6f9ad39fdeea75b5). Earlier H11–H14 tables are dated implementation snapshots; **this table supersedes their status rows**, not the original 167/167 accepted U work. The source tree will need a further documentation-only commit for this reconciliation. The final exact revision MUST be requalified before freezing.
+**Prior implementation checkpoint:** [`3765739`](https://github.com/infocyph/Runwire/commit/37657398e5688d85172fee6a6f9ad39fdeea75b5). **The final source is the current PR head, not this historical checkpoint.** Earlier H11–H14 tables are dated implementation snapshots; **this table supersedes their status rows**, not the original 167/167 accepted U work. The source tree will need a further documentation-only commit for this reconciliation. The final exact revision MUST be requalified before freezing.
 
 | Item | Current disposition | Remaining evidence / implementation |
 | --- | --- | --- |

@@ -44,11 +44,11 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
         $handler = $this->terminal;
         for ($index = count($this->middleware) - 1; $index >= 0; --$index) {
             $middleware = $this->middleware[$index];
-            $handler = new class ($middleware, $handler) implements RequestHandlerInterface {
+            $handler = new readonly class ($middleware, $handler) implements RequestHandlerInterface {
                 /** Construct an immutable next-handler for one middleware layer. */
                 public function __construct(
-                    private readonly MiddlewareInterface $middleware,
-                    private readonly RequestHandlerInterface $next,
+                    private MiddlewareInterface $middleware,
+                    private RequestHandlerInterface $next,
                 ) {}
 
                 /** Delegate to the owned middleware and next request handler. */
