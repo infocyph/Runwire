@@ -371,7 +371,7 @@ the ledger until explicitly dispositioned. Revalidate in C5
 against the frozen release candidate.
 
 How to reproduce U16.12 acceptance
----------------------------------
+----------------------------------
 
 For each removed declaration, changed signature, behavior or
 error contract, the maintainer must record a **before** sample from
