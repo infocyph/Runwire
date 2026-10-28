@@ -73,65 +73,7 @@ final readonly class HttpOutboundDispatcher
         );
 
         try {
-            if ($isH3) {
-                if ($this->h3Session !== null) {
-                    $this->h3Session->enqueue(
-                        $owned, $onHeaders, $onBody,
-                        static function (?Throwable $error) use ($handle, $completion): void {
-                            $handle->complete();
-                            $completion($error);
-                        },
-                    );
-                } else {
-                    $this->sendH3($owned, $handle, $onHeaders, $onBody, $completion);
-                }
-
-                return $handle;
-            }
-            if ($this->h2Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_2
-                && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_2]) {
-                if ($options !== null) {
-                    throw new InvalidArgumentException('An established H2 session cannot accept per-request TLS/dial overrides.');
-                }
-                $this->h2Session->request(
-                    $owned, $onHeaders, $onBody,
-                    static function (?Throwable $error) use ($handle, $completion): void {
-                        $handle->complete();
-                        $completion($error);
-                    },
-                );
-
-                return $handle;
-            }
-            if ($this->h1Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_1_1
-                && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_1_1]) {
-                if ($options !== null) {
-                    throw new InvalidArgumentException('Pooled H1 dial policy is fixed by its session, not a request override.');
-                }
-                $this->h1Session->send(
-                    $owned, $onHeaders, $onBody,
-                    static function (?Throwable $error) use ($handle, $completion): void {
-                        $handle->complete();
-                        $completion($error);
-                    },
-                );
-
-                return $handle;
-            }
-
-            HttpNegotiatingOutboundClient::connect(
-                $this->loop,
-                $this->dialer,
-                $owned,
-                $onHeaders,
-                $onBody,
-                static function (?Connection $connection, ?Throwable $error) use ($handle, $completion): void {
-                    $connection?->abort();
-                    $handle->complete();
-                    $completion($error);
-                },
-                $options,
-            );
+            $this->dispatch($owned, $handle, $onHeaders, $onBody, $completion, $options);
         } catch (Throwable $error) {
             $handle->complete();
 
@@ -139,6 +81,65 @@ final readonly class HttpOutboundDispatcher
         }
 
         return $handle;
+    }
+
+    /**
+     * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
+     * @param callable(string):void $onBody
+     * @param callable(?Throwable):void $completion
+     */
+    private function dispatch(
+        ClientRequest $request,
+        OutboundHttpHandle $handle,
+        callable $onHeaders,
+        callable $onBody,
+        callable $completion,
+        ?DialOptions $options,
+    ): void {
+        if ($request->protocol->preferred === ProtocolVersion::HTTP_3) {
+            $this->sendH3($request, $handle, $onHeaders, $onBody, $completion);
+
+            return;
+        }
+        if ($this->h2Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_2
+            && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_2]) {
+            if ($options !== null) {
+                throw new InvalidArgumentException('An established H2 session cannot accept per-request TLS/dial overrides.');
+            }
+            $this->h2Session->request($request, $onHeaders, $onBody, self::settle($handle, $completion));
+
+            return;
+        }
+        if ($this->h1Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_1_1
+            && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_1_1]) {
+            if ($options !== null) {
+                throw new InvalidArgumentException('Pooled H1 dial policy is fixed by its session, not a request override.');
+            }
+            $this->h1Session->send($request, $onHeaders, $onBody, self::settle($handle, $completion));
+
+            return;
+        }
+        HttpNegotiatingOutboundClient::connect(
+            $this->loop, $this->dialer, $request, $onHeaders, $onBody,
+            static function (?Connection $conn, ?Throwable $error) use ($handle, $completion): void {
+                $conn?->abort();
+                $handle->complete();
+                $completion($error);
+            },
+            $options,
+        );
+    }
+
+    /**
+     * @param callable(?Throwable):void $completion
+     * @return \Closure(?Throwable):void
+     */
+    private static function settle(OutboundHttpHandle $handle, callable $completion): \Closure
+    {
+        return static function (?Throwable $error) use ($handle, $completion): void {
+            $handle->complete();
+            $completion($error);
+        };
     }
 
     /** @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
@@ -152,19 +153,17 @@ final readonly class HttpOutboundDispatcher
         callable $onBody,
         callable $completion,
     ): void {
+        if ($this->h3Session !== null) {
+            $this->h3Session->enqueue($request, $onHeaders, $onBody, self::settle($handle, $completion));
+
+            return;
+        }
         if ($this->quic === null) {
             throw new RuntimeUnavailableException('Missing native QUIC client policy.');
         }
         Http3OutboundClient::connect(
-            $this->loop,
-            $request,
-            $this->quic,
-            $onHeaders,
-            $onBody,
-            static function (?Throwable $error) use ($handle, $completion): void {
-                $handle->complete();
-                $completion($error);
-            },
+            $this->loop, $request, $this->quic, $onHeaders, $onBody,
+            self::settle($handle, $completion),
         );
     }
 }
