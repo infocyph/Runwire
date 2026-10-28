@@ -400,27 +400,14 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $watcher['callback'] ?? null;
     }
 
-    private function recordTick(int $tickStart): void
-    {
-        $this->lastTickNanoseconds = max(0, MonotonicTime::nowNanoseconds() - $tickStart);
-        $this->maxTickNanoseconds = max($this->maxTickNanoseconds, $this->lastTickNanoseconds);
-    }
-
-    private function recordTimerLag(int $now): void
-    {
-        $deadline = $this->timers->nextDeadline();
-        if ($deadline !== null && $deadline < $now) {
-            $this->maxLagNanoseconds = max($this->maxLagNanoseconds, $now - $deadline);
-        }
-    }
-
     private function runDeferredBatch(): void
     {
         if ($this->deferred === []) {
             return;
         }
 
-        foreach (array_slice(array_keys($this->deferred), 0, self::MAX_DEFERRED_PER_TICK) as $id) {
+        // Copy only this tick's bounded FIFO snapshot, never every pending key.
+        foreach (array_slice($this->deferred, 0, self::MAX_DEFERRED_PER_TICK, true) as $id => $callback) {
             $callback = $this->takeDeferred($id);
             if ($callback === null) {
                 continue;
@@ -455,10 +442,15 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $tickStart = MonotonicTime::nowNanoseconds();
         $this->runDeferredBatch();
         if ($this->running) {
-            $this->recordTimerLag(MonotonicTime::nowNanoseconds());
+            $now = MonotonicTime::nowNanoseconds();
+            $deadline = $this->timers->nextDeadline();
+            if ($deadline !== null && $deadline < $now) {
+                $this->maxLagNanoseconds = max($this->maxLagNanoseconds, $now - $deadline);
+            }
             $this->runDueTimers();
         }
-        $this->recordTick($tickStart);
+        $this->lastTickNanoseconds = max(0, MonotonicTime::nowNanoseconds() - $tickStart);
+        $this->maxTickNanoseconds = max($this->maxTickNanoseconds, $this->lastTickNanoseconds);
     }
 
     /** @return array{0: list<resource>, 1: list<resource>} */

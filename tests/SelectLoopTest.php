@@ -23,6 +23,34 @@ it('runs deferred callbacks in registration order without consuming newly deferr
     expect($events)->toBe(['first', 'second', 'third']);
 });
 
+it('bounds a large deferred queue to the current tick without admitting callbacks scheduled during dispatch', function (): void {
+    $loop = new SelectLoop();
+    $seen = [];
+
+    for ($i = 0; $i < 600; ++$i) {
+        $loop->defer(static function () use ($loop, &$seen, $i): void {
+            $seen[] = $i;
+            if ($i === 0) {
+                $loop->defer(static function () use (&$seen): void {
+                    $seen[] = 600;
+                });
+            }
+        });
+    }
+
+    $loop->tick();
+    expect($seen)->toBe(range(0, 255))
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(345);
+
+    $loop->tick();
+    expect($seen)->toBe(range(0, 511))
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(89);
+
+    $loop->tick();
+    expect($seen)->toBe([...range(0, 599), 600])
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});
+
 it('stops immediately after a deferred callback without running due timers in the same tick', function (): void {
     $loop = new SelectLoop();
     $events = [];
