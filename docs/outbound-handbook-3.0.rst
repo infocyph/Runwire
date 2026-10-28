@@ -249,7 +249,7 @@ H2 multiplex and native H3 session siblings retain their own explicit lifecycle.
 
 
 Unified explicit transport and reusable session routing
-------------------------------------------------------
+-------------------------------------------------------
 
 The `Http\\Client\\HttpOutboundDispatcher` provides one request ownership,
 cancellation and completion contract. With constructor opt-ins, it can
