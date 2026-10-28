@@ -206,3 +206,22 @@ policy rather than authoritative upstream record TTLs.
 The cache is independent of host-owned transport support and requires
 the same off-loop `ProcessExecutor` as the default resolver. New test:
 `tests/CachedDnsResolverTest.php`.
+
+
+Explicit cross-protocol outbound dispatch
+-----------------------------------------
+
+`Http\\Client\\HttpOutboundDispatcher` provides one callback-based
+`send()` entry point for the existing verified H1/H2 TLS-ALPN client
+and optional native QUIC H3 implementation. Every request receives an
+`OutboundHttpHandle` that owns a linked cancellation source through
+final settlement, and an H1 reusable socket is aborted on completion
+unless retained by an independently qualified owning pool. No ambient
+cookies, implicit H3 downgrade, plaintext fallback, cross-origin reuse,
+unverified certificate policy or automatic session pool is introduced.
+H3 requires explicit `QuicClientOptions` and a strict H3-only policy,
+while H1/H2 use caller-owned `HappyEyeballsDialer`. Only the current
+per-request transport lifecycle is unified; multi-request H2/H3
+pooling and same-origin capacity management remain separately exposed
+protocol APIs, pending independent lifecycle, performance and
+cross-tenant acceptance.
