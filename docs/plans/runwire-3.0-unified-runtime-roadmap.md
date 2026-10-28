@@ -463,11 +463,11 @@ The [2.2 historical tracker in immutable Git history](https://github.com/infocyp
 | R5.07 | U03.09 + U13.03 | ACCEPTED; U03.09 #39976909971 and U13.03 live Swoole/OpenSwoole reactor plus outbound dial #40064041118 |
 | R5.08 | U03.10 + U15.06 | ACCEPTED; U03.10 QA #39977854249, U15.06 C4 #40509100579 |
 | R6.02 | U12.05 | ACCEPTED, real H1/H2/H3/TCP/UDP stop-during-traffic QA #40490979414 |
-| R8.05 | U17.06 | OPEN, fresh 3.0 QA required |
-| R8.10 | U17.07 | OPEN, fresh 3.0 QA required |
-| R9.06 | U17.08 | OPEN, fresh 3.0 QA required |
-| R9.07 | U17.07 | OPEN, fresh 3.0 QA required |
-| R9.09 | U17.09 | OPEN, fresh 3.0 QA required |
+| R8.05 | U17.06 | ACCEPTED; U17.06 2.1.2-vs-3.0 published matched H1/H2/WS five-pair CPU/RPS/p99/RSS and mixed full 1800s #40653954379 #40653980967 #40653969016 |
+| R8.10 | U17.07 | ACCEPTED; U17.07 final independent security/fuzz/performance/migration review and source-pinned no-blocker decision #40653816760 #40653816490 |
+| R9.06 | U17.08 | ACCEPTED; U17.08 final exact-code-SHA evidence, risk, roadmap and PR handoff #40653816490 #40653992566 |
+| R9.07 | U17.07 | ACCEPTED; U17.07 explicit nonpublishing, limits and migration risk disposition #40653816760 #40653816514 |
+| R9.09 | U17.09 | ACCEPTED; U17.09 maintainer-ready draft PR handoff, no merge/tag/publish, six release-child jobs green #40653992566 |
 
 ## Five-batch 3.0 closure execution map
 
