@@ -17,7 +17,9 @@ use Throwable;
 
 /**
  * Explicit cross-protocol outbound request owner with one cancellation contract.
- * No transparent H3 downgrade, automatic socket pool or hidden tenant reuse.
+ * No transparent H3 downgrade or hidden tenant reuse. Optional H1-only
+ * pooling must be injected with one fixed origin and TLS trust policy; H2/H3
+ * retain their separately verified connection and stream lifetimes.
  */
 final readonly class HttpOutboundDispatcher
 {
@@ -26,6 +28,7 @@ final readonly class HttpOutboundDispatcher
         private LoopInterface $loop,
         private HappyEyeballsDialer $dialer,
         private ?QuicClientOptions $quic = null,
+        private ?PooledHttp1Session $h1Session = null,
     ) {}
 
     /**
@@ -70,6 +73,18 @@ final readonly class HttpOutboundDispatcher
         try {
             if ($isH3) {
                 $this->sendH3($owned, $handle, $onHeaders, $onBody, $completion);
+
+                return $handle;
+            }
+            if ($this->h1Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_1_1
+                && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_1_1]) {
+                $this->h1Session->send(
+                    $owned, $onHeaders, $onBody,
+                    static function (?Throwable $error) use ($handle, $completion): void {
+                        $handle->complete();
+                        $completion($error);
+                    },
+                );
 
                 return $handle;
             }

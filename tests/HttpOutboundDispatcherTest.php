@@ -96,3 +96,32 @@ it('streams one real independent plaintext HTTP peer with owned completion and n
         fclose($listener);
     }
 });
+
+
+it('uses an explicitly injected same-origin H1 pool and keeps forbidden origins isolated', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $session = new \Infocyph\Runwire\Http\Client\PooledHttp1Session(
+        $loop, $dialer, 'http://127.0.0.1:8899', 'isolated',
+    );
+    $client = new HttpOutboundDispatcher($loop, $dialer, h1Session: $session);
+    $strict = new ClientProtocolPolicy(
+        ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true,
+    );
+    try {
+        expect(fn() => $client->send(
+            new ClientRequest('GET', 'http://127.0.0.1:8900/', protocol: $strict),
+            static function (): void {}, static function (): void {}, static function (): void {},
+        ))->toThrow(InvalidArgumentException::class);
+        expect($session->metrics()['active'])->toBe(0)
+            ->and($session->metrics()['waiting'])->toBe(0)
+            ->and($executor->diagnostics()['submitted'])->toBe(0);
+    } finally {
+        $session->close();
+        $dialer->close();
+        $numeric->close();
+        $executor->close();
+    }
+});
