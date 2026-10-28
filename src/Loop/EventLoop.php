@@ -217,6 +217,14 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
         try {
             $callback(...$arguments);
+        } catch (Throwable $error) {
+            // Opt-in failing-soak diagnostics only: preserve propagation and
+            // expose the original stack when libevent reports only its wrapper.
+            if (getenv('RUNWIRE_SOAK_DIAGNOSTICS') === '1') {
+                error_log('Runwire soak callback failure: ' . $error);
+            }
+
+            throw $error;
         } finally {
             $elapsed = MonotonicTime::nowNanoseconds() - $started;
             $this->lastTickNanoseconds = $elapsed;

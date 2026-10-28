@@ -36,9 +36,18 @@ $supervisor->group(WorkerGroup::callbacks(
         stream_set_blocking($http, false);
         $stop = $context->stopStream();
         $context->ready();
-        set_error_handler(static function (int $severity, string $message): bool {
-            return $severity === E_WARNING
-                && str_starts_with($message, 'stream_socket_accept(): Accept failed:')
+        $interruptedPoll = false;
+        set_error_handler(static function (int $severity, string $message) use (&$interruptedPoll): bool {
+            if ($severity !== E_WARNING) {
+                return false;
+            }
+            if (str_starts_with($message, 'stream_select(): Unable to select [4]: Interrupted system call')) {
+                $interruptedPoll = true;
+
+                return true;
+            }
+
+            return str_starts_with($message, 'stream_socket_accept(): Accept failed:')
                 && (str_contains($message, 'Resource temporarily unavailable')
                     || str_contains($message, 'Connection timed out'));
         });
@@ -47,7 +56,12 @@ $supervisor->group(WorkerGroup::callbacks(
                 $read = [$http, $stop];
                 $write = [];
                 $except = [];
+                $interruptedPoll = false;
                 if (stream_select($read, $write, $except, 0, 50_000) === false) {
+                    if ($interruptedPoll) {
+                        // SIGCHLD is recoverable: never suppress other poll failures.
+                        continue;
+                    }
                     throw new RuntimeException('Adaptive worker accept poll failed.');
                 }
                 foreach ($read as $socket) {

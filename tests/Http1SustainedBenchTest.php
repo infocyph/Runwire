@@ -169,12 +169,38 @@ it('produces correctness-passing CLI evidence through PHP only', function (): vo
             ->and($result['successful_requests'])->toBe($result['requests_total'])
             ->and($result['errors_total'])->toBe(0)
             ->and($result['timeouts_total'])->toBe(0)
+            ->and($result['continuous_duration_passed'])->toBeTrue()
+            ->and($result['actual_duration_seconds'])->toBeGreaterThanOrEqual(0.098)
             ->and($result['latency_ms']['p95'])->toBeGreaterThan(0);
     } finally {
         stopHttp1SustainedFixture($fixture);
     }
 });
 
+
+it('does not certify requested soak time when all clients terminate early', function (): void {
+    $fixture = startHttp1SustainedFixture(
+        "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n",
+        false,
+    );
+    try {
+        $report = http1SustainedMain([
+            'http1_sustained_bench.php',
+            (string) $fixture['port'],
+            '1',
+            '0',
+            '1.0',
+            (string) getmypid(),
+        ]);
+        expect($report['duration_seconds'])->toBe(1.0)
+            ->and($report['actual_duration_seconds'])->toBeLessThan(0.8)
+            ->and($report['continuous_duration_passed'])->toBeFalse()
+            ->and($report['correctness_passed'])->toBeFalse()
+            ->and($report['errors_total'])->toBeGreaterThan(0);
+    } finally {
+        stopHttp1SustainedFixture($fixture);
+    }
+});
 
 it('starts the strict HTTP/1.1 request deadline on first write, not while queued', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);

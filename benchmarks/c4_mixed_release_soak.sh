@@ -123,6 +123,7 @@ export RUNWIRE_INSTRUMENTATION="real-mixed-1800s-release-soak"
 php -d opcache.enable_cli=1 benchmarks/http1_sustained_bench.php \
   "$port" 16 30 1800 "$server_pid" > "$out/h1-1800.json"
 jq -e '.correctness_passed == true and .duration_seconds == 1800 and
+  .continuous_duration_passed == true and .actual_duration_seconds >= 1799.998 and
   .errors_total == 0 and .timeouts_total == 0 and .validation_failures == 0
   and .successful_requests == .requests_total and
   .successful_requests > 0 and .latency_ms.p99 > 0' "$out/h1-1800.json" >/dev/null

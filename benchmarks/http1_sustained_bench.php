@@ -712,6 +712,9 @@ function http1SustainedMain(array $argv): array
         ? max(0.0, ($measured['end_ticks'] - $measured['start_ticks']) / $ticksPerSecond / $measured['elapsed'] * 100)
         : 0.0;
 
+    // Keep the requested contract separate from the measured wall time.
+    // An early exit (e.g. every client disconnected) cannot be a valid soak.
+    $continuousDurationPassed = $measured['elapsed'] >= $duration - 0.002;
     $result = [
         'runtime' => 'runwire-native',
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
@@ -731,6 +734,8 @@ function http1SustainedMain(array $argv): array
         'workers' => 1,
         'concurrency' => $concurrency,
         'duration_seconds' => $duration,
+        'actual_duration_seconds' => round($measured['elapsed'], 3),
+        'continuous_duration_passed' => $continuousDurationPassed,
         'requests_total' => $requests,
         'completed_requests' => $counter['completed_requests'],
         'successful_requests' => $counter['successful_requests'],
@@ -780,7 +785,8 @@ function http1SustainedMain(array $argv): array
                 ? round($counter['socket_read_calls'] / $requests, 6)
                 : 0.0,
         ],
-        'correctness_passed' => $requests > 0
+        'correctness_passed' => $continuousDurationPassed
+            && $requests > 0
             && $counter['completed_requests'] === $requests
             && $counter['successful_requests'] === $requests
             && $failures === 0,
