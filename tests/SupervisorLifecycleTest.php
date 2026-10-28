@@ -296,9 +296,12 @@ it('keeps live HTTP1 TCP and UDP responsive across crash recycle and rolling rel
             ->toContain(SupervisorEventType::RELOAD_COMPLETED)
             ->and($supervisor->status()->workers)->toBe([]);
 
-        $status = 0;
-        expect(pcntl_waitpid(-1, $status, WNOHANG))->toBe(-1)
-            ->and(pcntl_get_last_error())->toBe(PCNTL_ECHILD);
+        foreach ($readyPids as $pid) {
+            $status = 0;
+            // Confirm every owned worker was reaped, not all unrelated QA PIDs.
+            expect(pcntl_waitpid($pid, $status, WNOHANG))->toBe(-1)
+                ->and(pcntl_get_last_error())->toBe(PCNTL_ECHILD);
+        }
     } finally {
         fclose($http);
         fclose($tcp);

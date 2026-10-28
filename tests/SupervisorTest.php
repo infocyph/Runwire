@@ -12,6 +12,12 @@ use Infocyph\Runwire\Supervisor\WorkerGroup;
 it('starts multiple workers and reaps them during graceful shutdown', function (): void {
     $loop = new SelectLoop();
     $supervisor = new Supervisor($loop);
+    $workerPids = [];
+    $supervisor->onEvent(static function (\Infocyph\Runwire\Supervisor\SupervisorEvent $event) use (&$workerPids): void {
+        if ($event->type === \Infocyph\Runwire\Supervisor\Enum\SupervisorEventType::WORKER_READY && $event->pid !== null) {
+            $workerPids[] = $event->pid;
+        }
+    });
     $supervisor->group(WorkerGroup::callbacks(
         name: 'workers',
         count: 2,
@@ -31,9 +37,13 @@ it('starts multiple workers and reaps them during graceful shutdown', function (
 
     expect($supervisor->status()->workers)->toBe([]);
 
-    $status = 0;
-    expect(pcntl_waitpid(-1, $status, WNOHANG))->toBe(-1)
-        ->and(pcntl_get_last_error())->toBe(PCNTL_ECHILD);
+    expect($workerPids)->toHaveCount(2);
+    foreach ($workerPids as $pid) {
+        $status = 0;
+        // Only this supervisor's children; other QA cases may still own PIDs.
+        expect(pcntl_waitpid($pid, $status, WNOHANG))->toBe(-1)
+            ->and(pcntl_get_last_error())->toBe(PCNTL_ECHILD);
+    }
 });
 
 it('restarts a crashed worker within the configured restart budget', function (): void {

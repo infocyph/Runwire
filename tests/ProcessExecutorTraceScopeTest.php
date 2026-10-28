@@ -47,7 +47,7 @@ it('retains trace context for cancelled queued executor completions without leak
     $seen = [];
     $scope->run($trace, function () use ($executor, $scope, &$seen): void {
         $id = $executor->submit('sleep', ['milliseconds' => 200], function ($value, $error) use ($scope, &$seen): void {
-            $seen[] = [$scope->current(), $error];
+            $seen[] = [$scope->current(), $error, $value];
         });
         expect($executor->cancel($id))->toBeTrue();
     });
@@ -56,5 +56,6 @@ it('retains trace context for cancelled queued executor completions without leak
     expect($seen)->toHaveCount(1)
         ->and($seen[0][0])->toBe($trace)
         ->and($seen[0][1])->toBeInstanceOf(Throwable::class)
+        ->and($seen[0][2])->toBeNull()
         ->and($scope->current())->toBeNull();
 });

@@ -72,11 +72,27 @@ PHP;
     if (!is_resource($process)) {
         throw new RuntimeException('Unable to start HTTP fixture.');
     }
-    for ($attempt = 0; $attempt < 100 && !is_file($ready); ++$attempt) {
+    // CI starts this real server amid other process-heavy QA lanes.
+    $startupDeadline = microtime(true) + 8.0;
+    while (!is_file($ready) && microtime(true) < $startupDeadline) {
+        if (!proc_get_status($process)['running']) {
+            break;
+        }
         usleep(20_000);
     }
     if (!is_file($ready)) {
-        throw new RuntimeException('HTTP fixture did not become ready.');
+        $diagnostic = is_file($stderr) ? trim((string) file_get_contents($stderr)) : '';
+        $processStatus = proc_get_status($process);
+        if ($processStatus['running']) {
+            proc_terminate($process);
+        }
+        proc_close($process);
+        foreach ([$script, $ready, $stdout, $stderr] as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+        throw new RuntimeException('HTTP fixture did not become ready: ' . ($diagnostic ?: 'no stderr output'));
     }
 
     return compact('process', 'script', 'ready', 'stdout', 'stderr') + ['port' => (int) file_get_contents($ready)];
