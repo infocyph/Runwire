@@ -162,3 +162,21 @@ or terminate workers. The native Supervisor now consumes controller
 observations and performs real bounded spawn/retire and readiness/drain.
 Host-owned runtimes still do not inherit those process controls.
 C3 acceptance is complete; final performance certification remains U15.
+
+
+Optional PSR-7/17 interoperability boundary
+-------------------------------------------
+
+`Interop\\Psr\\PsrMessageBridge` can exchange validated header metadata,
+construct bodyless PSR-7 requests and construct PSR-17 response metadata
+when the caller installs the standard `psr/http-message` and
+`psr/http-factory` packages. These are **suggested** dependencies,
+not required runtime packages. A PSR stream's `read()` may block,
+so the adapter fails closed on nonempty or unbounded request bodies;
+it never reads PSR stream bodies on the Runwire reactor.
+
+This is not a PSR-15 middleware runner nor a blocking PSR-18 synchronous
+HTTP client. Those contracts must execute in compatible host-owned
+environments or use separately qualified asynchronous adapters.
+`tests/PsrMessageBridgeTest.php` uses an independent Nyholm PSR-17
+implementation as a development-only interoperability fixture.
