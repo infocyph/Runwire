@@ -140,9 +140,9 @@ final class WorkerContext
      */
     public function attachLoop(LoopInterface $loop, float $backgroundShutdownGraceSeconds = 10.0): void
     {
-        $this->activitySignals->attach($loop);
         $this->periodicTasks->attach($loop);
         $this->attachControlWatcher($loop);
+        $this->activitySignals->attach($loop);
         if (!$this->role->background()) {
             return;
         }
