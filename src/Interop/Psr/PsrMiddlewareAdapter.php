@@ -23,23 +23,35 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
     public function __construct(
         private array $middleware,
         private RequestHandlerInterface $terminal,
-        private int $index = 0,
     ) {
-        if ($index < 0 || $index > count($middleware) || count($middleware) > 32) {
-            throw new InvalidArgumentException('PSR-15 middleware count or cursor exceeds its bounded limit.');
+        if (count($middleware) > 32 || !array_is_list($middleware)) {
+            throw new InvalidArgumentException('PSR-15 middleware must be a bounded ordered list.');
         }
-        if (array_filter($middleware, static fn(mixed $part): bool => !$part instanceof MiddlewareInterface) !== []) {
-            throw new InvalidArgumentException('Every PSR-15 middleware must implement MiddlewareInterface.');
+        foreach ($middleware as $part) {
+            if (!$part instanceof MiddlewareInterface) {
+                throw new InvalidArgumentException('Every PSR-15 middleware must implement MiddlewareInterface.');
+            }
         }
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $middleware = $this->middleware[$this->index] ?? null;
-        if ($middleware === null) {
-            return $this->terminal->handle($request);
+        $handler = $this->terminal;
+        for ($index = count($this->middleware) - 1; $index >= 0; --$index) {
+            $middleware = $this->middleware[$index];
+            $handler = new class($middleware, $handler) implements RequestHandlerInterface {
+                public function __construct(
+                    private readonly MiddlewareInterface $middleware,
+                    private readonly RequestHandlerInterface $next,
+                ) {}
+
+                public function handle(ServerRequestInterface $request): ResponseInterface
+                {
+                    return $this->middleware->process($request, $this->next);
+                }
+            };
         }
 
-        return $middleware->process($request, new self($this->middleware, $this->terminal, $this->index + 1));
+        return $handler->handle($request);
     }
 }
