@@ -51,6 +51,27 @@ it('bounds a large deferred queue to the current tick without admitting callback
         ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
 });
 
+it('skips a deferred callback cancelled by a prior callback within the same tick', function (): void {
+    $loop = new SelectLoop();
+    $seen = [];
+    $cancelled = null;
+
+    $loop->defer(function () use ($loop, &$cancelled, &$seen): void {
+        $seen[] = 'first';
+        expect($loop->cancel($cancelled))->toBeTrue();
+    });
+    $loop->defer(static function () use (&$seen): void {
+        $seen[] = 'second';
+    });
+    $cancelled = $loop->defer(static function () use (&$seen): void {
+        $seen[] = 'cancelled';
+    });
+
+    $loop->run();
+    expect($seen)->toBe(['first', 'second'])
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});
+
 it('stops immediately after a deferred callback without running due timers in the same tick', function (): void {
     $loop = new SelectLoop();
     $events = [];

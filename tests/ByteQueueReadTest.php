@@ -75,3 +75,34 @@ it('keeps interleaved read, discard and clear semantics bounded', function (): v
     expect($budget->used())->toBe(0)
         ->and($queue->peek())->toBe('');
 });
+
+it('peeks and consumes the active single chunk without leaking budget across partial offsets', function (): void {
+    $budget = new ByteBudget(16);
+    $queue = new ByteQueue($budget);
+    $queue->append('abcdef');
+    $queue->append('GHI');
+
+    expect($queue->peek(4))->toBe('abcd')
+        ->and($queue->read(2))->toBe('ab')
+        ->and($queue->peek(2))->toBe('cd')
+        ->and($queue->bytes())->toBe(7)
+        ->and($budget->used())->toBe(7);
+
+    expect($queue->read(4))->toBe('cdef')
+        ->and($queue->front(2))->toBe('GH')
+        ->and($queue->peek(2))->toBe('GH')
+        ->and($queue->bytes())->toBe(3)
+        ->and($budget->used())->toBe(3);
+
+    expect($queue->read(1))->toBe('G')
+        ->and($queue->peek())->toBe('HI')
+        ->and($queue->read(2))->toBe('HI')
+        ->and($queue->bytes())->toBe(0)
+        ->and($budget->used())->toBe(0);
+
+    $queue->append('reused');
+    expect($queue->peek(6))->toBe('reused')
+        ->and($queue->read(6))->toBe('reused')
+        ->and($budget->used())->toBe(0);
+});
+

@@ -408,10 +408,11 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
         // Copy only this tick's bounded FIFO snapshot, never every pending key.
         foreach (array_slice($this->deferred, 0, self::MAX_DEFERRED_PER_TICK, true) as $id => $callback) {
-            $callback = $this->takeDeferred($id);
-            if ($callback === null) {
+            // A prior callback may have cancelled this pending entry.
+            if (!isset($this->deferred[$id])) {
                 continue;
             }
+            unset($this->deferred[$id]);
             $this->invoke($callback, $id);
 
             if (!$this->running) {
@@ -514,17 +515,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             intdiv($remaining, MonotonicTime::NANOSECONDS_PER_SECOND),
             $remaining % MonotonicTime::NANOSECONDS_PER_SECOND,
         );
-    }
-
-    private function takeDeferred(int $id): ?Closure
-    {
-        $callback = $this->deferred[$id] ?? null;
-        if ($callback === null) {
-            return null;
-        }
-        unset($this->deferred[$id]);
-
-        return $callback;
     }
 
     /** @param resource $stream */

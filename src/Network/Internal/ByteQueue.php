@@ -147,6 +147,11 @@ final class ByteQueue
         }
 
         $remaining = min($maxBytes, $this->bytes);
+        // Most reads inspect a single buffered chunk: skip a temporary parts array.
+        if ($remaining <= strlen($this->chunks[$this->head]) - $this->headOffset) {
+            return $this->front($remaining);
+        }
+
         $parts = [];
         $index = $this->head;
         $offset = $this->headOffset;
@@ -178,6 +183,22 @@ final class ByteQueue
         }
 
         $remaining = min($maxBytes, $this->bytes);
+        // Avoid allocating a parts list for the common single-chunk consume case.
+        if ($remaining <= strlen($this->chunks[$this->head]) - $this->headOffset) {
+            $result = $this->front($remaining);
+            $this->headOffset += $remaining;
+            $this->bytes -= $remaining;
+            $this->budget?->release($remaining);
+            if ($this->headOffset === strlen($this->chunks[$this->head])) {
+                unset($this->chunks[$this->head]);
+                ++$this->head;
+                $this->headOffset = 0;
+                $this->compact();
+            }
+
+            return $result;
+        }
+
         $requested = $remaining;
         $parts = [];
         while ($remaining > 0 && isset($this->chunks[$this->head])) {
