@@ -44,6 +44,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /** @var array<int, int> */
     private array $writeIndex = [];
 
+    /** @var array<int, array{0: int, 1: bool}> */
+    private array $watcherResources = [];
+
     /**
      * Create an ext-event loop with the callback-overrun threshold.
      */
@@ -82,7 +85,18 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
         $event->del();
         unset($this->events[$id]);
-        $this->removeIndex($id);
+
+        // A timer has no watcher index; stream watcher removal is O(1).
+        $resource = $this->watcherResources[$id] ?? null;
+        if ($resource !== null) {
+            unset($this->watcherResources[$id]);
+            [$resourceId, $readable] = $resource;
+            if ($readable) {
+                unset($this->readIndex[$resourceId]);
+            } else {
+                unset($this->writeIndex[$resourceId]);
+            }
+        }
 
         return true;
     }
@@ -213,20 +227,6 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         }
     }
 
-    private function removeIndex(int $id): void
-    {
-        foreach ($this->readIndex as $resourceId => $watcherId) {
-            if ($watcherId === $id) {
-                unset($this->readIndex[$resourceId]);
-            }
-        }
-        foreach ($this->writeIndex as $resourceId => $watcherId) {
-            if ($watcherId === $id) {
-                unset($this->writeIndex[$resourceId]);
-            }
-        }
-    }
-
     private function timer(float $seconds, callable $callback, bool $repeat): int
     {
         if (!is_finite($seconds) || $seconds < 0) {
@@ -305,6 +305,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
         $this->events[$id] = $event;
         $index[$resourceId] = $id;
+        $this->watcherResources[$id] = [$resourceId, $flag === Event::READ];
 
         return $id;
     }
