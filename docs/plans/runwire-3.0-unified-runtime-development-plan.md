@@ -922,11 +922,11 @@ The [historical 2.2 plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e
 | R5.07 | U03.09 + U13.03 | ACCEPTED; Swoole/OpenSwoole hosted QA #39976909971 / #40064041118 |
 | R5.08 | U03.10 + U15.06 | ACCEPTED; U15.06 live GitHub #40509100579 |
 | R6.02 | U12.05 | ACCEPTED; native mixed lifecycle QA #40490979414 / #40490978809 |
-| R8.05 | U17.06 | OPEN; retest against 3.0 |
-| R8.10 | U17.07 | OPEN; retest against 3.0 |
-| R9.06 | U17.08 | OPEN; retest against 3.0 |
-| R9.07 | U17.07 | OPEN; retest against 3.0 |
-| R9.09 | U17.09 | OPEN; retest against 3.0 |
+| R8.05 | U17.06 | ACCEPTED; U17.06 H2 #40653954379, WS #40653980967, 1800s mixed #40653969016 all green at 13c3bdb |
+| R8.10 | U17.07 | ACCEPTED; U17.07 PHPForge/security #40653816760, Source Audit #40653816490, W226 final risk review |
+| R9.06 | U17.08 | ACCEPTED; U17.08 immutable SHA 13c3bdb, risk/plan/roadmap/PR W226 and #40653816490 |
+| R9.07 | U17.07 | ACCEPTED; U17.07 native/host/migration #40653816514, W226 nonpublishing risk disposition |
+| R9.09 | U17.09 | ACCEPTED; U17.09 completed maintainer handoff, DRAFT no merge/tag/publish, six release children #40653992566 |
 
 ## Sphinx / Read the Docs complete feature documentation index
 
