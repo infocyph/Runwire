@@ -17,9 +17,9 @@ final class WorkerActivitySignals
 
     private int $active = 0;
 
-    private int $epoch = 0;
-
     private bool $busy = false;
+
+    private int $epoch = 0;
 
     private ?LoopInterface $loop = null;
 

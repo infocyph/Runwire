@@ -37,11 +37,11 @@ final class WorkerContext
 
     public readonly ByteBudget $bufferBudget;
 
+    private readonly WorkerActivitySignals $activitySignals;
+
     private readonly PeriodicTaskRegistry $periodicTasks;
 
     private readonly WorkerRecycleState $recycleState;
-
-    private readonly WorkerActivitySignals $activitySignals;
 
     private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
