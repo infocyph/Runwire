@@ -11,8 +11,7 @@ Runwire developer handbook
 **In development:** The Runwire 3.0 branch includes its unified
 asynchronous networking, client protocol, file executor and real native
 autoscale implementation, with C3 functional acceptance completed.
-Runwire 3.0 remains unreleased; separate final performance and hosted
-documentation/release certification gates are open.
+Runwire 3.0 remains unreleased. GitHub-hosted mixed 1800-second performance and 41-page Sphinx checks have passed; external documentation hosting is excluded from the agreed release scope. Final immutable-head release certification must still be checked before release.
 
 The handbook is written for application developers, native and
 host-owned runtime integrators, operators, performance engineers

@@ -14,6 +14,12 @@ on:
       - composer.json
       - composer.lock
       - tools/c5-carry-forward-qa.sh
+      - tools/pre-release-feature-qa.sh
+      - docs/features.rst
+      - docs/handbook-3.0.rst
+      - docs/performance-security-3.0.rst
+      - docs/index.rst
+      - README.md
       - .github/workflows/source-audit.yml
   pull_request:
     paths:
@@ -25,6 +31,13 @@ on:
       - tests/**
       - composer.json
       - composer.lock
+      - tools/c5-carry-forward-qa.sh
+      - tools/pre-release-feature-qa.sh
+      - docs/features.rst
+      - docs/handbook-3.0.rst
+      - docs/performance-security-3.0.rst
+      - docs/index.rst
+      - README.md
       - .github/workflows/source-audit.yml
 
 permissions:
@@ -130,6 +143,10 @@ jobs:
       - name: Verify all 20 historical 2.2 task migrations against canonical 3.0 acceptance
         shell: bash
         run: bash tools/c5-carry-forward-qa.sh
+
+      - name: Check 3.0 feature-contract consistency against canonical release tracker
+        shell: bash
+        run: bash tools/pre-release-feature-qa.sh
 
       - name: Risk-pattern scan
         shell: bash

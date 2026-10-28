@@ -18,8 +18,7 @@ under stable p99, RSS, CPU, FD, error and queue constraints.
 
 The protocol-local adaptive policy defaults to FIXED. AUTO is
 explicit opt-in and requires the reproducible promotion matrix, not
-a noisy or partial benchmark. The native autoscale policy and pure
-decision engine do not currently create, recycle or drain workers.
+a noisy or partial benchmark. The native supervisor integrates the autoscale decision engine with real bounded worker scale-out, scale-in, recycle, and drain; the source-frozen full 1800-second mixed workload qualification passed on PHP 8.4 and 8.5. Hosted worker lifetimes still belong to their hosting servers.
 
 Reproducible measurement topology
 ---------------------------------
@@ -66,8 +65,7 @@ connected IP; applications without an explicit policy are not
 automatically protected. TlsClientOptions verifies peer chain/name
 and ALPN. PoolIsolationKey prevents treating different scopes,
 trust revisions or proxy identities as one reusable identity.
-Complete connected pools, proxy negotiation, redirects and credential
-policies remain separate unimplemented feature gates.
+Bounded connection pooling, CONNECT/SOCKS5 tunnels, and H1 redirect/retry policies exist as separate opt-in primitives. A general automatic cross-protocol H1/H2/H3 HTTP connection pool is **not** implemented; do not interpret the primitives as a unified high-level session manager.
 
 Filesystem threats include symlink traversal, TOCTOU, directory
 permissions, cross-device rename, partial writes and false fsync
@@ -119,10 +117,7 @@ that unreleased Runwire 3.0 has achieved them.
        ``tests/PoolIsolationKeyTest.php``
 
 The Benchmarks workflow runs smaller noncertification diagnostics.
-The independent TLS, QUIC, host and security gates retain their own
-immutable workflow-run evidence in the canonical plan. In particular,
-a green profile job or a green Sphinx build **must not** turn U15/U17
-release performance or matched TLS certifications green.
+The independent TLS, QUIC, host and security gates retain their own immutable workflow-run evidence in the canonical plan. The exact-source 2026-10-28 H2 five-pair, WebSocket five-pair on PHP8.4/8.5 and continuous full 1800s mixed resource trials passed; the prior fail-closed Release Certification rejected only still-open tracker tasks. Profile jobs and Sphinx builds alone never certify those performance gates. A new release decision must check the **final** source SHA and zero-open canonical ledger.
 
 
 HTTP/1.1 diagnostic send-buffer contention

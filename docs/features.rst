@@ -48,14 +48,14 @@ Network, protocols and worker capabilities
      - No general-purpose H2/H3 fallback
    * - HTTP/2 outbound
      - No complete client
-     - Verified H2 request/response, bounded multiplex, flow control and peer GOAWAY; U07 accepted, U17 final certification pending
+     - Verified H2 request/response, bounded multiplex, flow control and peer GOAWAY; source-frozen peer QA and matched H2 performance accepted
      - Outgoing TLS with ALPN
      - Independent TLS/ALPN hyper-h2 peer QA passed; no H2 extended CONNECT
    * - HTTP/3 outbound
      - No complete client
      - Verified H3 client control streams, bounded QPACK, sibling requests and cancellation; U07 accepted
      - Outgoing QUIC
-     - Native ext-quic and independent aioquic/ngtcp2 QA; final U17 certification pending
+     - Native ext-quic and independent aioquic/ngtcp2 QA; scoped source-frozen U17 verification accepted
    * - WebSocket server
      - Inbound H1 upgrade
      - H1 upgrade/close verified
@@ -105,7 +105,7 @@ Network, protocols and worker capabilities
      - Not unified
      - Bounded duplex relay with drained cleartext half-close and cancellation
      - TCP/Unix streams
-     - TLS close-notify and release throughput remain OPEN
+     - TLS close-notify/relay throughput are not release-qualified features; no TLS relay guarantee
    * - Fiber tasks and cancellation
      - Supported
      - Structured scope/channel/deadline ownership
@@ -120,12 +120,12 @@ Network, protocols and worker capabilities
      - Not built in
      - Experimental bounded chunk bridge
      - TCP/Unix plus file executor
-     - Slow-peer/full QA pending
+     - Slow-peer transfer path remains experimental, not a release-qualified general file sender
    * - Atomic file durability
      - Not guaranteed
      - Crash-safe replace not yet implemented
      - Host filesystem semantics
-     - fsync/sandbox policy OPEN
+     - No crash-durable or race-free sandbox guarantee
    * - Native process supervision
      - Restart and reload
      - Generation and recycle controls
@@ -135,7 +135,7 @@ Network, protocols and worker capabilities
      - Not built in
      - Real hysteresis-controlled native worker scale-out/scale-in; C3 QA accepted
      - Native PCNTL/POSIX worker groups only
-     - Full U15 release-performance soak remains OPEN
+     - Full 1800s mixed worker/process-tree soak qualified on PHP 8.4 and 8.5
    * - FPM/FrankenPHP/RoadRunner
      - Host adapters
      - Real-host request isolation tested
@@ -148,14 +148,14 @@ Network, protocols and worker capabilities
      - No competing loop
    * - Optional ext-event
      - Optional acceleration
-     - Descriptor/budget tests on PHP 8.4
+     - Portable/native PHP8.4 and PHP8.5 CI acceptance
      - EventLoop adapter
-     - Full cross-PHP parity OPEN
+     - Real independent PHP8.4/8.5 compatibility QA accepted
    * - Security and diagnostics
      - Existing controls
      - Bounded budgets and observations
      - Host/worker/connection scopes
-     - Final fuzz/security QA OPEN
+     - Source-frozen PHPForge stable/lowest QA and independent native protocol/security lanes accepted
 
 Release status interpretation and limitations
 ---------------------------------------------
@@ -196,5 +196,4 @@ The host compatibility matrix, coroutine ownership guide and async-file
 development guide provide the host-specific lifecycle, quotas and errors.
 The source-linked complete PHP API reference, 2.1.2-to-3.0 migration
 ledger and bounded H2/H3 client integration have task-scoped QA acceptance.
-The full mixed 1800-second soak, externally hosted Read the Docs preview
-and final frozen-source release certification remain incomplete.
+The full 1800-second mixed worker soak and source-frozen H1/H2/WebSocket comparisons have passed in GitHub Actions for the technical 3.0 candidate. External Read the Docs provisioning is intentionally out of the scoped release tracker; final exact-head Release Certification remains a separately verified gate. This page does not authorize publication.

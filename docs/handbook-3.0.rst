@@ -153,9 +153,7 @@ Version and evidence convention
 -------------------------------
 
 Commands and examples here target a **checked-out 3.0 branch**, not a
-Composer release. Requirements that still need hosted Read the Docs
-confirmation, the final 2.1.2-to-3.0 ABI/behavior freeze or five-pair
-release benchmarks remain open in the internal tracker. Consult
+Composer release. The GitHub-only mixed 1800s and independent five-pair baseline performance gates have accepted evidence; external Read the Docs hosting was explicitly retired from scope. Source-level 2.1.2 migration review does not guarantee perfect behavioral compatibility; a final exact-head release decision is still required. Consult
 :doc:`performance-qa-handbook-3.0` for reproducible evidence and
 :doc:`migration-playbook-3.0` for release-safe migration gates.
 
