@@ -10,7 +10,8 @@ sha="$(git -C "$candidate" rev-parse HEAD)"
 test "$(git -C "$baseline" rev-parse HEAD)" = 7e9bf20ad0737a187dfed77b723791b141b36378
 test -r "$candidate/vendor/autoload.php"
 test -r "$baseline/vendor/autoload.php"
-python3 "$candidate/benchmarks/release_cpu_affinity.py" > "$out/affinity.json"
+python_bin="${PYTHON_BIN:-python3}"
+"$python_bin" "$candidate/benchmarks/release_cpu_affinity.py" > "$out/affinity.json"
 jq -e '.client_separate_physical_core == true' "$out/affinity.json" >/dev/null
 server_cpu="$(jq -er '.server_cpu' "$out/affinity.json")"
 client_cpu="$(jq -er '.client_cpu' "$out/affinity.json")"
@@ -61,12 +62,12 @@ for trial in 1 2 3 4 5; do
     test "$ready" -eq 1
     flag="$out/sampling-$group-$trial"
     touch "$flag"
-    python3 "$candidate/benchmarks/c4_process_resource_sampler.py" \
+    "$python_bin" "$candidate/benchmarks/c4_process_resource_sampler.py" \
       "$pid" "$flag" "$out/$group-$trial-resources.json" &
     sampler="$!"
     (
       cd "$candidate"
-      taskset -c "$client_cpu" python3 benchmarks/c4_matched_h2_peer.py \
+      taskset -c "$client_cpu" "$python_bin" benchmarks/c4_matched_h2_peer.py \
         "$port" "$pid" > "$out/$group-$trial.json"
     ) || { tail -90 "$out/$group-$trial-server.log" >&2; exit 1; }
     rm -f "$flag"
@@ -81,4 +82,4 @@ for trial in 1 2 3 4 5; do
     pid=""
   done
 done
-python3 "$candidate/benchmarks/c4_matched_h2_compare.py" "$out" "$sha"
+"$python_bin" "$candidate/benchmarks/c4_matched_h2_compare.py" "$out" "$sha"

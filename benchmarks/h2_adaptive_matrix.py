@@ -133,7 +133,7 @@ class H2Bench:
         self.conn.send_headers(stream_id, headers, end_stream=True)
         self.active[stream_id] = {
             "slot": slot, "started": time.perf_counter(), "status": None,
-            "body": bytearray(), "expected": expected,
+            "received": 0, "expected": expected,
         }
 
     def stall_snapshot(self) -> dict[str, Any]:
@@ -155,8 +155,8 @@ class H2Bench:
                 "stream_id": stream_id,
                 "status": state["status"],
                 "expected_bytes": len(state["expected"]),
-                "received_bytes": len(state["body"]),
-                "remaining_bytes": len(state["expected"]) - len(state["body"]),
+                "received_bytes": state["received"],
+                "remaining_bytes": len(state["expected"]) - state["received"],
                 "age_seconds": round(time.perf_counter() - state["started"], 3),
                 "client_stream_window": self.conn.local_flow_control_window(stream_id),
             }
@@ -218,7 +218,7 @@ class H2Bench:
                         f"scenario={self.case.get('scenario')} "
                         f"stream_count={len(self.active)} "
                         f"issued_on_connection={self.issued} "
-                        f"pending_bytes={sum(len(s['expected']) - len(s['body']) for s in self.active.values())}"
+                        f"pending_bytes={sum(len(s['expected']) - s['received'] for s in self.active.values())}"
                     ) from exc
             measurement.sample()
             if self.case.get("scenario") == "pressure":
@@ -238,14 +238,19 @@ class H2Bench:
                     state = self.active[event.stream_id]
                     if self.case.get("scenario") == "flow":
                         constrained_flow_bytes += event.flow_controlled_length
-                    state["body"].extend(event.data)
-                    last_progress = time.monotonic()
-                    if len(state["body"]) > len(state["expected"]):
+                    # Check every byte without storing another copy per stream.
+                    received = state["received"]
+                    end = received + len(event.data)
+                    if end > len(state["expected"]):
                         raise RuntimeError("H2 response exceeded expected body size.")
+                    if event.data != state["expected"][received:end]:
+                        raise RuntimeError("H2 response body mismatch.")
+                    state["received"] = end
+                    last_progress = time.monotonic()
                     self.conn.acknowledge_received_data(event.flow_controlled_length, event.stream_id)
                 elif isinstance(event, StreamEnded):
                     state = self.active.pop(event.stream_id)
-                    if state["status"] != 200 or state["body"] != state["expected"]:
+                    if state["status"] != 200 or state["received"] != len(state["expected"]):
                         raise RuntimeError("H2 response validation failed.")
                     measurement.complete(state["slot"], state["started"])
                     last_progress = time.monotonic()
