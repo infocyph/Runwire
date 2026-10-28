@@ -130,3 +130,111 @@ it('uses an explicitly injected same-origin H1 pool and keeps forbidden origins 
         $executor->close();
     }
 });
+
+
+it('reuses a verified H2 multiplex session for two independent dispatcher requests', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray()->toHaveCount(2);
+    [$socket, $peer] = $pair;
+    stream_set_blocking($peer, false);
+    $loop = new SelectLoop();
+    $connection = new \Infocyph\Runwire\Network\Connection(
+        $loop, $socket, negotiatedProtocol: 'h2', encrypted: true,
+    );
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $wire = '';
+    $preface = false;
+    $seen = [];
+    $replied = false;
+    $frames = new \Infocyph\Runwire\Http\Http2\FrameParser();
+    $encoder = new \Infocyph\Runwire\Http\Http2\Hpack\Encoder();
+    $watch = $loop->onReadable($peer, static function () use (
+        $peer, &$wire, &$preface, &$seen, &$replied, $frames, $encoder,
+    ): void {
+        $chunk = fread($peer, 8192);
+        if (is_string($chunk)) {
+            $wire .= $chunk;
+        }
+        if (!$preface) {
+            $expected = \Infocyph\Runwire\Http\Http2\Http2Connection::CLIENT_PREFACE;
+            if (strlen($wire) < strlen($expected)) {
+                return;
+            }
+            expect(str_starts_with($wire, $expected))->toBeTrue();
+            $wire = substr($wire, strlen($expected));
+            $preface = true;
+            fwrite($peer, \Infocyph\Runwire\Http\Http2\FrameWriter::encode(
+                \Infocyph\Runwire\Http\Http2\FrameWriter::settings(),
+            ));
+        }
+        foreach ($frames->push($wire) as $frame) {
+            if ($frame->knownType() === \Infocyph\Runwire\Http\Http2\Enum\FrameType::HEADERS) {
+                $seen[$frame->streamId] = true;
+            }
+        }
+        $wire = '';
+        if (count($seen) === 2 && !$replied) {
+            $replied = true;
+            $frameType = \Infocyph\Runwire\Http\Http2\Enum\FrameType::HEADERS->value;
+            $dataType = \Infocyph\Runwire\Http\Http2\Enum\FrameType::DATA->value;
+            $head1 = $encoder->encode([[':status', '200']]);
+            $head3 = $encoder->encode([[':status', '200']]);
+            $frame = static fn(int $type, int $flags, int $stream, string $data): string =>
+                \Infocyph\Runwire\Http\Http2\FrameWriter::encode(
+                    new \Infocyph\Runwire\Http\Http2\Frame($type, $flags, $stream, $data),
+                );
+            fwrite($peer, $frame($frameType, 0x4, 3, $head3)
+                . $frame($dataType, 0x1, 3, 'two')
+                . $frame($frameType, 0x4, 1, $head1)
+                . $frame($dataType, 0x1, 1, 'one'));
+        }
+    });
+    $results = [];
+    $bodies = [];
+    $dispatcher = null;
+    $owner = new \Infocyph\Runwire\Http\Client\Http2MultiplexConnection(
+        $loop, $connection,
+        static function () use (&$dispatcher, &$results, &$bodies, $loop): void {
+            $strict = new ClientProtocolPolicy(ProtocolVersion::HTTP_2, [ProtocolVersion::HTTP_2]);
+            foreach (['one', 'two'] as $id) {
+                $dispatcher->send(
+                    new ClientRequest('GET', 'https://example.test/' . $id, protocol: $strict),
+                    static function (): void {},
+                    static function (string $part) use (&$bodies, $id): void {
+                        $bodies[$id] = ($bodies[$id] ?? '') . $part;
+                    },
+                    static function (?Throwable $failure) use (&$results, $id, $loop): void {
+                        $results[$id] = $failure;
+                        if (count($results) === 2) {
+                            $loop->stop();
+                        }
+                    },
+                );
+            }
+        },
+        maxConcurrentStreams: 2,
+    );
+    $dispatcher = new HttpOutboundDispatcher($loop, $dialer, h2Session: $owner);
+    $watchdog = $loop->delay(3.0, static fn() => $loop->stop());
+    try {
+        $owner->start();
+        $loop->run();
+        expect($results)->toHaveCount(2)
+            ->and($results['one'])->toBeNull()
+            ->and($results['two'])->toBeNull()
+            ->and($bodies)->toBe(['two' => 'two', 'one' => 'one'])
+            ->and($seen)->toHaveCount(2)
+            ->and($owner->activeCount())->toBe(0)
+            ->and($executor->diagnostics()['submitted'])->toBe(0);
+    } finally {
+        $owner->close();
+        $loop->cancel($watch);
+        $loop->cancel($watchdog);
+        $dialer->close();
+        $numeric->close();
+        $executor->close();
+        fclose($peer);
+    }
+});
