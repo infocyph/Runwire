@@ -5,7 +5,7 @@ Separate diagnostic measurements from release certification
 -----------------------------------------------------------
 
 Runwire 3.0 has extensive native and protocol tests, but completion of
-C3 does not finish the **C4 U15 release performance program**.
+C3 alone did not finish the **C4 U15 release performance program**; later source-frozen five-pair H1/H2/WS and uninterrupted 1800s resource certification passed.
 Short-lived native supervisor smoke runs, filesystem microbenchmarks,
 a reproducible protocol diagnostic matrix and a final frozen
 five-pair baseline study answer different questions.

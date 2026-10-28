@@ -203,7 +203,7 @@ passed both runtime versions with saved source-pinned evidence.
 That is a scoped behavioral regression only. Changed exception
 ordering, process shutdown/reload, TLS/QUIC/H2/H3 handling, all
 intentional API breaks and maintained callback contracts still need
-the full frozen-candidate migration review before U16.12 closes.
+the test-backed frozen-candidate migration review; U16.12 is already accepted but source-level equivalence is not universal behavioral compatibility.
 Complete public implementation migration ledger (2.1.2 to 3.0)
 ---------------------------------------------------------------
 
@@ -370,8 +370,8 @@ a missing test or an additional modified public symbol invalidate
 the ledger until explicitly dispositioned. Revalidate in C5
 against the frozen release candidate.
 
-Before accepting U16.12
------------------------
+How to reproduce U16.12 acceptance
+---------------------------------
 
 For each removed declaration, changed signature, behavior or
 error contract, the maintainer must record a **before** sample from
@@ -382,5 +382,4 @@ procedure and reviewer disposition.
 Source compatibility is only one layer: exception ordering,
 worker shutdown, TLS trust, process ownership, protocol
 interoperability and performance are separate behavior gates.
-This page prepares the audit; it does **not** by itself close
-U16.12 or certify final 3.0 availability.
+This page contains the reviewed audit supporting accepted U16.12; it alone cannot certify deployment or publication.

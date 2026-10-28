@@ -15,6 +15,8 @@ for blocked in \
   'Full U15 release-performance soak remains OPEN' \
   'Final fuzz/security QA OPEN' \
   'Full cross-PHP parity OPEN' \
+  'U16.12 and U17.01 are not yet complete' \
+  'U15 full 1800s release soak remains open' \
   'Full U15 release-performance soak remains OPEN' \
   'full mixed 1800-second soak, externally hosted' \
   'autoscale policy and pure' \

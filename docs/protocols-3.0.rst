@@ -11,7 +11,7 @@ body size, parser budgets and connection idle timeout. The development
 Http1ClientRequestWriter and Http1ClientResponseParser handle
 incremental bodies, chunked responses, trailers and malformed
 messages. The branch now also contains experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. The opt-in ``Http1PolicyClient`` enforces bodyless GET/HEAD redirects, bounded retries, and cross-origin secret stripping. ``BoundedConnectionPool`` supports isolated lease admission and idle reuse but is not automatically wired into the client. The unreleased H2 client now has one-shot and live shared-connection paths;
-H3 request clients, finished pooling and transparent H3 fallback remain open.
+Native H3 request clients are implemented and independently tested; an automatic unified H1/H2/H3 session pool or transparent H3 downgrade is not advertised.
 
 .. code-block:: console
 
@@ -111,8 +111,7 @@ bounded concurrent same-origin GET/HEAD streams, reuses one HPACK decoder,
 prevents cross-stream CONTINUATION interleaving and isolates client CANCEL,
 peer RST and GOAWAY. **It does not itself own a socket, TLS identity, deadline, write budget
 or event loop.** The separate Http2MultiplexConnection supplies that
-callback/transport integration. Full 3.0 pooling and release-level
-performance certification remain separate open gates.
+callback/transport integration. Automatic cross-protocol HTTP pooling remains out of scope, while independently qualified five-pair H2/WS and full mixed 1800s gates have accepted release evidence.
 
 .. code-block:: console
 
@@ -177,8 +176,7 @@ fallback permission before H2 can become HTTP/1.1. HTTP/3 is deliberately
 rejected rather than treating an absent outbound QUIC client as permission to
 downgrade. Plain HTTP remains a separate, explicit H1-only opt-in. Independent
 TLS reference fixtures offer H2 and H1 individually to exercise selection,
-not mock negotiation. The whole feature is pending exact-head quality gates;
-HTTP/3 and unified H3/H2/H1 fallback remain U07.06–U07.08 work.
+not mock negotiation. Exact-source negotiated TLS H1/H2 QA is accepted. Native HTTP/3 is a separately qualified QUIC client; no unified H3/H2/H1 automatic fallback is promised.
 
 The independent TLS reference also probes a strict H2 client against a
 peer advertising only HTTP/1.1: no HTTP request may be emitted during a

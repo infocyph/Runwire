@@ -4,7 +4,7 @@ Runwire 2.1.2 to 3.0 development migration guide
 This guide is an implementation-aligned **draft** for unreleased Runwire 3.0.
 The published stable release is still 2.1.2. No source incompatibility
 or new public API should be treated as shipped until the final freeze and
-public-manifest comparison in U16.12/U17.01 have passed.
+public-manifest comparison in U16.12/U17.01 is supported by source-pinned evidence, while behavioral compatibility and release permission remain separate.
 
 Core migration boundary
 -----------------------
@@ -202,8 +202,7 @@ runs the deterministic diff and archives ``migration-source-diff.json``.
 The generated delta is a **source-only input**, not proof of behavioral
 compatibility or approval to publish. The final release audit
 must still document each intentional breaking change, review callback and
-exception behavior and pin both immutable source revisions. **U16.12 and
-U17.01 are not yet complete.**
+exception behavior and pin both immutable source revisions. **U16.12 and U17.01 are QA-accepted in the canonical source-migration tracker.** This does not authorize publication.
 
 Reviewed 2.1.2-to-3.0 source API differences
 ----------------------------------------------
@@ -256,8 +255,7 @@ Source Audit fails on unreviewed public removals, changed signatures,
 property/enum/constant changes or incomplete source inventories, and
 records the checked output as ``migration-reviewed-contract.json``.
 Its strict source check does **not** establish behavioral compatibility.
-U16.12 is still open until all intentionally changed operations, errors
-and runtime ownership migration cases are reviewed at the frozen revision.
+U16.12 has source-linked test-backed migration acceptance; its declaration-only scanner does not establish universal behavioral compatibility.
 
 .. [1] Exact source and baseline artifacts:
    https://github.com/infocyph/Runwire/actions/runs/40163809510
@@ -272,7 +270,7 @@ manifest integrity guard. The pinned historical 2.1.2 source manifest was
 created before this optional field existed. The diff CLI therefore reports
 ``propertyInventoryCompared: false`` when comparing against that older archive;
 it **does not** assert that removed properties were audited in that case.
-Before U16.12 acceptance, regenerate a 2.1.2 source-only manifest with the
+To reproduce U16.12 acceptance, regenerate a 2.1.2 source-only manifest with the
 same exporter version using ``--with-properties`` and repeat the immutable
 baseline comparison without modifying the original pinned source-manifest lock. Property
 and method behavior still requires maintainer-reviewed migration examples.

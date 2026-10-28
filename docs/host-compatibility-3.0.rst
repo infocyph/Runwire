@@ -57,7 +57,7 @@ Transport and workload features
      - Release throughput, full hostility matrix and cross-protocol churn remain gated
    * - HTTP clients
      - Verified H1/H2 clients and native QUIC-dependent H3 outbound implementation with independent protocol acceptance
-     - Final production throughput and release-wide client certification remain open
+     - Exact-source H2/WS paired comparison and full 1800s resource certification accepted; unified HTTP pooling remains separate
    * - WebSocket
      - Inbound HTTP/1.1 upgrade and experimental outbound ws/wss TLS upgrade with shared masking, fragmentation and close
      - Outbound ws/wss client tests pass on supported paths; H2/H3 extended CONNECT remains unavailable
@@ -66,7 +66,7 @@ Transport and workload features
      - No persistent file handles, symlink-safe sandbox, crash-atomic fsync, platform native AIO or final throughput certification
    * - Autoscaling
      - Real native fork/retire autoscale, crash restart, readiness and rolling generations
-     - C3 native scaling and mixed peer tests passed; U15 full 1800s release soak remains open
+     - C3 scaling plus exact-source PHP8.4/8.5 full 1800s mixed soak accepted
 
 Native supervision, recycling and autoscaling
 ---------------------------------------------
@@ -111,8 +111,7 @@ handoff, with cleanup performed by the surviving host/worker owner.
 
 Native supervision tests cover crash restart, bounded backoff, generation
 rotation, mixed real H1/H2/H3/TCP/UDP stop-during-traffic, actual native
-autoscale and process-tree cleanup. C3 is QA-accepted; final matched
-release saturation and 1800-second U15 soak remain separate open gates.
+autoscale and process-tree cleanup. C3 is QA-accepted; matched baseline and 1800-second U15 release evidence has also passed.
 
 Proof boundary and operator guidance
 ------------------------------------
@@ -145,8 +144,7 @@ both effective minimum and maximum. All CPU/latency/rate inputs must be
 finite, with strictly ordered hysteresis thresholds; cooldown must be at
 least one sample window. Host-owned process managers never inherit these
 native worker policies. Automated decisions, readiness and graceful
-scale-in passed C3 QA; the 30-minute release saturation/soak is an
-independent incomplete U15 requirement.
+scale-in passed C3 QA; the 30-minute release saturation/soak is a separately completed U15 resource gate, not proof of any unsupported host mode.
 
 Pure autoscale decision model and native integration
 ----------------------------------------------------

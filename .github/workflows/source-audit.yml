@@ -19,6 +19,11 @@ on:
       - docs/handbook-3.0.rst
       - docs/performance-security-3.0.rst
       - docs/index.rst
+      - docs/host-compatibility-3.0.rst
+      - docs/migration-3.0.rst
+      - docs/compatibility-audit-3.0.rst
+      - docs/performance-qa-handbook-3.0.rst
+      - docs/protocols-3.0.rst
       - README.md
       - .github/workflows/source-audit.yml
   pull_request:
@@ -37,6 +42,11 @@ on:
       - docs/handbook-3.0.rst
       - docs/performance-security-3.0.rst
       - docs/index.rst
+      - docs/host-compatibility-3.0.rst
+      - docs/migration-3.0.rst
+      - docs/compatibility-audit-3.0.rst
+      - docs/performance-qa-handbook-3.0.rst
+      - docs/protocols-3.0.rst
       - README.md
       - .github/workflows/source-audit.yml
 
