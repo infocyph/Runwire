@@ -1,10 +1,16 @@
 # Runwire 3.0 — C5 source-frozen release risk register (pre-signoff)
 
-**Status:** PRELIMINARY, NOT MAINTAINER-APPROVED. No U17 checkbox is accepted by this document.
+**Status:** PRELIMINARY, NOT MAINTAINER-APPROVED. The canonical plan accepts U17.01/.02/.03/.04/.05 on separately verified GitHub-worker evidence; this risk review does not itself authorize remaining tasks or release.
 **Prepared:** 2026-10-27. **Target:** unreleased 3.0.0, existing draft PR #9.
 **Published comparator:** Runwire 2.1.2, `7e9bf20ad0737a187dfed77b723791b141b36378`.
 **Candidate:** an immutable SHA must be explicitly selected only after C4 closure. A moving branch head is not certification.
 **Boundaries:** Runwire repository and GitHub-hosted QA only; no merge, tag, package publish, other-repository edits or security gate waivers.
+
+## W221 — C5 accepted work and outstanding final release gates (2026-10-28)
+
+**ACCEPTED on immutable source `9fa4d6ce03c000d61ae3a8f402aa6e5f9d332f8f` (production src/ tree `93565e6bfd33f4537672b8b603307c7b4821fc09`):** U17.02 PHPForge full PHP8.4/8.5 QA/analysis/security [#40630724053](https://github.com/infocyph/Runwire/actions/runs/40630724053); U17.03 independent H1/H2/H3/QUIC/WebSocket native + hosted functional peer matrix [#40630723700](https://github.com/infocyph/Runwire/actions/runs/40630723700), [#40630724053](https://github.com/infocyph/Runwire/actions/runs/40630724053), [#40630723584](https://github.com/infocyph/Runwire/actions/runs/40630723584), [#40630723620](https://github.com/infocyph/Runwire/actions/runs/40630723620), [#40630723566](https://github.com/infocyph/Runwire/actions/runs/40630723566), [#40630723561](https://github.com/infocyph/Runwire/actions/runs/40630723561); U17.05 isolated PHP8.4/8.5 Composer archives + optional event/QUIC and real hosted matrices [#40630723567](https://github.com/infocyph/Runwire/actions/runs/40630723567). U17.01/.04 previously accepted.
+
+**STILL OPEN:** C4 U15.10 (mixed real 1800s on both PHP versions), C5 U17.06–09 (five-pair and actual soak, full final risk verification, immutable QA/report reconciliation, maintainer handoff). Standalone functional protocol acceptance **does not** certify separate matched H2/WS 5×180s performance or final whole-tree soak. This is a source-only task-record update; no production source changed. The all-task release gate must remain red until all remaining tasks are evidenced. Maintainer publication approval is not supplied; PR draft, unmerged, untagged and unpublished.
 
 ## W220 — QA and frozen-source handoff update (2026-10-28)
 
@@ -15,10 +21,10 @@
 | U17 ID | Proof required for a frozen candidate | Decision |
 | --- | --- | --- |
 | U17.01 | Published 2.1.2 and unfinished 2.2 crosswalk to every 3.0 feature and exclusion; source-audit-verified 20/20 mapping | ACCEPTED scoped 20/20 crosswalk, 167-task Source Audit #40542104606 |
-| U17.02 | PHP 8.4/8.5 stable/lowest PHPForge, PHPStan/Psalm, PHPCS/Pint/Rector and security QA | OPEN until exact frozen-head all green |
-| U17.03 | Independent H1/H2/H3/QUIC/WS, native portable/fork, real hosted peers and shutdown correctness | OPEN until exact frozen-head matrix |
+| U17.02 | PHP 8.4/8.5 stable/lowest PHPForge, PHPStan/Psalm, PHPCS/Pint/Rector and security QA | ACCEPTED: exact source `9fa4d6c`, Security & Standards #40630724053 all required QA/analysis/QUIC jobs SUCCESS |
+| U17.03 | Independent H1/H2/H3/QUIC/WS, native portable/fork, real hosted peers and shutdown correctness | ACCEPTED functional interoperability: source `9fa4d6c`, #40630723700, #40630724053, #40630723620, #40630723584, #40630723566, #40630723561; **U17.06 performance still OPEN** |
 | U17.04 | GitHub Actions complete warning-free Sphinx HTML, generated API, 41 indexed/searchable pages and runnable examples with source SHA | ACCEPTED: exact Sphinx #40542561935 and 41-page HTML artifact #12751068496 |
-| U17.05 | Standalone Composer archive install on PHP 8.4/8.5, host/optional extension contract | OPEN until exact frozen-head archive proof |
+| U17.05 | Standalone Composer archive install on PHP 8.4/8.5, host/optional extension contract | ACCEPTED: source `9fa4d6c`, archive consumer #40630723567, portable/accelerated #40630723584, PHPForge Composer and QUIC #40630724053, hosted #40630723620 |
 | U17.06 | Immutable 2.1.2-vs-3.0 five paired 180s comparison and continuous real 1800s whole-process soak | OPEN; short-lived or cancelled runs cannot substitute |
 | U17.07 | Independent fuzz/security/performance/migration risk review with explicit maintainer decision | OPEN; approval not supplied |
 | U17.08 | All published issue/PR/plan claims linked to exact QA job, SHA and immutable evidence artifact | OPEN until final reconciliation |
