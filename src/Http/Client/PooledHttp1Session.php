@@ -103,6 +103,7 @@ final class PooledHttp1Session
             return;
         }
         $this->closed = true;
+
         try {
             $this->pool->close();
         } finally {
@@ -151,6 +152,7 @@ final class PooledHttp1Session
             $request->deadline,
         );
         $cancelWaiter = null;
+
         try {
             $pendingId = $this->pool->acquire(
                 $this->key,
@@ -232,7 +234,10 @@ final class PooledHttp1Session
     ): void {
         $this->inFlight[$lease] = $handle;
         $finish = function (?Connection $idle, ?Throwable $failure) use (
-            $lease, $handle, $completion, &$cancelWaiter,
+            $lease,
+            $handle,
+            $completion,
+            &$cancelWaiter,
         ): void {
             if ($cancelWaiter instanceof CancellationSubscription) {
                 $cancelWaiter->unsubscribe();
