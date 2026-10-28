@@ -173,3 +173,17 @@ rejects duplicate traceparent, all-zero identities and malformed or
 oversized tracestate. The outbound `inject()` method replaces earlier
 trace headers, retaining other headers. Validation is covered by
 `tests/TraceContextTest.php`.
+
+
+Scoped Fiber trace propagation
+-----------------------------
+
+`Tracing\\TraceScope` adds explicit per-owner Fiber propagation without
+process-wide static context. Use `run($trace, $callback)` for request-local
+ownership and `wrap($callback)` before dispatching a task to another Fiber
+or deferred callback. Restoration is guaranteed in `finally`, including
+exceptions. A suspended Fiber retains its own context while the parent
+continues independently; `WeakMap` does not retain completed Fibers.
+Create separate scope objects after fork and for untrusted tenant boundaries.
+This is not an automatic PHP executor IPC or SDK integration: pass validated
+carrier headers or metadata explicitly at each process boundary.
