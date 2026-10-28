@@ -6,6 +6,16 @@
 **Candidate:** an immutable SHA must be explicitly selected only after C4 closure. A moving branch head is not certification.
 **Boundaries:** Runwire repository and GitHub-hosted QA only; no merge, tag, package publish, other-repository edits or security gate waivers.
 
+## W223 — Confirmed worker lifecycle signal saturation and source freeze risk (2026-10-28)
+
+**Release-blocking root cause:** [mixed #40634940450](https://github.com/infocyph/Runwire/actions/runs/40634940450) failed PHP8.5 at 760.587s; [raw #12793663954](https://github.com/infocyph/Runwire/actions/runs/40634940450/artifacts/12793663954) contains original stack `WorkerContext::signal('B')` called by native HTTP request handler while parent nonblocking worker-lifecycle socket had no remaining capacity. Exactly **16 HTTP response-read failures** were correctly counted. This is **not** process sampler-only failure; PHP8.4 result and mixed resource acceptance must be evaluated separately.
+
+**Corrective scope:** `c87f6c0` coalesces high-rate B/I, 50ms quiet interval, one timer, and 50k-request undrained-channel regression. [PHPForge analysis #40639167019](https://github.com/infocyph/Runwire/actions/runs/40639167019) correctly rejected class 90/80, method 16/12 and nullable cancel handle. A distinct internal activity-state owner `WorkerActivitySignals` was introduced in `44274f9` to preserve the public lifecycle contract and meet PHPForge complexity, finalized by `dc5c3f4` with error aggregation and retryable cleanup. One new small private type is justified by *real* lifecycle state ownership, not arbitrary size scores. **Fresh exact-source full PHPForge, 1800s mixed and paired protocols must prove the corrected implementation; pending is NOT accepted.**
+
+**Positive earlier evidence:** H2 matched [#40635088787](https://github.com/infocyph/Runwire/actions/runs/40635088787) passed full 5-pair 2.1.2/3.0 strict CPU/p99/RPS on `5fdb57e`; [#40634888954](https://github.com/infocyph/Runwire/actions/runs/40634888954) PHPForge complete success; [#40635113454](https://github.com/infocyph/Runwire/actions/runs/40635113454) H1 1800s and packaging jobs passed, aggregate still fail-closed due 5 open tasks. **No** old-source run certifies the newer lifecycle implementation.
+
+**Formal decision:** U15.10, U17.06–09 remain **OPEN**. No waivers, no 2.1.2 baseline fiction, no unapproved release decision. Canonical 162/167; C4 10/11; C5 5/9.
+
 ## W222 — Evidence-backed release blockers and non-waiver disposition (2026-10-28)
 
 - **C4 duration/correctness BLOCKER:** [#40630879058](https://github.com/infocyph/Runwire/actions/runs/40630879058) PHP8.5 early abort (16 response-read errors, libevent callback RuntimeException); failed mandatory 1800s resource/worker evidence. Source `d0d8c3c` now publishes actual elapsed and fails early completion; opt-in callback stack will identify underlying exception on next run. Cannot sign off U15.10 or U17.06.
