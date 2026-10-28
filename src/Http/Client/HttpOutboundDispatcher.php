@@ -78,6 +78,9 @@ final readonly class HttpOutboundDispatcher
             }
             if ($this->h1Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_1_1
                 && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_1_1]) {
+                if ($options !== null) {
+                    throw new InvalidArgumentException('Pooled H1 dial policy is fixed by its session, not a request override.');
+                }
                 $this->h1Session->send(
                     $owned, $onHeaders, $onBody,
                     static function (?Throwable $error) use ($handle, $completion): void {

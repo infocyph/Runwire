@@ -115,6 +115,11 @@ it('uses an explicitly injected same-origin H1 pool and keeps forbidden origins 
             new ClientRequest('GET', 'http://127.0.0.1:8900/', protocol: $strict),
             static function (): void {}, static function (): void {}, static function (): void {},
         ))->toThrow(InvalidArgumentException::class);
+        expect(fn() => $client->send(
+            new ClientRequest('GET', 'http://127.0.0.1:8899/', protocol: $strict),
+            static function (): void {}, static function (): void {}, static function (): void {},
+            new DialOptions(),
+        ))->toThrow(InvalidArgumentException::class, 'fixed by its session');
         expect($session->metrics()['active'])->toBe(0)
             ->and($session->metrics()['waiting'])->toBe(0)
             ->and($executor->diagnostics()['submitted'])->toBe(0);
