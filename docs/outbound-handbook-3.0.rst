@@ -181,3 +181,28 @@ For independent H2 and H3 interop, use the corresponding workflows
 rather than assuming a local unit test covers external peers. See
 :doc:`connection-policies-3.0`, :doc:`protocols-3.0` and
 :doc:`security-handbook-3.0`.
+
+
+### Opt-in DNS coalescing and bounded cache (Runwire 3.0 candidate)
+
+`Network\\CachedDnsResolver` composes `AsyncDnsResolver` through the small
+`DnsResolverInterface` and may be injected into `HappyEyeballsDialer`.
+Existing applications still receive the unmodified, non-caching resolver
+when they construct the normal `AsyncDnsResolver` and `HappyEyeballsDialer`.
+
+The cache is **per worker and per constructed tenant scope**. It uses a
+bounded positive TTL (default 10 seconds, maximum 300 seconds), optional
+negative TTL for explicit DNS no-address answers (default 1, maximum 30),
+128 cached hosts, 64 concurrently pending hostnames and 256 per-caller
+waiters by default. No shared global cache or stale-while-revalidate.
+Coalesced callers have separate cancellation subscriptions and deadlines;
+only the last departing waiter cancels the upstream resolution. Cache
+hits are delivered deferred on the reactor. Dispose the cache on worker
+drain and create a fresh cache after fork. The cache does **not** remove
+`DialOptions::addressPolicy` preconnect and kernel-peer checks; TTL cached
+DNS never authorizes bypassing SSRF controls, and DNS TTLs are operator
+policy rather than authoritative upstream record TTLs.
+
+The cache is independent of host-owned transport support and requires
+the same off-loop `ProcessExecutor` as the default resolver. New test:
+`tests/CachedDnsResolverTest.php`.
