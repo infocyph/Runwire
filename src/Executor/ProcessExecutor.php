@@ -13,6 +13,7 @@ use Infocyph\Runwire\Executor\Internal\ExecutorPendingQueueTrait;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\Tracing\TraceScope;
 use InvalidArgumentException;
 use LogicException;
 use OverflowException;
@@ -75,6 +76,7 @@ final class ProcessExecutor
         private readonly int $maxWorkers = 2,
         private readonly int $maxQueue = 64,
         ?string $phpBinary = null,
+        private readonly ?TraceScope $traceScope = null,
     ) {
         if ($maxWorkers < 1 || $maxWorkers > 64 || $maxQueue < 0 || $maxQueue > 10_000) {
             throw new InvalidArgumentException('Executor worker/queue limits are invalid.');
@@ -217,7 +219,7 @@ final class ProcessExecutor
 
         $this->jobs[$id] = [
             'packet' => $packet,
-            'callback' => Closure::fromCallable($completion),
+            'callback' => $this->traceScope?->wrap($completion) ?? Closure::fromCallable($completion),
             'worker' => null,
             'timer' => null,
             'subscription' => null,

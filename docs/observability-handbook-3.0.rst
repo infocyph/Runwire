@@ -187,3 +187,17 @@ continues independently; `WeakMap` does not retain completed Fibers.
 Create separate scope objects after fork and for untrusted tenant boundaries.
 This is not an automatic PHP executor IPC or SDK integration: pass validated
 carrier headers or metadata explicitly at each process boundary.
+
+
+Executor completion trace ownership
+-----------------------------------
+
+An opt-in `TraceScope` passed to the final `ProcessExecutor`
+constructor argument captures the submitting request or Fiber's
+trace context. Completion and cancellation callbacks execute under
+that captured scope, even if another request has since submitted work
+from a different trace. Each callback restores the prior scope in
+`finally`. The executor's worker process still handles only the fixed
+bounded DNS, filesystem and QUIC operations; this callback propagation
+does not automatically export trace metadata to an external worker
+or telemetry SDK. It never makes unrelated tenant traces process-global.
