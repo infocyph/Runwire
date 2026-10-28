@@ -121,7 +121,8 @@ final class PooledHttp1Session
         );
         $pendingId = null;
         $cancelWaiter = null;
-        $pendingId = $this->pool->acquire($this->key, function (int $lease, ?Connection $connection, ?Throwable $error) use (
+        try {
+            $pendingId = $this->pool->acquire($this->key, function (int $lease, ?Connection $connection, ?Throwable $error) use (
             $owned, $handle, $onHeaders, $onBody, $completion, &$cancelWaiter,
         ): void {
             $this->inFlight[$lease] = $handle;
@@ -161,7 +162,12 @@ final class PooledHttp1Session
                 $connection?->abort();
                 $finish(null, $failure);
             }
-        });
+            });
+        } catch (Throwable $error) {
+            $handle->complete();
+
+            throw $error;
+        }
         // Queued requests must be able to cancel before a dial permit becomes
         // available, instead of waiting for the queue's admission timeout.
         $cancelWaiter = $source->token()->onCancel(function () use (&$pendingId): void {
@@ -183,9 +189,12 @@ final class PooledHttp1Session
             return;
         }
         $this->closed = true;
-        $this->pool->close();
-        foreach ($this->inFlight as $handle) {
-            $handle->cancel();
+        try {
+            $this->pool->close();
+        } finally {
+            foreach ($this->inFlight as $handle) {
+                $handle->cancel();
+            }
         }
     }
 
