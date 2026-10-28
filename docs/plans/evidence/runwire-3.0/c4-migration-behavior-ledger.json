@@ -88,6 +88,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Loop\\EventLoop",
+      "executableTest": "tests/EventLoopTest.php",
+      "behavior": "ext-event scalable backend watcher registration, constant-time cancellation and timer index isolation",
+      "migration": "The ext-event backend maintains distinct read and write watcher slots with identical public cancellation and event callback behavior; indexed cleanup replaces linear scans without changing event registration, timer semantics or fallback selection.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Loop\\SelectLoop",
       "executableTest": "tests/SelectLoopTest.php",
       "behavior": "Select fallback, callback timing, watcher cleanup",

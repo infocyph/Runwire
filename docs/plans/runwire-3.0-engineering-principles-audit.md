@@ -48,6 +48,18 @@ No production class or file has yet been proven safely removable without losing 
 - **D — Structural matrix:** use installed PHPForge's supported architecture/class-complexity and duplicate detectors first; classify each small/one-method/pass-through candidate as meaningful boundary, safe inlining/merge, or blocked by consumers. A removal requires before/after test evidence, measured benefit where hot, and no public contract loss. Track file/class/method counts and changed paths in a future audit evidence record.
 - **E — Release performance and risk:** close U15.10 only with independent real 1800s mixed HTTP/file/TCP/autoscale/GC/OPcache/whole-tree proof in **both** PHP8.4/8.5, zero application errors and no sampler coverage loss. Then U17.02–09 exact frozen-head QA, package/host/protocol interoperability and maintainer risk review.
 
+## Rolling optimization batch and source review evidence (W219)
+
+**Exact GitHub changes under draft PR #9:**
+- `fc54592`: bounded SelectLoop deferred snapshot and direct tick diagnostics (2 private methods removed).
+- `1074a1e`: direct FiberScheduler ready-depth high-water accounting (1 private method removed).
+- `ac080af`: add reviewed FiberScheduler entry to the mandatory test-backed 2.1.2-to-3.0 implementation migration ledger after a correct fail-closed Source Audit.
+- `22556f9`: ByteQueue fast path avoids allocating/intermediate joining arrays for one-chunk peek/read and preserves exact shared-byte-budget accounting; SelectLoop inlines single-use deferred dequeue (1 private method removed). `ByteQueueReadTest` and `SelectLoopTest` expanded.
+- `d6b2e24`: EventLoop replaces O(read watcher count + write watcher count) cancellation scan with an indexed O(1) cleanup path. Additional indexed state is a justified space/time tradeoff; `EventLoopTest` covers reader/writer isolation, timed cancellation and re-registration. Removes 1 private method.
+- This tracker revision adds the mandatory EventLoop migration disposition following Source Audit #40629676765. **Five private methods removed overall, zero production class/file deletions, no public contract removal.**
+
+**Behavior and tradeoffs:** O(1) index *operations* describe algorithmic complexity; a real sustained-RPM gain is **not** implied without repeated exact-source benchmarks. The event loop's extra per-watcher index uses memory and must remain within memory/FD budgets. ByteQueue single-chunk fast path is source-level allocation avoidance; verify micro- and end-to-end throughput independently. The documented small-file byte-size signals are not executable-line measures and cannot support blanket consolidation. Keep ext-event optional and preserve select fallback. Do not treat any preceding in-progress/cancelled GitHub run as final QA or mark C4/C5 accepted.
+
 ## Existing release-blocking diagnostics
 
 Historical real C4 mixed run [#40538869349](https://github.com/infocyph/Runwire/actions/runs/40538869349) failed on PHP8.4/8.5. Its process-tree sampler encountered disappearing/live child procfs metrics; PHP8.4 also observed nonzero HTTP errors. The separate [Release Certification #40549295417](https://github.com/infocyph/Runwire/actions/runs/40549295417) passed individual packaging, matched H1, HTTP-only 1800s, and release-guard jobs but the final gate correctly refused the **8 remaining OPEN tasks**. The successful HTTP-only soak is not a substitute for U15.10's mixed workload. Neither is a performance baseline that allows fabricated speedup claims.
