@@ -198,7 +198,7 @@ does not claim that incomplete audit is finished.
 .. code-block:: console
 
    php tools/public-api-manifest.php src /tmp/runwire-current-api.json $(git rev-parse HEAD)
-   vendor/bin/pest tests/Plan3TrackerSynchronizationTest.php
+   vendor/bin/pest tests/PublicApiMigrationCompatibilityTest.php
 
 The 2.1.2 baseline manifest is pinned independently under the development
 tracker; never relabel current source as the historical 2.1.2 revision.
@@ -272,7 +272,7 @@ exception compatibility certification. The independent protocol/host
 suites and U17 remain responsible for those other release gates.
 
 The independently versioned review inventory and exact signature hashes
-are in ``docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json``
+are in ``qa/release-baseline/u16-reviewed-api-delta.json``
 and ``u16-reviewed-public-api-migration.md``. The ordinary
 Source Audit fails on unreviewed public removals, changed signatures,
 property/enum/constant changes or incomplete source inventories, and

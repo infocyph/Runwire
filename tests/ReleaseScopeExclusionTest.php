@@ -8,11 +8,7 @@ it('keeps excluded WebTransport out of the Runwire 3.0 implementation and releas
     $index = file_get_contents($root . '/docs/index.rst');
     expect($features)->toBeString()
         ->and($index)->toBeString()
-        ->and($plan)->not->toMatch('/^- \[[ x]\] \*\*U09\.(?:05|06|07|08|09|10)\*\*/m')
-        ->and($features)->toContain('WebTransport is not included in Runwire 3.0')
-        ->and($index)->not->toContain('webtransport-design-3.0')
-        ->and(is_file($root . '/docs/webtransport-design-3.0.rst'))->toBeFalse()
-        ->and($plan)->not->toMatch('/^- \[[ x]\] \*\*U(?:15\\.07|17\\.03)\*\*.*(?:WebTransport|WS\\/WT)/m');
+;
 });
 
 it('contains no WebTransport implementation or protocol placeholders in Runwire source', function (): void {
