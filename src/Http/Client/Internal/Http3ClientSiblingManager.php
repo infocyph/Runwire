@@ -365,6 +365,7 @@ final class Http3ClientSiblingManager
                 $state->onBody,
                 onTrailers: $state->onTrailers,
                 codec: $this->codec,
+                headRequest: $state->request->method === 'HEAD',
             );
             $wire = $this->codec->encodeRequestHeaders($state->request, $wireId);
             $this->write($id, $wire, $state->request->body === null, function () use ($id): void {

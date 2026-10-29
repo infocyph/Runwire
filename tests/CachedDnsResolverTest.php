@@ -162,3 +162,112 @@ it('rejects expired caller deadlines without submitting upstream DNS', function 
         ->and($received[0])->toBeInstanceOf(Throwable::class);
     $resolver->close();
 });
+
+it('settles every coalesced DNS caller before surfacing a consumer exception', function (int $throwAt, bool $lookupError): void {
+    $loop = new SelectLoop();
+    $upstream = cachedDnsFake();
+    $resolver = new CachedDnsResolver($loop, $upstream);
+    $source = new CancellationSource();
+    $seen = [];
+    $lookupFailure = $lookupError ? new RuntimeException('upstream failed') : null;
+    for ($index = 0; $index < 3; ++$index) {
+        $resolver->resolve('example.org', static function ($addresses, $error) use ($index, $throwAt, &$seen, $lookupFailure): void {
+            $seen[] = $index;
+            expect($error)->toBe($lookupFailure)
+                ->and($addresses)->toBe($lookupFailure === null ? ['8.8.8.8'] : []);
+            if ($index === $throwAt) {
+                throw new RuntimeException('consumer failed');
+            }
+        }, $source->token(), RequestDeadline::afterSeconds(1, hrtime(true)));
+    }
+    expect(fn() => $upstream->complete(1, $lookupError ? [] : ['8.8.8.8'], $lookupFailure))
+        ->toThrow(RuntimeException::class, 'consumer failed');
+    expect($seen)->toBe([0, 1, 2])
+        ->and($resolver->diagnostics()['waiters'])->toBe(0)
+        ->and($resolver->diagnostics()['pendingHosts'])->toBe(0)
+        ->and($source->token()->subscriptionCount())->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+    $resolver->close();
+    $source->dispose();
+})->with([[0, false], [1, false], [0, true], [1, true]]);
+
+it('closes all DNS callers and upstream groups when a close callback throws', function (): void {
+    $loop = new SelectLoop();
+    $upstream = cachedDnsFake();
+    $resolver = new CachedDnsResolver($loop, $upstream);
+    $source = new CancellationSource();
+    $seen = [];
+    foreach (['one.example', 'two.example'] as $index => $host) {
+        $resolver->resolve($host, static function ($addresses, $error) use ($index, &$seen): void {
+            $seen[] = $index;
+            expect($addresses)->toBe([])->and($error)->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
+            if ($index === 0) {
+                throw new RuntimeException('close consumer failed');
+            }
+        }, $source->token(), RequestDeadline::afterSeconds(1, hrtime(true)));
+    }
+    expect(fn() => $resolver->close())->toThrow(RuntimeException::class, 'close consumer failed');
+    expect($seen)->toBe([0, 1])->and($upstream->cancelled)->toBe(2)
+        ->and($resolver->diagnostics())->toBe(['cached' => 0, 'pendingHosts' => 0, 'waiters' => 0])
+        ->and($source->token()->subscriptionCount())->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+    $resolver->close();
+    $source->dispose();
+});
+
+it('preserves reentrant DNS lookups and cancellation while an older fanout fails', function (): void {
+    $loop = new SelectLoop();
+    $upstream = cachedDnsFake();
+    $resolver = new CachedDnsResolver($loop, $upstream, ttl: 0);
+    $cancelled = 0;
+    $next = [];
+    $second = 0;
+    $resolver->resolve('example.org', static function () use ($resolver, &$second, &$next): void {
+        $resolver->cancel($second);
+        $resolver->resolve('example.org', static function ($ips) use (&$next): void { $next = $ips; });
+        throw new RuntimeException('first consumer failed');
+    });
+    $second = $resolver->resolve('example.org', static function ($ips, $error) use (&$cancelled): void {
+        expect($ips)->toBe([])->and($error)->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
+        ++$cancelled;
+    });
+    expect(fn() => $upstream->complete(1, ['8.8.8.8']))->toThrow(RuntimeException::class, 'first consumer failed');
+    expect($cancelled)->toBe(1)->and($upstream->requests)->toBe(2)
+        ->and($resolver->diagnostics()['pendingHosts'])->toBe(1);
+    $upstream->complete(2, ['1.1.1.1']);
+    expect($next)->toBe(['1.1.1.1'])->and($resolver->diagnostics()['waiters'])->toBe(0);
+    $resolver->close();
+});
+
+it('surfaces synchronous DNS consumer failures without poisoning a new lookup', function (): void {
+    $upstream = new class implements DnsResolverInterface {
+        public $pending;
+        public int $requests = 0;
+        public function resolve(string $hostname, callable $completion, ?\Infocyph\Runwire\CancellationToken $token = null, ?RequestDeadline $deadline = null): int
+        {
+            if ($hostname !== 'example.org' || $token?->isCancelled() || $deadline?->expired()) {
+                throw new InvalidArgumentException('Synchronous DNS fixture requires a live example.org lookup.');
+            }
+            $id = ++$this->requests;
+            if ($id === 1) {
+                $completion(['8.8.8.8'], null);
+            } else {
+                $this->pending = $completion;
+            }
+            return $id;
+        }
+        public function cancel(int $id): bool { return $id > 0; }
+    };
+    $resolver = new CachedDnsResolver(new SelectLoop(), $upstream, ttl: 0);
+    $next = [];
+    expect(static function () use ($resolver, &$next): void {
+        $resolver->resolve('example.org', static function () use ($resolver, &$next): void {
+            $resolver->resolve('example.org', static function ($ips) use (&$next): void { $next = $ips; });
+            throw new RuntimeException('synchronous consumer failed');
+        });
+    })->toThrow(RuntimeException::class, 'synchronous consumer failed');
+    expect($resolver->diagnostics()['waiters'])->toBe(1);
+    ($upstream->pending)(['1.1.1.1'], null);
+    expect($next)->toBe(['1.1.1.1'])->and($resolver->diagnostics()['waiters'])->toBe(0);
+    $resolver->close();
+});

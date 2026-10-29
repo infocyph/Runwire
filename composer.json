@@ -63,30 +63,6 @@
             "Infocyph\\Runwire\\Tests\\": "tests/"
         }
     },
-    "archive": {
-        "exclude": [
-            "/.agents",
-            "/.codex",
-            "/.github",
-            "/benchmarks",
-            "/docs",
-            "/tests",
-            "/vendor",
-            "/.editorconfig",
-            "/.gitattributes",
-            "/.gitignore",
-            "/captainhook.json",
-            "/composer.lock",
-            "/pest.xml",
-            "/phpbench.json",
-            "/phpcs.xml.dist",
-            "/phpstan.neon.dist",
-            "/phpunit.xml",
-            "/pint.json",
-            "/psalm.xml",
-            "/rector.php"
-        ]
-    },
     "config": {
         "allow-plugins": {
             "ergebnis/composer-normalize": true,

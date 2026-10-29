@@ -52,7 +52,7 @@ final class Http2ClientSession
         $this->headersCallback = Closure::fromCallable($onHeaders);
         $this->bodyCallback = Closure::fromCallable($onBody);
         $this->handshake = new Http2ClientHandshake();
-        $this->response = new Http2ClientResponseParser();
+        $this->response = new Http2ClientResponseParser(headRequest: $request->method === 'HEAD');
     }
 
     /** Observe complete response ownership after validated END_STREAM. */

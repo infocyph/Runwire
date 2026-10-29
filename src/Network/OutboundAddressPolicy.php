@@ -28,11 +28,14 @@ final readonly class OutboundAddressPolicy
 
         if (strlen($packed) === 16
             && substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") {
-            $mapped = inet_ntop(substr($packed, 12));
+            $packed = substr($packed, 12);
+            $mapped = inet_ntop($packed);
             $ip = is_string($mapped) ? $mapped : '';
         }
 
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE) === false
+            || (strlen($packed) === 4 && (ord($packed[0]) & 0xF0) === 0xE0)
+            || (strlen($packed) === 16 && ord($packed[0]) === 0xFF)) {
             throw new RuntimeException('Outbound address policy blocks non-public IP.');
         }
     }

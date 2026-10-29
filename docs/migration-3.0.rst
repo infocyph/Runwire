@@ -46,6 +46,29 @@ must fail closed. The ``Http1PolicyClient`` redirect helper is optional,
 bodyless GET/HEAD only, and does not supply a cookie jar or transparent
 HTTP/2/3 fallback.
 
+Outbound correctness and cancellation
+-------------------------------------
+
+The public-address guard rejects non-global special-use ranges and multicast,
+including IPv4-mapped forms. Applications intentionally dialing private or
+special-use networks must select their address policy explicitly; do not
+disable TLS peer verification to change destination policy.
+
+H2 and H3 clients reject invalid or ambiguous Content-Length fields and
+incomplete/excess response content. HEAD and 304 may carry nonzero metadata
+lengths without a body; HEAD, 204, 205 and 304 reject nonempty DATA. Streaming
+consumers must still inspect completion errors because earlier chunks can
+precede a later framing failure.
+
+``PooledHttp1Session`` observes the earliest request/token deadline while
+waiting for a connection lease, as well as during the exchange. IPv6 HTTPS
+origins keep brackets in the URI/Host authority, while ``TlsClientOptions``
+uses the unbracketed IP identity (for example ``::1``).
+
+``CachedDnsResolver`` settles every coalesced caller before surfacing the
+first consumer callback exception. A throwing callback also cannot prevent
+other pending callers from being retired by ``close()``.
+
 Opt-in verified H1/H2 client migration (3.0 development)
 --------------------------------------------------------
 

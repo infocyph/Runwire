@@ -61,6 +61,15 @@ jq -e '.verified and .single_quic_session and .concurrent_requests == 4
     and .responses_completed == 4 and .exact_responses
     and .native_sibling_cancel_exactly_once and .cleanup' "$output.multiplex" >/dev/null
 grep -q "C1 independent H3 cancel request admitted" "$tmpdir/peer.log"
+echo "C1 outbound H3: HEAD root and sibling metadata with independent GET siblings"
+if ! php -d display_errors=stderr -d log_errors=1 tests/fixtures/http3_outbound_multiplex.php "$port" "$tmpdir/cert.pem" head >"$output.head" 2>"$tmpdir/head.err"; then
+    cat "$tmpdir/head.err" "$tmpdir/peer.log"
+    exit 1
+fi
+jq -e '.verified and .single_quic_session and .concurrent_requests == 4
+    and .responses_completed == 4 and .exact_responses
+    and .native_sibling_cancel_exactly_once and .head_root_and_sibling_verified
+    and .cleanup' "$output.head" >/dev/null
 if [ "$#" -ge 2 ]; then
     profile_output="$2"
     echo "C1: measuring native H3 transport"

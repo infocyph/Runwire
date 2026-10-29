@@ -118,3 +118,19 @@ it('never publishes HEAD response DATA bytes even with a valid H2 HEADERS block'
         ->and($body)->toBe('')
         ->and($seen)->toBe([200]);
 });
+
+it('keeps H2 HEAD Content-Length metadata independent from body receipt', function (): void {
+    $headers = [];
+    $session = new Http2ClientSession(new ClientRequest('HEAD', 'https://example.test/metadata'),
+        static function ($status, $fields) use (&$headers): void {
+            expect($status)->toBe(200);
+            $headers[] = $fields->first('content-length');
+        },
+        static function (): void {},
+    );
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $block = (new Encoder())->encode([[':status', '200'], ['content-length', '123']]);
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
+    expect($session->done())->toBeTrue()->and($headers)->toBe(['123']);
+});

@@ -99,7 +99,10 @@ jobs:
           grep -Eq '(^|/)composer\.json$' "$listing"
           grep -Eq '(^|/)src/Runtime\.php$' "$listing"
 
-          for forbidden in             '.github/'             'benchmarks/'             'docs/'             'tests/'             'vendor/'             '.codex/'             '.agents/'; do
+          for forbidden in \
+            '.github/' 'benchmarks/' 'docs/' 'tests/' 'vendor/' '.codex/' '.agents/' \
+            '.aws/' '.cache/' '.ci/' '.idea/' '.phpunit.cache/' '.psalm-cache/' \
+            '.vscode/' '.windsurf/' 'build/' 'coverage/' 'graphify-out/' 'qa/' 'var/'; do
             if grep -Fq "$forbidden" "$listing"; then
               echo "::error::Packaged archive unexpectedly contains $forbidden"
               exit 1

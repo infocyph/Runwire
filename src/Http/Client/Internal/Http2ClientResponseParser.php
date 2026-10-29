@@ -8,8 +8,11 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
+use Infocyph\Runwire\Http\Internal\ContentLengthParser;
+use Infocyph\Runwire\Http\Internal\ResponseSemantics;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 /**
  * @internal One bounded HTTP/2 response stream for an explicit odd client stream ID; transport and flow credit
@@ -27,6 +30,8 @@ final class Http2ClientResponseParser
 
     private bool $endStreamOnHeaders = false;
 
+    private ?int $expectedBodyBytes = null;
+
     private string $headerBlock = '';
 
     private bool $headersSeen = false;
@@ -37,6 +42,7 @@ final class Http2ClientResponseParser
         private readonly int $maxBodyBytes = 1_048_576,
         private readonly int $streamId = 1,
         ?Decoder $sharedDecoder = null,
+        private readonly bool $headRequest = false,
     ) {
         if ($maxHeaderBlockBytes < 1 || $maxHeaderBlockBytes > 1_048_576
             || $maxBodyBytes < 0 || $maxBodyBytes > 16_777_216
@@ -88,6 +94,13 @@ final class Http2ClientResponseParser
         $this->headerBlock .= $fragment;
     }
 
+    private function assertCompleteBody(): void
+    {
+        if ($this->expectedBodyBytes !== null && $this->bodyBytes !== $this->expectedBodyBytes) {
+            throw new RuntimeException('HTTP/2 response Content-Length mismatch.');
+        }
+    }
+
     /** @param callable(int,Headers):void $onHeaders */
     private function completeHeaders(callable $onHeaders): void
     {
@@ -114,11 +127,37 @@ final class Http2ClientResponseParser
             throw new RuntimeException('HTTP/2 response requires a terminal :status pseudo-header.');
         }
 
-        $this->headersSeen = true;
-        ($onHeaders)($status, Headers::fromArray($normal));
+        $headers = Headers::fromArray($normal);
+        $this->expectedBodyBytes = $this->contentLength($headers, $status);
         if ($this->endStreamOnHeaders) {
+            $this->assertCompleteBody();
             $this->done = true;
         }
+        $this->headersSeen = true;
+        ($onHeaders)($status, $headers);
+    }
+
+    private function contentLength(Headers $headers, int $status): ?int
+    {
+        $lengths = $headers->all('content-length');
+        if (count($lengths) > 1) {
+            throw new RuntimeException('Ambiguous HTTP/2 response Content-Length.');
+        }
+
+        try {
+            $length = isset($lengths[0]) ? ContentLengthParser::parse($lengths[0]) : null;
+            ResponseSemantics::assertContentLength($status, $length);
+        } catch (Throwable $error) {
+            throw new RuntimeException('Invalid HTTP/2 response Content-Length.', 0, $error);
+        }
+        if (ResponseSemantics::suppressesBody($this->headRequest, $status)) {
+            return 0;
+        }
+        if ($length !== null && $length > $this->maxBodyBytes) {
+            throw new RuntimeException('HTTP/2 response Content-Length exceeds configured memory limit.');
+        }
+
+        return $length;
     }
 
     /** @param callable(int,Headers):void $onHeaders */
@@ -144,7 +183,13 @@ final class Http2ClientResponseParser
         if ($bytes > $this->maxBodyBytes - $this->bodyBytes) {
             throw new RuntimeException('HTTP/2 response body exceeds configured memory limit.');
         }
+        if ($this->expectedBodyBytes !== null && $bytes > $this->expectedBodyBytes - $this->bodyBytes) {
+            throw new RuntimeException('HTTP/2 response content exceeds its declared or permitted length.');
+        }
         $this->bodyBytes += $bytes;
+        if ($frame->hasFlag(0x1)) {
+            $this->assertCompleteBody();
+        }
         if ($bytes > 0) {
             ($onBody)($frame->payload);
         }

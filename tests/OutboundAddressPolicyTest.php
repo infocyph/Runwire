@@ -20,6 +20,15 @@ it('blocks private loopback link-local reserved and IPv4-mapped destinations', f
     expect(true)->toBeTrue();
 });
 
+it('rejects shared special-use documentation and multicast destinations', function (string $ip): void {
+    expect(fn() => (new OutboundAddressPolicy())->assertCandidate($ip))->toThrow(RuntimeException::class);
+})->with([
+    '100.64.0.1', '100.127.255.254', '198.18.0.1', '198.19.255.254',
+    '192.0.0.8', '192.0.2.1', '198.51.100.1', '203.0.113.1', '2001:db8::1',
+    '224.0.0.1', '239.255.255.250', 'ff02::1', 'ff0e::1',
+    '::ffff:100.64.0.1', '::ffff:198.18.0.1', '::ffff:192.0.2.1', '::ffff:224.0.0.1',
+]);
+
 it('rejects rebinding between approved DNS candidate and actual connected peer', function (): void {
     $policy = new OutboundAddressPolicy();
     $policy->assertConnected('8.8.8.8', '8.8.8.8:443');
@@ -72,6 +81,36 @@ it('denies unsafe direct and resolved dials before opening sockets or retaining 
     } finally {
         $racer->close();
         $dialer->close();
+        $executor->close();
+    }
+});
+
+it('denies special-use direct and resolved candidates without acquiring socket ownership', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $numeric = new Dialer($loop);
+    $racer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $options = new DialOptions(addressPolicy: new OutboundAddressPolicy());
+    $completed = 0;
+    try {
+        foreach (['100.64.0.1', '198.18.0.1', '224.0.0.1', '2001:db8::1', 'ff02::1'] as $ip) {
+            $host = str_contains($ip, ':') ? '[' . $ip . ']' : $ip;
+            expect(fn() => $numeric->connect('tcp://' . $host . ':443', static function (): void {}, $options))
+                ->toThrow(RuntimeException::class);
+            $racer->connectResolved([$ip], 443, static function ($connection, $error) use (&$completed): void {
+                expect($connection)->toBeNull()->and($error)->toBeInstanceOf(RuntimeException::class);
+                ++$completed;
+            }, $options);
+        }
+        expect($completed)->toBe(5)
+            ->and($racer->pendingCount())->toBe(0)
+            ->and($numeric->pendingCount())->toBe(0)
+            ->and($executor->diagnostics()['submitted'])->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+    } finally {
+        $racer->close();
+        $numeric->close();
         $executor->close();
     }
 });

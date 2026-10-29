@@ -12,6 +12,9 @@ use Infocyph\Runwire\Http\Http3\Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Qpack\ReadyFieldSection;
+use Infocyph\Runwire\Http\Internal\ContentLengthParser;
+use Infocyph\Runwire\Http\Internal\ResponseSemantics;
+use Throwable;
 
 /** @internal Bounded incremental HTTP/3 response stream for an outbound request. */
 final class Http3ClientResponseStream
@@ -58,6 +61,7 @@ final class Http3ClientResponseStream
         int $maxFrameBytes = 65_536,
         ?callable $onTrailers = null,
         ?Http3ClientWireCodec $codec = null,
+        private readonly bool $headRequest = false,
     ) {
         if ($streamId < 0 || $maxBodyBytes < 0 || $maxFrameBytes < 1) {
             throw new \InvalidArgumentException('Invalid outbound HTTP/3 response limits.');
@@ -129,6 +133,22 @@ final class Http3ClientResponseStream
         }
     }
 
+    private function acceptData(Frame $frame): void
+    {
+        if ($this->trailersSeen) {
+            throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 DATA is forbidden after response trailers.');
+        }
+        $length = strlen($frame->payload);
+        if ($length > $this->maxBodyBytes - $this->receivedBodyBytes) {
+            throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 response body exceeds configured limit.');
+        }
+        if ($this->expectedBodyBytes !== null && $length > $this->expectedBodyBytes - $this->receivedBodyBytes) {
+            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response content exceeds its declared or permitted length.');
+        }
+        $this->receivedBodyBytes += $length;
+        ($this->onBody)($frame->payload);
+    }
+
     private function acceptFrame(Frame $frame): void
     {
         $type = $frame->knownType();
@@ -141,16 +161,7 @@ final class Http3ClientResponseStream
             return;
         }
         if ($type === FrameType::DATA) {
-            if ($this->trailersSeen) {
-                throw new Http3Exception(ErrorCode::FRAME_UNEXPECTED, 'HTTP/3 DATA is forbidden after response trailers.');
-            }
-            $length = strlen($frame->payload);
-            if ($length > $this->maxBodyBytes - $this->receivedBodyBytes
-                || ($this->expectedBodyBytes !== null && $length > $this->expectedBodyBytes - $this->receivedBodyBytes)) {
-                throw new Http3Exception(ErrorCode::EXCESSIVE_LOAD, 'HTTP/3 response body exceeds configured limit.');
-            }
-            $this->receivedBodyBytes += $length;
-            ($this->onBody)($frame->payload);
+            $this->acceptData($frame);
 
             return;
         }
@@ -198,13 +209,19 @@ final class Http3ClientResponseStream
         if (count($lengths) > 1) {
             throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Conflicting HTTP/3 response Content-Length headers.');
         }
-        $length = $lengths[0] ?? null;
-        if ($length !== null) {
-            if (preg_match('/^(0|[1-9][0-9]*)$/D', $length) !== 1
-                || strlen($length) > 16 || (float) $length > $this->maxBodyBytes) {
-                throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response Content-Length.');
-            }
-            $this->expectedBodyBytes = (int) $length;
+
+        try {
+            $length = isset($lengths[0]) ? ContentLengthParser::parse($lengths[0]) : null;
+            ResponseSemantics::assertContentLength($response['status'], $length);
+        } catch (Throwable $error) {
+            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response Content-Length.', $error);
+        }
+        if (ResponseSemantics::suppressesBody($this->headRequest, $response['status'])) {
+            $this->expectedBodyBytes = 0;
+        } elseif ($length !== null && $length > $this->maxBodyBytes) {
+            throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'Invalid HTTP/3 response Content-Length.');
+        } else {
+            $this->expectedBodyBytes = $length;
         }
         $this->headersSeen = true;
         ($this->onHeaders)($response['status'], $headers);

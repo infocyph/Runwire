@@ -218,3 +218,76 @@ it('forbids unknown extension frame interleaving while awaiting H2 CONTINUATION'
     expect(fn() => $parser->push(new Frame(0xFB, 0, 1, 'unrecognized'), $onHeaders, $onBody))
         ->toThrow(RuntimeException::class, 'interleaved');
 });
+
+it('rejects invalid ambiguous or overflowing H2 response lengths before callbacks', function (array $lengths): void {
+    $fields = [[':status', '200']];
+    foreach ($lengths as $value) {
+        $fields[] = ['content-length', $value];
+    }
+    $parser = new Http2ClientResponseParser();
+    $published = false;
+    $onHeaders = static function () use (&$published): void { $published = true; };
+    expect(fn() => $parser->push(
+        new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode($fields)),
+        $onHeaders,
+        static function (): void {},
+    ))->toThrow(RuntimeException::class, 'Content-Length');
+    expect($published)->toBeFalse()->and($parser->done())->toBeFalse();
+})->with([
+    [['no-number']], [['-1']], [['1, 1']], [['1', '1']], [['1', '2']],
+    [[(string) PHP_INT_MAX . '0']], [['1048577']],
+]);
+
+it('rejects short excess and header-only H2 bodies without reporting success', function (int $declared, string $data, bool $headEnd): void {
+    $parser = new Http2ClientResponseParser();
+    $body = '';
+    $onBody = static function (string $bytes) use (&$body): void { $body .= $bytes; };
+    $block = (new Encoder())->encode([[':status', '200'], ['content-length', (string) $declared]]);
+    $consume = static function () use ($parser, $block, $headEnd, $data, $onBody): void {
+        $parser->push(new Frame(FrameType::HEADERS->value, $headEnd ? 0x5 : 0x4, 1, $block), static function (): void {}, $onBody);
+        if (!$headEnd) {
+            $parser->push(new Frame(FrameType::DATA->value, 0x1, 1, $data), static function (): void {}, $onBody);
+        }
+    };
+    expect($consume)->toThrow(RuntimeException::class)
+        ->and($body)->toBe('')->and($parser->done())->toBeFalse();
+})->with([[5, 'abc', false], [1, 'abc', false], [3, '', true]]);
+
+it('keeps H2 bodyless metadata separate from actual content limits', function (bool $head, int $status): void {
+    $parser = new Http2ClientResponseParser(maxBodyBytes: 1, headRequest: $head);
+    $block = (new Encoder())->encode([[':status', (string) $status], ['content-length', '99999999']]);
+    $parser->push(new Frame(FrameType::HEADERS->value, 0x5, 1, $block), static function (): void {}, static function (): void {});
+    expect($parser->done())->toBeTrue();
+})->with([[true, 200], [false, 304]]);
+
+it('rejects H2 content forbidden by request or status before publishing DATA', function (bool $head, int $status): void {
+    $parser = new Http2ClientResponseParser(headRequest: $head);
+    $block = (new Encoder())->encode([[':status', (string) $status]]);
+    $body = '';
+    $receive = static function (string $bytes) use (&$body): void { $body .= $bytes; };
+    $parser->push(new Frame(FrameType::HEADERS->value, 0x4, 1, $block), static function (): void {}, $receive);
+    expect(fn() => $parser->push(new Frame(FrameType::DATA->value, 0x1, 1, 'bad'), static function (): void {}, $receive))
+        ->toThrow(RuntimeException::class);
+    expect($body)->toBe('')->and($parser->done())->toBeFalse();
+})->with([[true, 200], [false, 204], [false, 205], [false, 304]]);
+
+it('validates progressive H2 content at END_STREAM and keeps an independent sibling intact', function (): void {
+    $body = '';
+    $parser = new Http2ClientResponseParser();
+    $headers = static function (): void {};
+    $receive = static function (string $bytes) use (&$body): void { $body .= $bytes; };
+    $parser->push(new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode([
+        [':status', '200'], ['content-length', '5'],
+    ])), $headers, $receive);
+    $parser->push(new Frame(FrameType::DATA->value, 0, 1, 'ab'), $headers, $receive);
+    expect(fn() => $parser->push(new Frame(FrameType::DATA->value, 0x1, 1, 'cd'), $headers, $receive))
+        ->toThrow(RuntimeException::class, 'mismatch');
+    expect($body)->toBe('ab')->and($parser->done())->toBeFalse();
+
+    $sibling = new Http2ClientResponseParser(streamId: 3);
+    $sibling->push(new Frame(FrameType::HEADERS->value, 0x4, 3, (new Encoder())->encode([
+        [':status', '200'], ['content-length', '2'],
+    ])), $headers, $receive);
+    $sibling->push(new Frame(FrameType::DATA->value, 0x1, 3, 'ok'), $headers, $receive);
+    expect($sibling->done())->toBeTrue()->and($body)->toBe('abok');
+});

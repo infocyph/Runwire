@@ -277,3 +277,29 @@ it('validates peer RST and DATA framing even after a local H2 stream cancellatio
     $session->close();
     expect($session->activeCount())->toBe(0);
 });
+
+it('keeps valid HEAD metadata and ordinary body lengths distinct on multiplexed H2 streams', function (): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $completed = [];
+    $body = '';
+    foreach (['HEAD', 'GET'] as $method) {
+        $session->request(new ClientRequest($method, 'https://example.test/metadata'),
+            static function (): void {},
+            static function ($bytes) use (&$body): void { $body .= $bytes; },
+            static function ($error) use ($method, &$completed): void { $completed[$method] = $error; },
+        );
+    }
+    $encoder = new Encoder();
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 1, $encoder->encode([
+        [':status', '200'], ['content-length', '123'],
+    ])));
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 3, $encoder->encode([
+        [':status', '200'], ['content-length', '2'],
+    ])));
+    expect($completed)->toBe(['HEAD' => null]);
+    $session->receive(new Frame(FrameType::DATA->value, 0x1, 3, 'ok'));
+    expect($completed)->toBe(['HEAD' => null, 'GET' => null])
+        ->and($body)->toBe('ok')->and($session->activeCount())->toBe(0);
+});

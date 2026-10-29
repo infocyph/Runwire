@@ -22,12 +22,13 @@ class IndependentH3(QuicConnectionProtocol):
         self.answered = set()
         self.uploads = {}
         self.concurrent = {}
+        self.concurrent_head = set()
 
     def close(self, error_code=0, reason_phrase=""):
         print(f"C1 independent H3 LOCAL_CLOSE code={error_code} reason={reason_phrase}", flush=True)
         return super().close(error_code=error_code, reason_phrase=reason_phrase)
 
-    def respond(self, stream_id, with_trailers=False):
+    def respond(self, stream_id, with_trailers=False, head=False):
         body = b"runwire-outbound-h3-peer-ok"
         print(f"C1 independent H3 responding stream={stream_id}", flush=True)
         self.http.send_headers(
@@ -36,9 +37,12 @@ class IndependentH3(QuicConnectionProtocol):
                 (b":status", b"200"),
                 (b"content-type", b"text/plain"),
                 (b"content-length", str(len(body)).encode("ascii")),
+                (b"x-request-method", b"HEAD" if head else b"GET"),
             ],
+            end_stream=head,
         )
-        self.http.send_data(stream_id, body, end_stream=not with_trailers)
+        if not head:
+            self.http.send_data(stream_id, body, end_stream=not with_trailers)
         if with_trailers:
             self.http.send_headers(stream_id, [(b"x-server-check", b"verified")], end_stream=True)
         self.transmit()
@@ -75,9 +79,11 @@ class IndependentH3(QuicConnectionProtocol):
                 self.close(error_code=0x10E, reason_phrase="unexpected authority")
                 return
             method, path = fields.get(b":method"), fields.get(b":path")
-            if method == b"GET" and path.startswith(b"/multi?i=") and h3_event.stream_ended:
+            if method in (b"GET", b"HEAD") and path.startswith(b"/multi?i=") and h3_event.stream_ended:
                 self.answered.add(stream_id)
                 self.concurrent[stream_id] = path
+                if method == b"HEAD":
+                    self.concurrent_head.add(stream_id)
                 print(f"C1 independent H3 peer: stream={stream_id} path={path!r} admitted={len(self.concurrent)}", flush=True)
                 if len(self.concurrent) == 4:
                     if set(self.concurrent.values()) != {b"/multi?i=1", b"/multi?i=2", b"/multi?i=3", b"/multi?i=4"}:
@@ -87,7 +93,8 @@ class IndependentH3(QuicConnectionProtocol):
                     # RESET independently while four others are still outstanding.
                     asyncio.get_running_loop().call_later(
                         0.65,
-                        lambda: [self.respond(sibling) for sibling in tuple(self.concurrent)],
+                        lambda: [self.respond(sibling, head=sibling in self.concurrent_head)
+                                 for sibling in tuple(self.concurrent)],
                     )
             elif method == b"GET" and path == b"/cancel" and h3_event.stream_ended:
                 self.answered.add(stream_id)

@@ -507,6 +507,7 @@ final class Http3OutboundClient
             $this->onBody,
             onTrailers: $this->onTrailers,
             codec: $this->codec,
+            headRequest: $this->request->method === 'HEAD',
         );
         $this->writeAll(
             $stream,

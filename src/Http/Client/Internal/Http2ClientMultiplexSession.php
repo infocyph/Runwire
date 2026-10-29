@@ -182,7 +182,11 @@ final class Http2ClientMultiplexSession
         $this->lastStreamId = $streamId;
         $this->streams[$streamId] = [
             'request' => $request,
-            'response' => new Http2ClientResponseParser(streamId: $streamId, sharedDecoder: $this->decoder),
+            'response' => new Http2ClientResponseParser(
+                streamId: $streamId,
+                sharedDecoder: $this->decoder,
+                headRequest: $request->method === 'HEAD',
+            ),
             'headers' => Closure::fromCallable($onHeaders),
             'body' => Closure::fromCallable($onBody),
             'complete' => Closure::fromCallable($onComplete),

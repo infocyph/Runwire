@@ -8,15 +8,18 @@ use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http3OutboundClient;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-if ($argc !== 3 || filter_var($argv[1], FILTER_VALIDATE_INT) === false) {
-    throw new InvalidArgumentException('Expected independent QUIC port and trusted CA.');
+if (!in_array($argc, [3, 4], true) || filter_var($argv[1], FILTER_VALIDATE_INT) === false
+    || ($argc === 4 && $argv[3] !== 'head')) {
+    throw new InvalidArgumentException('Expected independent QUIC port, trusted CA and optional head mode.');
 }
+$headMode = $argc === 4;
 $loop = new SelectLoop();
 $policy = new ClientProtocolPolicy(
     preferred: ProtocolVersion::HTTP_3,
@@ -30,16 +33,21 @@ $options = new QuicClientOptions(
     connectTimeoutMilliseconds: 4_000,
 );
 $requests = [];
-$bodies = [];
+$bodies = array_fill(1, 4, '');
 $statuses = [];
 $completions = [];
 $request = static fn(int $id): ClientRequest => new ClientRequest(
-    'GET',
+    $headMode && $id <= 2 ? 'HEAD' : 'GET',
     'https://localhost:' . $argv[1] . '/multi?i=' . $id,
     protocol: $policy,
 );
-$onHeaders = static function (int $id) use (&$statuses): callable {
-    return static function (int $status) use ($id, &$statuses): void {
+$onHeaders = static function (int $id) use (&$statuses, $headMode): callable {
+    return static function (int $status, Headers $headers) use ($id, &$statuses, $headMode): void {
+        if ($headMode && $id <= 2
+            && ($headers->all('content-length') !== [(string) strlen('runwire-outbound-h3-peer-ok')]
+                || $headers->all('x-request-method') !== ['HEAD'])) {
+            throw new RuntimeException('Independent peer did not confirm HEAD metadata for root and sibling.');
+        }
         $statuses[$id] = $status;
     };
 };
@@ -126,6 +134,9 @@ ksort($statuses);
 ksort($bodies);
 ksort($completions);
 $expected = array_fill(1, 4, 'runwire-outbound-h3-peer-ok');
+if ($headMode) {
+    $expected[1] = $expected[2] = '';
+}
 if ($statuses !== [1 => 200, 2 => 200, 3 => 200, 4 => 200]
     || $bodies !== $expected
     || $completions !== [1 => 1, 2 => 1, 3 => 1, 4 => 1]
@@ -143,5 +154,6 @@ fwrite(STDOUT, json_encode([
     'responses_completed' => count($completions),
     'exact_responses' => true,
     'native_sibling_cancel_exactly_once' => $cancelCallbacks === 1,
+    'head_root_and_sibling_verified' => $headMode,
     'cleanup' => true,
 ], JSON_THROW_ON_ERROR) . PHP_EOL);

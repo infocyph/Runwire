@@ -217,3 +217,57 @@ it('cancels one QPACK-blocked stream without releasing its canceled headers', fu
     expect($codec->takeDecoderInstructions())->not->toBe('');
     expect($codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions()))->toBe([]);
 });
+
+it('accepts bodyless H3 metadata without requiring or budgeting its declared content', function (bool $head, int $status): void {
+    $body = '';
+    $stream = new Http3ClientResponseStream(4, static function (): void {},
+        static function (string $bytes) use (&$body): void { $body .= $bytes; },
+        maxBodyBytes: 1, headRequest: $head,
+    );
+    $block = (new Encoder(0, 0))->encode([
+        [':status', (string) $status], ['content-length', '99999999'],
+    ], 4)->block;
+    $stream->push(new Frame(FrameType::HEADERS->value, $block)->encode());
+    $stream->finish();
+    expect($stream->isFinished())->toBeTrue()->and($body)->toBe('');
+})->with([[true, 200], [false, 304]]);
+
+it('rejects forbidden H3 response content before body callbacks', function (bool $head, int $status): void {
+    $body = '';
+    $stream = new Http3ClientResponseStream(4, static function (): void {},
+        static function (string $bytes) use (&$body): void { $body .= $bytes; }, headRequest: $head,
+    );
+    $block = (new Encoder(0, 0))->encode([[ ':status', (string) $status ]], 4)->block;
+    $stream->push(new Frame(FrameType::HEADERS->value, $block)->encode());
+    expect(fn() => $stream->push(new Frame(FrameType::DATA->value, 'bad')->encode()))->toThrow(Http3Exception::class);
+    expect($body)->toBe('')->and($stream->isFinished())->toBeFalse();
+})->with([[true, 200], [false, 204], [false, 205], [false, 304]]);
+
+it('preserves H3 HEAD and sibling semantics when QPACK unblocks after FIN', function (): void {
+    $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(decoderCapacity: 512, maxBlocked: 2);
+    $encoder = new Encoder(512, 2, dynamicTableCapacity: 512);
+    $codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions());
+    $headBlock = $encoder->encode([[':status', '200'], ['content-length', '123'], ['x-head', 'metadata']], 4);
+    $headInstructions = $encoder->takeEncoderInstructions();
+    $bodyBlock = $encoder->encode([[':status', '200'], ['content-length', '2'], ['x-body', 'sibling']], 8);
+    $bodyInstructions = $encoder->takeEncoderInstructions();
+    expect($headBlock->blocking)->toBeTrue()->and($bodyBlock->blocking)->toBeTrue();
+    $head = new Http3ClientResponseStream(4, static function (): void {}, static function (): void {}, codec: $codec, headRequest: true);
+    $body = '';
+    $sibling = new Http3ClientResponseStream(8, static function (): void {},
+        static function (string $bytes) use (&$body): void { $body .= $bytes; }, codec: $codec,
+    );
+    $head->push(new Frame(FrameType::HEADERS->value, $headBlock->block)->encode());
+    $head->finish();
+    $sibling->push(new Frame(FrameType::HEADERS->value, $bodyBlock->block)->encode()
+        . new Frame(FrameType::DATA->value, 'ok')->encode());
+    $sibling->finish();
+    foreach ($codec->receivePeerEncoderInstructions($headInstructions) as $ready) {
+        $head->resumeQpack($ready);
+    }
+    expect($head->isFinished())->toBeTrue()->and($sibling->isFinished())->toBeFalse();
+    foreach ($codec->receivePeerEncoderInstructions($bodyInstructions) as $ready) {
+        $sibling->resumeQpack($ready);
+    }
+    expect($sibling->isFinished())->toBeTrue()->and($body)->toBe('ok');
+});

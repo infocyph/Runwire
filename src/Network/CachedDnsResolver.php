@@ -29,7 +29,7 @@ final class CachedDnsResolver implements DnsResolverInterface
 
     private int $nextId = 1;
 
-    /** @var array<string,array{job:int,waiters:array<int,true>}> */
+    /** @var array<string,array{lookup:int,job:int,waiters:array<int,true>}> */
     private array $pending = [];
 
     /** @var array<int,array{host:string,callback:Closure,subscription:?CancellationSubscription,timer:?int,deferred:?int}> */
@@ -75,10 +75,12 @@ final class CachedDnsResolver implements DnsResolverInterface
     {
         $this->assertOwner();
         $this->closed = true;
-        foreach (array_keys($this->waiters) as $id) {
-            $this->cancel($id);
-        }
         $this->cache = [];
+        $this->settleGroup(
+            array_keys($this->waiters),
+            [],
+            new CancelledException(CancellationReason::HOST_CANCELLED),
+        );
     }
 
     /** @return array{cached:int, pendingHosts:int, waiters:int} */
@@ -163,22 +165,15 @@ final class CachedDnsResolver implements DnsResolverInterface
     }
 
     /** @param list<string> $addresses */
-    private function completeHost(string $host, array $addresses, ?Throwable $error): void
+    private function completeHost(string $host, int $lookup, array $addresses, ?Throwable $error): void
     {
         $group = $this->pending[$host] ?? null;
-        if ($group === null) {
+        if ($group === null || $group['lookup'] !== $lookup) {
             return;
         }
         unset($this->pending[$host]);
         $this->rememberHost($host, $addresses, $error);
-        foreach (array_keys($group['waiters']) as $id) {
-            if ($error !== null) {
-                $this->settle($id, [], $error);
-
-                continue;
-            }
-            $this->deliver($id, $addresses, false);
-        }
+        $this->settleGroup(array_keys($group['waiters']), $addresses, $error);
     }
 
     /** @param list<string> $addresses */
@@ -208,17 +203,20 @@ final class CachedDnsResolver implements DnsResolverInterface
 
             return;
         }
-        $this->pending[$host] = ['job' => 0, 'waiters' => [$id => true]];
+        $this->pending[$host] = ['lookup' => $id, 'job' => 0, 'waiters' => [$id => true]];
 
         try {
-            $job = $this->upstream->resolve($host, function (array $addresses, ?Throwable $error) use ($host): void {
-                $this->completeHost($host, $addresses, $error);
+            $job = $this->upstream->resolve($host, function (array $addresses, ?Throwable $error) use ($host, $id): void {
+                $this->completeHost($host, $id, $addresses, $error);
             });
-            if (isset($this->pending[$host])) {
+            if (($this->pending[$host]['lookup'] ?? null) === $id) {
                 $this->pending[$host]['job'] = $job;
             }
         } catch (Throwable $error) {
-            $this->completeHost($host, [], $error);
+            if (($this->pending[$host]['lookup'] ?? null) !== $id) {
+                throw $error;
+            }
+            $this->completeHost($host, $id, [], $error);
         }
     }
 
@@ -278,6 +276,25 @@ final class CachedDnsResolver implements DnsResolverInterface
             }
         }
         ($waiter['callback'])($addresses, $error);
+    }
+
+    /**
+     * @param list<int> $ids
+     * @param list<string> $addresses
+     */
+    private function settleGroup(array $ids, array $addresses, ?Throwable $error): void
+    {
+        $failure = null;
+        foreach ($ids as $id) {
+            try {
+                $this->settle($id, $addresses, $error);
+            } catch (Throwable $callbackError) {
+                $failure ??= $callbackError;
+            }
+        }
+        if ($failure !== null) {
+            throw $failure;
+        }
     }
 
     private function watchCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): void

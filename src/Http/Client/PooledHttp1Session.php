@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Client;
 
 use Infocyph\Runwire\CancellationSource;
-use Infocyph\Runwire\CancellationSubscription;
+use Infocyph\Runwire\Coroutine\Internal\CancellationWait;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\LoopInterface;
@@ -38,6 +38,9 @@ final class PooledHttp1Session
     private readonly int $port;
 
     private readonly string $scheme;
+
+    /** @var array<int,CancellationWait> */
+    private array $admissionWaits = [];
 
     private bool $closed = false;
 
@@ -77,9 +80,10 @@ final class PooledHttp1Session
         if (!$secure && ($options->tls !== null || $tlsPolicyIdentity !== null)) {
             throw new InvalidArgumentException('Plaintext session cannot hold a TLS trust policy.');
         }
-        $tls = $secure ? ($options->tls ?? new TlsClientOptions($this->host, alpnProtocols: ['http/1.1'])) : null;
+        $peerName = trim($this->host, '[]');
+        $tls = $secure ? ($options->tls ?? new TlsClientOptions($peerName, alpnProtocols: ['http/1.1'])) : null;
 
-        if ($tls !== null && (strcasecmp($tls->peerName, $this->host) !== 0
+        if ($tls !== null && (strcasecmp($tls->peerName, $peerName) !== 0
             || $tls->alpnProtocols !== ['http/1.1'])) {
             throw new InvalidArgumentException('Session TLS must verify the exact original peer and H1 ALPN.');
         }
@@ -155,7 +159,7 @@ final class PooledHttp1Session
             $source->token(),
             $request->deadline,
         );
-        $cancelWaiter = null;
+        $admitted = false;
 
         try {
             $pendingId = $this->pool->acquire(
@@ -166,8 +170,12 @@ final class PooledHttp1Session
                     $onHeaders,
                     $onBody,
                     $completion,
-                    &$cancelWaiter,
+                    &$admitted,
                 ): void {
+                    $admitted = true;
+                    $cancelWait = $this->admissionWaits[$lease] ?? null;
+                    unset($this->admissionWaits[$lease]);
+                    $cancelWait?->close();
                     $this->startLease(
                         $lease,
                         $connection,
@@ -177,24 +185,24 @@ final class PooledHttp1Session
                         $onHeaders,
                         $onBody,
                         $completion,
-                        $cancelWaiter,
                     );
                 },
             );
+            if (!$admitted) {
+                $cancelWait = $this->admissionWaits[$pendingId] = new CancellationWait(
+                    $this->loop,
+                    $source->token(),
+                    function () use ($pendingId): void {
+                        $this->pool->cancel($pendingId);
+                    },
+                );
+                $cancelWait->start();
+            }
         } catch (Throwable $error) {
+            $handle->cancel();
             $handle->complete();
 
             throw $error;
-        }
-
-        // Queued requests must be able to cancel before a dial permit becomes
-        // available, instead of waiting for the queue's admission timeout.
-        $cancelWaiter = $source->token()->onCancel(function () use ($pendingId): void {
-            $this->pool->cancel($pendingId);
-        });
-
-        if ($handle->settled()) {
-            $cancelWaiter->unsubscribe();
         }
 
         return $handle;
@@ -236,27 +244,35 @@ final class PooledHttp1Session
         callable $onHeaders,
         callable $onBody,
         callable $completion,
-        ?CancellationSubscription &$cancelWaiter,
     ): void {
         $this->inFlight[$lease] = $handle;
         $finish = function (?Connection $idle, ?Throwable $failure) use (
             $lease,
             $handle,
             $completion,
-            &$cancelWaiter,
         ): void {
-            if ($cancelWaiter instanceof CancellationSubscription) {
-                $cancelWaiter->unsubscribe();
+            if ($handle->settled()) {
+                $idle?->abort();
+
+                return;
             }
 
             unset($this->inFlight[$lease]);
-            $this->pool->release($lease, $idle);
             $handle->complete();
-            $completion($failure);
+
+            try {
+                $this->pool->release($lease, $idle);
+            } finally {
+                $completion($failure);
+            }
         };
 
-        if ($error !== null || $owned->cancellation?->isCancelled()) {
-            $finish(null, $error ?? new CancelledException(CancellationReason::HOST_CANCELLED));
+        $failure = $owned->cancellation?->isCancelled()
+            ? new CancelledException($owned->cancellation->reason() ?? CancellationReason::HOST_CANCELLED)
+            : $error;
+        if ($failure !== null) {
+            $connection?->abort();
+            $finish(null, $failure);
 
             return;
         }
