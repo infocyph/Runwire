@@ -1,9 +1,9 @@
-Runwire 3.0 feature walkthroughs and decision guide
-====================================================
+Feature walkthroughs and decision guide
+=======================================
 
-This manual explains what each major feature does, why it exists, when it
+This chapter explains what each major feature does, why it exists, when it
 should be selected, how to use it and how to verify failures. Examples are
-for Runwire 3.0 on 64-bit PHP 8.4+; examples that require optional
+for 64-bit PHP 8.4+; examples that require optional
 extensions must be tested on the intended deployment host.
 
 What to choose and when

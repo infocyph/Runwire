@@ -135,7 +135,23 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             readyTimeoutSeconds: 0.5,
             shutdownTimeoutSeconds: 0.3,
         ));
-        $supervisor->run();
+        // A failing control client must never leave the supervisor
+        // running until the entire CI quality task times out.
+        // Keep this watchdog scoped to the parent process and restore the
+        // caller's signal configuration after the test.
+        $priorAlarmHandler = pcntl_signal_get_handler(SIGALRM);
+        $priorAsyncSignals = pcntl_async_signals(true);
+        pcntl_signal(SIGALRM, static function (): never {
+            throw new RuntimeException('Control supervisor did not terminate within 20 seconds.');
+        });
+        pcntl_alarm(20);
+        try {
+            $supervisor->run();
+        } finally {
+            pcntl_alarm(0);
+            pcntl_signal(SIGALRM, $priorAlarmHandler);
+            pcntl_async_signals($priorAsyncSignals);
+        }
 
         if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), 3.0))) {
             throw new RuntimeException('Control client did not exit before the result deadline.');

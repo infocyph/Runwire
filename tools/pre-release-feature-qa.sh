@@ -13,5 +13,5 @@ done
 grep -Fq 'WebTransport is not included in Runwire 3.0' "$catalog"
 grep -Fq 'Nested TLS over an HTTPS proxy is not yet supported' "$catalog"
 grep -Fq 'Capabilities and limitations' "$catalog"
-grep -Fq 'Runwire 3.0' "$index"
+grep -Fq 'Runwire developer handbook' "$index"
 echo "Runwire 3.0 public feature claims verified"

@@ -50,9 +50,9 @@ The public `RuntimeOptions` constructor accepts named settings for
 `driver`, `opcache`, `workerRecycle`, `requestExecution`,
 `admission`, `diagnostics`, `privilegeDrop`, `fpm`,
 `frankenPhp`, `roadRunner`, `swoole`, `applicationLifecycle`
-and `reload`. Defaults are part of the source contract and may change
-before 3.0 is frozen; inspect :doc:`api-reference-3.0` and
-`src/RuntimeOptions.php` in the exact revision being deployed.
+and `reload`. Defaults are part of the source contract. Check
+``src/RuntimeOptions.php`` and validate your settings against the
+installed version.
 
 .. code-block:: php
 
@@ -162,7 +162,7 @@ Before changing a live value:
 7. Deploy a canary and retain a reversible configuration change.
 
 Use :doc:`performance-qa-handbook-3.0` for comparison methodology
-and :doc:`api-reference-3.0` for exact method signatures.
+and the option classes in ``src/`` for precise method signatures.
 
 
 A concrete deadline and outbound connection policy

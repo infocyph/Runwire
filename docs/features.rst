@@ -1,5 +1,5 @@
-Runwire 3.0 features and supported capabilities
-===============================================
+Features and supported capabilities
+===================================
 
 Capabilities depend on the runtime driver, host permissions and installed
 PHP extensions. Experimental integrations and unsupported transport modes
@@ -133,7 +133,7 @@ Network, protocols and worker capabilities
 Capabilities and limitations
 ----------------------------
 
-The feature column describes Runwire 3.0 capabilities and their constraints.
+The feature column describes supported capabilities and their constraints.
 Unsupported native QUIC datagrams, connection migration and 0-RTT dispatch
 fail closed; they are not emulated.
 
@@ -166,8 +166,8 @@ native prefork supervision requires PCNTL and POSIX.
 
 The host compatibility matrix, coroutine ownership guide and async-file
 I/O guide explain per-host lifecycles, quotas and errors. The migration
-guide covers differences from previous versions; the generated API
-reference provides source-linked public declarations. For independent
+guide covers differences from previous versions. The individual
+feature guides explain public usage and link to focused tests. For independent
 protocol and 1800-second mixed resource testing, consult the
 :doc:`performance-qa-handbook-3.0`.
 

@@ -61,8 +61,8 @@ Diagnostics surfaces
 The source provides `LoopDiagnosticsSnapshot`,
 `CoroutineDiagnosticsSnapshot`, `RuntimeMetricsSnapshot`,
 `SupervisorStatus` and worker lifecycle events. Their precise
-fields are part of the generated :doc:`api-reference-3.0`; do not
-assume all metrics exist on every driver or that host-owned
+fields are defined by their PHP declarations; do not assume every
+metric exists on every driver or that host-owned
 runtimes expose native worker PID details.
 
 The native supervisor's `status()` and `onEvent()` can be used by
@@ -145,8 +145,8 @@ Incident probes and golden paths
 .. code-block:: console
 
    vendor/bin/pest tests/Http2ConnectionTest.php tests/DialerTest.php
-   php .ci/c3_listener_fork_smoke.php
-   php .ci/c3_autoscale_http_traffic.php
+   php tests/smoke/native_listener_fork_smoke.php
+   php tests/smoke/native_autoscale_http_traffic.php
 
 For H3 packet loss/reorder and matched H2 reference, prefer the
 dedicated automated workflows. File a bug with minimal steps, actual

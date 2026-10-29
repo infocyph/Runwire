@@ -153,12 +153,12 @@ A cached zero-byte file test is not evidence of sustained throughput.
 
 .. code-block:: console
 
-   php .ci/c3_filesystem_smoke.php
+   php tests/smoke/native_filesystem_smoke.php
    vendor/bin/pest tests/AsyncFileBackendContractTest.php
 
-The C3 file test demonstrates portable off-reactor completion; U15
-performance certification still requires mixed network + file
-workload under the frozen release baseline.
+The file tests demonstrate portable off-reactor completion. Measure
+mixed network and filesystem load separately when assessing throughput,
+backpressure and sustained resource use.
 
 Related reading: :doc:`async-file-io-3.0`,
 :doc:`concurrency-handbook-3.0` and

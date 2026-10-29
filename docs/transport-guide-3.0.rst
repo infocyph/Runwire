@@ -1,5 +1,5 @@
-Runwire 3.0 transport and DNS guide
-===================================
+Transport and DNS guide
+=======================
 
 Features below have different host and optional extension
 requirements. Successful unit tests do not certify a 3.0 release.

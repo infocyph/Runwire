@@ -47,8 +47,6 @@ Choose the relevant guides
   :doc:`supervision-handbook-3.0`.
 * For deployment and host support:
   :doc:`production-operations-3.0` and :doc:`host-compatibility-3.0`.
-* For an automatic source-linked API inventory:
-  :doc:`api-reference-3.0`.
 
 Host and extension cautions
 ---------------------------

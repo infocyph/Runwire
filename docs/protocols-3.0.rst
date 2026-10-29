@@ -1,5 +1,5 @@
-HTTP and WebSocket protocols in Runwire 3.0
-===========================================
+HTTP and WebSocket protocols
+============================
 
 This guide describes HTTP/1.1, HTTP/2, HTTP/3 and WebSocket protocol
 contracts, with host requirements and unsupported modes.

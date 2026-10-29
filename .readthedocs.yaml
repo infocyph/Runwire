@@ -1,5 +1,4 @@
 # Read the Docs configuration, version 2.
-# Hosted preview must be verified independently before U16.02/U16.16 acceptance.
 version: 2
 
 build:

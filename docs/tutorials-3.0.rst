@@ -1,9 +1,9 @@
-Runwire 3.0 executable recipes and troubleshooting
-==================================================
+Executable recipes and troubleshooting
+======================================
 
-Published stable Runwire 2.1.2 is distinct from the unreleased 3.0
-development branch. Run these recipes in a development checkout on
-PHP 8.4 or 8.5. Obtain the project Composer autoloader first.
+Run these examples with PHP 8.4 or newer after installing the project
+Composer dependencies. Each example identifies its optional runtime
+requirements and expected behavior.
 
 Portable inbound HTTP, TCP, Unix and UDP
 ----------------------------------------

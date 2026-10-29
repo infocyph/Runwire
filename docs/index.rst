@@ -4,11 +4,9 @@
 Runwire developer handbook
 ===========================
 
-This handbook documents Runwire 3.0 APIs, integration patterns, runtime
+This handbook documents Runwire APIs, integration patterns, runtime
 requirements and operational limits. Use the migration guide when
 upgrading an application from an earlier version.
-
-**Source revision:** |runwire_source_revision|.
 
 The handbook is written for application developers, native and
 host-owned runtime integrators, operators, performance engineers
@@ -16,8 +14,8 @@ and security reviewers. Features requiring optional PHP extensions or host capab
 identified in the relevant chapters.
 
 If this is your first visit, read :doc:`start` and
-:doc:`handbook-3.0`. For executable tests and APIs, use
-:doc:`tutorials-3.0` and :doc:`api-reference-3.0`.
+:doc:`handbook-3.0`. For practical examples and configuration options, see
+:doc:`tutorials-3.0` and :doc:`configuration-reference-3.0`.
 
 .. toctree::
    :maxdepth: 2
@@ -65,9 +63,8 @@ If this is your first visit, read :doc:`start` and
 
 .. toctree::
    :maxdepth: 2
-   :caption: API, migration and contributing
+   :caption: Migration and contributing
 
-   api-reference-3.0
    migration-playbook-3.0
    compatibility-audit-3.0
    migration-3.0
@@ -79,6 +76,5 @@ and the asynchronous filesystem implementation uses bounded
 process-worker I/O rather than qualified kernel-native AIO.
 HTTP/3 requires a compatible native QUIC implementation.
 
-All public Sphinx pages use reStructuredText. The generated API index is built from
-the checked-out Runwire sources, so published code links describe
-the source revision being built.
+For precise class and method signatures, consult the PHP sources and the
+worked examples in each topic guide.

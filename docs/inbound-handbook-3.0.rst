@@ -34,7 +34,7 @@ request and response-writer contract. Always complete or explicitly
 cancel the response writer; merely returning from a callback does not
 prove that its queued wire bytes were delivered. Source-backed handler
 examples are in `tests/fixtures/portable_native_acceptance.php` and
-the :doc:`api-reference-3.0` declaration inventory.
+the complete :doc:`feature-workflows-3.0` walkthroughs.
 
 Binding addresses and port ownership
 ------------------------------------
@@ -149,7 +149,7 @@ Real protocol acceptance
 
    php tests/fixtures/portable_native_acceptance.php
    php tests/fixtures/portable_optional_protocol_acceptance.php
-   php .ci/c3_mixed_peer_smoke.php
+   php tests/smoke/native_mixed_peer_smoke.php
 
 The first command exercises portable HTTP/TCP/Unix/UDP. The second
 tests conditional protocol behavior, including explicit unavailability.

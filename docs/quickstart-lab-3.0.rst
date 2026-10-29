@@ -1,10 +1,10 @@
-Hands-on Runwire 3.0 learning path
-==================================
+Hands-on learning path
+======================
 
 Read this before starting
 -------------------------
 
-These Runwire 3.0 exercises use runnable source examples, independent
+These exercises use runnable source examples, independent
 network peers and observable cleanup rather than assumed cloud services.
 
 Run with 64-bit PHP 8.4 or 8.5, Composer and free loopback ports.

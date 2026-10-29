@@ -1,10 +1,16 @@
 # Runwire
 
+[![Security & Standards](https://github.com/infocyph/Runwire/actions/workflows/security-standards.yml/badge.svg)](https://github.com/infocyph/Runwire/actions/workflows/security-standards.yml)
+![Packagist Downloads](https://img.shields.io/packagist/dt/infocyph/Runwire?color=green)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Packagist Version](https://img.shields.io/packagist/v/infocyph/Runwire)
+![Packagist PHP Version](https://img.shields.io/packagist/dependency-v/infocyph/Runwire/php)
+
 A high-performance, framework-agnostic process and network runtime for PHP.
 
 Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
 
-Explore the [Runwire 3.0 developer handbook](docs/index.rst) for complete
+Explore the [Runwire documentation](https://docs.infocyph.com/projects/Runwire) for complete
 feature walkthroughs, examples, protocol and worker lifecycle guides,
 security controls, deployment and migration instructions.
 
@@ -415,7 +421,7 @@ See [performance qualification](docs/performance-qa-handbook-3.0.rst) for method
 
 ## Documentation
 
-The [Runwire 3.0 manual](docs/index.rst) is maintained in native reStructuredText
+The [Runwire Manual](https://docs.infocyph.com/projects/Runwire) is maintained in native reStructuredText
 and built with strict Sphinx checks. Start with:
 
 - [Installation and first validation](docs/start.rst)

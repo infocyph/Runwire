@@ -81,9 +81,9 @@ Resource soak: 1800 seconds
 
 The final process-tree soak lasts 1800 seconds and checks long-running
 CPU/RSS/FD, cache/GC/OPcache effects, repeated worker recycle,
-connection teardown and absence of stale processes. A C3 120-second
-native supervisor soak is valuable but **is
-not** the release soak. Sample the full process tree rather than only
+connection teardown and absence of stale processes. A short native
+supervisor smoke test **does not** replace a full 1800-second resource
+soak. Sample the full process tree rather than only
 the parent PHP heap.
 
 A flat parent heap is insufficient when worker children leak native

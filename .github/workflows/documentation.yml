@@ -12,7 +12,6 @@ on:
       - docs/**
       - .readthedocs.yaml
       - .github/workflows/documentation.yml
-      - tests/Plan3SphinxRstTest.php
   workflow_dispatch:
 
 permissions:
@@ -56,11 +55,19 @@ jobs:
           PY
       - name: Strict Sphinx HTML build (native reStructuredText only)
         run: sphinx-build -n -W --keep-going -b html docs build/sphinx-html
-      - name: Verify rendered HTML matches its checked-out source SHA
+      - name: Check reader-facing pages for obsolete paths and build metadata
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq "$(git rev-parse HEAD)" build/sphinx-html/index.html
+          if grep -REn '\.ci/c3_|runwire_source_revision|Source revision:|api-reference-3\.0' docs --include='*.rst'; then
+            echo "::error::Obsolete path, API inventory link or build revision in public docs."
+            exit 1
+          fi
+          if grep -Fq 'Source revision:' build/sphinx-html/index.html; then
+            echo "::error::The reader-facing homepage must not expose a source SHA."
+            exit 1
+          fi
+          grep -Fq 'Runwire developer handbook' build/sphinx-html/index.html
       - name: Prove all indexed public handbook pages exist and are searchable
         shell: bash
         run: |
@@ -76,6 +83,13 @@ jobs:
             }
           done
           printf 'Verified %s indexed HTML/search pages.\n' "${#pages[@]}"
+      - name: Set up PHP for syntax validation of documented examples
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - name: Validate PHP examples and documentation source references
+        run: python docs/verify_examples.py
       - name: Preserve Sphinx HTML preview
         if: always()
         uses: actions/upload-artifact@v7
