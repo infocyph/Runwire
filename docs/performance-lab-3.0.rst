@@ -104,9 +104,9 @@ memory along with socket latency and worker autoscale changes:
 
 .. code-block:: console
 
-   php .ci/c3_filesystem_smoke.php
-   php .ci/c3_autoscale_http_traffic.php
-   php .ci/c3_supervisor_soak.php
+   php tests/smoke/native_filesystem_smoke.php
+   php tests/smoke/native_autoscale_http_traffic.php
+   php tests/smoke/native_supervisor_soak.php
 
 These three commands are C3 diagnostics, not the complete U15.08
 or U15.10 release proof.

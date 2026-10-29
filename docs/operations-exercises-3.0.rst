@@ -50,9 +50,9 @@ The native fault probes create actual child processes:
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_smoke.php
-   php .ci/c3_supervisor_fault_smoke.php
-   php .ci/c3_concurrent_fault_smoke.php
+   php tests/smoke/native_supervisor_smoke.php
+   php tests/smoke/native_supervisor_fault_smoke.php
+   php tests/smoke/native_concurrent_fault_smoke.php
 
 A SIGKILL is an abrupt process failure; work may be lost.
 A graceful stop blocks new admission and drains existing accepted work
@@ -82,9 +82,9 @@ respect admission and drain.
 
 .. code-block:: console
 
-   php .ci/c3_autoscale_window_contract.php
-   php .ci/c3_autoscale_http_traffic.php
-   php .ci/c3_supervisor_soak.php
+   php tests/smoke/native_autoscale_window_contract.php
+   php tests/smoke/native_autoscale_http_traffic.php
+   php tests/smoke/native_supervisor_soak.php
 
 The native HTTP fixture accounts for all requests attempted after
 readiness and checks real successful responses and non-overlapping
@@ -101,10 +101,10 @@ coroutine, periodic timer and IPC wake watcher.
 
 .. code-block:: console
 
-   php .ci/c3_listener_fork_smoke.php
-   php .ci/c3_dialer_smoke.php
-   php .ci/c3_cleanup_fault_smoke.php
-   php .ci/c3_filesystem_smoke.php
+   php tests/smoke/native_listener_fork_smoke.php
+   php tests/smoke/native_dialer_smoke.php
+   php tests/smoke/native_cleanup_fault_smoke.php
+   php tests/smoke/native_filesystem_smoke.php
 
 A failing timer cancellation must not skip unrelated cleanup.
 Measure resource use for the *entire process tree*; a flat parent

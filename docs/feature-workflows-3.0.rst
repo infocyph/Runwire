@@ -345,8 +345,8 @@ never derive scaling from constant demonstration values.
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_smoke.php
-   php .ci/c3_autoscale_http_traffic.php
+   php tests/smoke/native_supervisor_smoke.php
+   php tests/smoke/native_autoscale_http_traffic.php
 
 See :doc:`supervision-handbook-3.0`.
 

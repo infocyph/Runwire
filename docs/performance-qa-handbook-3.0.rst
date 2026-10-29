@@ -112,9 +112,9 @@ Reproducible repository gates
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_soak.php
-   php .ci/c3_autoscale_http_traffic.php
-   php .ci/c3_filesystem_smoke.php
+   php tests/smoke/native_supervisor_soak.php
+   php tests/smoke/native_autoscale_http_traffic.php
+   php tests/smoke/native_filesystem_smoke.php
 
 The repository's active workflow definitions are:
 

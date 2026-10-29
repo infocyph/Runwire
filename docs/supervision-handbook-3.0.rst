@@ -207,11 +207,11 @@ Validation before production
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_smoke.php
-   php .ci/c3_supervisor_fault_smoke.php
-   php .ci/c3_concurrent_fault_smoke.php
-   php .ci/c3_supervisor_soak.php
-   php .ci/c3_autoscale_http_traffic.php
+   php tests/smoke/native_supervisor_smoke.php
+   php tests/smoke/native_supervisor_fault_smoke.php
+   php tests/smoke/native_concurrent_fault_smoke.php
+   php tests/smoke/native_supervisor_soak.php
+   php tests/smoke/native_autoscale_http_traffic.php
 
 These tests use real Linux/POSIX processes and do not run under FPM.
 They provide C3 proof, not U15/U17 release certification. The native
