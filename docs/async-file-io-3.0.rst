@@ -1,6 +1,6 @@
-=========================================
+==========================================
 Runwire 3.0: bounded asynchronous file I/O
-=========================================
+==========================================
 
 This chapter documents the pre-release 3.0 file-processing contract.
 Use only a verified candidate checkout until 3.0 is actually published.
