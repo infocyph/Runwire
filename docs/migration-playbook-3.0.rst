@@ -220,5 +220,5 @@ breaking migration path as an explicit release note with a runnable
 before/after code sample, not as a silently changed default.
 
 For supporting details, see :doc:`migration-3.0`,
-:doc:`api-reference-3.0` and
+:doc:`configuration-reference-3.0` and
 :doc:`production-operations-3.0`.

@@ -18,7 +18,8 @@ reactor must not execute on the reactor thread.
 Start with the :doc:`start` installation notice, the
 :doc:`features` host/feature inventory and :doc:`tutorials-3.0` executable acceptance examples. For complete
 what/why/when/how exercises see :doc:`feature-workflows-3.0`. This handbook is an orientation; the
-:doc:`api-reference-3.0` is generated from the actual public declarations.
+topic-specific examples and code-level PHP documentation provide precise
+public contracts.
 
 Documentation map
 -----------------
@@ -47,7 +48,7 @@ Documentation map
      - :doc:`performance-security-3.0`
    * - 2.1.2 maintainer upgrading to 3.0
      - :doc:`migration-playbook-3.0`
-     - :doc:`migration-3.0` and :doc:`api-reference-3.0`
+     - :doc:`migration-3.0` and :doc:`configuration-reference-3.0`
 
 Execution architecture
 ----------------------

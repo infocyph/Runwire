@@ -103,8 +103,8 @@ The `RestartPolicy` bounds restarts and backoff. The
 `ReloadPolicy` controls replacement readiness and safe handoff.
 The `WorkerRecyclePolicy` can limit request count, uptime and memory.
 The `SupervisorEventType` catalog provides granular lifecycle events.
-Inspect :doc:`api-reference-3.0` for supported properties and
-event callback signatures.
+See :doc:`runtime-lifecycle-3.0` for owner responsibilities and
+inspect the public policy and event declarations for exact signatures.
 
 Autoscaling is real native process scaling
 ------------------------------------------

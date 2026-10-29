@@ -61,8 +61,8 @@ Diagnostics surfaces
 The source provides `LoopDiagnosticsSnapshot`,
 `CoroutineDiagnosticsSnapshot`, `RuntimeMetricsSnapshot`,
 `SupervisorStatus` and worker lifecycle events. Their precise
-fields are part of the generated :doc:`api-reference-3.0`; do not
-assume all metrics exist on every driver or that host-owned
+fields are defined by their PHP declarations; do not assume every
+metric exists on every driver or that host-owned
 runtimes expose native worker PID details.
 
 The native supervisor's `status()` and `onEvent()` can be used by

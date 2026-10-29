@@ -67,8 +67,8 @@ filesystem call while expecting the event loop to remain responsive.
    });
 
 Here `sleep()` is coroutine scheduling, not `usleep()` in an event-loop
-callback. Check the generated :doc:`api-reference-3.0` for concrete
-scope and callback types as the development API evolves.
+callback. See :doc:`coroutine-network-3.0` for ownership and callback
+contracts; use the public PHP declarations for exact types.
 
 Cancellation and deadlines
 --------------------------

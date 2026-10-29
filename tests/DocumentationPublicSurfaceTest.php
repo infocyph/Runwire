@@ -6,21 +6,24 @@ it('keeps the published manual free from obsolete smoke paths and build fingerpr
     $root = dirname(__DIR__);
     $index = file_get_contents($root . '/docs/index.rst');
     $conf = file_get_contents($root . '/docs/conf.py');
-    $generator = file_get_contents($root . '/docs/build_api_reference.py');
+    $readme = file_get_contents($root . '/README.md');
 
     expect($index)->toBeString()
         ->not->toContain('Source revision:', 'runwire_source_revision')
         ->and($conf)->toBeString()
         ->toContain('html_title = "Runwire Manual"')
         ->not->toContain('runwire_source_revision', 'rst_prolog')
-        ->and($generator)->toBeString()
-        ->not->toContain('plan/runwire-independent-ecosystem-roadmaps');
+        ->and($readme)->toBeString()
+        ->toContain('https://docs.infocyph.com/projects/Runwire');
+
+    expect(is_file($root . '/docs/api-reference-3.0.rst'))->toBeFalse();
+    expect(is_file($root . '/docs/build_api_reference.py'))->toBeFalse();
 
     $pages = glob($root . '/docs/*.rst') ?: [];
     expect(count($pages))->toBeGreaterThan(25);
     foreach ($pages as $path) {
         $source = file_get_contents($path);
-        expect($source)->toBeString()->not->toContain('.ci/c3_', '|runwire_source_revision|');
+        expect($source)->toBeString()->not->toContain('.ci/c3_', '|runwire_source_revision|', 'api-reference-3.0');
         preg_match_all('~\\btests/smoke/native_([a-z_]+)\\.php\\b~', $source, $matches);
         foreach (array_unique($matches[0]) as $relative) {
             expect(is_file($root . '/' . $relative))

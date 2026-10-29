@@ -34,7 +34,7 @@ request and response-writer contract. Always complete or explicitly
 cancel the response writer; merely returning from a callback does not
 prove that its queued wire bytes were delivered. Source-backed handler
 examples are in `tests/fixtures/portable_native_acceptance.php` and
-the :doc:`api-reference-3.0` declaration inventory.
+the complete :doc:`feature-workflows-3.0` walkthroughs.
 
 Binding addresses and port ownership
 ------------------------------------
