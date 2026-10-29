@@ -70,7 +70,7 @@ For each matched protocol/workload cell, capture at least:
 * peer correctness, TLS/ALPN result and any retried requests;
 * git SHA, tooling versions, OS/kernel, payload sizes and tuning flags.
 
-The task tracker requires **five paired 180-second comparisons**,
+The release methodology requires **five paired 180-second comparisons**,
 both baseline and candidate throughput coefficient-of-variation below
 **2.5%**, and strict p99, RSS, successful RPS and correctness gates.
 Do not average away one failed peer, restart a bad trial silently
@@ -116,15 +116,17 @@ Reproducible repository gates
    php .ci/c3_autoscale_http_traffic.php
    php .ci/c3_filesystem_smoke.php
 
-The repository also includes these independent workflow definitions:
+The repository's active workflow definitions are:
 
-* `.github/workflows/benchmarks.yml`
-* `.github/workflows/security-standards.yml`
-* `.github/workflows/http2-independent-reference.yml`
-* `.github/workflows/real-host-acceptance.yml`
-* `.github/workflows/c3-native-supervisor.yml`
-* `.github/workflows/c3-filesystem-profile.yml`
-* `.github/workflows/release-certification.yml`
+* ``.github/workflows/security-standards.yml``
+* ``.github/workflows/source-audit.yml``
+* ``.github/workflows/documentation.yml``
+* ``.github/workflows/portable-native.yml``
+* ``.github/workflows/http2-independent-reference.yml``
+* ``.github/workflows/real-host-acceptance.yml``
+* ``.github/workflows/swoole-coroutine.yml``
+* ``.github/workflows/release-candidate.yml``
+* ``.github/workflows/release-certification.yml``
 
 Read each script's arguments and prerequisite extensions before
 running it. Workflow names are not claims that every required release
