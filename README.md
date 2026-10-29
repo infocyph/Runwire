@@ -1,5 +1,11 @@
 # Runwire
 
+[![Security & Standards](https://github.com/infocyph/Runwire/actions/workflows/security-standards.yml/badge.svg)](https://github.com/infocyph/Runwire/actions/workflows/security-standards.yml)
+![Packagist Downloads](https://img.shields.io/packagist/dt/infocyph/Runwire?color=green)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Packagist Version](https://img.shields.io/packagist/v/infocyph/Runwire)
+![Packagist PHP Version](https://img.shields.io/packagist/dependency-v/infocyph/Runwire/php)
+
 A high-performance, framework-agnostic process and network runtime for PHP.
 
 Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
