@@ -1,15 +1,12 @@
-C4 reproducible performance laboratory
-======================================
+Reproducible performance laboratory
+===================================
 
 Release gate, not a marketing benchmark
 ----------------------------------------
 
-The C4 U15 program has **ten** distinct performance tasks.
-Do not treat a 23-second smoke, a 120-second C3 autoscale test or a
-five-second protocol diagnostic matrix as final 3.0 performance
-certification. The published comparator is Runwire 2.1.2 at
-immutable SHA `7e9bf20ad0737a187dfed77b723791b141b36378`.
-Freeze the 3.0 candidate SHA before measuring.
+Use these ten measurement categories to profile runtime throughput,
+latency, concurrency and resource stability. Short diagnostics cannot
+replace sustained measurements. Compare against a pinned source revision.
 
 Every accepted result must include a complete environment and load
 generator provenance: PHP binary and config, OS/kernel, CPU and quotas,
@@ -18,41 +15,41 @@ worker counts, exact request/response payload, concurrency, samples,
 errors, CPU/RSS/FD and p50/p95/p99. Measure **successful responses**,
 not connection attempts or client-side writes.
 
-.. list-table:: C4 U15 evidence checklist
+.. list-table:: Performance measurement checklist
    :header-rows: 1
    :widths: 20 45 35
 
    * - Task
      - Evidence required
      - Insufficient substitute
-   * - U15.01
+   * - Handler profiling
      - Real cold/warm handler, context, loop and syscall attribution
      - Single no-op callback timing
-   * - U15.02
+   * - Concurrency sweep
      - Warmed concurrency sweep, success RPS, p50/p95/p99, CPU/RSS/FD
      - One peak-RPS sample
-   * - U15.03
+   * - Tracing overhead
      - Tracing on/off comparison with same controlled workload
      - Assumption that logging is free
-   * - U15.04
+   * - Protocol overhead
      - Separate H1 plaintext/TLS, H2 HPACK and H3 QPACK/QUIC hot paths
      - A synthetic H1-backed H3 result
-   * - U15.05
+   * - Slow peers and resets
      - Mixed slow receiver, reset/cancel and recycle correctness
      - A handshake that merely succeeds
-   * - U15.06
+   * - Outbound pooling
      - Sequential/overlapped outbound and valid connection-pool benefit
      - An in-memory mock connector
-   * - U15.07
+   * - Independent protocol peers
      - Independent real H1/H2/H3 and supported WebSocket client/server peers
      - Only a client or a fake protocol
-   * - U15.08
+   * - File/network fairness
      - Process file I/O + socket + autoscale interleaving and loop fairness
      - Filesystem-only throughput
-   * - U15.09
+   * - Matched performance
      - Five paired 180s old/new trials, CV and strict p99/RSS/RPS gates
      - Five-second AUTO/FIXED diagnostics
-   * - U15.10
+   * - Resource soak
      - Full 1800-second process-tree CPU/RSS/FD/GC/OPcache soak
      - Parent-only memory and 120-second smoke
 
@@ -81,7 +78,7 @@ The repository provides real protocol diagnostic runners:
    bash benchmarks/adaptive_http3_certify.sh 5 benchmark-results/adaptive-http3
 
 The value `5` above is a **five-second phase** for short diagnostics,
-not a U15.09 full matched pair. HTTP/3 requires a functional native
+not a full matched comparison. HTTP/3 requires a functional native
 QUIC extension and independent aioquic reference client. A skipped
 H3 test on an incapable host does not certify H3.
 
@@ -108,8 +105,7 @@ memory along with socket latency and worker autoscale changes:
    php tests/smoke/native_autoscale_http_traffic.php
    php tests/smoke/native_supervisor_soak.php
 
-These three commands are C3 diagnostics, not the complete U15.08
-or U15.10 release proof.
+These commands are short diagnostics, not full sustained resource checks.
 
 Five paired 180-second baseline comparisons
 --------------------------------------------
@@ -149,7 +145,7 @@ client/server CPU, a baseline from the wrong package revision or an
 incomplete trial. The current runner covers its **specified H1
 baseline workload**; additional H1/TLS, H2, H3 and WebSocket real
 counterpart profile cells remain independent U15 gates. A successful
-H1 matched run is not full C4 certification.
+An H1 matched run does not qualify every protocol.
 
 
 For each required protocol/workload cell:
@@ -203,5 +199,5 @@ Reproducibility record
    anomaly notes, raw logs, artifact hashes and reviewer disposition
 
 See :doc:`performance-qa-handbook-3.0` and
-:doc:`operations-exercises-3.0`. U15 completion does not by itself
-authorize a C5 release, tag or merge.
+:doc:`operations-exercises-3.0`. Validate all applicable protocols and sustained resource budgets before
+making production performance claims.

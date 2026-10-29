@@ -1,14 +1,13 @@
-Compatibility audit: from published 2.1.2 to unreleased 3.0
-===========================================================
+Compatibility audit: Runwire 2.1.2 to 3.0
+=========================================
 
 Source and claim boundaries
 ---------------------------
 
 The published stable comparator is 2.1.2 at immutable commit
 `7e9bf20ad0737a187dfed77b723791b141b36378`.
-The 3.0 candidate is still changing on PR #9. A declaration
-comparison for an older candidate is not a final 3.0 ABI,
-behavior or exception-ordering guarantee.
+Source-level comparisons do not establish identical runtime behavior,
+exception ordering or application compatibility.
 
 This guide complements :doc:`migration-3.0` and
 :doc:`migration-playbook-3.0` with a practical final audit sheet.
@@ -20,7 +19,7 @@ Source-backed compatibility ledger
 ----------------------------------
 
 The repository retains machine-reviewed 2.1.2-to-3.0 migration evidence
-in `qa/release-baseline/`. An earlier candidate comparison recorded:
+in `qa/release-baseline/`. An earlier source comparison recorded:
 
 .. list-table:: Previously reviewed source-level observations
    :header-rows: 1
@@ -46,7 +45,7 @@ in `qa/release-baseline/`. An earlier candidate comparison recorded:
      - Runtime behavior requires separate review
 
 Those quantities belong to the **reviewed prior snapshot** and should
-be recomputed for the actual final 3.0 release candidate.
+be recomputed for the 3.0 implementation.
 
 Public methods preserved by traits
 -----------------------------------
@@ -91,7 +90,7 @@ Before and after: basic inbound server
 ---------------------------------------
 
 The stable native server construction pattern remains recognizable.
-This development-branch example uses the public runtime and server
+This example uses the public runtime and server
 entry points:
 
 .. code-block:: php
@@ -192,8 +191,8 @@ A custom unreviewed manifest schema is not equivalent evidence.
 Real 2.1.2 versus 3.0 HTTP behavioral check on GitHub workers
 -------------------------------------------------------------
 
-The GitHub C4 migration workflow runs published 2.1.2 and the exact
-3.0 candidate from independent checked-out sources. It verifies
+An independent regression compares Runwire 2.1.2 and 3.0 from separate
+checked-out sources. It verifies
 real HTTP/1.1 GET, valid subpath, bad path and disallowed POST
 status, body, Content-Length and Content-Type on PHP 8.4 and 8.5.
 The immutable GitHub `workflow run #40508637661
@@ -218,8 +217,8 @@ and release-review flag; ``tools/c4-migration-behavior-audit.php``
 requires set equality against the source-generated change list. New
 unreviewed changes fail the independent GitHub Source Audit.
 
-At the reviewed candidate snapshot **32 public implementation source
-hashes have changed** (as distinct from the 26 at the older W97 snapshot).
+An earlier comparison recorded **32 changed public implementation hashes**.
+The count refers to that snapshot, not every subsequent revision.
 These are *not* automatically breaking declaration changes. The source
 and runtime contracts below govern applications upgrading the published
 package, especially applications using custom host adapters.
@@ -286,7 +285,7 @@ Before/after: existing public connection methods
    $connection->onClose($onClosed);
    $result = $connection->write($payload);
 
-**After, unreleased 3.0:** The identical application call shape is
+**After, Runwire 3.0:** The identical application call shape is
 retained, although the two method implementations now come from
 internal composing traits. There is **no** need to rewrite callers
 merely because a declaration-only file scanner reports these as
@@ -367,19 +366,18 @@ Keep 2.1.2 artifacts/configuration for rollback.
 The reviewed ledger and source audit **do not** assert blanket
 binary, API-behavior or exception equivalence. Unknown API changes,
 a missing test or an additional modified public symbol invalidate
-the ledger until explicitly dispositioned. Revalidate in C5
-against the frozen release candidate.
+the ledger until explicitly dispositioned. Recompute the diff after source changes.
 
-How to reproduce U16.12 acceptance
-----------------------------------
+How to reproduce the compatibility review
+-----------------------------------------
 
 For each removed declaration, changed signature, behavior or
 error contract, the maintainer must record a **before** sample from
-published 2.1.2, an **after** sample from the frozen 3.0 candidate,
+published 2.1.2, an **after** sample from Runwire 3.0,
 intentional compatibility choice, real runtime test, rollback
 procedure and reviewer disposition.
 
 Source compatibility is only one layer: exception ordering,
 worker shutdown, TLS trust, process ownership, protocol
 interoperability and performance are separate behavior gates.
-This page contains the reviewed audit supporting accepted U16.12; it alone cannot certify deployment or publication.
+This audit does not replace application-specific integration testing.

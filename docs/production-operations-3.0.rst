@@ -1,13 +1,12 @@
 Production operations and deployment runbooks
 =============================================
 
-Production readiness is a separate acceptance gate
---------------------------------------------------
+Deployment prerequisites
+------------------------
 
-This guide is for evaluating unreleased Runwire 3.0 in staging and
-preparing a controlled production migration. Its presence does not
-mean 3.0 is tagged, published or independently release certified.
-Runwire 2.1.2 remains the published stable baseline.
+This guide covers Runwire 3.0 deployment, staged rollout, monitoring
+and rollback. Validate host features and application-specific behavior
+before exposing network-facing listeners.
 
 A platform operator must establish runtime capability, workload limits,
 trust boundaries and rollback authority before exposing a listener.

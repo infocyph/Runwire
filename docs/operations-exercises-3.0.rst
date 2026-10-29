@@ -1,12 +1,11 @@
 Operations exercises: worker failures, rolling reload and rollback
 ==================================================================
 
-Audience and release boundary
------------------------------
+Audience and prerequisites
+--------------------------
 
-This is a hands-on operator field manual for **unreleased Runwire 3.0**.
-The published stable package is 2.1.2. Its presence does not certify
-production deployment or replace an operator-approved rollback plan.
+These exercises cover Runwire 3.0 worker faults, rolling reload and
+rollback. Exercise them on a controlled host before changing production.
 
 Read :doc:`production-operations-3.0`,
 :doc:`supervision-handbook-3.0` and
@@ -89,7 +88,7 @@ respect admission and drain.
 The native HTTP fixture accounts for all requests attempted after
 readiness and checks real successful responses and non-overlapping
 current worker slots. Short or 120-second tests are useful for
-C3, but cannot replace the **1800-second** U15 release soak.
+a short smoke test, but cannot replace an **1800-second** resource soak.
 
 Exercise 4: resource-retirement inventory
 ------------------------------------------
@@ -176,4 +175,4 @@ again. Rollback is a planned operational response, not proof that
 the failed candidate passed certification.
 
 See :doc:`protocol-failure-atlas-3.0` for stream-specific triage,
-and :doc:`performance-lab-3.0` for the genuine C4 release metrics.
+and :doc:`performance-lab-3.0` for the sustained performance metrics.
