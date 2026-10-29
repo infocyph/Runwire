@@ -219,3 +219,45 @@ They provide C3 proof, not U15/U17 release certification. The native
 1,800-second release soak. See :doc:`performance-qa-handbook-3.0`
 for this distinction and :doc:`production-operations-3.0` for a
 safe restart playbook.
+
+
+Autoscale decisions: a worked operational example
+-------------------------------------------------
+
+An autoscale policy is only a set of *thresholds*. Worker growth
+requires the native supervisor, a registered worker group, live
+sampler data, spare process capacity and a real running event loop.
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   use Infocyph\Runwire\Supervisor\AutoscalePolicy;
+
+   $policy = new AutoscalePolicy(
+       minWorkers: 2,
+       maxWorkers: 8,
+       scaleInCpuRatio: 0.30,
+       scaleOutCpuRatio: 0.75,
+       scaleOutQueueDepth: 32,
+       sampleSeconds: 5.0,
+       cooldownSeconds: 20.0,
+       maxStepPerWindow: 1,
+   );
+
+**When to scale out:** a stable high-CPU or queued-work/p99 signal
+persists across the configured sample window and cooldown, while
+existing workers can no longer absorb admitted work. **When to
+scale in:** low sustained pressure *and* no outstanding generation
+or drain restrictions. This is a policy-construction example;
+``new AutoscalePolicy`` alone never creates or retires processes.
+
+Never feed constant metrics (e.g. zero queue) into production
+``Supervisor::autoscale()``. Gather actual bounded CPU ratio,
+queued jobs, successful RPS and p99 from the same worker group and
+sampling window. Confirm PID/generation reaping and client-level
+response completion during forced failure. On FPM/RoadRunner/
+FrankenPHP, configure autoscale in the host's process manager
+instead. See :doc:`production-operations-3.0\`.

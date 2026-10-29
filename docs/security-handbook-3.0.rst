@@ -156,3 +156,88 @@ reproduction. Do not log raw client tokens to make debugging easier.
 
 The source API remains under development; perform a final threat and
 release-risk review before declaring 3.0 production certified.
+
+
+Practical SSRF policy: what is rejected and when
+------------------------------------------------
+
+The optional ``OutboundAddressPolicy`` rejects private, reserved,
+loopback, multicast and other non-global addresses. Use this when
+an application accepts remote hostnames or URLs from customers.
+It deliberately rejects even ``127.0.0.1``; use a separate trusted
+internal-service policy when loopback access is an explicit requirement.
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   use Infocyph\Runwire\Network\DialOptions;
+   use Infocyph\Runwire\Network\OutboundAddressPolicy;
+
+   $policy = new OutboundAddressPolicy();
+   $policy->assertCandidate('8.8.8.8');
+
+   try {
+       $policy->assertCandidate('127.0.0.1');
+       throw new RuntimeException('Forbidden private destination accepted');
+   } catch (RuntimeException $error) {
+       // Expected for non-public input: reject the requested destination.
+   }
+
+   $dialOptions = new DialOptions(
+       connectTimeoutSeconds: 3.0,
+       addressPolicy: $policy,
+   );
+
+``DialOptions::addressPolicy`` enforces the candidate restriction during
+outbound TCP connection attempts and verifies the kernel-reported
+**connected peer** before handing the socket to application code.
+Checking only the hostname or a cached DNS answer would be insufficient
+against rebinding and cross-network redirects. The above example is a
+policy-construction check, not an actual network connection or proof of
+the target's legitimacy. Inspect ``tests/OutboundAddressPolicyTest.php``
+for IPv4, IPv6, mapped-IPv6 and hostile proxy failure cases.
+
+**When not to use it:** internal service discovery often intentionally
+needs private IPs. That requires a separate deliberately scoped policy
+with tenant authorization, rather than disabling validation globally.
+
+
+Verified TLS example and failure decisions
+------------------------------------------
+
+TLS identity is the **original hostname**, not whichever numeric
+address Happy Eyeballs selected. A secure client must verify both
+certificate chain and peer name; ALPN chooses the allowed application
+protocol. Do not set ``verify_peer`` to false to work around a wrong
+certificate.
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   use Infocyph\Runwire\Network\DialOptions;
+   use Infocyph\Runwire\Network\TlsClientOptions;
+
+   $tls = new TlsClientOptions(
+       peerName: 'example.com',
+       alpnProtocols: ['h2', 'http/1.1'],
+       handshakeTimeoutSeconds: 5.0,
+   );
+   $dial = new DialOptions(
+       connectTimeoutSeconds: 5.0,
+       tls: $tls,
+   );
+
+This builds a strict policy without opening a socket. Configure the
+origin's trusted CA where required; the system trust store must be
+available. A wrong SAN, missing OpenSSL, ALPN mismatch or expired
+certificate is a connection failure, **not** permission to switch to
+plaintext. The complete network tests are
+``tests/TlsClientDialerTest.php`` and
+``tests/VerifiedOriginalTargetTlsInteropTest.php``.
+

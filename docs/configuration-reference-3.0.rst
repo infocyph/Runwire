@@ -163,3 +163,77 @@ Before changing a live value:
 
 Use :doc:`performance-qa-handbook-3.0` for comparison methodology
 and :doc:`api-reference-3.0` for exact method signatures.
+
+
+A concrete deadline and outbound connection policy
+--------------------------------------------------
+
+**What:** ``DialOptions`` collects per-connect timeout, inherited
+cancellation/deadline, socket limits, TLS identity and optional numeric
+address authorization. **Why:** without a finite budget, one unreachable
+dependency can retain workers and pending sockets indefinitely.
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   use Infocyph\Runwire\Network\DialOptions;
+   use Infocyph\Runwire\Network\OutboundAddressPolicy;
+   use Infocyph\Runwire\RequestDeadline;
+
+   $deadline = RequestDeadline::afterSeconds(5.0, hrtime(true));
+   $options = new DialOptions(
+       connectTimeoutSeconds: 2.0,
+       deadline: $deadline,
+       addressPolicy: new OutboundAddressPolicy(),
+   );
+
+A 2-second connection timeout does not extend an inherited 5-second
+request deadline. Cancellation of the parent scope may end the dial
+earlier than either budget. This example only constructs policy objects;
+pass ``$options`` when initiating a supported outbound dial.
+
+**When:** choose strict limits for external, untrusted destinations.
+A public-only address guard will reject local development loopback
+connections; keep production and intentional internal traffic policies
+separate. Never reuse a TLS/tenant pool after trust settings change.
+
+See :doc:`connection-policies-3.0\` and
+:doc:`security-handbook-3.0\` for policy boundaries.
+
+
+Configuration review: safe defaults versus explicit opt-in
+----------------------------------------------------------
+
+.. list-table:: An operator's decision before deployment
+   :header-rows: 1
+   :widths: 28 35 37
+
+   * - Setting
+     - What it controls
+     - What to validate
+   * - Runtime driver
+     - Who owns loops and workers
+     - Native versus FPM/FrankenPHP/RoadRunner/Swoole host capabilities
+   * - Connection queue and buffers
+     - Pending and admitted resource ceiling
+     - Slow peers, overflow response and bounded recovery
+   * - Deadline and cancellation
+     - Maximum lifetime of unfinished work
+     - Parent scope always remains authoritative
+   * - TLS peer policy
+     - Trust chain, SNI and allowed ALPN
+     - Wrong certificate must fail closed
+   * - Native autoscale bounds
+     - Worker count and controlled hysteresis
+     - Actual CPU, queue, RPS, p99 samples plus cooldown
+   * - Filesystem root
+     - Allowed worker-visible paths
+     - Directory permissions, symlink races and process isolation
+
+When validating a config change, test one successful peer, one
+rejection/timeout, a slow reader and forced shutdown. Note the exact
+SHA and extension set with the result; otherwise a configuration
+example can appear to work while a different transport was selected.

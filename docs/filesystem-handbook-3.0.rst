@@ -163,3 +163,31 @@ workload under the frozen release baseline.
 Related reading: :doc:`async-file-io-3.0`,
 :doc:`concurrency-handbook-3.0` and
 :doc:`performance-qa-handbook-3.0`.
+
+
+What happens on a failed or cancelled write
+-------------------------------------------
+
+The queue accepts work before a worker finishes it. Cancellation
+removes pending ownership but cannot assume that a write already
+running in a child had no side effects. Therefore never blindly
+resubmit a non-idempotent ``write``/``rename`` after an uncertain
+completion; determine the file's actual state first.
+
+For **reads**, use bounded offsets and handle EOF distinctly from a
+cancellation error. For **writes**, decide whether a partial result is
+acceptable and verify the final byte count. For **renames**, account
+for cross-device failure and the absence of a durability guarantee.
+
+.. code-block:: console
+
+   vendor/bin/pest tests/AsyncFileSystemTest.php
+   vendor/bin/pest tests/AsyncFileSystemSecurityTest.php
+   vendor/bin/pest tests/AsyncFilesystemSocketFairnessTest.php
+
+**When to choose synchronous I/O instead:** a one-off CLI tool without
+a busy reactor may be faster and simpler with blocking PHP disk calls.
+A long-running reactor with concurrent network peers should isolate
+potentially blocking filesystem calls behind a bounded executor.
+In both cases, untrusted pathname authorization belongs to the
+application and operating-system sandbox, not to a string comparison.

@@ -270,3 +270,99 @@ tenants or trust-policy revisions. Per-request TCP dial/TLS options on an
 injected pooled H1/H2 session are rejected rather than ignored. No H3
 fallback to H2 or H1 is attempted. Completion always disposes the request
 cancellation source and never silently retains an unverified socket.
+
+
+How to configure DNS coalescing safely
+--------------------------------------
+
+**What:** ``CachedDnsResolver`` shares one in-flight hostname lookup
+between callers in the same owner, while preserving independent
+per-caller cancellation and deadlines. **Why:** repeated simultaneous
+lookups can overload the worker executor without improving freshness.
+
+**When:** use it for predictable, repetitive external domains in one
+worker and one tenant. Rebuild the cache after fork or a change in
+tenant/trust boundary; it does not replace outbound address checks.
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   use Infocyph\Runwire\Executor\ProcessExecutor;
+   use Infocyph\Runwire\Loop\SelectLoop;
+   use Infocyph\Runwire\Network\AsyncDnsResolver;
+   use Infocyph\Runwire\Network\CachedDnsResolver;
+
+   $loop = new SelectLoop();
+   $executor = new ProcessExecutor($loop, 1, 8);
+   $cache = new CachedDnsResolver(
+       $loop,
+       new AsyncDnsResolver($executor),
+       ttl: 10.0,
+       negativeTtl: 1.0,
+       maxEntries: 128,
+   );
+
+   $cache->resolve(
+       'example.com',
+       static function (array $ips, ?Throwable $error) use ($cache, $executor): void {
+           if ($error !== null) {
+               fwrite(STDERR, $error->getMessage() . PHP_EOL);
+           } else {
+               echo implode(', ', $ips), PHP_EOL;
+           }
+           $cache->close();
+           $executor->close();
+       },
+   );
+   $loop->run();
+
+This is a real DNS request and requires that the host permit DNS and
+worker-process execution. The cache does not provide authoritative DNS
+TTL tracking or cross-worker synchronization. For deterministic
+independent-cancellation and negative-cache tests run
+``tests/CachedDnsResolverTest.php``. Enforce an address policy on each
+numeric peer even if a cached DNS answer was previously permitted.
+
+
+Selecting H1, H2 or H3 without accidental downgrade
+---------------------------------------------------
+
+H1 works on one request/response exchange per active session; the
+optional ``PooledHttp1Session`` can reuse fully drained same-origin
+keep-alive connections. H2 provides multiplexed streams on an
+established TLS/ALPN session, while H3 uses a separate QUIC transport.
+
+**Decision:** select H3 only with the native QUIC backend; a TCP
+dialer cannot establish H3. If policy says H3-only and the backend is
+missing, return the error rather than silently trying H2 or HTTP.
+For H2, verify negotiated ``h2`` ALPN and use caller-established
+``Http2MultiplexConnection`` only within its origin/TLS/tenant scope.
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
+   use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+
+   $h2 = new ClientProtocolPolicy(
+       ProtocolVersion::HTTP_2,
+       [ProtocolVersion::HTTP_2],
+       allowFallback: false,
+   );
+   $h3 = new ClientProtocolPolicy(
+       ProtocolVersion::HTTP_3,
+       [ProtocolVersion::HTTP_3],
+       allowFallback: false,
+   );
+
+Do not interpret these policy objects as opened sockets.
+``tests/HttpOutboundDispatcherTest.php`` verifies strict transport
+routing and rejection of mixed TCP/QUIC fallback. Probe real H2
+with the independent hyper-h2 acceptance and H3 with native QUIC
+interoperability checks.

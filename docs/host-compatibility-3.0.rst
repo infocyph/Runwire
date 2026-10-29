@@ -184,3 +184,34 @@ that contract requires a separate off-loop, transport and body-stream
 integration with its own acceptance suite.
 `tests/PsrMessageBridgeTest.php` uses an independent Nyholm PSR-17
 implementation as a development-only interoperability fixture.
+
+
+A decision walkthrough for native versus hosted PHP
+---------------------------------------------------
+
+**Example A: standalone CLI daemon.** Choose native runtime only when
+the process may bind listening ports and own its event loop. If PCNTL
+is missing, use portable single-process mode rather than pretending
+there is a prefork supervisor. Run
+``tests/fixtures/portable_native_acceptance.php`` for a real peer.
+
+**Example B: PHP-FPM HTTP request.** FPM owns the worker process and
+reuses it according to its configured lifecycle. A Runwire callback
+must finish or cancel request-scoped resources; do **not** start a
+second long-running native master inside a request handler.
+
+**Example C: RoadRunner/FrankenPHP.** Host workers are long-lived,
+which makes request-to-request state isolation important. Give
+each accepted request an explicit scope, clean up resources on
+completion and test multiple sequential requests on the same
+host-owned worker.
+
+**Example D: Swoole/OpenSwoole.** The host's reactor is the event
+owner; attaching a competing loop or closing an external reactor
+from a Runwire callback violates ownership. Run the dedicated
+Swoole/OpenSwoole interoperability workflow.
+
+**Limitations:** host compatibility is not proof of native QUIC
+capability or background-process permissions. Compare actual extension
+availability, response semantics and worker ownership per host
+rather than copying a native deployment recipe into FPM.

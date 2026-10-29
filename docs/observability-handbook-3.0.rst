@@ -201,3 +201,73 @@ from a different trace. Each callback restores the prior scope in
 bounded DNS, filesystem and QUIC operations; this callback propagation
 does not automatically export trace metadata to an external worker
 or telemetry SDK. It never makes unrelated tenant traces process-global.
+
+
+Complete trace propagation and restoration walkthrough
+------------------------------------------------------
+
+**When:** correlate one inbound HTTP request with explicitly started
+outbound calls and subprocess completions. Do not use a trace ID as a
+security token. No global trace exporter is installed by Runwire.
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   use Infocyph\Runwire\Http\Headers;
+   use Infocyph\Runwire\Tracing\TraceContext;
+   use Infocyph\Runwire\Tracing\TraceScope;
+
+   $carrier = Headers::fromArray([
+       'traceparent' => '00-' . str_repeat('1', 32)
+           . '-' . str_repeat('2', 16) . '-01',
+   ]);
+   $incoming = TraceContext::fromHeaders($carrier);
+   if ($incoming === null) {
+       throw new RuntimeException('Validated trace is required');
+   }
+
+   $scope = new TraceScope();
+   $scope->run($incoming, static function () use ($scope): void {
+       $child = $scope->current()?->child();
+       if ($child === null) {
+           throw new LogicException('Scope not entered');
+       }
+       $outbound = $child->inject(new Headers());
+       echo $outbound->first('traceparent'), PHP_EOL;
+   });
+
+   if ($scope->current() !== null) {
+       throw new LogicException('Trace context leaked');
+   }
+
+Use ``TraceScope::wrap()`` to explicitly capture the current context
+before scheduling a deferred callback or Fiber. An opt-in executor
+constructed with ``traceScope: $scope`` restores the submission's
+context for its result callback, including cancellation. Inside-worker
+trace export and automatic cross-process propagation are **not**
+included. Verify with ``tests/TraceContextTest.php``,
+``tests/TraceScopeTest.php`` and
+``tests/ProcessExecutorTraceScopeTest.php``.
+
+
+Troubleshooting example: latency with apparently healthy workers
+----------------------------------------------------------------
+
+Suppose the server reports few errors but p99 rises during file
+downloads. Do not increase the worker count first. Check four
+separate measurements: HTTP completion p99, reactor timer delay,
+``ProcessExecutor`` queued/active jobs and outbound buffered bytes.
+If loop delay rises, inspect blocking callbacks; if only file queue
+rises, measure worker throughput and admission. If only HTTP
+completion p99 rises, inspect downstream drain pressure or TLS.
+
+**What to record:** request completion count rather than attempts;
+the exact worker generation, source SHA, operating-system descriptor
+count, RSS and the first terminal failure. Run
+``tests/AsyncFilesystemSocketFairnessTest.php`` to reproduce
+file/network fairness independently of production credentials.
+Observability is evidence for an operational decision, not a reason to
+relax queue or body limits.
