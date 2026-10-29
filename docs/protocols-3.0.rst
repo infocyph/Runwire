@@ -1,16 +1,17 @@
 HTTP and WebSocket protocols in Runwire 3.0
 ===========================================
 
-Runwire 2.1.2 is published stable. This documents 3.0 development code.
+This guide describes HTTP/1.1, HTTP/2, HTTP/3 and WebSocket protocol
+contracts, with host requirements and unsupported modes.
 
 Incoming H1 and outgoing H1 wire components
 -------------------------------------------
 
 Incoming HTTP/1.1 enforces bounds for request lines, headers, chunks,
-body size, parser budgets and connection idle timeout. The development
+body size, parser budgets and connection idle timeout. The
 Http1ClientRequestWriter and Http1ClientResponseParser handle
 incremental bodies, chunked responses, trailers and malformed
-messages. The branch now also contains experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. The opt-in ``Http1PolicyClient`` enforces bodyless GET/HEAD redirects, bounded retries, and cross-origin secret stripping. ``BoundedConnectionPool`` supports isolated lease admission and idle reuse but is not automatically wired into the client. The unreleased H2 client now has one-shot and live shared-connection paths;
+messages. Runwire also provides experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. The opt-in ``Http1PolicyClient`` enforces bodyless GET/HEAD redirects, bounded retries, and cross-origin secret stripping. ``BoundedConnectionPool`` supports isolated lease admission and idle reuse but is not automatically wired into the client. The H2 client now has one-shot and live shared-connection paths;
 Native H3 request clients are implemented and independently tested; an automatic unified H1/H2/H3 session pool or transparent H3 downgrade is not advertised.
 
 .. code-block:: console
@@ -35,13 +36,13 @@ exclusively owns one externally verified TLS+h2 connection, consumes bounded
 response frames and cancels or aborts it on completion (no unsafe pooling).
 ``Http2OutboundClient`` adds independently verified TLS+h2-only dialing and
 a one-shot GET/HEAD exchange; an independent local TLS peer fixture tests
-a real certificate/ALPN handshake and frame response. A dedicated PR-only
+a real certificate/ALPN handshake and frame response. An independent
 ``HTTP/2 Independent Reference`` workflow now validates this outbound client
 against upstream Python ``hyper-h2`` under pinned 8.4/8.5 PHP matrices,
 including verified CA/SAN/TLS, ALPN, HPACK HEADERS and streamed body.
 The single-request H2 client deliberately does not multiplex, while the
 separate verified shared-session transport does. H2 server push, extended
-CONNECT and H3 extended CONNECT remain outside these development client contracts.
+CONNECT and H3 extended CONNECT remain outside these client contracts.
 An independent negotiated H1/H2 client supports **explicit** TLS fallback.
 
 .. code-block:: console
@@ -70,13 +71,13 @@ WebSocket status
 
 Inbound HTTP/1.1 WebSocket upgrade validates request headers, masking,
 bounded fragmentation, UTF-8, ping/pong, close and session ownership.
-The unreleased branch also has an **experimental** outbound
+Runwire 3.0 also has an **experimental** outbound
 ``WebSocketClient::connect()`` for ws/wss over the verified nonblocking
 Happy Eyeballs dialer. It validates an HTTP/1.1 101 response and
 subprotocol, preserves coalesced frames, and uses the same WebSocket
 session lifecycle with client masking. Real independent WSS/close and 128 concurrent-peer fragmentation and
 heartbeat regression suites have passed the branch PHPForge matrices;
-this remains unreleased 3.0 development rather than production support.
+host support and safe usage depend on the configured runtime and TLS policy.
 HTTP/2 and HTTP/3 extended CONNECT are not implemented.
 For excluded protocols and native QUIC constraints, see the limitations
 in :doc:`features`.
@@ -130,9 +131,9 @@ fixture verifies sibling H2 exchanges and client RST handling without
 pretending the fixture performs TLS verification. The independent
 ``hyper-h2`` TLS suite separately verifies the real shared-connection
 multiplexer with reversed responses, large flow windows, authenticated
-cancellation and slow sibling completion. U07.05's development acceptance
+cancellation and slow sibling completion. HTTP/2 interoperability tests
 is covered; full automatic pooling, H3 and frozen-release performance
-certification remain separate gates. This is unreleased 3.0 code.
+certification remain separate gates. The specified API and protocol limits apply.
 
 .. code-block:: console
 
@@ -145,7 +146,7 @@ A separate, mandatory ``HTTP/2 Independent Reference`` PR workflow executes
 ``qa/reference/Http2MultiplexIndependentReferenceTest.php`` on PHP 8.4 and 8.5
 against upstream ``hyper-h2``. The peer verifies one real TLS/ALPN socket,
 two concurrent request streams and reversed responses with connection-
-scoped HPACK. The exact W96 independent reference and PHPForge source suites
+scoped HPACK. Independent reference and PHPForge source suites
 passed on PHP 8.4/8.5; real canceled streams, bounded 64-cycle churn,
 slow peers and saturated flow windows are also covered. Full frozen-release
 fault and resource certification remain U15/U17 responsibilities.
@@ -181,7 +182,7 @@ not mock negotiation. Exact-source negotiated TLS H1/H2 QA is accepted. Native H
 The independent TLS reference also probes a strict H2 client against a
 peer advertising only HTTP/1.1: no HTTP request may be emitted during a
 forbidden ALPN downgrade. This is separate from the explicitly permitted H1
-fallback case; both are mandatory CI cases before U07.08 acceptance.
+fallback case; both are mandatory CI cases before enabling this protocol mode.
 
 
 Authenticated HTTP/2 stream cancellation interoperability
@@ -192,7 +193,7 @@ live pair of accepted requests where Runwire cancels stream one with
 ``RST_STREAM`` and completes stream three over the same verified connection.
 This supplements deterministic 64-generation cancellation tests and the
 large-body flow-window workload. Exact-head full quality and sustained
-This real TLS acceptance is bounded to U07.05; release soak is separate.
+This real TLS acceptance is bounded to the verified client scenario; release soak is separate.
 
 
 Independent stalled-sibling HTTP/2 acceptance
@@ -204,4 +205,4 @@ initially stalled stream. This mode is mandatory beside the independent
 out-of-order response, 131072-byte flow-window, and authenticated RST modes.
 It tests stream-local fairness and cancellation, not the final multi-hour
 release performance and leak certification. A new exact-source QA run is
-required for ongoing release hardening beyond accepted U07.05 work.
+required to validate protocol security beyond basic interoperability.

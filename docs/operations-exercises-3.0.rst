@@ -1,12 +1,11 @@
 Operations exercises: worker failures, rolling reload and rollback
 ==================================================================
 
-Audience and release boundary
------------------------------
+Audience and prerequisites
+--------------------------
 
-This is a hands-on operator field manual for **unreleased Runwire 3.0**.
-The published stable package is 2.1.2. Its presence does not certify
-production deployment or replace an operator-approved rollback plan.
+These exercises cover Runwire 3.0 worker faults, rolling reload and
+rollback. Exercise them on a controlled host before changing production.
 
 Read :doc:`production-operations-3.0`,
 :doc:`supervision-handbook-3.0` and
@@ -50,9 +49,9 @@ The native fault probes create actual child processes:
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_smoke.php
-   php .ci/c3_supervisor_fault_smoke.php
-   php .ci/c3_concurrent_fault_smoke.php
+   php tests/smoke/native_supervisor_smoke.php
+   php tests/smoke/native_supervisor_fault_smoke.php
+   php tests/smoke/native_concurrent_fault_smoke.php
 
 A SIGKILL is an abrupt process failure; work may be lost.
 A graceful stop blocks new admission and drains existing accepted work
@@ -82,14 +81,14 @@ respect admission and drain.
 
 .. code-block:: console
 
-   php .ci/c3_autoscale_window_contract.php
-   php .ci/c3_autoscale_http_traffic.php
-   php .ci/c3_supervisor_soak.php
+   php tests/smoke/native_autoscale_window_contract.php
+   php tests/smoke/native_autoscale_http_traffic.php
+   php tests/smoke/native_supervisor_soak.php
 
 The native HTTP fixture accounts for all requests attempted after
 readiness and checks real successful responses and non-overlapping
 current worker slots. Short or 120-second tests are useful for
-C3, but cannot replace the **1800-second** U15 release soak.
+a short smoke test, but cannot replace an **1800-second** resource soak.
 
 Exercise 4: resource-retirement inventory
 ------------------------------------------
@@ -101,10 +100,10 @@ coroutine, periodic timer and IPC wake watcher.
 
 .. code-block:: console
 
-   php .ci/c3_listener_fork_smoke.php
-   php .ci/c3_dialer_smoke.php
-   php .ci/c3_cleanup_fault_smoke.php
-   php .ci/c3_filesystem_smoke.php
+   php tests/smoke/native_listener_fork_smoke.php
+   php tests/smoke/native_dialer_smoke.php
+   php tests/smoke/native_cleanup_fault_smoke.php
+   php tests/smoke/native_filesystem_smoke.php
 
 A failing timer cancellation must not skip unrelated cleanup.
 Measure resource use for the *entire process tree*; a flat parent
@@ -176,4 +175,4 @@ again. Rollback is a planned operational response, not proof that
 the failed candidate passed certification.
 
 See :doc:`protocol-failure-atlas-3.0` for stream-specific triage,
-and :doc:`performance-lab-3.0` for the genuine C4 release metrics.
+and :doc:`performance-lab-3.0` for the sustained performance metrics.

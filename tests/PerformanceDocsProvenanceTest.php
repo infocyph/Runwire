@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('documents quantified release limits with executable sources but no unmeasured performance claims', function (): void {
+it('documents measurable performance criteria with executable sources and no unverified claims', function (): void {
     $root = dirname(__DIR__);
     $rst = file_get_contents($root . '/docs/performance-security-3.0.rst');
     expect($rst)->toBeString()
@@ -21,7 +21,8 @@ it('documents quantified release limits with executable sources but no unmeasure
             ->and($rst)->toContain($source);
     }
 
-    expect($rst)->toContain('must not')
-        ->and($rst)->toContain('immutable workflow-run evidence')
-        ->and($rst)->not->toContain('Runwire 3.0 is faster by');
+    expect($rst)->toContain('source revision', 'runtime environment')
+        ->toContain('matched protocol comparisons', 'sustained mixed-load resource soak')
+        ->not->toContain('Runwire 3.0 is faster by')
+        ->not->toContain('immutable workflow-run evidence');
 });

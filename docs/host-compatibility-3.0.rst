@@ -1,11 +1,9 @@
-Host and runtime capability matrix (3.0 development)
-======================================================
+Runwire 3.0 host and runtime capability matrix
+==============================================
 
-.. important::
-
-   This page describes Runwire 3.0 development-branch behavior and actual
-   testing boundaries, **not** a released Runwire 3.0 feature guarantee.
-   Runwire 2.1.2 remains the published stable version.
+Runwire supports multiple host-owned and native execution modes.
+The host determines worker and reactor ownership, while PHP extensions
+and permissions determine optional protocol support.
 
 Host deployment and resource ownership
 --------------------------------------
@@ -50,8 +48,8 @@ Transport and workload features
    :widths: 24 36 40
 
    * - Feature
-     - Development source reality
-     - Not yet certified for 3.0 release
+     - Available Runwire 3.0 capability
+     - Limits and prerequisites
    * - HTTP/1.1, HTTP/2 and HTTP/3 servers
      - Existing request contracts and server regressions; native H3 interoperates with an independent peer where QUIC is available
      - Release throughput, full hostility matrix and cross-protocol churn remain gated
@@ -66,7 +64,7 @@ Transport and workload features
      - No persistent file handles, symlink-safe sandbox, crash-atomic fsync, platform native AIO or final throughput certification
    * - Autoscaling
      - Real native fork/retire autoscale, crash restart, readiness and rolling generations
-     - C3 scaling plus exact-source PHP8.4/8.5 full 1800s mixed soak accepted
+     - Native scaling, tested with mixed worker/resource workloads
 
 Native supervision, recycling and autoscaling
 ---------------------------------------------
@@ -75,7 +73,7 @@ The native supervisor uses bounded worker groups and a deliberately explicit
 lifecycle. The existing Supervisor and WorkerGroup APIs select a fixed worker
 count; the published 2.1.2 contract does not include the new 3.0 native
 CPU/queue/p99-driven automatic scaling, but 3.0 source now implements
-and independently C3-tests real scale-out and graceful scale-in.
+and supports real scale-out and graceful scale-in.
 
 * RestartPolicy limits restarts in a sliding window and applies bounded
   exponential backoff. Exhaustion is terminal rather than an infinite crash loop.
@@ -111,7 +109,8 @@ handoff, with cleanup performed by the surviving host/worker owner.
 
 Native supervision tests cover crash restart, bounded backoff, generation
 rotation, mixed real H1/H2/H3/TCP/UDP stop-during-traffic, actual native
-autoscale and process-tree cleanup. C3 is QA-accepted; matched baseline and 1800-second U15 release evidence has also passed.
+autoscale and process-tree cleanup. Use the native supervisor smoke tests and sustained resource benchmarks
+to validate scaling and process-tree cleanup in your environment.
 
 Proof boundary and operator guidance
 ------------------------------------
@@ -124,16 +123,15 @@ The GitHub Actions workflows document each tested source SHA:
 * Swoole/OpenSwoole Coroutine: live host reactor and outbound socket verification.
 * Documentation and Release Candidate: strict Sphinx pages and standalone package archive installation.
 
-A green prior-source test is not proof of untested features added after that
-source SHA. The canonical 3.0 roadmap and development plan remain the final
-acceptance authorities. Do not assume that supporting a host implies that
+Host capability claims must be verified against the deployed source,
+PHP extensions and actual worker lifecycle. Do not assume that supporting a host implies that
 all protocol clients, optional extensions, async disk features or worker
 autoscaling are available on that host.
 
 Native autoscale policy (implemented on capable native hosts)
 -------------------------------------------------------------
 
-``Supervisor\AutoscalePolicy`` is a development-branch native worker scaling policy, integrated
+``Supervisor\AutoscalePolicy`` is a native worker scaling policy, integrated
 with the running Supervisor and its worker generation lifecycle. Its defaults bound workers to 1..8,
 CPU scale-in below 30 percent, scale-out above 75 percent, queue depth 16,
 p99 threshold 250 ms, and low successful RPS at 1/s. Samples span 10 seconds,
@@ -144,7 +142,8 @@ both effective minimum and maximum. All CPU/latency/rate inputs must be
 finite, with strictly ordered hysteresis thresholds; cooldown must be at
 least one sample window. Host-owned process managers never inherit these
 native worker policies. Automated decisions, readiness and graceful
-scale-in passed C3 QA; the 30-minute release saturation/soak is a separately completed U15 resource gate, not proof of any unsupported host mode.
+scale-in can be tested with live worker samples; a load soak does not
+prove compatibility with unsupported hosts.
 
 Pure autoscale decision model and native integration
 ----------------------------------------------------
@@ -161,7 +160,8 @@ The decision function itself remains pure: it does not directly fork
 or terminate workers. The native Supervisor now consumes controller
 observations and performs real bounded spawn/retire and readiness/drain.
 Host-owned runtimes still do not inherit those process controls.
-C3 acceptance is complete; final performance certification remains U15.
+For production, verify autoscale decisions, readiness and graceful drains
+under representative traffic.
 
 
 Optional PSR-7/17 interoperability boundary
@@ -183,7 +183,7 @@ reactor callbacks. A synchronous PSR-18 HTTP client is **not** provided;
 that contract requires a separate off-loop, transport and body-stream
 integration with its own acceptance suite.
 `tests/PsrMessageBridgeTest.php` uses an independent Nyholm PSR-17
-implementation as a development-only interoperability fixture.
+implementation as an optional interoperability test fixture.
 
 
 A decision walkthrough for native versus hosted PHP

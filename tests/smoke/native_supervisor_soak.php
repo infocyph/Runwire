@@ -7,7 +7,7 @@ spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, $prefix)) {
         return;
     }
-    $path = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $path = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($path)) {
         require $path;
     }
@@ -21,7 +21,7 @@ use Infocyph\Runwire\Supervisor\WorkerGroup;
 $loop = new SelectLoop();
 $supervisor = new Supervisor($loop);
 $supervisor->group(new WorkerGroup(
-    'c3-soak',
+    'smoke-soak',
     2,
     static function ($context): void {
         $context->ready();
@@ -34,7 +34,7 @@ $supervisor->group(new WorkerGroup(
 
 $samples = 0;
 $supervisor->autoscale(
-    'c3-soak',
+    'smoke-soak',
     new AutoscalePolicy(minWorkers: 1, maxWorkers: 2, scaleOutQueueDepth: 1, sampleSeconds: 1.0, cooldownSeconds: 1.0),
     static function () use (&$samples): array {
         $phase = intdiv($samples++, 4);
@@ -156,7 +156,7 @@ try {
         || !in_array(2, $counts, true) || $p99 > 1_000.0
         || $maximumFds > 200 || memory_get_usage(true) - $baselineRss > 64 * 1024 * 1024
         || $supervisor->status()->workerCount !== 0) {
-        throw new RuntimeException('Sustained C3 autoscale safety, process budget, or convergence gate failed.');
+        throw new RuntimeException('Sustained Native autoscale safety, process budget, or convergence gate failed.');
     }
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . "\n");

@@ -1,8 +1,8 @@
 Runwire 3.0 performance evidence and threat boundaries
 ======================================================
 
-This development document reports no unverified percentage or
-throughput improvement. Runwire 2.1.2 remains the published release.
+This guide explains performance and security measurements without
+asserting unverified improvements.
 All numerical performance and release gates require matched
 production-equivalent evidence, not one short local benchmark.
 
@@ -77,10 +77,8 @@ transaction when durable replacement is required.
 QA provenance
 -------------
 
-Source and tests are tied to the immutable commit and workflow run
-IDs recorded in the canonical 3.0 tracker. No review should promote
-candidate status based only on documentation or a green standalone
-syntax check. Use the appropriate real hosted, native, Swoole,
+Tests and measured results should identify the source revision and
+runtime environment. Syntax checks do not replace real protocol tests. Use the appropriate real hosted, native, Swoole,
 portable, independent HTTP/3 and PHPForge matrices and preserve
 all failure logs and resource measurements.
 
@@ -88,7 +86,7 @@ Traceable benchmark and security gates
 --------------------------------------
 
 The following numbers are **required measurement criteria**, not claims
-that unreleased Runwire 3.0 has achieved them.
+that every deployment has achieved them.
 
 .. list-table:: Reproducible gates and source-of-truth instrumentation
    :header-rows: 1
@@ -104,7 +102,7 @@ that unreleased Runwire 3.0 has achieved them.
    * - Sample stability
      - Successful-RPS CV below 2.5 percent for both builds
      - ``benchmarks/release_topology_inventory.py`` and the
-       3.0 development-plan U15.09 proof gate
+       sustained-performance comparison
    * - Resource/GC/OPcache soak
      - 1800-second nominal duration; validated minimum 1740 seconds
      - ``benchmarks/soak_runtime_telemetry.php``
@@ -116,14 +114,14 @@ that unreleased Runwire 3.0 has achieved them.
      - ``src/Network/PoolIsolationKey.php`` and
        ``tests/PoolIsolationKeyTest.php``
 
-The Benchmarks workflow runs smaller noncertification diagnostics.
-The independent TLS, QUIC, host and security gates retain their own immutable workflow-run evidence in the canonical plan. The exact-source 2026-10-28 H2 five-pair, WebSocket five-pair on PHP8.4/8.5 and continuous full 1800s mixed resource trials passed; the prior fail-closed Release Certification rejected only still-open tracker tasks. A green profile job or Sphinx build **must not** be treated as a complete protocol performance certification; only the matched source-pinned comparisons and continuous mixed soaks qualify those performance gates. A new release decision must check the **final** source SHA and zero-open canonical ledger.
-
+Run the retained benchmark scripts and independent TLS, QUIC, host and
+security tests. A green Sphinx build or profile does not substitute for
+matched protocol comparisons or a sustained mixed-load resource soak.
 
 HTTP/1.1 diagnostic send-buffer contention
 ------------------------------------------
 
-The development adaptive HTTP/1.1 benchmark now distinguishes a transient
+The adaptive HTTP/1.1 benchmark now distinguishes a transient
 zero-byte nonblocking ``fwrite()`` from an actual failed write. A zero-byte
 write retains the current bounded request, preserves the unchanged
 two-second timeout and retries through select readiness; ``false``
@@ -131,6 +129,6 @@ remains an error. Transport counters separate connection, read and write
 failures and count blocked writes. This is an accounting/correctness fix,
 **not permission to ignore server failures, change concurrency or reduce
 release throughput and p99 acceptance budgets**. The strict benchmark still
-rejects all failed/incomplete requests. Prior W124 PHP 8.5 H1 adaptive
+rejects all failed/incomplete requests. An earlier PHP 8.5 H1 adaptive
 matrix failed with 256 errors; its source cause is not considered
 certified until matched workload QA passes.

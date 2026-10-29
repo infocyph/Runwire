@@ -3,8 +3,8 @@ Runwire 3.0 feature walkthroughs and decision guide
 
 This manual explains what each major feature does, why it exists, when it
 should be selected, how to use it and how to verify failures. Examples are
-for the 3.0 candidate checkout on 64-bit PHP 8.4+ and are not evidence
-that a development branch has already been published.
+for Runwire 3.0 on 64-bit PHP 8.4+; examples that require optional
+extensions must be tested on the intended deployment host.
 
 What to choose and when
 -----------------------
@@ -345,8 +345,8 @@ never derive scaling from constant demonstration values.
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_smoke.php
-   php .ci/c3_autoscale_http_traffic.php
+   php tests/smoke/native_supervisor_smoke.php
+   php tests/smoke/native_autoscale_http_traffic.php
 
 See :doc:`supervision-handbook-3.0`.
 
@@ -422,7 +422,7 @@ Production verification checklist
 #. Test cancellation, slow readers, wrong certificate and forced stop.
 #. Monitor p99, successful RPS, RSS, descriptors and real process exits.
 #. Re-run security, documentation, native, hosted and package QA for the
-   **same source SHA** before treating the candidate as qualified.
+   **same source SHA** before treating the application as production-ready.
 
 See :doc:`production-operations-3.0` for rollout and rollback and
 :doc:`troubleshooting-handbook-3.0` for incident diagnosis.

@@ -1,9 +1,7 @@
 Pool, proxy, relay and credential boundaries (Runwire 3.0)
 ==========================================================
 
-This is unreleased Runwire 3.0 development documentation, not
-production certification for client pools or proxy connectors.
-The branch includes bounded H1 connections, a constrained experimental
+Runwire provides bounded H1 connections and an experimental
 H2 one-shot TLS client, idle pool admission and TCP/Unix relay primitives;
 automatic pool-backed H2 multiplex reuse remains unfinished; bounded
 CONNECT/SOCKS5 negotiation has independently verified standalone adapters.
@@ -31,7 +29,7 @@ callback owner to evict any unsolicited inbound bytes, peer EOF or closed
 socket and never hands such sockets back to a caller. Global capacity
 pressure evicts the oldest idle socket. It does not establish connections,
 queue waiters, certify HTTP response framing or offer an HTTP client.
-The development stream provides ``Connection::isPoolIdleSafe()`` as a
+Runwire provides ``Connection::isPoolIdleSafe()`` as a
 fail-closed reuse preflight: it rejects unread response bytes, queued writes,
 peer EOF, outstanding scope ownership, protocol callback claims and close
 observers. This is a necessary condition only; the caller still must enforce
@@ -71,7 +69,7 @@ CONNECT path.
 Bidirectional stream relay
 --------------------------
 
-The 3.0 development branch now contains a preliminary
+Runwire 3.0 contains a preliminary
 ``Network\\StreamRelay`` for already-established TCP/Unix ``Connection``
 pairs. It takes exclusive protocol callback ownership of both connections,
 forwards bounded chunks using the existing receive/send queues and
@@ -88,7 +86,7 @@ bytes drain, without busy retries, and both sides close when finished.
 Cancellation and deadline still abort both sides immediately. Raw
 ``shutdown(SHUT_WR)`` is not an authenticated TLS ``close_notify``;
 encrypted relays retain fail-closed EOF behavior. The scoped cleartext
-half-close and cancellation task U10.08 was QA-accepted at 3e31268;
+half-close and cancellation behavior is covered by regression tests;
 TLS close-notify remains outside its verified scope.
 
 .. code-block:: console
@@ -158,7 +156,7 @@ management, a generalized proxy connector or safe retry of visible replies.
    vendor/bin/pest tests/ClientRedirectRetryPolicyTest.php tests/Http1PolicyClientTest.php
 
 The bounded H1 redirect/retry and proxy-secret isolation tasks U07.09 and
-U14.05 were QA-accepted at 3e31268. This does not certify transparent H2/H3
+include credential isolation tests. This does not certify transparent H2/H3
 redirects, authenticated proxy connectors or a shared cookie jar.
 
 Direct origin proxy-secret boundary
@@ -174,7 +172,7 @@ private headers and proxy-only secrets. This does **not** certify a
 proxy connector or proxy credential encryption implementation.
 
 
-Outbound proxy wire negotiation (unreleased)
+Outbound proxy wire negotiation
 --------------------------------------------
 
 The Socks5Handshake codec validates RFC 1928/1929 frames. Local DNS mode
@@ -193,10 +191,10 @@ untrusted peer identities fail closed. Data after a valid CONNECT response
 remains available to the next protocol owner.
 
 The standalone authenticated proxy CONNECT adapter and independent
-reference-based proxy-leg TLS QA are accepted under U10.04. Independently
+reference-based proxy-leg TLS QA are accepted under the supported proxy modes. Independently
 verified original-target TLS exists over a cleartext CONNECT tunnel,
 but there is no automatic high-level proxied client or supported
-TLS-over-TLS stream. The scoped U10.06 acceptance tests prove
+TLS-over-TLS stream. The scoped interoperability tests prove
 original-target TLS through cleartext CONNECT and fail-closed refusal
 of encrypted-proxy nesting, not successful double TLS.
 
@@ -239,7 +237,7 @@ policy, not proxy hostname authenticity or nested target TLS verification.
 Proxy hostile-response matrix (development)
 -------------------------------------------
 
-The grouped W118 proxy reliability suite uses real Runwire socket-pair
+The proxy reliability suite uses real Runwire socket-pair
 connections to reject invalid HTTP CONNECT headers, SOCKS5 authentication
 method substitution, malformed address replies, and oversized headers.
 The tests assert no tunnel handoff and no retained loop watchers or timers.
@@ -251,7 +249,7 @@ Incomplete reply timeout semantics (development)
 
 SOCKS5 method selection and CONNECT replies, like HTTP CONNECT response
 headers, are incremental: a short prefix is incomplete, not automatically
-an invalid response. The grouped W121 tests exercise fragmented prefixes
+an invalid response. The grouped proxy-fragmentation tests exercise fragmented prefixes
 through finite negotiation timeouts and require one terminal error with
 no early successful tunnel handoff. Invalid complete frames remain
 immediate failures.

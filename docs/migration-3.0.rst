@@ -1,10 +1,9 @@
-Runwire 2.1.2 to 3.0 development migration guide
-==================================================
+Migrating from Runwire 2.1.2 to 3.0
+===================================
 
-This guide is an implementation-aligned **draft** for unreleased Runwire 3.0.
-The published stable release is still 2.1.2. No source incompatibility
-or new public API should be treated as shipped until the final freeze and
-public-manifest comparison in U16.12/U17.01 is supported by source-pinned evidence, while behavioral compatibility and release permission remain separate.
+This guide explains API, error and lifecycle differences when upgrading
+applications from Runwire 2.1.2 to 3.0. Source-signature equality alone
+cannot guarantee identical runtime behavior.
 
 Core migration boundary
 -----------------------
@@ -20,7 +19,7 @@ without explicitly handing their callback owner and cancellation scope off.
    use Infocyph\Runwire\Loop\SelectLoop;
    use Infocyph\Runwire\Network\Dialer;
 
-   // In development: this outbound dialer complements 2.1.2 servers.
+   // The outbound dialer complements the inbound server runtime.
    $loop = new SelectLoop();
    $dialer = new Dialer($loop);
    $dialer->connect('tcp://127.0.0.1:8080',
@@ -76,7 +75,7 @@ Runwire 2.1.2 does not ship a built-in outbound HTTP client. Existing
 consumers relied on their own HTTP clients, not a Runwire client TLS
 context. Do not repurpose insecure server-side TLS defaults for dialing.
 
-The unreleased ``HttpNegotiatingOutboundClient`` selects HTTP/1.1 or
+The ``HttpNegotiatingOutboundClient`` selects HTTP/1.1 or
 HTTP/2 only **after verified TLS/ALPN negotiation**. Explicitly allowing
 fallback limits how a peer can choose a nonpreferred version. The experimental native HTTP/3 outbound client is a separate
 HTTPS/h3 transport over verified QUIC, with independent interop-tested
@@ -184,27 +183,23 @@ Native prefork workers require PCNTL/POSIX; PHP-FPM, FrankenPHP,
 RoadRunner and Swoole continue to own their host-specific listener/worker
 lifecycle. Optional ext-event, ext-swoole and ext-quic are not mandatory
 Composer dependencies. HTTP/2 has independently tested one-shot and
-experimental multiplexed TLS clients in 3.0 development. The HTTP/3 request
-client has a verified one-shot experimental implementation, but full
-H3 QPACK/multiplexing, CONNECT/SOCKS5 original-target TLS and final
-release benchmarks are **not complete**; no unreleased APIs
-should be treated as shipped.
+experimental multiplexed TLS clients in 3.0 development. The HTTP/3 request client requires native QUIC. Proxy negotiation and
+original-target TLS have distinct trust boundaries; consult
+:doc:`connection-policies-3.0` and :doc:`features`.
 
-The final migration acceptance requires an exact reflected 2.1.2 versus
-3.0 manifest diff for removed/renamed symbols, changed public parameters,
-enum cases, return types and exception behavior. This page intentionally
-does not claim that incomplete audit is finished.
+For a migration review, compare public API manifests, renamed types,
+method signatures, enum cases, callbacks and exception behavior.
 
 .. code-block:: console
 
    php tools/public-api-manifest.php src /tmp/runwire-current-api.json $(git rev-parse HEAD)
    vendor/bin/pest tests/PublicApiMigrationCompatibilityTest.php
 
-The 2.1.2 baseline manifest is pinned independently under the development
-tracker; never relabel current source as the historical 2.1.2 revision.
+The 2.1.2 baseline manifest is pinned independently under ``qa/release-baseline/``; never relabel current source as
+historical 2.1.2 code.
 
-Automated source-signature comparison (development)
----------------------------------------------------
+Automated source-signature comparison
+-------------------------------------
 
 Run the source-only API manifest exporter against an unchanged checkout of
 published 2.1.2 and the 3.0 development revision, then compare them with
@@ -222,16 +217,15 @@ optional PHP extensions or invoking network APIs.
 The Source Audit workflow additionally regenerates both immutable source
 manifests with ``--with-properties``, checks the property inventory,
 runs the deterministic diff and archives ``migration-source-diff.json``.
-The generated delta is a **source-only input**, not proof of behavioral
-compatibility or approval to publish. The final release audit
-must still document each intentional breaking change, review callback and
-exception behavior and pin both immutable source revisions. **U16.12 and U17.01 are QA-accepted in the canonical source-migration tracker.** This does not authorize publication.
+The generated diff is a **source-only input**. Review intentional API
+changes and exception ordering using application tests and preserve both
+source revisions for reproduction.
 
 Reviewed 2.1.2-to-3.0 source API differences
 ----------------------------------------------
 
-The W97 [1]_ independently archived Source Audit exported the pinned 2.1.2
-public API (350 PHP types) and this unreleased 3.0 development snapshot
+An archived [1]_ Source Audit exported the pinned 2.1.2
+public API (350 PHP types) and a 3.0 source snapshot
 (414 types) with **complete public property inventories**. The source-only
 diff reports 64 added types, two apparent removed methods, six constructor
 signature changes and 26 implementation hashes changed without declaration
@@ -278,7 +272,7 @@ Source Audit fails on unreviewed public removals, changed signatures,
 property/enum/constant changes or incomplete source inventories, and
 records the checked output as ``migration-reviewed-contract.json``.
 Its strict source check does **not** establish behavioral compatibility.
-U16.12 has source-linked test-backed migration acceptance; its declaration-only scanner does not establish universal behavioral compatibility.
+A declaration-only scanner does not establish universal behavioral compatibility.
 
 .. [1] Exact source and baseline artifacts:
    https://github.com/infocyph/Runwire/actions/runs/40163809510
@@ -293,7 +287,7 @@ manifest integrity guard. The pinned historical 2.1.2 source manifest was
 created before this optional field existed. The diff CLI therefore reports
 ``propertyInventoryCompared: false`` when comparing against that older archive;
 it **does not** assert that removed properties were audited in that case.
-To reproduce U16.12 acceptance, regenerate a 2.1.2 source-only manifest with the
+To reproduce the source audit, regenerate a 2.1.2 source-only manifest with the
 same exporter version using ``--with-properties`` and repeat the immutable
 baseline comparison without modifying the original pinned source-manifest lock. Property
 and method behavior still requires maintainer-reviewed migration examples.

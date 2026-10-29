@@ -4,15 +4,9 @@ A high-performance, framework-agnostic process and network runtime for PHP.
 
 Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
 
-**Release target: Runwire 3.0.0 (candidate, not yet published).** The [3.0 developer handbook](docs/index.rst) is the authoritative guide to the current branch. The currently published Composer version may be older; historical release materials remain in Git history rather than the active documentation tree.
-
-## Runwire 3.0 developer documentation (unreleased)
-
-**GitHub-only certification scope:** The external hosted Read the Docs preview/interactive site tasks were retired from the active 3.0 tracker on October 27, 2026. The full native Sphinx manual, generated API, source-stamped searchable HTML and runnable examples are validated by GitHub-hosted workers. This does not assert external documentation publishing.
-
-The complete source-aligned **[Runwire 3.0 developer handbook](docs/index.rst)** includes [end-to-end feature walkthroughs](docs/feature-workflows-3.0.rst), an [executable first-use lab](docs/quickstart-lab-3.0.rst), [protocol failure and drain atlas](docs/protocol-failure-atlas-3.0.rst), [operations exercises](docs/operations-exercises-3.0.rst), [2.1.2 migration audit](docs/compatibility-audit-3.0.rst), and [performance qualification lab](docs/performance-lab-3.0.rst), alongside API signatures, native/host runtime configuration, security, troubleshooting and full feature inventory.
-
-**Version boundary:** These pages describe the current **unreleased 3.0** branch. `composer require infocyph/runwire` continues to install published stable **2.1.2** unless the consuming application explicitly selects another available version. Earlier technical evidence includes real 1800s mixed workloads on PHP 8.4/8.5 and matched protocol comparisons; each new candidate SHA requires its own release gate. A source-complete Sphinx build is not an externally hosted Read the Docs preview, which remains operator-managed and outside the GitHub-only scope. No release, tag, merge, or publication has been authorized.
+Explore the [Runwire 3.0 developer handbook](docs/index.rst) for complete
+feature walkthroughs, examples, protocol and worker lifecycle guides,
+security controls, deployment and migration instructions.
 
 ## Requirements
 
@@ -417,15 +411,6 @@ Repository benchmark artifacts are regression/workload evidence, not a universal
 
 Report throughput together with p50/p95/p99 latency, errors, CPU, and RSS.
 
-Before a release-critical tag/merge, the opt-in Release Certification workflow covers:
-
-| Gate | What it proves |
-| --- | --- |
-| Matched sustained performance | Five 180-second baseline/candidate trials after warmup; correctness, stability, and the 5% throughput-regression budget. |
-| 30-minute native HTTP soak | Sustained correctness with zero errors, timeouts, or response-validation failures. |
-| Standalone Composer consumers | Exact candidate archive installs and serves verified requests on PHP 8.4 and PHP 8.5. |
-| PHPForge release guard | Required extensions/platform checks plus the full `composer ic:release:guard` gate. |
-
 See [performance qualification](docs/performance-qa-handbook-3.0.rst) for methodology, measurements and acceptance conditions.
 
 ## Documentation
@@ -440,9 +425,6 @@ and built with strict Sphinx checks. Start with:
 - [Security and capabilities](docs/security-handbook-3.0.rst)
 - [Production operations](docs/production-operations-3.0.rst)
 - [Migration from 2.1.2](docs/migration-3.0.rst)
-
-Historical 2.0/2.1.x documentation is preserved in tagged Git history, not
-duplicated in the active 3.0 manual.
 
 ## Development
 

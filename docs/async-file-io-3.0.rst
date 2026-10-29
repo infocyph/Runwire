@@ -2,8 +2,8 @@
 Runwire 3.0: bounded asynchronous file I/O
 ==========================================
 
-This chapter documents the pre-release 3.0 file-processing contract.
-Use only a verified candidate checkout until 3.0 is actually published.
+This chapter documents bounded filesystem operations executed by worker
+processes, their cancellation semantics and unsupported I/O guarantees.
 
 The ``Filesystem\AsyncFileSystem`` facade delegates each bounded
 operation to a reusable ``Executor\ProcessExecutor`` running blocking PHP
@@ -48,7 +48,7 @@ I/O. A future native file backend must separately demonstrate off-reactor
 execution, correct cancellation and deadline ownership, and equivalent real
 file tests before capability detection may select it. Existing callers never
 silently switch to a synchronous file path when an extension is absent.
-Untrusted path handling needs explicit U11.09 access policy. A successful
+Untrusted paths need an explicit filesystem access policy. A successful
 ``fflush`` does not imply durable ``fsync`` across power failure.
 
 
@@ -87,10 +87,10 @@ explicit unsupported capability, not an invitation to assume that
 ``fflush``/``rename`` alone guarantee persistence. Path/symlink/TOCTOU and sandbox authorization remain separate threat
 boundaries; see the worker-side path-security tests below.
 
-Portable open-file API contract (pre-release)
-----------------------------------------------
+Portable open-file API contract and limitations
+-----------------------------------------------
 
-The unreleased 3.0 source declares a future ``AsyncFileOperationsInterface``
+Runwire 3.0 declares an ``AsyncFileOperationsInterface``
 for open, read, write, stat, rename, unlink and cancellation. An asynchronous
 open must deliver a worker-owned ``AsyncFileHandleInterface`` through a
 completion callback. ``FileAccessMode`` defines separate read/write roles.
@@ -106,7 +106,7 @@ quotas, and subject to inherited cancellation/deadlines.
 
    vendor/bin/pest tests/AsyncFileApiContractTest.php
 
-Restricted worker-side paths (pre-release)
+Restricted worker-side paths
 ------------------------------------------------
 
 ``AsyncFileSystem($executor, rootDirectory: '/srv/app/data')`` enables an
@@ -128,14 +128,14 @@ That acceptance is **not** a promise of kernel-enforced sandboxing.
 Adversarial filesystem path and permission checks
 -------------------------------------------------
 
-The development security suite ``tests/AsyncFileSystemSecurityTest.php``
+The security regression suite ``tests/AsyncFileSystemSecurityTest.php``
 executes real worker-backed operations against lexical parent traversal,
 off-root paths, leaf and ancestor symlinks, symlinked roots, unreadable and
 unwritable leaves, and prohibited rename/unlink/stat operations. It verifies
 that the original outside file and allowed file remain unchanged, and that
 all worker handles/watchers are retired.
 
-The exact W96 PHPForge security/functional matrix passed these worker tests.
+The PHPForge security and functional matrix covers these worker tests.
 That acceptance verifies checked path and permission cases only.
 It does **not** eliminate a time-of-check/time-of-use race if another
 process can rename or replace path components between validation and the

@@ -4,11 +4,9 @@ Runwire 2.1.2 to 3.0 migration playbook
 Migration status and source of truth
 ------------------------------------
 
-Runwire 2.1.2 is published stable. Runwire 3.0 is unreleased; this
-document prepares its transition without declaring a final behavioral
-compatibility audit, completed matched benchmarks, frozen 3.0 API or
-maintainer authorization to publish it. Keep the 2.1.2 runtime and
-configuration available for rollback.
+This playbook covers application migration from Runwire 2.1.2 to 3.0.
+Keep a known-good previous version, dependencies and configuration ready
+for rollback.
 
 A source-level compatibility review compared published 2.1.2 at commit
 `7e9bf20ad0737a187dfed77b723791b141b36378` with a Runwire
@@ -80,7 +78,7 @@ Outbound connection: new optional composition
 ---------------------------------------------
 
 Published 2.1.2 applications commonly used their own outbound client.
-The unreleased 3.0 branch adds a separate loop-bound dial and
+Runwire 3.0 adds a separate loop-bound dial and
 origin-verifying TLS stack. **Do not** replace an existing mature
 HTTP client automatically merely because the new types exist.
 
@@ -167,14 +165,12 @@ The exact manifest and comparison tools are
 `tools/public-api-manifest.php` and
 `tools/public-api-migration-audit.php`. Run the published
 baseline and candidate through the **same** version of those tools
-and archive raw diffs. The older W97 audit identified 26 changed implementation hashes.
-The newer C4 property-aware [Source Audit #40525557734] identified
+and archive raw diffs. A property-aware source audit identified
 32 changed public implementations and the test-backed exact-diff
 disposition ledger under
 ``qa/release-baseline/c4-migration-behavior-ledger.json``.
 The source audit now fails if a changed public implementation lacks a
-migration disposition and executable regression test. The C5 release
-freeze still requires revalidation and maintainer approval.
+migration disposition and executable regression test. Recompute the comparison after changing the checked-out source.
 
 Migration phases and rollback
 -----------------------------
@@ -197,9 +193,9 @@ host suites, native crash/reload, mixed outgoing connections and
 file-worker cancellation under real quotas. Confirm request reset
 between persistent host requests.
 
-**Phase 5 — Performance qualification.** Execute U15 matched
+**Phase 5 — Performance qualification.** Execute matched
 five-pair 180-second baseline/candidate study and 1800-second
-process-tree soak. Do not promote shorter C3 diagnostics to that
+process-tree soak. Do not promote shorter diagnostics to that
 criterion.
 
 **Phase 6 — Canary.** Roll out to a small controlled share; monitor
@@ -208,8 +204,7 @@ worker restarts and verified TLS failures.
 
 **Phase 7 — Freeze and approval.** Re-run all exact-head QA,
 update migration/reference documentation, obtain maintainer signoff
-and only then authorize tagging or publishing. A draft PR remains
-unmerged and unreleased until explicit maintainer direction.
+and obtain approval before deploying the application update.
 
 Rollback is to the separately supported previous artifact and
 configuration, not an unreviewed Git branch. Ensure application

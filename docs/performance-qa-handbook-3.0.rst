@@ -4,8 +4,8 @@ Performance methodology, benchmarking and QA evidence
 Separate diagnostic measurements from release certification
 -----------------------------------------------------------
 
-Runwire 3.0 has extensive native and protocol tests, but completion of
-C3 alone did not finish the **C4 U15 release performance program**; later source-frozen five-pair H1/H2/WS and uninterrupted 1800s resource certification passed.
+Native smoke tests, five-pair H1/H2/WebSocket comparisons and sustained
+1800-second resource-soak tests measure distinct performance properties.
 Short-lived native supervisor smoke runs, filesystem microbenchmarks,
 a reproducible protocol diagnostic matrix and a final frozen
 five-pair baseline study answer different questions.
@@ -33,7 +33,7 @@ Test pyramid
    * - Real hosted runtime
      - Host-owned request worker correctness
      - Native supervisor behavior under all signal combinations
-   * - C3 process lifecycle smoke
+   * - Native process lifecycle smoke
      - SIGKILL/reload/scale/drain, short/120s resource bounds
      - Final 1800-second release resource plateau
    * - Independent H2/H3 peer
@@ -82,7 +82,7 @@ Resource soak: 1800 seconds
 The final process-tree soak lasts 1800 seconds and checks long-running
 CPU/RSS/FD, cache/GC/OPcache effects, repeated worker recycle,
 connection teardown and absence of stale processes. A C3 120-second
-native supervisor soak is valuable evidence for its C3 task but **is
+native supervisor soak is valuable but **is
 not** the release soak. Sample the full process tree rather than only
 the parent PHP heap.
 
@@ -112,9 +112,9 @@ Reproducible repository gates
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_soak.php
-   php .ci/c3_autoscale_http_traffic.php
-   php .ci/c3_filesystem_smoke.php
+   php tests/smoke/native_supervisor_soak.php
+   php tests/smoke/native_autoscale_http_traffic.php
+   php tests/smoke/native_filesystem_smoke.php
 
 The repository's active workflow definitions are:
 

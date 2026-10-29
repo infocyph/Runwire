@@ -8,7 +8,7 @@ spl_autoload_register(static function (string $class): void {
         return;
     }
 
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -78,4 +78,4 @@ if ($diagnostics->timersActive !== 0 || $diagnostics->readWatchers !== 0 || $dia
     throw new RuntimeException('Worker-owned resources remained after injected timer-cancel fault.');
 }
 
-fwrite(STDOUT, "C3 worker stop fault isolation and retryable periodic timer cleanup PASS\n");
+fwrite(STDOUT, "Native worker stop fault isolation and retryable periodic timer cleanup PASS\n");

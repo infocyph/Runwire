@@ -4,10 +4,8 @@ Hands-on Runwire 3.0 learning path
 Read this before starting
 -------------------------
 
-These exercises describe **unreleased Runwire 3.0 source**, not the
-published 2.1.2 package. Use a checked-out 3.0 development branch.
-They rely on source-backed runnable fixtures, separate network peers
-and observable cleanup rather than assumed cloud services.
+These Runwire 3.0 exercises use runnable source examples, independent
+network peers and observable cleanup rather than assumed cloud services.
 
 Run with 64-bit PHP 8.4 or 8.5, Composer and free loopback ports.
 Prefork stages also require PCNTL/POSIX; TLS stages require OpenSSL,
@@ -82,9 +80,9 @@ Real prefork ownership regression:
 
 .. code-block:: console
 
-   php .ci/c3_listener_fork_smoke.php
-   php .ci/c3_dialer_smoke.php
-   php .ci/c3_cleanup_fault_smoke.php
+   php tests/smoke/native_listener_fork_smoke.php
+   php tests/smoke/native_dialer_smoke.php
+   php tests/smoke/native_cleanup_fault_smoke.php
 
 These commands require a permitted CLI process with PCNTL. See
 :doc:`runtime-lifecycle-3.0` and :doc:`supervision-handbook-3.0`.
@@ -138,7 +136,7 @@ not qualified kernel-native asynchronous file I/O.
 
    vendor/bin/pest tests/AsyncFileSystemTest.php
    vendor/bin/pest tests/AsyncFileSystemSecurityTest.php
-   php .ci/c3_filesystem_smoke.php
+   php tests/smoke/native_filesystem_smoke.php
 
 Pathname checks are not a race-free sandbox. If another actor can
 mutate symlink ancestors between validation and the actual open,
@@ -152,10 +150,10 @@ Run these only where signals and fork are supported:
 
 .. code-block:: console
 
-   php .ci/c3_supervisor_smoke.php
-   php .ci/c3_supervisor_fault_smoke.php
-   php .ci/c3_concurrent_fault_smoke.php
-   php .ci/c3_autoscale_http_traffic.php
+   php tests/smoke/native_supervisor_smoke.php
+   php tests/smoke/native_supervisor_fault_smoke.php
+   php tests/smoke/native_concurrent_fault_smoke.php
+   php tests/smoke/native_autoscale_http_traffic.php
 
 Observe readiness, actual worker-count transitions, restart budget,
 reload generation handoff, controlled scale-in, exact HTTP replies
@@ -187,4 +185,4 @@ skipped native-QUIC lane to success on an incapable platform.
 
 Use :doc:`operations-exercises-3.0` for rollback scenarios,
 :doc:`compatibility-audit-3.0` for published-version migration and
-:doc:`performance-lab-3.0` for full C4 performance certification.
+:doc:`performance-lab-3.0` for performance test methods and representative load scenarios.

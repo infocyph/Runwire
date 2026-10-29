@@ -37,7 +37,7 @@ it('keeps supported 3.0 manuals and explicit proxy TLS migration limitations', f
         ->toContain('original destination')
         ->toContain('sibling streams', 'bounded QPACK handling', 'authenticated negotiation')
         ->toContain('nested TLS record layer', 'fails closed', 'not an HTTPS-through-proxy client')
-        ->toContain('unreleased');
+        ->toContain('original destination');
 });
 
 it('rejects short native RST heading underlines throughout the published manual', function (): void {

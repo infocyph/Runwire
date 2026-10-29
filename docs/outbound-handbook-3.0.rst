@@ -183,7 +183,7 @@ rather than assuming a local unit test covers external peers. See
 :doc:`security-handbook-3.0`.
 
 
-### Opt-in DNS coalescing and bounded cache (Runwire 3.0 candidate)
+Opt-in DNS coalescing and bounded cache
 
 `Network\\CachedDnsResolver` composes `AsyncDnsResolver` through the small
 `DnsResolverInterface` and may be injected into `HappyEyeballsDialer`.

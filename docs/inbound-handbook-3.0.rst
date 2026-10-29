@@ -195,7 +195,7 @@ application must authorize the handshake before switching protocols.
 **When:** choose this for an interactive H1 browser/client connection,
 not as an HTTP/2 or HTTP/3 extended-CONNECT implementation.
 
-Save as ``websocket.php`` in a candidate checkout:
+Save as ``websocket.php`` in the repository root:
 
 .. code-block:: php
 

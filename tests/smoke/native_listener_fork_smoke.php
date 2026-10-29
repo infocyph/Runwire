@@ -8,7 +8,7 @@ spl_autoload_register(static function (string $class): void {
         return;
     }
 
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -82,4 +82,4 @@ if ($loop->diagnostics()->readWatchers !== 0) {
     throw new RuntimeException('Listener close leaked parent loop watchers.');
 }
 
-fwrite(STDOUT, "C3 listener PID ownership: real prefork child, parent, inherited active operations PASS\n");
+fwrite(STDOUT, "Native listener PID ownership: real prefork child, parent, inherited active operations PASS\n");

@@ -78,7 +78,7 @@ latency includes DNS/dial/TLS, queue wait, application processing,
 socket backpressure, peer read rate and connection closure.
 An excellent loop p99 does not prove users experienced low p99.
 
-For example, the C3 native 120-second harness recorded low loop jitter
+For example, a native 120-second harness recorded low loop jitter
 and successful HTTP local-client p99 separately. Those measurements
 are staging diagnostics, not general production performance promises.
 

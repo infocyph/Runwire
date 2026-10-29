@@ -7,7 +7,7 @@ spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, $prefix)) {
         return;
     }
-    $path = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $path = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($path)) {
         require $path;
     }
@@ -152,7 +152,7 @@ try {
         || count(array_unique($pids)) !== 4 || $supervisor->status()->workerCount !== 0) {
         throw new RuntimeException('Mixed-peer crash, recycle, reload, or stop did not fully complete.');
     }
-    fwrite(STDOUT, "C3 live HTTP/1 + TCP + UDP across SIGKILL/recycle/reload/stop passed.\n");
+    fwrite(STDOUT, "Native live HTTP/1 + TCP + UDP across SIGKILL/recycle/reload/stop passed.\n");
 } finally {
     fclose($http);
     fclose($tcp);

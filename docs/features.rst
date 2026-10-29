@@ -1,169 +1,141 @@
-Complete feature status catalog — Runwire 2.1.2 and 3.0
-============================================================
+Runwire 3.0 features and supported capabilities
+===============================================
 
-**Published stable:** Runwire 2.1.2. **Development candidate:** 3.0.0.
-An implemented source primitive is not a public release guarantee.
+Capabilities depend on the runtime driver, host permissions and installed
+PHP extensions. Experimental integrations and unsupported transport modes
+are explicitly identified.
+
 
 Network, protocols and worker capabilities
 ------------------------------------------
 
-.. list-table:: Versioned feature inventory with host and extension constraints
+.. list-table:: Feature inventory with host and extension constraints
    :header-rows: 1
-   :widths: 25 18 22 19 16
+   :widths: 25 36 19 20
 
    * - Capability
-     - Published 2.1.2
      - 3.0 source status
      - Host and transport
      - Prerequisites and limits
    * - TCP and Unix server
-     - Inbound listener
      - Shared connection owner
      - Native Select and supported hosts
      - 64-bit PHP 8.4+
    * - TLS server
-     - TLS listener
      - Verified ownership
      - Native and host-managed TCP
      - OpenSSL trust policy
    * - HTTP/1.1 server
-     - Streaming H1
      - Existing parser and bounded writer
      - Accepted TCP/TLS
      - Shared byte budgets
    * - HTTP/2 server
-     - Multiplexed H2
      - Single stream scheduler and flow owner
      - Accepted TCP/TLS
      - HPACK / GOAWAY / frame caps
    * - HTTP/3 server
-     - Optional H3
      - Real independent H3/QUIC peer tests
      - Native QUIC host only
      - ext-quic / compatible OpenSSL
    * - HTTP/1.1 outbound
-     - No complete client
      - Verified H1 exchange, bounded upload and opt-in safe redirect/retry
      - Outgoing TCP/TLS
      - No general-purpose H2/H3 fallback
    * - HTTP/2 outbound
-     - No complete client
-     - Verified H2 request/response, bounded multiplex, flow control and peer GOAWAY; source-frozen peer QA and matched H2 performance accepted
+     - Verified H2 request/response, bounded multiplex, flow control and peer GOAWAY; independent peer testing
      - Outgoing TLS with ALPN
      - Independent TLS/ALPN hyper-h2 peer QA passed; no H2 extended CONNECT
    * - HTTP/3 outbound
-     - No complete client
-     - Verified H3 client control streams, bounded QPACK, sibling requests and cancellation; U07 accepted
+     - Verified H3 client control streams, bounded QPACK, sibling requests and cancellation; validated with focused tests
      - Outgoing QUIC
-     - Native ext-quic and independent aioquic/ngtcp2 QA; scoped source-frozen U17 verification accepted
+     - Native ext-quic and independent aioquic/ngtcp2 QA; scoped independent protocol QA
    * - WebSocket server
-     - Inbound H1 upgrade
      - H1 upgrade/close verified
      - Accepted H1 connection
      - Masking and frame limits
    * - WebSocket client
-     - No built-in client
-     - Verified outbound ws/wss HTTP/1.1 handshake, subprotocols and masked framing; U09 accepted
+     - Verified outbound ws/wss HTTP/1.1 handshake, subprotocols and masked framing; validated with focused tests
      - Outbound TCP/TLS, Select loop
      - Independent WSS/close/cancellation/multi-peer QA passed; no H2/H3 extended CONNECT
    * - H2/H3 extended CONNECT
-     - Not advertised
      - Not qualified
      - HTTP/2 or HTTP/3
      - No support claim
    * - Inbound and outbound UDP
-     - Datagram server
      - Connected/unconnected endpoint budgets
      - Native UDP
      - OS socket support
    * - Native QUIC outbound
-     - No unified client
      - Verified TLS 1.3/ALPN peer connection
      - Optional native worker
      - No native migration/0-RTT/datagrams
    * - TCP/TLS/Unix dialer
-     - Not unified
      - Nonblocking verified outgoing streams
      - Portable and host-loop adapters
      - OpenSSL for TLS
    * - Async DNS/Happy Eyeballs
-     - Not complete
      - Off-loop DNS and racing
      - Bounded process executor
      - proc_open/process pipes
    * - Pooled connections
-     - Not unified
      - Scoped bounded active leases, FIFO waiters, idle TTL and owner transfer
      - Outbound streams
      - No integrated high-level HTTP dial pool
    * - CONNECT/SOCKS5 proxy
-     - Not unified
      - Proxy tunnel development
      - Outgoing TCP/TLS
      - Credential policy gated
    * - Bidirectional relay
-     - Not unified
      - Bounded duplex relay with drained cleartext half-close and cancellation
      - TCP/Unix streams
      - TLS close-notify/relay throughput are not release-qualified features; no TLS relay guarantee
    * - Fiber tasks and cancellation
-     - Supported
      - Structured scope/channel/deadline ownership
      - Select and host reactors
      - Exactly one resource owner
    * - Async disk jobs
-     - Not built in
      - Bounded subprocess-backed read/write/stat with opt-in root policy
      - Scope or worker-owned executor
      - No native disk AIO or race-free sandbox
    * - File/network transfer
-     - Not built in
      - Experimental bounded chunk bridge
      - TCP/Unix plus file executor
      - Slow-peer transfer path remains experimental, not a release-qualified general file sender
    * - Atomic file durability
-     - Not guaranteed
      - Crash-safe replace not yet implemented
      - Host filesystem semantics
      - No crash-durable or race-free sandbox guarantee
    * - Native process supervision
-     - Restart and reload
      - Generation and recycle controls
      - Native fork/signal owner
      - PCNTL and POSIX required
    * - Automatic autoscaling
-     - Not built in
-     - Real hysteresis-controlled native worker scale-out/scale-in; C3 QA accepted
+     - Real hysteresis-controlled native worker scale-out/scale-in; available in native mode
      - Native PCNTL/POSIX worker groups only
      - Full 1800s mixed worker/process-tree soak qualified on PHP 8.4 and 8.5
    * - FPM/FrankenPHP/RoadRunner
-     - Host adapters
      - Real-host request isolation tested
      - External host owns workers
      - Explicit socket lifetimes
    * - Swoole/OpenSwoole
-     - Host adapter
      - Real reactor and outgoing dial tested
      - External host owns reactor
      - No competing loop
    * - Optional ext-event
-     - Optional acceleration
      - Portable/native PHP8.4 and PHP8.5 CI acceptance
      - EventLoop adapter
-     - Real independent PHP8.4/8.5 compatibility QA accepted
+     - Real independent PHP8.4/8.5 compatibility verified
    * - Security and diagnostics
-     - Existing controls
      - Bounded budgets and observations
      - Host/worker/connection scopes
      - Source-frozen PHPForge stable/lowest QA and independent native protocol/security lanes accepted
 
-Release status interpretation and limitations
----------------------------------------------
+Capabilities and limitations
+----------------------------
 
-The stable column describes currently shipped 2.1.2 features. The candidate
-column describes implementation or planned status **on the draft Runwire 3.0
-branch**, not final certification. Explicitly unsupported native QUIC datagrams,
-connection migration and 0-RTT dispatch fail closed; they are not emulated.
+The feature column describes Runwire 3.0 capabilities and their constraints.
+Unsupported native QUIC datagrams, connection migration and 0-RTT dispatch
+fail closed; they are not emulated.
 
 **WebTransport is not included in Runwire 3.0.** At release planning time,
 the available PHP native QUIC backend (``ext-quic`` with OpenSSL) did not
@@ -193,10 +165,11 @@ filesystem I/O require access to a usable PHP CLI and process pipes, while
 native prefork supervision requires PCNTL and POSIX.
 
 The host compatibility matrix, coroutine ownership guide and async-file
-development guide provide the host-specific lifecycle, quotas and errors.
-The source-linked complete PHP API reference, 2.1.2-to-3.0 migration
-ledger and bounded H2/H3 client integration have task-scoped QA acceptance.
-The full 1800-second mixed worker soak and source-frozen H1/H2/WebSocket comparisons have passed in GitHub Actions for the technical 3.0 candidate. External Read the Docs provisioning is intentionally out of the scoped release tracker; final exact-head Release Certification remains a separately verified gate. This page does not authorize publication.
+I/O guide explain per-host lifecycles, quotas and errors. The migration
+guide covers differences from previous versions; the generated API
+reference provides source-linked public declarations. For independent
+protocol and 1800-second mixed resource testing, consult the
+:doc:`performance-qa-handbook-3.0`.
 
 
 Where each major feature has examples and full explanations
