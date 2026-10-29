@@ -7,7 +7,7 @@ spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, $prefix)) {
         return;
     }
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -93,7 +93,7 @@ try {
         ));
     }
 
-    fwrite(STDOUT, "C3 native SIGKILL recovery and bounded crash-loop smoke passed.\n");
+    fwrite(STDOUT, "Native native SIGKILL recovery and bounded crash-loop smoke passed.\n");
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . "\n");
     throw $error;

@@ -7,7 +7,7 @@ spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, $prefix)) {
         return;
     }
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -27,4 +27,4 @@ if ($gate->pendingWindows() !== 0 || $gate->observe(1, 0.9, 2, 10.0, 300.0, 2.0)
     || $gate->observe(1, 0.9, 2, 10.0, 300.0, 3.0) !== 2) {
     throw new RuntimeException('Invalid metric window did not break consecutive pressure voting.');
 }
-fwrite(STDOUT, "C3 autoscale telemetry safety contract passed.\n");
+fwrite(STDOUT, "Native autoscale telemetry safety contract passed.\n");

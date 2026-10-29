@@ -8,7 +8,7 @@ spl_autoload_register(static function (string $class): void {
         return;
     }
     $relative = substr($class, strlen($prefix));
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', $relative) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', $relative) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -20,14 +20,14 @@ use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
 if (!function_exists('pcntl_fork') || !function_exists('posix_getpid')) {
-    fwrite(STDERR, "C3 supervisor smoke requires native pcntl and posix.\n");
+    fwrite(STDERR, "Native supervisor smoke requires native pcntl and posix.\n");
     throw new RuntimeException('Native process extensions are required for this fixture.');
 }
 
 $loop = new SelectLoop();
 $supervisor = new Supervisor($loop);
 $supervisor->group(new WorkerGroup(
-    name: 'c3-smoke',
+    name: 'smoke-smoke',
     count: 2,
     bootstrap: static function ($context): void {
         $context->ready();
@@ -40,7 +40,7 @@ $supervisor->group(new WorkerGroup(
 
 $samples = 0;
 $supervisor->autoscale(
-    'c3-smoke',
+    'smoke-smoke',
     new AutoscalePolicy(minWorkers: 1, maxWorkers: 2, scaleOutQueueDepth: 1, sampleSeconds: 1.0, cooldownSeconds: 1.0),
     static function () use (&$samples): array {
         ++$samples;
@@ -77,7 +77,7 @@ try {
     $status = $supervisor->status();
     if (!$seenOne || !$seenTwo || $duplicateSlot || $status->workerCount !== 0 || $samples < 7) {
         throw new RuntimeException(sprintf(
-            'C3 native autoscale smoke failed: min=%d max=%d duplicate=%d remaining=%d samples=%d.',
+            'Native native autoscale smoke failed: min=%d max=%d duplicate=%d remaining=%d samples=%d.',
             (int) $seenOne,
             (int) $seenTwo,
             (int) $duplicateSlot,
@@ -86,7 +86,7 @@ try {
         ));
     }
 
-    fwrite(STDOUT, "C3 native autoscale smoke passed.\n");
+    fwrite(STDOUT, "Native native autoscale smoke passed.\n");
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . "\n");
     throw $error;

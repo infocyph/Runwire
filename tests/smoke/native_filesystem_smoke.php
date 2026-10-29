@@ -7,7 +7,7 @@ spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, $prefix)) {
         return;
     }
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -17,7 +17,7 @@ use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Filesystem\AsyncFileSystem;
 use Infocyph\Runwire\Loop\SelectLoop;
 
-$path = tempnam(sys_get_temp_dir(), 'runwire-c3-fs-');
+$path = tempnam(sys_get_temp_dir(), 'runwire-smoke-fs-');
 if (!is_string($path)) {
     throw new RuntimeException('Unable to allocate filesystem fixture.');
 }
@@ -65,10 +65,10 @@ try {
         || $ticks < 4 || $diag['workers'] !== 0 || $diag['queued'] !== 0
         || $loopDiagnostics->readWatchers !== 0 || $loopDiagnostics->writeWatchers !== 0
         || $loopDiagnostics->timersActive !== 0) {
-        throw new RuntimeException('C3 portable filesystem IPC/cancellation/cleanup invariants failed: '
+        throw new RuntimeException('Native portable filesystem IPC/cancellation/cleanup invariants failed: '
             . json_encode(['checks' => $checks, 'ticks' => $ticks, 'executor' => $diag]));
     }
-    fwrite(STDOUT, "C3 off-reactor binary filesystem read/write/rename/unlink and heartbeat passed.\n");
+    fwrite(STDOUT, "Native off-reactor binary filesystem read/write/rename/unlink and heartbeat passed.\n");
 } finally {
     $executor->close();
     if (is_file($path)) {

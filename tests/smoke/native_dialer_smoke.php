@@ -7,7 +7,7 @@ spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, $prefix)) {
         return;
     }
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -78,7 +78,7 @@ try {
         || $diag->readWatchers !== 0 || $diag->writeWatchers !== 0 || $diag->timersActive !== 0) {
         throw new RuntimeException('Owned pending dials did not cancel exactly once and retire watchers.');
     }
-    fwrite(STDOUT, "C3 fork-safe outbound dial and worker-owned pending cancellation passed.\n");
+    fwrite(STDOUT, "Native fork-safe outbound dial and worker-owned pending cancellation passed.\n");
 } finally {
     fclose($server);
     $context->close();

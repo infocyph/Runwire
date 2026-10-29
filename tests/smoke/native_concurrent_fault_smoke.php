@@ -7,7 +7,7 @@ spl_autoload_register(static function (string $class): void {
     if (!str_starts_with($class, $prefix)) {
         return;
     }
-    $file = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    $file = dirname(__DIR__, 2) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         require $file;
     }
@@ -20,13 +20,13 @@ use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
 if (!function_exists('pcntl_fork') || !function_exists('posix_kill')) {
-    throw new RuntimeException('Native process signals are required for C3 concurrent lifecycle QA.');
+    throw new RuntimeException('Native process signals are required for Native concurrent lifecycle QA.');
 }
 
 $loop = new SelectLoop();
 $supervisor = new Supervisor($loop);
 $supervisor->group(new WorkerGroup(
-    name: 'c3-concurrent-fault',
+    name: 'smoke-concurrent-fault',
     count: 2,
     bootstrap: static function ($context): void {
         $context->ready();
@@ -39,7 +39,7 @@ $supervisor->group(new WorkerGroup(
 
 $samples = 0;
 $supervisor->autoscale(
-    'c3-concurrent-fault',
+    'smoke-concurrent-fault',
     new AutoscalePolicy(minWorkers: 1, maxWorkers: 2, scaleOutQueueDepth: 1, sampleSeconds: 1.0, cooldownSeconds: 1.0),
     static function () use (&$samples): array {
         $busy = $samples >= 4 && $samples < 10;
@@ -102,7 +102,7 @@ $loop->delay(3.8, static function () use ($supervisor, &$killedPid): void {
 $loop->delay(6.4, static fn() => $supervisor->reload());
 $loop->delay(13.2, static function () use ($supervisor): void {
     // A graceful manual recycle can coincide with scale-in or finish during it.
-    $supervisor->recycle('c3-concurrent-fault', 0);
+    $supervisor->recycle('smoke-concurrent-fault', 0);
 });
 $loop->delay(18.5, static fn() => $supervisor->stop());
 
@@ -128,5 +128,5 @@ if ($killedPid === null || $restarts < 1 || $reloads < 1 || $reloadFailed
     || count(array_unique($spawned)) < 3 || $invalidOwnership
     || !in_array(1, $counts, true) || !in_array(2, $counts, true)
     || $final->workerCount !== 0 || $final->pendingRestartCount !== 0) {
-    throw new RuntimeException('C3 concurrent autoscale, crash, reload, recycle and teardown invariants failed.');
+    throw new RuntimeException('Native concurrent autoscale, crash, reload, recycle and teardown invariants failed.');
 }
