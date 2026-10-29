@@ -129,6 +129,6 @@ remains an error. Transport counters separate connection, read and write
 failures and count blocked writes. This is an accounting/correctness fix,
 **not permission to ignore server failures, change concurrency or reduce
 release throughput and p99 acceptance budgets**. The strict benchmark still
-rejects all failed/incomplete requests. Prior W124 PHP 8.5 H1 adaptive
+rejects all failed/incomplete requests. An earlier PHP 8.5 H1 adaptive
 matrix failed with 256 errors; its source cause is not considered
 certified until matched workload QA passes.

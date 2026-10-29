@@ -146,7 +146,7 @@ A separate, mandatory ``HTTP/2 Independent Reference`` PR workflow executes
 ``qa/reference/Http2MultiplexIndependentReferenceTest.php`` on PHP 8.4 and 8.5
 against upstream ``hyper-h2``. The peer verifies one real TLS/ALPN socket,
 two concurrent request streams and reversed responses with connection-
-scoped HPACK. The exact W96 independent reference and PHPForge source suites
+scoped HPACK. Independent reference and PHPForge source suites
 passed on PHP 8.4/8.5; real canceled streams, bounded 64-cycle churn,
 slow peers and saturated flow windows are also covered. Full frozen-release
 fault and resource certification remain U15/U17 responsibilities.
@@ -205,4 +205,4 @@ initially stalled stream. This mode is mandatory beside the independent
 out-of-order response, 131072-byte flow-window, and authenticated RST modes.
 It tests stream-local fairness and cancellation, not the final multi-hour
 release performance and leak certification. A new exact-source QA run is
-required for ongoing release hardening beyond accepted U07.05 work.
+required to validate protocol security beyond basic interoperability.

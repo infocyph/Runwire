@@ -195,8 +195,8 @@ method signatures, enum cases, callbacks and exception behavior.
    php tools/public-api-manifest.php src /tmp/runwire-current-api.json $(git rev-parse HEAD)
    vendor/bin/pest tests/PublicApiMigrationCompatibilityTest.php
 
-The 2.1.2 baseline manifest is pinned independently under the development
-tracker; never relabel current source as the historical 2.1.2 revision.
+The 2.1.2 baseline manifest is pinned independently under ``qa/release-baseline/``; never relabel current source as
+historical 2.1.2 code.
 
 Automated source-signature comparison
 -------------------------------------

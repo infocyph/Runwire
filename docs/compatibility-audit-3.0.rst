@@ -4,7 +4,7 @@ Compatibility audit: Runwire 2.1.2 to 3.0
 Source and claim boundaries
 ---------------------------
 
-The published stable comparator is 2.1.2 at immutable commit
+The 2.1.2 comparator source is pinned at commit
 `7e9bf20ad0737a187dfed77b723791b141b36378`.
 Source-level comparisons do not establish identical runtime behavior,
 exception ordering or application compatibility.
@@ -202,7 +202,7 @@ passed both runtime versions with saved source-pinned evidence.
 That is a scoped behavioral regression only. Changed exception
 ordering, process shutdown/reload, TLS/QUIC/H2/H3 handling, all
 intentional API breaks and maintained callback contracts still need
-the test-backed frozen-candidate migration review; U16.12 is already accepted but source-level equivalence is not universal behavioral compatibility.
+behavioral regression tests; source-level equivalence is not universal behavioral compatibility.
 Complete public implementation migration ledger (2.1.2 to 3.0)
 ---------------------------------------------------------------
 
@@ -303,7 +303,7 @@ coroutine:
    <?php
    $contents = file_get_contents($path);
 
-**After, unreleased 3.0 (opt-in):** An application that needs
+**After, Runwire 3.0 (opt-in):** An application that needs
 nonblocking reactor progress can own a bounded worker executor
 and file facade, and close the executor after all callbacks drain:
 

@@ -1,9 +1,7 @@
 Pool, proxy, relay and credential boundaries (Runwire 3.0)
 ==========================================================
 
-This is unreleased Runwire 3.0 development documentation, not
-production certification for client pools or proxy connectors.
-The branch includes bounded H1 connections, a constrained experimental
+Runwire provides bounded H1 connections and an experimental
 H2 one-shot TLS client, idle pool admission and TCP/Unix relay primitives;
 automatic pool-backed H2 multiplex reuse remains unfinished; bounded
 CONNECT/SOCKS5 negotiation has independently verified standalone adapters.
@@ -88,7 +86,7 @@ bytes drain, without busy retries, and both sides close when finished.
 Cancellation and deadline still abort both sides immediately. Raw
 ``shutdown(SHUT_WR)`` is not an authenticated TLS ``close_notify``;
 encrypted relays retain fail-closed EOF behavior. The scoped cleartext
-half-close and cancellation task U10.08 was QA-accepted at 3e31268;
+half-close and cancellation behavior is covered by regression tests;
 TLS close-notify remains outside its verified scope.
 
 .. code-block:: console
@@ -239,7 +237,7 @@ policy, not proxy hostname authenticity or nested target TLS verification.
 Proxy hostile-response matrix (development)
 -------------------------------------------
 
-The grouped W118 proxy reliability suite uses real Runwire socket-pair
+The proxy reliability suite uses real Runwire socket-pair
 connections to reject invalid HTTP CONNECT headers, SOCKS5 authentication
 method substitution, malformed address replies, and oversized headers.
 The tests assert no tunnel handoff and no retained loop watchers or timers.
@@ -251,7 +249,7 @@ Incomplete reply timeout semantics (development)
 
 SOCKS5 method selection and CONNECT replies, like HTTP CONNECT response
 headers, are incremental: a short prefix is incomplete, not automatically
-an invalid response. The grouped W121 tests exercise fragmented prefixes
+an invalid response. The grouped proxy-fragmentation tests exercise fragmented prefixes
 through finite negotiation timeouts and require one terminal error with
 no early successful tunnel handoff. Invalid complete frames remain
 immediate failures.

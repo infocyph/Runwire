@@ -88,7 +88,7 @@ explicit unsupported capability, not an invitation to assume that
 boundaries; see the worker-side path-security tests below.
 
 Portable open-file API contract and limitations
-----------------------------------------------
+-----------------------------------------------
 
 Runwire 3.0 declares an ``AsyncFileOperationsInterface``
 for open, read, write, stat, rename, unlink and cancellation. An asynchronous
@@ -135,7 +135,7 @@ unwritable leaves, and prohibited rename/unlink/stat operations. It verifies
 that the original outside file and allowed file remain unchanged, and that
 all worker handles/watchers are retired.
 
-The exact W96 PHPForge security/functional matrix passed these worker tests.
+The PHPForge security and functional matrix covers these worker tests.
 That acceptance verifies checked path and permission cases only.
 It does **not** eliminate a time-of-check/time-of-use race if another
 process can rename or replace path components between validation and the
