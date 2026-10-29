@@ -12,7 +12,6 @@ on:
       - docs/**
       - .readthedocs.yaml
       - .github/workflows/documentation.yml
-      - tests/Plan3SphinxRstTest.php
   workflow_dispatch:
 
 permissions:
@@ -84,6 +83,13 @@ jobs:
             }
           done
           printf 'Verified %s indexed HTML/search pages.\n' "${#pages[@]}"
+      - name: Set up PHP for syntax validation of documented examples
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - name: Validate PHP examples and documentation source references
+        run: python docs/verify_examples.py
       - name: Preserve Sphinx HTML preview
         if: always()
         uses: actions/upload-artifact@v7

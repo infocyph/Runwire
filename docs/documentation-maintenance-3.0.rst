@@ -63,13 +63,14 @@ Local verification:
    python -m pip install -r docs/requirements.txt
    sphinx-build -n -W --keep-going -b html docs build/sphinx-html
 
-For full PHP fixture checks:
+For documentation-specific PHP syntax and reference verification:
 
 .. code-block:: console
 
-   vendor/bin/pest tests/Plan3SphinxRstTest.php
-   vendor/bin/pest tests/Plan3DocumentationSnippetsTest.php
-   vendor/bin/pest tests/PublicApiDocumentationTest.php
+   python docs/verify_examples.py
+
+The standard PHP QA suite continues to enforce public source-level
+docblocks and runtime behavior independently of the documentation build.
 
 A local build is necessary but not always sufficient. Read the Docs
 hosted preview, search, version selectors, external link handling
