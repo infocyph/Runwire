@@ -27,6 +27,7 @@ If this is your first visit, read :doc:`start` and
    features
    handbook-3.0
    quickstart-lab-3.0
+   feature-workflows-3.0
    architecture
    runtime-lifecycle-3.0
    configuration-reference-3.0

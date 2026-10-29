@@ -17,8 +17,8 @@ resource has one lifetime owner**, and operations that could block the
 reactor must not execute on the reactor thread.
 
 Start with the :doc:`start` installation notice, the
-:doc:`features` host/feature inventory and :doc:`tutorials-3.0`
-executable acceptance examples. This handbook is an orientation; the
+:doc:`features` host/feature inventory and :doc:`tutorials-3.0` executable acceptance examples. For complete
+what/why/when/how exercises see :doc:`feature-workflows-3.0`. This handbook is an orientation; the
 :doc:`api-reference-3.0` is generated from the actual public declarations.
 
 Documentation map
