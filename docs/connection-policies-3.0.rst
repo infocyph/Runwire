@@ -155,8 +155,8 @@ management, a generalized proxy connector or safe retry of visible replies.
 
    vendor/bin/pest tests/ClientRedirectRetryPolicyTest.php tests/Http1PolicyClientTest.php
 
-The bounded H1 redirect/retry and proxy-secret isolation tasks U07.09 and
-include credential isolation tests. This does not certify transparent H2/H3
+The focused tests cover bounded H1 redirect and retry decisions, including
+proxy-secret isolation. These tests do not establish transparent H2/H3
 redirects, authenticated proxy connectors or a shared cookie jar.
 
 Direct origin proxy-secret boundary

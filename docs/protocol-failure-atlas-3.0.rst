@@ -168,8 +168,8 @@ Signal semantics and retry policy
    SIGKILL or forced stop
       -> immediate termination; in-flight work may be lost.
 
-The native C3 smoke checks process failure, autoscale and cleanup
-with real peers:
+The native integration checks exercise process failures, autoscaling
+and cleanup with real peers:
 
 .. code-block:: console
 
