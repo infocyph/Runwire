@@ -25,12 +25,12 @@ it('navigates every published native RST page exactly once in the Sphinx manual'
     expect($listed)->toBe($expected);
 });
 
-it('keeps supported 3.0 manuals and explicit proxy TLS migration limitations', function (): void {
+it('keeps usable manual navigation and explicit proxy TLS migration limitations', function (): void {
     $root = dirname(__DIR__) . '/docs';
     $index = file_get_contents($root . '/index.rst');
     $migration = file_get_contents($root . '/migration-3.0.rst');
     expect($index)->toBeString()
-        ->toContain('Runwire 3.0', 'migration-3.0', 'async-file-io-3.0')
+        ->toContain('Runwire developer handbook', 'migration-3.0', 'async-file-io-3.0')
         ->and($migration)->toBeString()
         ->toContain('Experimental HTTP CONNECT and SOCKS5 stages')
         ->toContain('not an HTTPS-through-proxy client')

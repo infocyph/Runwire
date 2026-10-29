@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-it('documents the full Runwire 3.0 capability matrix and host constraints', function (): void {
+it('documents supported capabilities and their host constraints', function (): void {
     $rst = file_get_contents(dirname(__DIR__) . '/docs/features.rst');
     expect($rst)->toBeString()
-        ->and($rst)->toContain('Runwire 3.0 features and supported capabilities');
+        ->and($rst)->toContain('Features and supported capabilities');
 
     $matched = preg_match_all(
         '/^   \* - ([^\n]+)\n((?:     - [^\n]+\n){3})/m',

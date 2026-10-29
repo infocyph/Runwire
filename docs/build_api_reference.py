@@ -9,7 +9,7 @@ SOURCE = ROOT / "src"
 TARGET = ROOT / "docs" / "_generated" / "public-api.inc"
 REF = os.getenv("GITHUB_SHA") or os.getenv("READTHEDOCS_GIT_COMMIT_HASH") or ""
 if not re.fullmatch(r"[0-9a-f]{40}", REF):
-    REF = "plan/runwire-independent-ecosystem-roadmaps"
+    REF = "main"
 BASE = "https://github.com/infocyph/Runwire/blob/" + REF + "/src/"
 BT = chr(96)
 

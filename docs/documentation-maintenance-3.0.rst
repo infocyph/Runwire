@@ -9,10 +9,9 @@ source, QA and security reality as the library. Runwire publishes
 **native reStructuredText only** for Sphinx. Historical Markdown
 plans and evidence remain internal; they are not the hosted manual.
 
-The current stable package is 2.1.2 and 3.0 is a development
-candidate. Distinguish released behavior, verified development
-capability, optional extension-dependent behavior and unsupported
-features in every document.
+Describe supported behavior, experimental integrations, optional
+extension requirements and unsupported features accurately. Release
+administration and CI status belong outside the public manual.
 
 Documentation information architecture
 --------------------------------------
@@ -23,12 +22,12 @@ explain public symbols, protocol state and operational playbooks.
 
 * Source declaration truth: `src/` and generated API.
 * Public feature truth: `docs/features.rst`.
-* Architecture and implementation: the 3.0 handbook.
+* Architecture and implementation: the engineering handbook.
 * RST source reference: `docs/api-reference-3.0.rst` and generator.
 * Compatibility: `docs/migration-3.0.rst` plus migration playbook.
 * Immutable release baseline and API-change reviews: `qa/release-baseline/`.
 * Historical planning and completed trackers: Git history, not the public manual.
-* Runner truth: `tests/`, `.ci/` and `.github/workflows/`.
+* Test coverage: `tests/`; CI pipelines: `.github/workflows/`.
 
 Writing guidance
 ----------------
@@ -88,11 +87,11 @@ When code adds, removes or changes a public symbol:
 1. Update generated-API test fixtures and verify the source scanner.
 2. Update the relevant conceptual guide and runnable example.
 3. Update `docs/features.rst` for host/extension maturity.
-4. Update the migration playbook and released-to-development delta.
+4. Update the migration playbook and applicable version differences.
 5. Add or update a focused functional/negative QA scenario.
 6. Execute strict Sphinx, snippet and link checks.
-7. Synchronize the canonical development plan and roadmap with
-   **actually verified** evidence, not intended completion.
+7. Maintain test coverage and release evidence separately from the
+   public documentation.
 
 A source-only manifest difference can be a trait move rather than a
 removed method. Use reflection and the frozen 2.1.2 manifest to
