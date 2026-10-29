@@ -4,13 +4,13 @@ A high-performance, framework-agnostic process and network runtime for PHP.
 
 Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
 
-**Current stable: Runwire 2.1.x.** The planned next major release is **Runwire 3.0.0**, with the [consolidated unified-runtime roadmap](docs/plans/runwire-3.0-unified-runtime-roadmap.md) and [canonical 167-task GitHub-worker implementation tracker](docs/plans/runwire-3.0-unified-runtime-development-plan.md). The unpublished 2.2 [plan](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/plans/runwire-2.2-runtime-improvement-plan.md) and [draft release notes](https://github.com/infocyph/Runwire/blob/7afd11e21ec4e64c610885f5f6ba42311b61c4d0/docs/release-notes-2.2.md) remain accessible in Git history, with [historical QA evidence](docs/plans/evidence/runwire-2.2/README.md) retained in-repository. There is **one active tracker for 3.0 only**. See the 2.0 migration guide when upgrading from 1.x.
+**Release target: Runwire 3.0.0 (candidate, not yet published).** The [3.0 developer handbook](docs/index.rst) is the authoritative guide to the current branch. The currently published Composer version may be older; historical release materials remain in Git history rather than the active documentation tree.
 
 ## Runwire 3.0 developer documentation (unreleased)
 
 **GitHub-only certification scope:** The external hosted Read the Docs preview/interactive site tasks were retired from the active 3.0 tracker on October 27, 2026. The full Sphinx RST manual, generated API, source-stamped 41-page HTML/search index and runnable examples remain tested on GitHub-hosted workers. This does not assert external documentation publishing.
 
-The complete source-aligned **[Runwire 3.0 developer handbook](docs/index.rst)** now includes an [executable first-use lab](docs/quickstart-lab-3.0.rst), [protocol failure and drain atlas](docs/protocol-failure-atlas-3.0.rst), [operations exercises](docs/operations-exercises-3.0.rst), [2.1.2 migration audit](docs/compatibility-audit-3.0.rst), and [C4 performance certification lab](docs/performance-lab-3.0.rst), alongside API signatures, native/host runtime configuration, security, troubleshooting and full feature inventory.
+The complete source-aligned **[Runwire 3.0 developer handbook](docs/index.rst)** now includes an [executable first-use lab](docs/quickstart-lab-3.0.rst), [protocol failure and drain atlas](docs/protocol-failure-atlas-3.0.rst), [operations exercises](docs/operations-exercises-3.0.rst), [2.1.2 migration audit](docs/compatibility-audit-3.0.rst), and [performance qualification lab](docs/performance-lab-3.0.rst), alongside API signatures, native/host runtime configuration, security, troubleshooting and full feature inventory.
 
 **Version boundary:** These pages describe the current **unreleased 3.0** branch. `composer require infocyph/runwire` continues to install published stable **2.1.2** unless the consuming application explicitly selects another available version. The GitHub-only scoped U15/U17 technical evidence is accepted, including real 1800s mixed workloads on both PHP versions and exact baseline protocol comparisons. A source-complete Sphinx build is not an externally hosted Read the Docs preview; U16.02/U16.16 external hosting tasks were retired, not accepted. No release, tag, merge, or publication has been authorized.
 
@@ -147,7 +147,7 @@ HTTP/1.1, framed TCP/Unix, and UDP remain available when their platform capabili
 
 ## Native protocols
 
-Runwire 2.0 provides:
+Runwire 3.0 provides:
 
 - HTTP/1.1 over TCP/TLS;
 - HTTP/2 over TLS ALPN with HTTP/1.1 fallback;
@@ -182,13 +182,13 @@ $server = Server::http('0.0.0.0:8443', $handler)
     ->withHttp3();
 ```
 
-HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 2.0.
+HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 3.0.
 
 ### Protocol scheduling policy
 
 Runwire can tune a small set of **protocol-internal scheduling decisions** without changing the application-facing HTTP contract. The policy is useful when the same server must favor deterministic behavior, lower interactive latency, sustained transfer efficiency, or automatic crossover under changing load.
 
-HTTP/1.1, HTTP/2, and HTTP/3 all default to `AdaptivePolicyMode::FIXED` in Runwire 2.0. The other modes are explicit opt-ins because a scheduling profile that helps one workload can hurt another, especially during load transitions or at tail latency.
+HTTP/1.1, HTTP/2, and HTTP/3 all default to `AdaptivePolicyMode::FIXED` in Runwire 3.0. The other modes are explicit opt-ins because a scheduling profile that helps one workload can hurt another, especially during load transitions or at tail latency.
 
 | Mode | Why it exists | Use it when | HTTP/1.1 effect | HTTP/2 effect | HTTP/3 effect |
 | --- | --- | --- | --- | --- | --- |
@@ -208,9 +208,9 @@ Important boundaries:
 | H1 precedence | Explicit listener `tcp_nodelay` configuration overrides the protocol policy. |
 | H2 scope | Policy affects only the bounded initial-response optimization; normal flow control, multiplexing, fairness, and backpressure remain unchanged. |
 | H3 scope | `inboundAdaptive` and `outboundAdaptive` are independent; one direction can remain FIXED while the other is tuned. |
-| Constructor default | Standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; protocol option objects intentionally supply Runwire 2.0 `FIXED` release defaults. |
+| Constructor default | Standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; protocol option objects intentionally supply Runwire 3.0 `FIXED` defaults. |
 
-Use non-default modes only with representative repeated measurements that include throughput, p95/p99 latency, CPU/RSS, backpressure, fairness, and load transitions. See [Getting Started](docs/getting-started.md#7-adaptive-protocol-scheduling) for configuration examples and validation rules, and [Deployment](docs/deployment.md#19-adaptive-protocol-scheduling) for production selection guidance.
+Use non-default modes only with representative repeated measurements that include throughput, p95/p99 latency, CPU/RSS, backpressure, fairness, and load transitions. See [configuration reference](docs/configuration-reference-3.0.rst) and [production operations](docs/production-operations-3.0.rst) for configuration and deployment guidance.
 
 ### Native HTTP/1 WebSocket
 
@@ -249,7 +249,7 @@ $server = Server::http(
 );
 ```
 
-Native WebSocket serving is intentionally HTTP/1.1-only in 2.0. Compression and HTTP/2/HTTP/3 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
+Native WebSocket serving is intentionally HTTP/1.1-only in 3.0. Compression and HTTP/2/HTTP/3 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
 
 ## Framed TCP example
 
@@ -423,22 +423,26 @@ Before a release-critical tag/merge, the opt-in Release Certification workflow c
 | --- | --- |
 | Matched sustained performance | Five 180-second baseline/candidate trials after warmup; correctness, stability, and the 5% throughput-regression budget. |
 | 30-minute native HTTP soak | Sustained correctness with zero errors, timeouts, or response-validation failures. |
-| Representative Infbyte consumer | Exact candidate installs into the real consumer, its full suite passes, and the Foundation/Webrick bridge works. |
+| Standalone Composer consumers | Exact candidate archive installs and serves verified requests on PHP 8.4 and PHP 8.5. |
 | PHPForge release guard | Required extensions/platform checks plus the full `composer ic:release:guard` gate. |
 
-See [Benchmark Methodology](docs/benchmarks.md) for exact commands, evidence fields, acceptance conditions, and adaptive-policy promotion rules.
+See [performance qualification](docs/performance-qa-handbook-3.0.rst) for methodology, measurements and acceptance conditions.
 
 ## Documentation
 
-Start here for complete examples and operational guidance:
+The [Runwire 3.0 manual](docs/index.rst) is maintained in native reStructuredText
+and built with strict Sphinx checks. Start with:
 
-- [`docs/getting-started.md`](docs/getting-started.md) — complete native HTTP, TLS/HTTP2, HTTP3, adaptive scheduling, TCP/Unix, UDP, hosted-runtime, explicit Swoole/OpenSwoole selection, application-factory, capability, and coroutine examples.
-- [`docs/architecture.md`](docs/architecture.md) — runtime selection, ownership boundaries, capability model, contexts, lifecycle, networking, protocol, coroutine, observability, and security contracts.
-- [`docs/deployment.md`](docs/deployment.md) — production topology, host selection, worker sizing, admission, deadlines, recycle/reload, control/watch, privilege drop, TLS/HTTP3, adaptive policy selection, backpressure, resource limits, and deployment acceptance.
-- [`docs/security.md`](docs/security.md) — least privilege, persistent-state isolation, ProcessRunner policy, `disable_functions`, resource ceilings, and systemd/container hardening.
-- [`docs/coroutines.md`](docs/coroutines.md) — full structured-concurrency API with tasks, failure modes, deadlines, channels, futures, semaphore, mutex, barrier, task-local state, request integration, background work, and `AsyncConnection` examples.
-- [`docs/benchmarks.md`](docs/benchmarks.md) — benchmark layers, local commands, HTTP/3 transport measurement, release evidence, peer-comparison schema, and integrity rules.
-- [`docs/migration-2.0.md`](docs/migration-2.0.md) — required 1.x to 2.0 consumer migration checks and behavioral contract changes.
+- [Installation and first validation](docs/start.rst)
+- [Runtime and architecture](docs/architecture.rst)
+- [Inbound HTTP and protocols](docs/inbound-handbook-3.0.rst)
+- [Outbound networking](docs/outbound-handbook-3.0.rst)
+- [Security and capabilities](docs/security-handbook-3.0.rst)
+- [Production operations](docs/production-operations-3.0.rst)
+- [Migration from 2.1.2](docs/migration-3.0.rst)
+
+Historical 2.0/2.1.x documentation is preserved in tagged Git history, not
+duplicated in the active 3.0 manual.
 
 ## Development
 
