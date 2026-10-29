@@ -150,8 +150,8 @@ Quick reference commands
    php -m
    composer validate --strict
    php tests/fixtures/portable_native_acceptance.php
-   php .ci/c3_listener_fork_smoke.php
-   php .ci/c3_cleanup_fault_smoke.php
+   php tests/smoke/native_listener_fork_smoke.php
+   php tests/smoke/native_cleanup_fault_smoke.php
 
 Only run native fork-specific probes where PCNTL/POSIX are available.
 For automated H2/H3, use independent reference and native security

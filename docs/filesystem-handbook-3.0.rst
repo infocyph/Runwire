@@ -153,7 +153,7 @@ A cached zero-byte file test is not evidence of sustained throughput.
 
 .. code-block:: console
 
-   php .ci/c3_filesystem_smoke.php
+   php tests/smoke/native_filesystem_smoke.php
    vendor/bin/pest tests/AsyncFileBackendContractTest.php
 
 The C3 file test demonstrates portable off-reactor completion; U15

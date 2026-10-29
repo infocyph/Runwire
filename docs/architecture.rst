@@ -1,7 +1,7 @@
 Unified asynchronous runtime architecture
 =========================================
 
-The Runwire 3.0 development branch implements a shared model for
+Runwire implements a shared model for
 incoming and outgoing connection owners, nonblocking socket readiness,
 protocol-specific sessions, coroutine-scoped cancellation and bounded
 off-reactor file/DNS operations.

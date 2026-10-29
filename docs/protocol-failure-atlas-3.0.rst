@@ -173,9 +173,9 @@ with real peers:
 
 .. code-block:: console
 
-   php .ci/c3_mixed_peer_smoke.php
-   php .ci/c3_concurrent_fault_smoke.php
-   php .ci/c3_cleanup_fault_smoke.php
+   php tests/smoke/native_mixed_peer_smoke.php
+   php tests/smoke/native_concurrent_fault_smoke.php
+   php tests/smoke/native_cleanup_fault_smoke.php
 
 For independently validated H3 and H2, use their CI jobs in an
 eligible native capability environment. Include source SHA, PID,

@@ -152,7 +152,7 @@ Reproduce scheduler behavior with focused tests and then real peers:
 .. code-block:: console
 
    vendor/bin/pest tests/BatchLCoroutineSchedulerTest.php
-   php .ci/c3_cleanup_fault_smoke.php
+   php tests/smoke/native_cleanup_fault_smoke.php
 
 See :doc:`coroutine-network-3.0`, :doc:`filesystem-handbook-3.0`
 and :doc:`runtime-lifecycle-3.0`.

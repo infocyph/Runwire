@@ -108,13 +108,13 @@ session or connection state. Use fresh child-owned resources or a
 deliberately supported prefork handoff.
 
 Native checks exercise:
-   
+
 .. code-block:: console
 
-   php .ci/c3_listener_fork_smoke.php
-   php .ci/c3_dialer_smoke.php
-   php .ci/c3_cleanup_fault_smoke.php
-   php .ci/c3_supervisor_fault_smoke.php
+   php tests/smoke/native_listener_fork_smoke.php
+   php tests/smoke/native_dialer_smoke.php
+   php tests/smoke/native_cleanup_fault_smoke.php
+   php tests/smoke/native_supervisor_fault_smoke.php
 
 These scripts require the capabilities stated by the test, including
 POSIX/PCNTL for actual fork and signal scenarios. They are not intended

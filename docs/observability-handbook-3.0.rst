@@ -145,8 +145,8 @@ Incident probes and golden paths
 .. code-block:: console
 
    vendor/bin/pest tests/Http2ConnectionTest.php tests/DialerTest.php
-   php .ci/c3_listener_fork_smoke.php
-   php .ci/c3_autoscale_http_traffic.php
+   php tests/smoke/native_listener_fork_smoke.php
+   php tests/smoke/native_autoscale_http_traffic.php
 
 For H3 packet loss/reorder and matched H2 reference, prefer the
 dedicated automated workflows. File a bug with minimal steps, actual

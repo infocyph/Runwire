@@ -180,9 +180,9 @@ Runbook evidence
 .. code-block:: console
 
    php tests/fixtures/portable_native_acceptance.php
-   php .ci/c3_supervisor_fault_smoke.php
-   php .ci/c3_concurrent_fault_smoke.php
-   php .ci/c3_supervisor_soak.php
+   php tests/smoke/native_supervisor_fault_smoke.php
+   php tests/smoke/native_concurrent_fault_smoke.php
+   php tests/smoke/native_supervisor_soak.php
 
 Run process/signal tests only where those OS capabilities exist.
 Consult :doc:`observability-handbook-3.0`,
