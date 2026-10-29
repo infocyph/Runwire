@@ -200,8 +200,8 @@ A public-only address guard will reject local development loopback
 connections; keep production and intentional internal traffic policies
 separate. Never reuse a TLS/tenant pool after trust settings change.
 
-See :doc:`connection-policies-3.0\` and
-:doc:`security-handbook-3.0\` for policy boundaries.
+See :doc:`connection-policies-3.0` and
+:doc:`security-handbook-3.0` for policy boundaries.
 
 
 Configuration review: safe defaults versus explicit opt-in

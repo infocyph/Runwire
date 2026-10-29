@@ -179,11 +179,14 @@ internal-service policy when loopback access is an explicit requirement.
    $policy = new OutboundAddressPolicy();
    $policy->assertCandidate('8.8.8.8');
 
+   $blocked = false;
    try {
        $policy->assertCandidate('127.0.0.1');
-       throw new RuntimeException('Forbidden private destination accepted');
    } catch (RuntimeException $error) {
-       // Expected for non-public input: reject the requested destination.
+       $blocked = true;
+   }
+   if (!$blocked) {
+       throw new LogicException('Forbidden private destination accepted');
    }
 
    $dialOptions = new DialOptions(

@@ -260,4 +260,4 @@ queued jobs, successful RPS and p99 from the same worker group and
 sampling window. Confirm PID/generation reaping and client-level
 response completion during forced failure. On FPM/RoadRunner/
 FrankenPHP, configure autoscale in the host's process manager
-instead. See :doc:`production-operations-3.0\`.
+instead. See :doc:`production-operations-3.0`.
