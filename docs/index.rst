@@ -15,7 +15,7 @@ identified in the relevant chapters.
 
 If this is your first visit, read :doc:`start` and
 :doc:`handbook-3.0`. For executable tests and APIs, use
-:doc:`tutorials-3.0` and :doc:`api-reference-3.0`.
+the :doc:`tutorials-3.0` recipes and :doc:`configuration-reference-3.0`.
 
 .. toctree::
    :maxdepth: 2
@@ -65,7 +65,6 @@ If this is your first visit, read :doc:`start` and
    :maxdepth: 2
    :caption: API, migration and contributing
 
-   api-reference-3.0
    migration-playbook-3.0
    compatibility-audit-3.0
    migration-3.0
@@ -77,5 +76,5 @@ and the asynchronous filesystem implementation uses bounded
 process-worker I/O rather than qualified kernel-native AIO.
 HTTP/3 requires a compatible native QUIC implementation.
 
-The API reference is generated from the current source and links directly
-to public type and method declarations.
+For precise class and method signatures, consult the PHP sources and the
+worked examples in each topic guide.

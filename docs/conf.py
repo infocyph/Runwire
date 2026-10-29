@@ -1,7 +1,5 @@
-"""Runwire RST-only Sphinx site; internal Markdown plans are excluded."""
+"""Runwire documentation Sphinx configuration."""
 import os
-import sys
-from pathlib import Path
 from pygments.lexers.web import PhpLexer
 from sphinx.highlighting import lexers
 
@@ -12,7 +10,7 @@ release = version
 language = "en"
 root_doc = "index"
 source_suffix = {".rst": "restructuredtext"}
-exclude_patterns = ["plans", "plans/**", "_build"]
+exclude_patterns = ["_build"]
 extensions = ["sphinx.ext.autosectionlabel"]
 autosectionlabel_prefix_document = True
 highlight_language = "php"
@@ -26,9 +24,4 @@ html_theme_options = {
     "use_issues_button": True,
 }
 html_title = "Runwire Manual"
-
-# Generate source-linked inventory from the checked-out branch, including RTD builds.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_api_reference import generate as generate_api_reference
-generate_api_reference()
 

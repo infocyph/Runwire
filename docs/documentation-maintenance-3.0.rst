@@ -20,10 +20,10 @@ The root `docs/index.rst` groups entry points by reader and topic.
 Top-level pages give concepts and worked usage; deeper references
 explain public symbols, protocol state and operational playbooks.
 
-* Source declaration truth: `src/` and generated API.
+* Public symbols and signatures: `src/` and code-level docblocks.
 * Public feature truth: `docs/features.rst`.
 * Architecture and implementation: the engineering handbook.
-* RST source reference: `docs/api-reference-3.0.rst` and generator.
+* Examples and contract references: the topic-oriented guides and tests.
 * Compatibility: `docs/migration-3.0.rst` plus migration playbook.
 * Immutable release baseline and API-change reviews: `qa/release-baseline/`.
 * Historical planning and completed trackers: Git history, not the public manual.
@@ -51,12 +51,10 @@ QA genuinely provide it.
 Sphinx architecture
 -------------------
 
-`docs/conf.py` configures RST-only sources, source-linked generated
-PHP API references and `sphinx-book-theme`. `docs/requirements.txt`
-pins Sphinx dependencies. The repository root `.readthedocs.yaml`
-declares the Read the Docs v2 build. The generated API builder scans
-the **checked-out source revision**, not a downloaded separate
-package; links include source filenames and line numbers.
+`docs/conf.py` configures RST-only pages and `sphinx-book-theme`.
+`docs/requirements.txt` pins the Sphinx dependencies, and the repository
+root `.readthedocs.yaml` declares the hosted build. The public manual
+is available at `Runwire documentation <https://docs.infocyph.com/projects/Runwire>`_.
 
 Local verification:
 
@@ -71,7 +69,7 @@ For full PHP fixture checks:
 
    vendor/bin/pest tests/Plan3SphinxRstTest.php
    vendor/bin/pest tests/Plan3DocumentationSnippetsTest.php
-   vendor/bin/pest tests/GeneratedApiCoverageTest.php
+   vendor/bin/pest tests/PublicApiDocumentationTest.php
 
 A local build is necessary but not always sufficient. Read the Docs
 hosted preview, search, version selectors, external link handling
@@ -84,7 +82,7 @@ Changing the public API
 
 When code adds, removes or changes a public symbol:
 
-1. Update generated-API test fixtures and verify the source scanner.
+1. Update the public symbol's code-level documentation and focused tests.
 2. Update the relevant conceptual guide and runnable example.
 3. Update `docs/features.rst` for host/extension maturity.
 4. Update the migration playbook and applicable version differences.
@@ -103,7 +101,7 @@ Review checklist
 * All new public RST pages appear in the root toctree.
 * Sphinx completes with warnings treated as errors.
 * No broken cross-page references, duplicate labels or orphan pages.
-* Source-linked type names and function signatures are verified.
+* Public method signatures and code-level documentation remain accurate.
 * Every example names its prerequisites, runtime and failure path.
 * Security boundaries and unsupported feature statements are explicit.
 * Historical guides are visibly versioned and not mistaken for 3.0.
@@ -111,5 +109,5 @@ Review checklist
 * Public site does not publish internal draft plans or secrets.
 * Hosting and release administration remain separate from public API guides.
 
-See :doc:`api-reference-3.0`, :doc:`handbook-3.0` and
+See :doc:`handbook-3.0`, :doc:`configuration-reference-3.0` and
 :doc:`migration-playbook-3.0` for the reader-facing result.
