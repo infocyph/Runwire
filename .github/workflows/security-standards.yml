@@ -23,6 +23,10 @@ jobs:
       contents: read
     with:
       php_versions: '["8.4","8.5"]'
+      # PHPForge defaults to a 300-second per-tool limit. Runwire's full
+      # integration-heavy Pest suite may exceed that on the slowest QA lane.
+      # Keep a finite 15-minute limit; genuine deadlocks still fail the job.
+      quality_task_timeout_seconds: 900
       # QUIC intentionally stays out of the normal PHPForge extension list.
       # This lane proves Runwire remains installable and testable without
       # native HTTP/3 capability. The dedicated http3-quic job below installs
