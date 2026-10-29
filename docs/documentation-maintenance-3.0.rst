@@ -26,7 +26,8 @@ explain public symbols, protocol state and operational playbooks.
 * Architecture and implementation: the 3.0 handbook.
 * RST source reference: `docs/api-reference-3.0.rst` and generator.
 * Compatibility: `docs/migration-3.0.rst` plus migration playbook.
-* Internal acceptance and provenance: `docs/plans/`.
+* Immutable release baseline and API-change reviews: `qa/release-baseline/`.
+* Historical planning and completed trackers: Git history, not the public manual.
 * Runner truth: `tests/`, `.ci/` and `.github/workflows/`.
 
 Writing guidance

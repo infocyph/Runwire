@@ -19,8 +19,8 @@ removed to a naive source scanner.
 Source-backed compatibility ledger
 ----------------------------------
 
-The repository records earlier reviewed 2.1.2-to-3.0 deltas under
-`docs/plans/evidence/runwire-3.0/`. That earlier comparison had:
+The repository retains machine-reviewed 2.1.2-to-3.0 migration evidence
+in `qa/release-baseline/`. An earlier candidate comparison recorded:
 
 .. list-table:: Previously reviewed source-level observations
    :header-rows: 1
@@ -211,7 +211,7 @@ In addition to the old/new HTTP-wire regression, Source Audit exports
 the *current* property-aware manifest and compares all public declarations,
 public methods, public properties, constants and enum cases against the
 published 2.1.2 revision. The canonical machine-reviewed file is
-``docs/plans/evidence/runwire-3.0/c4-migration-behavior-ledger.json``.
+``qa/release-baseline/c4-migration-behavior-ledger.json``.
 Each changed implementation must have an explicit behavioral description,
 application migration instruction, real executable regression filename,
 and release-review flag; ``tools/c4-migration-behavior-audit.php``

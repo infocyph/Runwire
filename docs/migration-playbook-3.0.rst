@@ -171,7 +171,7 @@ and archive raw diffs. The older W97 audit identified 26 changed implementation 
 The newer C4 property-aware [Source Audit #40525557734] identified
 32 changed public implementations and the test-backed exact-diff
 disposition ledger under
-``docs/plans/evidence/runwire-3.0/c4-migration-behavior-ledger.json``.
+``qa/release-baseline/c4-migration-behavior-ledger.json``.
 The source audit now fails if a changed public implementation lacks a
 migration disposition and executable regression test. The C5 release
 freeze still requires revalidation and maintainer approval.

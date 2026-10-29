@@ -193,10 +193,10 @@ stream fake to verify non-FIN partial writes, continuation of only the
 remaining bytes, sibling stream isolation, four-slot turnover across 24
 rounds and empty-FIN EOF reuse. The independent aioquic fixture separately
 validates real TLS/ALPN, large simultaneous bidirectional echoes, native
-stream reset and subsequent unidirectional FIN. Mock tests cannot prove
-native loss/reorder, live flow-control windows, fair transport scheduling
-or cancellation-storm recovery; U05.05/U05.09/U05.10 remain open until
-independent evidence covers those cases.
+stream reset and subsequent unidirectional FIN. Mock tests cannot establish native loss/reorder, live flow-control windows,
+fair transport scheduling or cancellation-storm recovery on their own.
+Use the independent native-QUIC interoperability and impairment tests
+for those specific contracts; no test proves arbitrary future networks.
 
 Independent QUIC sibling reset burst (development)
 --------------------------------------------------
@@ -224,5 +224,5 @@ Independent aioquic now optionally drops every nineteenth and delays every
 eleventh post-TLS UDP ingress packet. The actual PHP8.5 native worker must
 still complete six resets, two recovered bidirectional echoes and uni FIN.
 CI archives independent nonzero dropped/delayed datagram counters.
-This does not yet cover every client-side loss, stalled flow window, or
-cancellation storm; U05.05/U05.09 remain OPEN.
+This scoped packet-impairment run does not guarantee recovery from every
+client-side loss, stalled flow window or future cancellation storm.

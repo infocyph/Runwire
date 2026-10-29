@@ -84,8 +84,8 @@ The current process worker performs none of that full transaction.
 Failure is returned via the worker completion error; there is no hidden
 fallback to a copy/delete that could falsely imply atomicity. This is an
 explicit unsupported capability, not an invitation to assume that
-``fflush``/``rename`` alone guarantee persistence. Path/symlink/TOCTOU
-and sandbox authorization require separate U11.09/U14.06 verification.
+``fflush``/``rename`` alone guarantee persistence. Path/symlink/TOCTOU and sandbox authorization remain separate threat
+boundaries; see the worker-side path-security tests below.
 
 Portable open-file API contract (pre-release)
 ----------------------------------------------
@@ -120,8 +120,8 @@ This is **not** a race-free filesystem sandbox: another process may swap
 path components between worker-side validation and ``fopen``/``rename``.
 Use operating-system isolation and a separately audited descriptor-relative
 openat2 or equivalent backend for adversarial multi-user writable directories.
-The U14.06 worker-side path/permission audit now covers common adversarial
-inputs and documents the unresolved concurrent-mutation TOCTOU boundary.
+Worker-side path/permission regression tests cover common adversarial
+inputs and document the remaining concurrent-mutation TOCTOU boundary.
 That acceptance is **not** a promise of kernel-enforced sandboxing.
 
 
