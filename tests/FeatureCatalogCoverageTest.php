@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-it('documents every planned public capability with released and candidate host extension status', function (): void {
+it('documents the full Runwire 3.0 capability matrix and host constraints', function (): void {
     $rst = file_get_contents(dirname(__DIR__) . '/docs/features.rst');
     expect($rst)->toBeString()
-        ->and($rst)->toContain('Runwire 2.1.2', '3.0.0');
+        ->and($rst)->toContain('Runwire 3.0 features and supported capabilities');
 
     $matched = preg_match_all(
-        '/^   \* - ([^\n]+)\n((?:     - [^\n]+\n){4})/m',
+        '/^   \* - ([^\n]+)\n((?:     - [^\n]+\n){3})/m',
         $rst,
         $rows,
         PREG_SET_ORDER,
@@ -21,7 +21,7 @@ it('documents every planned public capability with released and candidate host e
         expect($label)->not->toBe('');
         $labels[] = $label;
         preg_match_all('/^     - ([^\n]+)$/m', $row[2], $cells);
-        expect($cells[1])->toHaveCount(4);
+        expect($cells[1])->toHaveCount(3);
         foreach ($cells[1] as $status) {
             expect(trim($status))->not->toBe('');
         }

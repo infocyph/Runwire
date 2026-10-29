@@ -1,21 +1,18 @@
 Installation and first validation
 =================================
 
-Release status
---------------
+Install Runwire
+---------------
 
-This manual targets Runwire 3.0 on PHP 8.4+ (64-bit). During candidate
-review, install from the checked-out source. The ordinary Composer command
-below installs the latest published stable version, which may differ from
-this manual until 3.0 is tagged and published.
+Runwire requires 64-bit PHP 8.4 or later and Composer. Install the package
+version appropriate for your application:
 
 .. code-block:: console
 
    composer require infocyph/runwire
 
-For 3.0 testing, check out the 3.0 candidate revision and run
-``composer install`` locally. Do not treat an unreleased candidate as
-an already published package.
+To contribute to Runwire or run repository examples, clone the source and
+install its development dependencies with ``composer install``.
 
 Quick local inspection
 ----------------------

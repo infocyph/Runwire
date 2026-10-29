@@ -4,9 +4,9 @@
 Runwire developer handbook
 ===========================
 
-**Runwire 3.0 release-candidate manual.** This manual describes the
-checked-out 3.0 source and its supported runtime contracts.
-Use the version selector on the documentation host for historical releases.
+This handbook documents Runwire 3.0 APIs, integration patterns, runtime
+requirements and operational limits. Use the migration guide when
+upgrading an application from an earlier version.
 
 **Source revision:** |runwire_source_revision|.
 
@@ -79,6 +79,6 @@ and the asynchronous filesystem implementation uses bounded
 process-worker I/O rather than qualified kernel-native AIO.
 HTTP/3 requires a compatible native QUIC implementation.
 
-All public Sphinx pages are native reStructuredText. Internal release-history plans are not part of the 3.0 documentation tree. The generated API index is built from
+All public Sphinx pages use reStructuredText. The generated API index is built from
 the checked-out Runwire sources, so published code links describe
 the source revision being built.

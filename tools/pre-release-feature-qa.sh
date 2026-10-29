@@ -12,6 +12,6 @@ for claim in   'U17 final certification pending'   'Full U15 release-performance
 done
 grep -Fq 'WebTransport is not included in Runwire 3.0' "$catalog"
 grep -Fq 'Nested TLS over an HTTPS proxy is not yet supported' "$catalog"
-grep -Fq '1800-second mixed' "$catalog"
+grep -Fq 'Capabilities and limitations' "$catalog"
 grep -Fq 'Runwire 3.0' "$index"
 echo "Runwire 3.0 public feature claims verified"

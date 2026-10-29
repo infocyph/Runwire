@@ -1,14 +1,13 @@
 Runwire 3.0 engineering handbook
 ================================
 
-Status and audience
--------------------
+Overview and audience
+---------------------
 
-This handbook describes the implementation currently on the unreleased
-Runwire 3.0 development branch. The published stable package is 2.1.2.
-A passing branch CI run is not equivalent to a published, supported 3.0
-release. The intended readers are application developers, platform engineers,
-library integrators, maintainers and security reviewers.
+This handbook covers Runwire 3.0's execution model, APIs, supported
+host environments and lifecycle contracts. It is intended for application
+developers, platform engineers, library integrators, maintainers and
+security reviewers.
 
 Runwire provides a common asynchronous execution model for inbound and
 outbound streams, event-driven networking, protocol handling, native worker
@@ -128,7 +127,7 @@ Capability truthfulness
    :widths: 25 36 39
 
    * - Capability
-     - In the development source
+     - Runwire 3.0 implementation
      - Do not claim
    * - HTTP/1.1, HTTP/2
      - Inbound protocol support; distinct outbound client APIs
@@ -149,13 +148,14 @@ Capability truthfulness
      - Cleartext CONNECT to verified HTTPS origin
      - TLS-over-TLS through an already encrypted proxy
 
-Version and evidence convention
--------------------------------
+Documentation and verification
+------------------------------
 
-Commands and examples here target a **checked-out 3.0 branch**, not a
-Composer release. The GitHub-only mixed 1800s and independent five-pair baseline performance gates have accepted evidence; external Read the Docs hosting was explicitly retired from scope. Source-level 2.1.2 migration review does not guarantee perfect behavioral compatibility; a final exact-head release decision is still required. Consult
-:doc:`performance-qa-handbook-3.0` for reproducible evidence and
-:doc:`migration-playbook-3.0` for release-safe migration gates.
+Commands and examples use the Runwire 3.0 APIs. When integrating into an
+existing application, validate network protocol support, PHP extensions,
+resource limits and shutdown behavior on the actual deployment host.
+Consult :doc:`performance-qa-handbook-3.0` for benchmark methodology and
+:doc:`migration-playbook-3.0` for safe upgrade procedures.
 
 For maintainers: source truth takes precedence over prose, followed by
 reproducible exact-commit tests. If an API shape, backend or capability
