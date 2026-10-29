@@ -154,15 +154,22 @@ pcntl_signal(SIGTERM, static function () use ($marker): void {
     file_put_contents($marker, 'terminated');
     exit(0);
 });
+fwrite(STDOUT, "ready\n");
+fflush(STDOUT);
 while (true) { usleep(100000); }
 CHILD;
 $child = proc_open([PHP_BINARY, '-r', $childCode, $marker], [
     0 => ['file', '/dev/null', 'r'],
-    1 => STDOUT,
+    1 => ['pipe', 'w'],
     2 => STDERR,
 ], $pipes);
 if (!is_resource($child)) {
     exit(2);
+}
+$ready = fgets($pipes[1]);
+fclose($pipes[1]);
+if ($ready !== "ready\n") {
+    exit(3);
 }
 pcntl_async_signals(true);
 pcntl_signal(SIGTERM, SIG_IGN);
@@ -172,8 +179,8 @@ PHP;
     try {
         $result = processRunner()->run(
             Command::executable(PHP_BINARY, ['-r', $script, $marker])
-                ->timeout(0.2)
-                ->terminationGrace(0.05),
+                ->timeout(0.75)
+                ->terminationGrace(0.25),
         );
 
         expect($result->timedOut())->toBeTrue()

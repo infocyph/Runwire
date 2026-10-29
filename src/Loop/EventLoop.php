@@ -41,6 +41,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     private bool $running = false;
 
+    /** @var array<int, array{0: int, 1: bool}> */
+    private array $watcherResources = [];
+
     /** @var array<int, int> */
     private array $writeIndex = [];
 
@@ -82,7 +85,18 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
         $event->del();
         unset($this->events[$id]);
-        $this->removeIndex($id);
+
+        // A timer has no watcher index; stream watcher removal is O(1).
+        $resource = $this->watcherResources[$id] ?? null;
+        if ($resource !== null) {
+            unset($this->watcherResources[$id]);
+            [$resourceId, $readable] = $resource;
+            if ($readable) {
+                unset($this->readIndex[$resourceId]);
+            } else {
+                unset($this->writeIndex[$resourceId]);
+            }
+        }
 
         return true;
     }
@@ -203,26 +217,20 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
         try {
             $callback(...$arguments);
+        } catch (Throwable $error) {
+            // Opt-in failing-soak diagnostics only: preserve propagation and
+            // expose the original stack when libevent reports only its wrapper.
+            if (getenv('RUNWIRE_SOAK_DIAGNOSTICS') === '1') {
+                error_log('Runwire soak callback failure: ' . $error);
+            }
+
+            throw $error;
         } finally {
             $elapsed = MonotonicTime::nowNanoseconds() - $started;
             $this->lastTickNanoseconds = $elapsed;
             $this->maxTickNanoseconds = max($this->maxTickNanoseconds, $elapsed);
             if ($elapsed >= $this->callbackOverrunNanoseconds) {
                 ++$this->callbackOverrunsTotal;
-            }
-        }
-    }
-
-    private function removeIndex(int $id): void
-    {
-        foreach ($this->readIndex as $resourceId => $watcherId) {
-            if ($watcherId === $id) {
-                unset($this->readIndex[$resourceId]);
-            }
-        }
-        foreach ($this->writeIndex as $resourceId => $watcherId) {
-            if ($watcherId === $id) {
-                unset($this->writeIndex[$resourceId]);
             }
         }
     }
@@ -305,6 +313,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
         $this->events[$id] = $event;
         $index[$resourceId] = $id;
+        $this->watcherResources[$id] = [$resourceId, $flag === Event::READ];
 
         return $id;
     }

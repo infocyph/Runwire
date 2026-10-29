@@ -31,7 +31,12 @@
         "ext-event": "*",
         "ext-pcntl": "*",
         "ext-posix": "*",
-        "infocyph/phpforge": "dev-main@dev"
+        "infocyph/phpforge": "dev-main@dev",
+        "nyholm/psr7": "^1.8.2",
+        "psr/http-factory": "^1.1",
+        "psr/http-message": "^2.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0"
     },
     "suggest": {
         "ext-event": "Enables the scalable native event-loop backend.",
@@ -42,7 +47,9 @@
         "ext-quic": "Enables native QUIC transport and HTTP/3 serving.",
         "ext-sockets": "Enables optional low-level socket capabilities and transport tuning.",
         "ext-swoole": "Enables the Swoole host runtime and coroutine/event-loop integration.",
-        "ext-zend-opcache": "Enables persistent bytecode caching for lower startup and runtime overhead."
+        "ext-zend-opcache": "Enables persistent bytecode caching for lower startup and runtime overhead.",
+        "psr/http-factory": "Optional PSR-17 factories for constructing PHP-FIG response metadata and outbound requests.",
+        "psr/http-message": "Optional PSR-7 message interfaces for header and bodyless client request interoperability."
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
@@ -55,30 +62,6 @@
         "psr-4": {
             "Infocyph\\Runwire\\Tests\\": "tests/"
         }
-    },
-    "archive": {
-        "exclude": [
-            "/.agents",
-            "/.codex",
-            "/.github",
-            "/benchmarks",
-            "/docs",
-            "/tests",
-            "/vendor",
-            "/.editorconfig",
-            "/.gitattributes",
-            "/.gitignore",
-            "/captainhook.json",
-            "/composer.lock",
-            "/pest.xml",
-            "/phpbench.json",
-            "/phpcs.xml.dist",
-            "/phpstan.neon.dist",
-            "/phpunit.xml",
-            "/pint.json",
-            "/psalm.xml",
-            "/rector.php"
-        ]
     },
     "config": {
         "allow-plugins": {

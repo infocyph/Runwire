@@ -23,6 +23,10 @@ jobs:
       contents: read
     with:
       php_versions: '["8.4","8.5"]'
+      # PHPForge defaults to a 300-second per-tool limit. Runwire's full
+      # integration-heavy Pest suite may exceed that on the slowest QA lane.
+      # Keep a finite 15-minute limit; genuine deadlocks still fail the job.
+      quality_task_timeout_seconds: 900
       # QUIC intentionally stays out of the normal PHPForge extension list.
       # This lane proves Runwire remains installable and testable without
       # native HTTP/3 capability. The dedicated http3-quic job below installs
@@ -65,6 +69,7 @@ jobs:
             build-essential \
             ca-certificates \
             git \
+            jq \
             libev-dev \
             libssl-dev \
             libtool \
@@ -105,10 +110,10 @@ jobs:
       - name: Enable Runwire process extensions
         shell: bash
         run: |
-          docker-php-ext-install -j"$(nproc)" pcntl
+          docker-php-ext-install -j"$(nproc)" pcntl sockets
           php -r '
-          if (!extension_loaded("pcntl") || !extension_loaded("posix")) {
-              fwrite(STDERR, "Runwire process extensions are unavailable.\n");
+          if (!extension_loaded("pcntl") || !extension_loaded("posix") || !extension_loaded("sockets")) {
+              fwrite(STDERR, "Runwire native H1/H2/H3 interop requires process and sockets extensions.\n");
               exit(1);
           }
           '
@@ -183,7 +188,20 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event
+          # Retry transient upstream registry/gateway errors only. Hard Composer
+          # conflicts, invalid dependencies and platform failures remain fatal.
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress --ignore-platform-req=ext-event > /tmp/runwire-quic-composer.log 2>&1; then
+              cat /tmp/runwire-quic-composer.log
+              break
+            fi
+            cat /tmp/runwire-quic-composer.log
+            if [ "$attempt" -eq 3 ] || ! grep -Eiq 'HTTP/[0-9.]+ (502|503|504)|curl error (7|28|52|56)|timed out|Temporary failure in name resolution' /tmp/runwire-quic-composer.log; then
+              echo "::error::Composer QUIC dependencies failed for a non-transient reason or exhausted retries."
+              exit 1
+            fi
+            sleep "$((attempt * 5))"
+          done
 
       - name: Verify Runwire QUIC capability detection
         shell: bash
@@ -229,7 +247,7 @@ jobs:
         shell: bash
         run: |
           python3 -m venv /tmp/runwire-aioquic
-          /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'aioquic==1.3.0'
+          /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'aioquic==1.3.0' 'h2==4.3.0'
           /tmp/runwire-aioquic/bin/python -m unittest discover -s tests/benchmarks -p 'test_adaptive_http3_client.py' -v
 
           tmpdir="$(mktemp -d)"
@@ -293,6 +311,241 @@ jobs:
             exit 1
           fi
           server_pid=""
+
+      - name: Verify off-loop outbound QUIC TLS handshake against independent aioquic
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -keyout "$tmpdir/server.key" -out "$tmpdir/ca.pem" >/dev/null 2>&1
+
+          port="$(php -r '
+          $udp = stream_socket_server("udp://127.0.0.1:0", $code, $error, STREAM_SERVER_BIND);
+          if (!is_resource($udp)) { throw new RuntimeException($error); }
+          $address = stream_socket_get_name($udp, false);
+          fclose($udp);
+          if (!is_string($address) || !str_contains($address, ":")) {
+              throw new RuntimeException("Cannot allocate QUIC probe port.");
+          }
+          echo substr(strrchr($address, ":"), 1);
+          ')"
+
+          /tmp/runwire-aioquic/bin/python -u tests/interop/aioquic_quic_probe_server.py \
+            "$port" "$tmpdir/ca.pem" "$tmpdir/server.key" "$tmpdir/ready" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -s "$tmpdir/ready" ]; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.03
+          done
+          test -s "$tmpdir/ready" || {
+            cat "$tmpdir/server.log"
+            echo "::error::Independent aioquic QUIC probe server did not start."
+            exit 1
+          }
+
+          php tests/fixtures/quic_probe_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem"
+
+      - name: Verify persistent outbound QUIC worker streams against aioquic echo
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          tmpdir="$(mktemp -d)"
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
+              kill -TERM "$server_pid" 2>/dev/null || true
+              wait "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$tmpdir"
+          }
+          trap cleanup EXIT
+
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -keyout "$tmpdir/server.key" -out "$tmpdir/ca.pem" >/dev/null 2>&1
+
+          port="$(php -r '
+          $udp = stream_socket_server("udp://127.0.0.1:0", $code, $error, STREAM_SERVER_BIND);
+          if (!is_resource($udp)) { throw new RuntimeException($error); }
+          $address = stream_socket_get_name($udp, false);
+          fclose($udp);
+          if (!is_string($address) || !str_contains($address, ":")) {
+              throw new RuntimeException("Cannot allocate QUIC echo port.");
+          }
+          echo substr(strrchr($address, ":"), 1);
+          ')"
+
+          /tmp/runwire-aioquic/bin/python -u tests/interop/aioquic_quic_echo_server.py \
+            "$port" "$tmpdir/ca.pem" "$tmpdir/server.key" "$tmpdir/ready" "$tmpdir/uni.receipt" \
+            >"$tmpdir/server.log" 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 100); do
+            if [ -s "$tmpdir/ready" ]; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$tmpdir/server.log"
+              exit 1
+            fi
+            sleep 0.03
+          done
+          test -s "$tmpdir/ready" || {
+            cat "$tmpdir/server.log"
+            echo "::error::Independent QUIC echo server did not start."
+            exit 1
+          }
+
+          mkdir -p benchmark-results
+          php tests/fixtures/quic_session_echo_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem" "$tmpdir/uni.receipt" \
+            | tee "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json"
+          jq -e '.verified == true and .concurrent_bidirectional == true
+            and .worker_profile.profiling == true
+            and .worker_profile.worker_usage_available == true
+            and .worker_profile.worker_peak_rss_kib > 0
+            and .worker_profile.worker_php_peak_bytes > 0
+            and .worker_profile.worker_cpu_ms >= 0
+            and .worker_profile.poll_calls > 0
+            and .worker_profile.write_calls > 0
+            and .worker_profile.read_calls > 0
+            and .worker_profile.write_bytes > 0
+            and .native_reset_storm_count == 24
+            and .verified_post_reset_bidi_streams == 2
+            and .native_reset_then_peer_uni_fin == true
+            and .unidirectional_streams_delivered == 1' \
+            "benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json" >/dev/null
+
+      - name: Verify peer-initiated QUIC unidirectional streams against independent aioquic
+        shell: bash
+        run: |
+          php -l tests/fixtures/quic_client_inbound_uni.php
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_quic_echo_server.py
+          bash -n tests/interop/quic_peer_inbound_uni.sh
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash tests/interop/quic_peer_inbound_uni.sh benchmark-results/native-quic-inbound.json
+
+      - name: Prove outbound native HTTP/3 client against independent aioquic server
+        shell: bash
+        run: |
+          php -l tests/fixtures/http3_outbound_client.php
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_outbound_h3_server.py
+          bash -n tests/interop/http3_outbound_client.sh
+          RUNWIRE_RUNTIME_BUILD="$(git rev-parse HEAD)" \
+            RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
+            bash tests/interop/http3_outbound_client.sh \
+            benchmark-results/outbound-h3-client.json \
+            benchmark-results/u05-native-h3-serial-profile.json \
+            benchmark-results/u07-outbound-match.json
+
+      - name: Verify real stalled peer cancellation and healthy QUIC sibling recovery
+        shell: bash
+        run: |
+          php -l tests/fixtures/quic_stalled_sibling.php
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_quic_echo_server.py
+          bash -n tests/interop/quic_stalled_sibling.sh
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
+            bash tests/interop/quic_stalled_sibling.sh "benchmark-results/native-quic-stall-php-${{ matrix.php-version }}.json"
+      - name: Recover native QUIC sibling streams under real independent UDP loss and reorder
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_quic_echo_server.py
+          bash -n tests/interop/quic_impaired_native_session.sh
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
+            bash tests/interop/quic_impaired_native_session.sh \
+            "benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}.json"
+
+      - name: Upload independent native QUIC sibling/reset evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-native-quic-session-php-${{ matrix.php-version }}
+          path: |
+            benchmark-results/native-quic-session-php-${{ matrix.php-version }}.json
+            benchmark-results/native-quic-inbound.json
+            benchmark-results/native-quic-stall-php-${{ matrix.php-version }}.json
+            benchmark-results/native-quic-stall-php-${{ matrix.php-version }}-peer.json
+            benchmark-results/outbound-h3-client.json
+            benchmark-results/u05-native-h3-serial-profile.json
+            benchmark-results/u07-outbound-match.json
+            benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}.json
+            benchmark-results/native-quic-impaired-php-${{ matrix.php-version }}-peer.json
+          retention-days: 90
+
+      - name: Real aioquic HTTP/3 stream cancellations and sibling progress
+        shell: bash
+        run: |
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/http3_fault_acceptance.sh
+
+      - name: Install independent HTTP/2 client in aioquic environment
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0'
+
+      - name: Verify strict GOAWAY filtering and post-GOAWAY accepted DATA
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          /tmp/runwire-aioquic/bin/python benchmarks/test_mixed_native_goaway.py
+
+      - name: Real simultaneous H1/H2/H3/TCP/UDP native crash and rolling recycle
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          mkdir -p benchmark-results
+          /tmp/runwire-aioquic/bin/python benchmarks/mixed_native_lifecycle.py | tee benchmark-results/mixed-native-lifecycle.json
+          jq -e '.correctness_passed == true and .events.reload_completed > 0
+            and .events.manual_recycle_requested > 0 and .simultaneous_h2_streams_per_wave == 8
+            and .simultaneous_h3_streams_per_wave == 8
+            and .cancelled_h2_streams_per_wave == 1
+            and .cancelled_h3_streams_per_wave == 1
+            and .slow_receiver_delay_ms == 20
+            and ([.waves[] | select(.http2 != 8 or .http3 != 8
+                 or .cancelled_h2_streams != 1 or .cancelled_h3_streams != 1)] | length) == 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
+
+      - name: Upload mixed native listener lifecycle evidence
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-mixed-native-lifecycle
+          path: benchmark-results/mixed-native-lifecycle.json
+          retention-days: 90
+
+      - name: Real independent H3 QPACK, upload and connection-churn pressure
+        if: matrix.php-version == '8.5'
+        shell: bash
+        run: |
+          RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/real_protocol_pressure.sh h3 benchmark-results/real-h3-pressure
+
+      - name: Upload independent H3 pressure artifacts
+        if: always() && matrix.php-version == '8.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-real-h3-pressure
+          path: benchmark-results/real-h3-pressure/
+          retention-days: 90
 
       - name: Run diagnostic AUTO vs FIXED HTTP/3 matrix
         if: matrix.php-version == '8.5'

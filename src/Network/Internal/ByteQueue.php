@@ -147,6 +147,11 @@ final class ByteQueue
         }
 
         $remaining = min($maxBytes, $this->bytes);
+        // Most reads inspect a single buffered chunk: skip a temporary parts array.
+        if ($remaining <= strlen($this->chunks[$this->head]) - $this->headOffset) {
+            return $this->front($remaining);
+        }
+
         $parts = [];
         $index = $this->head;
         $offset = $this->headOffset;
@@ -178,6 +183,16 @@ final class ByteQueue
         }
 
         $remaining = min($maxBytes, $this->bytes);
+        // Reuse the existing audited accounting path for one-chunk reads:
+        // no temporary parts array, no duplicate budget/compaction logic.
+        if ($remaining <= strlen($this->chunks[$this->head]) - $this->headOffset) {
+            $result = $this->front($remaining);
+            $this->discard($remaining);
+
+            return $result;
+        }
+
+        $requested = $remaining;
         $parts = [];
         while ($remaining > 0 && isset($this->chunks[$this->head])) {
             $chunk = $this->chunks[$this->head];
@@ -186,9 +201,21 @@ final class ByteQueue
             $parts[] = $this->headOffset === 0 && $take === $available
                 ? $chunk
                 : substr($chunk, $this->headOffset, $take);
-            $this->discard($take);
+
+            $this->headOffset += $take;
+            $this->bytes -= $take;
+            if ($this->headOffset === strlen($chunk)) {
+                unset($this->chunks[$this->head]);
+                ++$this->head;
+                $this->headOffset = 0;
+            }
             $remaining -= $take;
         }
+
+        // Account the aggregate read only once and defer compaction until the
+        // end of the batch rather than re-scanning on each consumed chunk.
+        $this->budget?->release($requested - $remaining);
+        $this->compact();
 
         return count($parts) === 1 ? $parts[0] : implode('', $parts);
     }

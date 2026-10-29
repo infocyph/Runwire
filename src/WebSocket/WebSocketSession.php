@@ -80,12 +80,13 @@ final class WebSocketSession
         WebSocketOptions $options = new WebSocketOptions(),
         private readonly ?string $selectedSubprotocol = null,
         string $initialBytes = '',
+        private readonly bool $clientMode = false,
     ) {
         $this->budget = $connection->bufferBudget();
         $this->connection = $connection;
         $this->loop = self::retainLoop($loop);
         $this->options = self::retainOptions($options);
-        $this->parser = new WebSocketFrameParser($this->options, $this->budget);
+        $this->parser = new WebSocketFrameParser($this->options, $this->budget, expectMasked: !$this->clientMode);
         $this->lastActivityAt = $this->loop->now();
 
         $connection->handoffCallbacks(
@@ -361,6 +362,7 @@ final class WebSocketSession
         $this->cancelTimer($this->closeTimer);
         $this->heartbeatTimer = $this->closeTimer = null;
         $this->clearFragment();
+        $this->parser->discardBuffered();
 
         try {
             $this->connection->releaseCallbacks($this);
@@ -623,7 +625,10 @@ final class WebSocketSession
             return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
         }
 
-        $result = $this->connection->write(WebSocketWireCodec::frame($opcode, $payload));
+        $wire = $this->clientMode
+            ? WebSocketWireCodec::clientFrame($opcode, $payload)
+            : WebSocketWireCodec::frame($opcode, $payload);
+        $result = $this->connection->write($wire);
         if ($result->pressured()) {
             $this->connection->pauseReads();
         }

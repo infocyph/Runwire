@@ -22,6 +22,7 @@ use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Runtime\RequestResetterInterface;
 use Infocyph\Runwire\RuntimeContext;
 
@@ -555,4 +556,105 @@ it('records attached coroutine failure after response output before final cleanu
     expect($request->context->completed())->toBeTrue()
         ->and($state['resets'])->toBe(1)
         ->and($request->context->ownedWorkFailure())->toBeNull();
+});
+
+it('delivers terminal future notifications to every waiter despite a throwing observer', function (): void {
+    $runtime = new CoroutineRuntime();
+    $results = $runtime->run(function (CoroutineScope $scope): array {
+        $resolved = $scope->deferred();
+        $rejected = $scope->deferred();
+        $order = [];
+        $resolvedFuture = $resolved->future();
+        $failedFuture = $rejected->future();
+
+        $resolvedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'resolve-first';
+            throw new RuntimeException('observer failed after resolution');
+        });
+        $resolvedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'resolve-second';
+        });
+        $failedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'reject-first';
+            throw new RuntimeException('observer failed after rejection');
+        });
+        $failedFuture->subscribe(static function () use (&$order): void {
+            $order[] = 'reject-second';
+        });
+
+        $resolved->resolve('settled');
+        $original = new RuntimeException('expected-rejection');
+        $rejected->reject($original);
+        expect($resolvedFuture->result())->toBe('settled');
+        expect(fn() => $resolved->reject(new RuntimeException('late-error')))->toThrow(FutureCompletedException::class);
+        expect(fn() => $failedFuture->result())->toThrow(RuntimeException::class, 'expected-rejection');
+        expect(fn() => $rejected->resolve('late-success'))->toThrow(FutureCompletedException::class);
+
+        return $order;
+    });
+
+    expect($results)->toBe(['resolve-first', 'resolve-second', 'reject-first', 'reject-second']);
+});
+
+
+it('resumes every Fiber awaiting a future even when an earlier observer throws', function (): void {
+    $runtime = new CoroutineRuntime();
+    $values = $runtime->run(static function (CoroutineScope $scope): array {
+        $deferred = $scope->deferred();
+        $future = $deferred->future();
+        $future->subscribe(static function (): void {
+            throw new RuntimeException('ignored notification failure');
+        });
+        $first = $scope->spawn(static fn(): mixed => $future->await());
+        $second = $scope->spawn(static fn(): mixed => $future->await());
+        $scope->spawn(static function () use ($deferred): void {
+            $deferred->resolve(42);
+        });
+
+        return [$first->await(), $second->await()];
+    });
+
+    expect($values)->toBe([42, 42])
+        ->and($runtime->activeTaskCount())->toBe(0);
+});
+
+
+it('inherits the protocol request deadline in attached root and child fibers', function (): void {
+    $loop = new SelectLoop();
+    $runtime = new CoroutineRuntime($loop);
+    $context = RequestContext::create(
+        RuntimeContext::standalone(),
+        new RequestExecutionPolicy(maxExecutionSeconds: 0.08),
+        'protocol-deadline',
+    );
+    $childCleanup = false;
+
+    $task = $runtime->attachRequest(
+        $context,
+        static function (CoroutineScope $scope) use (&$childCleanup): void {
+            $scope->spawn(static function () use ($scope, &$childCleanup): void {
+                try {
+                    $scope->sleep(5.0);
+                } finally {
+                    $childCleanup = true;
+                }
+            });
+            $scope->yieldNow();
+            $scope->sleep(5.0);
+        },
+    );
+
+    try {
+        $loop->run();
+        expect($task->state())->toBe(TaskState::CANCELLED)
+            ->and($childCleanup)->toBeTrue()
+            ->and($runtime->diagnostics()->requestScopesActive)->toBe(0)
+            ->and($runtime->activeTaskCount())->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+    } finally {
+        $context->complete();
+    }
 });

@@ -104,16 +104,25 @@ run_trial() {
     php -d opcache.enable_cli=1 benchmarks/adaptive_http_server.php       http1 "$port" "$mode" "$payload"       >"$tmpdir/server.log" 2>&1 &
   else
     payload=768
-    php -d opcache.enable_cli=1 benchmarks/adaptive_http_server.php       h2 "$port" "$mode" "$payload" "$certificate" "$private_key"       >"$tmpdir/server.log" 2>&1 &
+    RUNWIRE_BENCH_SERVER_DIAGNOSTICS=1 php -d opcache.enable_cli=1 benchmarks/adaptive_http_server.php       h2 "$port" "$mode" "$payload" "$certificate" "$private_key"       >"$tmpdir/server.log" 2>&1 &
   fi
   server_pid=$!
   wait_port "$port"
 
   result="$output_dir/${protocol}-${mode}-trial-${trial}.json"
   if [ "$protocol" = "http1" ]; then
-    php benchmarks/adaptive_http1_matrix.php       "$port" "$server_pid" "$mode" "$phase_seconds"       > "$result"
+    if ! php benchmarks/adaptive_http1_matrix.php       "$port" "$server_pid" "$mode" "$phase_seconds"       > "$result"; then
+      echo "::error::Adaptive HTTP/1.1 $mode trial $trial failed; server diagnostics:" >&2
+      tail -n 120 "$tmpdir/server.log" >&2
+      exit 1
+    fi
   else
-    /tmp/runwire-h2/bin/python benchmarks/h2_adaptive_matrix.py       "$port" "$server_pid" "$mode" "$phase_seconds" "$payload"       > "$result"
+    if ! /tmp/runwire-h2/bin/python benchmarks/h2_adaptive_matrix.py       "$port" "$server_pid" "$mode" "$phase_seconds" "$payload"       > "$result"; then
+      echo "::error::Adaptive HTTP/2 $mode trial $trial failed; original server diagnostics:" >&2
+      tail -n 120 "$tmpdir/server.log" >&2
+      cp "$tmpdir/server.log" "$output_dir/h2-$mode-trial-$trial-server-failure.log"
+      exit 1
+    fi
   fi
 
   php -r '

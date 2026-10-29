@@ -3,18 +3,49 @@ name: Source Audit
 on:
   workflow_dispatch:
   push:
+    branches: [ "main", "master" ]
     paths:
       - src/**
+      - tools/public-api-manifest.php
+      - tools/public-api-diff.php
+      - tools/public-api-migration-audit.php
+      - qa/release-baseline/**
       - tests/**
       - composer.json
       - composer.lock
+      - tools/pre-release-feature-qa.sh
+      - docs/features.rst
+      - docs/handbook-3.0.rst
+      - docs/performance-security-3.0.rst
+      - docs/index.rst
+      - docs/host-compatibility-3.0.rst
+      - docs/migration-3.0.rst
+      - docs/compatibility-audit-3.0.rst
+      - docs/performance-qa-handbook-3.0.rst
+      - docs/protocols-3.0.rst
+      - README.md
       - .github/workflows/source-audit.yml
   pull_request:
     paths:
       - src/**
+      - tools/public-api-manifest.php
+      - tools/public-api-diff.php
+      - tools/public-api-migration-audit.php
+      - qa/release-baseline/**
       - tests/**
       - composer.json
       - composer.lock
+      - tools/pre-release-feature-qa.sh
+      - docs/features.rst
+      - docs/handbook-3.0.rst
+      - docs/performance-security-3.0.rst
+      - docs/index.rst
+      - docs/host-compatibility-3.0.rst
+      - docs/migration-3.0.rst
+      - docs/compatibility-audit-3.0.rst
+      - docs/performance-qa-handbook-3.0.rst
+      - docs/protocols-3.0.rst
+      - README.md
       - .github/workflows/source-audit.yml
 
 permissions:
@@ -37,6 +68,77 @@ jobs:
           php-version: '8.5'
           coverage: none
 
+      - name: Checkout immutable published 2.1.2 comparator
+        uses: actions/checkout@v7
+        with:
+          ref: 7e9bf20ad0737a187dfed77b723791b141b36378
+          path: published-2.1.2
+          persist-credentials: false
+
+      - name: Snapshot all published and current PHP public type signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tools/public-api-manifest.php
+          mkdir -p api-baseline
+          php tools/public-api-manifest.php published-2.1.2/src api-baseline/published-2.1.2.json 7e9bf20ad0737a187dfed77b723791b141b36378
+          php tools/public-api-manifest.php src api-baseline/current.json "${GITHUB_SHA}"
+          test "$(jq -r '.unrecognizedFiles | length' api-baseline/published-2.1.2.json)" -eq 0
+          test "$(jq -r '.symbolCount' api-baseline/published-2.1.2.json)" -gt 200
+          test "$(jq -r '.symbolCount' api-baseline/current.json)" -gt 200
+          sha256sum api-baseline/*.json | tee api-baseline/sha256sums.txt
+          expected_sha="$(jq -er '.manifestSha256' qa/release-baseline/public-api-2.1.2.lock.json)"
+          actual_sha="$(sha256sum api-baseline/published-2.1.2.json | cut -d ' ' -f 1)"
+          test "$actual_sha" = "$expected_sha"
+          test "$(jq -er '.sourceFiles' qa/release-baseline/public-api-2.1.2.lock.json)" -eq "$(jq -er '.sourceFileCount' api-baseline/published-2.1.2.json)"
+          test "$(jq -er '.publicTypes' qa/release-baseline/public-api-2.1.2.lock.json)" -eq "$(jq -er '.symbolCount' api-baseline/published-2.1.2.json)"
+          echo "Published 2.1.2 public API manifest checksum VERIFIED."
+
+      - name: Validate property-aware public API migration from pinned 2.1.2 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tools/public-api-diff.php
+          php tools/public-api-manifest.php published-2.1.2/src api-baseline/published-2.1.2-properties.json 7e9bf20ad0737a187dfed77b723791b141b36378 --with-properties
+          php tools/public-api-manifest.php src api-baseline/current-properties.json "${GITHUB_SHA}" --with-properties
+          php tools/public-api-diff.php api-baseline/published-2.1.2-properties.json api-baseline/current-properties.json > api-baseline/migration-source-diff.json
+          jq -e --arg base "7e9bf20ad0737a187dfed77b723791b141b36378" --arg candidate "${GITHUB_SHA}" \
+            '.schemaVersion == 1 and .baselineRevision == $base and .candidateRevision == $candidate and .propertyInventoryCompared == true' \
+            api-baseline/migration-source-diff.json >/dev/null
+          php -l tools/public-api-migration-audit.php
+          php tools/public-api-migration-audit.php \
+            api-baseline/migration-source-diff.json \
+            qa/release-baseline/u16-reviewed-api-delta.json \
+            > api-baseline/migration-reviewed-contract.json
+          jq -e '.reviewed == true and .traitRelocations == 2 and .reviewedSignatureChanges == 6 and .behavioralCompatibilityCertified == false' \
+            api-baseline/migration-reviewed-contract.json >/dev/null
+          php -l tools/c4-migration-behavior-audit.php
+          php tools/c4-migration-behavior-audit.php \
+            api-baseline/migration-source-diff.json \
+            qa/release-baseline/c4-migration-behavior-ledger.json \
+            | tee api-baseline/c4-migration-behavior-coverage.json
+          jq -e '.allChangedSymbolsDispositioned == true and
+            .behavioralCompatibilityCertified == false and
+            .testBackedDispositionCount == .changedPublicImplementationSymbols' \
+            api-baseline/c4-migration-behavior-coverage.json >/dev/null
+          {
+            echo "### Source-only 2.1.2 to 3.0 migration diff (not behavioral certification)"
+            jq -r '[.breakingCount,.changeCount,.additionCount] | "Breaking: \(.[0]); signature/declaration changes: \(.[1]); new types: \(.[2])"' api-baseline/migration-source-diff.json
+            echo "Published 2.1.2 comparator: 7e9bf20ad073; checked-out source: ${GITHUB_SHA}"
+            echo "### Full implementation-change ledger pending behavioral disposition"
+            jq -r '.changed[] | select(.type == "source_changed") | "- \\(.symbol)"' api-baseline/migration-source-diff.json
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "Changed 2.1.2-to-3.0 public implementation symbols requiring behavioral disposition:"
+          jq -r '.changed[] | select(.type == "source_changed") | .symbol' api-baseline/migration-source-diff.json
+
+      - name: Preserve reproducible API baselines
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-public-api-manifests
+          path: api-baseline/
+          retention-days: 90
+
       - name: Syntax check source
         shell: bash
         run: |
@@ -45,6 +147,10 @@ jobs:
             php -l "$file" >/dev/null
           done < <(find src -type f -name '*.php' -print0 | sort -z)
           printf 'syntax-ok files=%s\n' "$(find src -type f -name '*.php' | wc -l)"
+
+      - name: Check public 3.0 feature contracts and unsupported claims
+        shell: bash
+        run: bash tools/pre-release-feature-qa.sh
 
       - name: Risk-pattern scan
         shell: bash

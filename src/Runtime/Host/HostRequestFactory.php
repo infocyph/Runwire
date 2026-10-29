@@ -76,19 +76,6 @@ final class HostRequestFactory
         return strtolower($this->serverString($server, 'REQUEST_SCHEME')) === 'https';
     }
 
-    private function headerName(string $serverKey): ?string
-    {
-        if (str_starts_with($serverKey, 'HTTP_')) {
-            return str_replace('_', '-', strtolower(substr($serverKey, 5)));
-        }
-
-        return match ($serverKey) {
-            'CONTENT_LENGTH' => 'content-length',
-            'CONTENT_TYPE' => 'content-type',
-            default => null,
-        };
-    }
-
     /**
      * @param array<string, mixed> $server
      * @return array<string, string>
@@ -100,9 +87,16 @@ final class HostRequestFactory
             if (!is_string($value) && !is_int($value) && !is_float($value)) {
                 continue;
             }
-            $headerName = $this->headerName($key);
-            if ($headerName !== null) {
-                $headers[$headerName] = (string) $value;
+            if (str_starts_with($key, 'HTTP_')) {
+                $headers[str_replace('_', '-', strtolower(substr($key, 5)))] = (string) $value;
+
+                continue;
+            }
+
+            if ($key === 'CONTENT_LENGTH') {
+                $headers['content-length'] = (string) $value;
+            } elseif ($key === 'CONTENT_TYPE') {
+                $headers['content-type'] = (string) $value;
             }
         }
 

@@ -1,0 +1,85 @@
+name: Documentation — Sphinx RST
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - docs/**
+      - .readthedocs.yaml
+      - .github/workflows/documentation.yml
+  pull_request:
+    paths:
+      - docs/**
+      - .readthedocs.yaml
+      - .github/workflows/documentation.yml
+      - tests/Plan3SphinxRstTest.php
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rst:
+    name: Native RST warnings-as-errors and Read the Docs contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Runwire
+        uses: actions/checkout@v7 # v7.0.1
+      - name: Install Python for Sphinx and RTD
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install pinned Sphinx tooling
+        run: python -m pip install --no-cache-dir -r docs/requirements.txt
+      - name: Reject MyST and non-RST public Sphinx sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import importlib.util
+          contents = Path("docs/conf.py").read_text()
+          assert 'source_suffix = {".rst": "restructuredtext"}' in contents
+          assert "myst_parser" not in contents
+          assert 'root_doc = "index"' in contents
+          assert 'version: 2' in Path(".readthedocs.yaml").read_text()
+          assert 'configuration: docs/conf.py' in Path(".readthedocs.yaml").read_text()
+          for page in Path("docs").rglob("*.rst"):
+              if "plans" in page.parts:
+                  continue
+              assert page.read_text().strip(), f"Empty public RST document: {page}"
+          assert Path("docs/index.rst").exists()
+          PY
+      - name: Strict Sphinx HTML build (native reStructuredText only)
+        run: sphinx-build -n -W --keep-going -b html docs build/sphinx-html
+      - name: Verify rendered HTML matches its checked-out source SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "$(git rev-parse HEAD)" build/sphinx-html/index.html
+      - name: Prove all indexed public handbook pages exist and are searchable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t pages < <(awk '/^   [a-z0-9][a-z0-9._-]*$/ {print $1}' docs/index.rst)
+          test "${#pages[@]}" -ge 25
+          for page in "${pages[@]}"; do
+            test -s "build/sphinx-html/${page}.html" || {
+              echo "::error::Missing indexed page: ${page}"; exit 1;
+            }
+            grep -Fq "${page}" build/sphinx-html/searchindex.js || {
+              echo "::error::Page absent from search index: ${page}"; exit 1;
+            }
+          done
+          printf 'Verified %s indexed HTML/search pages.\n' "${#pages[@]}"
+      - name: Preserve Sphinx HTML preview
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-sphinx-rst-preview
+          path: build/sphinx-html/
+          retention-days: 30

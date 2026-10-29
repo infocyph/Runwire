@@ -27,6 +27,27 @@ final class ChildReaper
     }
 
     /**
+     * Force-stop owned children and return PIDs still unreaped after the deadline.
+     *
+     * @param array<int, ChildRecord> $children
+     * @return list<int>
+     */
+    public static function forceKillAndWait(array $children, int $deadlineNanoseconds): array
+    {
+        foreach ($children as $record) {
+            posix_kill($record->pid, SIGKILL);
+        }
+        $unreaped = [];
+        foreach (array_keys($children) as $pid) {
+            if (!self::waitForUntil($pid, $deadlineNanoseconds)) {
+                $unreaped[] = $pid;
+            }
+        }
+
+        return $unreaped;
+    }
+
+    /**
      * Reap all currently exited children and report when no children remain.
      *
      * @param callable(int, int): void $onExit

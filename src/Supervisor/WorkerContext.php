@@ -7,17 +7,26 @@ namespace Infocyph\Runwire\Supervisor;
 use Infocyph\Runwire\Coroutine\CoroutineDiagnosticsSnapshot;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Task;
+use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
+use Infocyph\Runwire\Network\BoundedConnectionPool;
+use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Dialer;
+use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
+use Infocyph\Runwire\Network\QuicClientSession;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\Internal\PeriodicTaskRegistry;
+use Infocyph\Runwire\Supervisor\Internal\WorkerActivitySignals;
 use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
+use Infocyph\Runwire\Supervisor\Internal\WorkerOwnedResourceCleanup;
 use LogicException;
 use RuntimeException;
+use Throwable;
 
 /**
  * Exposes worker identity, lifecycle signaling, recycling, periodic work, and background coroutine controls.
@@ -28,11 +37,11 @@ final class WorkerContext
 
     public readonly ByteBudget $bufferBudget;
 
+    private readonly WorkerActivitySignals $activitySignals;
+
     private readonly PeriodicTaskRegistry $periodicTasks;
 
     private readonly WorkerRecycleState $recycleState;
-
-    private int $activeRequests = 0;
 
     private ?WorkerCoroutineScope $backgroundCoroutines = null;
 
@@ -41,6 +50,24 @@ final class WorkerContext
     private ?int $controlWatcher = null;
 
     private string $lifecycleBuffer = '';
+
+    /** @var array<int, Connection> */
+    private array $ownedConnections = [];
+
+    /** @var array<int, Dialer> */
+    private array $ownedDialers = [];
+
+    /** @var array<int, ProcessExecutor> */
+    private array $ownedExecutors = [];
+
+    /** @var array<int, HappyEyeballsDialer> */
+    private array $ownedHappyDialers = [];
+
+    /** @var array<int, BoundedConnectionPool> */
+    private array $ownedPools = [];
+
+    /** @var array<int, QuicClientSession> */
+    private array $ownedQuicSessions = [];
 
     private bool $ready = false;
 
@@ -78,6 +105,9 @@ final class WorkerContext
             }
         }
 
+        $this->activitySignals = new WorkerActivitySignals(function (string $message): void {
+            $this->signal($message);
+        });
         $this->bufferBudget = new ByteBudget($this->admissionPolicy->maxQueuedBytes);
         $this->periodicTasks = new PeriodicTaskRegistry();
         $this->recycleState = new WorkerRecycleState(
@@ -112,6 +142,7 @@ final class WorkerContext
     {
         $this->periodicTasks->attach($loop);
         $this->attachControlWatcher($loop);
+        $this->activitySignals->attach($loop);
         if (!$this->role->background()) {
             return;
         }
@@ -162,13 +193,44 @@ final class WorkerContext
      */
     public function close(): void
     {
-        $this->backgroundCoroutines?->close();
-        $this->periodicTasks->close();
-        if ($this->controlWatcher !== null && $this->controlLoop !== null) {
-            $this->controlLoop->cancel($this->controlWatcher);
+        // A retired generation must never advertise background-work admission.
+        $this->stopping = true;
+        $failure = null;
+        foreach ([
+            function (): void {
+                $this->backgroundCoroutines?->close();
+            },
+            function (): void {
+                $this->periodicTasks->close();
+            },
+            function (): void {
+                $this->activitySignals->close();
+            },
+            function (): void {
+                $this->closeOwnedNetworkResources();
+            },
+            function (): void {
+                $this->closeOwnedExecutors();
+            },
+        ] as $cleanup) {
+            try {
+                $cleanup();
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
         }
-        $this->controlWatcher = null;
-        $this->controlLoop = null;
+
+        if ($this->controlWatcher !== null && $this->controlLoop !== null) {
+            try {
+                $this->controlLoop->cancel($this->controlWatcher);
+                $this->controlWatcher = null;
+                $this->controlLoop = null;
+            } catch (Throwable $error) {
+                // Keep the handle to allow a later close() to retry its cancellation.
+                $failure ??= $error;
+            }
+        }
+
         if (is_resource($this->readyStream)) {
             fclose($this->readyStream);
         }
@@ -178,6 +240,10 @@ final class WorkerContext
                 fclose($this->{$property});
             }
             $this->{$property} = null;
+        }
+
+        if ($failure !== null) {
+            throw $failure;
         }
     }
 
@@ -237,6 +303,71 @@ final class WorkerContext
         $this->signal('U');
     }
 
+    /** Take responsibility for aborting a socket still active when this worker retires. */
+    public function ownConnection(Connection $connection): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept connection ownership.');
+        }
+
+        $this->ownedConnections[spl_object_id($connection)] = $connection;
+    }
+
+    /** Take ownership of an underlying numeric TCP/Unix connector and pending dials. */
+    public function ownDialer(Dialer $dialer): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept dialer ownership.');
+        }
+
+        $this->ownedDialers[spl_object_id($dialer)] = $dialer;
+    }
+
+    /**
+     * Register an executor whose lifetime belongs to this worker.
+     *
+     * The caller explicitly transfers shutdown responsibility; borrowed
+     * executors must not be registered.
+     */
+    public function ownExecutor(ProcessExecutor $executor): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept executor ownership.');
+        }
+
+        $this->ownedExecutors[spl_object_id($executor)] = $executor;
+    }
+
+    /** Own a hostname-racing dialer without implicitly owning its borrowed dependencies. */
+    public function ownHappyEyeballsDialer(HappyEyeballsDialer $dialer): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept dialer ownership.');
+        }
+
+        $this->ownedHappyDialers[spl_object_id($dialer)] = $dialer;
+    }
+
+    /** Explicitly transfer one connection pool's shutdown to this worker. */
+    public function ownPool(BoundedConnectionPool $pool): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept pool ownership.');
+        }
+
+        $this->ownedPools[spl_object_id($pool)] = $pool;
+    }
+
+    /** Explicitly transfer a native QUIC session's shutdown to this worker. */
+    public function ownQuicSession(QuicClientSession $session): void
+    {
+        if ($this->stopping) {
+            throw new LogicException('Stopping workers cannot accept QUIC session ownership.');
+        }
+
+        $this->ownedQuicSessions[spl_object_id($session)] = $session;
+    }
+
     /**
      * Return the highest observed worker memory usage.
      */
@@ -263,12 +394,7 @@ final class WorkerContext
      */
     public function recordRequestCompleted(): bool
     {
-        if ($this->activeRequests > 0) {
-            --$this->activeRequests;
-            if ($this->activeRequests === 0 && !$this->stopping) {
-                $this->signal('I');
-            }
-        }
+        $this->activitySignals->completed();
 
         $recycle = $this->recycleState->recordRequestCompleted();
         if ($recycle) {
@@ -285,10 +411,7 @@ final class WorkerContext
      */
     public function recordRequestStarted(): void
     {
-        ++$this->activeRequests;
-        if ($this->activeRequests === 1 && !$this->stopping) {
-            $this->signal('B');
-        }
+        $this->activitySignals->started();
     }
 
     /**
@@ -452,11 +575,58 @@ final class WorkerContext
 
         $this->shutdownReason = $reason;
         $this->stopping = true;
-        $this->periodicTasks->drain();
-        $this->backgroundCoroutines?->drain();
+        $failure = null;
+        foreach ([
+            function (): void {
+                $this->activitySignals->close();
+            },
+            function (): void {
+                $this->periodicTasks->drain();
+            },
+            function (): void {
+                $this->backgroundCoroutines?->drain();
+            },
+            function (): void {
+                $this->closeOwnedExecutors();
+            },
+        ] as $cleanup) {
+            try {
+                $cleanup();
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
+        }
+
         if (is_resource($this->stopWrite)) {
             fwrite($this->stopWrite, 'S');
         }
+
+        if ($failure !== null) {
+            throw $failure;
+        }
+    }
+
+    private function closeOwnedExecutors(): void
+    {
+        $executors = $this->ownedExecutors;
+        $this->ownedExecutors = [];
+        WorkerOwnedResourceCleanup::executors($executors);
+    }
+
+    private function closeOwnedNetworkResources(): void
+    {
+        $connections = $this->ownedConnections;
+        $dialers = $this->ownedDialers;
+        $happyDialers = $this->ownedHappyDialers;
+        $pools = $this->ownedPools;
+        $sessions = $this->ownedQuicSessions;
+        $this->ownedPools = [];
+        $this->ownedConnections = [];
+        $this->ownedDialers = [];
+        $this->ownedHappyDialers = [];
+        $this->ownedQuicSessions = [];
+
+        WorkerOwnedResourceCleanup::network($happyDialers, $dialers, $connections, $pools, $sessions);
     }
 
     private function readControl(): ?ShutdownReason

@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
+use Infocyph\Runwire\Coroutine\Network\AsyncDialer;
+use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SwooleLoop;
+use Infocyph\Runwire\Network\AsyncDnsResolver;
+use Infocyph\Runwire\Network\Dialer;
+use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
@@ -29,6 +34,37 @@ $handler = new CoroutineRequestHandler(
         ResponseWriterInterface $writer,
         CoroutineScope $scope,
     ) use ($loop): void {
+        if ($request->target === '/dial') {
+            $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
+            if (!is_resource($listener)) {
+                throw new RuntimeException($error);
+            }
+            $executor = new ProcessExecutor($loop, 1, 4);
+            try {
+                $address = stream_socket_get_name($listener, false);
+                if (!is_string($address)) {
+                    throw new RuntimeException('Hosted dial test could not resolve a listener address.');
+                }
+                $port = (int) substr($address, strrpos($address, ':') + 1);
+                $dialer = new HappyEyeballsDialer($loop, new Dialer($loop), new AsyncDnsResolver($executor));
+                $connection = (new AsyncDialer($dialer, $scope))->connect('tcp://localhost:' . $port);
+                $connection->abort();
+                $peer = stream_socket_accept($listener, 1.0);
+                if (!is_resource($peer)) {
+                    throw new RuntimeException('Hosted dial test did not accept the outgoing socket.');
+                }
+                fclose($peer);
+                $executor->close();
+                $writer->start(200, Headers::fromArray(['content-type' => 'text/plain']));
+                $writer->end('runwire-swoole-dial-ok');
+            } finally {
+                $executor->close();
+                fclose($listener);
+            }
+
+            return;
+        }
+
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         if ($pair === false) {
             throw new RuntimeException('Unable to create the Swoole coroutine acceptance socket pair.');

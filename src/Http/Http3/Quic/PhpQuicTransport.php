@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Http3\Quic;
 use Infocyph\Runwire\Http\Http3\Internal\Http3TransportInterface;
 use InvalidArgumentException;
 use LogicException;
+use Throwable;
 
 /**
  * Adapts native QUIC streams to the HTTP/3 response transport contract.
@@ -36,7 +37,17 @@ final class PhpQuicTransport implements Http3TransportInterface
      */
     public function finishRequestStream(int $streamId): void
     {
-        $this->requestStream($streamId)->end();
+        $stream = $this->requestStream($streamId);
+
+        try {
+            $stream->end();
+        } catch (Throwable $exception) {
+            // A peer STOP_SENDING can land between the scheduler's reset scan
+            // and native FIN. This is stream-local, not a broken QUIC session.
+            if ($stream->resetCode() === null) {
+                throw $exception;
+            }
+        }
         $this->finishedResponses[$streamId] = true;
     }
 
@@ -121,7 +132,18 @@ final class PhpQuicTransport implements Http3TransportInterface
      */
     public function writeRequestStream(int $streamId, string $bytes): int
     {
-        return $this->requestStream($streamId)->write($bytes);
+        $stream = $this->requestStream($streamId);
+
+        try {
+            return $stream->write($bytes);
+        } catch (Throwable $exception) {
+            if ($stream->resetCode() === null) {
+                throw $exception;
+            }
+
+            // The next connection cycle discards the reset request state.
+            return 0;
+        }
     }
 
     private function requestStream(int $streamId): PhpQuicStream

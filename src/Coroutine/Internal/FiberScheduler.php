@@ -310,7 +310,7 @@ final class FiberScheduler
         $this->tasks[$task->id()] = $task;
         $this->ready->enqueue($task);
         ++$this->spawnedTotal;
-        $this->recordReadyDepth();
+        $this->readyQueueMaxDepth = max($this->readyQueueMaxDepth, $this->ready->count());
         $this->scheduleDrain();
 
         return $task;
@@ -448,18 +448,13 @@ final class FiberScheduler
 
         $enqueued = $this->ready->enqueue($task, $value, $error, $ignoreCancellation);
         if ($enqueued) {
-            $this->recordReadyDepth();
+            $this->readyQueueMaxDepth = max($this->readyQueueMaxDepth, $this->ready->count());
         }
         if ($enqueued && !$this->draining) {
             $this->scheduleDrain();
         }
 
         return $enqueued;
-    }
-
-    private function recordReadyDepth(): void
-    {
-        $this->readyQueueMaxDepth = max($this->readyQueueMaxDepth, $this->ready->count());
     }
 
     private function recordTerminal(Task $task): void

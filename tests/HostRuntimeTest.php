@@ -73,6 +73,31 @@ it('normalizes host request metadata into the common HTTP request contract', fun
         ->and($request->body->eof())->toBeTrue();
 });
 
+it('normalizes scalar HTTP metadata and ignores unrelated or invalid host input', function (): void {
+    $request = (new HostRequestFactory())->fromServer([
+        'REQUEST_METHOD' => 'GET',
+        'REQUEST_URI' => '/headers',
+        'HTTP_X_REQUEST_ID' => 27,
+        'HTTP_X_FLOAT' => 2.5,
+        'HTTP_X_UNSUPPORTED' => ['not-a-scalar'],
+        'CONTENT_LENGTH' => 0,
+        'CONTENT_TYPE' => 'text/plain',
+        'HTTP_X_EMPTY' => '',
+        'UNRELATED_KEY' => 'ignored',
+        'HTTP_HOST' => 'localhost',
+    ], '', 1_024);
+
+    expect($request->headers->first('x-request-id'))->toBe('27')
+        ->and($request->headers->first('x-float'))->toBe('2.5')
+        ->and($request->headers->first('x-unsupported'))->toBeNull()
+        ->and($request->headers->first('content-length'))->toBe('0')
+        ->and($request->headers->first('content-type'))->toBe('text/plain')
+        ->and($request->headers->first('x-empty'))->toBe('')
+        ->and($request->headers->first('unrelated-key'))->toBeNull()
+        ->and($request->headers->first('host'))->toBe('localhost');
+    $request->context->complete();
+});
+
 it('rejects explicit unsupported host protocol versions', function (string $protocol): void {
     expect(fn() => HostProtocolVersion::from($protocol))->toThrow(
         InvalidArgumentException::class,

@@ -9,6 +9,8 @@ use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
+use Infocyph\Runwire\Http\Http3\Enum\StreamType;
+use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicConnection;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicEventMasks;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Connection;
@@ -262,6 +264,52 @@ it('cancels request state when the peer resets a QUIC request stream', function 
 
     expect($connection->activeRequestStreams())->toBe(0)
         ->and($connection->closed())->toBeFalse();
+});
+
+it('discards STOP_SENDING responses before native writes and preserves healthy siblings', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $encoder = new Encoder(0, 0);
+    $header = new Frame(FrameType::HEADERS->value, $encoder->encode([
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', 'example.com'],
+        [':path', '/cancelled'],
+    ], 0)->block);
+    $cancelled = fakeHttp3ConnectionStream(0, true, [$header->encode(), null], 0);
+    $healthy = fakeHttp3ConnectionStream(4, true, [$header->encode(), null]);
+    $raw = fakeHttp3ConnectionRaw([
+        fakeHttp3ConnectionStream(3, false),
+        fakeHttp3ConnectionStream(7, false),
+        fakeHttp3ConnectionStream(11, false),
+    ], [$cancelled, $healthy]);
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($raw),
+        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+            if ($request->target !== '/cancelled') {
+                throw new RuntimeException('Unexpected fault fixture request target.');
+            }
+
+            $writer->end('healthy-response');
+        },
+    );
+
+    $connection->handleReady([spl_object_id($raw) => $events->acceptStream], $events);
+    $connection->handleReady([
+        spl_object_id($cancelled) => $events->read,
+        spl_object_id($healthy) => $events->read,
+    ], $events);
+    expect($connection->activeRequestStreams())->toBe(1)
+        ->and($healthy->written)->toContain('healthy-response');
+
+    $cancelled->peerResetCode = ErrorCode::REQUEST_CANCELLED->value;
+    $cancelled->writeFails = true;
+    // An outbound-only tick must not attempt a native write to STOP_SENDING.
+    $connection->handleReady([spl_object_id($cancelled) => $events->write], $events);
+
+    expect($connection->activeRequestStreams())->toBe(0)
+        ->and($connection->closed())->toBeFalse()
+        ->and($raw->closed)->toBe([])
+        ->and($healthy->ended)->toBeTrue();
 });
 
 it('treats connection poll errors as transport closure without sending a second close', function (): void {
@@ -602,4 +650,58 @@ it('keeps accepted HTTP3 headers admissible through application draining', funct
         $handle->close();
         $context->close();
     }
+});
+
+it('does not replay QUIC FIN on a QPACK-blocked request before encoder instructions arrive', function (): void {
+    $encoder = new Encoder(220, 1, dynamicTableCapacity: 220);
+    $initialInstructions = $encoder->takeEncoderInstructions();
+    $block = $encoder->encode([
+        [':method', 'GET'],
+        [':scheme', 'https'],
+        [':authority', 'example.com'],
+        [':path', '/qpack-delayed'],
+        ['x-dynamic', 'delayed-insert'],
+    ], 0)->block;
+    $instructions = $initialInstructions . $encoder->takeEncoderInstructions();
+
+    $request = fakeHttp3ConnectionStream(0, true, [
+        (new Frame(FrameType::HEADERS->value, $block))->encode(),
+        null,
+    ]);
+    $raw = fakeHttp3ConnectionRaw([
+        fakeHttp3ConnectionStream(3, false),
+        fakeHttp3ConnectionStream(7, false),
+        fakeHttp3ConnectionStream(11, false),
+    ], [$request]);
+    $accepted = [];
+    $connection = new PhpQuicHttp3Connection(
+        new PhpQuicConnection($raw),
+        static function (HttpRequest $incoming, ResponseWriterInterface $writer) use (&$accepted): void {
+            $accepted[] = $incoming->target;
+            $writer->end('ready');
+        },
+    );
+
+    $connection->pump();
+    expect($accepted)->toBe([])
+        ->and($connection->activeRequestStreams())->toBe(1)
+        ->and($connection->closed())->toBeFalse();
+
+    // A second readiness cycle must not deliver the same transport FIN.
+    $connection->pump();
+    expect($accepted)->toBe([])
+        ->and($connection->closed())->toBeFalse();
+
+    $peerEncoder = fakeHttp3ConnectionStream(2, false, [
+        VarIntCodec::encode(StreamType::QPACK_ENCODER->value) . $instructions,
+        '',
+    ]);
+    $raw->acceptedStreams[] = $peerEncoder;
+    $connection->pump();
+
+    expect($accepted)->toBe(['/qpack-delayed'])
+        ->and($request->written)->toContain('ready')
+        ->and($request->ended)->toBeTrue()
+        ->and($connection->closed())->toBeFalse()
+        ->and($connection->activeRequestStreams())->toBe(0);
 });

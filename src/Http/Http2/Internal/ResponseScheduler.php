@@ -81,6 +81,7 @@ final class ResponseScheduler
         callable $cleanupClosed,
         callable $readyCallback,
         callable $activityCallback,
+        private readonly ?\Closure $outboundDataCredit = null,
     ) {
         $this->activeStreamCount = static fn(): int => 0;
         /** @var Closure(int): ?Http2Stream $lookupClosure */
@@ -360,6 +361,7 @@ final class ResponseScheduler
         $stream->outbound->discard($bytes);
         $this->pendingStreamBytes -= $bytes;
         $this->flow->consumeSend($stream, $bytes);
+        ($this->outboundDataCredit)?->__invoke($bytes);
         if ($end) {
             $stream->endPending = false;
             $stream->localEnd();

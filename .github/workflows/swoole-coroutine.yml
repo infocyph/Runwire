@@ -126,6 +126,14 @@ jobs:
             exit 1
           fi
 
+          dial_response="$(curl --fail --silent --show-error --max-time 5 \
+            "http://127.0.0.1:$port/dial")"
+          if [ "$dial_response" != 'runwire-swoole-dial-ok' ]; then
+            echo "Unexpected hosted outgoing dial response: $dial_response"
+            cat "$logfile"
+            exit 1
+          fi
+
           kill "$server_pid" 2>/dev/null || true
           wait "$server_pid" 2>/dev/null || true
           server_pid=""

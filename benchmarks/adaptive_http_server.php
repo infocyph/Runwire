@@ -73,7 +73,22 @@ $server = new Server(
         }
 
         $size = basename($request->target);
-        $writer->end(ctype_digit($size) ? str_repeat('x', (int) $size) : $body);
+
+        try {
+            $writer->end(ctype_digit($size) ? str_repeat('x', (int) $size) : $body);
+        } catch (Throwable $error) {
+            // Benchmark-only, opt-in, failure-path evidence. Preserve the
+            // original application failure and let HTTP/2 reset the stream.
+            if (getenv('RUNWIRE_BENCH_SERVER_DIAGNOSTICS') === '1') {
+                fwrite(STDERR, sprintf(
+                    "Adaptive benchmark handler failure: %s: %s\n",
+                    $error::class,
+                    substr($error->getMessage(), 0, 300),
+                ));
+            }
+
+            throw $error;
+        }
     },
     workers: 1,
     tls: $tls,

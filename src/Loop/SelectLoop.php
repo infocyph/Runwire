@@ -18,6 +18,10 @@ use Throwable;
  */
 final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 {
+    private const int MAX_DEFERRED_PER_TICK = 256;
+
+    private const int MAX_TIMERS_PER_TICK = 256;
+
     private const int MICROS_PER_SECOND = 1_000_000;
 
     private readonly int $callbackOverrunNanoseconds;
@@ -396,31 +400,19 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $watcher['callback'] ?? null;
     }
 
-    private function recordTick(int $tickStart): void
-    {
-        $this->lastTickNanoseconds = max(0, MonotonicTime::nowNanoseconds() - $tickStart);
-        $this->maxTickNanoseconds = max($this->maxTickNanoseconds, $this->lastTickNanoseconds);
-    }
-
-    private function recordTimerLag(int $now): void
-    {
-        $deadline = $this->timers->nextDeadline();
-        if ($deadline !== null && $deadline < $now) {
-            $this->maxLagNanoseconds = max($this->maxLagNanoseconds, $now - $deadline);
-        }
-    }
-
     private function runDeferredBatch(): void
     {
         if ($this->deferred === []) {
             return;
         }
 
-        foreach (array_keys($this->deferred) as $id) {
-            $callback = $this->takeDeferred($id);
-            if ($callback === null) {
+        // Copy only this tick's bounded FIFO snapshot, never every pending key.
+        foreach (array_slice($this->deferred, 0, self::MAX_DEFERRED_PER_TICK, true) as $id => $callback) {
+            // A prior callback may have cancelled this pending entry.
+            if (!isset($this->deferred[$id])) {
                 continue;
             }
+            unset($this->deferred[$id]);
             $this->invoke($callback, $id);
 
             if (!$this->running) {
@@ -431,15 +423,18 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     private function runDueTimers(): void
     {
-        while ($this->running && ($id = $this->timers->takeNextDue()) !== null) {
+        for ($processed = 0; $this->running && $processed < self::MAX_TIMERS_PER_TICK;) {
+            $id = $this->timers->takeNextDue();
+            if ($id === null) {
+                return;
+            }
+            ++$processed;
+
             $timer = $this->timers->timer($id);
             if ($timer === null) {
                 continue;
             }
             $this->fireTimer($id, $timer);
-            if (!$this->running) {
-                return;
-            }
         }
     }
 
@@ -448,10 +443,15 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $tickStart = MonotonicTime::nowNanoseconds();
         $this->runDeferredBatch();
         if ($this->running) {
-            $this->recordTimerLag(MonotonicTime::nowNanoseconds());
+            $now = MonotonicTime::nowNanoseconds();
+            $deadline = $this->timers->nextDeadline();
+            if ($deadline !== null && $deadline < $now) {
+                $this->maxLagNanoseconds = max($this->maxLagNanoseconds, $now - $deadline);
+            }
             $this->runDueTimers();
         }
-        $this->recordTick($tickStart);
+        $this->lastTickNanoseconds = max(0, MonotonicTime::nowNanoseconds() - $tickStart);
+        $this->maxTickNanoseconds = max($this->maxTickNanoseconds, $this->lastTickNanoseconds);
     }
 
     /** @return array{0: list<resource>, 1: list<resource>} */
@@ -515,17 +515,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             intdiv($remaining, MonotonicTime::NANOSECONDS_PER_SECOND),
             $remaining % MonotonicTime::NANOSECONDS_PER_SECOND,
         );
-    }
-
-    private function takeDeferred(int $id): ?Closure
-    {
-        $callback = $this->deferred[$id] ?? null;
-        if ($callback === null) {
-            return null;
-        }
-        unset($this->deferred[$id]);
-
-        return $callback;
     }
 
     /** @param resource $stream */

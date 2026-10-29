@@ -23,3 +23,4 @@ composer.lock
 /graphify-out
 /benchmarks/__pycache__
 /tests/benchmarks/__pycache__/
+/docs/_generated/

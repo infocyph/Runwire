@@ -23,6 +23,9 @@ final class TcpListener
 
     private ?int $acceptWatcher = null;
 
+    /** A bound socket can be inherited before start; active loop ownership cannot. */
+    private ?int $activeOwnerPid = null;
+
     private ?ByteBudget $bufferBudget = null;
 
     private bool $closed = false;
@@ -122,6 +125,7 @@ final class TcpListener
      */
     public function abortConnections(): void
     {
+        $this->assertActiveProcessOwner();
         foreach ($this->connections as $connection) {
             $connection->abort();
         }
@@ -182,6 +186,7 @@ final class TcpListener
      */
     public function close(): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -205,6 +210,7 @@ final class TcpListener
      */
     public function closeConnectionsGracefully(): void
     {
+        $this->assertActiveProcessOwner();
         foreach ($this->connections as $connection) {
             $connection->closeGracefully();
         }
@@ -239,6 +245,7 @@ final class TcpListener
      */
     public function pauseAccepting(): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -267,6 +274,7 @@ final class TcpListener
      */
     public function resumeAccepting(): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             return;
         }
@@ -289,6 +297,7 @@ final class TcpListener
     /** @param callable(Connection): void $onConnection */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
+        $this->assertActiveProcessOwner();
         if ($this->closed) {
             throw new LogicException('Closed listener cannot be started.');
         }
@@ -296,6 +305,11 @@ final class TcpListener
             throw new LogicException('Listener is already attached to an event loop.');
         }
 
+        $ownerPid = getmypid();
+        if (!is_int($ownerPid)) {
+            throw new LogicException('Unable to establish active TCP listener process ownership.');
+        }
+        $this->activeOwnerPid = $ownerPid;
         $this->loop = $loop;
         $this->connectionCallback = Closure::fromCallable($onConnection);
         $this->syncAcceptWatcher();
@@ -323,6 +337,7 @@ final class TcpListener
     /** @param resource $stream */
     private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
     {
+        $this->assertActiveProcessOwner();
         $loop = $this->loop;
         $callback = $this->connectionCallback;
         if (!is_resource($stream)) {
@@ -337,7 +352,7 @@ final class TcpListener
             return;
         }
 
-        $connection = new Connection(
+        $connection = ConnectionFactory::accepted(
             $loop,
             $stream,
             $this->connectionLimits,
@@ -373,8 +388,16 @@ final class TcpListener
         }
     }
 
+    private function assertActiveProcessOwner(): void
+    {
+        if ($this->activeOwnerPid !== null && getmypid() !== $this->activeOwnerPid) {
+            throw new LogicException('An active listener cannot cross a fork; bind before forking and start on the child loop.');
+        }
+    }
+
     private function handleAccept(): void
     {
+        $this->assertActiveProcessOwner();
         $loop = $this->loop;
         $callback = $this->connectionCallback;
         $listener = $this->stream;

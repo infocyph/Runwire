@@ -108,3 +108,43 @@ it('handles more than 1024 descriptors on the scalable backend', function (): vo
         }
     }
 });
+
+it('cancels ext-event reader and writer slots independently and permits watcher re-registration', function (): void {
+    if (!EventLoop::supported()) {
+        return;
+    }
+
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false) {
+        throw new RuntimeException('Unable to create event cancellation pair.');
+    }
+
+    [$reader, $writer] = $pair;
+    $loop = new EventLoop();
+
+    try {
+        $readId = $loop->onReadable($reader, static function (): void {});
+        $writeId = $loop->onWritable($writer, static function (): void {});
+        $timerId = $loop->delay(30.0, static function (): void {});
+
+        expect($loop->diagnostics()->readWatchers)->toBe(1)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(1)
+            ->and($loop->cancel($timerId))->toBeTrue()
+            ->and($loop->diagnostics()->readWatchers)->toBe(1)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(1)
+            ->and($loop->cancel($readId))->toBeTrue()
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(1);
+
+        $replacement = $loop->onReadable($reader, static function (): void {});
+        expect($loop->cancel($readId))->toBeFalse()
+            ->and($loop->cancel($writeId))->toBeTrue()
+            ->and($loop->diagnostics()->readWatchers)->toBe(1)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->cancel($replacement))->toBeTrue()
+            ->and($loop->diagnostics()->readWatchers)->toBe(0);
+    } finally {
+        fclose($reader);
+        fclose($writer);
+    }
+});

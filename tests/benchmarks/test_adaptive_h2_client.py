@@ -88,6 +88,15 @@ class H2ClientTest(unittest.TestCase):
                         bench.issued = 8000
                         rotated = bench.run_phase(2, 0.1)
                         self.assertEqual(rotated["observed"]["connection_rotations"], 1)
+                        # Failure-only diagnostics must observe the live peer
+                        # without mutating the HTTP/2 stream/credit state.
+                        before = bench.conn.inbound_flow_control_window
+                        snapshot = bench.stall_snapshot()
+                        self.assertEqual(snapshot["active_stream_count"], 0)
+                        self.assertEqual(snapshot["active_stream_sample"], [])
+                        self.assertTrue(snapshot["peer_pid_alive"])
+                        self.assertEqual(snapshot["client_connection_window"], before)
+                        self.assertEqual(bench.conn.inbound_flow_control_window, before)
                     finally:
                         bench.close()
                 finally:

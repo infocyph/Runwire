@@ -23,6 +23,55 @@ it('runs deferred callbacks in registration order without consuming newly deferr
     expect($events)->toBe(['first', 'second', 'third']);
 });
 
+it('bounds a large deferred queue to the current tick without admitting callbacks scheduled during dispatch', function (): void {
+    $loop = new SelectLoop();
+    $seen = [];
+
+    for ($i = 0; $i < 600; ++$i) {
+        $loop->defer(static function () use ($loop, &$seen, $i): void {
+            $seen[] = $i;
+            if ($i === 0) {
+                $loop->defer(static function () use (&$seen): void {
+                    $seen[] = 600;
+                });
+            }
+        });
+    }
+
+    $loop->tick();
+    expect($seen)->toBe(range(0, 255))
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(345);
+
+    $loop->tick();
+    expect($seen)->toBe(range(0, 511))
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(89);
+
+    $loop->tick();
+    expect($seen)->toBe([...range(0, 599), 600])
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});
+
+it('skips a deferred callback cancelled by a prior callback within the same tick', function (): void {
+    $loop = new SelectLoop();
+    $seen = [];
+    $cancelled = null;
+
+    $loop->defer(function () use ($loop, &$cancelled, &$seen): void {
+        $seen[] = 'first';
+        expect($loop->cancel($cancelled))->toBeTrue();
+    });
+    $loop->defer(static function () use (&$seen): void {
+        $seen[] = 'second';
+    });
+    $cancelled = $loop->defer(static function () use (&$seen): void {
+        $seen[] = 'cancelled';
+    });
+
+    $loop->run();
+    expect($seen)->toBe(['first', 'second'])
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});
+
 it('stops immediately after a deferred callback without running due timers in the same tick', function (): void {
     $loop = new SelectLoop();
     $events = [];
@@ -72,6 +121,63 @@ it('records timer lag introduced by deferred callbacks in the same tick', functi
     $loop->run();
 
     expect($loop->diagnostics()->maxLagNanoseconds)->toBeGreaterThanOrEqual(10_000_000);
+});
+
+it('bounds due timer work per tick without dropping pending callbacks', function (): void {
+    $loop = new SelectLoop();
+    $fired = 0;
+
+    for ($i = 0; $i < 600; ++$i) {
+        $loop->delay(0.0, static function () use (&$fired): void {
+            ++$fired;
+        });
+    }
+
+    $loop->tick();
+    expect($fired)->toBe(256)
+        ->and($loop->diagnostics()->timersActive)->toBe(344);
+
+    $loop->tick();
+    expect($fired)->toBe(512);
+
+    $loop->tick();
+    expect($fired)->toBe(600)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('lets a readable socket progress during an excessive due-timer burst', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false) {
+        throw new RuntimeException('Unable to create the stream fairness pair.');
+    }
+
+    [$reader, $writer] = $pair;
+    stream_set_blocking($reader, false);
+    $loop = new SelectLoop();
+    $fired = 0;
+    $payload = null;
+
+    for ($i = 0; $i < 600; ++$i) {
+        $loop->delay(0.0, static function () use (&$fired): void {
+            ++$fired;
+        });
+    }
+    $loop->onReadable($reader, function ($stream) use ($loop, &$payload): void {
+        $payload = fread($stream, 1);
+        $loop->stop();
+    });
+
+    try {
+        fwrite($writer, 'x');
+        $loop->run();
+
+        expect($payload)->toBe('x')
+            ->and($fired)->toBe(256)
+            ->and($loop->diagnostics()->timersActive)->toBe(344);
+    } finally {
+        fclose($reader);
+        fclose($writer);
+    }
 });
 
 it('runs and cancels a repeating timer from its callback', function (): void {

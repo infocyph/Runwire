@@ -13,5 +13,7 @@ enum ConnectionState: string
 
     case DRAINING = 'draining';
 
+    case HALF_CLOSED = 'half_closed';
+
     case OPEN = 'open';
 }

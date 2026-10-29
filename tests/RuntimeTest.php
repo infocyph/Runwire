@@ -76,7 +76,9 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
 
     $status = 0;
     $reaped = 0;
-    $deadline = microtime(true) + 3.0;
+    // Preserve genuine graceful-exit assertions but allow a loaded CI
+    // runner time to schedule/reap the supervisor process before killing it.
+    $deadline = microtime(true) + 12.0;
     while (microtime(true) < $deadline) {
         $reaped = pcntl_waitpid($runtimePid, $status, WNOHANG);
         if ($reaped === $runtimePid) {

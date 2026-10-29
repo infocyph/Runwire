@@ -98,15 +98,31 @@ jobs:
         shell: bash
         run: php tests/fixtures/portable_optional_protocol_acceptance.php
 
+      - name: Verify plain Unix streams without optional ext-sockets
+        shell: bash
+        run: php -n tests/fixtures/optional_extension_absence.php no-sockets
+
+      - name: Verify POSIX function unavailability cannot enable prefork
+        shell: bash
+        run: php -d disable_functions=posix_getpid,posix_kill tests/fixtures/optional_extension_absence.php no-posix
+
+      - name: Verify ext-openssl unavailable fails closed while plaintext remains usable
+        shell: bash
+        run: php -d disable_functions=stream_socket_enable_crypto tests/fixtures/no_openssl_outbound.php
+
       - name: Run portable-native TLS unavailable acceptance
         shell: bash
         run: php -d disable_functions=stream_socket_enable_crypto tests/fixtures/portable_optional_protocol_acceptance.php unavailable
 
 
   accelerated-event:
-    name: "Accelerated Event Loop - PHP 8.4"
+    name: "Accelerated Event Loop - PHP ${{ matrix.php-version }}"
     runs-on: ubuntu-latest
-    container: "php:8.4-cli"
+    container: "php:${{ matrix.php-version }}-cli"
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.4", "8.5"]
     permissions:
       contents: read
 

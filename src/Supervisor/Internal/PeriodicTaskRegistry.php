@@ -9,6 +9,7 @@ use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Supervisor\PeriodicTaskHandle;
 use InvalidArgumentException;
 use LogicException;
+use Throwable;
 
 /**
  * Registers bounded periodic worker tasks and coordinates them with an event loop.
@@ -79,22 +80,28 @@ final class PeriodicTaskRegistry
      */
     public function drain(): void
     {
-        if ($this->draining) {
-            return;
-        }
-
+        // Preserve failed cancellations for a later drain/close retry.
         $this->draining = true;
         if ($this->loop === null) {
             return;
         }
 
+        $failure = null;
         foreach ($this->tasks as $name => $task) {
             if ($task['timer'] === null) {
                 continue;
             }
 
-            $this->loop->cancel($task['timer']);
-            $this->tasks[$name]['timer'] = null;
+            try {
+                $this->loop->cancel($task['timer']);
+                $this->tasks[$name]['timer'] = null;
+            } catch (Throwable $error) {
+                $failure ??= $error;
+            }
+        }
+
+        if ($failure !== null) {
+            throw $failure;
         }
     }
 

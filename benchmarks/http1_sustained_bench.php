@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/http1_bench_workload.php';
+
 final class Http1SustainedTimeout extends RuntimeException {}
 
 final class Http1SustainedProtocolError extends RuntimeException {}
@@ -14,6 +16,14 @@ function http1SustainedCounters(): array
         'completed_requests' => 0,
         'successful_requests' => 0,
         'errors_total' => 0,
+        'connect_errors' => 0,
+        'response_read_errors' => 0,
+        'write_errors' => 0,
+        'write_would_block' => 0,
+        'socket_write_calls' => 0,
+        'socket_write_bytes' => 0,
+        'socket_read_calls' => 0,
+        'socket_read_bytes' => 0,
         'timeouts_total' => 0,
         'validation_failures' => 0,
         'reconnects_total' => 0,
@@ -122,6 +132,31 @@ function http1SustainedTreeTicks(int $root): int
     return array_sum(array_map(http1SustainedProcessTicks(...), http1SustainedProcessTree($root)));
 }
 
+/** @return array{syscr:int,syscw:int,rchar:int,wchar:int} */
+function http1SustainedTreeIoCounters(int $root): array
+{
+    $totals = ['syscr' => 0, 'syscw' => 0, 'rchar' => 0, 'wchar' => 0];
+    foreach (http1SustainedProcessTree($root) as $pid) {
+        $lines = is_readable('/proc/' . $pid . '/io')
+            ? file('/proc/' . $pid . '/io', FILE_IGNORE_NEW_LINES)
+            : false;
+        if (!is_array($lines)) {
+            continue;
+        }
+        foreach ($lines as $line) {
+            if (!str_contains($line, ':')) {
+                continue;
+            }
+            [$key, $raw] = explode(':', $line, 2);
+            if (array_key_exists($key, $totals) && preg_match('/^\\d+$/D', trim($raw)) === 1) {
+                $totals[$key] += max(0, (int) trim($raw));
+            }
+        }
+    }
+
+    return $totals;
+}
+
 function http1SustainedTreeRss(int $root): int
 {
     return array_sum(array_map(http1SustainedProcessRss(...), http1SustainedProcessTree($root)));
@@ -171,7 +206,28 @@ function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
     $error = '';
-    $socket = stream_socket_client(sprintf('tcp://%s:%d', $host, $port), $errno, $error, 2.0);
+    $tls = getenv('RUNWIRE_BENCH_TLS') === '1';
+    $caFile = getenv('RUNWIRE_BENCH_TLS_CA');
+    if ($tls && (!is_string($caFile) || $caFile === '' || !is_file($caFile))) {
+        throw new RuntimeException('TLS certification requires an existing trusted CA file.');
+    }
+    $context = $tls ? stream_context_create(['ssl' => [
+        'verify_peer' => true,
+        'verify_peer_name' => true,
+        'peer_name' => 'localhost',
+        'SNI_enabled' => true,
+        'allow_self_signed' => false,
+        'cafile' => $caFile,
+        'crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+    ]]) : stream_context_create();
+    $socket = stream_socket_client(
+        sprintf('%s://%s:%d', $tls ? 'tls' : 'tcp', $host, $port),
+        $errno,
+        $error,
+        2.0,
+        STREAM_CLIENT_CONNECT,
+        $context,
+    );
     if (!is_resource($socket)) {
         if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
             throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
@@ -201,6 +257,7 @@ function http1SustainedOpenClient(string $host, int $port, array &$counter): ?ar
     } catch (Throwable) {
         ++$counter['requests_total'];
         ++$counter['errors_total'];
+        ++$counter['connect_errors'];
 
         return null;
     }
@@ -223,8 +280,11 @@ function http1SustainedPrepareRequest(array &$client, array &$counter): void
     $client['write_offset'] = 0;
     $client['buffer'] = '';
     $client['head'] = null;
-    $client['request_started'] = hrtime(true);
-    $client['request_deadline'] = microtime(true) + 2.0;
+    // Admission does not begin a request: under high concurrency a stream
+    // may wait for its first write. The strict two-second request budget
+    // starts when the request is actually sent, not while queued.
+    $client['request_started'] = 0;
+    $client['request_deadline'] = 0.0;
 }
 
 /** @param array<string, mixed> $client */
@@ -264,9 +324,13 @@ function http1SustainedReconnect(array &$clients, int $id, string $host, int $po
 }
 
 /** @param array<string, mixed> $client */
-function http1SustainedReadChunk(array &$client): void
+function http1SustainedReadChunk(array &$client, array &$counter): void
 {
+    ++$counter['socket_read_calls'];
     $chunk = fread($client['stream'], 8192);
+    if (is_string($chunk)) {
+        $counter['socket_read_bytes'] += strlen($chunk);
+    }
     if ($chunk === false) {
         throw new Http1SustainedProtocolError('Response read failed.');
     }
@@ -333,11 +397,13 @@ function http1SustainedCompleteResponse(
     array &$slotCompleted,
     bool $collectLatency,
     array $response,
+    string $expectedBody,
+    bool $closeRequested,
 ): void {
     $client = &$clients[$id];
     ++$counter['completed_requests'];
     ++$slotCompleted[$id];
-    if ($response['status'] === 200 && $response['body'] === 'ok') {
+    if ($response['status'] === 200 && $response['body'] === $expectedBody) {
         ++$counter['successful_requests'];
     } else {
         ++$counter['validation_failures'];
@@ -345,7 +411,7 @@ function http1SustainedCompleteResponse(
     if ($collectLatency) {
         http1SustainedRecordLatency($histogram, (int) $client['request_started']);
     }
-    if ($response['close']) {
+    if ($response['close'] || $closeRequested) {
         http1SustainedReconnect($clients, $id, $host, $port, $deadline, $counter);
     } elseif (microtime(true) < $deadline) {
         http1SustainedPrepareRequest($client, $counter);
@@ -370,12 +436,15 @@ function http1SustainedHandleReadable(
     array &$histogram,
     array &$slotCompleted,
     bool $collectLatency,
+    string $expectedBody,
+    bool $closeRequested,
 ): void {
     try {
-        http1SustainedReadChunk($clients[$id]);
+        http1SustainedReadChunk($clients[$id], $counter);
         $response = http1SustainedTryCompleteResponse($clients[$id]);
     } catch (Throwable) {
         ++$counter['errors_total'];
+        ++$counter['response_read_errors'];
         http1SustainedCloseClient($clients[$id]);
 
         return;
@@ -394,6 +463,8 @@ function http1SustainedHandleReadable(
         $slotCompleted,
         $collectLatency,
         $response,
+        $expectedBody,
+        $closeRequested,
     );
 }
 
@@ -412,7 +483,7 @@ function http1SustainedSelectSets(array &$clients, array &$counter, int $request
         if (!($client['active'] ?? false)) {
             continue;
         }
-        if ($now >= (float) $client['request_deadline']) {
+        if ((float) $client['request_deadline'] > 0.0 && $now >= (float) $client['request_deadline']) {
             ++$counter['timeouts_total'];
             http1SustainedCloseClient($client);
 
@@ -440,19 +511,34 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
             continue;
         }
         $remaining = substr($request, (int) $clients[$id]['write_offset']);
+        if ((float) $clients[$id]['request_deadline'] === 0.0) {
+            $clients[$id]['request_started'] = hrtime(true);
+            $clients[$id]['request_deadline'] = microtime(true) + 2.0;
+        }
+        ++$counter['socket_write_calls'];
         $written = fwrite($stream, $remaining);
-        if ($written === false || $written === 0) {
+        if ($written === false) {
             ++$counter['errors_total'];
+            ++$counter['write_errors'];
             http1SustainedCloseClient($clients[$id]);
 
             continue;
         }
+        if ($written === 0) {
+            // A writable descriptor may race with another writer or hit a
+            // transient send-buffer limit. Let the existing select() and
+            // request deadline determine forward progress, not false failure.
+            ++$counter['write_would_block'];
+
+            continue;
+        }
+        $counter['socket_write_bytes'] += $written;
         $clients[$id]['write_offset'] += $written;
     }
 }
 
 /**
- * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int}
+ * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int, io_start:array<string,int>, io_end:array<string,int>}
  */
 function http1SustainedRun(
     string $host,
@@ -466,10 +552,13 @@ function http1SustainedRun(
     $histogram = [];
     $slotCompleted = array_fill(0, $concurrency, 0);
     $clients = [];
-    $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n";
+    $request = http1BenchRequest();
+    $expectedBody = http1BenchResponseBody();
+    $closeRequested = http1BenchConnectionMode() === 'close';
     $started = hrtime(true);
     $deadline = microtime(true) + $duration;
     $startTicks = http1SustainedTreeTicks($serverPid);
+    $startIo = http1SustainedTreeIoCounters($serverPid);
     $peakRss = http1SustainedTreeRss($serverPid);
 
     for ($id = 0; $id < $concurrency; ++$id) {
@@ -506,6 +595,8 @@ function http1SustainedRun(
                     $histogram,
                     $slotCompleted,
                     $collectLatency,
+                    $expectedBody,
+                    $closeRequested,
                 );
             }
         }
@@ -526,6 +617,8 @@ function http1SustainedRun(
         'peak_rss' => max($peakRss, http1SustainedTreeRss($serverPid)),
         'start_ticks' => $startTicks,
         'end_ticks' => http1SustainedTreeTicks($serverPid),
+        'io_start' => $startIo,
+        'io_end' => http1SustainedTreeIoCounters($serverPid),
     ];
 }
 
@@ -576,7 +669,10 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
         || $counter['timeouts_total'] !== 0
         || $counter['validation_failures'] !== 0
     ) {
-        throw new RuntimeException($phase . ' received a failed, incomplete, timed-out, or invalid response.');
+        throw new RuntimeException(
+            $phase . ' received a failed, incomplete, timed-out, or invalid response. Counters: '
+            . json_encode($counter, JSON_THROW_ON_ERROR),
+        );
     }
 }
 
@@ -616,24 +712,30 @@ function http1SustainedMain(array $argv): array
         ? max(0.0, ($measured['end_ticks'] - $measured['start_ticks']) / $ticksPerSecond / $measured['elapsed'] * 100)
         : 0.0;
 
+    // Keep the requested contract separate from the measured wall time.
+    // An early exit (e.g. every client disconnected) cannot be a valid soak.
+    $continuousDurationPassed = $measured['elapsed'] >= $duration - 0.002;
     $result = [
         'runtime' => 'runwire-native',
         'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
         'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
         'protocol' => 'http/1.1',
-        'workload' => 'plaintext-keepalive',
+        'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'verified-tls-H1' : 'plaintext-H1',
         'hardware_id' => php_uname('m') . '::' . http1SustainedCpuModel(),
         'host_os' => php_uname('a'),
         'host_cpu' => http1SustainedCpuModel(),
         'php_version' => getenv('RUNWIRE_PHP_VERSION') ?: PHP_VERSION,
         'instrumentation' => getenv('RUNWIRE_INSTRUMENTATION') ?: 'ci-smoke',
-        'tls' => 'off',
+        'tls' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'on-verified' : 'off',
         'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
-        'connection_reuse' => 'keep-alive',
+        'connection_reuse' => http1BenchConnectionMode(),
+        'response_body_bytes' => strlen(http1BenchResponseBody()),
         'extension_versions' => http1SustainedExtensionVersions(),
         'workers' => 1,
         'concurrency' => $concurrency,
         'duration_seconds' => $duration,
+        'actual_duration_seconds' => round($measured['elapsed'], 3),
+        'continuous_duration_passed' => $continuousDurationPassed,
         'requests_total' => $requests,
         'completed_requests' => $counter['completed_requests'],
         'successful_requests' => $counter['successful_requests'],
@@ -644,13 +746,47 @@ function http1SustainedMain(array $argv): array
             'p99' => http1SustainedPercentile($measured['histogram'], 0.99),
         ],
         'errors_total' => $counter['errors_total'],
+        'error_breakdown' => [
+            'connect' => $counter['connect_errors'],
+            'response_read' => $counter['response_read_errors'],
+            'write' => $counter['write_errors'],
+        ],
         'timeouts_total' => $counter['timeouts_total'],
         'validation_failures' => $counter['validation_failures'],
         'reconnects_total' => $counter['reconnects_total'],
         'error_rate' => $requests > 0 ? round($failures / $requests, 8) : 1.0,
         'cpu_percent' => round($cpu, 3),
         'rss_peak_bytes' => $measured['peak_rss'],
-        'correctness_passed' => $requests > 0
+        'server_process_io' => [
+            'linux_procfs' => is_readable('/proc/' . $serverPid . '/io'),
+            'read_syscalls_delta' => max(0, $measured['io_end']['syscr'] - $measured['io_start']['syscr']),
+            'write_syscalls_delta' => max(0, $measured['io_end']['syscw'] - $measured['io_start']['syscw']),
+            'rchar_delta' => max(0, $measured['io_end']['rchar'] - $measured['io_start']['rchar']),
+            'wchar_delta' => max(0, $measured['io_end']['wchar'] - $measured['io_start']['wchar']),
+            'scope' => 'whole-server-process-tree-not-socket-only',
+        ],
+        'socket_io' => [
+            'request_size_bytes' => strlen(http1BenchRequest()),
+            'write_calls' => $counter['socket_write_calls'],
+            'write_bytes' => $counter['socket_write_bytes'],
+            'write_would_block' => $counter['write_would_block'],
+            'read_calls' => $counter['socket_read_calls'],
+            'read_bytes' => $counter['socket_read_bytes'],
+            'write_bytes_per_request' => $requests > 0
+                ? round($counter['socket_write_bytes'] / $requests, 3)
+                : 0.0,
+            'read_bytes_per_request' => $requests > 0
+                ? round($counter['socket_read_bytes'] / $requests, 3)
+                : 0.0,
+            'write_calls_per_request' => $requests > 0
+                ? round($counter['socket_write_calls'] / $requests, 6)
+                : 0.0,
+            'read_calls_per_request' => $requests > 0
+                ? round($counter['socket_read_calls'] / $requests, 6)
+                : 0.0,
+        ],
+        'correctness_passed' => $continuousDurationPassed
+            && $requests > 0
             && $counter['completed_requests'] === $requests
             && $counter['successful_requests'] === $requests
             && $failures === 0,

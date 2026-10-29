@@ -13,17 +13,25 @@ use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackDispatcher;
 use Infocyph\Runwire\Network\Internal\ConnectionCallbackOwnership;
+use Infocyph\Runwire\Network\Internal\ConnectionCloseObserverTrait;
+use Infocyph\Runwire\Network\Internal\ConnectionLifecycleOperationsTrait;
+use Infocyph\Runwire\Network\Internal\ConnectionScopeOwnership;
 use Infocyph\Runwire\Network\Internal\ConnectionTimeouts;
 use Infocyph\Runwire\Network\Internal\StreamWriter;
 use Infocyph\Runwire\Network\Internal\TcpSocketTuner;
+use Infocyph\Runwire\Network\Internal\VerifiedTargetTlsUpgrade;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 /**
  * Manages a non-blocking stream connection with bounded buffering, callbacks, backpressure, and timeouts.
  */
 final class Connection
 {
+    use ConnectionCloseObserverTrait;
+    use ConnectionLifecycleOperationsTrait;
+
     private readonly ConnectionCallbackOwnership $callbackOwnership;
 
     private readonly int $id;
@@ -42,9 +50,6 @@ final class Connection
 
     private int $bytesWritten = 0;
 
-    /** @var list<Closure> */
-    private array $closeCallbacks = [];
-
     private ?CloseReason $closeReason = null;
 
     private ?Closure $dataCallback = null;
@@ -59,11 +64,15 @@ final class Connection
 
     private bool $peerReadClosed = false;
 
+    private bool $preservePeerEof = false;
+
     private bool $pressureReadPause = false;
 
     private ?int $readWatcher = null;
 
     private int $rejectedWrites = 0;
+
+    private ?ConnectionScopeOwnership $scopeOwnership = null;
 
     private ConnectionState $state = ConnectionState::OPEN;
 
@@ -71,6 +80,10 @@ final class Connection
     private mixed $stream;
 
     private bool $writePressured = false;
+
+    private ?Closure $writeShutdownCallback = null;
+
+    private bool $writeShutdownPending = false;
 
     private ?int $writeWatcher = null;
 
@@ -86,6 +99,8 @@ final class Connection
         private readonly ?ByteBudget $bufferBudget = null,
         private readonly bool $tcpTransport = false,
         private readonly ?bool $tcpNoDelayOverride = null,
+        private readonly ?string $tlsPeerFingerprint = null,
+        private readonly bool $strictTlsPeerEof = false,
     ) {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('Connection requires a live stream resource.');
@@ -175,6 +190,12 @@ final class Connection
         return $this->bytesWritten;
     }
 
+    /** Only the current protocol adapter may release or abort its claimed callbacks. */
+    public function callbacksOwnedBy(object $owner): bool
+    {
+        return $this->callbackOwnership->ownedBy($owner);
+    }
+
     /**
      * @internal Reserved for isolated adapters that require the single data/drain/EOF callback slots.
      * @param callable(self): void $onData
@@ -210,7 +231,7 @@ final class Connection
      */
     public function closeGracefully(): void
     {
-        if ($this->state !== ConnectionState::OPEN) {
+        if ($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED) {
             return;
         }
 
@@ -246,6 +267,13 @@ final class Connection
         $this->dataCallback = Closure::fromCallable($onData);
         $this->drainCallback = Closure::fromCallable($onDrain);
         $this->eofCallback = Closure::fromCallable($onEof);
+
+        if ($this->state !== ConnectionState::CLOSED && $this->receiveBuffer->bytes() > 0) {
+            $this->invoke($this->dataCallback);
+        }
+        if ($this->state !== ConnectionState::CLOSED && $this->peerReadClosed) {
+            $this->invoke($this->eofCallback);
+        }
     }
 
     /**
@@ -262,6 +290,19 @@ final class Connection
     public function isEncrypted(): bool
     {
         return $this->encrypted;
+    }
+
+    /**
+     * @internal A verified stream may be considered for reuse only when it
+     * carries no active scope, pending traffic or protocol callback owner.
+     */
+    public function isPoolIdleSafe(): bool
+    {
+        return $this->state === ConnectionState::OPEN
+            && !$this->peerReadClosed
+            && $this->scopeOwnership === null
+            && $this->poolBuffersQuiescent()
+            && $this->poolCallbacksAvailable();
     }
 
     /**
@@ -310,21 +351,6 @@ final class Connection
     public function negotiatedProtocol(): ?string
     {
         return $this->negotiatedProtocol;
-    }
-
-    /** @param callable(self, CloseReason): void $callback */
-    public function onClose(callable $callback): self
-    {
-        $closure = Closure::fromCallable($callback);
-        if ($this->state === ConnectionState::CLOSED && $this->closeReason !== null) {
-            $closure($this, $this->closeReason);
-
-            return $this;
-        }
-
-        $this->closeCallbacks[] = $closure;
-
-        return $this;
     }
 
     /** @param callable(self): void $callback */
@@ -446,7 +472,8 @@ final class Connection
      */
     public function resumeReads(): void
     {
-        if ($this->state !== ConnectionState::OPEN || !$this->manualReadPause) {
+        if (($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED)
+            || !$this->manualReadPause) {
             return;
         }
 
@@ -454,51 +481,40 @@ final class Connection
         $this->syncReadWatcher();
     }
 
-    /**
-     * Return the current connection lifecycle state.
-     */
+    /** Return the current connection lifecycle state. */
     public function state(): ConnectionState
     {
         return $this->state;
     }
 
-    /**
-     * Write bytes immediately when possible or queue them within configured bounds.
-     */
-    public function write(string $data): WriteResult
+    /** Return captured TLS peer certificate SHA-256, not a peer verification result. */
+    public function tlsPeerFingerprint(): ?string
     {
-        if ($this->state !== ConnectionState::OPEN) {
-            return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
-        }
-        if ($data === '') {
-            return $this->writeResult();
-        }
+        return $this->tlsPeerFingerprint;
+    }
 
-        $length = strlen($data);
-        if ($length > $this->limits->maxSendBufferBytes - $this->sendBuffer->bytes()) {
-            ++$this->rejectedWrites;
+    /**
+     * Upgrade a quiescent cleartext tunnel to original-target verified TLS.
+     *
+     * @param callable(?self, ?Throwable):void $completion
+     */
+    public function upgradeToVerifiedTls(TlsClientOptions $policy, callable $completion): void
+    {
+        VerifiedTargetTlsUpgrade::assertAllowed($this, $this->stream);
 
-            return new WriteResult(WriteState::REJECTED_LIMIT, $this->sendBuffer->bytes());
-        }
-
-        if ($this->sendBuffer->isEmpty()) {
-            $result = $this->writeImmediately($data, $length);
-            if ($result !== null) {
-                return $result;
-            }
-        }
-
-        if (strlen($data) > $this->sendBuffer->budgetAvailable()) {
-            $this->finalize(CloseReason::WRITE_ERROR);
-
-            return new WriteResult(WriteState::CLOSED, $this->sendBuffer->bytes());
-        }
-
-        $this->sendBuffer->append($data);
-        $this->syncWriteWatcher();
-        $this->updateWritePressure();
-
-        return $this->writeResult();
+        /** @var resource $stream */
+        $stream = $this->stream;
+        $this->stream = null;
+        $this->finalize(CloseReason::LOCAL_GRACEFUL);
+        VerifiedTargetTlsUpgrade::start(
+            $this->loop,
+            $stream,
+            $policy,
+            $this->limits,
+            $this->tcpTransport,
+            $this->tcpNoDelayOverride,
+            $completion,
+        );
     }
 
     private static function nowNanoseconds(): int
@@ -511,21 +527,6 @@ final class Connection
     private function assertCallbackSlotsUnclaimed(): void
     {
         $this->callbackOwnership->assertUnclaimed();
-    }
-
-    private function beginDrain(CloseReason $reason): void
-    {
-        if ($this->state !== ConnectionState::OPEN) {
-            return;
-        }
-
-        $this->state = ConnectionState::DRAINING;
-        $this->drainReason = $reason;
-        $this->manualReadPause = true;
-        $this->syncReadWatcher();
-        if ($this->sendBuffer->isEmpty()) {
-            $this->finalize($reason);
-        }
     }
 
     private function cancelWatcher(?int $id): void
@@ -543,6 +544,8 @@ final class Connection
 
         $this->state = ConnectionState::CLOSED;
         $this->closeReason = $reason;
+        $this->scopeOwnership?->dispose();
+        $this->scopeOwnership = null;
         $readWatcher = $this->readWatcher;
         $writeWatcher = $this->writeWatcher;
         $this->cancelWatcher($readWatcher);
@@ -556,15 +559,18 @@ final class Connection
         $this->stream = null;
         $this->receiveBuffer->clear();
         $this->sendBuffer->clear();
+        $this->writeShutdownCallback = null;
+        $this->writeShutdownPending = false;
 
         $callbacks = $this->closeCallbacks;
         $this->closeCallbacks = [];
-        ConnectionCallbackDispatcher::dispatch($callbacks, $this, $reason);
+        ConnectionCallbackDispatcher::dispatch(array_values($callbacks), $this, $reason);
     }
 
     private function handleReadable(): void
     {
-        if ($this->state !== ConnectionState::OPEN || $this->isReadPaused() || $this->peerReadClosed) {
+        if (($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED)
+            || $this->isReadPaused() || $this->peerReadClosed) {
             return;
         }
 
@@ -579,11 +585,16 @@ final class Connection
         $sawEof = false;
         $this->readAvailable($stream, $received, $sawEof);
 
-        if ($received && $this->state === ConnectionState::OPEN) {
+        if ($received && $this->state !== ConnectionState::CLOSED) {
             $this->invoke($this->dataCallback);
         }
         if ($sawEof && $this->state !== ConnectionState::CLOSED) {
-            $this->markPeerEof();
+            if ($this->encrypted && $this->strictTlsPeerEof) {
+                // The PHP stream API cannot authenticate close_notify on bare EOF.
+                $this->finalize(CloseReason::TLS_UNVERIFIED_EOF);
+            } else {
+                $this->markPeerEof();
+            }
         }
     }
 
@@ -625,6 +636,7 @@ final class Connection
 
         $this->updateWritePressure();
         $this->syncWriteWatcher();
+        $this->finishPendingWriteShutdown();
         if ($this->state === ConnectionState::DRAINING && $this->sendBuffer->isEmpty()) {
             $this->finalize($this->drainReason ?? CloseReason::LOCAL_GRACEFUL);
         }
@@ -639,20 +651,6 @@ final class Connection
         );
     }
 
-    private function markPeerEof(): void
-    {
-        if ($this->state === ConnectionState::CLOSED || $this->peerReadClosed) {
-            return;
-        }
-
-        $this->peerReadClosed = true;
-        $this->syncReadWatcher();
-        $this->invoke($this->eofCallback);
-        if ($this->state === ConnectionState::OPEN) {
-            $this->beginDrain(CloseReason::PEER_CLOSED);
-        }
-    }
-
     private function pauseForPressure(): void
     {
         if (!$this->pressureReadPause) {
@@ -660,6 +658,25 @@ final class Connection
         }
         $this->pressureReadPause = true;
         $this->syncReadWatcher();
+    }
+
+    private function poolBuffersQuiescent(): bool
+    {
+        return !$this->manualReadPause
+            && !$this->writeShutdownPending
+            && !$this->pressureReadPause
+            && !$this->writePressured
+            && $this->sendBuffer->bytes() === 0
+            && $this->receiveBuffer->bytes() === 0;
+    }
+
+    private function poolCallbacksAvailable(): bool
+    {
+        return $this->dataCallback === null
+            && $this->drainCallback === null
+            && $this->eofCallback === null
+            && $this->closeCallbacks === []
+            && $this->callbackOwnership->unclaimed();
     }
 
     /** @param resource $stream */
@@ -714,7 +731,7 @@ final class Connection
     private function syncReadWatcher(): void
     {
         $stream = $this->stream;
-        $shouldWatch = $this->state === ConnectionState::OPEN
+        $shouldWatch = ($this->state === ConnectionState::OPEN || $this->state === ConnectionState::HALF_CLOSED)
             && !$this->manualReadPause
             && !$this->pressureReadPause
             && !$this->peerReadClosed

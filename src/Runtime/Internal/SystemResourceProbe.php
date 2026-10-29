@@ -66,29 +66,25 @@ final readonly class SystemResourceProbe
 
     private static function parseCpuSet(string $value): ?int
     {
-        $value = trim($value);
-        if ($value === '') {
-            return null;
-        }
-
         $count = 0;
-        foreach (explode(',', $value) as $segment) {
-            $segment = trim($segment);
-            if (preg_match('/^(\d+)$/D', $segment, $single) === 1) {
-                ++$count;
+        $previousEnd = -1;
 
-                continue;
-            }
-            if (preg_match('/^(\d+)-(\d+)$/D', $segment, $range) !== 1) {
+        foreach (explode(',', trim($value)) as $segment) {
+            if (preg_match('/^(\d+)(?:-(\d+))?$/D', trim($segment), $match) !== 1) {
                 return null;
             }
 
-            $start = (int) $range[1];
-            $end = (int) $range[2];
-            if ($end < $start) {
+            $first = filter_var($match[1], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            $last = filter_var($match[2] ?? $match[1], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            if ($first === false || $last === false || $first <= $previousEnd || $last < $first) {
                 return null;
             }
-            $count += $end - $start + 1;
+
+            $count += $last - $first + 1;
+            if ($count > 1_000_000) {
+                return null;
+            }
+            $previousEnd = $last;
         }
 
         return $count > 0 ? $count : null;
@@ -140,6 +136,7 @@ final readonly class SystemResourceProbe
 
     private function cpusetCpuCount(): ?int
     {
+        $malformed = false;
         foreach ([
             '/sys/fs/cgroup/cpuset.cpus.effective',
             '/sys/fs/cgroup/cpuset.cpus',
@@ -154,9 +151,11 @@ final readonly class SystemResourceProbe
             if ($count !== null) {
                 return $count;
             }
+            $malformed = true;
         }
 
-        return null;
+        // A malformed effective cpuset must not silently grant every host CPU.
+        return $malformed ? 1 : null;
     }
 
     private function detectHostCpuCount(): int
