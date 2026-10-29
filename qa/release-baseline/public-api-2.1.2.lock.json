@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "sourceTag": "2.1.2",
+  "sourceCommit": "7e9bf20ad0737a187dfed77b723791b141b36378",
+  "exporterPath": "tools/public-api-manifest.php",
+  "exporterVerifiedAtCommit": "0517901fb1a3548d99fb7300383deb50c612d198",
+  "manifestSha256": "a2348788547bb8e3c89a49db399862afc6a13f18fb0aa5470d27f89780871dd1",
+  "sourceFiles": 350,
+  "publicTypes": 350,
+  "verificationRun": "https://github.com/infocyph/Runwire/actions/runs/39903430599",
+  "description": "Immutable 2.1.2 public API signature fingerprint: regenerable from published Git tag and pinned exporter. The 90-day GitHub Actions manifest artifact includes the full signatures; this lock permanently stores its source hash and digest."
+}

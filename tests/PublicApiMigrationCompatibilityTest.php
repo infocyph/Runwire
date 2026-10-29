@@ -29,7 +29,7 @@ it('keeps inherited published 2.1.2 Connection callbacks and write as public met
 });
 
 it('pins every reviewed source-only migration anomaly to approved immutable fingerprints', function (): void {
-    $path = dirname(__DIR__) . '/docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json';
+    $path = dirname(__DIR__) . '/qa/release-baseline/u16-reviewed-api-delta.json';
     $json = file_get_contents($path);
     expect($json)->toBeString();
     $policy = json_decode($json, true, 16, JSON_THROW_ON_ERROR);

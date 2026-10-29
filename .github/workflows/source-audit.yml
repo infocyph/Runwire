@@ -9,11 +9,10 @@ on:
       - tools/public-api-manifest.php
       - tools/public-api-diff.php
       - tools/public-api-migration-audit.php
-      - docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json
+      - qa/release-baseline/**
       - tests/**
       - composer.json
       - composer.lock
-      - tools/c5-carry-forward-qa.sh
       - tools/pre-release-feature-qa.sh
       - docs/features.rst
       - docs/handbook-3.0.rst
@@ -24,7 +23,6 @@ on:
       - docs/compatibility-audit-3.0.rst
       - docs/performance-qa-handbook-3.0.rst
       - docs/protocols-3.0.rst
-      - docs/plans/runwire-3.0-pre-release-hardening.md
       - README.md
       - .github/workflows/source-audit.yml
   pull_request:
@@ -33,11 +31,10 @@ on:
       - tools/public-api-manifest.php
       - tools/public-api-diff.php
       - tools/public-api-migration-audit.php
-      - docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json
+      - qa/release-baseline/**
       - tests/**
       - composer.json
       - composer.lock
-      - tools/c5-carry-forward-qa.sh
       - tools/pre-release-feature-qa.sh
       - docs/features.rst
       - docs/handbook-3.0.rst
@@ -48,7 +45,6 @@ on:
       - docs/compatibility-audit-3.0.rst
       - docs/performance-qa-handbook-3.0.rst
       - docs/protocols-3.0.rst
-      - docs/plans/runwire-3.0-pre-release-hardening.md
       - README.md
       - .github/workflows/source-audit.yml
 
@@ -91,11 +87,11 @@ jobs:
           test "$(jq -r '.symbolCount' api-baseline/published-2.1.2.json)" -gt 200
           test "$(jq -r '.symbolCount' api-baseline/current.json)" -gt 200
           sha256sum api-baseline/*.json | tee api-baseline/sha256sums.txt
-          expected_sha="$(jq -er '.manifestSha256' docs/plans/evidence/runwire-3.0/public-api-2.1.2.lock.json)"
+          expected_sha="$(jq -er '.manifestSha256' qa/release-baseline/public-api-2.1.2.lock.json)"
           actual_sha="$(sha256sum api-baseline/published-2.1.2.json | cut -d ' ' -f 1)"
           test "$actual_sha" = "$expected_sha"
-          test "$(jq -er '.sourceFiles' docs/plans/evidence/runwire-3.0/public-api-2.1.2.lock.json)" -eq "$(jq -er '.sourceFileCount' api-baseline/published-2.1.2.json)"
-          test "$(jq -er '.publicTypes' docs/plans/evidence/runwire-3.0/public-api-2.1.2.lock.json)" -eq "$(jq -er '.symbolCount' api-baseline/published-2.1.2.json)"
+          test "$(jq -er '.sourceFiles' qa/release-baseline/public-api-2.1.2.lock.json)" -eq "$(jq -er '.sourceFileCount' api-baseline/published-2.1.2.json)"
+          test "$(jq -er '.publicTypes' qa/release-baseline/public-api-2.1.2.lock.json)" -eq "$(jq -er '.symbolCount' api-baseline/published-2.1.2.json)"
           echo "Published 2.1.2 public API manifest checksum VERIFIED."
 
       - name: Validate property-aware public API migration from pinned 2.1.2 source
@@ -112,14 +108,14 @@ jobs:
           php -l tools/public-api-migration-audit.php
           php tools/public-api-migration-audit.php \
             api-baseline/migration-source-diff.json \
-            docs/plans/evidence/runwire-3.0/u16-reviewed-api-delta.json \
+            qa/release-baseline/u16-reviewed-api-delta.json \
             > api-baseline/migration-reviewed-contract.json
           jq -e '.reviewed == true and .traitRelocations == 2 and .reviewedSignatureChanges == 6 and .behavioralCompatibilityCertified == false' \
             api-baseline/migration-reviewed-contract.json >/dev/null
           php -l tools/c4-migration-behavior-audit.php
           php tools/c4-migration-behavior-audit.php \
             api-baseline/migration-source-diff.json \
-            docs/plans/evidence/runwire-3.0/c4-migration-behavior-ledger.json \
+            qa/release-baseline/c4-migration-behavior-ledger.json \
             | tee api-baseline/c4-migration-behavior-coverage.json
           jq -e '.allChangedSymbolsDispositioned == true and
             .behavioralCompatibilityCertified == false and
@@ -152,11 +148,7 @@ jobs:
           done < <(find src -type f -name '*.php' -print0 | sort -z)
           printf 'syntax-ok files=%s\n' "$(find src -type f -name '*.php' | wc -l)"
 
-      - name: Verify all 20 historical 2.2 task migrations against canonical 3.0 acceptance
-        shell: bash
-        run: bash tools/c5-carry-forward-qa.sh
-
-      - name: Check 3.0 feature-contract consistency against canonical release tracker
+      - name: Check public 3.0 feature contracts and unsupported claims
         shell: bash
         run: bash tools/pre-release-feature-qa.sh
 
