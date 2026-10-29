@@ -1,9 +1,9 @@
 =========================================
-Runwire 3.0 development: async file I/O
+Runwire 3.0: bounded asynchronous file I/O
 =========================================
 
-This document describes **unreleased development APIs**, not the published
-Runwire 2.1.2 package. Production support is conditional on full U11 QA.
+This chapter documents the pre-release 3.0 file-processing contract.
+Use only a verified candidate checkout until 3.0 is actually published.
 
 The ``Filesystem\AsyncFileSystem`` facade delegates each bounded
 operation to a reusable ``Executor\ProcessExecutor`` running blocking PHP
@@ -13,7 +13,7 @@ or ``fwrite`` directly in the reactor thread. Worker count and queue length
 are explicitly configured. Invalid operations, cancellations and deadlines
 complete callbacks exactly once.
 
-The current development facade offers bounded ``read``, offset ``write``,
+The current 3.0 facade offers bounded ``read``, offset ``write``,
 ``stat``, ``rename``, ``unlink`` and ``cancel``. A single binary read
 or write is limited to 1 MiB. Larger transfers must be chunked by callers.
 The facade borrows the supplied executor; callers close the executor on
@@ -87,7 +87,7 @@ explicit unsupported capability, not an invitation to assume that
 ``fflush``/``rename`` alone guarantee persistence. Path/symlink/TOCTOU
 and sandbox authorization require separate U11.09/U14.06 verification.
 
-Portable open-file API contract (development)
+Portable open-file API contract (pre-release)
 ----------------------------------------------
 
 The unreleased 3.0 source declares a future ``AsyncFileOperationsInterface``
@@ -106,7 +106,7 @@ quotas, and subject to inherited cancellation/deadlines.
 
    vendor/bin/pest tests/AsyncFileApiContractTest.php
 
-Restricted worker-side paths (development)
+Restricted worker-side paths (pre-release)
 ------------------------------------------------
 
 ``AsyncFileSystem($executor, rootDirectory: '/srv/app/data')`` enables an
@@ -142,7 +142,7 @@ process can rename or replace path components between validation and the
 subsequent PHP filesystem syscall. Configure filesystem isolation and refuse
 untrusted mutable path roots until descriptor-relative access is supported.
 
-Worker resource profiling (development only)
+Worker resource profiling (diagnostic)
 --------------------------------------------
 
 On PHP CLI environments with nonblocking subprocess pipes, the bounded
@@ -158,7 +158,7 @@ provide durable fsync or a race-free path sandbox.
 
    php benchmarks/async_file_worker_profile.php 32 16384
 
-One-versus-two worker sensitivity (development only)
+One-versus-two worker sensitivity (diagnostic)
 ----------------------------------------------------
 
 The worker-backed file profile now accepts a third numeric argument, a

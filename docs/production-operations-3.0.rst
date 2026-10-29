@@ -189,3 +189,38 @@ Run process/signal tests only where those OS capabilities exist.
 Consult :doc:`observability-handbook-3.0`,
 :doc:`performance-qa-handbook-3.0` and :doc:`migration-playbook-3.0`
 before release decisions.
+
+
+Deployment example: from preflight to a safe canary
+---------------------------------------------------
+
+**Preflight:** record the candidate SHA and PHP/extension matrix.
+Choose the host owner and validate any optional TLS, QUIC, process or
+event extension before enabling dependent features.
+
+.. code-block:: console
+
+   php -v
+   php -m
+   composer validate --strict
+   php tests/fixtures/portable_native_acceptance.php
+   vendor/bin/pest tests/TraceContextTest.php tests/OutboundAddressPolicyTest.php
+
+**Canary:** bind a dedicated internal port, send a real successful
+response and a malformed request, exercise a slow reader, then collect
+completed RPS, p99, RSS, descriptors and worker generation. Only
+enable native autoscale with actual CPU/queue/latency samples and
+after proving worker drain/restart.
+
+**Failure/rollback example:** if HTTP errors appear during a rolling
+reload, stop admitting new work to the failed generation; verify
+whether an accepted mutating request committed before resubmission,
+drain the old owner to a bounded deadline, and revert the deployment
+artifact/configuration. Do not infer that SIGKILL delivered responses
+or that a successful TCP bind means a healthy application.
+
+Do not run native master/fork scripts inside FPM. Operators must
+separately test certificate renewal and application data rollback
+because GitHub-hosted CI cannot certify those site-specific actions.
+This page documents a procedure, not an automatically executed
+deployment. See :doc:`operations-exercises-3.0`.

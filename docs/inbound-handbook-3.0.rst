@@ -184,3 +184,122 @@ Common inbound failures
 
 Read :doc:`configuration-reference-3.0` for limits and
 :doc:`supervision-handbook-3.0` for lifecycle details.
+
+
+Full WebSocket echo server with an explicit Origin allowlist
+------------------------------------------------------------
+
+**What:** an HTTP/1.1 request upgrades to a bidirectional WebSocket
+session with an independent message and close lifecycle. **Why:** the
+application must authorize the handshake before switching protocols.
+**When:** choose this for an interactive H1 browser/client connection,
+not as an HTTP/2 or HTTP/3 extended-CONNECT implementation.
+
+Save as ``websocket.php`` in a candidate checkout:
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   require __DIR__ . '/vendor/autoload.php';
+
+   use Infocyph\Runwire\Http\HttpRequest;
+   use Infocyph\Runwire\Http\ResponseWriterInterface;
+   use Infocyph\Runwire\Runtime;
+   use Infocyph\Runwire\Server;
+   use Infocyph\Runwire\WebSocket\WebSocketMessage;
+   use Infocyph\Runwire\WebSocket\WebSocketSession;
+   use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
+
+   $server = Server::http(
+       '127.0.0.1:8080',
+       static function (HttpRequest $request, ResponseWriterInterface $writer): void {
+           $session = WebSocketUpgrade::accept(
+               $request,
+               $writer,
+               originPolicy: static fn(string $origin, HttpRequest $request): bool =>
+                   $origin === 'http://127.0.0.1:8080',
+           );
+           if (!$session instanceof WebSocketSession) {
+               return;
+           }
+           $session->onMessage(
+               static function (WebSocketSession $session, WebSocketMessage $message): void {
+                   $result = $message->binary
+                       ? $session->sendBinary($message->data)
+                       : $session->sendText($message->data);
+                   if (!$result->accepted()) {
+                       $session->close(1011, 'write rejected');
+                   }
+               },
+           );
+       },
+   );
+
+   Runtime::create()->listen($server)->run();
+
+Test a real client with an explicitly matching ``Origin`` header and
+validate that a different origin is rejected. The server intentionally
+allows only one local origin; replace it with application-owned allowed
+origins plus authentication in deployment. Accepted output can still
+be backpressured or canceled. Frame masking, fragmentation, ping/pong,
+message ceilings and closing are exercised by:
+
+.. code-block:: console
+
+   vendor/bin/pest tests/WebSocketIntegrationTest.php
+   vendor/bin/pest tests/WebSocketBackpressureAcceptanceTest.php
+
+Do not infer support for WebTransport or H2/H3 WebSocket from this
+HTTP/1.1 upgrade example.
+
+
+Full UDP echo: datagrams are not byte streams
+---------------------------------------------
+
+**What:** each ``Datagram`` carries one sender address and a payload.
+**Why:** UDP has no TCP-style ordered connection or framing stream.
+**When:** choose it when the application tolerates or handles loss,
+duplicates, reordering and untrusted source addresses.
+
+Save as ``udp.php``:
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   require __DIR__ . '/vendor/autoload.php';
+
+   use Infocyph\Runwire\DatagramServer;
+   use Infocyph\Runwire\Network\Datagram;
+   use Infocyph\Runwire\Network\DatagramListener;
+   use Infocyph\Runwire\Runtime;
+
+   $server = DatagramServer::udp(
+       '127.0.0.1:9001',
+       static function (Datagram $message, DatagramListener $listener): void {
+           if ($message->payload !== 'ping') {
+               return;
+           }
+           $listener->sendTo('pong', $message->peerAddress);
+       },
+       'udp-example',
+   );
+   Runtime::create()->listen($server)->run();
+
+Send an actual ``ping`` payload from a local UDP client and verify
+``pong``. Some versions of ``nc`` have differing UDP timeout flags;
+the repository's own portable acceptance fixture provides a
+version-independent validated network round trip:
+
+.. code-block:: console
+
+   php tests/fixtures/portable_native_acceptance.php
+
+Do not use this echo example for Internet-exposed reflection services:
+validate sender permissions and add rate/size limits. Ordinary UDP
+packets are **not QUIC or HTTP/3**; no stream or TLS identity exists.

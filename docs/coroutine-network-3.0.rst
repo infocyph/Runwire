@@ -1,13 +1,12 @@
 =======================================
-Coroutine network ownership (3.0 draft)
+Coroutine network ownership (3.0)
 =======================================
 
 .. important::
 
-   This page documents APIs under development on the Runwire 3.0 branch.
-   Runwire 2.1.2 remains the published stable release. The APIs and
-   contracts described here must not be advertised as released until
-   the 3.0 QA and release-certification gates have passed.
+   This page describes the 3.0 candidate implementation and its ownership
+   contracts. The candidate must still pass exact-source release checks
+   before the 3.0 package can be published.
 
 Ownership model
 ===============

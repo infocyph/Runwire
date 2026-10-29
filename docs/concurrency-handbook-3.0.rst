@@ -156,3 +156,53 @@ Reproduce scheduler behavior with focused tests and then real peers:
 
 See :doc:`coroutine-network-3.0`, :doc:`filesystem-handbook-3.0`
 and :doc:`runtime-lifecycle-3.0`.
+
+
+A complete coroutine scheduling and cancellation exercise
+---------------------------------------------------------
+
+**What:** ``CoroutineRuntime`` runs a scope and permits cooperative
+suspension. **Why:** a Fiber can pause without blocking an entire
+reactor. **When:** use it for task composition whose operations
+explicitly understand cancellation; ``sleep()`` here is the coroutine
+scheduler's delay, unlike synchronous ``usleep()``.
+
+Save as ``coroutine.php`` in the project root:
+
+.. code-block:: php
+
+   <?php
+
+   declare(strict_types=1);
+
+   require __DIR__ . '/vendor/autoload.php';
+
+   use Infocyph\Runwire\Coroutine\CoroutineRuntime;
+
+   $coroutines = new CoroutineRuntime();
+   $result = $coroutines->run(static function ($scope): string {
+       $scope->sleep(0.001);
+       return 'completed';
+   });
+
+   if ($result !== 'completed') {
+       throw new RuntimeException('Coroutine did not finish');
+   }
+   echo $result, PHP_EOL;
+
+Run ``php coroutine.php`` and then the scheduler regression suite:
+
+.. code-block:: console
+
+   vendor/bin/pest tests/BatchLCoroutineSchedulerTest.php
+
+**Cancellation decisions:** when a child scope is canceled, stop new
+submissions and retire its watchers before the parent finishes.
+Transferring a live network connection to another owner requires an
+explicit quiescent handoff; merely disposing the Fiber adapter does
+not transfer or close socket ownership. A thrown callback should not
+leave unrelated requests suspended. Ordinary blocking disk, DNS and
+sleep calls still block PHP unless delegated to the supported off-loop
+executor or coroutine-aware operation.
+
+Read :doc:`coroutine-network-3.0` for scoped sockets and adoption.

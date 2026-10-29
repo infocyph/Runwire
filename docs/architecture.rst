@@ -76,3 +76,37 @@ For full details consult :doc:`handbook-3.0`,
 :doc:`runtime-lifecycle-3.0`, :doc:`configuration-reference-3.0`
 and :doc:`supervision-handbook-3.0`. This document is the
 high-level architecture view, not the entire implementation contract.
+
+
+Follow one request through the runtime
+--------------------------------------
+
+**Step 1, choose the owner.** A native CLI runtime may create a
+listener; a hosted runtime (FPM, RoadRunner, FrankenPHP or Swoole)
+already has an external request or event owner.
+
+**Step 2, admit and parse.** One listener accepts bytes, but a single
+H2 connection can contain many independently canceled streams.
+The application receives only validated request state after protocol
+admission, not raw arbitrary bytes as a trusted request.
+
+**Step 3, perform application work.** Readiness callbacks stay short;
+nonblocking DNS/TCP operations retain their own deadlines; blocking
+filesystem operations run in bounded worker processes.
+Coroutines give structure to suspension/cancellation, not extra
+CPU cores or transparent conversion of blocking calls.
+
+**Step 4, write with pressure.** An accepted write is not proof the
+peer consumed its bytes. Bound queued data and wait for drain or
+cancel the operation instead of retaining unlimited response buffers.
+
+**Step 5, retire exactly once.** Request scopes, sockets, pending DNS
+jobs, worker generation and reactor watchers must have separate owners.
+A normal request completion should not close an unrelated pooled
+connection; a worker shutdown must stop admissions and reap its children.
+
+**Walkthrough:** run ``tests/fixtures/portable_native_acceptance.php``
+for a real native single-process example, then
+``tests/WorkerOwnedNetworkDrainTest.php`` to verify ownership
+during shutdown. The complete beginner HTTP example is in
+:doc:`feature-workflows-3.0`.

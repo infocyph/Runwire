@@ -197,3 +197,71 @@ development guide provide the host-specific lifecycle, quotas and errors.
 The source-linked complete PHP API reference, 2.1.2-to-3.0 migration
 ledger and bounded H2/H3 client integration have task-scoped QA acceptance.
 The full 1800-second mixed worker soak and source-frozen H1/H2/WebSocket comparisons have passed in GitHub Actions for the technical 3.0 candidate. External Read the Docs provisioning is intentionally out of the scoped release tracker; final exact-head Release Certification remains a separately verified gate. This page does not authorize publication.
+
+
+Where each major feature has examples and full explanations
+-----------------------------------------------------------
+
+The capability table above describes availability; the following
+references explain what to implement, why to select it, and how to
+validate the actual behavior. Start with
+:doc:`feature-workflows-3.0` for runnable end-to-end examples.
+
+.. list-table:: Feature-to-guide and test reference
+   :header-rows: 1
+   :widths: 28 40 32
+
+   * - Feature family
+     - Explanation and walkthrough
+     - Focused evidence
+   * - Native HTTP/1.1
+     - :doc:`inbound-handbook-3.0` and :doc:`feature-workflows-3.0`
+     - ``tests/Http1ConnectionTest.php``
+   * - HTTP/2 multiplex and drain
+     - :doc:`protocols-3.0` and :doc:`protocol-failure-atlas-3.0`
+     - ``tests/Http2ConnectionTest.php``
+   * - Native HTTP/3/QUIC
+     - :doc:`protocols-3.0` and :doc:`transport-guide-3.0`
+     - ``tests/Http3ConnectionStateTest.php``
+   * - WebSocket upgrade and backpressure
+     - :doc:`inbound-handbook-3.0`
+     - ``tests/WebSocketIntegrationTest.php``
+   * - TCP/Unix framed connections
+     - :doc:`inbound-handbook-3.0` and :doc:`feature-workflows-3.0`
+     - ``tests/fixtures/portable_native_acceptance.php``
+   * - UDP datagrams
+     - :doc:`inbound-handbook-3.0` and :doc:`transport-guide-3.0`
+     - ``tests/fixtures/portable_native_acceptance.php``
+   * - DNS/dial/TLS/SSRF
+     - :doc:`outbound-handbook-3.0` and :doc:`security-handbook-3.0`
+     - ``tests/OutboundAddressPolicyTest.php``
+   * - H1 pool / H2-H3 sessions
+     - :doc:`connection-policies-3.0` and :doc:`outbound-handbook-3.0`
+     - ``tests/HttpOutboundDispatcherTest.php``
+   * - Proxies and stream relay
+     - :doc:`connection-policies-3.0`
+     - ``tests/ProxyAuthenticatedTlsInteropTest.php``
+   * - Coroutine and Fiber ownership
+     - :doc:`concurrency-handbook-3.0` and :doc:`coroutine-network-3.0`
+     - ``tests/BatchLCoroutineSchedulerTest.php``
+   * - Async files and bounded streaming
+     - :doc:`filesystem-handbook-3.0` and :doc:`async-file-io-3.0`
+     - ``tests/AsyncFileSystemTest.php``
+   * - Native supervisor/autoscale
+     - :doc:`supervision-handbook-3.0`
+     - ``tests/SupervisorTest.php``
+   * - Hosted runtimes
+     - :doc:`host-compatibility-3.0`
+     - Real Hosted Runtime Acceptance workflow
+   * - Metrics/W3C tracing
+     - :doc:`observability-handbook-3.0`
+     - ``tests/TraceContextTest.php``
+   * - Security and production deployment
+     - :doc:`security-handbook-3.0` and :doc:`production-operations-3.0`
+     - PHPForge Security & Standards workflow
+
+The focused tests are **examples of actual checked-in evidence**, not
+permission to skip independent protocol, native-extension or
+performance certification. Unsupported WebTransport, automatic H2/H3
+session discovery, nested TLS through HTTPS proxies and kernel-native
+AIO remain excluded or separately qualified future work.
