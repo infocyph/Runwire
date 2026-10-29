@@ -1,10 +1,10 @@
-Runwire 3.0 engineering handbook
-================================
+Engineering handbook
+====================
 
 Overview and audience
 ---------------------
 
-This handbook covers Runwire 3.0's execution model, APIs, supported
+This handbook covers Runwire's execution model, APIs, supported
 host environments and lifecycle contracts. It is intended for application
 developers, platform engineers, library integrators, maintainers and
 security reviewers.
@@ -127,7 +127,7 @@ Capability truthfulness
    :widths: 25 36 39
 
    * - Capability
-     - Runwire 3.0 implementation
+     - Runtime implementation
      - Do not claim
    * - HTTP/1.1, HTTP/2
      - Inbound protocol support; distinct outbound client APIs
@@ -151,7 +151,7 @@ Capability truthfulness
 Documentation and verification
 ------------------------------
 
-Commands and examples use the Runwire 3.0 APIs. When integrating into an
+Commands and examples use the documented public APIs. When integrating into an
 existing application, validate network protocol support, PHP extensions,
 resource limits and shutdown behavior on the actual deployment host.
 Consult :doc:`performance-qa-handbook-3.0` for benchmark methodology and

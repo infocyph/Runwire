@@ -1,5 +1,5 @@
-Pool, proxy, relay and credential boundaries (Runwire 3.0)
-==========================================================
+Pool, proxy, relay and credential boundaries
+============================================
 
 Runwire provides bounded H1 connections and an experimental
 H2 one-shot TLS client, idle pool admission and TCP/Unix relay primitives;

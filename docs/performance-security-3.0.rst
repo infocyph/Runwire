@@ -1,5 +1,5 @@
-Runwire 3.0 performance evidence and threat boundaries
-======================================================
+Performance evidence and threat boundaries
+==========================================
 
 This guide explains performance and security measurements without
 asserting unverified improvements.

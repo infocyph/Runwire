@@ -1,6 +1,6 @@
-==========================================
-Runwire 3.0: bounded asynchronous file I/O
-==========================================
+=============================
+Bounded asynchronous file I/O
+=============================
 
 This chapter documents bounded filesystem operations executed by worker
 processes, their cancellation semantics and unsupported I/O guarantees.

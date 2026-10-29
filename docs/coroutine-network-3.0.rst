@@ -1,6 +1,6 @@
-=======================================
-Coroutine network ownership (3.0)
-=======================================
+===========================
+Coroutine network ownership
+===========================
 
 This chapter explains live socket ownership across callbacks,
 Fibers, cancellation scopes and explicit connection handoffs.

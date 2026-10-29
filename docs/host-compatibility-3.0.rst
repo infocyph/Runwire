@@ -1,5 +1,5 @@
-Runwire 3.0 host and runtime capability matrix
-==============================================
+Host and runtime capability matrix
+==================================
 
 Runwire supports multiple host-owned and native execution modes.
 The host determines worker and reactor ownership, while PHP extensions
@@ -48,7 +48,7 @@ Transport and workload features
    :widths: 24 36 40
 
    * - Feature
-     - Available Runwire 3.0 capability
+     - Available capability
      - Limits and prerequisites
    * - HTTP/1.1, HTTP/2 and HTTP/3 servers
      - Existing request contracts and server regressions; native H3 interoperates with an independent peer where QUIC is available

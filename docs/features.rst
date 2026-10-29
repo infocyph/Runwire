@@ -1,5 +1,5 @@
-Runwire 3.0 features and supported capabilities
-===============================================
+Features and supported capabilities
+===================================
 
 Capabilities depend on the runtime driver, host permissions and installed
 PHP extensions. Experimental integrations and unsupported transport modes
@@ -133,7 +133,7 @@ Network, protocols and worker capabilities
 Capabilities and limitations
 ----------------------------
 
-The feature column describes Runwire 3.0 capabilities and their constraints.
+The feature column describes supported capabilities and their constraints.
 Unsupported native QUIC datagrams, connection migration and 0-RTT dispatch
 fail closed; they are not emulated.
 
