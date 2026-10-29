@@ -7,7 +7,6 @@ it('requires native reStructuredText Sphinx pages and valid Read the Docs pointe
     $configuration = file_get_contents($root . '/docs/conf.py');
     $index = file_get_contents($root . '/docs/index.rst');
     $readthedocs = file_get_contents($root . '/.readthedocs.yaml');
-    $tracker = file_get_contents($root . '/docs/plans/runwire-3.0-unified-runtime-development-plan.md');
 
     expect($configuration)->toContain('source_suffix = {".rst": "restructuredtext"}')
         ->not->toContain('"myst_parser"');
@@ -16,5 +15,5 @@ it('requires native reStructuredText Sphinx pages and valid Read the Docs pointe
         expect(is_file($root . '/docs/' . $page . '.rst'))->toBeTrue();
     }
     expect($readthedocs)->toContain('version: 2', 'configuration: docs/conf.py');
-    expect($tracker)->toContain('reStructuredText (.rst)');
+    expect(is_dir($root . '/docs/plans'))->toBeFalse();
 });

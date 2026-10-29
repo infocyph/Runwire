@@ -4,19 +4,16 @@
 Runwire developer handbook
 ===========================
 
-**Published stable:** Runwire 2.1.2.
+**Runwire 3.0 release-candidate manual.** This manual describes the
+checked-out 3.0 source and its supported runtime contracts.
+Use the version selector on the documentation host for historical releases.
 
-**Documentation source revision:** |runwire_source_revision| (actual checkout, not a published release tag).
-
-**In development:** The Runwire 3.0 branch includes its unified
-asynchronous networking, client protocol, file executor and real native
-autoscale implementation, with C3 functional acceptance completed.
-Runwire 3.0 remains unreleased. GitHub-hosted mixed 1800-second performance and 41-page Sphinx checks have passed; external documentation hosting is excluded from the agreed release scope. Final immutable-head release certification must still be checked before release.
+**Source revision:** |runwire_source_revision|.
 
 The handbook is written for application developers, native and
 host-owned runtime integrators, operators, performance engineers
-and security reviewers. Every reference to a 3.0 feature describes
-a **development-branch capability**, not a published package guarantee.
+and security reviewers. Features requiring optional PHP extensions or host capabilities are
+identified in the relevant chapters.
 
 If this is your first visit, read :doc:`start` and
 :doc:`handbook-3.0`. For executable tests and APIs, use
@@ -75,27 +72,12 @@ If this is your first visit, read :doc:`start` and
    migration-3.0
    documentation-maintenance-3.0
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Historical Runwire 2.0 and 2.1.x manuals
-
-   getting-started-2.0
-   architecture-2.0
-   coroutines-2.0
-   deployment-2.0
-   security-2.0
-   benchmarks-2.0
-   migration-history-2.0
-   release-notes-2.1.2
-
 **Key capability exclusions:** WebTransport is out of scope,
 nested TLS for an HTTPS proxy plus HTTPS origin is unsupported,
 and the asynchronous filesystem implementation uses bounded
 process-worker I/O rather than qualified kernel-native AIO.
 HTTP/3 requires a compatible native QUIC implementation.
 
-All public Sphinx pages are native reStructuredText. Internal
-plans and unreleased QA records are excluded from the hosted
-documentation source. The generated API index is built from
+All public Sphinx pages are native reStructuredText. Internal release-history plans are not part of the 3.0 documentation tree. The generated API index is built from
 the checked-out Runwire sources, so published code links describe
 the source revision being built.

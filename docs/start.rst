@@ -4,23 +4,18 @@ Installation and first validation
 Release status
 --------------
 
-Runwire 2.1.2 is the currently published stable package. Runwire
-3.0 is a development branch with a substantially expanded
-asynchronous runtime; it has **not yet been published**. The minimum
-supported PHP version for the currently documented package is 8.4
-on a 64-bit runtime. PHP 8.4 and 8.5 are exercised in development QA.
-
-Install the published package with Composer:
+This manual targets Runwire 3.0 on PHP 8.4+ (64-bit). During candidate
+review, install from the checked-out source. The ordinary Composer command
+below installs the latest published stable version, which may differ from
+this manual until 3.0 is tagged and published.
 
 .. code-block:: console
 
    composer require infocyph/runwire
 
-This command installs the published version, **not** 3.0's
-development-branch features. To review or test unreleased 3.0,
-use a checked-out Runwire development branch and its own Composer
-dependencies; do not assume the current stable package exposes
-`Http3OutboundClient`, native autoscale or the filesystem facade.
+For 3.0 testing, check out the 3.0 candidate revision and run
+``composer install`` locally. Do not treat an unreleased candidate as
+an already published package.
 
 Quick local inspection
 ----------------------

@@ -9,7 +9,7 @@ from sphinx.highlighting import lexers
 
 project = "Runwire"
 author = "Infocyph"
-version = os.getenv("READTHEDOCS_VERSION", "3.0-development")
+version = os.getenv("READTHEDOCS_VERSION", "3.0")
 release = version
 language = "en"
 root_doc = "index"
