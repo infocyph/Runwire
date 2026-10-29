@@ -2,11 +2,8 @@
 Coroutine network ownership (3.0)
 =======================================
 
-.. important::
-
-   This page describes the 3.0 candidate implementation and its ownership
-   contracts. The candidate must still pass exact-source release checks
-   before the 3.0 package can be published.
+This chapter explains live socket ownership across callbacks,
+Fibers, cancellation scopes and explicit connection handoffs.
 
 Ownership model
 ===============

@@ -154,7 +154,7 @@ admitting new work, revoke credentials if exposed, record affected
 source revision/driver, and preserve nonsecret diagnostics for
 reproduction. Do not log raw client tokens to make debugging easier.
 
-The source API remains under development; perform a final threat and
+Review the source API and perform a threat and
 release-risk review before declaring 3.0 production certified.
 
 

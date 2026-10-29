@@ -110,7 +110,7 @@ Review checklist
 * Historical guides are visibly versioned and not mistaken for 3.0.
 * Quantitative claims include methodology, source SHA and raw CI evidence.
 * Public site does not publish internal draft plans or secrets.
-* Final release/hosted preview acceptance is tracked independently.
+* Hosting and release administration remain separate from public API guides.
 
 See :doc:`api-reference-3.0`, :doc:`handbook-3.0` and
 :doc:`migration-playbook-3.0` for the reader-facing result.

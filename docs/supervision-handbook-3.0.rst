@@ -164,7 +164,7 @@ override intentionally takes precedence inside its permitted range.
 Graceful scale-in must retire workers without admitting replacement
 work into a conflicting current-owner slot.
 
-The C3 independent native tests verify real worker transitions,
+Independent native tests verify real worker transitions,
 SIGKILL recovery, concurrent autoscale and reload, exact HTTP
 completion counts, and no back-to-back cooldown flapping.
 
@@ -214,7 +214,7 @@ Validation before production
    php tests/smoke/native_autoscale_http_traffic.php
 
 These tests use real Linux/POSIX processes and do not run under FPM.
-They provide C3 proof, not U15/U17 release certification. The native
+They verify specific worker behavior, not sustained production readiness. The native
 20–120 second gates are not a substitute for an independent
 1,800-second release soak. See :doc:`performance-qa-handbook-3.0`
 for this distinction and :doc:`production-operations-3.0` for a

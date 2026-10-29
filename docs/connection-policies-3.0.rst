@@ -31,7 +31,7 @@ callback owner to evict any unsolicited inbound bytes, peer EOF or closed
 socket and never hands such sockets back to a caller. Global capacity
 pressure evicts the oldest idle socket. It does not establish connections,
 queue waiters, certify HTTP response framing or offer an HTTP client.
-The development stream provides ``Connection::isPoolIdleSafe()`` as a
+Runwire provides ``Connection::isPoolIdleSafe()`` as a
 fail-closed reuse preflight: it rejects unread response bytes, queued writes,
 peer EOF, outstanding scope ownership, protocol callback claims and close
 observers. This is a necessary condition only; the caller still must enforce
@@ -71,7 +71,7 @@ CONNECT path.
 Bidirectional stream relay
 --------------------------
 
-The 3.0 development branch now contains a preliminary
+Runwire 3.0 contains a preliminary
 ``Network\\StreamRelay`` for already-established TCP/Unix ``Connection``
 pairs. It takes exclusive protocol callback ownership of both connections,
 forwards bounded chunks using the existing receive/send queues and
@@ -158,7 +158,7 @@ management, a generalized proxy connector or safe retry of visible replies.
    vendor/bin/pest tests/ClientRedirectRetryPolicyTest.php tests/Http1PolicyClientTest.php
 
 The bounded H1 redirect/retry and proxy-secret isolation tasks U07.09 and
-U14.05 were QA-accepted at 3e31268. This does not certify transparent H2/H3
+include credential isolation tests. This does not certify transparent H2/H3
 redirects, authenticated proxy connectors or a shared cookie jar.
 
 Direct origin proxy-secret boundary
@@ -174,7 +174,7 @@ private headers and proxy-only secrets. This does **not** certify a
 proxy connector or proxy credential encryption implementation.
 
 
-Outbound proxy wire negotiation (unreleased)
+Outbound proxy wire negotiation
 --------------------------------------------
 
 The Socks5Handshake codec validates RFC 1928/1929 frames. Local DNS mode
@@ -193,10 +193,10 @@ untrusted peer identities fail closed. Data after a valid CONNECT response
 remains available to the next protocol owner.
 
 The standalone authenticated proxy CONNECT adapter and independent
-reference-based proxy-leg TLS QA are accepted under U10.04. Independently
+reference-based proxy-leg TLS QA are accepted under the supported proxy modes. Independently
 verified original-target TLS exists over a cleartext CONNECT tunnel,
 but there is no automatic high-level proxied client or supported
-TLS-over-TLS stream. The scoped U10.06 acceptance tests prove
+TLS-over-TLS stream. The scoped interoperability tests prove
 original-target TLS through cleartext CONNECT and fail-closed refusal
 of encrypted-proxy nesting, not successful double TLS.
 

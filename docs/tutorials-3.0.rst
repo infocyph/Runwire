@@ -55,7 +55,7 @@ Neither an HTTP/2 nor HTTP/3 extended CONNECT client is implied.
    vendor/bin/pest tests/WebSocketOutboundClientTest.php tests/WebSocketOutboundTlsTest.php
    vendor/bin/pest tests/WebSocketConcurrentSessionsTest.php tests/WebSocketBackpressureAcceptanceTest.php
 
-The development-only ``Network\\StreamRelay`` transfers bounded
+The opt-in ``Network\\StreamRelay`` transfers bounded
 chunks between two already-established TCP or Unix connections,
 using shared send/receive queues, read pressure suspension and
 drain-driven resumption. A cancellation token or monotonic deadline

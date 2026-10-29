@@ -1,8 +1,7 @@
 Runwire 3.0 transport and DNS guide
 ===================================
 
-This page describes **unreleased development code**, not published stable
-Runwire 2.1.2. Features below have different host and optional extension
+Features below have different host and optional extension
 requirements. Successful unit tests do not certify a 3.0 release.
 
 Real inbound TCP, Unix and UDP
@@ -198,7 +197,7 @@ fair transport scheduling or cancellation-storm recovery on their own.
 Use the independent native-QUIC interoperability and impairment tests
 for those specific contracts; no test proves arbitrary future networks.
 
-Independent QUIC sibling reset burst (development)
+Independent QUIC sibling reset burst
 --------------------------------------------------
 
 The optional native QUIC CI matrix tests a verified TLS 1.3/ALPN session
