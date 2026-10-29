@@ -14,8 +14,8 @@ and security reviewers. Features requiring optional PHP extensions or host capab
 identified in the relevant chapters.
 
 If this is your first visit, read :doc:`start` and
-:doc:`handbook-3.0`. For executable tests and APIs, use
-the :doc:`tutorials-3.0` recipes and :doc:`configuration-reference-3.0`.
+:doc:`handbook-3.0`. For practical examples and configuration options, see
+:doc:`tutorials-3.0` and :doc:`configuration-reference-3.0`.
 
 .. toctree::
    :maxdepth: 2
@@ -63,7 +63,7 @@ the :doc:`tutorials-3.0` recipes and :doc:`configuration-reference-3.0`.
 
 .. toctree::
    :maxdepth: 2
-   :caption: API, migration and contributing
+   :caption: Migration and contributing
 
    migration-playbook-3.0
    compatibility-audit-3.0
