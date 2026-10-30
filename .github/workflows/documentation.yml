@@ -29,7 +29,7 @@ jobs:
       - name: Checkout Runwire
         uses: actions/checkout@v7 # v7.0.1
       - name: Install Python for Sphinx and RTD
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
       - name: Install pinned Sphinx tooling
