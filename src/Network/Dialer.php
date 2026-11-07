@@ -43,7 +43,11 @@ final class Dialer
      */
     private array $pending = [];
 
-    /** Create a loop-bound outgoing connector with a strict pending socket limit. */
+    /**
+     * Create a loop-bound outgoing connector with a strict pending socket limit.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(private readonly LoopInterface $loop, private readonly int $maxPending = 64)
     {
         if ($maxPending < 1 || $maxPending > 65_536) {
@@ -68,7 +72,10 @@ final class Dialer
         return true;
     }
 
-    /** Close all pending sockets and reject future attempts. */
+    /**
+     * Close all pending sockets and reject future attempts.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->assertProcessOwner();
@@ -93,6 +100,11 @@ final class Dialer
      * Launch a numeric TCP or Unix-domain stream dial without blocking the loop.
      *
      * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function connect(
         DialEndpoint|string $endpoint,
@@ -164,7 +176,10 @@ final class Dialer
         return count($this->pending);
     }
 
-    /** Validate a restricted destination before opening its socket. */
+    /**
+     * Validate a restricted destination before opening its socket.
+     * @throws \InvalidArgumentException
+     */
     private static function assertAddressPolicy(DialEndpoint $endpoint, DialOptions $options): void
     {
         if ($options->addressPolicy === null) {
@@ -177,6 +192,9 @@ final class Dialer
         $options->addressPolicy->assertCandidate($endpoint->host ?? '');
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -216,6 +234,7 @@ final class Dialer
 
     /**
      * @param resource $stream
+     * @throws \RuntimeException
      */
     private function checkConnected(mixed $stream): void
     {
@@ -278,7 +297,10 @@ final class Dialer
         $this->finish($id, $connection, null);
     }
 
-    /** @return resource */
+    /**
+     * @return resource
+     * @throws \RuntimeException
+     */
     private function open(DialEndpoint $endpoint): mixed
     {
         $errorCode = 0;

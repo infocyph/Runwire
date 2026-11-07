@@ -62,7 +62,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         $this->pid = $pid;
     }
 
-    /** Cancel exactly one caller; preserve unrelated coalesced waiters. */
+    /**
+     * Cancel exactly one caller; preserve unrelated coalesced waiters.
+     * @throws \LogicException
+     */
     #[\Override]
     public function cancel(int $id): bool
     {
@@ -75,7 +78,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         return true;
     }
 
-    /** Cancel pending callers and drop cache entries without closing the shared upstream. */
+    /**
+     * Cancel pending callers and drop cache entries without closing the shared upstream.
+     * @throws \LogicException
+     */
     public function close(): void
     {
         $this->assertOwner();

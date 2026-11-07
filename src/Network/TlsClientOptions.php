@@ -17,6 +17,7 @@ final readonly class TlsClientOptions
 {
     /**
      * @param list<string> $alpnProtocols
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $peerName,
@@ -40,6 +41,7 @@ final readonly class TlsClientOptions
      * Secure stream context: no opt-out of peer or hostname verification.
      *
      * @return array<string, bool|int|string>
+     * @throws \RuntimeException
      */
     public function context(): array
     {
@@ -81,7 +83,10 @@ final readonly class TlsClientOptions
         return $options;
     }
 
-    /** Accept TLS 1.2 and 1.3 client methods only, never legacy SSL methods. */
+    /**
+     * Accept TLS 1.2 and 1.3 client methods only, never legacy SSL methods.
+     * @throws \RuntimeException
+     */
     public function method(): int
     {
         if (!defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')
@@ -92,6 +97,9 @@ final readonly class TlsClientOptions
         return STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateClientIdentity(
         ?string $certificate,
         ?string $privateKey,
@@ -108,6 +116,9 @@ final readonly class TlsClientOptions
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateIdentity(string $peerName, ?string $caFile, ?string $caPath): void
     {
         if ($peerName === '' || strlen($peerName) > 253
@@ -122,7 +133,10 @@ final readonly class TlsClientOptions
         }
     }
 
-    /** @param list<string> $alpnProtocols */
+    /**
+     * @param list<string> $alpnProtocols
+     * @throws \InvalidArgumentException
+     */
     private static function validateProtocols(array $alpnProtocols): void
     {
         foreach ($alpnProtocols as $protocol) {

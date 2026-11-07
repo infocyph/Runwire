@@ -70,6 +70,8 @@ final class QuicWorkerSession
      *
      * @param array<array-key, mixed> $args
      * @return array<string, mixed>
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function execute(array $args): array
     {
@@ -116,6 +118,7 @@ final class QuicWorkerSession
      * Import one peer-created QUIC stream without transferring native ownership.
      *
      * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
+     * @throws \RuntimeException
      */
     private function acceptStream(): array
     {
@@ -158,6 +161,7 @@ final class QuicWorkerSession
     /**
      * @param array<array-key, mixed> $protocols
      * @return list<string>
+     * @throws \InvalidArgumentException
      */
     private function assertAlpn(array $protocols): array
     {
@@ -178,6 +182,9 @@ final class QuicWorkerSession
         return $validated;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function assertEndpoint(string $host, int $port, int $limit): void
     {
         if ($host === '' || strlen($host) > 253 || preg_match('/[\x00-\x20\x7f]/', $host) === 1
@@ -189,6 +196,7 @@ final class QuicWorkerSession
     /**
      * @param array<array-key, mixed> $options
      * @return list<string>
+     * @throws \InvalidArgumentException
      */
     private function assertTlsOptions(array $options): array
     {
@@ -225,6 +233,9 @@ final class QuicWorkerSession
     /**
      * @param array<array-key, mixed> $args
      * @return array{epoch:int, alpn:string, verified:bool}
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     private function connect(array $args): array
     {
@@ -298,6 +309,7 @@ final class QuicWorkerSession
      * Open a locally initiated QUIC stream, returning a worker-local handle.
      *
      * @return array{stream:int, bidirectional:bool}
+     * @throws \RuntimeException
      */
     private function openStream(bool $bidirectional): array
     {
@@ -369,6 +381,8 @@ final class QuicWorkerSession
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{data:string, eof:bool}
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     private function readStream(array $command): array
     {
@@ -403,6 +417,7 @@ final class QuicWorkerSession
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{reset:bool}
+     * @throws \RuntimeException
      */
     private function resetStream(array $command): array
     {
@@ -441,7 +456,10 @@ final class QuicWorkerSession
         return ['profiling' => true];
     }
 
-    /** Return an established worker-local stream or fail closed. */
+    /**
+     * Return an established worker-local stream or fail closed.
+     * @throws \RuntimeException
+     */
     private function stream(int $id): object
     {
         $entry = $this->streams[$id] ?? null;
@@ -455,6 +473,8 @@ final class QuicWorkerSession
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{written:int}
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     private function writeStream(array $command): array
     {
