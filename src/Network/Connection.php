@@ -87,7 +87,11 @@ final class Connection
 
     private ?int $writeWatcher = null;
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         mixed $stream,
@@ -201,6 +205,7 @@ final class Connection
      * @param callable(self): void $onData
      * @param callable(self): void $onDrain
      * @param callable(self): void $onEof
+     * @throws \LogicException
      */
     public function claimCallbacks(
         object $owner,
@@ -252,6 +257,7 @@ final class Connection
      * @param callable(self): void $onData
      * @param callable(self): void $onDrain
      * @param callable(self): void $onEof
+     * @throws \LogicException
      */
     public function handoffCallbacks(
         object $owner,
@@ -425,6 +431,7 @@ final class Connection
 
     /**
      * Consume up to the requested number of buffered inbound bytes.
+     * @throws \InvalidArgumentException
      */
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
@@ -458,7 +465,10 @@ final class Connection
         return $this->rejectedWrites;
     }
 
-    /** @internal Releases callback slots previously claimed or handed off to an exclusive owner. */
+    /**
+     * @internal Releases callback slots previously claimed or handed off to an exclusive owner.
+     * @throws \LogicException
+     */
     public function releaseCallbacks(object $owner): void
     {
         $this->callbackOwnership->release($owner);
@@ -524,6 +534,9 @@ final class Connection
         return is_int($now) ? $now : (int) $now;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertCallbackSlotsUnclaimed(): void
     {
         $this->callbackOwnership->assertUnclaimed();

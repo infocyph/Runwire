@@ -72,6 +72,7 @@ final class FiberScheduler
 
     /**
      * Suspend the current task until the future completes.
+     * @throws \LogicException
      */
     public function awaitFuture(
         Future $future,
@@ -91,13 +92,19 @@ final class FiberScheduler
         ));
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function currentCancellation(): CancellationToken
     {
         return $this->requireCurrentTask()->cancellation();
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function currentTaskId(): int
     {
         return $this->requireCurrentTask()->id();
@@ -212,7 +219,10 @@ final class FiberScheduler
         }
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function hasTaskLocal(TaskLocal $key): bool
     {
         return $this->requireCurrentTask()->taskLocalState()->has($key);
@@ -232,7 +242,10 @@ final class FiberScheduler
         return $this->policy->maxWaitersPerPrimitive;
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function removeTaskLocal(TaskLocal $key): bool
     {
         return $this->requireCurrentTask()->taskLocalState()->remove($key);
@@ -254,7 +267,10 @@ final class FiberScheduler
         return $this->enqueueResume($task, null, $error, $ignoreCancellation);
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function setTaskLocal(TaskLocal $key, mixed $value): void
     {
         $this->requireCurrentTask()->taskLocalState()->set($key, $value);
@@ -263,6 +279,7 @@ final class FiberScheduler
     /**
      * Suspend the current task for the requested duration.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function sleep(float $seconds): void
     {
@@ -323,7 +340,10 @@ final class FiberScheduler
         return $task;
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \LogicException
+     */
     public function suspendReadable(mixed $stream): void
     {
         $this->requireCurrentTask();
@@ -339,7 +359,10 @@ final class FiberScheduler
         ));
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \LogicException
+     */
     public function suspendWritable(mixed $stream): void
     {
         $this->requireCurrentTask();
@@ -355,7 +378,10 @@ final class FiberScheduler
         ));
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function taskLocal(TaskLocal $key): mixed
     {
         return $this->requireCurrentTask()->taskLocalState()->get($key);
@@ -363,6 +389,7 @@ final class FiberScheduler
 
     /**
      * Cooperatively yield the current task back to the scheduler.
+     * @throws \LogicException
      */
     public function yieldNow(): void
     {

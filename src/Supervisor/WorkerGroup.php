@@ -25,6 +25,7 @@ final readonly class WorkerGroup
      * Create a worker group definition.
      *
      * @param callable(WorkerContext): void $bootstrap
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $name,

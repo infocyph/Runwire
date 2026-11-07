@@ -73,6 +73,7 @@ final class WebSocketSession
 
     /**
      * @internal WebSocket sessions are created by the HTTP/1 upgrade owner.
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      */
     public function __construct(
         LoopInterface $loop,
@@ -151,6 +152,7 @@ final class WebSocketSession
 
     /**
      * Ask an upgraded session to stop accepting application work during worker drain.
+     * @throws \InvalidArgumentException
      */
     public function drain(): void
     {
@@ -243,6 +245,7 @@ final class WebSocketSession
 
     /**
      * Send one bounded binary message.
+     * @throws \InvalidArgumentException
      */
     public function sendBinary(string $payload): WriteResult
     {
@@ -253,6 +256,7 @@ final class WebSocketSession
 
     /**
      * Send one bounded UTF-8 text message.
+     * @throws \InvalidArgumentException
      */
     public function sendText(string $payload): WriteResult
     {
@@ -480,6 +484,9 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function heartbeat(): void
     {
         if ($this->closed || $this->closing) {

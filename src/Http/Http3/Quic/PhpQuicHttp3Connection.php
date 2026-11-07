@@ -137,6 +137,8 @@ final class PhpQuicHttp3Connection
 
     /**
      * Begin graceful HTTP/3 draining by sending a GOAWAY boundary.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
      */
     public function beginDrain(): void
     {
@@ -319,6 +321,9 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function cancelRequestStream(int $streamId): void
     {
         $this->session->cancelRequestStream($streamId);
@@ -630,6 +635,9 @@ final class PhpQuicHttp3Connection
         return $this->objectReady($ready, $stream->object(), $events->read | $events->error);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function processStreamChunk(int $streamId, string $chunk, bool $requestStream): void
     {
         match ($requestStream) {

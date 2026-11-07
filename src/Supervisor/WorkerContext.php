@@ -88,6 +88,7 @@ final class WorkerContext
      *
      * @param resource|null $readyStream
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function __construct(
         public readonly string $group,
@@ -292,6 +293,7 @@ final class WorkerContext
      * Register periodic worker work on the attached event loop.
      *
      * @param callable(): void $callback
+     * @throws \LogicException
      */
     public function every(string $name, float $intervalSeconds, callable $callback): PeriodicTaskHandle
     {
@@ -300,6 +302,7 @@ final class WorkerContext
 
     /**
      * Report the worker as unhealthy to the supervisor.
+     * @throws \RuntimeException
      */
     public function markUnhealthy(): void
     {
@@ -397,6 +400,7 @@ final class WorkerContext
 
     /**
      * Signal that worker initialization is complete and traffic may be served.
+     * @throws \RuntimeException
      */
     public function ready(): void
     {
@@ -468,6 +472,7 @@ final class WorkerContext
 
     /**
      * Report application warmup failure to the supervisor.
+     * @throws \RuntimeException
      */
     public function reportWarmupFailure(): void
     {
@@ -476,6 +481,7 @@ final class WorkerContext
 
     /**
      * Request an orderly worker recycle for the supplied reason.
+     * @throws \RuntimeException
      */
     public function requestRecycle(ShutdownReason $reason = ShutdownReason::MANUAL_RECYCLE): void
     {
@@ -490,6 +496,7 @@ final class WorkerContext
 
     /**
      * Begin worker shutdown and stop accepting scheduled background work.
+     * @throws \Throwable
      */
     public function requestStop(?ShutdownReason $reason = null): void
     {

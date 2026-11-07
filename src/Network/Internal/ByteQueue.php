@@ -39,6 +39,7 @@ final class ByteQueue
 
     /**
      * Append non-empty bytes to the queue.
+     * @throws \OverflowException
      */
     public function append(string $bytes): void
     {
@@ -83,6 +84,7 @@ final class ByteQueue
 
     /**
      * Discard an exact number of bytes from the front.
+     * @throws \InvalidArgumentException
      */
     public function discard(int $bytes): void
     {
@@ -136,6 +138,7 @@ final class ByteQueue
 
     /**
      * Return up to the requested queued bytes without consuming them.
+     * @throws \InvalidArgumentException
      */
     public function peek(int $maxBytes = PHP_INT_MAX): string
     {
@@ -172,6 +175,7 @@ final class ByteQueue
 
     /**
      * Consume and return up to the requested number of bytes.
+     * @throws \InvalidArgumentException
      */
     public function read(int $maxBytes): string
     {

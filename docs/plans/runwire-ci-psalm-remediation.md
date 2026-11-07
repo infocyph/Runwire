@@ -26,8 +26,9 @@
 | 3 | Add missing exception documentation on 100 additional logged throw sites, using already-ledgered public classes | 100 target | Implemented; CI verification pending |
 | 4 | Correct library-wide false unused-code reachability without bypassing security analysis | 1 systemic configuration correction | Verified analyzer count 3,132 → 1,556 visible; Source Audit/docs passed; QA still pending |
 | 5 | Document next 100 thrown exception locations in seven already-ledgered runtime classes | 100 target | Implemented; CI verification pending |
-| 6 | Add exception contracts at 100 further logged sites in 12 audited runtime classes | 100 target | Implemented; CI verification pending |
-| 7+ | Continue exception propagation, type and taint findings in priority order | TBD | Not started |
+| 6 | Add exception contracts at 100 further logged sites in 12 audited runtime classes | 100 target | QA all green; Source Audit/docs/interop passed; Psalm 1,489 visible remaining |
+| 7 | Document next 100 propagated exception sites (13 audited classes) | 100 target | Implemented; CI verification pending |
+| 8+ | Resolve remaining exception, type and taint findings | TBD | Not started |
 
 ### Batch 1 verification
 
@@ -82,3 +83,9 @@
 - Source locations are from the latest B3 Psalm output, which is source-compatible with the current B4/B5 head for these otherwise-unmodified classes.
 - These classes already have reviewed test-backed migration dispositions. No runtime behavior change or additional Psalm suppressions.
 - Check the actual per-version analyzer delta and all relevant CI lanes before declaring this batch verified.
+
+### Batch 7
+
+- Exact 100 `MissingThrowsDocblock` reports from latest PHP 8.4 analysis at Batch 6; annotated responsible methods, preserving method bodies/signatures.
+- Scope: CoroutineScope (37), FiberScheduler (11), Connection (7), TcpListener (7), WorkerContext (7), WebSocketSession (6), Http1ResponseWriter (4), PhpQuicHttp3Connection (4), ByteQueue (4), UnixListener (4), RoadRunnerSession (4), WorkerGroup (4), LineCodec (1).
+- All touched public classes have preexisting migration-ledger coverage. Rerun CI and count net reduction; source-location count is not net reduction.

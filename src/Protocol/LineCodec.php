@@ -66,6 +66,7 @@ final class LineCodec implements FrameCodecInterface
     /**
      * Decodes up to the requested number of complete line frames.
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Protocol\CodecException
      */
     #[\Override]
     public function push(string $bytes, int $maxFrames = 256): array

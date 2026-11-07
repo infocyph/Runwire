@@ -142,6 +142,7 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     private static function normalizeRequest(object $request, int $maxRequestBodyBytes): HttpRequest
     {

@@ -70,6 +70,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * End the response, optionally writing one final body chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function end(string $finalChunk = ''): WriteResult
@@ -237,6 +238,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Write a response body chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function write(string $chunk): WriteResult
@@ -351,6 +353,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->finish($result);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function endOneShot(string $finalChunk): ?WriteResult
     {
         $contentLength = strlen($finalChunk);
@@ -485,6 +490,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return implode('', $parts);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function startForEndIfNeeded(string $finalChunk): ?WriteResult
     {
         if ($this->started) {

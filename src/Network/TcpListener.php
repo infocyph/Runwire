@@ -123,6 +123,7 @@ final class TcpListener
 
     /**
      * Immediately aborts every active connection.
+     * @throws \LogicException
      */
     public function abortConnections(): void
     {
@@ -184,6 +185,7 @@ final class TcpListener
 
     /**
      * Closes the listener and cancels pending TLS handshakes.
+     * @throws \LogicException
      */
     public function close(): void
     {
@@ -208,6 +210,7 @@ final class TcpListener
 
     /**
      * Begins graceful closure of all active connections.
+     * @throws \LogicException
      */
     public function closeConnectionsGracefully(): void
     {
@@ -243,6 +246,7 @@ final class TcpListener
 
     /**
      * Temporarily pauses accepting new connections.
+     * @throws \LogicException
      */
     public function pauseAccepting(): void
     {
@@ -272,6 +276,7 @@ final class TcpListener
 
     /**
      * Resumes accepting connections after a pause.
+     * @throws \LogicException
      */
     public function resumeAccepting(): void
     {
@@ -409,6 +414,9 @@ final class TcpListener
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function handleAccept(): void
     {
         $this->assertActiveProcessOwner();
@@ -455,7 +463,10 @@ final class TcpListener
         return count($this->connections) + count($this->handshakes);
     }
 
-    /** @param resource $client */
+    /**
+     * @param resource $client
+     * @throws \Throwable
+     */
     private function startAcceptedConnection(LoopInterface $loop, mixed $client, mixed $peer): void
     {
         $local = stream_socket_get_name($client, false);

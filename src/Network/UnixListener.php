@@ -55,6 +55,7 @@ final class UnixListener
 
     /**
      * Binds a Unix-domain listener at the supplied absolute socket path.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function bind(
         string $path,
