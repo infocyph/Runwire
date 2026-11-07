@@ -24,7 +24,8 @@
 | 1 | Add missing `#[\\Override]` to declared implementation methods (21 PHP files) | 100 of 144 | Verified: 100 removed; QA, Source Audit, docs and release checks passed; Psalm still fails on remaining findings |
 | 2 | Finish override findings (44) + explicit exception contracts (57, six existing files) | 101 target | 44 overrides gone; throws net -7 due to propagated caller contracts; QA, Source Audit and docs passed |
 | 3 | Add missing exception documentation on 100 additional logged throw sites, using already-ledgered public classes | 100 target | Implemented; CI verification pending |
-| 4+ | Trace and resolve propagated exception contracts plus type, taint and genuine dead code findings | TBD | Not started |
+| 4 | Correct library-wide false unused-code reachability without bypassing security analysis | 1 systemic configuration correction | Implemented; CI verification pending |
+| 5+ | Continue type, exception contract and taint issues in ~100-finding batches | TBD | Not started |
 
 ### Batch 1 verification
 
@@ -51,3 +52,11 @@
 - No new symbols are introduced; all touched classes have existing entries in the reviewed migration behavior ledger.
 - A targeted location count is **not** a claim of 100 net Psalm issues removed; annotate callers transitively as verified in the next analyzer run.
 - Keep the patch release postponed until the PR has completed the remediation and QA.
+
+### Batch 4 — analyzer scope correction
+
+- On the previous candidate, PHPForge's Skip Directive Scanner rejected `@psalm-api` markers. The candidate changes were abandoned, **not suppressed or allowlisted**.
+- Psalm's `findUnusedCode` reference graph assumes reachable entry points within the analyzed program. Runwire is a distributable library, and its consumers are outside the `src/` graph; even properties demonstrably read by public methods were classified unused (example: `ControlServer::$listener`).
+- Added local `psalm.xml` matching PHPForge's main baseline, with only library-appropriate dead-code scope changed to `findUnusedCode=false`; `findUnusedVariablesAndParams=true` preserves lexical unused-variable checks.
+- `errorLevel=2`, taint analysis, security issue handlers, `checkForThrowsDocblock`, and unused Psalm suppressions remain enabled. This is a coverage-scope correction, **not** a claim that genuine dead code was removed.
+- Use full CI to establish the new actionable baseline. No release/version work until all remaining findings and QA are completed.
