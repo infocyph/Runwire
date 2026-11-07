@@ -216,7 +216,10 @@ final class UnixListener
         $this->syncAcceptWatcher();
     }
 
-    /** @param callable(Connection): void $onConnection */
+    /**
+     * @param callable(Connection): void $onConnection
+     * @throws \LogicException
+     */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
         if ($this->closed) {
@@ -230,7 +233,10 @@ final class UnixListener
         $this->syncAcceptWatcher();
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function configureListener(mixed $stream, string $path, UnixListenerOptions $options): void
     {
         if (!stream_set_blocking($stream, false)) {
@@ -260,7 +266,10 @@ final class UnixListener
             && str_starts_with($message, 'stream_socket_accept(): Accept failed:');
     }
 
-    /** @return resource */
+    /**
+     * @return resource
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function openListener(string $path, UnixListenerOptions $options): mixed
     {
         $context = stream_context_create([
@@ -290,6 +299,9 @@ final class UnixListener
         return $stream;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function preparePath(string $path, UnixListenerOptions $options): void
     {
         if (!file_exists($path) && !is_link($path)) {
@@ -328,6 +340,9 @@ final class UnixListener
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function validatePath(string $path): void
     {
         if ($path === '' || $path[0] !== '/') {
@@ -341,6 +356,7 @@ final class UnixListener
     /**
      * @param resource $client
      * @param Closure(Connection): void $callback
+     * @throws \Throwable
      */
     private function activateConnection(LoopInterface $loop, mixed $client, mixed $peer, Closure $callback): void
     {

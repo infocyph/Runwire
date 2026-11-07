@@ -172,6 +172,8 @@ final class Supervisor
      * fork ownership and drain are all executed by the owning supervisor.
      *
      * @param callable():array{cpuRatio:float,queued:int,successfulRps:float,p99Milliseconds:float} $sample
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function autoscale(string $group, AutoscalePolicy $policy, callable $sample): self
     {
@@ -192,6 +194,7 @@ final class Supervisor
 
     /**
      * Configure the supervisor control endpoint before startup.
+     * @throws \LogicException
      */
     public function control(ControlOptions $options): self
     {
@@ -206,6 +209,7 @@ final class Supervisor
 
     /**
      * Register a worker group before supervisor startup.
+     * @throws \LogicException
      */
     public function group(WorkerGroup $group): self
     {
@@ -236,6 +240,7 @@ final class Supervisor
 
     /**
      * Start replacement of one currently serving worker slot.
+     * @throws \LogicException
      */
     public function recycle(string $group, int $slot): bool
     {
@@ -293,6 +298,8 @@ final class Supervisor
 
     /**
      * Start the supervisor, spawn workers, and run until shutdown completes.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     * @throws \LogicException
      */
     public function run(): void
     {
@@ -404,6 +411,7 @@ final class Supervisor
 
     /**
      * Configure development file watching before supervisor startup.
+     * @throws \LogicException
      */
     public function watch(DevelopmentWatchPolicy $policy): self
     {
@@ -711,6 +719,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function spawnWorker(
         WorkerGroup $group,
         int $slot,

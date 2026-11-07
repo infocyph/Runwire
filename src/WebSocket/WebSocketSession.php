@@ -127,6 +127,7 @@ final class WebSocketSession
 
     /**
      * Begin a standards-compliant close handshake.
+     * @throws \InvalidArgumentException
      */
     public function close(int $code = 1000, string $reason = ''): WriteResult
     {
@@ -202,6 +203,7 @@ final class WebSocketSession
      * Register a callback for the next write-pressure relief event.
      *
      * @param callable(self): void $callback
+     * @throws \OverflowException
      */
     public function onDrain(callable $callback): self
     {
@@ -228,6 +230,7 @@ final class WebSocketSession
 
     /**
      * Send a WebSocket ping control frame.
+     * @throws \InvalidArgumentException
      */
     public function ping(string $payload = ''): WriteResult
     {
@@ -276,6 +279,9 @@ final class WebSocketSession
         return $options;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function appendFragment(string $payload): void
     {
         $length = strlen($payload);
@@ -290,6 +296,9 @@ final class WebSocketSession
         $this->fragmentBuffer .= $payload;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function assertOutboundMessage(string $payload, bool $text): void
     {
         if (strlen($payload) > $this->options->maxFramePayloadBytes) {
@@ -317,6 +326,9 @@ final class WebSocketSession
         $this->fragmentOpcode = null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function deliver(int $opcode, string $payload): void
     {
         if ($opcode === 0x1 && $payload !== '' && preg_match('//u', $payload) !== 1) {
@@ -381,6 +393,9 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function handleContinuation(WebSocketFrame $frame): void
     {
         if ($this->fragmentOpcode === null) {
@@ -402,6 +417,9 @@ final class WebSocketSession
         $this->deliver($opcode, $payload);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function handleDataFrame(WebSocketFrame $frame): void
     {
         if ($this->fragmentOpcode !== null) {
@@ -431,6 +449,9 @@ final class WebSocketSession
         $this->closing = true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function handlePeerClose(string $payload): void
     {
         [$code, $reason] = WebSocketWireCodec::parseClosePayload($payload);

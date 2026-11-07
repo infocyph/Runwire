@@ -40,7 +40,10 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     private int $writeFlagValue;
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public function __construct()
     {
         [$eventClass, $timerClass, $coroutineClass, $namespace] = self::resolveClassFamily();

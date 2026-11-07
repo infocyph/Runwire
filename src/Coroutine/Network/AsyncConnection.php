@@ -100,6 +100,7 @@ final class AsyncConnection
     /**
      * Adopt an explicitly pool-owned connection into a new coroutine scope.
      * Failure aborts the stream rather than leaving an unobserved owner.
+     * @throws \Throwable
      */
     public static function adopt(Connection $connection, CoroutineScope $scope): self
     {
@@ -125,6 +126,7 @@ final class AsyncConnection
 
     /**
      * Gracefully close the connection and wait for its close reason.
+     * @throws \LogicException
      */
     public function close(): CloseReason
     {
@@ -200,6 +202,7 @@ final class AsyncConnection
 
     /**
      * Wait until write pressure drains or the connection closes.
+     * @throws \LogicException
      */
     public function drain(): ?CloseReason
     {
@@ -234,6 +237,9 @@ final class AsyncConnection
 
     /**
      * Receive up to the requested number of bytes.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
     public function receive(int $maxBytes = PHP_INT_MAX): string
     {
@@ -293,6 +299,7 @@ final class AsyncConnection
     /**
      * Transfer an idle connection to a new owner and detach this coroutine adapter.
      * Only the returned core connection may be used after handoff.
+     * @throws \LogicException
      */
     public function transferTo(CancellationToken $owner, ?RequestDeadline $deadline = null): Connection
     {
@@ -326,6 +333,9 @@ final class AsyncConnection
         return $this->connection->write($data);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertUsable(): void
     {
         if ($this->disposed) {

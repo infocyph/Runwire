@@ -63,7 +63,11 @@ final class PhpQuicHttp3Connection
     /** @var array<int, true> */
     private array $requestStreams = [];
 
-    /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
+    /**
+     * @param callable(HttpRequest, ResponseWriterInterface): void $handler
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly PhpQuicConnection $connection,
         callable $handler,
@@ -182,7 +186,10 @@ final class PhpQuicHttp3Connection
         return $this->drainBoundary !== null;
     }
 
-    /** @param array<int, int> $ready */
+    /**
+     * @param array<int, int> $ready
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function handleReady(array $ready, PhpQuicEventMasks $events): void
     {
         if ($this->closed) {
@@ -252,6 +259,7 @@ final class PhpQuicHttp3Connection
 
     /**
      * Pump accepted streams, inbound data, control instructions, and pending responses.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function pump(): void
     {
@@ -298,7 +306,10 @@ final class PhpQuicHttp3Connection
         }
     }
 
-    /** @param array<int, int> $ready */
+    /**
+     * @param array<int, int> $ready
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function assertCriticalStreamsOpen(array $ready, PhpQuicEventMasks $events): void
     {
         if ($this->objectReady($ready, $this->controlStream->object(), $events->error)
@@ -505,6 +516,9 @@ final class PhpQuicHttp3Connection
         return substr($pending, $written);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleDrainFailure(Throwable $exception): void
     {
         if (!$this->connection->closed()) {
@@ -513,6 +527,9 @@ final class PhpQuicHttp3Connection
         $this->closeObservedConnection();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function nextRequestStreamId(): int
     {
         if ($this->requestStreams === []) {
@@ -548,6 +565,9 @@ final class PhpQuicHttp3Connection
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function openCriticalStream(string $name): PhpQuicStream
     {
         $stream = $this->connection->openStream(false);
@@ -625,6 +645,9 @@ final class PhpQuicHttp3Connection
         $items[spl_object_id($object)] = [$object, $events];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function queueDecoderInstructions(): void
     {
         $instructions = $this->state->takeLocalQpackDecoderInstructions();
@@ -652,6 +675,11 @@ final class PhpQuicHttp3Connection
         return $count;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function registerPeerStream(PhpQuicStream $stream): void
     {
         $streamId = $stream->id();
