@@ -31,6 +31,7 @@ final class PeriodicTaskRegistry
 
     /**
      * Attach the event loop used to schedule registered tasks.
+     * @throws \LogicException
      */
     public function attach(LoopInterface $loop): void
     {
@@ -77,6 +78,7 @@ final class PeriodicTaskRegistry
 
     /**
      * Stop scheduling periodic tasks while preserving their registrations.
+     * @throws \Throwable
      */
     public function drain(): void
     {
@@ -109,6 +111,7 @@ final class PeriodicTaskRegistry
      * Register a named periodic callback and return its cancellation handle.
      *
      * @param callable(): void $callback
+     * @throws \LogicException
      */
     public function register(string $name, float $intervalSeconds, callable $callback): PeriodicTaskHandle
     {
@@ -134,6 +137,9 @@ final class PeriodicTaskRegistry
         return new PeriodicTaskHandle(fn(): bool => $this->cancel($name));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateInterval(float $seconds): void
     {
         if (
@@ -145,6 +151,9 @@ final class PeriodicTaskRegistry
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateName(string $name): void
     {
         if ($name === '' || strlen($name) > 64 || preg_match('/^[A-Za-z0-9._:-]+$/D', $name) !== 1) {

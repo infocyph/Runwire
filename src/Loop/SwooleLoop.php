@@ -63,6 +63,8 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Cancel a deferred callback, timer, or stream watcher.
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     #[\Override]
     public function cancel(int $id): bool
@@ -82,6 +84,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Queue a callback on the host reactor.
+     * @throws \OverflowException
      */
     #[\Override]
     public function defer(callable $callback): int
@@ -108,6 +111,8 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a one-shot timer.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     #[\Override]
     public function delay(float $seconds, callable $callback): int
@@ -165,6 +170,8 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a readable stream watcher.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
@@ -174,6 +181,8 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a writable stream watcher.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
@@ -183,6 +192,8 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a repeating timer.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     #[\Override]
     public function repeat(float $interval, callable $callback): int

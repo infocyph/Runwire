@@ -26,7 +26,8 @@
 | 3 | Add missing exception documentation on 100 additional logged throw sites, using already-ledgered public classes | 100 target | Implemented; CI verification pending |
 | 4 | Correct library-wide false unused-code reachability without bypassing security analysis | 1 systemic configuration correction | Verified analyzer count 3,132 → 1,556 visible; Source Audit/docs passed; QA still pending |
 | 5 | Document next 100 thrown exception locations in seven already-ledgered runtime classes | 100 target | Implemented; CI verification pending |
-| 6+ | Continue type, exception contract and taint issues in ~100-finding batches | TBD | Not started |
+| 6 | Add exception contracts at 100 further logged sites in 12 audited runtime classes | 100 target | Implemented; CI verification pending |
+| 7+ | Continue exception propagation, type and taint findings in priority order | TBD | Not started |
 
 ### Batch 1 verification
 
@@ -74,3 +75,10 @@
 - PHP 8.4 and PHP 8.5 each reported **1,556 visible findings**, plus ~160 truncated reports, on commit `77ebcbc`.
 - Three unused-code groups disappeared (UnusedProperty 820, UnusedMethod 634, UnusedClass 122), totaling 1,576 false-reachability reports. No false claim that their runtime implementations were removed or repaired.
 - The remaining 1,287 missing `@throws` reports and type/taint findings remain actionable; neither was disabled.
+
+### Batch 6
+
+- An additional 100 precisely matched throw locations are documented in SwooleLoop (13), CoroutineScope (11), WebSocketFrameParser (11), DatagramListener (10), TcpListener (10), EventLoop (9), ConnectionCallbackOwnership (7), PeriodicTaskRegistry (7), FiberScheduler (6), SelectLoop (6), FutureState (5), and TlsOptions (5).
+- Source locations are from the latest B3 Psalm output, which is source-compatible with the current B4/B5 head for these otherwise-unmodified classes.
+- These classes already have reviewed test-backed migration dispositions. No runtime behavior change or additional Psalm suppressions.
+- Check the actual per-version analyzer delta and all relevant CI lanes before declaring this batch verified.

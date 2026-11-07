@@ -49,6 +49,7 @@ final class DatagramListener
 
     /**
      * Bind a non-blocking UDP listener to an address.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function bind(string $address, ?DatagramOptions $options = null): self
     {
@@ -84,6 +85,7 @@ final class DatagramListener
      * Open a nonblocking connected UDP socket using the same listener I/O engine.
      *
      * Hostnames must be resolved upstream; this method never performs blocking DNS.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function connect(string $address, ?DatagramOptions $options = null): self
     {
@@ -223,7 +225,10 @@ final class DatagramListener
         $this->syncWatcher();
     }
 
-    /** Send one bounded datagram to the connected remote peer. */
+    /**
+     * Send one bounded datagram to the connected remote peer.
+     * @throws \LogicException
+     */
     public function send(string $payload): DatagramWriteResult
     {
         if ($this->connectedPeer === null) {
@@ -261,7 +266,10 @@ final class DatagramListener
         return new DatagramWriteResult(DatagramWriteState::SENT, $written);
     }
 
-    /** @param callable(Datagram, self): void $callback */
+    /**
+     * @param callable(Datagram, self): void $callback
+     * @throws \LogicException
+     */
     public function start(LoopInterface $loop, callable $callback): void
     {
         if ($this->closed) {
@@ -279,6 +287,7 @@ final class DatagramListener
     /**
      * @param Closure(Datagram, self): void $callback
      * @param resource $stream
+     * @throws \Throwable
      */
     private function dispatchDatagram(Closure $callback, Datagram $datagram, mixed $stream): bool
     {

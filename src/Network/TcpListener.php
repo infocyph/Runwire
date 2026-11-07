@@ -62,6 +62,7 @@ final class TcpListener
 
     /**
      * Binds a TCP listener to the supplied address.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function bind(
         string $address,
@@ -284,6 +285,7 @@ final class TcpListener
 
     /**
      * Attach a shared worker buffer budget before the listener starts.
+     * @throws \LogicException
      */
     public function setBufferBudget(ByteBudget $budget): void
     {
@@ -294,7 +296,10 @@ final class TcpListener
         $this->bufferBudget = $budget;
     }
 
-    /** @param callable(Connection): void $onConnection */
+    /**
+     * @param callable(Connection): void $onConnection
+     * @throws \LogicException
+     */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
         $this->assertActiveProcessOwner();
@@ -321,6 +326,9 @@ final class TcpListener
             && str_starts_with($message, 'stream_socket_accept(): Accept failed:');
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function normalizeAddress(string $address): string
     {
         if (str_contains($address, '://')) {
@@ -334,7 +342,10 @@ final class TcpListener
         return 'tcp://' . $address;
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \Throwable
+     */
     private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
     {
         $this->assertActiveProcessOwner();
@@ -388,6 +399,9 @@ final class TcpListener
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertActiveProcessOwner(): void
     {
         if ($this->activeOwnerPid !== null && getmypid() !== $this->activeOwnerPid) {

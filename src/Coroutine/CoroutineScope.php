@@ -89,7 +89,10 @@ final class CoroutineScope
         return new Channel($this->scheduler, $capacity, $this->scheduler->maxWaitersPerPrimitive());
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \Throwable
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -130,7 +133,11 @@ final class CoroutineScope
         return $this->scheduler->deferred();
     }
 
-    /** @internal @param callable(self): mixed $callback */
+    /**
+     * @internal @param callable(self): mixed $callback
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \Throwable
+     */
     public function execute(callable $callback): mixed
     {
         $closure = $callback(...);
@@ -205,7 +212,11 @@ final class CoroutineScope
         return $this->scheduler->hasTaskLocal($key);
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \Infocyph\Runwire\Coroutine\Exception\TaskGroupException
+     * @throws \Throwable
+     */
     public function join(bool $propagateFailure = true, bool $cleanup = false): void
     {
         $tasks = $this->children;
@@ -258,6 +269,7 @@ final class CoroutineScope
      *
      * @internal
      * @param Closure():void $callback
+     * @throws \OverflowException
      */
     public function registerShutdown(Closure $callback): int
     {
@@ -362,6 +374,10 @@ final class CoroutineScope
         $this->scheduler->yieldNow();
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function assertOpen(): void
     {
         if ($this->closed) {
@@ -433,6 +449,9 @@ final class CoroutineScope
         unset($this->children[$task->id()]);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     */
     private function handleJoinedCancellation(CancelledException $error, bool $cleanup): void
     {
         if (!$cleanup && $this->cancellation()->isCancelled()) {
@@ -440,6 +459,9 @@ final class CoroutineScope
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleJoinedFailure(Task $task, Throwable $error, bool $cleanup): void
     {
         if ($task->state() !== TaskState::FAILED) {
@@ -542,7 +564,10 @@ final class CoroutineScope
         $this->secondaryFailures[] = $error;
     }
 
-    /** @param callable(): mixed $callback */
+    /**
+     * @param callable(): mixed $callback
+     * @throws \Throwable
+     */
     private function spawnOwned(callable $callback, CancellationSource $source): Task
     {
         try {

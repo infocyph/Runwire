@@ -92,6 +92,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Queue a callback for the next loop turn.
+     * @throws \OverflowException
      */
     #[\Override]
     public function defer(callable $callback): int
@@ -104,6 +105,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a one-shot timer.
+     * @throws \OverflowException
      */
     #[\Override]
     public function delay(float $seconds, callable $callback): int
@@ -144,6 +146,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a readable stream watcher.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
@@ -153,6 +156,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a writable stream watcher.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
@@ -162,6 +166,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a repeating timer.
+     * @throws \OverflowException
      */
     #[\Override]
     public function repeat(float $interval, callable $callback): int
@@ -545,6 +550,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * @param resource $stream
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function watch(mixed $stream, callable $callback, bool $readable): int
     {

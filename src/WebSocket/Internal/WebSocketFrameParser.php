@@ -45,6 +45,7 @@ final class WebSocketFrameParser
 
     /**
      * Append transport bytes while enforcing the parser and worker-wide byte ceilings.
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      */
     public function append(string $bytes): void
     {
@@ -85,6 +86,7 @@ final class WebSocketFrameParser
      * Parse up to the requested number of complete frames.
      *
      * @return list<WebSocketFrame>
+     * @throws \OverflowException
      */
     public function parse(int $maxFrames): array
     {
@@ -143,6 +145,9 @@ final class WebSocketFrameParser
         return $data;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function decodeExtendedLength(int &$offset): int
     {
         $highValue = self::uint32(substr($this->buffer, 2, 4));
@@ -163,6 +168,9 @@ final class WebSocketFrameParser
         return $lowValue;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function decodeLength(int $indicator, int &$offset): ?int
     {
         if ($indicator < 126) {
@@ -189,6 +197,9 @@ final class WebSocketFrameParser
         return $this->decodeExtendedLength($offset);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function extract(): ?WebSocketFrame
     {
         if (strlen($this->buffer) < 2) {
@@ -236,6 +247,9 @@ final class WebSocketFrameParser
         $this->workerBudget?->release($bytes);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function validateFrameHeader(int $first, int $second): void
     {
         if (($first & 0x70) !== 0) {

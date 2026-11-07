@@ -14,6 +14,7 @@ final readonly class TlsOptions
     /**
      * @param list<string> $alpnProtocols
      * @param array<string, mixed> $extraContext
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $localCertificate,
@@ -76,7 +77,10 @@ final readonly class TlsOptions
         return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);
     }
 
-    /** @param list<string> $protocols */
+    /**
+     * @param list<string> $protocols
+     * @throws \InvalidArgumentException
+     */
     private static function validateAlpn(array $protocols): void
     {
         foreach ($protocols as $protocol) {
@@ -89,7 +93,10 @@ final readonly class TlsOptions
         }
     }
 
-    /** @param array<string, mixed> $context */
+    /**
+     * @param array<string, mixed> $context
+     * @throws \InvalidArgumentException
+     */
     private static function validateTrust(array $context, bool $required): void
     {
         if (!$required) {

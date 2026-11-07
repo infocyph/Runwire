@@ -106,6 +106,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Queue a callback for the next event-loop turn.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     #[\Override]
     public function defer(callable $callback): int
@@ -115,6 +117,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Schedule a one-shot timer.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     #[\Override]
     public function delay(float $seconds, callable $callback): int
@@ -154,6 +158,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      * Register a readable stream watcher.
      *
      * @param resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
@@ -165,6 +171,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      * Register a writable stream watcher.
      *
      * @param resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
@@ -175,6 +183,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Schedule a repeating timer.
      * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     #[\Override]
     public function repeat(float $interval, callable $callback): int

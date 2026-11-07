@@ -179,6 +179,8 @@ final class FiberScheduler
 
     /**
      * Drive the underlying event loop until all scheduled tasks settle.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \LogicException
      */
     public function drive(): void
     {
@@ -260,6 +262,7 @@ final class FiberScheduler
 
     /**
      * Suspend the current task for the requested duration.
+     * @throws \InvalidArgumentException
      */
     public function sleep(float $seconds): void
     {
@@ -285,7 +288,11 @@ final class FiberScheduler
         ));
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     */
     public function spawn(
         callable $callback,
         CancellationSource $source,
@@ -467,6 +474,9 @@ final class FiberScheduler
         };
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function requireCurrentTask(): Task
     {
         if ($this->currentTask === null || Fiber::getCurrent() === null) {

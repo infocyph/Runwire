@@ -62,6 +62,8 @@ final class FutureState
 
     /**
      * Return the completed value or throw the stored failure.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function result(): mixed
     {
@@ -75,7 +77,11 @@ final class FutureState
         return $this->value;
     }
 
-    /** @param Closure(): void $waiter */
+    /**
+     * @param Closure(): void $waiter
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     */
     public function subscribe(Closure $waiter): ?int
     {
         if ($this->completed) {
@@ -108,6 +114,9 @@ final class FutureState
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function ensurePending(): void
     {
         if ($this->completed) {
