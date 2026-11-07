@@ -235,8 +235,10 @@ final class WorkerContext
             }
         }
 
-        if (is_resource($this->readyStream)) {
-            fclose($this->readyStream);
+        // The owned stream property is readonly; close a local handle without reassigning it.
+        $readyStream = $this->readyStream;
+        if (is_resource($readyStream)) {
+            fclose($readyStream);
         }
 
         foreach (['stopRead', 'stopWrite'] as $property) {

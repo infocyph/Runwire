@@ -566,10 +566,11 @@ final class Connection
         $this->readWatcher = $this->writeWatcher = null;
         $this->timeouts->cancel();
 
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
+        $stream = $this->stream;
         $this->stream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
         $this->receiveBuffer->clear();
         $this->sendBuffer->clear();
         $this->writeShutdownCallback = null;

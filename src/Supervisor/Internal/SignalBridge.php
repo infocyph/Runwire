@@ -87,16 +87,17 @@ final class SignalBridge
 
     private function closeStreams(): void
     {
-        if (is_resource($this->read)) {
-            fclose($this->read);
-        }
-
-        if (is_resource($this->write)) {
-            fclose($this->write);
-        }
-
+        $read = $this->read;
+        $write = $this->write;
         $this->read = null;
         $this->write = null;
+
+        if (is_resource($read)) {
+            fclose($read);
+        }
+        if (is_resource($write)) {
+            fclose($write);
+        }
     }
 
     private function dispatch(): void

@@ -46,7 +46,10 @@ final class Http2ClientHandshake
         $this->peerSettings = new PeerSettings();
     }
 
-    /** Preserve the initial one-shot request contract for the existing client. */
+    /**
+     * Preserve the initial one-shot request contract for the existing client.
+     * @throws \RuntimeException
+     */
     public function firstRequest(string $method, string $scheme, string $authority, string $path, ?Headers $headers = null): string
     {
         if ($this->requestSent) {
@@ -82,7 +85,10 @@ final class Http2ClientHandshake
         return $this->receivedSettings && !$this->closed;
     }
 
-    /** Accept only bounded connection control frames and return wire ACK, if any. */
+    /**
+     * Accept only bounded connection control frames and return wire ACK, if any.
+     * @throws \RuntimeException
+     */
     public function receive(Frame $frame): string
     {
         if (!$this->started || $this->closed) {
@@ -105,6 +111,7 @@ final class Http2ClientHandshake
     /**
      * Encode one conservative request on a strictly increasing odd client ID.
      * The connected transport owner must still enforce active stream slots.
+     * @throws \RuntimeException
      */
     public function requestOnStream(
         int $streamId,
@@ -134,7 +141,10 @@ final class Http2ClientHandshake
         return FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x5, $streamId, $block));
     }
 
-    /** Return the exact H2 client connection preface and first SETTINGS. */
+    /**
+     * Return the exact H2 client connection preface and first SETTINGS.
+     * @throws \RuntimeException
+     */
     public function start(): string
     {
         if ($this->started) {
@@ -146,6 +156,9 @@ final class Http2ClientHandshake
             . FrameWriter::encode(FrameWriter::settings([PeerSettings::ENABLE_PUSH => 0]));
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function goaway(Frame $frame): string
     {
         if ($frame->streamId !== 0 || $frame->flags !== 0 || strlen($frame->payload) < 8) {
@@ -163,6 +176,9 @@ final class Http2ClientHandshake
         return '';
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function ping(Frame $frame): string
     {
         if ($frame->streamId !== 0 || ($frame->flags & ~0x1) !== 0 || strlen($frame->payload) !== 8) {
@@ -198,6 +214,9 @@ final class Http2ClientHandshake
         return $fields;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function settings(Frame $frame): string
     {
         if ($frame->streamId !== 0 || ($frame->flags & ~0x1) !== 0

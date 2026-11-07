@@ -135,10 +135,11 @@ final class UnixListener
         }
         $this->closed = true;
         $this->syncAcceptWatcher();
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
+        $stream = $this->stream;
         $this->stream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
         $this->connectionCallback = null;
         $this->loop = null;
         if ($unlinkPath) {

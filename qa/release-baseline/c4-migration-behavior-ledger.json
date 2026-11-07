@@ -120,6 +120,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Internal\\AdaptivePollStrategy",
+      "executableTest": "tests/Http3AdaptiveStrategyTest.php",
+      "behavior": "Adaptive HTTP/3 polling interval bounds and idle wait strategy",
+      "migration": "Explicit float multiplication preserves idle interval limits and effective poll behavior under backpressure without changing protocol or stream admission.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http3\\Internal\\RequestStream",
       "executableTest": "tests/Http3RequestStreamTest.php",
       "behavior": "HTTP/3 request stream and body admission with stream lifecycle guards",
@@ -180,6 +188,14 @@
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Streaming request cancellation propagation and bounded body lifecycle",
       "migration": "Streaming bodies continue propagating transport cancellation into request contexts; no new consumer migration is required.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Internal\\MonotonicTime",
+      "executableTest": "tests/MonotonicTimeTest.php",
+      "behavior": "Monotonic time conversion bounds and nanosecond rounding",
+      "migration": "Explicit float conversion retains the existing finite nonnegative duration and overflow guards, preserving monotonic time semantics on supported PHP targets.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -352,6 +368,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime",
+      "executableTest": "tests/RuntimeTest.php",
+      "behavior": "Top-level runtime request, application lifecycle and server startup controls",
+      "migration": "Explicit exception contracts preserve the same startup, shutdown and runtime admission errors; no public request or runtime lifecycle signature changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\CoroutineRequestHandler",
       "executableTest": "tests/BatchORuntimeIntegrationTest.php",
       "behavior": "Request-bound coroutine scheduling and lifecycle ownership",
@@ -476,6 +500,30 @@
       "executableTest": "tests/NativeWorkerLifecycleTest.php",
       "behavior": "Worker readiness signaling across fork and timeout",
       "migration": "Workers only accept traffic after their own readiness handshake; stale generation readiness is invalid.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\SignalBridge",
+      "executableTest": "tests/SupervisorTest.php",
+      "behavior": "Signal wake channel lifecycle, handler restoration, and cleanup",
+      "migration": "Closing copied resources after clearing owned properties preserves one-shot signal resource cleanup and prevents stale closed-resource references.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\SupervisorStatusBuilder",
+      "executableTest": "tests/SupervisorTest.php",
+      "behavior": "Monotonic supervisor uptime and worker age reporting",
+      "migration": "Explicit float conversion keeps the same externally observable status snapshot fields and nonnegative monotonic durations.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\RestartPolicy",
+      "executableTest": "tests/SupervisorTest.php",
+      "behavior": "Bounded worker restart policy and exponential backoff",
+      "migration": "Explicit float exponentiation preserves restart retry caps, backoff ceilings and worker-failure handling.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

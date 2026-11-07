@@ -178,7 +178,7 @@ final class HappyEyeballsAttempt
             }
         }
 
-        $this->overallDeadlineNs = hrtime(true) + (int) ($this->remaining * 1_000_000_000);
+        $this->overallDeadlineNs = hrtime(true) + (int) ($this->remaining * 1_000_000_000.0);
         $this->timeoutTimer = $this->loop->delay(max(0, $this->remaining), function (): void {
             $this->finish(null, new RuntimeException('Overall hostname connection deadline exceeded.'));
         });

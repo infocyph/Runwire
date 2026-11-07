@@ -158,10 +158,11 @@ final class DatagramListener
         }
         $this->closed = true;
         $this->syncWatcher();
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
+        $stream = $this->stream;
         $this->stream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
         $this->callback = null;
         $this->loop = null;
     }

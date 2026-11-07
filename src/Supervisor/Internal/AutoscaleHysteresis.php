@@ -56,7 +56,7 @@ final class AutoscaleHysteresis
         $this->lowSamples = $low ? min($this->lowSamples + 1, $this->scaleInSamples) : 0;
 
         if ($this->lastChangeNanoseconds !== null
-            && ($nowNanoseconds - $this->lastChangeNanoseconds) < $this->cooldownSeconds * 1_000_000_000) {
+            && ($nowNanoseconds - $this->lastChangeNanoseconds) < $this->cooldownSeconds * 1_000_000_000.0) {
             return $current;
         }
         if ($this->highSamples >= $this->scaleOutSamples && $current < $this->maxWorkers) {

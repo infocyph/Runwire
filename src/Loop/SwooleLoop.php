@@ -292,7 +292,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             throw new OverflowException('Timer duration exceeds the platform integer range.');
         }
 
-        return max(1, (int) ceil($seconds * self::MILLISECONDS_PER_SECOND));
+        return max(1, (int) ceil($seconds * (float) self::MILLISECONDS_PER_SECOND));
     }
 
     /**

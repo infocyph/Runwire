@@ -32,7 +32,10 @@ final class Http1ClientResponseParser
 
     private ?Headers $trailers = null;
 
-    /** Construct strict limits; HEAD responses never carry an HTTP body. */
+    /**
+     * Construct strict limits; HEAD responses never carry an HTTP body.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly bool $headRequest = false,
         private readonly int $maxBodyBytes = 16_777_216,
@@ -50,7 +53,10 @@ final class Http1ClientResponseParser
         return $this->done;
     }
 
-    /** End a connection-close-delimited response, or reject a premature EOF. */
+    /**
+     * End a connection-close-delimited response, or reject a premature EOF.
+     * @throws \RuntimeException
+     */
     public function finish(callable $onEnd): void
     {
         if ($this->done) {
@@ -70,7 +76,10 @@ final class Http1ClientResponseParser
         return $this->done && $this->keepAlive;
     }
 
-    /** Consume network data, delivering head/body/end incrementally. */
+    /**
+     * Consume network data, delivering head/body/end incrementally.
+     * @throws \RuntimeException
+     */
     public function push(string $bytes, callable $onHead, callable $onBody, callable $onEnd): void
     {
         if ($this->done || strlen($bytes) > 65_536 || strlen($this->buffer) + strlen($bytes) > $this->maxHeaderBytes + 65_536) {
@@ -143,6 +152,9 @@ final class Http1ClientResponseParser
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function complete(callable $onEnd): void
     {
         if ($this->buffer !== '') {
@@ -154,6 +166,9 @@ final class Http1ClientResponseParser
         $onEnd($this->trailers);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function deliver(string $bytes, callable $onBody): void
     {
         if ($bytes === '') {
@@ -218,6 +233,9 @@ final class Http1ClientResponseParser
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readChunkEnd(): void
     {
         if (strlen($this->buffer) < 2) {
@@ -232,6 +250,9 @@ final class Http1ClientResponseParser
         $this->state = 'chunk_line';
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readChunkLine(): void
     {
         $end = strpos($this->buffer, "\r\n");
@@ -271,6 +292,9 @@ final class Http1ClientResponseParser
         $this->state = $value === 0 ? 'trailers' : 'chunk_data';
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readHead(callable $onHead, callable $onEnd): void
     {
         $end = strpos($this->buffer, "\r\n\r\n");

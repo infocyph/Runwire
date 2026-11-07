@@ -200,10 +200,11 @@ final class TcpListener
             $handshake->cancel();
         }
         $this->handshakes = [];
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
+        $stream = $this->stream;
         $this->stream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
         $this->connectionCallback = null;
         $this->loop = null;
     }

@@ -40,7 +40,7 @@ final class AdaptivePollStrategy
         if ($accepting
             && $activeConnections === 0
             && $policy->mode !== AdaptivePolicyMode::LATENCY) {
-            return min(self::MAX_IDLE_POLL_SECONDS, $baseTimeoutSeconds * 4);
+            return min(self::MAX_IDLE_POLL_SECONDS, $baseTimeoutSeconds * 4.0);
         }
 
         return $baseTimeoutSeconds;

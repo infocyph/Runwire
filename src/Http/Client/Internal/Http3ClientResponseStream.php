@@ -52,6 +52,7 @@ final class Http3ClientResponseStream
      * @param callable(int,Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param null|callable(Headers):void $onTrailers
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly int $streamId,
@@ -73,7 +74,10 @@ final class Http3ClientResponseStream
         $this->codec = $codec ?? new Http3ClientWireCodec();
     }
 
-    /** Require a complete response at peer FIN. */
+    /**
+     * Require a complete response at peer FIN.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function finish(): void
     {
         if ($this->qpackWaiting !== null) {
@@ -96,7 +100,10 @@ final class Http3ClientResponseStream
         return $this->finished;
     }
 
-    /** Accept bytes from a worker-owned QUIC request stream. */
+    /**
+     * Accept bytes from a worker-owned QUIC request stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function push(string $bytes): void
     {
         if ($this->finished) {
@@ -107,7 +114,10 @@ final class Http3ClientResponseStream
         }
     }
 
-    /** Finish a previously blocked field section and preserve peer frame ordering. */
+    /**
+     * Finish a previously blocked field section and preserve peer frame ordering.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function resumeQpack(ReadyFieldSection $ready): void
     {
         if ($ready->streamId !== $this->streamId || $this->qpackWaiting === null) {
@@ -133,6 +143,9 @@ final class Http3ClientResponseStream
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptData(Frame $frame): void
     {
         if ($this->trailersSeen) {
@@ -149,6 +162,9 @@ final class Http3ClientResponseStream
         ($this->onBody)($frame->payload);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptFrame(Frame $frame): void
     {
         $type = $frame->knownType();
@@ -187,6 +203,9 @@ final class Http3ClientResponseStream
         $this->acceptValidatedHeaders($response);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptTrailers(Frame $frame): void
     {
         if ($this->trailersSeen) {
@@ -201,7 +220,10 @@ final class Http3ClientResponseStream
         $this->acceptValidatedTrailers($trailers);
     }
 
-    /** @param array{status:int, headers:Headers} $response */
+    /**
+     * @param array{status:int, headers:Headers} $response
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptValidatedHeaders(array $response): void
     {
         $headers = $response['headers'];
@@ -235,7 +257,10 @@ final class Http3ClientResponseStream
         }
     }
 
-    /** Hold later frames behind a blocked QPACK HEADERS section. */
+    /**
+     * Hold later frames behind a blocked QPACK HEADERS section.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function dispatchFrame(Frame $frame): void
     {
         if ($this->qpackWaiting !== null) {

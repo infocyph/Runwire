@@ -62,16 +62,16 @@ final class MonotonicTime
         }
 
         $maxWholeSeconds = intdiv(PHP_INT_MAX, self::NANOSECONDS_PER_SECOND);
-        if ($seconds >= $maxWholeSeconds + 1.0) {
+        if ($seconds >= (float) $maxWholeSeconds + 1.0) {
             throw new OverflowException('Duration exceeds the platform integer nanosecond range.');
         }
 
         $wholeSeconds = (int) floor($seconds);
         $wholeNanoseconds = $wholeSeconds * self::NANOSECONDS_PER_SECOND;
-        $fraction = $seconds - $wholeSeconds;
+        $fraction = $seconds - (float) $wholeSeconds;
         $fractionNanoseconds = $roundUp
-            ? (int) ceil($fraction * self::NANOSECONDS_PER_SECOND)
-            : (int) round($fraction * self::NANOSECONDS_PER_SECOND);
+            ? (int) ceil($fraction * (float) self::NANOSECONDS_PER_SECOND)
+            : (int) round($fraction * (float) self::NANOSECONDS_PER_SECOND);
 
         return self::addNanoseconds($wholeNanoseconds, $fractionNanoseconds);
     }

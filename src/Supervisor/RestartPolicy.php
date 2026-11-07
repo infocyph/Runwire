@@ -50,7 +50,7 @@ final readonly class RestartPolicy
 
         return min(
             $this->maxBackoffSeconds,
-            $this->initialBackoffSeconds * (2 ** $exponent),
+            $this->initialBackoffSeconds * (2.0 ** $exponent),
         );
     }
 }
