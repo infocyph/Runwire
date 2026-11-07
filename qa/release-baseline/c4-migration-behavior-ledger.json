@@ -64,6 +64,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http1\\Internal\\RequestHeadValidator",
+      "executableTest": "tests/Http1ConnectionTest.php",
+      "behavior": "HTTP/1 request-line, header and connection framing validation",
+      "migration": "Preserve bounds on HTTP/1 request headers, parsing and smuggling protections; no endpoint should bypass existing validation or framing checks.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http2\\Http2Connection",
       "executableTest": "tests/Http2ConnectionTest.php",
       "behavior": "H2 stream admission, flow control and graceful GOAWAY",
@@ -88,6 +96,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Internal\\RequestStreamProcessor",
+      "executableTest": "tests/Http2ConnectionTest.php",
+      "behavior": "HTTP/2 request stream admission, framing and body handler lifecycle",
+      "migration": "Incoming HTTP/2 stream state remains bounded, validated, and correctly reset under flow-control or handler errors; no new public stream contract is introduced.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http2\\Internal\\ResponseScheduler",
       "executableTest": "tests/Http2AdaptiveResponseStrategyTest.php",
       "behavior": "Optional DATA-credit callback for H2 outbound scheduling",
@@ -100,6 +116,14 @@
       "executableTest": "tests/Http3ResponseWriterTest.php",
       "behavior": "HTTP/3 final response framing and writer lifecycle",
       "migration": "HTTP/3 response writers continue to finalize response streams and reject invalid transitions; QUIC capability remains optional.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Internal\\RequestStream",
+      "executableTest": "tests/Http3RequestStreamTest.php",
+      "behavior": "HTTP/3 request stream and body admission with stream lifecycle guards",
+      "migration": "Keep QUIC stream state ownership, protocol validation and rejection of malformed request frames unchanged; no new stream-admission behavior is introduced.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -140,6 +164,14 @@
       "executableTest": "tests/ResponseSemanticsTest.php",
       "behavior": "Callback writer start, data and terminal delivery",
       "migration": "Callback-based response writers must preserve end-once and suppressed-body semantics without introducing new caller requirements.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Internal\\RequestHeaderValidator",
+      "executableTest": "tests/RequestHeaderValidatorTest.php",
+      "behavior": "HTTP request header syntax, authority, content framing and protocol validation",
+      "migration": "Header and authority validation stays strict against request smuggling, duplicate headers and invalid pseudo-header framing; rejected requests remain rejected.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

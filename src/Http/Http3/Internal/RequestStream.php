@@ -73,6 +73,7 @@ final class RequestStream
     /**
      * @param callable(): void|null $onBodyRelief
      * @param callable(int): void|null $onBodyConsumed
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly int $streamId,
@@ -156,6 +157,7 @@ final class RequestStream
 
     /**
      * Mark transport FIN received and complete the request when unblocked.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function finish(): void
     {
@@ -194,6 +196,7 @@ final class RequestStream
 
     /**
      * Feed request-stream bytes through HTTP/3 frame processing.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function push(string $bytes): void
     {
@@ -219,6 +222,7 @@ final class RequestStream
 
     /**
      * Resume a request whose QPACK field section has become decodable.
+     * @throws \LogicException
      */
     public function resume(DecodedFieldSection $section): void
     {
@@ -286,6 +290,9 @@ final class RequestStream
         return $this->trailers;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptData(string $payload): void
     {
         if ($this->head === null || $this->trailersReceived) {
@@ -309,6 +316,9 @@ final class RequestStream
         $this->deliverData($payload);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptFieldSection(DecodedFieldSection $section, bool $trailers): void
     {
         try {
@@ -325,6 +335,9 @@ final class RequestStream
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function assertOpen(): void
     {
         if ($this->cancelled) {
@@ -335,6 +348,9 @@ final class RequestStream
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function bufferBlockedFrame(Frame $frame): void
     {
         $bytes = strlen($frame->payload) + 16;
@@ -354,6 +370,9 @@ final class RequestStream
         $this->blockedBudgetBytes += $payloadBytes;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function completeFinish(): void
     {
         if ($this->head === null) {
@@ -461,6 +480,9 @@ final class RequestStream
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function finishIfReady(): void
     {
         if (!$this->finReceived || $this->blocked || $this->pressured()) {
@@ -478,6 +500,9 @@ final class RequestStream
         $this->completeFinish();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function processFrame(Frame $frame): void
     {
         $type = $frame->knownType();
@@ -501,6 +526,9 @@ final class RequestStream
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function processHeaders(string $payload): void
     {
         if ($this->trailersReceived) {
@@ -520,6 +548,9 @@ final class RequestStream
         $this->acceptFieldSection($section, $trailers);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function reservePendingData(string $payload): void
     {
         $bytes = strlen($payload);

@@ -28,7 +28,10 @@ final readonly class RequestHeaderValidator
      */
     public function __construct(private string $protocol) {}
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     public function request(array $fields): ValidatedRequestHead
     {
         [$pseudo, $regular] = $this->split($fields, true);
@@ -62,7 +65,10 @@ final readonly class RequestHeaderValidator
         return $regular;
     }
 
-    /** @param array<string, string> $pseudo */
+    /**
+     * @param array<string, string> $pseudo
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function addPseudo(
         array &$pseudo,
         string $name,
@@ -103,6 +109,7 @@ final readonly class RequestHeaderValidator
     /**
      * @param array<string, string> $pseudo
      * @return array{string, string, null}
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
      */
     private function connectTarget(array $pseudo, ?string $authority): array
     {
@@ -116,6 +123,9 @@ final readonly class RequestHeaderValidator
         return [$authority, $authority, null];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function contentLength(Headers $headers): ?int
     {
         $values = $headers->all('content-length');
@@ -134,6 +144,9 @@ final readonly class RequestHeaderValidator
         return $parsed[0];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function host(Headers $regular): ?string
     {
         $values = $regular->all('host');
@@ -168,6 +181,9 @@ final readonly class RequestHeaderValidator
         return new Headers([new HeaderField('host', $authority), ...$regular->fields()]);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function parseLength(string $value): int
     {
         try {
@@ -182,6 +198,9 @@ final readonly class RequestHeaderValidator
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function regularField(string $name, string $value): HeaderField
     {
         if (isset(self::FORBIDDEN[$name])) {
@@ -208,6 +227,7 @@ final readonly class RequestHeaderValidator
     /**
      * @param array<string, string> $pseudo
      * @return array{0: string, 1: ?string, 2: ?string}
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
      */
     private function requestTarget(string $method, array $pseudo): array
     {
@@ -286,6 +306,9 @@ final readonly class RequestHeaderValidator
         return [$pseudo, new Headers($regular)];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function validateAuthority(?string $authority, ?string $scheme, ?string $host): void
     {
         if ($authority !== null && trim($authority) === '') {
@@ -312,6 +335,9 @@ final readonly class RequestHeaderValidator
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function validateHttpAuthority(?string $authority, ?string $scheme, ?string $host): void
     {
         if ($scheme === null || !$this->schemeRequiresAuthority($scheme)) {
@@ -328,6 +354,9 @@ final readonly class RequestHeaderValidator
         // Syntax and userinfo are validated for every authority in validateAuthority().
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function validateMethod(string $method): void
     {
         if (preg_match("/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/D", $method) !== 1) {
@@ -335,6 +364,9 @@ final readonly class RequestHeaderValidator
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function validateName(string $name): void
     {
         if ($name === '' || strtolower($name) !== $name) {
@@ -345,6 +377,9 @@ final readonly class RequestHeaderValidator
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function validateScheme(string $scheme): void
     {
         if (preg_match('/^[A-Za-z][A-Za-z0-9+.-]*$/D', $scheme) !== 1) {

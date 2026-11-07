@@ -129,6 +129,7 @@ final class RequestStreamProcessor
 
     /**
      * Consume an inbound CONTINUATION frame.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function handleContinuation(Frame $frame): void
     {
@@ -147,6 +148,8 @@ final class RequestStreamProcessor
 
     /**
      * Consume an inbound DATA frame.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     public function handleData(Frame $frame): void
     {
@@ -264,6 +267,9 @@ final class RequestStreamProcessor
         });
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function acceptBodyData(Http2Stream $stream, string $data, int $flowBytes, int $protocolConsumed): void
     {
         $dataBytes = strlen($data);
@@ -299,6 +305,10 @@ final class RequestStreamProcessor
         $this->acceptBodyData($stream, $data, $flowBytes, $protocolConsumed);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function admit(PendingHeaderBlock $pending, ?int $contentLength): bool
     {
         if ($this->drainBoundary !== null && $pending->streamId > $this->drainBoundary) {
@@ -352,6 +362,9 @@ final class RequestStreamProcessor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function completeHeaderBlock(PendingHeaderBlock $pending): void
     {
         try {
@@ -367,7 +380,10 @@ final class RequestStreamProcessor
         $this->openRequest($pending, $fields);
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function completeTrailers(PendingHeaderBlock $pending, array $fields): void
     {
         $stream = $this->stream($pending->streamId);
@@ -387,6 +403,10 @@ final class RequestStreamProcessor
         $this->finishRemote($stream, $trailers);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function consumePriorityFields(Frame $frame, string $payload, int $length, int $offset): int
     {
         if ($length - $offset < 5) {
@@ -402,6 +422,9 @@ final class RequestStreamProcessor
         return $offset + 5;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function createStream(int $id, ?int $contentLength): Http2Stream
     {
         $body = new StreamingRequestBody(
@@ -432,7 +455,10 @@ final class RequestStreamProcessor
         }
     }
 
-    /** @return array{0: string, 1: int, 2: int} */
+    /**
+     * @return array{0: string, 1: int, 2: int}
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function dataPayload(Frame $frame): array
     {
         $length = strlen($frame->payload);
@@ -476,6 +502,9 @@ final class RequestStreamProcessor
         $stream->dispatching = false;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function finishRemote(Http2Stream $stream, ?Headers $trailers = null): void
     {
         if ($stream->declaredContentLength !== null && $stream->receivedBodyBytes !== $stream->declaredContentLength) {
@@ -489,6 +518,10 @@ final class RequestStreamProcessor
         $this->cleanupIfClosed($stream);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function handleDataForMissingStream(Frame $frame): void
     {
         if ($frame->streamId > $this->lastClientStreamId) {
@@ -512,6 +545,9 @@ final class RequestStreamProcessor
         $this->cleanupIfClosed($stream);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function headersFragment(Frame $frame): string
     {
         $payload = $frame->payload;
@@ -570,7 +606,11 @@ final class RequestStreamProcessor
         ($this->rotationRequested)();
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function validatedHead(PendingHeaderBlock $pending, array $fields): ValidatedRequestHead
     {
         if (($pending->streamId & 1) === 0 || $pending->streamId <= $this->lastClientStreamId) {
@@ -584,6 +624,10 @@ final class RequestStreamProcessor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function validateHeadersStream(Frame $frame): void
     {
         if ($frame->streamId === 0) {

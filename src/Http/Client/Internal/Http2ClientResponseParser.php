@@ -36,7 +36,10 @@ final class Http2ClientResponseParser
 
     private bool $headersSeen = false;
 
-    /** Create an independently bounded response-stream decoder and callback gate. */
+    /**
+     * Create an independently bounded response-stream decoder and callback gate.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly int $maxHeaderBlockBytes = 65_536,
         private readonly int $maxBodyBytes = 1_048_576,
@@ -64,6 +67,7 @@ final class Http2ClientResponseParser
      *
      * @param callable(int,Headers):void $onHeaders
      * @param callable(string):void $onBody
+     * @throws \RuntimeException
      */
     public function push(Frame $frame, callable $onHeaders, callable $onBody): void
     {
@@ -86,6 +90,9 @@ final class Http2ClientResponseParser
         };
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function appendHeader(string $fragment): void
     {
         if (strlen($fragment) > $this->maxHeaderBlockBytes - strlen($this->headerBlock)) {
@@ -94,6 +101,9 @@ final class Http2ClientResponseParser
         $this->headerBlock .= $fragment;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function assertCompleteBody(): void
     {
         if ($this->expectedBodyBytes !== null && $this->bodyBytes !== $this->expectedBodyBytes) {
@@ -101,7 +111,10 @@ final class Http2ClientResponseParser
         }
     }
 
-    /** @param callable(int,Headers):void $onHeaders */
+    /**
+     * @param callable(int,Headers):void $onHeaders
+     * @throws \RuntimeException
+     */
     private function completeHeaders(callable $onHeaders): void
     {
         $pairs = $this->decoder->decode($this->headerBlock);
@@ -137,6 +150,9 @@ final class Http2ClientResponseParser
         ($onHeaders)($status, $headers);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function contentLength(Headers $headers, int $status): ?int
     {
         $lengths = $headers->all('content-length');
@@ -160,7 +176,10 @@ final class Http2ClientResponseParser
         return $length;
     }
 
-    /** @param callable(int,Headers):void $onHeaders */
+    /**
+     * @param callable(int,Headers):void $onHeaders
+     * @throws \RuntimeException
+     */
     private function continuation(Frame $frame, callable $onHeaders): void
     {
         if (!$this->awaitingContinuation || ($frame->flags & ~0x4) !== 0) {
@@ -173,7 +192,10 @@ final class Http2ClientResponseParser
         }
     }
 
-    /** @param callable(string):void $onBody */
+    /**
+     * @param callable(string):void $onBody
+     * @throws \RuntimeException
+     */
     private function data(Frame $frame, callable $onBody): void
     {
         if (!$this->headersSeen || ($frame->flags & ~0x1) !== 0) {
@@ -198,7 +220,10 @@ final class Http2ClientResponseParser
         }
     }
 
-    /** @param callable(int,Headers):void $onHeaders */
+    /**
+     * @param callable(int,Headers):void $onHeaders
+     * @throws \RuntimeException
+     */
     private function headers(Frame $frame, callable $onHeaders): void
     {
         if ($this->headersSeen || $this->awaitingContinuation || ($frame->flags & ~0x5) !== 0) {
@@ -212,7 +237,10 @@ final class Http2ClientResponseParser
         }
     }
 
-    /** Validate legacy PRIORITY frame shape without scheduling it as response data. */
+    /**
+     * Validate legacy PRIORITY frame shape without scheduling it as response data.
+     * @throws \RuntimeException
+     */
     private function priority(Frame $frame): void
     {
         if ($frame->flags !== 0 || strlen($frame->payload) !== 5) {
@@ -225,7 +253,10 @@ final class Http2ClientResponseParser
         }
     }
 
-    /** Terminate this stream on a valid peer reset; sibling streams are unaffected. */
+    /**
+     * Terminate this stream on a valid peer reset; sibling streams are unaffected.
+     * @throws \RuntimeException
+     */
     private function reset(Frame $frame): void
     {
         if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
@@ -241,7 +272,10 @@ final class Http2ClientResponseParser
         throw new RuntimeException('HTTP/2 peer RST_STREAM reset with code ' . $error . '.');
     }
 
-    /** GET/HEAD has no request body; validate but do not consume peer write credit. */
+    /**
+     * GET/HEAD has no request body; validate but do not consume peer write credit.
+     * @throws \RuntimeException
+     */
     private function windowUpdate(Frame $frame): void
     {
         if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
