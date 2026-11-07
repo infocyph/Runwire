@@ -57,6 +57,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Create a select-loop with the callback-overrun threshold.
+     * @throws \InvalidArgumentException
      */
     public function __construct(float $callbackOverrunSeconds = 0.05)
     {
@@ -173,6 +174,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Run the event loop until stopped or idle.
+     * @throws \LogicException
      */
     #[\Override]
     public function run(): void
@@ -209,6 +211,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Execute one non-polling loop tick.
+     * @throws \LogicException
      */
     public function tick(): void
     {
@@ -225,6 +228,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private static function assertRecoverableSelectFailure(?string $warning, int $prunedWatchers): void
     {
         if ($prunedWatchers > 0) {
@@ -237,6 +243,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         throw new RuntimeException($warning ?? 'stream_select() failed permanently.');
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -281,7 +290,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
-    /** @param array{deadline: int, interval: int, callback: Closure} $timer */
+    /**
+     * @param array{deadline: int, interval: int, callback: Closure} $timer
+     * @throws \Throwable
+     */
     private function fireTimer(int $id, array $timer): void
     {
         if ($timer['interval'] === 0) {
@@ -322,6 +334,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function poll(): void
     {
         [$read, $write] = $this->selectStreams();
@@ -527,7 +542,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         );
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \InvalidArgumentException
+     */
     private function watch(mixed $stream, callable $callback, bool $readable): int
     {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {

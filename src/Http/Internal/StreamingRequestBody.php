@@ -54,6 +54,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     /**
      * @param callable(): void $onRelief
      * @param callable(int): void|null $onConsumed
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly int $lowWatermark,
@@ -172,6 +173,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     /**
      * @internal
      * @param callable(): void $callback
+     * @throws \OverflowException
      */
     public function observeCancel(callable $callback): void
     {
@@ -252,6 +254,7 @@ final class StreamingRequestBody implements RequestBodyInterface
 
     /**
      * Read up to the requested number of buffered body bytes.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function read(int $maxBytes = PHP_INT_MAX): string

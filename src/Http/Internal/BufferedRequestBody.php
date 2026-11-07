@@ -70,6 +70,7 @@ final class BufferedRequestBody implements RequestBodyInterface
 
     /**
      * Read up to the requested number of bytes from the current offset.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function read(int $maxBytes = PHP_INT_MAX): string

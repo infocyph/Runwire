@@ -44,6 +44,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
      * @param callable(int, Headers): void $startCallback
      * @param callable(string): void $writeCallback
      * @param callable(): void $endCallback
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         callable $startCallback,
@@ -156,6 +157,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     /**
      * Write a bounded response body chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function write(string $chunk): WriteResult
@@ -183,6 +185,9 @@ final class CallbackResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertCompleteLength(): void
     {
         if ($this->suppressesBody() || $this->contentLength === null || $this->bodyBytes === $this->contentLength) {

@@ -19,6 +19,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 {
     /**
      * Create a runtime context from explicit execution metadata and capabilities.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public RuntimeDriver $driver,
@@ -91,6 +92,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 
     /**
      * Require a runtime capability or fail with a runtime availability error.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function requireCapability(RuntimeCapability $capability): void
     {

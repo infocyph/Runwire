@@ -118,6 +118,9 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
             : FrankenPhpMode::CLASSIC;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private function runWorker(RuntimeApplicationInterface $application): void
     {
         if ($this->workerRequestHandler === null) {

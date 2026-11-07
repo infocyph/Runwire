@@ -165,6 +165,9 @@ final class Http2Connection
         return $this->requests->lastClientStreamId();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function acceptSettingsAck(Frame $frame): void
     {
         if ($frame->payload !== '') {
@@ -294,6 +297,9 @@ final class Http2Connection
         $this->cleanup();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function handleGoAway(Frame $frame): void
     {
         if ($frame->streamId !== 0) {
@@ -315,6 +321,9 @@ final class Http2Connection
         $this->finishDrainIfReady();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function handlePing(Frame $frame): void
     {
         if ($frame->streamId !== 0) {
@@ -328,6 +337,10 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function handlePriority(Frame $frame): void
     {
         if ($frame->streamId === 0) {
@@ -348,6 +361,9 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function handleReset(Frame $frame): void
     {
         if ($frame->streamId === 0) {
@@ -368,6 +384,9 @@ final class Http2Connection
         $this->requests->reset($stream);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function handleSettings(Frame $frame): void
     {
         if ($frame->streamId !== 0) {
@@ -402,6 +421,9 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function handleWindowUpdate(Frame $frame): void
     {
         if (strlen($frame->payload) !== 4) {
@@ -475,6 +497,9 @@ final class Http2Connection
         };
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function processFrameSafely(Frame $frame): void
     {
         try {
@@ -528,6 +553,9 @@ final class Http2Connection
         $this->requests->touch($stream);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function validateFirstFrame(Frame $frame): void
     {
         if ($frame->knownType() !== FrameType::SETTINGS || $frame->streamId !== 0 || $frame->hasFlag(0x1)) {

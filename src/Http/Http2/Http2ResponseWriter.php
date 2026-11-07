@@ -72,6 +72,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
 
     /**
      * End the response, optionally with one final data chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function end(string $finalChunk = ''): WriteResult
@@ -158,6 +159,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
 
     /**
      * Start the response with status and headers.
+     * @throws \LogicException
      */
     #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
@@ -197,6 +199,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
 
     /**
      * Write a response data chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function write(string $chunk): WriteResult
@@ -272,7 +275,10 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         return $result;
     }
 
-    /** @return array{0: list<HeaderField>, 1: ?int} */
+    /**
+     * @return array{0: list<HeaderField>, 1: ?int}
+     * @throws \InvalidArgumentException
+     */
     private function normalizeHeaders(Headers $headers): array
     {
         $fields = [];
@@ -293,6 +299,9 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         return [$fields, $contentLengths[0] ?? null];
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function parseLength(string $value): int
     {
         $value = trim($value);

@@ -31,6 +31,7 @@ final class RawCodec implements FrameCodecInterface
 
     /**
      * Returns a non-empty incoming byte chunk as a single frame.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function push(string $bytes, int $maxFrames = 256): array

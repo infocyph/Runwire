@@ -66,6 +66,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * End the response, optionally writing one final body chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function end(string $finalChunk = ''): WriteResult
@@ -154,6 +155,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * Start the response with a final status and headers.
+     * @throws \LogicException
      */
     #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
@@ -193,6 +195,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * Write a response body chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function write(string $chunk): WriteResult
@@ -243,7 +246,10 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return $result;
     }
 
-    /** @return array{0: list<HeaderField>, 1: ?int} */
+    /**
+     * @return array{0: list<HeaderField>, 1: ?int}
+     * @throws \InvalidArgumentException
+     */
     private function normalizeHeaders(Headers $headers): array
     {
         $fields = [];
@@ -264,6 +270,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return [$fields, $contentLengths[0] ?? null];
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function parseLength(string $value): int
     {
         $value = trim($value);

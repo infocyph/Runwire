@@ -25,6 +25,7 @@ final readonly class LoopWaitSuspension implements Suspension
 
     /**
      * Arm the loop-backed suspension for the supplied task.
+     * @throws \Throwable
      */
     #[\Override]
     public function arm(FiberScheduler $scheduler, Task $task): void

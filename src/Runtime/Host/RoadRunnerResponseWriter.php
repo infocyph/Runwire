@@ -37,6 +37,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Creates a RoadRunner response writer with an optional HEAD body suppression mode.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly RoadRunnerSessionInterface $session,
@@ -54,6 +55,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Finishes the response, optionally writing a final body chunk.
+     * @throws \LogicException
      */
     #[\Override]
     public function end(string $finalChunk = ''): WriteResult
@@ -156,6 +158,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Writes one response body chunk through the RoadRunner session.
+     * @throws \LogicException
      */
     #[\Override]
     public function write(string $chunk): WriteResult
@@ -183,6 +186,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertCompleteLength(): void
     {
         if ($this->suppressesBody() || $this->contentLength === null || $this->bodyBytes === $this->contentLength) {

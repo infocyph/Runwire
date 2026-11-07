@@ -22,8 +22,9 @@
 | Batch | Finding class / scope | Source locations targeted | Status |
 | --- | --- | ---: | --- |
 | 1 | Add missing `#[\\Override]` to declared implementation methods (21 PHP files) | 100 of 144 | Verified: 100 removed; QA, Source Audit, docs and release checks passed; Psalm still fails on remaining findings |
-| 2 | Finish remaining override findings (44) + explicit exception contracts (57, six existing files) | 101 target | Implemented; CI verification pending |
-| 3+ | Further analyzer findings in 100-finding batches | TBD | Not started |
+| 2 | Finish override findings (44) + explicit exception contracts (57, six existing files) | 101 target | 44 overrides gone; throws net -7 due to propagated caller contracts; QA, Source Audit and docs passed |
+| 3 | Add missing exception documentation on 100 additional logged throw sites, using already-ledgered public classes | 100 target | Implemented; CI verification pending |
+| 4+ | Trace and resolve propagated exception contracts plus type, taint and genuine dead code findings | TBD | Not started |
 
 ### Batch 1 verification
 
@@ -42,3 +43,11 @@
 - Confirm actual count reductions and PHP 8.4/8.5 QA on the new head before marking Batch 2 verified.
 - Patch release/version changes are explicitly deferred until all remediation batches are complete.
 - Track the observed delta and CI status after the PR workflow runs.
+
+### Batch 3
+
+- Document the thrown exception types in the methods responsible for 100 additional logged source locations, across 21 existing public implementation files.
+- These locations were matched against the earlier passing-source revision before other override insertions could shift line numbers.
+- No new symbols are introduced; all touched classes have existing entries in the reviewed migration behavior ledger.
+- A targeted location count is **not** a claim of 100 net Psalm issues removed; annotate callers transitively as verified in the next analyzer run.
+- Keep the patch release postponed until the PR has completed the remediation and QA.

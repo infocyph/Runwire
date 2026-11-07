@@ -65,6 +65,7 @@ final class SwooleDriver implements HostDriverInterface
      * Creates the application inside each host worker, after any fork.
      *
      * @param callable(RuntimeContext): RuntimeApplicationInterface $factory
+     * @throws \InvalidArgumentException
      */
     public function runFactory(callable $factory, RuntimeContext $context): void
     {
@@ -171,7 +172,10 @@ final class SwooleDriver implements HostDriverInterface
         };
     }
 
-    /** @return class-string */
+    /**
+     * @return class-string
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function serverClass(): string
     {
         $separator = '\\';
@@ -208,7 +212,10 @@ final class SwooleDriver implements HostDriverInterface
         return $query === '' || str_contains($target, '?') ? $target : $target . '?' . $query;
     }
 
-    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    /**
+     * @param Closure(?int): RuntimeApplicationInterface|null $factory
+     * @throws \RuntimeException
+     */
     private function configure(object $server, ?Closure $factory): void
     {
         $configured = DynamicHostObject::method($server, 'set')($this->options->serverSettings($this->recyclePolicy));
@@ -281,6 +288,9 @@ final class SwooleDriver implements HostDriverInterface
         $this->application->drain();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishApplication(?Throwable $failure = null): void
     {
         $application = $this->application;
@@ -292,6 +302,10 @@ final class SwooleDriver implements HostDriverInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function request(object $request): HttpRequest
     {
         $server = DynamicHostObject::arrayProperty($request, 'server');

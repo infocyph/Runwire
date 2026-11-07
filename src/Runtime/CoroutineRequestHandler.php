@@ -33,6 +33,7 @@ final class CoroutineRequestHandler implements LoopAwareRequestHandlerInterface
 
     /**
      * Executes one HTTP request inside a coroutine scope.
+     * @throws \Throwable
      */
     public function __invoke(HttpRequest $request, ResponseWriterInterface $writer): void
     {

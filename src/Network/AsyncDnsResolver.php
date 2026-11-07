@@ -33,6 +33,7 @@ final readonly class AsyncDnsResolver implements DnsResolverInterface
      * Queue a hostname resolution on worker processes without blocking the loop.
      *
      * @param callable(list<string>, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function resolve(
@@ -84,6 +85,7 @@ final readonly class AsyncDnsResolver implements DnsResolverInterface
     /**
      * @param array<mixed> $result
      * @return list<string>
+     * @throws \RuntimeException
      */
     private static function validatedAddresses(array $result): array
     {
