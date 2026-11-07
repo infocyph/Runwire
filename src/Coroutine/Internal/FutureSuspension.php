@@ -23,6 +23,7 @@ final readonly class FutureSuspension implements Suspension
     /**
      * Arm the future suspension for the supplied task.
      */
+    #[\Override]
     public function arm(FiberScheduler $scheduler, Task $task): void
     {
         if ($this->future->isComplete()) {

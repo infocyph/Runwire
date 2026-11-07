@@ -76,6 +76,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Cancel a watcher, timer, or deferred callback handle.
      */
+    #[\Override]
     public function cancel(int $id): bool
     {
         $event = $this->events[$id] ?? null;
@@ -104,6 +105,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Queue a callback for the next event-loop turn.
      */
+    #[\Override]
     public function defer(callable $callback): int
     {
         return $this->timer(0.0, $callback, false);
@@ -112,6 +114,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Schedule a one-shot timer.
      */
+    #[\Override]
     public function delay(float $seconds, callable $callback): int
     {
         return $this->timer($seconds, $callback, false);
@@ -120,6 +123,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Capture current event-loop diagnostics.
      */
+    #[\Override]
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         return new LoopDiagnosticsSnapshot(
@@ -138,6 +142,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Return monotonic time in seconds.
      */
+    #[\Override]
     public function now(): float
     {
         return MonotonicTime::nowNanoseconds() / MonotonicTime::NANOSECONDS_PER_SECOND;
@@ -148,6 +153,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      *
      * @param resource $stream
      */
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, Event::READ, $this->readIndex, 'readable');
@@ -158,6 +164,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      *
      * @param resource $stream
      */
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, Event::WRITE, $this->writeIndex, 'writable');
@@ -166,6 +173,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Schedule a repeating timer.
      */
+    #[\Override]
     public function repeat(float $interval, callable $callback): int
     {
         if (!is_finite($interval) || $interval <= 0) {
@@ -178,6 +186,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Run until stopped or no referenced event remains.
      */
+    #[\Override]
     public function run(): void
     {
         if ($this->running) {
@@ -196,6 +205,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Request that the running loop stop.
      */
+    #[\Override]
     public function stop(): void
     {
         $this->base->stop();

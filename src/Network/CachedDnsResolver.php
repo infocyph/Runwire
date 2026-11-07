@@ -59,6 +59,7 @@ final class CachedDnsResolver implements DnsResolverInterface
     }
 
     /** Cancel exactly one caller; preserve unrelated coalesced waiters. */
+    #[\Override]
     public function cancel(int $id): bool
     {
         $this->assertOwner();
@@ -92,6 +93,7 @@ final class CachedDnsResolver implements DnsResolverInterface
     }
 
     /** @param callable(list<string>,?Throwable):void $completion */
+    #[\Override]
     public function resolve(
         string $hostname,
         callable $completion,

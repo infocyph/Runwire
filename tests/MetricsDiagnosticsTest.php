@@ -12,6 +12,7 @@ use Infocyph\Runwire\Metrics\DefaultRequestIdPolicy;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
 use Infocyph\Runwire\Metrics\GcPolicy;
+use Infocyph\Runwire\Metrics\RandomRequestIdGenerator;
 use Infocyph\Runwire\Metrics\RequestIdGeneratorInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
@@ -160,4 +161,18 @@ it('isolates and classifies lifecycle-listener failures for expanded events', fu
     expect($delivered)->toBe(1)
         ->and($emitter->listenerFailures())->toBe(1)
         ->and($emitter->failureCounts()[SupervisorEventType::REQUEST_DEADLINE_EXCEEDED->value])->toBe(1);
+});
+
+it('generates unpredictable fixed-width request identifiers', function (): void {
+    $generator = new RandomRequestIdGenerator();
+    $runtime = batchERuntimeContext();
+    $ids = [];
+
+    for ($i = 0; $i < 64; ++$i) {
+        $id = $generator->generate($runtime);
+        expect(preg_match('/^[a-f0-9]{32}$/D', $id))->toBe(1);
+        $ids[] = $id;
+    }
+
+    expect(array_unique($ids))->toHaveCount(64);
 });

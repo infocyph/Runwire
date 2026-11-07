@@ -64,6 +64,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Cancel a deferred callback, timer, or stream watcher.
      */
+    #[\Override]
     public function cancel(int $id): bool
     {
         if (isset($this->deferred[$id])) {
@@ -82,6 +83,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Queue a callback on the host reactor.
      */
+    #[\Override]
     public function defer(callable $callback): int
     {
         $id = $this->allocateId();
@@ -107,6 +109,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Schedule a one-shot timer.
      */
+    #[\Override]
     public function delay(float $seconds, callable $callback): int
     {
         $milliseconds = self::milliseconds($seconds, true);
@@ -137,6 +140,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Capture current host-loop diagnostics.
      */
+    #[\Override]
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         $now = hrtime(true);
@@ -153,6 +157,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Return monotonic time in seconds.
      */
+    #[\Override]
     public function now(): float
     {
         return hrtime(true) / self::NANOS_PER_SECOND;
@@ -161,6 +166,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Register a readable stream watcher.
      */
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, true);
@@ -169,6 +175,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Register a writable stream watcher.
      */
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, false);
@@ -177,6 +184,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Schedule a repeating timer.
      */
+    #[\Override]
     public function repeat(float $interval, callable $callback): int
     {
         $milliseconds = self::milliseconds($interval, false);
@@ -203,6 +211,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Suspend the host coroutine until the Runwire loop becomes idle or stops.
      */
+    #[\Override]
     public function run(): void
     {
         if ($this->running) {
@@ -239,6 +248,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Request that the running bridge resume its host coroutine and stop.
      */
+    #[\Override]
     public function stop(): void
     {
         if (!$this->running) {

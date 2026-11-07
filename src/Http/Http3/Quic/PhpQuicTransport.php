@@ -35,6 +35,7 @@ final class PhpQuicTransport implements Http3TransportInterface
     /**
      * Finish the response side of a request stream.
      */
+    #[\Override]
     public function finishRequestStream(int $streamId): void
     {
         $stream = $this->requestStream($streamId);
@@ -118,6 +119,7 @@ final class PhpQuicTransport implements Http3TransportInterface
     /**
      * Write bytes to the local QPACK encoder stream.
      */
+    #[\Override]
     public function writeQpackEncoder(string $bytes): int
     {
         if (!$this->flushQpackEncoderPreamble()) {
@@ -130,6 +132,7 @@ final class PhpQuicTransport implements Http3TransportInterface
     /**
      * Write response bytes to a registered request stream.
      */
+    #[\Override]
     public function writeRequestStream(int $streamId, string $bytes): int
     {
         $stream = $this->requestStream($streamId);

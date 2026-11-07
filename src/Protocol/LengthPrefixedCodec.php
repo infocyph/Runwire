@@ -33,6 +33,7 @@ final class LengthPrefixedCodec implements FrameCodecInterface
     /**
      * Returns bytes currently buffered awaiting a complete frame.
      */
+    #[\Override]
     public function bufferedBytes(): int
     {
         return $this->buffer->bytes();
@@ -41,6 +42,7 @@ final class LengthPrefixedCodec implements FrameCodecInterface
     /**
      * Encodes one frame with its configured length prefix.
      */
+    #[\Override]
     public function encode(string $frame): string
     {
         $length = strlen($frame);

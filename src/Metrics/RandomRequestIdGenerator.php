@@ -14,6 +14,7 @@ final readonly class RandomRequestIdGenerator implements RequestIdGeneratorInter
     /**
      * Generate a request identifier for the supplied runtime context.
      */
+    #[\Override]
     public function generate(RuntimeContext $runtime): string
     {
         return substr(

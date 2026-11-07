@@ -71,6 +71,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Cancel a watcher, timer, or deferred callback handle.
      */
+    #[\Override]
     public function cancel(int $id): bool
     {
         if ($this->cancelWatcher($id, true) || $this->cancelWatcher($id, false)) {
@@ -91,6 +92,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Queue a callback for the next loop turn.
      */
+    #[\Override]
     public function defer(callable $callback): int
     {
         $id = $this->allocateId();
@@ -102,6 +104,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Schedule a one-shot timer.
      */
+    #[\Override]
     public function delay(float $seconds, callable $callback): int
     {
         $id = $this->allocateId();
@@ -113,6 +116,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Capture current loop diagnostics.
      */
+    #[\Override]
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         return new LoopDiagnosticsSnapshot(
@@ -131,6 +135,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Return monotonic time in seconds.
      */
+    #[\Override]
     public function now(): float
     {
         return MonotonicTime::nowNanoseconds() / MonotonicTime::NANOSECONDS_PER_SECOND;
@@ -139,6 +144,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Register a readable stream watcher.
      */
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, true);
@@ -147,6 +153,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Register a writable stream watcher.
      */
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, false);
@@ -155,6 +162,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Schedule a repeating timer.
      */
+    #[\Override]
     public function repeat(float $interval, callable $callback): int
     {
         $id = $this->allocateId();
@@ -166,6 +174,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Run the event loop until stopped or idle.
      */
+    #[\Override]
     public function run(): void
     {
         if ($this->running) {
@@ -192,6 +201,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Stop a running event loop.
      */
+    #[\Override]
     public function stop(): void
     {
         $this->running = false;

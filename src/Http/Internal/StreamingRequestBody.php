@@ -74,6 +74,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     /**
      * Return the number of unread buffered bytes.
      */
+    #[\Override]
     public function bufferedBytes(): int
     {
         return $this->buffer->bytes();
@@ -151,6 +152,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     /**
      * Determine whether the body has ended and all buffered bytes are consumed.
      */
+    #[\Override]
     public function eof(): bool
     {
         return $this->ended && $this->buffer->isEmpty();
@@ -198,6 +200,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     }
 
     /** @param callable(RequestBodyInterface): void $callback */
+    #[\Override]
     public function onData(callable $callback): RequestBodyInterface
     {
         $this->dataCallback = Closure::fromCallable($callback);
@@ -209,6 +212,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     }
 
     /** @param callable(RequestBodyInterface): void $callback */
+    #[\Override]
     public function onEnd(callable $callback): RequestBodyInterface
     {
         $this->endCallback = Closure::fromCallable($callback);
@@ -249,6 +253,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     /**
      * Read up to the requested number of buffered body bytes.
      */
+    #[\Override]
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
         if ($maxBytes < 0) {
@@ -269,6 +274,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     /**
      * Return cumulative received body bytes.
      */
+    #[\Override]
     public function receivedBytes(): int
     {
         return $this->received;
@@ -277,6 +283,7 @@ final class StreamingRequestBody implements RequestBodyInterface
     /**
      * Return trailers after body completion when available.
      */
+    #[\Override]
     public function trailers(): ?Headers
     {
         return $this->trailers;

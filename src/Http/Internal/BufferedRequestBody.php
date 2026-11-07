@@ -29,6 +29,7 @@ final class BufferedRequestBody implements RequestBodyInterface
     /**
      * Return unread buffered body bytes.
      */
+    #[\Override]
     public function bufferedBytes(): int
     {
         return strlen($this->body) - $this->offset;
@@ -37,6 +38,7 @@ final class BufferedRequestBody implements RequestBodyInterface
     /**
      * Determine whether all buffered body bytes have been consumed.
      */
+    #[\Override]
     public function eof(): bool
     {
         return $this->offset >= strlen($this->body);
@@ -45,6 +47,7 @@ final class BufferedRequestBody implements RequestBodyInterface
     /**
      * Register a data callback and invoke it immediately when unread bytes exist.
      */
+    #[\Override]
     public function onData(callable $callback): RequestBodyInterface
     {
         if (!$this->eof()) {
@@ -57,6 +60,7 @@ final class BufferedRequestBody implements RequestBodyInterface
     /**
      * Register an end callback and invoke it immediately for a buffered body.
      */
+    #[\Override]
     public function onEnd(callable $callback): RequestBodyInterface
     {
         Closure::fromCallable($callback)($this);
@@ -67,6 +71,7 @@ final class BufferedRequestBody implements RequestBodyInterface
     /**
      * Read up to the requested number of bytes from the current offset.
      */
+    #[\Override]
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
         if ($maxBytes < 0) {
@@ -85,6 +90,7 @@ final class BufferedRequestBody implements RequestBodyInterface
     /**
      * Return the total body bytes received.
      */
+    #[\Override]
     public function receivedBytes(): int
     {
         return strlen($this->body);
@@ -93,6 +99,7 @@ final class BufferedRequestBody implements RequestBodyInterface
     /**
      * Return request trailers.
      */
+    #[\Override]
     public function trailers(): Headers
     {
         return $this->trailers;

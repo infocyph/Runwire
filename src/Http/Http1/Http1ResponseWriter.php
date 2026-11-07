@@ -71,6 +71,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * End the response, optionally writing one final body chunk.
      */
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -113,6 +114,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Determine whether the response has ended.
      */
+    #[\Override]
     public function isEnded(): bool
     {
         return $this->ended;
@@ -121,6 +123,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Determine whether response headers have been started.
      */
+    #[\Override]
     public function isStarted(): bool
     {
         return $this->started;
@@ -129,6 +132,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Register a callback invoked when connection write pressure drains.
      */
+    #[\Override]
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);
@@ -144,6 +148,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Register a callback invoked when response ownership becomes terminal.
      */
+    #[\Override]
     public function onTerminal(callable $callback): self
     {
         $this->terminal->observe($this, $callback);
@@ -154,6 +159,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Start the response with status and headers.
      */
+    #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -230,6 +236,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Write a response body chunk.
      */
+    #[\Override]
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {

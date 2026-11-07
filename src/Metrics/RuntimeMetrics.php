@@ -300,6 +300,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
     /**
      * Capture the current immutable runtime metrics snapshot.
      */
+    #[\Override]
     public function snapshot(): RuntimeMetricsSnapshot
     {
         $now = MonotonicTime::nowNanoseconds();

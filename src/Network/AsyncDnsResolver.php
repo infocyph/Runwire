@@ -23,6 +23,7 @@ final readonly class AsyncDnsResolver implements DnsResolverInterface
     public function __construct(private ProcessExecutor $executor) {}
 
     /** Cancel one pending DNS operation, completing its callback exactly once. */
+    #[\Override]
     public function cancel(int $id): bool
     {
         return $this->executor->cancel($id);
@@ -33,6 +34,7 @@ final readonly class AsyncDnsResolver implements DnsResolverInterface
      *
      * @param callable(list<string>, ?Throwable):void $completion
      */
+    #[\Override]
     public function resolve(
         string $hostname,
         callable $completion,

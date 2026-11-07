@@ -32,6 +32,22 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Internal\\FutureSuspension",
+      "executableTest": "tests/CoroutineHardeningTest.php",
+      "behavior": "One-time suspension arming, future resolution and cancellation",
+      "migration": "Continue using futures through CoroutineScope; completion and cancellation must still settle an awaiting task exactly once.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Internal\\LoopWaitSuspension",
+      "executableTest": "tests/CoroutineHardeningTest.php",
+      "behavior": "Event-loop suspension and cancellation cleanup",
+      "migration": "Awaited loop callbacks must continue to resume the correct task without leaking a watcher or resuming a cancelled waiter.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Network\\AsyncConnection",
       "executableTest": "tests/AsyncConnectionTest.php",
       "behavior": "Asynchronous socket coroutine completion and ownership",
@@ -40,10 +56,26 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http1\\Http1ResponseWriter",
+      "executableTest": "tests/Http1ConnectionTest.php",
+      "behavior": "HTTP/1 response lifecycle and flushing semantics",
+      "migration": "Response writers continue enforcing start, write, terminal completion and backpressure behavior across HTTP/1 requests.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http2\\Http2Connection",
       "executableTest": "tests/Http2ConnectionTest.php",
       "behavior": "H2 stream admission, flow control and graceful GOAWAY",
       "migration": "Keep accepted streams draining after GOAWAY; new H2 limits may reject invalid peer streams that older handlers tolerated.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Http2ResponseWriter",
+      "executableTest": "tests/ResponseSemanticsTest.php",
+      "behavior": "HTTP/2 header and body completion semantics",
+      "migration": "Preserve HTTP/2 response suppression, content-length rules, finalization and flow-control handling at the writer boundary.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -60,6 +92,14 @@
       "executableTest": "tests/Http2AdaptiveResponseStrategyTest.php",
       "behavior": "Optional DATA-credit callback for H2 outbound scheduling",
       "migration": "Previously valid constructor calls retain defaults; optional outbound credit is a new capability, not a required argument.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Http3ResponseWriter",
+      "executableTest": "tests/Http3ResponseWriterTest.php",
+      "behavior": "HTTP/3 final response framing and writer lifecycle",
+      "migration": "HTTP/3 response writers continue to finalize response streams and reject invalid transitions; QUIC capability remains optional.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -88,6 +128,30 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Internal\\BufferedRequestBody",
+      "executableTest": "tests/MetricsDiagnosticsTest.php",
+      "behavior": "Buffered request-body consumption and end-of-body callbacks",
+      "migration": "Buffered request bodies retain their bounded read and completion behavior; metadata-only method attributes do not alter payload handling.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Internal\\CallbackResponseWriter",
+      "executableTest": "tests/ResponseSemanticsTest.php",
+      "behavior": "Callback writer start, data and terminal delivery",
+      "migration": "Callback-based response writers must preserve end-once and suppressed-body semantics without introducing new caller requirements.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Internal\\StreamingRequestBody",
+      "executableTest": "tests/RequestContextTest.php",
+      "behavior": "Streaming request cancellation propagation and bounded body lifecycle",
+      "migration": "Streaming bodies continue propagating transport cancellation into request contexts; no new consumer migration is required.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Loop\\EventLoop",
       "executableTest": "tests/EventLoopTest.php",
       "behavior": "ext-event scalable backend watcher registration, constant-time cancellation and timer index isolation",
@@ -96,10 +160,50 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Loop\\Internal\\NativeSwooleReactor",
+      "executableTest": "tests/SwooleLoopTest.php",
+      "behavior": "Host reactor callback, timer and coroutine bridge contracts",
+      "migration": "Swoole/OpenSwoole adapters must honor the same registered callbacks and coroutine bridge interface; native hosts remain separately validated by coroutine CI.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Loop\\SelectLoop",
       "executableTest": "tests/SelectLoopTest.php",
       "behavior": "Select fallback, callback timing, watcher cleanup",
       "migration": "The SelectLoop has a bounded native connection ceiling; select timeout and errors are surfaced rather than masked.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Loop\\SwooleLoop",
+      "executableTest": "tests/SwooleLoopTest.php",
+      "behavior": "Host-owned event-loop scheduling and cancellation",
+      "migration": "The host-owned Swoole loop retains timer, watcher, deferred callback and coroutine progress contracts without changing caller APIs.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Metrics\\DefaultRequestIdPolicy",
+      "executableTest": "tests/MetricsDiagnosticsTest.php",
+      "behavior": "Request ID policy with no mandated tracing-header convention",
+      "migration": "Request identity remains generated through the configured policy without requiring a tracing header or changing existing request metadata.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Metrics\\RandomRequestIdGenerator",
+      "executableTest": "tests/MetricsDiagnosticsTest.php",
+      "behavior": "Fixed-width unpredictable hexadecimal request identifiers",
+      "migration": "Generated IDs remain 32 lowercase hexadecimal characters and do not encode raw process IDs; no public calling convention changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Metrics\\RuntimeMetrics",
+      "executableTest": "tests/MetricsDiagnosticsTest.php",
+      "behavior": "Bounded versioned runtime metric snapshots and accounting",
+      "migration": "Retain the versioned bounded snapshot shape and counter semantics; implementation annotation changes are metadata-only.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -188,6 +292,14 @@
       "executableTest": "tests/UnixListenerTest.php",
       "behavior": "Unix socket ownership and cleanup",
       "migration": "Delete or reuse Unix socket endpoints under ownership rules, never an unrelated host path.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Protocol\\LengthPrefixedCodec",
+      "executableTest": "tests/ProtocolCodecTest.php",
+      "behavior": "Length-prefixed frame validation and stream buffering",
+      "migration": "Keep the existing length-delimited frame encoding and buffering contract, including rejection of malformed or oversized frames.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

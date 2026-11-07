@@ -39,6 +39,7 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
     }
 
     /** Execute a bounded host-side PSR-15 middleware stack. */
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $handler = $this->terminal;
