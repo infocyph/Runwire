@@ -105,6 +105,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
     /**
      * Capture the current runtime metrics snapshot.
      */
+    #[\Override]
     public function snapshot(): RuntimeMetricsSnapshot
     {
         return $this->metrics->snapshot();

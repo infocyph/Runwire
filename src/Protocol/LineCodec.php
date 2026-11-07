@@ -35,6 +35,7 @@ final class LineCodec implements FrameCodecInterface
     /**
      * Returns bytes currently buffered awaiting a delimiter.
      */
+    #[\Override]
     public function bufferedBytes(): int
     {
         return strlen($this->buffer);
@@ -43,6 +44,7 @@ final class LineCodec implements FrameCodecInterface
     /**
      * Encodes one frame terminated by the configured delimiter.
      */
+    #[\Override]
     public function encode(string $frame): string
     {
         $payload = $frame;
@@ -62,6 +64,7 @@ final class LineCodec implements FrameCodecInterface
     /**
      * Decodes up to the requested number of complete line frames.
      */
+    #[\Override]
     public function push(string $bytes, int $maxFrames = 256): array
     {
         if ($maxFrames <= 0) {
@@ -106,6 +109,7 @@ final class LineCodec implements FrameCodecInterface
     /**
      * Clears buffered partial line data.
      */
+    #[\Override]
     public function reset(): void
     {
         $this->buffer = '';

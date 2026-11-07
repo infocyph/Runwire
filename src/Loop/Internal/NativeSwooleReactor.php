@@ -71,6 +71,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     /**
      * Schedule a one-shot reactor timer.
+     * @throws \RuntimeException
      */
     #[\Override]
     public function after(int $milliseconds, Closure $callback): int
@@ -132,6 +133,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     /**
      * Schedule a repeating reactor timer.
+     * @throws \RuntimeException
      */
     #[\Override]
     public function repeat(int $milliseconds, Closure $callback): int
@@ -164,6 +166,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     /**
      * Suspend the current host coroutine.
+     * @throws \RuntimeException
      */
     #[\Override]
     public function suspendCoroutine(): void
@@ -182,6 +185,9 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         return $this->writeFlagValue;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function eventFlag(string $namespace, string $direction): int
     {
         $candidates = array_values(array_unique([
@@ -204,7 +210,10 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         ));
     }
 
-    /** @param class-string $class */
+    /**
+     * @param class-string $class
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function method(string $class, string $method): Closure
     {
         try {
@@ -218,7 +227,10 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         }
     }
 
-    /** @return array{class-string, class-string, class-string, string} */
+    /**
+     * @return array{class-string, class-string, class-string, string}
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function resolveClassFamily(): array
     {
         foreach (['OpenSwoole', 'Swoole'] as $namespace) {

@@ -49,6 +49,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Create an ext-event loop with the callback-overrun threshold.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function __construct(float $callbackOverrunSeconds = 0.05)
     {
@@ -172,6 +174,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Schedule a repeating timer.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function repeat(float $interval, callable $callback): int
@@ -185,6 +188,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Run until stopped or no referenced event remains.
+     * @throws \LogicException
      */
     #[\Override]
     public function run(): void
@@ -212,6 +216,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         $this->running = false;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -221,6 +228,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         return $this->nextId++;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function invoke(Closure $callback, mixed ...$arguments): void
     {
         $started = MonotonicTime::nowNanoseconds();
@@ -245,6 +255,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function timer(float $seconds, callable $callback, bool $repeat): int
     {
         if (!is_finite($seconds) || $seconds < 0) {
@@ -292,7 +306,11 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         return $id;
     }
 
-    /** @param array<int, int> $index */
+    /**
+     * @param array<int, int> $index
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function watch(mixed $stream, callable $callback, int $flag, array &$index, string $direction): int
     {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {

@@ -304,6 +304,62 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Protocol\\LineCodec",
+      "executableTest": "tests/ProtocolCodecTest.php",
+      "behavior": "Delimited line framing with bounded decode batches",
+      "migration": "Framed transport consumers must retain multi-byte delimiter boundary handling and configured maximum line sizes; explicit override metadata does not change encoding.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Protocol\\RawCodec",
+      "executableTest": "tests/ProtocolCodecTest.php",
+      "behavior": "Raw TCP payloads without length-prefix buffering",
+      "migration": "Raw-mode users continue receiving unframed chunks without hidden buffering; the interface annotation does not change runtime payload handling.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\CoroutineRequestHandler",
+      "executableTest": "tests/BatchORuntimeIntegrationTest.php",
+      "behavior": "Request-bound coroutine scheduling and lifecycle ownership",
+      "migration": "The runtime still drains request-owned coroutine tasks before reset and completion, and propagates cancellation across each request lifetime.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Driver\\FpmDriver",
+      "executableTest": "tests/HostRuntimeTest.php",
+      "behavior": "Hosted FPM request metadata and response contract",
+      "migration": "PHP-FPM continues using the host-provided request and response transport, with no newly required native event-loop or worker configuration.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Driver\\FrankenPhpDriver",
+      "executableTest": "tests/HostRuntimeTest.php",
+      "behavior": "FrankenPHP hosted request normalization and lifecycle",
+      "migration": "FrankenPHP remains host-owned; maintain request-scoped state reset and HTTP response semantics without introducing native listener ownership.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Driver\\RoadRunnerDriver",
+      "executableTest": "tests/RoadRunnerRuntimeTest.php",
+      "behavior": "RoadRunner hosted request cycle and lifecycle cleanup",
+      "migration": "RoadRunner keeps host-owned worker process management and the shared request/response contract, including lifecycle cleanup after each request.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Driver\\SwooleDriver",
+      "executableTest": "tests/SwooleDriverTest.php",
+      "behavior": "Swoole host startup, shutdown, worker reset and response handling",
+      "migration": "Host-owned Swoole remains responsible for worker and coroutine lifecycle; startup, failed bootstrap and request reset semantics must not change.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Host\\HostRequestFactory",
       "executableTest": "tests/HostRuntimeTest.php",
       "behavior": "Host-owned request context isolation and lifecycle",
@@ -312,10 +368,42 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Host\\RoadRunnerResponseWriter",
+      "executableTest": "tests/RoadRunnerRuntimeTest.php",
+      "behavior": "RoadRunner streamed response, HEAD suppression and content-length checks",
+      "migration": "Hosted response writers preserve frame ordering, body suppression for HEAD, and declared content-length validation after interface metadata changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Host\\RoadRunnerSession",
+      "executableTest": "tests/RoadRunnerRuntimeTest.php",
+      "behavior": "RoadRunner session request admission and response delivery",
+      "migration": "The request transport continues to acknowledge, respond and stop through its host-owned session contract without altering worker ownership.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Host\\RuntimeApplication",
+      "executableTest": "tests/RequestContextTest.php",
+      "behavior": "Persistent application lifecycle and request-scoped context cleanup",
+      "migration": "Application callbacks remain isolated by request contexts; completed requests cannot be re-entered, and state must be reset after each handling cycle.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\SystemResourceProbe",
       "executableTest": "tests/SystemResourceProbeCgroupTest.php",
       "behavior": "Conservative effective CPU and memory capacity detection across Linux cgroup quotas, malformed cpusets, and host limits",
       "migration": "Valid, ordered Linux cpuset ranges retain the same host and cgroup resource semantics; malformed, duplicate or overlapping cpuset ranges now fail closed to a conservative one-CPU worker sizing value rather than incorrectly allowing full host capacity.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\RuntimeContext",
+      "executableTest": "tests/RequestContextTest.php",
+      "behavior": "Immutable runtime identity, capabilities and generation metadata",
+      "migration": "Runtime metadata remains read-only and scoped by the appropriate worker/host context; callers must not infer new capabilities from adapter annotations.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -340,6 +428,14 @@
       "executableTest": "tests/SupervisorLiveAutoscaleTest.php",
       "behavior": "Periodic supervisor sampling/timer cleanup",
       "migration": "Stop timers on supervisor drain; do not leave periodic autoscale handles active after shutdown.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\PosixIdentitySystem",
+      "executableTest": "tests/PrivilegeDropperAcceptanceTest.php",
+      "behavior": "Process identity transition ordering and failure handling",
+      "migration": "Native privilege dropping must continue validating identity and supplementary groups before irreversible GID/UID transitions, and fail closed on errors.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

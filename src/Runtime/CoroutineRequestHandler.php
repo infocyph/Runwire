@@ -65,6 +65,7 @@ final class CoroutineRequestHandler implements LoopAwareRequestHandlerInterface
     /**
      * Attach request scopes to a runtime-owned loop without taking loop ownership.
      */
+    #[\Override]
     public function attachLoop(LoopInterface $loop): void
     {
         $this->attachedRuntime = $this->runtime->withLoop($loop);

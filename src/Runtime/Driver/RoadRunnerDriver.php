@@ -40,6 +40,7 @@ final class RoadRunnerDriver implements HostDriverInterface
     /**
      * Processes requests from a RoadRunner session until the worker stops or recycles.
      */
+    #[\Override]
     public function run(RuntimeApplicationInterface $application): void
     {
         $session = ($this->sessionFactory)();
@@ -62,6 +63,7 @@ final class RoadRunnerDriver implements HostDriverInterface
     /**
      * Stops the active RoadRunner session when present.
      */
+    #[\Override]
     public function stop(): void
     {
         $this->session?->stop();

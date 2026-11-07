@@ -14,6 +14,7 @@ final class RawCodec implements FrameCodecInterface
     /**
      * Returns zero because raw framing never buffers partial data.
      */
+    #[\Override]
     public function bufferedBytes(): int
     {
         return 0;
@@ -22,6 +23,7 @@ final class RawCodec implements FrameCodecInterface
     /**
      * Returns the frame unchanged for transport.
      */
+    #[\Override]
     public function encode(string $frame): string
     {
         return $frame;
@@ -30,6 +32,7 @@ final class RawCodec implements FrameCodecInterface
     /**
      * Returns a non-empty incoming byte chunk as a single frame.
      */
+    #[\Override]
     public function push(string $bytes, int $maxFrames = 256): array
     {
         if ($maxFrames <= 0) {
@@ -42,5 +45,6 @@ final class RawCodec implements FrameCodecInterface
     /**
      * Resets codec state; raw framing has no buffered state to clear.
      */
+    #[\Override]
     public function reset(): void {}
 }

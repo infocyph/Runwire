@@ -210,6 +210,8 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Suspend the host coroutine until the Runwire loop becomes idle or stops.
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
     #[\Override]
     public function run(): void
@@ -259,6 +261,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->scheduleIdleCheck();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private static function milliseconds(float $seconds, bool $allowZero): int
     {
         if (!is_finite($seconds) || $seconds < 0.0 || (!$allowZero && $seconds <= 0.0)) {
@@ -278,6 +284,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return max(1, (int) ceil($seconds * self::MILLISECONDS_PER_SECOND));
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -287,6 +296,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $this->nextId++;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function cancelTimer(int $id): bool
     {
         $nativeId = $this->timers[$id] ?? null;
@@ -303,6 +315,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return true;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function cancelWatcher(int $id): bool
     {
         $readable = isset($this->readWatchers[$id]);
@@ -367,7 +382,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             || $this->writeWatchers !== [];
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \RuntimeException
+     */
     private function removeRegisteredWatcher(mixed $stream, int $resourceId): void
     {
         if (isset($this->registeredStreams[$resourceId]) && !$this->reactor->delete($stream)) {
@@ -397,7 +415,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         });
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \RuntimeException
+     */
     private function syncWatcher(mixed $stream, int $resourceId): void
     {
         $readable = isset($this->readIndex[$resourceId]);
@@ -426,7 +447,11 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->registeredStreams[$resourceId] = $stream;
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     private function watch(mixed $stream, callable $callback, bool $readable): int
     {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {

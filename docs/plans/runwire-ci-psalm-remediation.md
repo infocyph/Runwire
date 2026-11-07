@@ -21,8 +21,8 @@
 
 | Batch | Finding class / scope | Source locations targeted | Status |
 | --- | --- | ---: | --- |
-| 1 | Add missing `#[\\Override]` to declared implementation methods (21 PHP files) | 100 of 144 | Implemented; CI verification pending |
-| 2 | Remaining override findings + prioritized true-positive analyzer/security issues | Target ~100 | Not started |
+| 1 | Add missing `#[\\Override]` to declared implementation methods (21 PHP files) | 100 of 144 | Verified: 100 removed; QA, Source Audit, docs and release checks passed; Psalm still fails on remaining findings |
+| 2 | Finish remaining override findings (44) + explicit exception contracts (57, six existing files) | 101 target | Implemented; CI verification pending |
 | 3+ | Further analyzer findings in 100-finding batches | TBD | Not started |
 
 ### Batch 1 verification
@@ -31,5 +31,14 @@
 - Only explicit `#[\\Override]` declarations were added; no method signatures or behavior were changed.
 - Added 14 test-backed public implementation ledger dispositions to preserve Source Audit coverage; an additional request-ID generator regression test exercises the new documented contract.
 - The first PR run exposed the migration-ledger requirement; Source Audit must be rechecked on the amended batch.
-- No local Psalm or PHP syntax check has been run; GitHub PR CI is the verification source.
+- First batch's next GitHub run verified the override count reduction from 144 to 44; all four QA lanes passed, Source Audit passed, but Psalm remains red on unrelated findings.
+- No local Psalm or PHP syntax check has been run; GitHub PR CI remains the verification source.
+
+### Batch 2 scope
+
+- Add all 44 remaining `#[\\Override]` declarations reported by the next PHP 8.4 analyzer run.
+- Document 57 explicit thrown-exception findings in existing source files, preserving the signatures and exception behavior.
+- Update the 2.1.2 migration ledger with 12 newly touched published types, each mapped to existing regression tests.
+- Confirm actual count reductions and PHP 8.4/8.5 QA on the new head before marking Batch 2 verified.
+- Patch release/version changes are explicitly deferred until all remediation batches are complete.
 - Track the observed delta and CI status after the PR workflow runs.

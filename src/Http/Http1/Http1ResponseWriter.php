@@ -158,6 +158,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Start the response with status and headers.
+     * @throws \LogicException
      */
     #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
@@ -212,6 +213,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * @internal Terminalize the HTTP handshake and transfer the connection to a WebSocket session.
+     * @throws \LogicException
      */
     public function upgradeWebSocket(
         string $accept,
@@ -297,6 +299,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         };
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertWithinContentLength(string $chunk): void
     {
         if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
@@ -322,6 +327,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->finish($result);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function endFixedLength(string $finalChunk): WriteResult
     {
         $next = $this->bodyBytes + strlen($finalChunk);
@@ -397,7 +405,10 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::REJECTED_LIMIT, $this->connection->pendingWriteBytes());
     }
 
-    /** @return array{0: list<HeaderField>, 1: ?int, 2: bool} */
+    /**
+     * @return array{0: list<HeaderField>, 1: ?int, 2: bool}
+     * @throws \InvalidArgumentException
+     */
     private function normalizeHeaders(Headers $headers): array
     {
         $fields = [];
@@ -426,6 +437,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return [$fields, $contentLengths[0] ?? null, $close];
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function parseContentLength(string $value): int
     {
         if ($value === '' || preg_match('/^[0-9]+$/D', $value) !== 1) {
@@ -443,7 +457,10 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return (int) $normalized;
     }
 
-    /** @param list<HeaderField> $fields */
+    /**
+     * @param list<HeaderField> $fields
+     * @throws \InvalidArgumentException
+     */
     private function serializeHead(int $status, array $fields): string
     {
         $statusLine = 'HTTP/1.1 ' . $status . ' ' . self::reasonPhrase($status) . "\r\n";

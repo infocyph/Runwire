@@ -55,6 +55,7 @@ final class SwooleDriver implements HostDriverInterface
     /**
      * Configures and starts the host Swoole/OpenSwoole HTTP server.
      */
+    #[\Override]
     public function run(RuntimeApplicationInterface $application): void
     {
         $this->runServer($application);
@@ -84,6 +85,7 @@ final class SwooleDriver implements HostDriverInterface
     /**
      * Requests shutdown of the active Swoole/OpenSwoole server.
      */
+    #[\Override]
     public function stop(): void
     {
         $server = $this->server;

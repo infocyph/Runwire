@@ -53,6 +53,7 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
     /**
      * Sends one HTTP response chunk through RoadRunner.
      */
+    #[\Override]
     public function respond(int $status, string $body, array $headers, bool $endOfStream): void
     {
         DynamicHostObject::method($this->httpWorker, 'respond')($status, $body, $headers, $endOfStream);
@@ -61,6 +62,7 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
     /**
      * Stops the underlying RoadRunner worker.
      */
+    #[\Override]
     public function stop(): void
     {
         DynamicHostObject::method($this->worker, 'stop')();
@@ -69,6 +71,7 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
     /**
      * Waits for and normalizes the next RoadRunner HTTP request.
      */
+    #[\Override]
     public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
     {
         if ($maxRequestBodyBytes < 1) {

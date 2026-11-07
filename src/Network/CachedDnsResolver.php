@@ -35,7 +35,11 @@ final class CachedDnsResolver implements DnsResolverInterface
     /** @var array<int,array{host:string,callback:Closure,subscription:?CancellationSubscription,timer:?int,deferred:?int}> */
     private array $waiters = [];
 
-    /** Configure a bounded owner-local TTL cache without changing shared resolver ownership. */
+    /**
+     * Configure a bounded owner-local TTL cache without changing shared resolver ownership.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly DnsResolverInterface $upstream,
@@ -92,7 +96,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         return ['cached' => count($this->cache), 'pendingHosts' => count($this->pending), 'waiters' => count($this->waiters)];
     }
 
-    /** @param callable(list<string>,?Throwable):void $completion */
+    /**
+     * @param callable(list<string>,?Throwable):void $completion
+     * @throws \OverflowException
+     */
     #[\Override]
     public function resolve(
         string $hostname,
@@ -119,6 +126,11 @@ final class CachedDnsResolver implements DnsResolverInterface
         return $id;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function assertLookup(string $hostname): string
     {
         $this->assertOwner();
@@ -135,6 +147,9 @@ final class CachedDnsResolver implements DnsResolverInterface
         return strtolower($hostname);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertOwner(): void
     {
         if (getmypid() !== $this->pid) {
@@ -188,7 +203,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         );
     }
 
-    /** @param array{addresses:list<string>,expires:float,negative:bool}|null $entry */
+    /**
+     * @param array{addresses:list<string>,expires:float,negative:bool}|null $entry
+     * @throws \Throwable
+     */
     private function dispatch(string $host, int $id, ?array $entry): void
     {
         if ($entry !== null) {
@@ -283,6 +301,7 @@ final class CachedDnsResolver implements DnsResolverInterface
     /**
      * @param list<int> $ids
      * @param list<string> $addresses
+     * @throws \Throwable
      */
     private function settleGroup(array $ids, array $addresses, ?Throwable $error): void
     {

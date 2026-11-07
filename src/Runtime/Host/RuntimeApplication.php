@@ -54,6 +54,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Cancels all active application requests.
      */
+    #[\Override]
     public function cancelActive(CancellationReason $reason = CancellationReason::HOST_CANCELLED): void
     {
         $this->lifecycle->cancelActive($reason);
@@ -62,6 +63,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Starts application drain handling for the supplied shutdown reason.
      */
+    #[\Override]
     public function drain(ShutdownReason $reason = ShutdownReason::SUPERVISOR_STOP): void
     {
         $this->lifecycle->drain($reason);
@@ -70,6 +72,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Handles one HTTP request through the application lifecycle.
      */
+    #[\Override]
     public function handle(
         HttpRequest $request,
         ResponseWriterInterface $writer,
@@ -81,6 +84,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Return the first lifecycle failure that prevents safe reuse.
      */
+    #[\Override]
     public function healthFailure(): ?\Throwable
     {
         return $this->lifecycle->healthFailure();
@@ -89,6 +93,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Determine whether the lifecycle remains safe for reuse.
      */
+    #[\Override]
     public function healthy(): bool
     {
         return $this->lifecycle->healthy();
@@ -97,6 +102,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Shuts down the application lifecycle.
      */
+    #[\Override]
     public function shutdown(?ShutdownReason $reason = null): void
     {
         $this->lifecycle->shutdown($reason);
@@ -105,6 +111,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Returns the current runtime metrics snapshot.
      */
+    #[\Override]
     public function snapshot(): RuntimeMetricsSnapshot
     {
         return $this->runtimeContext->snapshot();
@@ -113,6 +120,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
     /**
      * Starts application boot and warmup processing.
      */
+    #[\Override]
     public function start(): void
     {
         $this->lifecycle->start();

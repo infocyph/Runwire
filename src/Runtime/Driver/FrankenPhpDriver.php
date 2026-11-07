@@ -61,6 +61,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
     /**
      * Runs the application in resolved FrankenPHP classic or worker mode.
      */
+    #[\Override]
     public function run(RuntimeApplicationInterface $application): void
     {
         $failure = null;
@@ -82,6 +83,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
     /**
      * Requests driver shutdown; FrankenPHP owns its host lifecycle.
      */
+    #[\Override]
     public function stop(): void {}
 
     /** @return Closure(callable): bool|null */
