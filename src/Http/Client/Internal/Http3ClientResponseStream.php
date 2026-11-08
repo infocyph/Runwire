@@ -103,6 +103,7 @@ final class Http3ClientResponseStream
     /**
      * Accept bytes from a worker-owned QUIC request stream.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function push(string $bytes): void
     {

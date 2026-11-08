@@ -56,11 +56,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     /**
      * Finishes the response, optionally writing a final body chunk.
      * @throws \LogicException
-     */
-    #[\Override]
-    /**
      * @throws \Throwable
      */
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {

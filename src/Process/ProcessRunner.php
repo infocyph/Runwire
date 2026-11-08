@@ -85,10 +85,11 @@ final readonly class ProcessRunner
     /** @param array<int, resource> $pipes */
     private function closePipe(array &$pipes, int $index): void
     {
-        if (isset($pipes[$index]) && is_resource($pipes[$index])) {
-            fclose($pipes[$index]);
-        }
+        $pipe = $pipes[$index] ?? null;
         unset($pipes[$index]);
+        if (is_resource($pipe)) {
+            fclose($pipe);
+        }
     }
 
     /** @param array<int, resource> $pipes */
@@ -313,7 +314,7 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param array<int, resource> $pipes
+     * @param array<int, resource|closed-resource> $pipes
      * @return array{0: list<resource>, 1: list<resource>, 2: ?int}
      * @throws \Infocyph\Runwire\Exception\ProcessException
      */
@@ -398,8 +399,10 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param list<resource> $read
-     * @param list<resource> $write
+     * stream_select may change numeric keys in the by-reference arrays.
+     *
+     * @param array<array-key, resource> $read
+     * @param array<array-key, resource> $write
      */
     private function waitForIo(array &$read, array &$write, int $micros): void
     {

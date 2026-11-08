@@ -73,11 +73,9 @@ final class Http2ResponseWriter implements ResponseWriterInterface
     /**
      * End the response, optionally with one final data chunk.
      * @throws \LogicException
-     */
-    #[\Override]
-    /**
      * @throws \Throwable
      */
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {

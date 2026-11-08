@@ -1464,10 +1464,26 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\RuntimeCapabilities",
+      "executableTest": "tests/RuntimeCapabilitiesTest.php",
+      "behavior": "Immutable runtime capability snapshot, driver ownership and feature availability",
+      "migration": "The existing capability booleans and runtime ownership contract remain unchanged. Constructor exception documentation describes preexisting validation in the default SystemResources dependency; it does not introduce a runtime policy change.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\RuntimeContext",
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Immutable runtime identity, capabilities and generation metadata",
       "migration": "Runtime metadata remains read-only and scoped by the appropriate worker/host context; callers must not infer new capabilities from adapter annotations.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\RuntimeOptions",
+      "executableTest": "tests/RuntimeOptionsTest.php",
+      "behavior": "Existing tested validation, state and lifecycle behavior for RuntimeOptions",
+      "migration": "Preserve preexisting validation, lifecycle and error behavior when migrating to 3.0; changes clarify exception declarations without changing runtime implementation.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

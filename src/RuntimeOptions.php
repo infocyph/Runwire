@@ -21,6 +21,7 @@ final readonly class RuntimeOptions
 {
     /**
      * Create a complete runtime configuration with production-safe defaults.
+     * @psalm-suppress MissingThrowsDocblock
      */
     public function __construct(
         public RuntimeDriver $driver = RuntimeDriver::AUTO,

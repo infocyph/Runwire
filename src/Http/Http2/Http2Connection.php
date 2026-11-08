@@ -292,6 +292,9 @@ final class Http2Connection
         $this->errorClosePending = true;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishDrainIfReady(): void
     {
         if (!$this->draining || $this->closed || $this->requests->count() !== 0 || $this->requests->hasOpenHeaderBlock() || !$this->output->wireIdle()) {
@@ -325,6 +328,9 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleOutputReady(): void
     {
         if ($this->errorClosePending && $this->output->wireIdle()) {
@@ -550,6 +556,7 @@ final class Http2Connection
     /**
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function pump(): void
     {

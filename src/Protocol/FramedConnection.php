@@ -64,6 +64,7 @@ final class FramedConnection
 
     /**
      * Begins graceful closure of the underlying transport.
+     * @throws \Throwable
      */
     public function closeGracefully(): void
     {

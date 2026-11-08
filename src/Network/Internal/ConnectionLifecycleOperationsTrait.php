@@ -20,6 +20,7 @@ trait ConnectionLifecycleOperationsTrait
      * Bind this established stream to one owner token and its earliest deadline.
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function bindOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
     {
@@ -86,6 +87,7 @@ trait ConnectionLifecycleOperationsTrait
      * Future application writes are rejected while the pending FIN drains.
      * @param null|callable():void $onHalfClosed
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function shutdownWriteAfterDrain(?callable $onHalfClosed = null): void
     {

@@ -13,7 +13,7 @@ final class ProcessHandle
 {
     private const int MAX_DETACHED_HANDLES = 64;
 
-    /** @var list<array{resource: resource, pid: ?int, process_group: bool}> */
+    /** @var list<array{resource: resource|closed-resource, pid: ?int, process_group: bool}> */
     private static array $detached = [];
 
     private readonly ?int $pid;

@@ -88,7 +88,7 @@ final class Connection
     private ?int $writeWatcher = null;
 
     /**
-     * @param resource $stream
+     * @param resource|closed-resource $stream
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      */
@@ -603,6 +603,8 @@ final class Connection
 
     /**
      * @throws \Throwable
+      * Reader callbacks can synchronously close the transport.
+     * @psalm-suppress RedundantCondition
      */
     private function handleReadable(): void
     {

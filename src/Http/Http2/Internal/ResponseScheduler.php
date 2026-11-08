@@ -152,6 +152,7 @@ final class ResponseScheduler
      * Send one control frame through the transport scheduler.
      * @throws \OverflowException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function sendControl(Frame $frame): WriteResult
     {
@@ -309,6 +310,7 @@ final class ResponseScheduler
     /**
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function flushEnd(Http2Stream $stream): bool
     {
@@ -355,6 +357,7 @@ final class ResponseScheduler
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function flushOne(Http2Stream $stream): bool
     {

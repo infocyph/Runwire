@@ -40,3 +40,17 @@ it('refuses to drive the Swoole bridge without an active host coroutine', functi
     expect(static fn() => $loop->run())
         ->toThrow(LogicException::class, 'requires an active Swoole/OpenSwoole host coroutine');
 });
+
+it('accepts a stop request during suspended host coroutine execution', function (): void {
+    $loop = new SwooleLoop(new BatchOSwooleReactor());
+    $events = [];
+
+    $loop->defer(function () use ($loop, &$events): void {
+        $events[] = 'stop';
+        $loop->stop();
+    });
+    $loop->run();
+
+    expect($events)->toBe(['stop'])
+        ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
+});

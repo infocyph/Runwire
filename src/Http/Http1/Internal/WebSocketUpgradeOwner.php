@@ -60,6 +60,7 @@ final class WebSocketUpgradeOwner
      * Drain an active WebSocket session.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): bool
     {

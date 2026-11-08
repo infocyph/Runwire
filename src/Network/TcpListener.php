@@ -465,7 +465,9 @@ final class TcpListener
 
     /**
      * @param resource $client
+     * An external TLS callback may observe a closed handle.
      * @throws \Throwable
+     * @psalm-suppress DocblockTypeContradiction
      */
     private function startAcceptedConnection(LoopInterface $loop, mixed $client, mixed $peer): void
     {

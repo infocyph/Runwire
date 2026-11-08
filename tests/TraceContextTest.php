@@ -55,3 +55,15 @@ it('replaces untrusted inbound identity when injecting the trusted trace', funct
         ->and($result->all('tracestate'))->toBe([])
         ->and($result->first('x-request-id'))->toBe('safe');
 });
+
+it('rejects duplicate W3C tracestate values even with a valid traceparent', function (): void {
+    $trace = new TraceContext(str_repeat('1', 32), str_repeat('2', 16));
+    $parent = $trace->inject(new Headers())->first('traceparent');
+    $headers = Headers::fromArray([
+        'traceparent' => $parent,
+        'tracestate' => ['vendor=one', 'vendor=two'],
+    ]);
+
+    expect(fn () => TraceContext::fromHeaders($headers))
+        ->toThrow(InvalidArgumentException::class);
+});

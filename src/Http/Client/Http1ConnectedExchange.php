@@ -76,6 +76,7 @@ final class Http1ConnectedExchange
     /**
      * Abort this logical request without returning a reusable connection.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function close(): void
     {
@@ -97,6 +98,7 @@ final class Http1ConnectedExchange
      * Exclusively attach the connection and begin bounded request forwarding.
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function start(): void
     {
@@ -158,6 +160,7 @@ final class Http1ConnectedExchange
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function consume(): void
     {
@@ -191,6 +194,7 @@ final class Http1ConnectedExchange
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function endOfInput(): void
     {
@@ -242,6 +246,7 @@ final class Http1ConnectedExchange
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function pump(): void
     {

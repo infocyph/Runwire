@@ -341,6 +341,7 @@ final class WebSocketSession
 
     /**
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \Throwable
      */
     private function deliver(int $opcode, string $payload): void
     {
@@ -576,6 +577,7 @@ final class WebSocketSession
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function pump(): void
     {
@@ -635,6 +637,7 @@ final class WebSocketSession
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function sendApplicationFrame(int $opcode, string $payload): WriteResult
     {
@@ -647,6 +650,7 @@ final class WebSocketSession
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function sendClosePayload(string $payload, int $code, string $reason): WriteResult
     {

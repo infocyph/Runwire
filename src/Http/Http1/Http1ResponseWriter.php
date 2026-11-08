@@ -71,11 +71,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
      * End the response, optionally writing one final body chunk.
      * @throws \LogicException
      * @throws \OverflowException
-     */
-    #[\Override]
-    /**
      * @throws \Throwable
      */
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -166,11 +164,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
      * Start the response with status and headers.
      * @throws \LogicException
      * @throws \OverflowException
-     */
-    #[\Override]
-    /**
      * @throws \Throwable
      */
+    #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -250,11 +246,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
      * Write a response body chunk.
      * @throws \LogicException
      * @throws \OverflowException
-     */
-    #[\Override]
-    /**
      * @throws \Throwable
      */
+    #[\Override]
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {

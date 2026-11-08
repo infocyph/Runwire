@@ -66,6 +66,7 @@ final class HttpConnectTunnel
     /**
      * Cancel the pending proxy handshake exactly once, retiring all owned resources.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function cancel(): bool
     {
@@ -217,6 +218,7 @@ final class HttpConnectTunnel
     /**
      * Reject a closed proxy transport during send-drain handoff.
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function onDrain(Connection $connection): void
     {
@@ -228,6 +230,7 @@ final class HttpConnectTunnel
     /**
      * Execute the bounded proxy exchange phase.
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function receive(Connection $connection): void
     {

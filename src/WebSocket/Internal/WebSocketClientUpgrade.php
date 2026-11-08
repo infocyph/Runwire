@@ -102,6 +102,7 @@ final class WebSocketClientUpgrade
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function consume(): void
     {
@@ -149,6 +150,9 @@ final class WebSocketClientUpgrade
         $this->finish($session, null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function fail(Throwable $error): void
     {
         $this->finish(null, $error);

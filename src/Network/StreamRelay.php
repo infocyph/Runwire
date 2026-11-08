@@ -150,6 +150,9 @@ final class StreamRelay
         return ['toLeft' => $this->toLeftBytes, 'toRight' => $this->toRightBytes];
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function armLifecycle(): bool
     {
         $token = $this->cancellation;
@@ -212,6 +215,9 @@ final class StreamRelay
         $this->finishIfFullyDrained();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishIfFullyDrained(): void
     {
         if ($this->left->peerReadClosed() && $this->right->peerReadClosed()
@@ -300,6 +306,7 @@ final class StreamRelay
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function onEof(bool $fromLeft): void
     {

@@ -86,7 +86,7 @@ final class WorkerContext
     /**
      * Create a worker context optionally bound to a parent lifecycle channel.
      *
-     * @param resource|null $readyStream
+     * @param resource|closed-resource|null $readyStream
      * @throws \RuntimeException
      * @throws \Throwable
      */

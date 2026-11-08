@@ -49,7 +49,9 @@ final readonly class TraceContext
 
     /**
      * Parse one inbound W3C traceparent and optional tracestate header.
+     * Preserve duplicate-state rejection for external header implementations.
      * @throws \InvalidArgumentException
+     * @psalm-suppress RedundantConditionGivenDocblockType
      */
     public static function fromHeaders(Headers $headers): ?self
     {

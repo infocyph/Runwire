@@ -44,7 +44,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $readIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $readWatchers = [];
 
     private bool $running = false;
@@ -52,7 +52,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $writeIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $writeWatchers = [];
 
     /**
@@ -184,7 +184,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Run the event loop until stopped or idle.
+     * Callback-driven stop() can change running within a tick.
      * @throws \LogicException
+     * @psalm-suppress RedundantCondition
+     * @psalm-suppress TypeDoesNotContainType
      */
     #[\Override]
     public function run(): void
@@ -546,10 +549,12 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return;
         }
 
-        time_nanosleep(
+        if (time_nanosleep(
             intdiv($remaining, MonotonicTime::NANOSECONDS_PER_SECOND),
             $remaining % MonotonicTime::NANOSECONDS_PER_SECOND,
-        );
+        ) !== true) {
+            return;
+        }
     }
 
     /**

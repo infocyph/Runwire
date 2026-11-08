@@ -34,7 +34,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $readIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $readWatchers = [];
 
     /** @var array<int, resource> */
@@ -52,7 +52,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $writeIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $writeWatchers = [];
 
     /** @internal The reactor argument exists for deterministic adapter tests. */
@@ -221,7 +221,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Suspend the host coroutine until the Runwire loop becomes idle or stops.
+     * Host coroutine callbacks may request stop while suspended.
      * @throws \LogicException
+     * @psalm-suppress RedundantCondition
      * @throws \RuntimeException
      */
     #[\Override]

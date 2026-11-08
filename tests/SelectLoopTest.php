@@ -348,3 +348,20 @@ it('fails fast on permanent select failures while retaining recoverable cases', 
         ->and($policy->invoke(null, null, 1))->toBeNull();
 });
 
+it('prunes a writable watcher after its underlying resource is closed', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    expect($pair)->toBeArray()->toHaveCount(2);
+
+    $loop = new SelectLoop();
+    $called = false;
+    $loop->onWritable($pair[0], function () use (&$called): void {
+        $called = true;
+    });
+    fclose($pair[0]);
+    fclose($pair[1]);
+
+    $loop->run();
+
+    expect($called)->toBeFalse()
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+});

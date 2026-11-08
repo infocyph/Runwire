@@ -40,6 +40,8 @@ final readonly class PhpQuicListener
      * @throws \Infocyph\Runwire\Exception\ListenerException
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+      * Keep the native extension object guard for dynamic constructor contracts shared with PHPStan.
+     * @psalm-suppress TypeDoesNotContainType
      */
     public static function bind(string $host, int $port, array $options): self
     {

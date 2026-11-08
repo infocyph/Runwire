@@ -523,3 +523,21 @@
 - Both QA matrices report Pint-only formatting issues: an overindented PHPDoc opener in `StreamRelay::close`, and `SwooleDriver::workerStartCallback` being out of the repository's ordered private-method layout. Restore the intended comment alignment and move the callback helper into the proper method order, keeping the original configure PHPDoc and all runtime behavior unchanged.
 - Four stale OpenSSL annotation review threads and four other resolved historical analyzer threads were closed only after their specific issue types disappeared from exact-head diagnostics. Active taint, resource guard and callback-race review threads remain open.
 - The next work is not another indiscriminate `@throws` sweep. Resolve actual security trust boundaries, analyze propagated callback `Throwable` contracts without degrading lifecycle behavior, and retain defensive runtime guards even when Psalm's closed-world inference misclassifies them.
+
+### Batch 47 — 50-file analyzer contract and resource-lifecycle remediation
+
+- **Exact starting SHA:** `bbdbceff38f2f413932eac91fbbd88811c1db2c7`. The completed PHP 8.4 and 8.5 analysis lanes both report **190 Psalm errors**: 84 MissingThrowsDocblock, 47 TypeDoesNotContainType, 14 RedundantCondition, 11 RedundantConditionGivenDocblockType, 17 security taints (9 file, 6 SSRF, 2 header), and 17 other diagnostics. PHPStan and all non-Psalm CI checks passed.
+- This round contains **50 distinct files in one commit**: **44 source files** with directly reported issues, **4 focused regression test files**, **one migration ledger**, and this tracker. No unrelated filler is included.
+- Reconcile original PHPDoc and duplicate exception PHPDoc blocks separated by `#[\\Override]` before adding any new propagation tags. These split blocks left some earlier `@throws` attempts ineffective, especially the response-writer and hosted-driver implementations. Preserve existing implementations and callback boundaries.
+- For actual optional/closed PHP resources, use the analyzer-supported `resource|closed-resource` contract rather than removing `is_resource()` guards. Adjust process pipe close ordering to remove the array element before `fclose`, and use non-list by-reference I/O set typing because `stream_select` may rewrite indexes.
+- Keep required event-loop reentrancy, native QUIC capability, closed TLS stream and cancellation guards. Where the analyzers provably disagree about default-argument constructors, extension constructors, coroutine resume side effects or callback-mutated state, use **local, issue-specific** Psalm annotations with adjacent justification; do not disable analyzers or relax P0 taint analysis.
+- Test closed process stdin input and runner reuse, writable watcher closure, host-coroutine stop during suspension and duplicate W3C tracestate rejection. Restore two already reviewed published-source ledger entries (RuntimeOptions and RuntimeCapabilities) because their source annotations are changed again; keep the pinned 2.1.2 comparison and maintainer-signoff requirements.
+- **Gates are pending on this new exact SHA**: PHP 8.4/8.5 Psalm and PHPStan; four PHPForge QA dependency lanes including Pint/PHPCS/Pest; Source Audit; HTTP/3+QUIC; hosted Swoole/OpenSwoole; packaging; docs and native runtime. Count only *net* diagnostic changes, address any new caller-site and formatter regressions before closing.
+- **P0 unresolved:** all 17 file/SSRF/header taint findings require dedicated, test-backed trust-boundary work. No global suppressions, weakened security policy, merge, tag or release.
+
+#### Applicable PHPForge engineering checkpoints
+
+- CORE-01 correctness/security and contract priority: existing protocol, cancellation, worker ownership and stream lifecycle preserved; runtime checks retained.
+- FLOW-01 quality detectors: both static analyzers, formatting, security scans, tests and CI remain required; evidence pending new SHA.
+- FLOW-02 root-cause fix discipline: treat duplicate split PHPDocs and closed-resource doc models as underlying causes; do not claim remediation from annotation count alone.
+- EXEC-03 completion evidence: final gate status is **pending** until every required check runs on the final commit.

@@ -114,7 +114,7 @@ final class SignalBridge
     }
 
     /**
-     * @param resource $stream
+     * @param resource|closed-resource $stream
      */
     private function drain(mixed $stream): void
     {

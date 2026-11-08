@@ -238,6 +238,7 @@ final class NativeHttpWorker
      * @throws \InvalidArgumentException
      * @throws \OverflowException
      * @throws \LogicException
+     * @throws \Throwable
      */
     private static function attachConnection(
         Connection $connection,

@@ -226,6 +226,7 @@ final class ControlServer
     /**
      * @param array<string, mixed> $data
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function respond(FramedConnection $session, array $data): void
     {
@@ -239,6 +240,7 @@ final class ControlServer
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function respondError(FramedConnection $session, string $code, string $message): void
     {

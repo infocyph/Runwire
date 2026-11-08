@@ -72,6 +72,7 @@ final class Http2ConnectedExchange
     /**
      * Abort this connection-scoped request and release all callbacks.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function close(): void
     {
@@ -83,6 +84,7 @@ final class Http2ConnectedExchange
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function start(): void
     {
@@ -147,6 +149,7 @@ final class Http2ConnectedExchange
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function consume(): void
     {
@@ -230,6 +233,7 @@ final class Http2ConnectedExchange
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function pump(): void
     {

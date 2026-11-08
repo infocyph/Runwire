@@ -236,6 +236,7 @@ final class QuicWorkerSession
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      * @throws \Throwable
+     * @psalm-suppress TypeDoesNotContainType
      */
     private function connect(array $args): array
     {

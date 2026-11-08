@@ -54,11 +54,9 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 
     /**
      * Sends one HTTP response chunk through RoadRunner.
-     */
-    #[\Override]
-    /**
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
+    #[\Override]
     public function respond(int $status, string $body, array $headers, bool $endOfStream): void
     {
         DynamicHostObject::method($this->httpWorker, 'respond')($status, $body, $headers, $endOfStream);
@@ -66,11 +64,9 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 
     /**
      * Stops the underlying RoadRunner worker.
-     */
-    #[\Override]
-    /**
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
+    #[\Override]
     public function stop(): void
     {
         DynamicHostObject::method($this->worker, 'stop')();

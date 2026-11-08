@@ -158,6 +158,7 @@ final class Http1Connection
      * Stop further keep-alive work and finish the accepted initial exchange.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): void
     {
@@ -229,6 +230,7 @@ final class Http1Connection
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function checkBodyDeadline(): void
     {
@@ -515,6 +517,9 @@ final class Http1Connection
         $this->syncReadPause();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishExchange(bool $closeAfter): void
     {
         if ($closeAfter) {
@@ -543,6 +548,7 @@ final class Http1Connection
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function handleHeaderTimeout(): void
     {
@@ -718,6 +724,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function resetExchange(): void
     {
         if ($this->draining) {

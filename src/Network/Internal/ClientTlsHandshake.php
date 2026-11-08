@@ -73,6 +73,10 @@ final class ClientTlsHandshake
         $this->finish();
     }
 
+    /**
+     * The TLS warning handler may replace the nullable warning during crypto negotiation.
+     * @psalm-suppress TypeDoesNotContainType
+     */
     private function attempt(): void
     {
         $stream = $this->stream;
@@ -118,6 +122,10 @@ final class ClientTlsHandshake
         ($this->onSuccess)(is_string($alpn) ? $alpn : null);
     }
 
+    /**
+     * The SSL context setter can fail for an extension-provided resource.
+     * @psalm-suppress TypeDoesNotContainType
+     */
     private function begin(): void
     {
         $stream = $this->stream;

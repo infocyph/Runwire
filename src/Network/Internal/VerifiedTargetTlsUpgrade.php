@@ -42,7 +42,7 @@ final class VerifiedTargetTlsUpgrade
      * The old cleartext Connection has already retired all watchers and given
      * this worker unique ownership of its socket.
      *
-     * @param resource $stream
+     * @param resource|closed-resource $stream
      * @param callable(?Connection, ?Throwable):void $completion
      */
     public static function start(
