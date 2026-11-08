@@ -41,10 +41,10 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
         if ($second === 0) {
             $rejected = 0;
             foreach ([
-                static fn() => $listener->abortConnections(),
-                static fn() => $listener->closeConnectionsGracefully(),
-                static fn() => $listener->resumeAccepting(),
-                static fn() => $listener->start(new SelectLoop(), static function (): void {}),
+                static fn() : null => $listener->abortConnections(),
+                static fn() : null => $listener->closeConnectionsGracefully(),
+                static fn() : null => $listener->resumeAccepting(),
+                static fn() : null => $listener->start(new SelectLoop(), static function (): void {}),
             ] as $operation) {
                 try {
                     $operation();

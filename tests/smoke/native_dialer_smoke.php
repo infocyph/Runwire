@@ -33,10 +33,10 @@ if ($pid === 0) {
     fclose($reader);
     $rejected = 0;
     foreach ([
-        static fn() => $dialer->cancel(42),
-        static fn() => $dialer->close(),
-        static fn() => $happy->pendingCount(),
-        static fn() => $happy->close(),
+        static fn() : bool => $dialer->cancel(42),
+        static fn() : null => $dialer->close(),
+        static fn() : int => $happy->pendingCount(),
+        static fn() : null => $happy->close(),
     ] as $operation) {
         try {
             $operation();

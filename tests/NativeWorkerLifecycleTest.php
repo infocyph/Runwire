@@ -174,7 +174,7 @@ it('accounts rejected and synchronous failed native requests exactly once', func
 
     try {
         $dispatch = nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop);
-        expect(fn() => $dispatch(nativeCompletionRequest(), nativeCompletionWriter()))->toThrow($failure)
+        expect(fn() : mixed => $dispatch(nativeCompletionRequest(), nativeCompletionWriter()))->toThrow($failure)
             ->and($worker->requestsTotal())->toBe(1);
 
         $application = new RuntimeApplication(static function (): void {}, runtimeContext: $runtime,

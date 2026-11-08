@@ -44,7 +44,7 @@ try {
                 }
                 $payload .= $data;
                 if (($response['eof'] ?? null) !== true) {
-                    $loop->delay(0.01, static fn() => $read($stream));
+                    $loop->delay(0.01, static fn() : mixed => $read($stream));
 
                     return;
                 }

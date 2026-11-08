@@ -53,12 +53,12 @@ if ($child === -1) {
 if ($child === 0) {
     $rejected = 0;
     foreach ([
-        static fn() => $listener->start(new SelectLoop(), static function (): void {}),
-        static fn() => $listener->pauseAccepting(),
-        static fn() => $listener->resumeAccepting(),
-        static fn() => $listener->abortConnections(),
-        static fn() => $listener->closeConnectionsGracefully(),
-        static fn() => $listener->close(),
+        static fn() : null => $listener->start(new SelectLoop(), static function (): void {}),
+        static fn() : null => $listener->pauseAccepting(),
+        static fn() : null => $listener->resumeAccepting(),
+        static fn() : null => $listener->abortConnections(),
+        static fn() : null => $listener->closeConnectionsGracefully(),
+        static fn() : null => $listener->close(),
     ] as $operation) {
         try {
             $operation();

@@ -156,7 +156,7 @@ it('cancels a pending receive with request cancellation and releases connection 
     $context = RequestContext::standalone();
 
     try {
-        expect(static fn() => $runtime->runRequest(
+        expect(static fn() : mixed => $runtime->runRequest(
             $context,
             function (CoroutineScope $scope) use ($connection, $context, $loop): void {
                 $connection = new AsyncConnection($connection, $scope);
@@ -273,7 +273,7 @@ it('rejects a pending coroutine receive on unverified TLS EOF instead of returni
     $core = new Connection($loop, $stream, encrypted: true, strictTlsPeerEof: true);
 
     try {
-        expect(fn() => $runtime->run(function (CoroutineScope $scope) use ($core, $loop, $peer): string {
+        expect(fn() : mixed => $runtime->run(function (CoroutineScope $scope) use ($core, $loop, $peer): string {
             $async = new AsyncConnection($core, $scope);
             $loop->defer(static function (int $id) use ($peer): void {
                 unset($id);
@@ -603,7 +603,7 @@ it('aborts a pooled connection when coroutine adoption cannot claim its callback
     try {
         $core->bindOwner($pool->token());
         $core->onData(static function (): void {});
-        expect(fn() => $runtime->run(
+        expect(fn() : mixed => $runtime->run(
             static fn(CoroutineScope $scope) => AsyncConnection::adopt($core, $scope),
         ))->toThrow(LogicException::class, 'already configured');
 
@@ -657,8 +657,8 @@ it('cancels a suspended socket receive at its nested coroutine deadline', functi
     $connection = new Connection($loop, $stream);
 
     try {
-        expect(fn() => $runtime->run(
-            static fn(CoroutineScope $scope) => $scope->withDeadline(
+        expect(fn() : mixed => $runtime->run(
+            static fn(CoroutineScope $scope) : mixed => $scope->withDeadline(
                 RequestDeadline::afterSeconds(0.08, hrtime(true)),
                 static function (CoroutineScope $child) use ($connection): void {
                     $adapter = new AsyncConnection($connection, $child);

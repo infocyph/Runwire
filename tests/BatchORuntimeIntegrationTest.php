@@ -126,7 +126,7 @@ it('isolates task-local state across consecutive requests on one persistent coro
         ) use ($local, &$seen, &$children): void {
             $seen[] = $scope->local($local);
             $scope->setLocal($local, $request->target);
-            $children[] = $scope->spawn(static fn() => $scope->local($local))->await();
+            $children[] = $scope->spawn(static fn() : mixed => $scope->local($local))->await();
             $writer->end();
         },
     );
@@ -216,7 +216,7 @@ it('rejects coroutine execution against an already completed request context', f
     $context = RequestContext::standalone();
     $context->complete();
 
-    expect(static fn() => $runtime->runRequest(
+    expect(static fn() : mixed => $runtime->runRequest(
         $context,
         static function (CoroutineScope $scope): null {
             unset($scope);

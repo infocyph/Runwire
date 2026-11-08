@@ -59,7 +59,7 @@ it('drains buffered channel values after close and then exposes closed state', f
             ->and($channel->close())->toBeFalse()
             ->and($channel->receive())->toBe(0)
             ->and($channel->receive())->toBe('')
-            ->and(fn() => $channel->receive())->toThrow(ChannelClosedException::class)
+            ->and(fn() : mixed => $channel->receive())->toThrow(ChannelClosedException::class)
             ->and(fn() => $channel->send('late'))->toThrow(ChannelClosedException::class);
     });
 });
@@ -103,7 +103,7 @@ it('enforces the configured waiter bound across primitive suspension', function 
         $first = $scope->spawn(fn(): mixed => $channel->receive());
         $scope->yieldNow();
 
-        expect(fn() => $channel->receive())->toThrow(CoroutineOverflowException::class);
+        expect(fn() : mixed => $channel->receive())->toThrow(CoroutineOverflowException::class);
         $first->cancel();
 
         try {
@@ -280,7 +280,7 @@ it('breaks a barrier generation when one waiting party is cancelled and remains 
             $cancelled->await();
         } catch (CancelledException) {
         }
-        expect(fn() => $peer->await())->toThrow(BarrierBrokenException::class);
+        expect(fn() : mixed => $peer->await())->toThrow(BarrierBrokenException::class);
 
         $tasks = [];
         for ($index = 0; $index < 3; ++$index) {

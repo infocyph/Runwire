@@ -244,7 +244,7 @@ if ($includeUnix) {
     $bound['unix'] = new BoundStreamServer($unix, $unixListener);
 }
 
-$connect = static function (string $uri) use ($fail) {
+$connect = static function (string $uri) use ($fail): mixed {
     $errno = 0;
     $error = '';
     $client = stream_socket_client($uri, $errno, $error, 2.0);

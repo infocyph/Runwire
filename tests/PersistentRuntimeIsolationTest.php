@@ -143,6 +143,9 @@ it('isolates consecutive RoadRunner requests and stops at the generic recycle bu
 
         private bool $stopped = false;
 
+        /**
+         * @throws \OverflowException
+         */
         public function __construct()
         {
             $this->requests = [

@@ -68,7 +68,7 @@ it('settles suspended task cancellation and concurrent future completion only on
                 $task->cancel(CancellationReason::HOST_CANCELLED);
             }
 
-            expect(fn() => $task->await())->toThrow(\Infocyph\Runwire\Exception\CancelledException::class)
+            expect(fn() : mixed => $task->await())->toThrow(\Infocyph\Runwire\Exception\CancelledException::class)
                 ->and($future->result())->toBe($i)
                 ->and(fn() => $deferred->resolve(-1))->toThrow(
                     \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException::class,
@@ -137,7 +137,7 @@ it('enforces one channel waiter per primitive without leaking the accepted suspe
         $child = $scope->spawn(static fn(): mixed => $channel->receive());
         $scope->yieldNow();
 
-        expect(fn() => $channel->receive())->toThrow(CoroutineOverflowException::class);
+        expect(fn() : mixed => $channel->receive())->toThrow(CoroutineOverflowException::class);
         $channel->send('accepted');
 
         return $child->await();

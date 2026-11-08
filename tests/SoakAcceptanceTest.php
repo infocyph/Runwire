@@ -123,6 +123,10 @@ function runwireSoakHttp1(int $requests): array
 /**
  * @return array{requests: int, active: int}
  * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireSoakHttp2(int $requests): array
 {

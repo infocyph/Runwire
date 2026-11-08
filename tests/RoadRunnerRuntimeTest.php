@@ -107,6 +107,9 @@ it('streams RoadRunner response frames and recycles after the generic request bu
 
         private bool $stopped = false;
 
+        /**
+         * @throws \OverflowException
+         */
         public function __construct()
         {
             $this->requests = [

@@ -134,7 +134,7 @@ it('honors an already-cancelled per-call token without registering dial work', f
     $runtime = new CoroutineRuntime($loop);
 
     try {
-        expect(fn() => $runtime->run(
+        expect(fn() : mixed => $runtime->run(
             static fn(CoroutineScope $scope) => (new AsyncDialer($racer, $scope))->connect(
                 'tcp://localhost:44444',
                 new DialOptions(cancellation: $caller->token()),
@@ -166,7 +166,7 @@ it('cancels an in-flight scoped hostname dial on caller cancellation without lea
     });
 
     try {
-        expect(fn() => $runtime->run(
+        expect(fn() : mixed => $runtime->run(
             static fn(CoroutineScope $scope) => (new AsyncDialer($racer, $scope))->connect(
                 'tcp://localhost:44444',
                 new DialOptions(cancellation: $caller->token()),
@@ -202,7 +202,7 @@ it('keeps an external cancellation subscription while honoring request scope shu
     });
 
     try {
-        expect(fn() => $runtime->runRequest(
+        expect(fn() : mixed => $runtime->runRequest(
             $context,
             static fn(CoroutineScope $scope) => (new AsyncDialer($racer, $scope))->connect(
                 'tcp://localhost:44444',
@@ -276,7 +276,7 @@ it('enforces the inner scope deadline while DNS is queued behind an external wor
 
         try {
             $runtime->run(
-                static fn(CoroutineScope $scope) => $scope->withDeadline(
+                static fn(CoroutineScope $scope) : mixed => $scope->withDeadline(
                     \Infocyph\Runwire\RequestDeadline::afterSeconds(0.02, hrtime(true)),
                     static fn(CoroutineScope $inner) => (new AsyncDialer($racer, $inner))->connect(
                         'tcp://localhost:44444',
@@ -362,7 +362,7 @@ it('cancels pending child DNS dialing when its structured parent fails', functio
     });
 
     try {
-        expect(fn() => $runtime->run(static function (CoroutineScope $scope) use ($racer): void {
+        expect(fn() : mixed => $runtime->run(static function (CoroutineScope $scope) use ($racer): void {
             $scope->spawn(static function () use ($racer, $scope): void {
                 (new AsyncDialer($racer, $scope))->connect('tcp://localhost:44444');
             });
@@ -402,7 +402,7 @@ it('enforces a nested coroutine deadline through a stalled TLS client handshake'
     });
 
     try {
-        expect(fn() => $runtime->run(static function (CoroutineScope $scope) use ($racer, $address): void {
+        expect(fn() : mixed => $runtime->run(static function (CoroutineScope $scope) use ($racer, $address): void {
             $scope->withDeadline(
                 RequestDeadline::afterSeconds(0.08, hrtime(true)),
                 static function (CoroutineScope $child) use ($racer, $address): void {

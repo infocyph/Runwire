@@ -370,6 +370,9 @@ function workerHttp3AwaitStatus(string $path): void
     throw new RuntimeException('Direct HTTP/3 worker did not report readiness.');
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function workerHttp3RunDirect(int $port, string $certificatePath, string $privateKeyPath, string $statusPath): never
 {
     try {

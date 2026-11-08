@@ -88,6 +88,10 @@ function semanticParityHttp1(array &$snapshot): void
 /**
  * @param array<string, mixed> $snapshot
  * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function semanticParityHttp2(array &$snapshot): void
 {

@@ -191,7 +191,7 @@ it('settles every coalesced DNS caller before surfacing a consumer exception', f
             }
         }, $source->token(), RequestDeadline::afterSeconds(1, hrtime(true)));
     }
-    expect(fn() => $upstream->complete(1, $lookupError ? [] : ['8.8.8.8'], $lookupFailure))
+    expect(fn() : mixed => $upstream->complete(1, $lookupError ? [] : ['8.8.8.8'], $lookupFailure))
         ->toThrow(RuntimeException::class, 'consumer failed');
     expect($seen)->toBe([0, 1, 2])
         ->and($resolver->diagnostics()['waiters'])->toBe(0)
@@ -242,7 +242,7 @@ it('preserves reentrant DNS lookups and cancellation while an older fanout fails
         expect($ips)->toBe([])->and($error)->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
         ++$cancelled;
     });
-    expect(fn() => $upstream->complete(1, ['8.8.8.8']))->toThrow(RuntimeException::class, 'first consumer failed');
+    expect(fn() : mixed => $upstream->complete(1, ['8.8.8.8']))->toThrow(RuntimeException::class, 'first consumer failed');
     expect($cancelled)->toBe(1)->and($upstream->requests)->toBe(2)
         ->and($resolver->diagnostics()['pendingHosts'])->toBe(1);
     $upstream->complete(2, ['1.1.1.1']);

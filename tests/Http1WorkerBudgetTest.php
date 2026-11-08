@@ -116,6 +116,9 @@ function http1BudgetRetainedBodies(LoopInterface $loop): array
     ];
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function assertHttp1RetainedBodiesRespectBudget(LoopInterface $loop): void
 {
     $scenario = http1BudgetRetainedBodies($loop);

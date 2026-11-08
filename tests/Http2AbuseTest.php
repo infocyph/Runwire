@@ -15,6 +15,13 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 
 require_once __DIR__ . '/Support/Http2TestSupport.php';
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireH2GoAwayError(string $wire, ?Http2Limits $limits = null, ?callable $handler = null): ?int
 {
     [$response] = runwireH2Exchange($wire, $handler ?? static function (): void {}, $limits);
@@ -27,6 +34,13 @@ function runwireH2GoAwayError(string $wire, ?Http2Limits $limits = null, ?callab
     return null;
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireH2ResetError(string $wire, int $streamId, callable $handler, ?Http2Limits $limits = null): ?int
 {
     [$response] = runwireH2Exchange($wire, $handler, $limits);

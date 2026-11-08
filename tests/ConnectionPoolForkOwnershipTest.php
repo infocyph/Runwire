@@ -23,17 +23,17 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
         fclose($reader);
         $rejected = 0;
         foreach ([
-            static fn() => $pool->acquire($key, static function (): void {}),
-            static fn() => $pool->cancel(1),
-            static fn() => $pool->release(1),
-            static fn() => $pool->close(),
-            static fn() => $pool->activeCount(),
-            static fn() => $pool->idleCount(),
-            static fn() => $pool->waitingCount(),
-            static fn() => $pool->metrics(),
-            static fn() => $idle->take($key),
-            static fn() => $idle->close(),
-            static fn() => $idle->count(),
+            static fn() : int => $pool->acquire($key, static function (): void {}),
+            static fn() : bool => $pool->cancel(1),
+            static fn() : bool => $pool->release(1),
+            static fn() : null => $pool->close(),
+            static fn() : int => $pool->activeCount(),
+            static fn() : int => $pool->idleCount(),
+            static fn() : int => $pool->waitingCount(),
+            static fn() : array => $pool->metrics(),
+            static fn() : ?\Infocyph\Runwire\Network\Connection => $idle->take($key),
+            static fn() : null => $idle->close(),
+            static fn() : int => $idle->count(),
         ] as $operation) {
             try {
                 $operation();

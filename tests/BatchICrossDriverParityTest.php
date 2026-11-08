@@ -215,6 +215,8 @@ function batchISummary(RuntimeContext $context, RuntimeApplication $application,
 /**
  * @return array<string, mixed>
  * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function batchIRunNative(int $requests): array
 {
@@ -315,6 +317,9 @@ function batchIRunRoadRunner(int $requests): array
             $this->stopped = true;
         }
 
+        /**
+         * @throws \OverflowException
+         */
         #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {

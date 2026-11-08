@@ -25,7 +25,7 @@ it('executes argv literally without a shell', function (): void {
 
 it('supports bounded string resource and producer stdin', function (): void {
     $runner = processRunner();
-    $echo = static fn (mixed $input) => $runner->run(Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($input))->stdout;
+    $echo = static fn (mixed $input) : string => $runner->run(Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($input))->stdout;
     $resource = fopen('php://temp', 'w+');
     expect($resource)->toBeResource();
     fwrite($resource, 'resource');

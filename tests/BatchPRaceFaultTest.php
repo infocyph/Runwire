@@ -234,10 +234,10 @@ it('settles channel close against blocked send and receive exactly once', functi
         $receiveChannel->close();
         $sendChannel->close();
 
-        expect(static fn() => $receiver->await())->toThrow(ChannelClosedException::class)
-            ->and(static fn() => $sender->await())->toThrow(ChannelClosedException::class)
+        expect(static fn() : mixed => $receiver->await())->toThrow(ChannelClosedException::class)
+            ->and(static fn() : mixed => $sender->await())->toThrow(ChannelClosedException::class)
             ->and($sendChannel->receive())->toBe('buffered')
-            ->and(static fn() => $sendChannel->receive())->toThrow(ChannelClosedException::class);
+            ->and(static fn() : mixed => $sendChannel->receive())->toThrow(ChannelClosedException::class);
 
         return [$receiver->state(), $sender->state()];
     });

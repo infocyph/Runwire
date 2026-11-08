@@ -22,12 +22,12 @@ it('rejects inherited outbound dial state but keeps the original process owner v
         fclose($reader);
         $rejected = 0;
         foreach ([
-            static fn() => $dialer->cancel(42),
-            static fn() => $dialer->pendingCount(),
-            static fn() => $dialer->close(),
-            static fn() => $happy->cancel(42),
-            static fn() => $happy->pendingCount(),
-            static fn() => $happy->close(),
+            static fn() : bool => $dialer->cancel(42),
+            static fn() : int => $dialer->pendingCount(),
+            static fn() : null => $dialer->close(),
+            static fn() : bool => $happy->cancel(42),
+            static fn() : int => $happy->pendingCount(),
+            static fn() : null => $happy->close(),
         ] as $operation) {
             try {
                 $operation();

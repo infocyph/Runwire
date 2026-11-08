@@ -169,7 +169,7 @@ it('waits for real stream readability and unregisters the watcher', function ():
 it('detects unresolved-future deadlock and cancels suspended tasks for cleanup', function (): void {
     $runtime = new CoroutineRuntime();
 
-    expect(fn() => $runtime->run(function (CoroutineScope $scope): mixed {
+    expect(fn() : mixed => $runtime->run(function (CoroutineScope $scope): mixed {
         return $scope->deferred()->future()->await();
     }))->toThrow(CoroutineDeadlockException::class);
 });
@@ -180,7 +180,7 @@ it('enforces the configured live task bound including the root task', function (
         maxReadyBacklog: 2,
     ));
 
-    expect(fn() => $runtime->run(function (CoroutineScope $scope): void {
+    expect(fn() : mixed => $runtime->run(function (CoroutineScope $scope): void {
         $scope->spawn(function () use ($scope): void {
             $scope->yieldNow();
         });
@@ -192,7 +192,7 @@ it('does not start a nested event loop on the same coroutine runtime', function 
     $runtime = new CoroutineRuntime();
 
     $result = $runtime->run(function (CoroutineScope $scope) use ($runtime): string {
-        expect(fn() => $runtime->run(static fn(): null => null))
+        expect(fn() : mixed => $runtime->run(static fn(): null => null))
             ->toThrow(LogicException::class);
         $task = $scope->spawn(static fn(): string => 'still-running');
 
@@ -295,7 +295,7 @@ it('rejects standalone loop driving while attached request scopes are active', f
         },
     );
 
-    expect(fn () => $runtime->run(static fn(): null => null))
+    expect(fn () : mixed => $runtime->run(static fn(): null => null))
         ->toThrow(LogicException::class, 'cannot drive a loop with attached request scopes');
 
     $loop->run();
@@ -595,7 +595,7 @@ it('delivers terminal future notifications to every waiter despite a throwing ob
         $rejected->reject($original);
         expect($resolvedFuture->result())->toBe('settled');
         expect(fn() => $resolved->reject(new RuntimeException('late-error')))->toThrow(FutureCompletedException::class);
-        expect(fn() => $failedFuture->result())->toThrow(RuntimeException::class, 'expected-rejection');
+        expect(fn() : mixed => $failedFuture->result())->toThrow(RuntimeException::class, 'expected-rejection');
         expect(fn() => $rejected->resolve('late-success'))->toThrow(FutureCompletedException::class);
 
         return $order;
