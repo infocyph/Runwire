@@ -16,6 +16,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Future",
+      "executableTest": "tests/CoroutineHardeningTest.php",
+      "behavior": "Future state, awaited result and cancellation-aware cleanup",
+      "migration": "Future await and callback completion preserve existing exception propagation; annotations document the contract without runtime changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Internal\\CancellationWait",
       "executableTest": "tests/CoroutineHardeningTest.php",
       "behavior": "Cancellation/deadline timer suspension and idempotent wait cleanup",
@@ -380,6 +388,14 @@
       "executableTest": "tests/ProtocolCodecTest.php",
       "behavior": "Raw TCP payloads without length-prefix buffering",
       "migration": "Raw-mode users continue receiving unframed chunks without hidden buffering; the interface annotation does not change runtime payload handling.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\RequestContext",
+      "executableTest": "tests/RequestContextTest.php",
+      "behavior": "Request context activation, owned work and attribute lifecycle",
+      "migration": "Context lifecycle transitions, attribute validation and request identity remain unchanged; explicit exception documentation records preexisting behavior.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

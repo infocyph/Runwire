@@ -40,7 +40,10 @@ final class Socks5Tunnel
 
     private ?int $timer = null;
 
-    /** @param callable(?Connection, ?Throwable):void $completion */
+    /**
+     * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -71,7 +74,12 @@ final class Socks5Tunnel
         return true;
     }
 
-    /** Start one bounded nonblocking proxy handshake with exclusive callback ownership. */
+    /**
+     * Start one bounded nonblocking proxy handshake with exclusive callback ownership.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->phase !== 'new') {
@@ -132,7 +140,10 @@ final class Socks5Tunnel
     }
 
     /** Execute the bounded proxy exchange phase. */
-    /** Fail closed when a remote proxy cannot prove an approved destination IP. */
+    /**
+     * Fail closed when a remote proxy cannot prove an approved destination IP.
+     * @throws \RuntimeException
+     */
     private function assertTargetPolicy(): void
     {
         if ($this->targetAddressPolicy === null) {
@@ -145,7 +156,10 @@ final class Socks5Tunnel
         $this->targetAddressPolicy->assertCandidate($target);
     }
 
-    /** Permit credentials only on a matching, dialer-verified outbound TLS channel. */
+    /**
+     * Permit credentials only on a matching, dialer-verified outbound TLS channel.
+     * @throws \LogicException
+     */
     private function assertVerifiedProxyPeer(): void
     {
         $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
@@ -155,6 +169,9 @@ final class Socks5Tunnel
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function cleanup(): void
     {
         if ($this->timer !== null) {
@@ -201,7 +218,11 @@ final class Socks5Tunnel
         return $this->phase === 'method' || $this->phase === 'authentication' || $this->phase === 'connect';
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     private function readAuthenticationReply(Connection $connection): void
     {
         if (strlen($this->reply) < 2) {
@@ -215,6 +236,9 @@ final class Socks5Tunnel
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readConnectReply(Connection $connection): void
     {
         $size = $this->handshake->replyLength($this->reply);
@@ -229,7 +253,11 @@ final class Socks5Tunnel
         ($this->completion)($connection, null);
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     private function readMethodReply(Connection $connection): void
     {
         if (strlen($this->reply) < 2) {

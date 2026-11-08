@@ -122,6 +122,8 @@ final class Http3ClientSiblingManager
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function enqueue(
         ClientRequest $request,
@@ -178,7 +180,10 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /** Release a QPACK-blocked sibling after matching peer encoder instructions. */
+    /**
+     * Release a QPACK-blocked sibling after matching peer encoder instructions.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function unblock(ReadyFieldSection $ready): bool
     {
         $id = $this->streams[$ready->streamId] ?? null;
@@ -210,7 +215,11 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /** Validate the native response before extracting the per-stream payload. */
+    /**
+     * Validate the native response before extracting the per-stream payload.
+     * @throws \RuntimeException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptRead(int $id, mixed $result): void
     {
         if (!is_array($result)) {
@@ -240,7 +249,10 @@ final class Http3ClientSiblingManager
         $this->poll(fn() => $this->read($id));
     }
 
-    /** @param array<string,mixed> $receipt */
+    /**
+     * @param array<string,mixed> $receipt
+     * @throws \RuntimeException
+     */
     private function acceptReset(array $receipt): void
     {
         if (!is_bool($receipt['reset'] ?? null)) {
@@ -250,6 +262,7 @@ final class Http3ClientSiblingManager
 
     /**
      * @param callable():void $next
+     * @throws \RuntimeException
      */
     private function acceptWrite(
         int $id,
@@ -405,6 +418,9 @@ final class Http3ClientSiblingManager
         $this->read($id);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function upload(int $id): void
     {
         $state = $this->exchanges[$id] ?? null;

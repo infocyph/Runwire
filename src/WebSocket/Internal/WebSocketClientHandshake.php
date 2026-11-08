@@ -17,6 +17,7 @@ final readonly class WebSocketClientHandshake
      *
      * @param list<string> $protocols
      * @return array{wire:string,key:string,secure:bool,host:string,port:int}
+     * @throws \InvalidArgumentException
      */
     public static function build(string $uri, array $protocols = []): array
     {
@@ -48,6 +49,8 @@ final readonly class WebSocketClientHandshake
      * Verify a full 101 response head from an already authenticated connection.
      *
      * @param list<string> $offered
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public static function verify(string $head, string $key, array $offered = []): ?string
     {
@@ -84,6 +87,7 @@ final readonly class WebSocketClientHandshake
     /**
      * @param list<string> $lines
      * @return array<string,string>
+     * @throws \RuntimeException
      */
     private static function headers(array $lines): array
     {
@@ -113,6 +117,7 @@ final readonly class WebSocketClientHandshake
 
     /**
      * @return array{host:string,port:int,secure:bool,explicitPort:bool,target:string}
+     * @throws \InvalidArgumentException
      */
     private static function parseEndpoint(string $uri): array
     {
@@ -143,6 +148,7 @@ final readonly class WebSocketClientHandshake
 
     /**
      * @param array{path?:string,query?:string} $parts
+     * @throws \InvalidArgumentException
      */
     private static function requestTarget(array $parts): string
     {
@@ -157,7 +163,10 @@ final readonly class WebSocketClientHandshake
         return $target;
     }
 
-    /** @param list<string> $protocols */
+    /**
+     * @param list<string> $protocols
+     * @throws \InvalidArgumentException
+     */
     private static function validateProtocols(array $protocols): void
     {
         if (count($protocols) > 16 || count(array_unique($protocols)) !== count($protocols)) {

@@ -45,10 +45,10 @@ final readonly class HttpNegotiatingOutboundClient
             throw new RuntimeUnavailableException('HTTP/3 is not supported by this H1/H2 negotiator; use Http3OutboundClient with native QUIC.');
         }
         $parts = parse_url($request->uri);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
+        $originHost = $parts['host'] ?? null;
+        if (!is_array($parts) || !is_string($originHost)) {
             throw new InvalidArgumentException('HTTP client requires an absolute HTTP origin.');
         }
-        $originHost = $parts['host'];
         // ClientRequest validated the absolute HTTP(S) scheme before dialing.
         $secure = strtolower($parts['scheme'] ?? '') === 'https';
         $options = $dialOptions ?? new DialOptions();

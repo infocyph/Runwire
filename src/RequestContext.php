@@ -40,6 +40,9 @@ final class RequestContext
     /** @var Closure(): void|null */
     private ?Closure $ownedWorkSettled = null;
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function __construct(
         private RuntimeContext $runtime,
         public readonly string $requestId,
@@ -98,6 +101,7 @@ final class RequestContext
 
     /**
      * Claims this single-use context for one active request lifecycle.
+     * @throws \LogicException
      */
     public function activate(RuntimeContext $runtime, RequestExecutionPolicy $policy): void
     {
@@ -141,7 +145,10 @@ final class RequestContext
         return $this->attributes;
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function beginOwnedWork(): void
     {
         if ($this->completed) {
@@ -169,6 +176,7 @@ final class RequestContext
 
     /**
      * Completes the context and releases request-scoped state.
+     * @throws \LogicException
      */
     public function complete(): void
     {
@@ -206,7 +214,10 @@ final class RequestContext
         return $this->deadline;
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function finishOwnedWork(?Throwable $failure = null): void
     {
         if ($this->ownedWorkCount < 1) {
@@ -238,6 +249,7 @@ final class RequestContext
      * @internal Notify the runtime owner after request cleanup and admission release.
      *
      * @param callable(): void $callback
+     * @throws \LogicException
      */
     public function observeCompletion(callable $callback): void
     {
@@ -287,6 +299,8 @@ final class RequestContext
 
     /**
      * Stores a bounded request attribute.
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function setAttribute(string $key, mixed $value): void
     {
@@ -301,6 +315,9 @@ final class RequestContext
         $this->attributes[$key] = $value;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertAttributeKey(string $key): void
     {
         if ($key === '' || strlen($key) > 128 || preg_match('/[\x00-\x1F\x7F]/', $key) === 1) {
@@ -308,6 +325,9 @@ final class RequestContext
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertRequestId(string $requestId): void
     {
         if ($requestId === '' || strlen($requestId) > 128 || preg_match('/[\x00-\x1F\x7F]/', $requestId) === 1) {

@@ -46,7 +46,10 @@ final class Http2MultiplexConnection
 
     private bool $started = false;
 
-    /** @param callable(Http2MultiplexConnection):void $onReady */
+    /**
+     * @param callable(Http2MultiplexConnection):void $onReady
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -69,7 +72,11 @@ final class Http2MultiplexConnection
         return $this->session->activeCount();
     }
 
-    /** Cancel only the selected response, retaining unrelated stream owners. */
+    /**
+     * Cancel only the selected response, retaining unrelated stream owners.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function cancel(int $streamId): void
     {
         if ($this->settled) {
@@ -79,7 +86,10 @@ final class Http2MultiplexConnection
         $this->pump();
     }
 
-    /** Abort one owned socket and complete every pending stream exactly once. */
+    /**
+     * Abort one owned socket and complete every pending stream exactly once.
+     * @throws \Throwable
+     */
     public function close(?Throwable $error = null): void
     {
         if ($this->settled) {
@@ -111,6 +121,8 @@ final class Http2MultiplexConnection
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $onComplete
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function request(
         ClientRequest $request,
@@ -155,7 +167,11 @@ final class Http2MultiplexConnection
         return $streamId;
     }
 
-    /** Claim the socket callbacks and publish the HTTP/2 preface exactly once. */
+    /**
+     * Claim the socket callbacks and publish the HTTP/2 preface exactly once.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function start(): void
     {
         if ($this->started || $this->settled || !$this->connection->isPoolIdleSafe()) {
@@ -190,7 +206,11 @@ final class Http2MultiplexConnection
         }
     }
 
-    /** Enforce cancellation and the shortest monotonic request deadline. */
+    /**
+     * Enforce cancellation and the shortest monotonic request deadline.
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \RuntimeException
+     */
     private static function requestDeadline(ClientRequest $request): float
     {
         $token = $request->cancellation;
@@ -282,6 +302,9 @@ final class Http2MultiplexConnection
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function queue(string $bytes): void
     {
         if ($bytes === '') {

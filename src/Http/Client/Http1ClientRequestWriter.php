@@ -26,7 +26,10 @@ final class Http1ClientRequestWriter
 
     private bool $headSent = false;
 
-    /** Build a request head, rejecting smuggling and ambiguous framing. */
+    /**
+     * Build a request head, rejecting smuggling and ambiguous framing.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly ClientRequest $request,
         private readonly int $maxBodyBytes = 16_777_216,
@@ -54,6 +57,8 @@ final class Http1ClientRequestWriter
     /**
      * Return one encoded frame; an empty return can also mean the producer
      * has no bytes available yet while done() remains false.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function next(int $maxBodyChunkBytes = 65_536): string
     {
@@ -110,6 +115,9 @@ final class Http1ClientRequestWriter
         return $authority;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function buildHead(int $maxHeaderBytes): string
     {
         $parts = parse_url($this->request->uri);
@@ -152,7 +160,10 @@ final class Http1ClientRequestWriter
         return $frame . "\r\n";
     }
 
-    /** @return list<string> */
+    /**
+     * @return list<string>
+     * @throws \InvalidArgumentException
+     */
     private function requestHeaders(string $authority): array
     {
         $fields = $this->request->headers->fields();
@@ -174,6 +185,9 @@ final class Http1ClientRequestWriter
         return $lines;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function serializeField(HeaderField $field, string $authority): ?string
     {
         if (in_array($field->name, ['proxy-authorization', 'proxy-connection'], true)) {
@@ -200,6 +214,9 @@ final class Http1ClientRequestWriter
         return $field->name . ': ' . $field->value;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function target(string $path, ?string $query): string
     {
         $target = $path === '' ? '/' : $path;

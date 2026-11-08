@@ -28,7 +28,9 @@ final class TraceScope
     /** Initialize request-owned Fiber tracking without global process context. */
     public function __construct()
     {
-        $this->fibers = new WeakMap();
+        /** @psalm-var WeakMap<Fiber[impure], TraceContext> $fiberScopes */
+        $fiberScopes = new WeakMap();
+        $this->fibers = $fiberScopes;
         $pid = getmypid();
         if (!is_int($pid)) {
             throw new LogicException('Trace scope requires a process owner.');
