@@ -11,6 +11,7 @@ use InvalidArgumentException;
  *
  * Parsing performs no DNS resolution or network I/O.
  */
+/** @psalm-taint-specialize */
 final readonly class DialEndpoint
 {
     private function __construct(

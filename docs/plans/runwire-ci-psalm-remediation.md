@@ -710,3 +710,9 @@
 - Negative active/pending native connection counts are structurally invalid and must never influence QUIC poll timing. Fail closed with an `InvalidArgumentException` on those inputs, and advertise the now actually thrown exception from the *unchanged* public method signature. Do not alter default-object policy initialization or Source Audit’s published declaration contract.
 - Add explicit negative-count tests and valid pending-handshake timing check. This replaces one `MissingThrowsDocblock` annotation while avoiding disabled analyzers or broad suppressions. Verify exact commit on PHP 8.4/8.5: PHPStan/Psalm/QA/Pint/Pest/Source Audit/native QUIC and hosted matrices before marking verified.
 - Four remaining annotations and 15 taint flows need separate resolution. No merge/release/tag.
+
+### Batch 66 — per-instance taint fidelity for immutable protocol value objects
+
+- Baseline SHA: `110a3c0de01ef56e0ba8020096be3d5de26b3db3`, Psalm **15 security taints** on both PHP 8.4 and 8.5, PHPStan PASS, strict PHPForge scanner **4** directives, Pest/Pint/PHPCS/Rector/Source Audit PASS.
+- The SSRF report propagates through `Frame::$payload` from an HTTP/2 connection error to an independent inbound/outbound parser and `ClientRequest` URI; this is a potential cross-instance taint alias. Apply documented `@psalm-taint-specialize` to four genuinely `final readonly` protocol objects: `Frame`, `HeaderField`, `Headers` and `DialEndpoint`. This models separate object instances without severing a real tainted input passed through a single instance.
+- This annotation is **not** a taint escape, suppression or detector exclusion. Inspect exact-head taint source->sink graph to ensure only phantom cross-object flows disappear. If Psalm flags immutability violations or real taints vanish incorrectly, revert. Verify PHPStan, Psalm, all QA, immutable API/source audit and runtime acceptance. The unrelated 14 tool/worker taints and 4 skip-policy findings are still open.

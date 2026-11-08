@@ -9,6 +9,7 @@ use InvalidArgumentException;
 /**
  * Represents one validated HTTP header field.
  */
+/** @psalm-taint-specialize */
 final readonly class HeaderField
 {
     public string $name;

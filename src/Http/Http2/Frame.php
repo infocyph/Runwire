@@ -10,6 +10,7 @@ use InvalidArgumentException;
 /**
  * Represents one validated HTTP/2 frame.
  */
+/** @psalm-taint-specialize */
 final readonly class Frame
 {
     /**

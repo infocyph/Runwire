@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http;
 /**
  * Stores an ordered collection of validated HTTP header fields.
  */
+/** @psalm-taint-specialize */
 final readonly class Headers
 {
     /** @param list<HeaderField> $fields */
