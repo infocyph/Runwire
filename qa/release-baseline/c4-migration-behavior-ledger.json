@@ -1432,6 +1432,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\RuntimeCapabilityResolver",
+      "executableTest": "tests/RuntimeCapabilityResolverTest.php",
+      "behavior": "Driver-specific capability snapshots retain correct ownership, feature flags and validated resource budgets",
+      "migration": "RuntimeCapabilityResolver keeps its tested native, FPM, FrankenPHP, RoadRunner and Swoole capability mapping. It transparently propagates InvalidArgumentException from the underlying RuntimeCapabilities validation when a forged or deserialized system resource snapshot violates CPU or memory limits. Public method signatures and normal runtime behavior remain unchanged.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\RuntimeDriverResolver",
       "executableTest": "tests/RuntimeDriverResolverTest.php",
       "behavior": "Runtime driver selection and capability validation",

@@ -758,3 +758,8 @@
 
 - Batch 72 exact CI `1587dd517d58aba3ccbc277f280ea3f05ecee201`: PHPStan PASS; Psalm 14 original file/SSRF taints plus 5 new `MissingThrowsDocblock` findings at `RuntimeCapabilityResolver` factories that now call an explicitly checked `RuntimeCapabilities` constructor. Root guard and forged-resource regression were intended to reject malformed snapshots, not to change valid capability semantics.
 - Add narrow `@throws InvalidArgumentException` documentation to all five driver-specific factory methods and the resolver dispatcher, making genuine failure contracts visible to callers. No new control flow, return changes, or public signatures. Avoid suppressions. Check Psalm propagation at the new exact SHA and correct any further callers. Four strict worker/host matrices and frozen Source Audit unchanged. No merge/tag.
+
+### Batch 74 — test-backed resolver migration record for newly documented resource guard
+
+- Batch 73 source audit failed: `RuntimeCapabilityResolver` is a published implementation whose source hash now changes due to precise exception docs but had no existing migration ledger disposition. Keep the independent Source Audit strict; create a dedicated test-backed record against `tests/RuntimeCapabilityResolverTest.php` covering existing driver ownership behavior and the new forged-resource failure.
+- No additional runtime source changes; tracking updates are scoped to ledger + plan. Require exact SHA analysis, source audit, tests and hosted CI. The 14 security taints, two other annotated DTO constructors and remaining QA findings stay open. No merge/tag.
