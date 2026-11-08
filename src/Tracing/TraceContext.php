@@ -51,7 +51,6 @@ final readonly class TraceContext
      * Parse one inbound W3C traceparent and optional tracestate header.
      * Preserve duplicate-state rejection for external header implementations.
      * @throws \InvalidArgumentException
-     * @psalm-suppress RedundantConditionGivenDocblockType
      */
     public static function fromHeaders(Headers $headers): ?self
     {
@@ -60,7 +59,7 @@ final readonly class TraceContext
         if ($parents === []) {
             return null;
         }
-        if (count($parents) !== 1 || count($states) > 1
+        if (count($parents) !== 1 || self::hasDuplicateHeader($states)
             || preg_match('/^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/D', $parents[0], $match) !== 1) {
             throw new InvalidArgumentException('Malformed or duplicate W3C traceparent header.');
         }
@@ -111,6 +110,15 @@ final readonly class TraceContext
     /**
      * @throws \InvalidArgumentException
      */
+    /**
+     * Preserve duplicate detection for externally supplied Header collections.
+     * @param list<string> $values
+     */
+    private static function hasDuplicateHeader(array $values): bool
+    {
+        return count($values) > 1;
+    }
+
     private static function validateState(string $state): void
     {
         if ($state === '' || strlen($state) > 512) {

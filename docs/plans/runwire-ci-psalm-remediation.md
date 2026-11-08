@@ -622,3 +622,10 @@
 - Exact Batch 51 commit: `790cdc550c08ae13de05c8ae94848a1ceed797df`. PHPStan **passed** on the PHP 8.4 analyzer; Psalm returned **18 errors**, comprising the original 15 security taints and 3 missing exception annotations in newly introduced checked native-object boundaries. The previous StreamRelay and internal-method findings were resolved. Full cross-version QA remained pending when this correction was prepared.
 - Document the three genuinely thrown validation exceptions at their declaring helpers. Align `ordered_class_elements`: all static private helpers precede private instance methods, with alphabetical sorting inside each group. These changes preserve QUIC extension optionality, worker ownership and event-loop resource behavior.
 - Do not mistake removal of incidental PHPStan/Pint blockers for completion: 15 security taints and 17 strict-QA skip directives remain active and require root-cause remediation. Exact-head PHP 8.4/8.5 Psalm/PHPStan/Pint/Pest/Source Audit/QUIC/hosted checks are pending. No release or merge.
+
+### Batch 53 — strict state and exception QA reconciliation
+
+- **Baseline exact SHA:** `32f335c3ef5888d097ddcbc71f60b237c06549f5`. Both Psalm versions show **15 security taints only**; PHPStan green. Strict QA still flags 17 prohibited skip directives and one QUIC worker method-order fault.
+- Reorder native QUIC worker helpers. Replace several stale suppressions with fresh lifecycle-state reads following callbacks and coroutine suspension, without changing stop/close semantics.
+- Retain closed-resource checking with truthful `resource|closed-resource|null` TLS stream typing. Make default-object constructor exceptions explicit and preserve duplicate trace-header rejection via a dedicated cardinality check.
+- Pending exact-head QA and analyzer results; resolve regressions before calling this verified. Remaining taints and remaining suppression annotations are not waived. No merge, release or tag.

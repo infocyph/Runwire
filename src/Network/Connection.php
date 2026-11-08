@@ -605,7 +605,6 @@ final class Connection
      * Reader callbacks can synchronously close the transport.
      *
      * @throws \Throwable
-     * @psalm-suppress RedundantCondition
      */
     private function handleReadable(): void
     {
@@ -625,10 +624,10 @@ final class Connection
         $sawEof = false;
         $this->readAvailable($stream, $received, $sawEof);
 
-        if ($received && $this->state !== ConnectionState::CLOSED) {
+        if ($received && !$this->isClosedState()) {
             $this->invoke($this->dataCallback);
         }
-        if ($sawEof && $this->state !== ConnectionState::CLOSED) {
+        if ($sawEof && !$this->isClosedState()) {
             if ($this->encrypted && $this->strictTlsPeerEof) {
                 // The PHP stream API cannot authenticate close_notify on bare EOF.
                 $this->finalize(CloseReason::TLS_UNVERIFIED_EOF);
@@ -684,6 +683,12 @@ final class Connection
         if ($this->state === ConnectionState::DRAINING && $this->sendBuffer->isEmpty()) {
             $this->finalize($this->drainReason ?? CloseReason::LOCAL_GRACEFUL);
         }
+    }
+
+    /** Re-read connection ownership after user-defined data callbacks. */
+    private function isClosedState(): bool
+    {
+        return $this->state === ConnectionState::CLOSED;
     }
 
     /**

@@ -223,7 +223,6 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
      * Suspend the host coroutine until the Runwire loop becomes idle or stops.
      * Host coroutine callbacks may request stop while suspended.
      * @throws \LogicException
-     * @psalm-suppress RedundantCondition
      * @throws \RuntimeException
      */
     #[\Override]
@@ -250,7 +249,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
         try {
             $this->reactor->suspendCoroutine();
-            if (!$this->stopRequested && $this->hasReferences()) {
+            if (!$this->isStopRequested() && $this->hasReferences()) {
                 throw new RuntimeException('The Swoole/OpenSwoole host coroutine resumed before the Runwire loop became idle.');
             }
         } finally {
@@ -414,6 +413,12 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             throw new RuntimeException('Swoole/OpenSwoole failed to remove a Runwire stream watcher.');
         }
         unset($this->registeredStreams[$resourceId]);
+    }
+
+    /** Re-read the state modified by suspended host coroutines. */
+    private function isStopRequested(): bool
+    {
+        return $this->stopRequested;
     }
 
     private function scheduleIdleCheck(): void

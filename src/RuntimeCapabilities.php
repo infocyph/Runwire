@@ -15,7 +15,7 @@ final readonly class RuntimeCapabilities
 {
     /**
      * Creates a runtime capability snapshot.
-     * @psalm-suppress MissingThrowsDocblock
+     * @throws \Throwable
      */
     public function __construct(
         public RuntimeDriver $driver,

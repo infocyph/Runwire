@@ -186,8 +186,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
      * Run the event loop until stopped or idle.
      * Callback-driven stop() can change running within a tick.
      * @throws \LogicException
-     * @psalm-suppress RedundantCondition
-     * @psalm-suppress TypeDoesNotContainType
      * @throws \RuntimeException
      */
     #[\Override]
@@ -203,7 +201,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             while ($this->running) {
                 $this->runTick();
 
-                if (!$this->running || !$this->hasReferences()) {
+                if (!$this->isRunning() || !$this->hasReferences()) {
                     break;
                 }
 
@@ -352,6 +350,12 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             || $this->writeWatchers !== []
             || $this->timers->hasTimers()
             || $this->deferred !== [];
+    }
+
+    /** Re-read the running state after callbacks that can call stop(). */
+    private function isRunning(): bool
+    {
+        return $this->running;
     }
 
     private function invoke(Closure $callback, mixed ...$arguments): void

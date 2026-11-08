@@ -15,7 +15,7 @@ final readonly class RuntimeEnvironmentProbe
 {
     /**
      * Creates an environment probe using the supplied resource probe.
-     * @psalm-suppress MissingThrowsDocblock
+     * @throws \Throwable
      */
     public function __construct(
         private SystemResourceProbe $resourceProbe = new SystemResourceProbe(),

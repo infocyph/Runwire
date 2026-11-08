@@ -18,7 +18,7 @@ final class ClientTlsHandshake
 
     private ?TlsHandshakeReadiness $readiness = null;
 
-    /** @var resource|null */
+    /** @var resource|closed-resource|null */
     private mixed $stream;
 
     /**
@@ -75,7 +75,6 @@ final class ClientTlsHandshake
 
     /**
      * The TLS warning handler may replace the nullable warning during crypto negotiation.
-     * @psalm-suppress TypeDoesNotContainType
      */
     private function attempt(): void
     {
@@ -124,7 +123,6 @@ final class ClientTlsHandshake
 
     /**
      * The SSL context setter can fail for an extension-provided resource.
-     * @psalm-suppress TypeDoesNotContainType
      */
     private function begin(): void
     {
