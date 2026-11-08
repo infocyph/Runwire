@@ -162,11 +162,6 @@ final class WebSocketClientUpgrade
     /**
      * @throws \Throwable
      */
-    private function isSettled(): bool
-    {
-        return $this->settled;
-    }
-
     private function finish(?WebSocketSession $session, ?Throwable $error): void
     {
         if ($this->settled) {
@@ -188,5 +183,10 @@ final class WebSocketClientUpgrade
             $this->connection->abort();
         }
         ($this->completion)($session, $error);
+    }
+
+    private function isSettled(): bool
+    {
+        return $this->settled;
     }
 }

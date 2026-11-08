@@ -215,16 +215,16 @@ final class HttpConnectTunnel
         ($this->completion)(null, $error);
     }
 
-    /**
-     * Reject a closed proxy transport during send-drain handoff.
-     * @throws \LogicException
-     * @throws \Throwable
-     */
     private function isPending(): bool
     {
         return $this->state === 'pending';
     }
 
+    /**
+     * Reject a closed proxy transport during send-drain handoff.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function onDrain(Connection $connection): void
     {
         if ($connection->state() === ConnectionState::CLOSED) {

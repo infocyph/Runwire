@@ -490,14 +490,14 @@ final class Http2Connection
         $this->output->flush();
     }
 
-    /**
-     * @throws \OverflowException
-     */
     private function isClosedState(): bool
     {
         return $this->closed;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function processBufferedFrames(string $data): void
     {
         foreach ($this->parser->push($data, $this->limits->maxFramesPerTurn) as $frame) {

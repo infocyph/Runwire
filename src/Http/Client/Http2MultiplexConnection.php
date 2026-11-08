@@ -265,15 +265,15 @@ final class Http2MultiplexConnection
         }
     }
 
-    /**
-     * Dispatch frames and emit connection-ready callback after validated SETTINGS.
-     * @throws \OverflowException
-     */
     private function isSettled(): bool
     {
         return $this->settled;
     }
 
+    /**
+     * Dispatch frames and emit connection-ready callback after validated SETTINGS.
+     * @throws \OverflowException
+     */
     private function processFrames(string $bytes): void
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {

@@ -75,7 +75,7 @@ final class VerifiedTargetTlsUpgrade
                     $tcpNoDelayOverride,
                     $notify,
                 ): void {
-                    if (!is_resource($stream)) {
+                    if (!self::isLiveStream($stream)) {
                         self::failed($stream, $notify, new LogicException('Original target TLS stream closed during handshake.'));
 
                         return;
@@ -89,6 +89,11 @@ final class VerifiedTargetTlsUpgrade
         } catch (Throwable $error) {
             self::failed($stream, $notify, $error);
         }
+    }
+
+    private static function isLiveStream(mixed $stream): bool
+    {
+        return is_resource($stream);
     }
 
     /**

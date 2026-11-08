@@ -209,15 +209,15 @@ final class Http2ConnectedExchange
         ($this->completion)(null, $error);
     }
 
-    /**
-     * Consume at most one bounded frame batch and stop on response completion.
-     * @throws \OverflowException
-     */
     private function isSettled(): bool
     {
         return $this->settled;
     }
 
+    /**
+     * Consume at most one bounded frame batch and stop on response completion.
+     * @throws \OverflowException
+     */
     private function processFrames(string $bytes): bool
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {

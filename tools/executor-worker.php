@@ -185,7 +185,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 // This constructor performs its full TLS handshake *before*
                 // setBlocking(false) is possible. It may only run here, in
                 // the isolated, deadline-limited executor worker process.
-                $connection = new $quicConnectionClass($host, $port, $options);
+                $connection = (new \ReflectionClass($quicConnectionClass))->newInstanceArgs([$host, $port, $options]);
                 if (!method_exists($connection, 'close')
                     || !method_exists($connection, 'getNegotiatedAlpn')) {
                     throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');

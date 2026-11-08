@@ -54,7 +54,7 @@ final readonly class PhpQuicListener
         }
 
         try {
-            $listener = new $class($host, $port, $options);
+            $listener = (new \ReflectionClass($class))->newInstanceArgs([$host, $port, $options]);
         } catch (Throwable $exception) {
             throw new ListenerException(
                 sprintf('Unable to bind HTTP/3 QUIC listener on %s:%d: %s', $host, $port, $exception->getMessage()),

@@ -244,15 +244,15 @@ final class Http1ConnectedExchange
         ($this->completion)($canReuse ? $this->connection : null, $error);
     }
 
-    /**
-     * @throws \LogicException
-     * @throws \Throwable
-     */
     private function isSettled(): bool
     {
         return $this->settled;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->settled || $this->writer->done()) {
