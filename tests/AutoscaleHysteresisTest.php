@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Supervisor\Internal\AutoscaleHysteresis;
+use InvalidArgumentException;
 
 it('scales out after sustained saturation and respects monotonic cooldown without oscillating', function (): void {
     $policy = new AutoscaleHysteresis(

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Supervisor\Internal\PrivilegeDropper;
 use Infocyph\Runwire\Tests\Support\TestIdentitySystem;

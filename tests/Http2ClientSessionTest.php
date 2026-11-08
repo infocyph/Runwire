@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientSession;
 use Infocyph\Runwire\Http\Headers;
@@ -12,6 +14,8 @@ use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
+use InvalidArgumentException;
+use RuntimeException;
 
 it('sends a single verified H2 request after peer SETTINGS and returns bounded DATA credit', function (): void {
     $responses = [];

@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
+use InvalidArgumentException;
+use Throwable;
 
 it('round trips bounded QUIC worker stream commands and raw binary payloads', function (): void {
     $binary = "\x00\x01\xff\n" . random_bytes(64);

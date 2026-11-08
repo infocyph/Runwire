@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketFrameParser;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException;
