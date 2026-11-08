@@ -38,6 +38,14 @@ if ((count($arguments) !== 4 && !$withProperties) || !is_dir($arguments[1])) {
 $inputRoot = $arguments[1];
 $output = $arguments[2];
 $revision = $arguments[3];
+if ($output === '' || strlen($output) > 4096 || str_contains($output, "\0")
+    || str_contains($output, '://') || is_link($output)) {
+    throw new InvalidArgumentException('API manifest output must be a local, non-symlink file path.');
+}
+$outputParent = realpath(dirname($output));
+if (!is_string($outputParent) || !is_dir($outputParent) || !is_writable($outputParent)) {
+    throw new InvalidArgumentException('API manifest output parent must be an existing writable local directory.');
+}
 $root = realpath($inputRoot);
 if ($root === false || !preg_match('/^[0-9a-f]{40}$/D', $revision)) {
     throw new InvalidArgumentException('Expected an existing source directory and immutable 40-character source SHA.');

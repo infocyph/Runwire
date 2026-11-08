@@ -645,3 +645,10 @@
 - Restore the original FiberScheduler suspension expressions: the attempted read-and-unset of an unused resume payload caused dead code, unused-variable, Rector and PHPCS failures. These annotations remain explicit unresolved quality-policy conflicts until a real compatible mechanism is validated; do not replace with code that merely games static analysis.
 - Reattach the listener's `@throws ListenerException` to normalizeAddress after inserting an independent closed-resource predicate. Preserve native TCP/TLS behavior.
 - Remaining P0: 15 file/SSRF taints. Remaining QA: four Fiber suppressions, four constructor-default suppressions, one validated-header taint escape. All require further review; do not downgrade the QA scanner or analyzer scope. Exact-head CI is pending. No merge or release.
+
+### Batch 56 — manifest output stream-wrapper boundary
+
+- Baseline `86dd928ce2a544c96a8b1c2d71725e616b49db59`; previous batch's exact-head analysis/QA was still running when this independent security patch was prepared.
+- Fail closed before `file_put_contents` when the CLI-supplied output is a PHP stream wrapper, NUL-bearing, too long, a symlink or has no existing writable local parent. Ordinary relative/absolute filesystem output paths remain supported.
+- Add a subprocess regression that rejects `php://memory` output without attempting an unsafe stream write, alongside the existing manifest-property acceptance fixture.
+- This is concrete security hardening, **not a claim that the 15 Psalm taint diagnostics are resolved**. Remaining CLI-input, worker file operations and optional outbound network policies require stronger authorization and source/sink verification. Verify exact-head Psalm, PHPStan, QA/Pest, Source Audit and docs; no merge/tag.

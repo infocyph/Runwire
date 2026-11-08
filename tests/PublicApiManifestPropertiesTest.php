@@ -35,6 +35,17 @@ PHP);
         exec($command . ' 2>&1', $output, $status);
         expect($status)->toBe(0, implode("\n", $output));
 
+        $wrapperCommand = escapeshellarg(PHP_BINARY) . ' '
+            . escapeshellarg($tool) . ' '
+            . escapeshellarg($root) . ' '
+            . escapeshellarg('php://memory') . ' '
+            . escapeshellarg($revision) . ' --with-properties';
+        $wrapperMessages = [];
+        $wrapperStatus = 0;
+        exec($wrapperCommand . ' 2>&1', $wrapperMessages, $wrapperStatus);
+        expect($wrapperStatus)->not->toBe(0)
+            ->and(implode("\n", $wrapperMessages))->toContain('local, non-symlink file path');
+
         $json = file_get_contents($manifest);
         expect($json)->toBeString();
         $decoded = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
