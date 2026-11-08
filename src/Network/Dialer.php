@@ -171,7 +171,6 @@ final class Dialer
     public function pendingCount(): int
     {
         $this->assertProcessOwner();
-        $this->assertProcessOwner();
 
         return count($this->pending);
     }

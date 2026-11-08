@@ -214,18 +214,20 @@ final class PooledHttp1Session
     private static function parseOrigin(string $origin): array
     {
         $parts = parse_url($origin);
+        $originHost = is_array($parts) ? ($parts['host'] ?? null) : null;
+        $originScheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
 
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)
-            || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+        if (!is_array($parts) || !is_string($originHost) || !is_string($originScheme)
+            || !in_array(strtolower($originScheme), ['http', 'https'], true)
             || isset($parts['user']) || isset($parts['pass']) || isset($parts['query'])
             || isset($parts['fragment']) || !in_array($parts['path'] ?? '', ['', '/'], true)) {
             throw new InvalidArgumentException('H1 session requires an absolute credential-free HTTP origin.');
         }
-        $scheme = strtolower($parts['scheme']);
+        $scheme = strtolower($originScheme);
 
         return [
             'scheme' => $scheme,
-            'host' => strtolower($parts['host']),
+            'host' => strtolower($originHost),
             'port' => $parts['port'] ?? ($scheme === 'https' ? 443 : 80),
         ];
     }

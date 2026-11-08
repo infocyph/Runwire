@@ -32,16 +32,17 @@ final readonly class ClientRedirectRetryPolicy
     public static function origin(string $uri): array
     {
         $parts = parse_url($uri);
-        if (!is_array($parts) || !is_string($parts['scheme'] ?? null)
-            || !is_string($parts['host'] ?? null)) {
+        $rawScheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
+        $rawHost = is_array($parts) ? ($parts['host'] ?? null) : null;
+        if (!is_array($parts) || !is_string($rawScheme) || !is_string($rawHost)) {
             throw new InvalidArgumentException('HTTP redirect origin is invalid.');
         }
-        $scheme = strtolower($parts['scheme']);
+        $scheme = strtolower($rawScheme);
         if (!in_array($scheme, ['https', 'http'], true)) {
             throw new InvalidArgumentException('HTTP redirect scheme is unsupported.');
         }
 
-        return [$scheme, strtolower($parts['host']), $parts['port'] ?? ($scheme === 'https' ? 443 : 80)];
+        return [$scheme, strtolower($rawHost), $parts['port'] ?? ($scheme === 'https' ? 443 : 80)];
     }
 
     /** Whether a status can initiate one explicitly bounded redirect. */

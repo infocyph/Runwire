@@ -17,7 +17,10 @@ final class TraceScope
 {
     private readonly int $pid;
 
-    /** @var WeakMap<Fiber<mixed,mixed,mixed,mixed>,TraceContext> */
+    /**
+     * @phpstan-var WeakMap<Fiber<mixed, mixed, mixed, mixed>, TraceContext>
+     * @psalm-var WeakMap<Fiber[impure], TraceContext>
+     */
     private WeakMap $fibers;
 
     private ?TraceContext $root = null;
@@ -80,7 +83,10 @@ final class TraceScope
         }
     }
 
-    /** @param Fiber<mixed,mixed,mixed,mixed>|null $fiber */
+    /**
+     * @phpstan-param Fiber<mixed, mixed, mixed, mixed>|null $fiber
+     * @psalm-param Fiber[impure]|null $fiber
+     */
     private function set(?Fiber $fiber, ?TraceContext $context): void
     {
         if ($fiber === null) {

@@ -31,7 +31,11 @@ final class VerifiedOutboundTlsPeers
             throw new LogicException('Verified outbound TLS requires an authenticated encrypted connection.');
         }
 
-        self::$names ??= new WeakMap();
+        if (self::$names === null) {
+            /** @var WeakMap<Connection, string> $names */
+            $names = new WeakMap();
+            self::$names = $names;
+        }
         self::$names[$connection] = $peerName;
     }
 }

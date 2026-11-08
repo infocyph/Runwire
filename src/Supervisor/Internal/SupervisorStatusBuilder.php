@@ -48,7 +48,7 @@ final class SupervisorStatusBuilder
         int $developmentWatcherFailures = 0,
     ): SupervisorStatus {
         $nowNs = self::nowNanoseconds();
-        $now = $nowNs / self::NANOS_PER_SECOND;
+        $now = (float) $nowNs / (float) self::NANOS_PER_SECOND;
         $summary = self::collectWorkers(
             $children,
             $currentSlots,
@@ -58,7 +58,7 @@ final class SupervisorStatusBuilder
             $stopping,
         );
         self::sortWorkers($summary['workers']);
-        $started = $startedAtNs === null ? null : $startedAtNs / self::NANOS_PER_SECOND;
+        $started = $startedAtNs === null ? null : (float) $startedAtNs / (float) self::NANOS_PER_SECOND;
         $health = self::healthSnapshot(
             $running,
             $stopping,

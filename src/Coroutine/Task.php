@@ -24,7 +24,10 @@ final class Task
 {
     private readonly Deferred $completion;
 
-    /** @var Fiber<mixed, mixed, mixed, mixed> */
+    /**
+     * @phpstan-var Fiber<mixed, mixed, mixed, mixed>
+     * @psalm-var Fiber[impure]
+     */
     private readonly Fiber $fiber;
 
     private bool $observed = false;

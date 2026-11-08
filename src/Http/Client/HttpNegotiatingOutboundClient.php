@@ -48,6 +48,7 @@ final readonly class HttpNegotiatingOutboundClient
         if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
             throw new InvalidArgumentException('HTTP client requires an absolute HTTP origin.');
         }
+        $originHost = $parts['host'];
         // ClientRequest validated the absolute HTTP(S) scheme before dialing.
         $secure = strtolower($parts['scheme'] ?? '') === 'https';
         $options = $dialOptions ?? new DialOptions();
@@ -66,11 +67,11 @@ final readonly class HttpNegotiatingOutboundClient
                 $options,
             );
         }
-        $options = self::verifiedOptions($request, $options, trim($parts['host'], '[]'));
+        $options = self::verifiedOptions($request, $options, trim($originHost, '[]'));
         $port = $parts['port'] ?? 443;
 
         return $dialer->connect(
-            'tcp://' . $parts['host'] . ':' . $port,
+            'tcp://' . $originHost . ':' . $port,
             static function (?Connection $connection, ?Throwable $error) use (
                 $loop,
                 $request,

@@ -21,7 +21,7 @@ final class SignalBridge
 
     private bool $previousAsyncSignals = false;
 
-    /** @var array<int, callable|int> */
+    /** @var array<int, callable|int|string> */
     private array $previousHandlers = [];
 
     /** @var resource|null */
@@ -175,6 +175,9 @@ final class SignalBridge
         }
 
         foreach ($this->previousHandlers as $signal => $handler) {
+            if (!is_int($handler) && !is_callable($handler)) {
+                throw new SupervisorException('Cannot restore an unsupported previous signal handler.');
+            }
             pcntl_signal($signal, $handler);
         }
 

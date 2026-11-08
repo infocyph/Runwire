@@ -20,11 +20,12 @@ final readonly class Http3ClientOrigin
     public static function validate(ClientRequest $request, QuicClientOptions $options): array
     {
         $parts = parse_url($request->uri);
+        $rawHost = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'https'
-            || !is_string($parts['host'] ?? null)) {
+            || !is_string($rawHost)) {
             throw new InvalidArgumentException('HTTP/3 requires a secure absolute HTTPS origin.');
         }
-        $host = trim($parts['host'], '[]');
+        $host = trim($rawHost, '[]');
         if (strcasecmp($options->peerName, $host) !== 0 || $options->alpnProtocols !== ['h3']) {
             throw new InvalidArgumentException('HTTP/3 QUIC must verify the original origin with h3-only ALPN.');
         }

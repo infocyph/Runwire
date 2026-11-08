@@ -88,6 +88,9 @@ final class CancellationWait
         }
 
         $remaining = $deadline->remainingSeconds();
+        if ($remaining === null) {
+            return;
+        }
         if ($remaining <= 0.0) {
             $this->token->isCancelled();
 

@@ -16,6 +16,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Internal\\CancellationWait",
+      "executableTest": "tests/CoroutineHardeningTest.php",
+      "behavior": "Cancellation/deadline timer suspension and idempotent wait cleanup",
+      "migration": "Nullable unlimited deadlines do not schedule timers; non-null finite deadlines continue to follow the same cancellation and wakeup order.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Internal\\FiberScheduler",
       "executableTest": "tests/BatchLCoroutineSchedulerTest.php",
       "behavior": "Bounded coroutine ready-depth high-water measurement, task lifecycle, and FIFO resume fairness",
@@ -52,6 +60,14 @@
       "executableTest": "tests/AsyncConnectionTest.php",
       "behavior": "Asynchronous socket coroutine completion and ownership",
       "migration": "Migrate to worker-owned async connections with cancellation propagation; do not reuse connection ownership after a scope ends.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Task",
+      "executableTest": "tests/BatchLCoroutineSchedulerTest.php",
+      "behavior": "Task Fiber lifetime and scheduler-owned completion",
+      "migration": "Psalm Fiber generic annotation follows the current toolchain without changing the task execution or cancellation contract.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
