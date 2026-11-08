@@ -36,15 +36,15 @@ final class ProcessExecutor
 
     private const int MAX_PACKET_BYTES = 1_600_000;
 
+    /** Per-executor authorization key for its private subprocess pipes. */
+    private readonly string $ipcKey;
+
     private readonly int $ownerPid;
 
     /** @var SplQueue<int> */
     private readonly SplQueue $pending;
 
     private readonly string $phpBinary;
-
-    /** Per-executor authorization key for its private subprocess pipes. */
-    private readonly string $ipcKey;
 
     private int $cancelled = 0;
 
@@ -77,7 +77,6 @@ final class ProcessExecutor
      * Create an executor with bounded workers and pending jobs.
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
-     * @throws \Random\RandomException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -100,7 +99,11 @@ final class ProcessExecutor
             throw new RuntimeException('Unable to establish executor process ownership.');
         }
         $this->ownerPid = $pid;
-        $this->ipcKey = bin2hex(random_bytes(32));
+        try {
+            $this->ipcKey = bin2hex(random_bytes(32));
+        } catch (\Random\RandomException $error) {
+            throw new RuntimeException('Cannot generate a private executor IPC authorization key.', 0, $error);
+        }
         $this->pending = new SplQueue();
     }
 

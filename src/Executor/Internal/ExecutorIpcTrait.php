@@ -129,7 +129,6 @@ trait ExecutorIpcTrait
         $nullDevice = '/dev/null';
         // A fresh key authenticates each request at the worker-owned IPC boundary.
         $environment = getenv();
-        $environment = is_array($environment) ? $environment : [];
         $environment['RUNWIRE_EXECUTOR_IPC_KEY'] = $this->ipcKey;
         $process = proc_open(
             [$this->phpBinary, '-d', 'display_errors=stderr', $script],
