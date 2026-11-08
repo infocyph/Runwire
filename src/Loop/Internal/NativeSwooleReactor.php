@@ -214,6 +214,16 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     }
 
     /**
+     * Resolve a dynamically installed extension class to a checked class-string.
+     *
+     * @return class-string|null
+     */
+    private static function existingClass(string $class): ?string
+    {
+        return class_exists($class) ? $class : null;
+    }
+
+    /**
      * @param class-string $class
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
@@ -237,12 +247,10 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     private static function resolveClassFamily(): array
     {
         foreach (['OpenSwoole', 'Swoole'] as $namespace) {
-            $eventClass = $namespace . '\\Event';
-            $timerClass = $namespace . '\\Timer';
-            $coroutineClass = $namespace . '\\Coroutine';
-            if (class_exists($eventClass)
-                && class_exists($timerClass)
-                && class_exists($coroutineClass)) {
+            $eventClass = self::existingClass($namespace . '\\Event');
+            $timerClass = self::existingClass($namespace . '\\Timer');
+            $coroutineClass = self::existingClass($namespace . '\\Coroutine');
+            if ($eventClass !== null && $timerClass !== null && $coroutineClass !== null) {
                 return [$eventClass, $timerClass, $coroutineClass, $namespace];
             }
         }

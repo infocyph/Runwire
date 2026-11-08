@@ -80,7 +80,7 @@ final class Http2MultiplexConnection
      */
     public function cancel(int $streamId): void
     {
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
         $this->queue($this->session->cancel($streamId));
@@ -93,7 +93,7 @@ final class Http2MultiplexConnection
      */
     public function close(?Throwable $error = null): void
     {
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
         $this->settled = true;
@@ -196,7 +196,7 @@ final class Http2MultiplexConnection
                     $this->close(new RuntimeException('HTTP/2 multiplex peer closed before response completion.'));
                 },
             );
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
             $this->ownsCallbacks = true;
@@ -217,7 +217,7 @@ final class Http2MultiplexConnection
     private static function requestDeadline(ClientRequest $request): float
     {
         $token = $request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
         }
         $seconds = min(
@@ -237,7 +237,7 @@ final class Http2MultiplexConnection
      */
     private function consume(): void
     {
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
 
@@ -247,7 +247,7 @@ final class Http2MultiplexConnection
                     ? $this->connection->read(8_192)
                     : '';
                 $this->processFrames($bytes);
-                if ($this->settled) {
+                if ($this->isSettled()) {
                     return;
                 }
                 if ($this->connection->receivedBytes() === 0 && !$this->frames->hasCompleteFrame()) {
@@ -269,6 +269,11 @@ final class Http2MultiplexConnection
      * Dispatch frames and emit connection-ready callback after validated SETTINGS.
      * @throws \OverflowException
      */
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
     private function processFrames(string $bytes): void
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {
@@ -277,7 +282,7 @@ final class Http2MultiplexConnection
                 $this->readyNotified = true;
                 ($this->readyCallback)($this);
             }
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
         }

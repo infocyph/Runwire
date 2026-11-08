@@ -107,7 +107,7 @@ final class Http2ConnectedExchange
                     $this->finish(new RuntimeException('HTTP/2 peer disconnected before END_STREAM.'));
                 },
             );
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
             $this->ownsCallbacks = true;
@@ -128,7 +128,7 @@ final class Http2ConnectedExchange
     private function armDeadline(): void
     {
         $token = $this->request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
         }
         $seconds = min(
@@ -213,6 +213,11 @@ final class Http2ConnectedExchange
      * Consume at most one bounded frame batch and stop on response completion.
      * @throws \OverflowException
      */
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
     private function processFrames(string $bytes): bool
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {

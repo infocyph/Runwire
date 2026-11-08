@@ -42,7 +42,6 @@ final readonly class PhpQuicListener
      * @throws \Infocyph\Runwire\Exception\ListenerException
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
-     * @psalm-suppress TypeDoesNotContainType
      */
     public static function bind(string $host, int $port, array $options): self
     {
@@ -63,10 +62,6 @@ final readonly class PhpQuicListener
                 $exception,
             );
         }
-        if (!is_object($listener)) {
-            throw new ListenerException('Quic\\Listener construction returned an invalid listener.');
-        }
-
         $wrapped = new self($listener);
         $wrapped->setNonBlocking();
 

@@ -158,7 +158,7 @@ final class ProcessHandle
     /**
      * Return the oldest detached child, which can be absent if ownership changes.
      *
-     * @return array{resource: resource, pid: ?int, process_group: bool}|null
+     * @return array{resource: resource|closed-resource, pid: ?int, process_group: bool}|null
      */
     private static function shiftDetached(): ?array
     {

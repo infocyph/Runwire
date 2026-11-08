@@ -312,6 +312,11 @@ final class StreamingRequestBody implements RequestBodyInterface
         }
     }
 
+    private function hasPendingDataNotification(): bool
+    {
+        return $this->dataNotificationPending;
+    }
+
     private function invoke(?Closure $callback): void
     {
         if ($callback === null) {
@@ -346,7 +351,7 @@ final class StreamingRequestBody implements RequestBodyInterface
             do {
                 $this->dataNotificationPending = false;
                 $this->invoke($this->dataCallback);
-            } while ($this->dataNotificationPending && !$this->cancelled);
+            } while ($this->hasPendingDataNotification() && !$this->cancelled);
         } finally {
             $this->dataNotifying = false;
         }

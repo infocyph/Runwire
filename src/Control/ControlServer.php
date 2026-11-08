@@ -137,6 +137,7 @@ final class ControlServer
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function handle(string $frame, FramedConnection $session): void
     {
@@ -189,6 +190,7 @@ final class ControlServer
     /**
      * @param array<string, mixed> $request
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function recycle(array $request, FramedConnection $session): void
     {
@@ -213,6 +215,7 @@ final class ControlServer
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function reload(FramedConnection $session): void
     {
@@ -291,6 +294,7 @@ final class ControlServer
     /**
      * @param array<string, mixed> $request
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function stop(array $request, FramedConnection $session): void
     {

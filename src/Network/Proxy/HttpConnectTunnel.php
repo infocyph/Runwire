@@ -109,7 +109,7 @@ final class HttpConnectTunnel
                     $this->fail(new RuntimeException('Proxy closed before CONNECT tunnel establishment.'));
                 },
             );
-            if ($this->state !== 'pending') {
+            if (!$this->isPending()) {
                 return;
             }
             $this->closeObserver = $this->connection->registerCloseObserver(
@@ -117,7 +117,7 @@ final class HttpConnectTunnel
                     $this->fail(new RuntimeException('Proxy connection closed during CONNECT negotiation.'));
                 },
             );
-            if ($this->state !== 'pending') {
+            if (!$this->isPending()) {
                 return;
             }
             $delay = $this->timeoutSeconds;
@@ -131,7 +131,7 @@ final class HttpConnectTunnel
             $this->subscription = $this->token?->onCancel(function (CancellationToken $token): void {
                 $this->fail(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
             });
-            if ($this->state !== 'pending') {
+            if (!$this->isPending()) {
                 return;
             }
             if (!$this->connection->write($request)->accepted()) {
@@ -220,6 +220,11 @@ final class HttpConnectTunnel
      * @throws \LogicException
      * @throws \Throwable
      */
+    private function isPending(): bool
+    {
+        return $this->state === 'pending';
+    }
+
     private function onDrain(Connection $connection): void
     {
         if ($connection->state() === ConnectionState::CLOSED) {

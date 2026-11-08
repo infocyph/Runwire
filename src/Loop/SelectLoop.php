@@ -499,12 +499,16 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
         $read = [];
         foreach ($this->readWatchers as $watcher) {
-            $read[] = $watcher['stream'];
+            if (is_resource($watcher['stream'])) {
+                $read[] = $watcher['stream'];
+            }
         }
 
         $write = [];
         foreach ($this->writeWatchers as $watcher) {
-            $write[] = $watcher['stream'];
+            if (is_resource($watcher['stream'])) {
+                $write[] = $watcher['stream'];
+            }
         }
 
         return [$read, $write];

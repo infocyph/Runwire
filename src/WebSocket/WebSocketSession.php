@@ -133,6 +133,7 @@ final class WebSocketSession
      * Begin a standards-compliant close handshake.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function close(int $code = 1000, string $reason = ''): WriteResult
     {
@@ -240,6 +241,7 @@ final class WebSocketSession
      * Send a WebSocket ping control frame.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function ping(string $payload = ''): WriteResult
     {
@@ -254,6 +256,7 @@ final class WebSocketSession
      * Send one bounded binary message.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function sendBinary(string $payload): WriteResult
     {
@@ -266,6 +269,7 @@ final class WebSocketSession
      * Send one bounded UTF-8 text message.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function sendText(string $payload): WriteResult
     {
@@ -409,6 +413,7 @@ final class WebSocketSession
 
     /**
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \Throwable
      */
     private function handleContinuation(WebSocketFrame $frame): void
     {
@@ -416,14 +421,10 @@ final class WebSocketSession
             throw new WebSocketProtocolException(1002, 'Unexpected WebSocket continuation frame.');
         }
 
+        $opcode = $this->fragmentOpcode;
         $this->appendFragment($frame->payload);
         if (!$frame->fin) {
             return;
-        }
-
-        $opcode = $this->fragmentOpcode;
-        if ($opcode === null) {
-            throw new WebSocketProtocolException(1002, 'Unexpected WebSocket continuation frame.');
         }
 
         $payload = $this->fragmentBuffer;
@@ -433,6 +434,7 @@ final class WebSocketSession
 
     /**
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \Throwable
      */
     private function handleDataFrame(WebSocketFrame $frame): void
     {
@@ -604,7 +606,7 @@ final class WebSocketSession
 
                 $this->dispatchFrame($frames[0]);
                 ++$processed;
-                if ($this->closed) {
+                if ($this->isClosed()) {
                     return;
                 }
             }

@@ -106,6 +106,7 @@ trait ConnectionLifecycleOperationsTrait
      * @throws \LogicException
      * @throws \Infocyph\Runwire\Exception\CancelledException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function transferOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
     {
@@ -210,7 +211,7 @@ trait ConnectionLifecycleOperationsTrait
         $this->peerReadClosed = true;
         $this->syncReadWatcher();
         $this->invoke($this->eofCallback);
-        if ($this->state === ConnectionState::CLOSED || $this->preservePeerEof) {
+        if ($this->state() === ConnectionState::CLOSED || $this->preservePeerEof) {
             return;
         }
         if ($this->state === ConnectionState::OPEN) {

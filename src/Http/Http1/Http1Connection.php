@@ -495,6 +495,9 @@ final class Http1Connection
         $this->connection->closeGracefully();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishBody(?Headers $trailers = null): void
     {
         $this->cancelTimer($this->bodyTimer);
@@ -558,6 +561,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleResponseEnd(bool $closeAfter): void
     {
         if ($this->closed) {

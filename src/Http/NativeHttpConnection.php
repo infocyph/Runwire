@@ -67,6 +67,7 @@ final readonly class NativeHttpConnection
      * Begin graceful draining for the selected HTTP protocol.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): void
     {

@@ -52,6 +52,7 @@ final class WebSocketClientUpgrade
     /**
      * Begin the bounded outbound upgrade and transfer callbacks on success.
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function start(): void
     {
@@ -70,13 +71,13 @@ final class WebSocketClientUpgrade
         $this->closeObserver = $this->connection->registerCloseObserver(function (): void {
             $this->fail(new RuntimeException('WebSocket peer closed before completing HTTP upgrade.'));
         });
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
         $this->subscription = $this->dialOptions->cancellation?->onCancel(function (CancellationToken $token): void {
             $this->fail(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
         });
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
 
@@ -84,7 +85,7 @@ final class WebSocketClientUpgrade
             $this->connection->onEof(function (): void {
                 $this->fail(new RuntimeException('WebSocket peer ended its upgrade response.'));
             });
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
             if (!$this->connection->write($this->request['wire'])->accepted()) {
@@ -161,6 +162,11 @@ final class WebSocketClientUpgrade
     /**
      * @throws \Throwable
      */
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
     private function finish(?WebSocketSession $session, ?Throwable $error): void
     {
         if ($this->settled) {

@@ -511,6 +511,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function startForEndIfNeeded(string $finalChunk): ?WriteResult
     {

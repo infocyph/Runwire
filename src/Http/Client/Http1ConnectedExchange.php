@@ -138,7 +138,7 @@ final class Http1ConnectedExchange
     private function armDeadline(): void
     {
         $token = $this->request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
         }
         $timeout = min(
@@ -170,7 +170,7 @@ final class Http1ConnectedExchange
 
         try {
             $remaining = 65_536;
-            while ($remaining > 0 && $this->connection->receivedBytes() > 0 && !$this->settled) {
+            while ($remaining > 0 && $this->connection->receivedBytes() > 0 && !$this->isSettled()) {
                 $bytes = $this->connection->read(min($remaining, 8_192));
                 $remaining -= strlen($bytes);
                 $this->parser->push(
@@ -182,7 +182,7 @@ final class Http1ConnectedExchange
                     },
                 );
             }
-            if (!$this->settled && $this->connection->receivedBytes() > 0) {
+            if (!$this->isSettled() && $this->connection->receivedBytes() > 0) {
                 $this->loop->defer(function (): void {
                     $this->consume();
                 });
@@ -248,6 +248,11 @@ final class Http1ConnectedExchange
      * @throws \LogicException
      * @throws \Throwable
      */
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
     private function pump(): void
     {
         if ($this->settled || $this->writer->done()) {

@@ -138,6 +138,7 @@ final readonly class HttpNegotiatingOutboundClient
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     private static function startExchange(
         LoopInterface $loop,

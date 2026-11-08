@@ -332,6 +332,7 @@ final class ResponseScheduler
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function flushNextStream(int &$frames, int &$stalled): bool
     {

@@ -156,7 +156,7 @@ final class StreamRelay
     private function armLifecycle(): bool
     {
         $token = $this->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             $this->close();
 
             return false;
@@ -193,6 +193,7 @@ final class StreamRelay
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function completeDirection(bool $fromLeft): void
     {

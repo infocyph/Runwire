@@ -55,6 +55,11 @@ final class VerifiedTargetTlsUpgrade
         callable $completion,
     ): void {
         $notify = Closure::fromCallable($completion);
+        if (!is_resource($stream)) {
+            self::failed($stream, $notify, new LogicException('Original target TLS stream is no longer open.'));
+
+            return;
+        }
 
         try {
             ClientTlsHandshake::start(
@@ -70,6 +75,11 @@ final class VerifiedTargetTlsUpgrade
                     $tcpNoDelayOverride,
                     $notify,
                 ): void {
+                    if (!is_resource($stream)) {
+                        self::failed($stream, $notify, new LogicException('Original target TLS stream closed during handshake.'));
+
+                        return;
+                    }
                     self::verified($loop, $stream, $policy, $limits, $tcpTransport, $tcpNoDelayOverride, $notify, $alpn);
                 },
                 function (Throwable $error) use ($stream, $notify): void {
@@ -82,7 +92,6 @@ final class VerifiedTargetTlsUpgrade
     }
 
     /**
-     * @param resource $stream
      * @param Closure(?Connection, ?Throwable):void $notify
      */
     private static function failed(mixed $stream, Closure $notify, Throwable $error): void

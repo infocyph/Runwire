@@ -199,6 +199,7 @@ final class RequestStream
     /**
      * Feed request-stream bytes through HTTP/3 frame processing.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function push(string $bytes): void
     {
@@ -464,7 +465,7 @@ final class RequestStream
 
         if (!$this->blocked && $this->blockedFrames !== []) {
             $this->drainBufferedFrames();
-            if ($this->blocked || $this->pressured()) {
+            if ($this->blocked() || $this->pressured()) {
                 return;
             }
         }
@@ -494,6 +495,7 @@ final class RequestStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function finishIfReady(): void
     {
@@ -502,7 +504,7 @@ final class RequestStream
         }
 
         $this->drainFrames();
-        if ($this->blocked || $this->pressured()) {
+        if ($this->blocked() || $this->pressured()) {
             return;
         }
         if ($this->parser->bufferedBytes() > 0) {
@@ -580,6 +582,7 @@ final class RequestStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function resumeAfterBodyRelief(): void
     {

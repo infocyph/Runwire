@@ -149,6 +149,12 @@ final class SwooleDriver implements HostDriverInterface
         return strtolower(self::serverString($server, 'request_scheme')) === 'https';
     }
 
+    /** @return class-string|null */
+    private static function existingClass(string $class): ?string
+    {
+        return class_exists($class) ? $class : null;
+    }
+
     /**
      * @param array<string, mixed> $headers
      * @return array<string, string|list<string>>
@@ -192,8 +198,9 @@ final class SwooleDriver implements HostDriverInterface
         ];
 
         foreach ($classes as $class) {
-            if (class_exists($class)) {
-                return $class;
+            $existing = self::existingClass($class);
+            if ($existing !== null) {
+                return $existing;
             }
         }
 

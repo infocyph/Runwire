@@ -157,7 +157,7 @@ final class Http3ClientSiblingManager
             $this->cancel($id, new RuntimeException('HTTP/3 sibling exchange deadline expired.'));
         });
         $token = $request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             $this->cancel($id, new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
 
             return $id;
@@ -225,6 +225,7 @@ final class Http3ClientSiblingManager
      * Validate the native response before extracting the per-stream payload.
      * @throws \RuntimeException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
      */
     private function acceptRead(int $id, mixed $result): void
     {

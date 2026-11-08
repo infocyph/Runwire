@@ -75,11 +75,16 @@ final class CancellationWait
             $this->close();
             ($this->onCancelled)($error);
         });
-        if ($this->closed || $this->token->isCancelled()) {
+        if ($this->isClosed() || $this->token->isCancelled()) {
             return;
         }
 
         $this->scheduleDeadline();
+    }
+
+    private function isClosed(): bool
+    {
+        return $this->closed;
     }
 
     private function scheduleDeadline(): void
