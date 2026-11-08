@@ -269,6 +269,7 @@ final class Http3ClientSiblingManager
     /**
      * @param callable():void $next
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function acceptWrite(
         int $id,

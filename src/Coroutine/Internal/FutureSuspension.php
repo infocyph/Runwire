@@ -70,6 +70,7 @@ final readonly class FutureSuspension implements Suspension
 
     /**
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     private function resumeFromFuture(FiberScheduler $scheduler, Task $task): void
     {

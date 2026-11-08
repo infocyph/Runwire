@@ -1464,6 +1464,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\RuntimeCapabilities",
+      "executableTest": "tests/RuntimeCapabilitiesTest.php",
+      "behavior": "Immutable runtime capability snapshot, driver ownership and feature availability",
+      "migration": "The existing capability booleans and runtime ownership contract remain unchanged. Constructor exception documentation describes preexisting validation in the default SystemResources dependency; it does not introduce a runtime policy change.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\RuntimeContext",
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Immutable runtime identity, capabilities and generation metadata",

@@ -321,6 +321,7 @@ final class RequestStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function acceptFieldSection(DecodedFieldSection $section, bool $trailers): void
     {

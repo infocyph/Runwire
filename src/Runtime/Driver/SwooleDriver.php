@@ -394,6 +394,7 @@ final class SwooleDriver implements HostDriverInterface
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     private function writer(object $response, string $method): ResponseWriterInterface
     {

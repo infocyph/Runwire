@@ -27,6 +27,7 @@ final readonly class WebSocketUpgrade
      *
      * @param callable(string, HttpRequest): bool|null $originPolicy
      * @throws \LogicException
+     * @throws \Throwable
      */
     public static function accept(
         HttpRequest $request,

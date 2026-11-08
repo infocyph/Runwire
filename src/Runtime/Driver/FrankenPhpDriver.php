@@ -63,6 +63,10 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
      * Runs the application in resolved FrankenPHP classic or worker mode.
      */
     #[\Override]
+    /**
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
+     */
     public function run(RuntimeApplicationInterface $application): void
     {
         $failure = null;

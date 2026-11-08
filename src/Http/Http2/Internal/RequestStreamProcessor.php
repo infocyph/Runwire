@@ -511,6 +511,9 @@ final class RequestStreamProcessor
         return [substr($frame->payload, 1, $dataBytes), $length, 1 + $padding];
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function dispatch(Http2Stream $stream, ValidatedRequestHead $head, \Infocyph\Runwire\Http\Http2\Http2ResponseWriter $writer): void
     {
         $request = new HttpRequest(
@@ -652,6 +655,7 @@ final class RequestStreamProcessor
      * @param list<array{0: string, 1: string}> $fields
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     private function validatedHead(PendingHeaderBlock $pending, array $fields): ValidatedRequestHead
     {

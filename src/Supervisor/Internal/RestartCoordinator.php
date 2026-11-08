@@ -109,6 +109,8 @@ final class RestartCoordinator
     /**
      * @param array<string, array<int, int>> $currentSlots
      * @param array<int, ChildRecord> $children
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function schedule(ChildRecord $record, array $currentSlots, array $children): void
     {

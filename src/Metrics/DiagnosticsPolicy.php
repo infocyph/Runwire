@@ -13,6 +13,7 @@ final readonly class DiagnosticsPolicy
 {
     /**
      * Create and validate diagnostics policy values.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public bool $debug = false,

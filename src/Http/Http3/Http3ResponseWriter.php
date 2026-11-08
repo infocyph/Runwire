@@ -69,6 +69,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
      * @throws \LogicException
      */
     #[\Override]
+    /**
+     * @throws \Throwable
+     */
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {

@@ -459,7 +459,6 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     }
 
     /**
-     * @param resource $stream
      * @throws \InvalidArgumentException
      * @throws \Throwable
      */

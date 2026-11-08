@@ -77,6 +77,7 @@ final class FrameParser
     /**
      * Remove and return one complete frame when available.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function shift(): ?Frame
     {

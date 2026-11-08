@@ -411,6 +411,7 @@ final class FiberScheduler
 
     /**
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     private function dispatch(ReadyItem $item): void
     {

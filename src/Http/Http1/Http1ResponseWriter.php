@@ -73,6 +73,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
      * @throws \OverflowException
      */
     #[\Override]
+    /**
+     * @throws \Throwable
+     */
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -323,6 +326,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function endChunked(string $finalChunk): WriteResult
     {
@@ -339,6 +343,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function endFixedLength(string $finalChunk): WriteResult
     {
@@ -364,6 +369,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function endOneShot(string $finalChunk): ?WriteResult
     {

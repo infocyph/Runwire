@@ -258,11 +258,12 @@ final class CachedDnsResolver implements DnsResolverInterface
 
     private function rejectCancelledCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): bool
     {
-        if (!$token?->isCancelled() && !$deadline?->expired()) {
+        $deadlineExceeded = $deadline?->expired() === true;
+        if (!$deadlineExceeded && !$token?->isCancelled()) {
             return false;
         }
-        $reason = $deadline?->expired() ? CancellationReason::DEADLINE_EXCEEDED
-            : ($token?->reason() ?? CancellationReason::HOST_CANCELLED);
+        $reason = $deadlineExceeded ? CancellationReason::DEADLINE_EXCEEDED
+            : ($token->reason() ?? CancellationReason::HOST_CANCELLED);
         $this->settle($id, [], new CancelledException($reason));
 
         return true;

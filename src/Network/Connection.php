@@ -130,6 +130,7 @@ final class Connection
 
     /**
      * Abort the connection immediately with a close reason.
+     * @throws \Throwable
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
@@ -206,6 +207,7 @@ final class Connection
      * @param callable(self): void $onDrain
      * @param callable(self): void $onEof
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function claimCallbacks(
         object $owner,
@@ -258,6 +260,7 @@ final class Connection
      * @param callable(self): void $onDrain
      * @param callable(self): void $onEof
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function handoffCallbacks(
         object $owner,
@@ -362,6 +365,7 @@ final class Connection
     /**
      * @param callable(self): void $callback
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function onData(callable $callback): self
     {
@@ -389,6 +393,7 @@ final class Connection
     /**
      * @param callable(self): void $callback
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function onEof(callable $callback): self
     {
@@ -517,6 +522,7 @@ final class Connection
      *
      * @param callable(?self, ?Throwable):void $completion
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function upgradeToVerifiedTls(TlsClientOptions $policy, callable $completion): void
     {
@@ -594,6 +600,9 @@ final class Connection
         ConnectionCallbackDispatcher::dispatch(array_values($callbacks), $this, $reason);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleReadable(): void
     {
         if (($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED)
@@ -627,6 +636,7 @@ final class Connection
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function handleWritable(): void
     {
@@ -805,6 +815,9 @@ final class Connection
         $this->writeWatcher = null;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function updateWritePressure(): void
     {
         $bytes = $this->sendBuffer->bytes();
@@ -820,6 +833,9 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function writeImmediately(string &$data, int $length): ?WriteResult
     {
         $stream = $this->stream;

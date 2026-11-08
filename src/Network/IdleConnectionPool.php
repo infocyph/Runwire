@@ -176,10 +176,13 @@ final class IdleConnectionPool
                 continue;
             }
             $connection = $this->release($id);
-            if ($connection?->isPoolIdleSafe()) {
+            if ($connection === null) {
+                continue;
+            }
+            if ($connection->isPoolIdleSafe()) {
                 return $connection;
             }
-            $connection?->abort();
+            $connection->abort();
         }
 
         return null;

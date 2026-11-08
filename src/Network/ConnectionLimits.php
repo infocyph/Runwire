@@ -13,6 +13,7 @@ final readonly class ConnectionLimits
 {
     /**
      * Create and validate connection resource limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $readChunkBytes = 65_536,

@@ -349,7 +349,6 @@ final class TcpListener
     }
 
     /**
-     * @param resource $stream
      * @throws \Throwable
      */
     private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void

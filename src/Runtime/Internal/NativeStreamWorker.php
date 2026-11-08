@@ -32,7 +32,6 @@ final class NativeStreamWorker
         $sessions = [];
         $state = new WorkerStopState($ownsLoop);
         $handler = $bound->definition->handlerFor($context);
-        $stopWatcher = null;
 
         $bound->listener->start($loop, function (Connection $connection) use ($loop, $bound, $handler, &$sessions, $state): void {
             if ($state->isStopping()) {

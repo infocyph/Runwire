@@ -105,7 +105,12 @@ final class TlsHandshake
         }
 
         $meta = stream_get_meta_data($stream);
-        $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
+        $crypto = $meta['crypto'] ?? null;
+        $protocol = null;
+        if (is_array($crypto)) {
+            /** @var array<string, mixed> $crypto */
+            $protocol = $crypto['alpn_protocol'] ?? null;
+        }
         $this->finish();
         ($this->onSuccess)($stream, is_string($protocol) ? $protocol : null);
     }

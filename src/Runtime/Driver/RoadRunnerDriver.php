@@ -44,6 +44,10 @@ final class RoadRunnerDriver implements HostDriverInterface
      * Processes requests from a RoadRunner session until the worker stops or recycles.
      */
     #[\Override]
+    /**
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
+     */
     public function run(RuntimeApplicationInterface $application): void
     {
         $session = ($this->sessionFactory)();

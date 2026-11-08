@@ -31,6 +31,7 @@ final class HostRequestFactory
     /**
      * @param array<string, mixed> $server
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function fromServer(array $server, string $body, int $maxBodyBytes): HttpRequest
     {

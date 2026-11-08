@@ -28,9 +28,10 @@ $readCliArguments = static function (mixed $input): array {
 };
 $arguments = $readCliArguments($_SERVER['argv'] ?? []);
 $withProperties = count($arguments) === 5 && $arguments[4] === '--with-properties';
-if ((count($arguments) !== 4 && !$withProperties)
-    || !isset($arguments[1], $arguments[2], $arguments[3])
-    || !is_dir($arguments[1])) {
+if (count($arguments) < 4) {
+    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');
+}
+if ((count($arguments) !== 4 && !$withProperties) || !is_dir($arguments[1])) {
     throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');
 }
 

@@ -123,6 +123,7 @@ final class ConnectionState
 
     /**
      * Build the local control-stream preamble and SETTINGS frame.
+     * @throws \InvalidArgumentException
      */
     public function localControlPreamble(): string
     {

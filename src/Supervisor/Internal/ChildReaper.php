@@ -23,7 +23,7 @@ final class ChildReaper
 
         $exitCode = pcntl_wexitstatus($status);
 
-        return is_int($exitCode) ? $exitCode : null;
+        return self::supportedStatus($exitCode);
     }
 
     /**
@@ -60,7 +60,7 @@ final class ChildReaper
             $pid = pcntl_waitpid(-1, $status, WNOHANG);
 
             if ($pid > 0) {
-                if (!is_int($status)) {
+                if (self::supportedStatus($status) === null) {
                     throw new SupervisorException('waitpid returned a non-integer child status.');
                 }
                 $onExit($pid, $status);
@@ -98,7 +98,7 @@ final class ChildReaper
 
         $signal = pcntl_wtermsig($status);
 
-        return is_int($signal) ? $signal : null;
+        return self::supportedStatus($signal);
     }
 
     /**
@@ -127,6 +127,14 @@ final class ChildReaper
 
             usleep((int) min(1_000, max(1, ceil(($deadlineNanoseconds - $now) / 1_000))));
         }
+    }
+
+    /**
+     * Keep the PCNTL false-on-unsupported-OS contract visible across analyzers.
+     */
+    private static function supportedStatus(mixed $status): ?int
+    {
+        return is_int($status) ? $status : null;
     }
 
     /**

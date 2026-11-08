@@ -39,7 +39,6 @@ final class ClientTlsHandshake
     /**
      * Start the handshake without blocking or taking socket-close ownership.
      *
-     * @param resource $stream
      * @param callable(?string):void $onSuccess
      * @param callable(Throwable):void $onFailure
      * @throws \InvalidArgumentException
@@ -111,7 +110,11 @@ final class ClientTlsHandshake
 
         $meta = stream_get_meta_data($stream);
         $crypto = $meta['crypto'] ?? null;
-        $alpn = is_array($crypto) ? ($crypto['alpn_protocol'] ?? null) : null;
+        $alpn = null;
+        if (is_array($crypto)) {
+            /** @var array<string, mixed> $crypto */
+            $alpn = $crypto['alpn_protocol'] ?? null;
+        }
         $this->finish();
         ($this->onSuccess)(is_string($alpn) ? $alpn : null);
     }

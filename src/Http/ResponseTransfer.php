@@ -66,7 +66,6 @@ final readonly class ResponseTransfer
     }
 
     /**
-     * @param resource $source
      * @throws \InvalidArgumentException
      */
     private static function assertPolicy(mixed $source, int $chunkBytes, int $chunksPerTurn): void
@@ -138,7 +137,6 @@ final readonly class ResponseTransfer
         }
     }
 
-    /** @param resource $source */
     private static function releaseSource(mixed $source, bool $closeSource, bool $wasBlocking): void
     {
         if (!is_resource($source)) {

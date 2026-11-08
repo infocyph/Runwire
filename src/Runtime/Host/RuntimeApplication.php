@@ -29,6 +29,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(): void|null $requestCleanup
      * @param callable(): void|null $shutdown
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         callable $handler,

@@ -400,12 +400,18 @@ final class PhpQuicHttp3Connection
         return $events->error | ($writePending ? $events->write : 0);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function drainReadableStreams(): void
     {
         $this->drainStreams();
     }
 
-    /** @param array<int, int> $ready */
+    /**
+     * @param array<int, int> $ready
+     * @throws \InvalidArgumentException
+     */
     private function drainReadyStreams(array $ready, PhpQuicEventMasks $events): void
     {
         $this->drainStreams($ready, $events);

@@ -28,7 +28,6 @@ final class NativeDatagramWorker
         $context->attachLoop($loop);
         $handler = $bound->definition->handlerFor($context);
         $drained = false;
-        $stopWatcher = null;
         $bound->listener->start($loop, $handler);
 
         $stop = static function () use ($context, $bound, $loop, $ownsLoop, &$drained): void {

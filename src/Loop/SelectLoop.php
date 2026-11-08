@@ -553,7 +553,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     }
 
     /**
-     * @param resource $stream
      * @throws \InvalidArgumentException
      * @throws \OverflowException
      */

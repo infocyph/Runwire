@@ -75,6 +75,9 @@ final class Http2ResponseWriter implements ResponseWriterInterface
      * @throws \LogicException
      */
     #[\Override]
+    /**
+     * @throws \Throwable
+     */
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -239,6 +242,9 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::CLOSED, 0);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function endOneShot(string $finalChunk): ?WriteResult
     {
         if ($this->sendOneShot === null) {

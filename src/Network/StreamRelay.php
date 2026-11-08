@@ -149,15 +149,17 @@ final class StreamRelay
 
     private function armLifecycle(): bool
     {
-        if ($this->cancellation?->isCancelled()) {
+        $token = $this->cancellation;
+        if ($token?->isCancelled()) {
             $this->close();
 
             return false;
         }
 
+        $tokenDeadline = $token?->deadline();
         $timeout = min(
             $this->deadline?->remainingSeconds() ?? INF,
-            $this->cancellation?->deadline()->remainingSeconds() ?? INF,
+            $tokenDeadline?->remainingSeconds() ?? INF,
         );
         if ($timeout <= 0) {
             $this->close();
@@ -170,7 +172,7 @@ final class StreamRelay
             });
         }
 
-        $subscription = $this->cancellation?->onCancel(function (): void {
+        $subscription = $token?->onCancel(function (): void {
             $this->close();
         });
         if ($this->closed) {

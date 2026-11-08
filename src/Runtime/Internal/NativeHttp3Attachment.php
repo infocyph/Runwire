@@ -48,6 +48,8 @@ final class NativeHttp3Attachment
 
     /**
      * Starts polling and returns the lifecycle handle for this attachment.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
     public function start(float $pollInterval): NativeWorkerHandle
     {
@@ -118,6 +120,10 @@ final class NativeHttp3Attachment
         $this->stopWatcher = null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
+     */
     private function close(): void
     {
         $this->shutdown();

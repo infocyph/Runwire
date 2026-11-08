@@ -59,6 +59,7 @@ trait ConnectionLifecycleOperationsTrait
      *
      * Pending writes must be drained explicitly before half-closing.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function shutdownWrite(): void
     {
@@ -119,6 +120,7 @@ trait ConnectionLifecycleOperationsTrait
     /**
      * Write bytes immediately when possible or queue them within configured bounds.
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function write(string $data): WriteResult
     {
@@ -156,6 +158,9 @@ trait ConnectionLifecycleOperationsTrait
         return $this->writeResult();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function beginDrain(CloseReason $reason): void
     {
         if ($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED) {
@@ -190,6 +195,9 @@ trait ConnectionLifecycleOperationsTrait
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function markPeerEof(): void
     {
         if ($this->state === ConnectionState::CLOSED || $this->peerReadClosed) {

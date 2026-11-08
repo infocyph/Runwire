@@ -61,7 +61,7 @@ final readonly class WebSocketClientHandshake
         self::validateProtocols($offered);
         $lines = explode("\r\n", $head);
         $status = array_shift($lines);
-        if (preg_match('/^HTTP\/1\.1 101(?: [\x20-\x7E]*)?$/D', (string) $status) !== 1) {
+        if (preg_match('/^HTTP\/1\.1 101(?: [\x20-\x7E]*)?$/D', $status) !== 1) {
             throw new RuntimeException('WebSocket peer did not accept a valid HTTP/1.1 upgrade.');
         }
         $headers = self::headers($lines);
