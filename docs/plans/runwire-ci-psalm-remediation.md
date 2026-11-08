@@ -19,6 +19,11 @@
 
 ## Progress
 
+**Latest verified code revision:** `450109cb89716351d607743000493acdfd030539` (Batch 77). PHP 8.4 and 8.5 PHPStan **0** findings; Psalm **14** security taint errors on each (no non-security errors); four PHPForge QA configurations **PASS**, including the skip-directive scanner with **0** banned annotations, Pint/Pest/Rector/PHPCS/Deptrac. The 36-check aggregate last showed **30 passing, 3 failing, 2 skipped, 1 HTTP/3 PHP 8.5 pending**. PR remains draft and unmerged.
+
+**Open P0 trust-boundary issues:** CLI audit tools accept process argv-selected local paths that Psalm marks tainted even after `realpath`, `is_file`, size checks and CLI-only guards; the private executor receives IPC-selected filesystem paths, with an optional unrestricted filesystem mode, so its data really does originate outside the worker. Psalm's taint sanitizer metadata (`@psalm-taint-escape` and `@psalm-assert-untainted`) is explicitly rejected by PHPForge's skip-directive scanner. Do **not** silence taint analysis, introduce hidden annotations, reroute dangerous operations solely outside scanner coverage, weaken the scan configuration, or declare these 14 errors resolved without a sound authorization and sanitizer model. Six unresolved PR review threads still address these tainted CLI sinks. A maintainer-approved design decision is required if the current arbitrary-path CLI/IPC contracts are to change or if strict tool policy is to distinguish verified sanitizers from suppressions.
+
+
 | Batch | Finding class / scope | Source locations targeted | Status |
 | --- | --- | ---: | --- |
 | 1 | Add missing `#[\\Override]` to declared implementation methods (21 PHP files) | 100 of 144 | Verified: 100 removed; QA, Source Audit, docs and release checks passed; Psalm still fails on remaining findings |
@@ -55,7 +60,7 @@
 | 32 | Restore PHPForge QA, Pint and PHPStan checks after Batch 31 | 4 PHPStan + 3 quality findings | Implemented; CI verification pending |
 | 33 | Document remaining published protocol/cancellation exception contracts | 99 reported sites | Implemented; CI verification pending |
 | 34 | Document published protocol, networking and worker lifecycle exceptions | 94 reported sites | Implemented; CI verification pending |
-| 35+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 35–77 | Close analyzer/type contracts, PHPStan and strict PHPForge QA | 14 Psalm taints remain | PHPStan PASS on PHP 8.4/8.5; all four strict QA lanes PASS at `450109cb`; 14 real input-to-path taints not resolved |
 
 ### Batch 1 verification
 
@@ -782,3 +787,9 @@
 - Baseline Batch 76 `ffb07413bebad1d2447788d6b0564999ccfb92ed` moved RuntimeEnvironmentProbe to a rehydration-safe resource validator; full CI checking that head was in progress before this independent batch.
 - The last `MissingThrowsDocblock` annotation protects promoted default policy constructors in `RuntimeOptions`. Validate a genuine invalid policy state instead: a WorkerRecyclePolicy object constructed through reflection/deserialization can have nonzero request or lifetime jitter without the corresponding enabled limit. Reject these impossible states in the options boundary with `InvalidArgumentException`, preserving the published constructor signature and all normally constructed policy behavior.
 - Add a forged readonly policy regression test and refresh existing published RuntimeOptions ledger evidence. Remove exactly one suppression; do not weaken either analyzer or scanner. Verify PHP 8.4/8.5 Psalm/PHPStan/Pint/Pest/Rector, Source Audit, docs and hosted runtimes. Genuine CLI/IPC security taints remain separate blockers. No merge/tag/release.
+
+### Batch 78 — synchronize live release readiness and blocker ownership
+
+- Source baseline `450109cb89716351d607743000493acdfd030539` (Batch 77). Exact-head QA scanner **0** prohibited directives, four QA variants green, PHPStan both versions green, Pest/Pint/PHPCS/Rector/Deptrac and Source Audit green. Psalm **14** security taints on PHP 8.4 and 8.5, with no other errors.
+- Publish the current release readiness status in the top-level progress table rather than leaving `Batch 35+ Pending`. Keep six unresolved source-audit review threads open. Keep public API freeze, independent host acceptance, no blanket sanitizer trust claims and no CI exclusions.
+- This tracker-only update does not resolve security taints; recheck new SHA docs/source audit and CI. PR remains open draft, not merged, not release-ready. No tag or release.
