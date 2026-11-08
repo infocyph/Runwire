@@ -121,11 +121,11 @@ final class Http1ClientRequestWriter
     private function buildHead(int $maxHeaderBytes): string
     {
         $parts = parse_url($this->request->uri);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
-
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+        if (!is_array($parts) || !is_string($host)) {
             throw new InvalidArgumentException('Invalid HTTP/1.1 request target.');
         }
-        $authority = $this->authority($parts['host'], $parts['port'] ?? null);
+        $authority = $this->authority($host, $parts['port'] ?? null);
         $target = $this->target($parts['path'] ?? '/', $parts['query'] ?? null);
         $lines = [
             $this->request->method . ' ' . $target . ' HTTP/1.1',

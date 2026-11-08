@@ -39,10 +39,10 @@ final readonly class Http1OutboundClient
         ?DialOptions $dialOptions = null,
     ): int {
         $parts = parse_url($request->uri);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+        if (!is_array($parts) || !is_string($host)) {
             throw new InvalidArgumentException('HTTP/1.1 client requires a valid absolute origin.');
         }
-        $host = $parts['host'];
         $secure = strtolower($parts['scheme'] ?? '') === 'https';
         // Validate the exact intended H1 transport before doing DNS, socket
         // admission or TLS handshakes. H2/H3-only policy must never silently

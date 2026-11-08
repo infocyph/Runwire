@@ -166,14 +166,15 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('HTTP/2 multiplex request admission unavailable.');
         }
         $parts = parse_url($request->uri);
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || strtolower($parts['scheme'] ?? '') !== 'https'
-            || !is_string($parts['host'] ?? null)
+            || !is_string($host)
             || !in_array($request->method, ['GET', 'HEAD'], true)
             || $request->body !== null
             || $request->protocol->negotiate('h2', true) !== ProtocolVersion::HTTP_2) {
             throw new InvalidArgumentException('HTTP/2 multiplex request requires a verified bodyless HTTPS origin.');
         }
-        $authority = strtolower($parts['host']);
+        $authority = strtolower($host);
         if (isset($parts['port']) && $parts['port'] !== 443) {
             $authority .= ':' . $parts['port'];
         }

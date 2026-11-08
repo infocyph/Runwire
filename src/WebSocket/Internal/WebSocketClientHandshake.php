@@ -125,12 +125,12 @@ final readonly class WebSocketClientHandshake
             throw new InvalidArgumentException('WebSocket URL contains forbidden control bytes.');
         }
         $parts = parse_url($uri);
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || !in_array($parts['scheme'] ?? '', ['ws', 'wss'], true)
-            || !is_string($parts['host'] ?? null) || isset($parts['user'])
+            || !is_string($host) || isset($parts['user'])
             || isset($parts['pass']) || isset($parts['fragment'])) {
             throw new InvalidArgumentException('WebSocket URL must be a credential-free ws/wss origin.');
         }
-        $host = $parts['host'];
         if (!preg_match('/^[A-Za-z0-9.-]+$/D', $host)
             && !preg_match('/^\[[0-9a-fA-F:.]+\]$/D', $host)) {
             throw new InvalidArgumentException('WebSocket authority is invalid.');

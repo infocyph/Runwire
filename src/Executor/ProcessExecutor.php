@@ -275,9 +275,9 @@ final class ProcessExecutor
             return;
         }
         $inherited = $token?->deadline();
-        if ($inherited?->monotonicNanoseconds !== null
-            && ($deadline?->monotonicNanoseconds === null
-                || $inherited->monotonicNanoseconds < $deadline->monotonicNanoseconds)) {
+        $inheritedNs = $inherited?->monotonicNanoseconds;
+        $deadlineNs = $deadline?->monotonicNanoseconds;
+        if ($inheritedNs !== null && ($deadlineNs === null || $inheritedNs < $deadlineNs)) {
             $deadline = $inherited;
         }
         $remaining = $deadline?->remainingSeconds();

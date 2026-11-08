@@ -247,7 +247,8 @@ final readonly class Http3ClientWireCodec
     private static function validatedOrigin(string $uri): array
     {
         $parts = parse_url($uri);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+        if (!is_array($parts) || !is_string($host)
             || ($parts['scheme'] ?? null) !== 'https') {
             throw new InvalidArgumentException('HTTP/3 requires a verified HTTPS origin.');
         }
@@ -256,7 +257,7 @@ final readonly class Http3ClientWireCodec
         if ($target === '' || preg_match('/[\x00-\x20\x7f]/', $target) === 1) {
             throw new InvalidArgumentException('Invalid HTTP/3 request target.');
         }
-        $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+        $authority = $host . (isset($parts['port']) ? ':' . $parts['port'] : '');
 
         return [$authority, $target];
     }
