@@ -16,6 +16,8 @@ final class NativeDatagramWorker
 {
     /**
      * Attach a datagram worker to an existing loop without taking loop ownership.
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
     public static function attach(
         LoopInterface $loop,
@@ -75,6 +77,8 @@ final class NativeDatagramWorker
 
     /**
      * Runs the bound datagram listener until worker shutdown is requested.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function run(
         WorkerContext $context,

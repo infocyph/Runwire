@@ -42,6 +42,7 @@ final readonly class Server
      *
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(WorkerContext): callable|null $workerHandlerFactory
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $name,

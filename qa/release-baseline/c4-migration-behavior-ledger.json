@@ -8,6 +8,22 @@
   "status": "task-specific-behavior-ledger-awaiting-exact-head-GitHub-QA",
   "entries": [
     {
+      "symbol": "Infocyph\\Runwire\\Cancellation\\Internal\\CancellationState",
+      "executableTest": "tests/BatchKCancellationCapabilityTest.php",
+      "behavior": "Cancellation state subscription, deadline and lifecycle",
+      "migration": "The cancellation state subscription, deadline and lifecycle preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Control\\ControlOptions",
+      "executableTest": "tests/ControlServerTest.php",
+      "behavior": "Control protocol limits and configuration",
+      "migration": "The control protocol limits and configuration preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Barrier",
       "executableTest": "tests/BatchNSynchronizationTest.php",
       "behavior": "Coroutine barrier admission and release",
@@ -20,6 +36,14 @@
       "executableTest": "tests/BatchNSynchronizationTest.php",
       "behavior": "Channel synchronization and closure semantics",
       "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested channel synchronization and closure semantics while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\CoroutinePolicy",
+      "executableTest": "tests/CoroutineHardeningTest.php",
+      "behavior": "Coroutine scheduling policy and resource bounds",
+      "migration": "The coroutine scheduling policy and resource bounds preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -104,6 +128,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Semaphore",
+      "executableTest": "tests/BatchNSynchronizationTest.php",
+      "behavior": "Coroutine semaphore admission and permit release",
+      "migration": "The coroutine semaphore admission and permit release preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Task",
       "executableTest": "tests/BatchLCoroutineSchedulerTest.php",
       "behavior": "Task Fiber lifetime and scheduler-owned completion",
@@ -184,6 +216,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Internal\\PendingHeaderBlock",
+      "executableTest": "tests/Http2ConnectionTest.php",
+      "behavior": "HTTP/2 pending header assembly and stream bounds",
+      "migration": "The http/2 pending header assembly and stream bounds preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http2\\Internal\\RequestStreamProcessor",
       "executableTest": "tests/Http2ConnectionTest.php",
       "behavior": "HTTP/2 request stream admission, framing and body handler lifecycle",
@@ -248,10 +288,34 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Qpack\\Encoder",
+      "executableTest": "tests/QpackTest.php",
+      "behavior": "QPACK encoder capacity, field representation and backpressure",
+      "migration": "The qpack encoder capacity, field representation and backpressure preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http3\\Qpack\\FieldSectionDecoder",
       "executableTest": "tests/QpackTest.php",
       "behavior": "HTTP/3 QPACK field section parsing and rejection",
       "migration": "The published http/3 qpack field section parsing and rejection remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicApi",
+      "executableTest": "tests/PhpQuicFacadeTest.php",
+      "behavior": "Native QUIC API validation and capability checks",
+      "migration": "The native quic api validation and capability checks preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicConnection",
+      "executableTest": "tests/PhpQuicTransportTest.php",
+      "behavior": "Native QUIC connection transport state",
+      "migration": "The native quic connection transport state preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -276,6 +340,14 @@
       "executableTest": "tests/PhpQuicTransportTest.php",
       "behavior": "Native QUIC listener control and handshake lifecycle",
       "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested native quic listener control and handshake lifecycle while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicStream",
+      "executableTest": "tests/PhpQuicTransportTest.php",
+      "behavior": "Native QUIC stream transport state",
+      "migration": "The native quic stream transport state preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -488,6 +560,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Process\\Command",
+      "executableTest": "tests/ProcessRunnerTest.php",
+      "behavior": "Process command specification and admission",
+      "migration": "The process command specification and admission preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Process\\Internal\\CommandValidator",
       "executableTest": "tests/ProcessRunnerTest.php",
       "behavior": "Process execution command validation and rejection",
@@ -624,6 +704,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\NativeDatagramWorker",
+      "executableTest": "tests/NativeWorkerLifecycleTest.php",
+      "behavior": "Native datagram worker execution and lifecycle",
+      "migration": "The native datagram worker execution and lifecycle preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\NativeHttp3Worker",
       "executableTest": "tests/NativeWorkerLifecycleTest.php",
       "behavior": "Native HTTP/3 worker shutdown and cleanup",
@@ -660,6 +748,14 @@
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Immutable runtime identity, capabilities and generation metadata",
       "migration": "Runtime metadata remains read-only and scoped by the appropriate worker/host context; callers must not infer new capabilities from adapter annotations.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Server",
+      "executableTest": "tests/ServerDefinitionTest.php",
+      "behavior": "Server listener definitions and configuration",
+      "migration": "The server listener definitions and configuration preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -736,6 +832,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\WorkerChildRuntime",
+      "executableTest": "tests/SupervisorLifecycleTest.php",
+      "behavior": "Supervisor child startup and shutdown",
+      "migration": "The supervisor child startup and shutdown preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Supervisor\\RestartPolicy",
       "executableTest": "tests/SupervisorTest.php",
       "behavior": "Bounded worker restart policy and exponential backoff",
@@ -788,6 +892,14 @@
       "executableTest": "tests/WebSocketBidirectionalWireTest.php",
       "behavior": "RFC6455 server/client framing and masking",
       "migration": "Honor role-specific masking and fragmentation, reject malformed payloads rather than accepting unsafe client frames.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\WebSocket\\WebSocketOptions",
+      "executableTest": "tests/WebSocketFrameParserTest.php",
+      "behavior": "WebSocket option validation and frame limits",
+      "migration": "The websocket option validation and frame limits preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

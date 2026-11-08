@@ -30,6 +30,7 @@ final class Encoder
 
     /**
      * Create a QPACK encoder constrained by peer settings and local field limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         int $peerMaxTableCapacity,
@@ -54,7 +55,10 @@ final class Encoder
         }
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \Throwable
+     */
     public function encode(array $fields, int $streamId): EncodedFieldSection
     {
         $this->validateFields($fields);
@@ -134,6 +138,9 @@ final class Encoder
         return in_array($name, ['authorization', 'cookie', 'set-cookie'], true);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acknowledge(int $streamId): void
     {
         $sections = $this->outstanding[$streamId] ?? [];
@@ -255,6 +262,9 @@ final class Encoder
         return $this->literal($name, $value);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function increment(int $increment): void
     {
         if ($increment <= 0 || $increment > $this->table->insertCount() - $this->knownReceivedCount) {
@@ -302,6 +312,9 @@ final class Encoder
         ) . StringCodec::encode($value, 7, 0x00, 0x80);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function prefix(int $requiredInsertCount, int $base): string
     {
         if ($requiredInsertCount === 0) {

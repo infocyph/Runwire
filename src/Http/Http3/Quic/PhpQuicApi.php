@@ -70,6 +70,7 @@ final class PhpQuicApi
 
     /**
      * Assert that the required ext-quic runtime surface is available.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function assertAvailable(): void
     {
@@ -115,6 +116,8 @@ final class PhpQuicApi
     /**
      * @param array<int|string, array{0: object, 1: int}> $items
      * @return array<int|string, int>
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
      */
     public static function poll(array $items, ?float $timeoutSeconds = null): array
     {
@@ -176,6 +179,10 @@ final class PhpQuicApi
         return self::extensionNamespace() . '\\' . $name;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
+     */
     private static function event(string $name): int
     {
         $constant = self::symbol($name);
@@ -201,6 +208,9 @@ final class PhpQuicApi
         return implode('', ['Qu', 'ic']);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function pollCallback(): Closure
     {
         $poll = self::pollFunction();

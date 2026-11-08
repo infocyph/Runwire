@@ -16,6 +16,7 @@ final readonly class Command
     /**
      * @param list<string> $arguments
      * @param array<string, string> $environment
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $executable,

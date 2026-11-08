@@ -38,6 +38,9 @@ final readonly class WebSocketOptions
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateIntegerLimits(
         int $maxFramePayloadBytes,
         int $maxMessageBytes,
@@ -73,6 +76,9 @@ final readonly class WebSocketOptions
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeouts(
         float $heartbeatIntervalSeconds,
         float $idleTimeoutSeconds,

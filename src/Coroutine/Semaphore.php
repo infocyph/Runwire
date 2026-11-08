@@ -22,7 +22,10 @@ final class Semaphore
     /** @var array<int, PrimitiveWaiter> */
     private array $waiters = [];
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly FiberScheduler $scheduler,
         private readonly int $permits,
@@ -37,6 +40,9 @@ final class Semaphore
 
     /**
      * Acquire one permit for the current task.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \Throwable
      */
     public function acquire(): void
     {
@@ -80,6 +86,7 @@ final class Semaphore
 
     /**
      * Release one permit or wake the next waiting task.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\SynchronizationException
      */
     public function release(): void
     {

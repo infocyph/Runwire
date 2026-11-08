@@ -67,6 +67,9 @@ final class WorkerChildRuntime
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private static function installSignalHandlers(WorkerContext $context): void
     {
         pcntl_async_signals(true);
@@ -79,6 +82,10 @@ final class WorkerChildRuntime
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private static function prepareBackgroundLoop(WorkerGroup $group, WorkerContext $context): ?SelectLoop
     {
         if (!$group->role->background()) {
@@ -91,6 +98,11 @@ final class WorkerChildRuntime
         return $loop;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \LogicException
+     */
     private static function runBackgroundLoop(?SelectLoop $loop, WorkerContext $context): void
     {
         if ($loop === null) {

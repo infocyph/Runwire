@@ -9,7 +9,10 @@ use InvalidArgumentException;
 /** Defines validated resource and scheduling limits for coroutine execution. */
 final readonly class CoroutinePolicy
 {
-    /** Creates and validates coroutine capacity and per-tick scheduling limits. */
+    /**
+     * Creates and validates coroutine capacity and per-tick scheduling limits.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public int $maxTasks = 1_024,
         public int $maxReadyBacklog = 1_024,

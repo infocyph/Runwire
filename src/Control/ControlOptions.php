@@ -9,7 +9,10 @@ use InvalidArgumentException;
 /** Defines validated limits and socket settings for the runtime control server. */
 final readonly class ControlOptions
 {
-    /** Creates and validates control socket limits, permissions, and timeouts. */
+    /**
+     * Creates and validates control socket limits, permissions, and timeouts.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public string $path,
         public int $permissions = 0o600,
