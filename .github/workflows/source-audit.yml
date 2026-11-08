@@ -81,8 +81,8 @@ jobs:
           set -euo pipefail
           php -l tools/public-api-manifest.php
           mkdir -p api-baseline
-          php tools/public-api-manifest.php published-2.1.2/src api-baseline/published-2.1.2.json 7e9bf20ad0737a187dfed77b723791b141b36378
-          php tools/public-api-manifest.php src api-baseline/current.json "${GITHUB_SHA}"
+          php tools/public-api-manifest.php published-2.1.2/src 7e9bf20ad0737a187dfed77b723791b141b36378 > api-baseline/published-2.1.2.json
+          php tools/public-api-manifest.php src "${GITHUB_SHA}" > api-baseline/current.json
           test "$(jq -r '.unrecognizedFiles | length' api-baseline/published-2.1.2.json)" -eq 0
           test "$(jq -r '.symbolCount' api-baseline/published-2.1.2.json)" -gt 200
           test "$(jq -r '.symbolCount' api-baseline/current.json)" -gt 200
@@ -99,8 +99,8 @@ jobs:
         run: |
           set -euo pipefail
           php -l tools/public-api-diff.php
-          php tools/public-api-manifest.php published-2.1.2/src api-baseline/published-2.1.2-properties.json 7e9bf20ad0737a187dfed77b723791b141b36378 --with-properties
-          php tools/public-api-manifest.php src api-baseline/current-properties.json "${GITHUB_SHA}" --with-properties
+          php tools/public-api-manifest.php published-2.1.2/src 7e9bf20ad0737a187dfed77b723791b141b36378 --with-properties > api-baseline/published-2.1.2-properties.json
+          php tools/public-api-manifest.php src "${GITHUB_SHA}" --with-properties > api-baseline/current-properties.json
           php tools/public-api-diff.php api-baseline/published-2.1.2-properties.json api-baseline/current-properties.json > api-baseline/migration-source-diff.json
           jq -e --arg base "7e9bf20ad0737a187dfed77b723791b141b36378" --arg candidate "${GITHUB_SHA}" \
             '.schemaVersion == 1 and .baselineRevision == $base and .candidateRevision == $candidate and .propertyInventoryCompared == true' \

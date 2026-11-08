@@ -793,3 +793,10 @@
 - Source baseline `450109cb89716351d607743000493acdfd030539` (Batch 77). Exact-head QA scanner **0** prohibited directives, four QA variants green, PHPStan both versions green, Pest/Pint/PHPCS/Rector/Deptrac and Source Audit green. Psalm **14** security taints on PHP 8.4 and 8.5, with no other errors.
 - Publish the current release readiness status in the top-level progress table rather than leaving `Batch 35+ Pending`. Keep six unresolved source-audit review threads open. Keep public API freeze, independent host acceptance, no blanket sanitizer trust claims and no CI exclusions.
 - This tracker-only update does not resolve security taints; recheck new SHA docs/source audit and CI. PR remains open draft, not merged, not release-ready. No tag or release.
+
+### Batch 79 — move source manifest output to stdout instead of caller-provided path
+
+- Previous exact SHA `638066bf23ace9f20509351b4d7a917d4117c0b1`: Psalm 14 open SSRF/file taints, both PHPStan jobs and four strict QA jobs green; six unresolved related PR threads.
+- The private `tools/public-api-manifest.php` receives the output path via CLI argv and writes it with `file_put_contents`, a genuine tainted-file sink. A source-only manifest generator does not need filesystem write privileges: write deterministic JSON to stdout; let its trusted CLI invoker supply output redirection. This removes the writable arbitrary-path interface altogether, not merely an analyzer tag.
+- Update all four source-audit workflow calls to redirect stdout into their original manifest filenames, preserving exact contents and immutably pinned 2.1.2 checksum verification. Adapt focused tests (valid manifests, stream-wrapper source rejection, symlinked declaration rejection) to the new CLI usage, and retain stderr operational diagnostics. This intentionally changes an internal audit-tool invocation, not Runwire's published PHP API.
+- Evaluate both analyzers, four QA variants, pinned Source Audit and tests on the exact SHA before declaring the first taint removed. Do not create or suppress Psalm annotations. No merge/tag/release.

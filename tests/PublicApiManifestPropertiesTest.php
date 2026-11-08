@@ -28,8 +28,7 @@ PHP);
         $command = escapeshellarg(PHP_BINARY) . ' '
             . escapeshellarg($tool) . ' '
             . escapeshellarg($root) . ' '
-            . escapeshellarg($manifest) . ' '
-            . escapeshellarg($revision) . ' --with-properties';
+            . escapeshellarg($revision) . ' --with-properties > ' . escapeshellarg($manifest);
         $output = [];
         $status = 0;
         exec($command . ' 2>&1', $output, $status);
@@ -37,14 +36,13 @@ PHP);
 
         $wrapperCommand = escapeshellarg(PHP_BINARY) . ' '
             . escapeshellarg($tool) . ' '
-            . escapeshellarg($root) . ' '
             . escapeshellarg('php://memory') . ' '
             . escapeshellarg($revision) . ' --with-properties';
         $wrapperMessages = [];
         $wrapperStatus = 0;
         exec($wrapperCommand . ' 2>&1', $wrapperMessages, $wrapperStatus);
         expect($wrapperStatus)->not->toBe(0)
-            ->and(implode("\n", $wrapperMessages))->toContain('local, non-symlink file path');
+            ->and(implode("\n", $wrapperMessages))->toContain('Usage: php tools/public-api-manifest.php');
 
         $json = file_get_contents($manifest);
         expect($json)->toBeString();
@@ -80,8 +78,8 @@ it('rejects a symlinked PHP declaration that targets a file outside the requeste
         $tool = dirname(__DIR__) . '/tools/public-api-manifest.php';
         $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($tool)
             . ' ' . escapeshellarg($source)
-            . ' ' . escapeshellarg($output)
-            . ' ' . escapeshellarg(str_repeat('a', 40));
+            . ' ' . escapeshellarg(str_repeat('a', 40))
+            . ' > ' . escapeshellarg($output);
         $messages = [];
         $status = 0;
         exec($command . ' 2>&1', $messages, $status);

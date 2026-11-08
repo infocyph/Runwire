@@ -11,7 +11,7 @@ if (PHP_SAPI !== 'cli') {
  * extension is needed to inspect the published tag. The manifest records
  * declarations, not hypothetical runtime availability.
  *
- * php tools/public-api-manifest.php <source-dir> <destination.json> <source-commit> [--with-properties]
+ * php tools/public-api-manifest.php <source-dir> <source-commit> [--with-properties]
  */
 
 /** Validate CLI arguments without trusting the ambient server array shape. */
@@ -31,25 +31,13 @@ $readCliArguments = static function (mixed $input): array {
     return $arguments;
 };
 $arguments = $readCliArguments($argv ?? []);
-$withProperties = count($arguments) === 5 && $arguments[4] === '--with-properties';
-if (count($arguments) < 4) {
-    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');
-}
-if ((count($arguments) !== 4 && !$withProperties) || !is_dir($arguments[1])) {
-    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');
+$withProperties = count($arguments) === 4 && $arguments[3] === '--with-properties';
+if ((count($arguments) !== 3 && !$withProperties) || !is_dir($arguments[1])) {
+    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <source-commit> [--with-properties]');
 }
 
 $inputRoot = $arguments[1];
-$output = $arguments[2];
-$revision = $arguments[3];
-if ($output === '' || strlen($output) > 4096 || str_contains($output, "\0")
-    || str_contains($output, '://') || is_link($output)) {
-    throw new InvalidArgumentException('API manifest output must be a local, non-symlink file path.');
-}
-$outputParent = realpath(dirname($output));
-if (!is_string($outputParent) || !is_dir($outputParent) || !is_writable($outputParent)) {
-    throw new InvalidArgumentException('API manifest output parent must be an existing writable local directory.');
-}
+$revision = $arguments[2];
 $root = realpath($inputRoot);
 if ($root === false || !preg_match('/^[0-9a-f]{40}$/D', $revision)) {
     throw new InvalidArgumentException('Expected an existing source directory and immutable 40-character source SHA.');
@@ -224,8 +212,8 @@ $manifest = [
     'symbols' => $symbols,
 ];
 $encoded = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-if (file_put_contents($output, $encoded . "\n") === false) {
-    throw new RuntimeException(sprintf('Cannot write API manifest: %s', $output));
+if (fwrite(STDOUT, $encoded . "\n") === false) {
+    throw new RuntimeException('Cannot write API manifest to standard output.');
 }
 if ($unrecognized !== []) {
     throw new RuntimeException('Unrecognized source declarations: ' . implode(', ', $unrecognized));
