@@ -71,10 +71,10 @@ final readonly class TlsClientOptions
             $options['alpn_protocols'] = implode(',', $this->alpnProtocols);
         }
         if ($this->clientCertificate !== null) {
-            $options['local_cert'] = realpath($this->clientCertificate) ?: $this->clientCertificate;
+            $options['local_cert'] = (realpath($this->clientCertificate) === false ? $this->clientCertificate : realpath($this->clientCertificate));
         }
         if ($this->clientPrivateKey !== null) {
-            $options['local_pk'] = realpath($this->clientPrivateKey) ?: $this->clientPrivateKey;
+            $options['local_pk'] = (realpath($this->clientPrivateKey) === false ? $this->clientPrivateKey : realpath($this->clientPrivateKey));
         }
         if ($this->clientPassphrase !== null) {
             $options['passphrase'] = $this->clientPassphrase;

@@ -43,9 +43,11 @@ final readonly class TlsOptions
     public function context(): array
     {
         $context = $this->extraContext;
-        $context['local_cert'] = realpath($this->localCertificate) ?: $this->localCertificate;
+        $certificate = realpath($this->localCertificate);
+        $context['local_cert'] = $certificate === false ? $this->localCertificate : $certificate;
         if ($this->privateKey !== null) {
-            $context['local_pk'] = realpath($this->privateKey) ?: $this->privateKey;
+            $privateKey = realpath($this->privateKey);
+            $context['local_pk'] = $privateKey === false ? $this->privateKey : $privateKey;
         }
         if ($this->passphrase !== null) {
             $context['passphrase'] = $this->passphrase;

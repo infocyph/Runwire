@@ -50,7 +50,8 @@
 | 27 | Published runtime exception contracts | 64 logged sites | Implemented; CI verification pending |
 | 28 | Add exception contracts for 101 new-3.0 implementation sites | 101 logged sites | Implemented; CI verification pending |
 | 29 | Document published HTTP, QUIC, runtime and network exception contracts | 102 logged sites + 24 ledger entries | Implemented; CI verification pending |
-| 30+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 30 | Correct TLS path, process, request timing, DNS-array and header trust-boundary analysis | P0/P1/P2 type and taint findings | Implemented; CI verification pending |
+| 31+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -296,3 +297,13 @@
 - Matched 102 logged thrown-exception locations across 24 previously published implementations (66 first stage; 36 second stage), consolidating annotations at declaring methods; 25 added precise annotations in the second stage.
 - Added 24 migration-ledger dispositions linked to existing subsystem regression tests, retaining the immutable published 2.1.2 comparator and source-diff validation.
 - No implementation code or method signatures changed. Verify the latest Psalm delta and Source Audit before asserting published API coverage.
+
+### Batch 30 — correctness and validated header sink
+
+- Replace six ambiguous falsey path/OS-timing expressions with explicit return-shape handling; preserve existing absolute path and process behavior.
+- Replace the private constant misread by Psalm with a platform-specific null-device function, preserving Windows/Unix behavior.
+- Add defensive family-offset guards in Happy Eyeballs while maintaining the same IPv4/IPv6 alternation order.
+- Document and centralize the validated immutable HeaderField header emission boundary so Psalm can recognize its header-taint escape; tests must confirm no response splitting or bypass.
+- Update a pending dialer array in place instead of duplicating known keys in an array-unpack assignment; preserve state and watcher ownership.
+- Add three published-source migration review entries with existing subsystem regression tests. No blanket taint suppressions.
+- Verify PHPStan, Psalm, Pint, PHPCS, source audit and native/protocol security CI; the remaining SSRF/file taints require separate validation.

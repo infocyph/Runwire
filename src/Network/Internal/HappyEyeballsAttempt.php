@@ -156,9 +156,9 @@ final class HappyEyeballsAttempt
         $ordered = [];
         $other = $first === 6 ? 4 : 6;
 
-        while ($families[$first ?? 4] !== [] || $families[$other] !== []) {
+        while (($families[$first ?? 4] ?? []) !== [] || ($families[$other] ?? []) !== []) {
             foreach ([$first ?? 4, $other] as $family) {
-                if ($families[$family] !== []) {
+                if (($families[$family] ?? []) !== []) {
                     $ordered[] = array_shift($families[$family]);
                 }
             }

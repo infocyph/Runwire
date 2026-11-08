@@ -23,8 +23,6 @@ final readonly class ProcessRunner
 {
     private const int IO_CHUNK_BYTES = 65_536;
 
-    private const string NULL_DEVICE = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
-
     private const int POLL_MICROS = 50_000;
 
     private ProcessPolicy $policy;
@@ -71,6 +69,12 @@ final readonly class ProcessRunner
             $this->closePipes($pipes);
             $handle?->close(wait: false);
         }
+    }
+
+    /** Return the platform-specific operating system null device. */
+    private static function nullDevice(): string
+    {
+        return DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
     }
 
     private static function closure(?callable $consumer): ?Closure
@@ -233,7 +237,7 @@ final readonly class ProcessRunner
         return match ($mode) {
             IoMode::CAPTURE, IoMode::STREAM => ['pipe', 'w'],
             IoMode::INHERIT => $inherit,
-            IoMode::NULL => ['file', self::NULL_DEVICE, 'w'],
+            IoMode::NULL => ['file', self::nullDevice(), 'w'],
         };
     }
 
@@ -337,7 +341,7 @@ final readonly class ProcessRunner
     {
         $command = $prepared->command;
         $descriptors = [
-            0 => $command->stdin === null ? ['file', self::NULL_DEVICE, 'r'] : ['pipe', 'r'],
+            0 => $command->stdin === null ? ['file', self::nullDevice(), 'r'] : ['pipe', 'r'],
             1 => $this->outputDescriptor($command->stdoutMode, STDOUT),
             2 => $this->outputDescriptor($command->stderrMode, STDERR),
         ];

@@ -52,6 +52,8 @@ final readonly class Http3Options
 
     private static function resolvedPath(string $path): string
     {
-        return realpath($path) ?: $path;
+        $resolved = realpath($path);
+
+        return $resolved === false ? $path : $resolved;
     }
 }

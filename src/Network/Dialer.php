@@ -371,7 +371,9 @@ final class Dialer
                         $this->finish($id, null, $error);
                     },
                 );
-                $this->pending[$id] = [...$job, 'watcher' => null, 'tls' => $tls];
+                $job['watcher'] = null;
+                $job['tls'] = $tls;
+                $this->pending[$id] = $job;
 
                 return;
             }

@@ -384,6 +384,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Http3Options",
+      "executableTest": "tests/Http3OptionsTest.php",
+      "behavior": "HTTP/3 TLS listener option resolution and admission safeguards",
+      "migration": "Preserve the previously reviewed Http/Http3/Http3Options public and lifecycle behavior, including documented validation failures, during the 2.1.2-to-3.0 transition.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http3\\Http3ResponseWriter",
       "executableTest": "tests/Http3ResponseWriterTest.php",
       "behavior": "HTTP/3 final response framing and writer lifecycle",
@@ -1000,6 +1008,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Host\\NativePhpResponseWriterFactory",
+      "executableTest": "tests/HostRuntimeTest.php",
+      "behavior": "Native PHP response status and header output using validated header fields",
+      "migration": "Preserve the previously reviewed Runtime/Host/NativePhpResponseWriterFactory public and lifecycle behavior, including documented validation failures, during the 2.1.2-to-3.0 transition.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Host\\RoadRunnerResponseWriter",
       "executableTest": "tests/RoadRunnerRuntimeTest.php",
       "behavior": "RoadRunner streamed response, HEAD suppression and content-length checks",
@@ -1068,6 +1084,14 @@
       "executableTest": "tests/SystemResourceProbeCgroupTest.php",
       "behavior": "Conservative effective CPU and memory capacity detection across Linux cgroup quotas, malformed cpusets, and host limits",
       "migration": "Valid, ordered Linux cpuset ranges retain the same host and cgroup resource semantics; malformed, duplicate or overlapping cpuset ranges now fail closed to a conservative one-CPU worker sizing value rather than incorrectly allowing full host capacity.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\WorkerRecycleState",
+      "executableTest": "tests/NativeWorkerLifecycleTest.php",
+      "behavior": "Worker process recycle timing, threshold jitter and request-state accounting",
+      "migration": "Preserve the previously reviewed Runtime/Internal/WorkerRecycleState public and lifecycle behavior, including documented validation failures, during the 2.1.2-to-3.0 transition.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
