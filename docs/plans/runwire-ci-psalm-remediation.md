@@ -19,6 +19,8 @@
 
 ## Progress
 
+**Batch 102 submitted — benchmark contract integrity:** Continue benchmarks first at parent `3d9abde31d52a12445ebb1189e4e371c10cf6e39`. Repair benchmark writer interface overrides and typed callable lifecycle, native PID false-handling, request resetter override, and accurate benchmark exception docs. These are small real implementation-contract fixes, not analyzer config changes or fabricated tests. The latest B101 analyzer/QA run is still in progress; no net error reduction claimed until exact-head CI. Benchmark findings remain priority ahead of tests. No merge/tag/release.
+
 **Batch 100 exact CI reconciliation:** At `ad14d499ace79f5c636945b7285cb9e643e610d6`, Psalm **2,504 errors** on each PHP 8.4/8.5: **275 benchmarks, 2,211 tests, 11 src, 7 tools**. Benchmark Psalm reduced from original 719 to 275. PHPStan **FAIL**, output limited to first **1,000+ findings** under PHPForge's newly expanded tests+benchmarks scan (at least 553 benchmark and 447 test PHPStan diagnostics in first 1,000). This failure also existed at Batch 98; earlier lines claiming PHPStan PASS for those batches were incorrect and are superseded by this explicit result. Four PHPForge QA variants **FAIL only on Pint** in `benchmarks/u10_pool_live_profile.php` (`no_unused_imports`, `blank_line_before_statement`); Pest, reference integrity, PHPCS, Rector, Deptrac and other reported QA components pass. B101 corrects the exact U10 formatting along with numeric measurement contracts, but full quality gates remain blocking until new CI is verified.
 
 **Batch 101 implementation submitted — preserve benchmark measurement arithmetic:** Eight further benchmarking scripts get explicit numeric type boundaries in percentiles, CPU accounting, drift limits and throughput calculations without changing input budgets or output semantics. Prepared against B100 `ad14d499ace79f5c636945b7285cb9e643e610d6`; do not mark verified before B100 QA and subsequent B101 exact-head CI. No project-local Psalm changes, no security suppressions, no merge/release.
@@ -972,3 +974,9 @@
 - Require latest-head PHPStan/Psalm both PHP versions, four PHPForge QA variants, benchmark validation and native/hosted protocol/source audit. Do not merge/tag/release.
 
 - Batch 101 also removes one unused imported `OverflowException` (the exception contract remains fully qualified in PHPDoc) and inserts the blank line demanded by Pint after U10's independent origin error-log read. These are the two observed exact-head QA formatting violations from Batch 100; no runtime logic is changed by these formatting fixes.
+
+### Batch 102 — benchmark interface and measurement fixture contracts
+
+- Keep source/runtime API unchanged. In `transfer_compare.php`, explicitly mark seven interface implementation methods with `#[\\Override]` and store drain callbacks as `?\\Closure` via `Closure::fromCallable`, retaining invocability and release behavior while removing an untyped property.
+- `LifecycleRuntimeBench` caches one `getmypid()` result to discriminate false from integer 0 accurately; add missing interface `#[\\Override]` to its request resetter fixture. `HostAdapterBench` and `http1_bench_workload.php` document actual propagated invalid-argument exceptions.
+- B101 CI was in progress at batch creation. Verify PHP 8.4/8.5 Psalm and PHPStan, all four QA variants, benchmark discovery/validation, Source Audit, native/hosted/protocol. Record exact post-run counts and remediation outcome; do not assume completion or weaken tooling.

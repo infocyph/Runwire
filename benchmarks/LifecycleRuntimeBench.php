@@ -51,6 +51,7 @@ final class LifecycleRuntimeBench
     public function setUp(): void
     {
         $this->metrics = new RuntimeMetrics();
+        $pid = getmypid();
         $this->runtime = RuntimeContext::fromCapabilities(
             new RuntimeCapabilities(
                 driver: RuntimeDriver::NATIVE,
@@ -68,7 +69,7 @@ final class LifecycleRuntimeBench
             mode: 'benchmark',
             workerSlot: 0,
             generation: 1,
-            pid: getmypid() ?: 0,
+            pid: $pid === false ? 0 : $pid,
             concurrent: false,
             metrics: $this->metrics,
         );
@@ -78,6 +79,7 @@ final class LifecycleRuntimeBench
                 /**
                  * @throws \InvalidArgumentException
                  */
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     $context->removeAttribute('benchmark');

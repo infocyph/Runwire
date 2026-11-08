@@ -22,7 +22,8 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
 
     public int $bytes = 0;
 
-    private $drainCallback = null;
+    /** @var (\Closure(ResponseWriterInterface): void)|null */
+    private ?\Closure $drainCallback = null;
 
     private bool $ended = false;
 
@@ -38,6 +39,7 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         $this->pressureEvery = $pressureEvery;
     }
 
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -51,23 +53,27 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    #[\Override]
     public function isEnded(): bool
     {
         return $this->ended;
     }
 
+    #[\Override]
     public function isStarted(): bool
     {
         return $this->started;
     }
 
+    #[\Override]
     public function onDrain(callable $callback): self
     {
-        $this->drainCallback = $callback;
+        $this->drainCallback = \Closure::fromCallable($callback);
 
         return $this;
     }
 
+    #[\Override]
     public function onTerminal(callable $callback): self
     {
         if ($this->ended) {
@@ -77,6 +83,7 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         return $this;
     }
 
+    #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         unset($status, $headers);
@@ -85,6 +92,7 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    #[\Override]
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {

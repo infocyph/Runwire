@@ -36,7 +36,10 @@ function http1BenchConnectionMode(): string
     return $value;
 }
 
-/** Generate the exact same H1 wire request across all matrix populations. */
+/**
+ * Generate the exact same H1 wire request across all matrix populations.
+ * @throws \InvalidArgumentException
+ */
 function http1BenchRequest(): string
 {
     return "GET /benchmark HTTP/1.1\r\nHost: localhost\r\nConnection: "

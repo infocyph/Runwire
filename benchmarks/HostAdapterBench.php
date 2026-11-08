@@ -98,6 +98,9 @@ final class HostAdapterBench
         return strlen($request->target);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHostResponseWriterLifecycle(): int
     {
         $writer = $this->newWriter();
