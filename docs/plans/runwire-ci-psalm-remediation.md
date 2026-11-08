@@ -45,7 +45,8 @@
 | 22 | Document 99 more exception locations in 15 new-3.0 service and transport files | 99 throw sites, method-level precision | Prepared; CI verification pending |
 | 23 | Cover 99 exception sites in 23 published implementations with matching migration ledger reviews | 99 throw sites + 23 ledger entries | Prepared; CI verification pending |
 | 24 | Correct nullable deadline, DNS family arrays, SOCKS5 encoding, H2/QUIC protocol shapes, TLS callback signatures and Swoole scoping | P1 type and state correctness | Prepared; CI verification pending |
-| 11+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Not started |
+| 25 | Repair current PHPStan/Pint/PHPCS blockers after Batch 24 | 1 complexity, 1 ordered element, 4 callback warnings | Implemented; CI verification pending |
+| 26+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -256,3 +257,12 @@
 - Adapt TLS readiness callbacks to event loop signatures without relying on PHP tolerance for excess parameters. Preserve exactly-once cleanup and socket ownership.
 - Remove unused Swoole WorkerStart variable `unset` and rename ignored argument without changing worker callbacks. Existing published Swoole driver is already covered in migration ledger.
 - Verify PHPStan, Psalm and full native/HTTP3/Swoole acceptance on GitHub before closure.
+
+### Batch 25 — quality gate restoration and P0–P3 carry-forward
+
+- Latest Batch 24 PHP 8.4/8.5 Psalm: **757 errors** (582 missing throws), down from 1,295 at Batch 10; PHPStan failed one SOCKS5 connect-request cognitive complexity check.
+- Shared validation for validated numeric SOCKS5 addresses lowers method complexity while preserving the existing IP family dispatch and rejecting failure of `inet_pton()`.
+- Fix Pint's `ordered_class_elements` finding on detached process cleanup without changing process ownership.
+- PHPCS callback-argument warnings in TLS readiness and Swoole host callbacks addressed by explicit parameter disposal, preserving their event handler signatures and callback semantics.
+- Do not mark verified until PHPForge stable/lowest QA, PHPStan, Psalm, HTTP/3, Source Audit and Swoole acceptance results are inspected.
+- P0 file/SSRF/header taint findings (9/6/3), P1 type invariants, P2 internal contracts, P3 unused/docblock issues, and all further findings remain open until verified green.

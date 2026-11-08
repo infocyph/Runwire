@@ -43,10 +43,12 @@ final class TlsHandshakeReadiness
         bool $watchWrite,
     ): void {
         try {
-            $ready = static function (mixed $_stream, int $_watcher) use ($onReady): void {
+            $ready = static function (mixed $stream, int $watcher) use ($onReady): void {
+                unset($stream, $watcher);
                 $onReady();
             };
-            $this->timeoutTimer = $this->loop->delay($seconds, static function (int $_timer) use ($onTimeout): void {
+            $this->timeoutTimer = $this->loop->delay($seconds, static function (int $timer) use ($onTimeout): void {
+                unset($timer);
                 $onTimeout();
             });
             $this->readWatcher = $this->loop->onReadable($stream, $ready);

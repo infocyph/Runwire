@@ -124,16 +124,6 @@ final class ProcessHandle
         return ProcessTerminator::graceful($this->resource, $this->pid, $this->processGroup);
     }
 
-    /**
-     * Return the oldest detached child, which can be absent if ownership changes.
-     *
-     * @return array{resource: resource, pid: ?int, process_group: bool}|null
-     */
-    private static function shiftDetached(): ?array
-    {
-        return array_shift(self::$detached);
-    }
-
     /** @param resource $resource */
     private static function retainDetached(mixed $resource, ?int $pid, bool $processGroup): void
     {
@@ -160,6 +150,16 @@ final class ProcessHandle
             'pid' => $pid,
             'process_group' => $processGroup,
         ];
+    }
+
+    /**
+     * Return the oldest detached child, which can be absent if ownership changes.
+     *
+     * @return array{resource: resource, pid: ?int, process_group: bool}|null
+     */
+    private static function shiftDetached(): ?array
+    {
+        return array_shift(self::$detached);
     }
 
     private function isolateProcessGroup(): bool

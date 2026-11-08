@@ -46,17 +46,9 @@ final readonly class Socks5Handshake
             ? substr($host, 1, -1)
             : $host;
         if (filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-            $packed = inet_pton($target);
-            if ($packed === false) {
-                throw new InvalidArgumentException('Unable to encode SOCKS5 IPv4 destination.');
-            }
-            $address = "\x01" . $packed;
+            $address = self::encodedIp($target, "\x01");
         } elseif (filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
-            $packed = inet_pton($target);
-            if ($packed === false) {
-                throw new InvalidArgumentException('Unable to encode SOCKS5 IPv6 destination.');
-            }
-            $address = "\x04" . $packed;
+            $address = self::encodedIp($target, "\x04");
         } else {
             if (!$this->remoteDns) {
                 throw new InvalidArgumentException('SOCKS5 local DNS policy requires a pre-resolved IP.');
@@ -143,6 +135,17 @@ final readonly class Socks5Handshake
         if (strlen($reply) !== 2 || $reply[0] !== "\x05" || $reply[1] !== $expected) {
             throw new RuntimeException('SOCKS5 proxy rejected the required authentication method.');
         }
+    }
+
+    /** Encode a previously validated numeric SOCKS5 destination. */
+    private static function encodedIp(string $target, string $family): string
+    {
+        $packed = inet_pton($target);
+        if ($packed === false) {
+            throw new InvalidArgumentException('Unable to encode SOCKS5 numeric destination.');
+        }
+
+        return $family . $packed;
     }
 
     /**
