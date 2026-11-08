@@ -728,3 +728,9 @@
 - At Batch 66 Psalm reduced 15->14 because immutable object specialization correctly split unrelated client/server frame values. Batch 67 restored its required published Headers ledger; Source Audit and documentation passed.
 - The validated `HeaderField` value object rejects all CR, LF, NUL and forbidden control bytes. Test whether precise per-instance taint tracking plus the current runtime constructor checks makes the previous `@psalm-taint-escape header` unnecessary on `NativePhpResponseWriterFactory::validatedHeaderLine`. Remove only the annotation; preserve the header generation logic and its tests.
 - **Do not claim this works before CI**. Any `TaintedHeader` reappearance means the project needs a sound scoped sanitizer declaration accepted by both Psalm and PHPForge; revert the change rather than weakening header checks. The 14 CLI/worker file+SSRF flows remain unresolved. No merge, release or tag.
+
+### Batch 69 — failure-proof RoadRunner 504 diagnostics
+
+- Batch 67 and 68 Real Hosted Runtime Acceptance showed intermittent RoadRunner HTTP 504s for PHP 8.4/8.5; a retry of the PHP 8.5 job passed. The initial failing script printed only curl exit 22 and discarded the RR server/worker stderr context on request failure, preventing attribution.
+- Preserve all exact three request assertions, the existing HTTP 4-second bound and 504 failure. On any one of the request curls returning nonzero, print both local RoadRunner process and worker error logs and fail with the original status. This is diagnostics-only; no acceptance criteria were weakened, and the worker code is untouched.
+- Re-run hosted acceptance on this SHA to isolate whether failures are deterministic runtime regressions, runner contention or unhandled worker errors. No merge or tag.

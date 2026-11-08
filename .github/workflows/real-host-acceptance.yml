@@ -225,7 +225,12 @@ jobs:
           fi
 
           for number in 1 2 3; do
-            curl -fsS --max-time 4 "http://127.0.0.1:$port/rr?case=$number" >"$tmp/request-$number.json"
+            if ! curl -fsS --max-time 4 "http://127.0.0.1:$port/rr?case=$number" >"$tmp/request-$number.json"; then
+              echo "RoadRunner persistent worker request $number failed:" >&2
+              cat "$tmp/rr.log" >&2
+              cat /tmp/runwire-road-runner-worker-error.log >&2 || true
+              exit 1
+            fi
           done
           jq -s . "$tmp/request-1.json" "$tmp/request-2.json" "$tmp/request-3.json"
           if ! jq -se '
