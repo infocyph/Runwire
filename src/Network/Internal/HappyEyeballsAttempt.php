@@ -143,7 +143,7 @@ final class HappyEyeballsAttempt
      */
     private static function orderAddresses(array $addresses, int $port): array
     {
-        /** @var array{4:list<string>, 6:list<string>} $families */
+        /** @var array<int, list<string>> $families */
         $families = [4 => [], 6 => []];
         $first = null;
 

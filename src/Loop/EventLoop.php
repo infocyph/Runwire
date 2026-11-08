@@ -250,7 +250,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
             // Opt-in failing-soak diagnostics only: preserve propagation and
             // expose the original stack when libevent reports only its wrapper.
             if (getenv('RUNWIRE_SOAK_DIAGNOSTICS') === '1') {
-                error_log('Runwire soak callback failure: ' . (string) $error);
+                error_log('Runwire soak callback failure: ' . $error->__toString());
             }
 
             throw $error;

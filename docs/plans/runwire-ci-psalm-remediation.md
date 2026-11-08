@@ -52,7 +52,8 @@
 | 29 | Document published HTTP, QUIC, runtime and network exception contracts | 102 logged sites + 24 ledger entries | Implemented; CI verification pending |
 | 30 | Correct TLS path, process, request timing, DNS-array and header trust-boundary analysis | P0/P1/P2 type and taint findings | Implemented; CI verification pending |
 | 31 | Reconcile PHPStan constructor throws and avoid duplicate TLS realpath calls | 1 PHPStan blocker and resource efficiency | Implemented; CI verification pending |
-| 32+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 32 | Restore PHPForge QA, Pint and PHPStan checks after Batch 31 | 4 PHPStan + 3 quality findings | Implemented; CI verification pending |
+| 33+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -314,3 +315,21 @@
 - Batch 29 PHPStan reported an unused `@throws InvalidArgumentException` in the empty `RuntimeOptions` constructor, so remove the inaccurate declaration rather than inventing an exception.
 - Cache each certificate and private-key `realpath()` result exactly once in `TlsClientOptions`, retaining canonical path/fallback behavior without doubled filesystem syscalls.
 - Keep PHPForge strict and verify PHPStan, Psalm, source audit, and runtime QA before closing this batch.
+
+### Batch 31 verified analyzer checkpoint
+
+- GitHub PHP 8.4 and 8.5 Psalm each report **622 errors**, including **460 MissingThrowsDocblock**. Reduction since Batch 10 baseline of 1,295 is 673.
+- The analyzer also flagged three redundant Happy Eyeballs key coalesces and one ProcessRunner class-complexity violation. The QA scanner rejects `@psalm-taint-escape`, Pint requires ProcessRunner class-element ordering, and Rector rejects an unnecessary Throwable string cast.
+
+### Batch 32 — restore strict quality gates
+
+- Preserve full HeaderField token/CRLF validation; emit the header directly rather than claiming a taint sanitizer. The header-taint reports remain open for additional verification.
+- Give Happy Eyeballs an open integer-keyed family-list annotation so defensive coalesces reflect its intended shape without conflicting with PHPStan's exact-key inference.
+- Keep ProcessRunner platform-specific null-device behavior using direct mapping and alphabetical private-helper ordering, eliminating a redundant conditional from class complexity.
+- Use explicit Throwable::__toString() for opted-in soak diagnostics, preserving stack details without a redundant string cast rejected by Rector.
+- No analyzer skip directives, no test skips and no reduction of security checks. Verify all new CI checks before marking complete.
+
+### Batch 32 source-audit reconciliation
+
+- Verified the exact published 2.1.2 comparator tree against the current branch: **164 changed published source files** and **164 corresponding migration ledger entries** after removing the now-unchanged `RuntimeOptions` disposition.
+- This removal follows the source-diff contract and does not downgrade the migration checker.

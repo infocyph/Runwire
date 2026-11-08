@@ -1128,14 +1128,6 @@
       "requiresReleaseSignoff": true
     },
     {
-      "symbol": "Infocyph\\Runwire\\RuntimeOptions",
-      "executableTest": "tests/RuntimeOptionsTest.php",
-      "behavior": "RuntimeOptions runtime validation, state transitions and bounded failure handling",
-      "migration": "Preserve RuntimeOptions semantics and observed subsystem regression behavior when migrating from published 2.1.2 to Runwire 3.0; method exception annotations describe existing failure contracts without behavioral changes.",
-      "disposition": "documented_test_backed_contract",
-      "requiresReleaseSignoff": true
-    },
-    {
       "symbol": "Infocyph\\Runwire\\Server",
       "executableTest": "tests/ServerDefinitionTest.php",
       "behavior": "Server listener definitions and configuration",

@@ -71,15 +71,15 @@ final readonly class ProcessRunner
         }
     }
 
-    /** Return the platform-specific operating system null device. */
-    private static function nullDevice(): string
-    {
-        return DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
-    }
-
     private static function closure(?callable $consumer): ?Closure
     {
         return $consumer === null ? null : Closure::fromCallable($consumer);
+    }
+
+    /** Return the platform-specific operating system null device. */
+    private static function nullDevice(): string
+    {
+        return ['/' => '/dev/null', '\\' => 'NUL'][DIRECTORY_SEPARATOR];
     }
 
     /** @param array<int, resource> $pipes */
