@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    throw new RuntimeException('Source audit tools require the PHP CLI SAPI.');
+}
+
 /**
  * Compare two immutable source-only PHP API manifests (no Composer required).
  *
@@ -26,7 +30,7 @@ $readCliArguments = static function (mixed $input): array {
 
     return $arguments;
 };
-$arguments = $readCliArguments($_SERVER['argv'] ?? []);
+$arguments = $readCliArguments($argv ?? []);
 if (count($arguments) !== 3) {
     throw new InvalidArgumentException('Usage: php tools/public-api-diff.php <baseline.json> <candidate.json>');
 }

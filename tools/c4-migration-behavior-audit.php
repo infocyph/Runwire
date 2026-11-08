@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    throw new RuntimeException('Source audit tools require the PHP CLI SAPI.');
+}
+
 /**
  * Fail closed if any changed published implementation lacks a reviewed
  * migration disposition and an executable, source-present regression test.
@@ -24,7 +28,7 @@ $readCliArguments = static function (mixed $input): array {
 
     return $arguments;
 };
-$arguments = $readCliArguments($_SERVER['argv'] ?? []);
+$arguments = $readCliArguments($argv ?? []);
 if (count($arguments) !== 3) {
     throw new InvalidArgumentException(
         'Usage: php tools/c4-migration-behavior-audit.php <source-diff.json> <ledger.json>',

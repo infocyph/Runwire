@@ -652,3 +652,9 @@
 - Fail closed before `file_put_contents` when the CLI-supplied output is a PHP stream wrapper, NUL-bearing, too long, a symlink or has no existing writable local parent. Ordinary relative/absolute filesystem output paths remain supported.
 - Add a subprocess regression that rejects `php://memory` output without attempting an unsafe stream write, alongside the existing manifest-property acceptance fixture.
 - This is concrete security hardening, **not a claim that the 15 Psalm taint diagnostics are resolved**. Remaining CLI-input, worker file operations and optional outbound network policies require stronger authorization and source/sink verification. Verify exact-head Psalm, PHPStan, QA/Pest, Source Audit and docs; no merge/tag.
+
+### Batch 57 — make source-audit trust boundary explicitly CLI-only
+
+- Exact starting SHA: `848e9f3f7414e87a164f57e56f65a6b60cf3af58`, Psalm 15 file/SSRF taints on each PHP version, PHPStan green; PHPForge QA eight PHP suppressions plus one reviewed header sanitizer still failing.
+- Require `PHP_SAPI === 'cli'` before any source-audit tool accepts input, and obtain CLI process arguments from the top-level PHP CLI `$argv` rather than a general-purpose `$_SERVER` key. Retain argument shape, path canonicalization, size limits, schema validation and output semantics. This makes invocation authorization explicit rather than treating arbitrary web-server input as a legitimate audit request.
+- Verify complete Source Audit and the CLI migration tests. Measure whether the analyzer regards correctly scoped CLI argv as tainted; do not claim a taint reduction without actual output. If the same taint reports remain, retain safe local input checks rather than hiding diagnostics. No suppression changes, no merge/tag/release.

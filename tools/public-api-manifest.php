@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    throw new RuntimeException('Source audit tools require the PHP CLI SAPI.');
+}
+
 /**
  * Reproducible SOURCE-ONLY API fingerprint. No Composer install and no optional
  * extension is needed to inspect the published tag. The manifest records
@@ -26,7 +30,7 @@ $readCliArguments = static function (mixed $input): array {
 
     return $arguments;
 };
-$arguments = $readCliArguments($_SERVER['argv'] ?? []);
+$arguments = $readCliArguments($argv ?? []);
 $withProperties = count($arguments) === 5 && $arguments[4] === '--with-properties';
 if (count($arguments) < 4) {
     throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');

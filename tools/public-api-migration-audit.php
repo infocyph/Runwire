@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    throw new RuntimeException('Source audit tools require the PHP CLI SAPI.');
+}
+
 /**
  * Certify source-only public API delta against an explicitly reviewed policy.
  *
@@ -10,7 +14,7 @@ declare(strict_types=1);
  * The source parser cannot flatten traits and cannot prove behavioral BC.
  * Unexpected removed declarations or signature changes fail closed.
  */
-$arguments = $_SERVER['argv'] ?? null;
+$arguments = $argv ?? null;
 if (!is_array($arguments) || count($arguments) !== 3
     || !is_string($arguments[1] ?? null) || !is_string($arguments[2] ?? null)) {
     throw new InvalidArgumentException('Usage: php tools/public-api-migration-audit.php <diff.json> <policy.json>');
