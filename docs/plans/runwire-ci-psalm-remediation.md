@@ -827,3 +827,10 @@
 - `tools/public-api-diff.php` still reads arbitrary argv filenames through file_get_contents, yielding one SSRF + one file-taint sink. The comparator now receives two JSON manifest objects in a bounded 33.6 MiB stdin envelope; it performs identical schema-v1, declaration, property and SHA checks. Remove caller-selected read paths from the PHP process entirely.
 - Update the workflow using jq --slurpfile to preserve the pinned published and live property-aware manifests; adapt deterministic test to a single envelope input. Reject invalid envelopes and extra args. Manifest output and source diff format remain unchanged. No taint escape, excluded files or downgraded analyzers.
 - Verify PHP 8.4/8.5 Psalm/PHPStan, four strict QA lanes and Source Audit before updating findings counts. No merge/tag.
+
+### Batch 84 — bind worker file operations directly to validated paths
+
+- Audit tool STDIN conversions remove caller-controlled file paths from source review tools. Executor-worker file operations intentionally support developer-supplied paths and optional restricted roots.
+- Previously guardFilePath() validated an array entry and returned void while all worker operation closures independently reused the original untrusted value. Return the guarded non-empty-string from a central path-validation boundary and require all five operations to use it directly. Preserve optional root scope, anti-wrapper/NUL/length checks, canonical parents and symlink restrictions.
+- Add direct ProcessExecutor regression rejecting PHP and HTTP stream wrappers inside the child, alongside a successful bounded ordinary file read. This is a real guard wiring change, not a taint laundering annotation. Psalm may still report tainted file access where unrestricted developer-controlled paths are intentionally supported; never claim they are cleared without evidence.
+- Verify PHPStan/Psalm/QA/Pest/Source Audit. No analyzer suppressions, exclusions, merge or release.

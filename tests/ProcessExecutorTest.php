@@ -354,3 +354,38 @@ it('decodes executor results by the top-level operation, never nested JSON argum
         $executor->close();
     }
 });
+
+it('binds every subprocess file operation to a validated path and rejects wrappers', function (): void {
+    $file = tempnam(sys_get_temp_dir(), 'runwire-worker-path-');
+    expect($file)->toBeString();
+    file_put_contents($file, 'guarded-file');
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 4);
+    $results = [];
+
+    try {
+        $executor->submit('read', ['path' => 'php://memory', 'offset' => 0, 'length' => 8],
+            static function ($value, ?Throwable $error) use (&$results): void {
+                $results['wrapper-read'] = [$value, $error];
+            });
+        $executor->submit('stat', ['path' => 'http://127.0.0.1/secret'],
+            static function ($value, ?Throwable $error) use (&$results): void {
+                $results['wrapper-stat'] = [$value, $error];
+            });
+        $executor->submit('read', ['path' => $file, 'offset' => 0, 'length' => 7],
+            static function ($value, ?Throwable $error) use (&$results): void {
+                $results['safe-read'] = [$value, $error];
+            });
+        $executor->onDrained(static function () use ($executor): void {
+            $executor->close();
+        });
+        $loop->run();
+
+        expect($results['wrapper-read'][1])->toBeInstanceOf(RuntimeException::class)
+            ->and($results['wrapper-stat'][1])->toBeInstanceOf(RuntimeException::class)
+            ->and($results['safe-read'])->toBe(['guarded', null]);
+    } finally {
+        $executor->close();
+        unlink($file);
+    }
+});
