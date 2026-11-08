@@ -32,6 +32,7 @@ final class NativeHttp3Worker
      * Attach HTTP/3 polling to a shared native loop for portable single-process mode.
      * @throws \LogicException
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function attach(
         LoopInterface $loop,
@@ -92,6 +93,7 @@ final class NativeHttp3Worker
      * Runs the HTTP/3 worker until shutdown and drains active connections on exit.
      * @throws \LogicException
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function run(
         WorkerContext $context,

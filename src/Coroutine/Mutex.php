@@ -78,7 +78,13 @@ final class Mutex
         return $this->ownerTaskId;
     }
 
-    /** @param callable(): mixed $callback */
+    /**
+     * @param callable(): mixed $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\SynchronizationException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \Throwable
+     */
     public function synchronized(callable $callback): mixed
     {
         $this->lock();

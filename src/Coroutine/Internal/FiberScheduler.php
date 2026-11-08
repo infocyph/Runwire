@@ -73,6 +73,7 @@ final class FiberScheduler
     /**
      * Suspend the current task until the future completes.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function awaitFuture(
         Future $future,
@@ -404,6 +405,9 @@ final class FiberScheduler
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function dispatch(ReadyItem $item): void
     {
         $task = $item->task;
@@ -467,6 +471,9 @@ final class FiberScheduler
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function enqueueResume(
         Task $task,
         mixed $value,

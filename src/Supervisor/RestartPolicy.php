@@ -13,6 +13,7 @@ final readonly class RestartPolicy
 {
     /**
      * Create a worker restart policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxRestarts = 10,

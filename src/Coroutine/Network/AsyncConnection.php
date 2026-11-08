@@ -174,6 +174,7 @@ final class AsyncConnection
 
     /**
      * Detach coroutine callback ownership without closing the underlying connection.
+     * @throws \LogicException
      */
     public function dispose(): void
     {
@@ -333,6 +334,7 @@ final class AsyncConnection
     /**
      * Write data through the underlying connection.
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function write(string $data): WriteResult
     {
@@ -364,6 +366,9 @@ final class AsyncConnection
         $this->connection->releaseCallbacks($this);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function handleClose(Connection $connection, CloseReason $reason): void
     {
         $this->releaseCloseObserver();

@@ -18,6 +18,8 @@ final class MonotonicTime
 
     /**
      * Add a non-negative nanosecond delta without overflowing the platform integer range.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public static function addNanoseconds(int $base, int $delta): int
     {
@@ -54,6 +56,8 @@ final class MonotonicTime
 
     /**
      * Convert a finite non-negative duration to nanoseconds with checked arithmetic.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public static function secondsToNanoseconds(float $seconds, bool $roundUp = false): int
     {

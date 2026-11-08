@@ -103,7 +103,12 @@ final class Semaphore
         ++$this->available;
     }
 
-    /** @param callable(): mixed $callback */
+    /**
+     * @param callable(): mixed $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \Throwable
+     */
     public function withPermit(callable $callback): mixed
     {
         $this->acquire();

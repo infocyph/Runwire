@@ -31,6 +31,7 @@ final class IntegerCodec
     /**
      * Encode an integer using a QPACK prefix width and mask.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function encode(int $value, int $prefixBits, int $prefixMask = 0): string
     {
@@ -54,7 +55,10 @@ final class IntegerCodec
         return $encoded . self::byte($value);
     }
 
-    /** @return array{0: int, 1: int}|null */
+    /**
+     * @return array{0: int, 1: int}|null
+     * @throws \InvalidArgumentException
+     */
     public static function tryDecode(string $data, int $offset, int $prefixBits, ErrorCode $errorCode): ?array
     {
         self::validatePrefix($prefixBits);

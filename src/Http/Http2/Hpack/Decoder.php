@@ -128,6 +128,9 @@ final class Decoder
         $headerBytes += $size;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function decodeName(string $block, int &$offset, int $prefixBits, int $headerBytes): string
     {
         $index = IntegerCodec::decode($block, $offset, $prefixBits);
@@ -140,6 +143,7 @@ final class Decoder
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     * @throws \InvalidArgumentException
      */
     private function decodeString(string $block, int &$offset, int $maxOutputBytes): string
     {

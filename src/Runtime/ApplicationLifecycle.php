@@ -111,6 +111,8 @@ final class ApplicationLifecycle
     /**
      * Executes one admitted request through the application handler and lifecycle cleanup.
      * @throws \LogicException
+     * @throws \Throwable
+     * @throws \OverflowException
      */
     public function handle(
         HttpRequest $request,
@@ -195,6 +197,7 @@ final class ApplicationLifecycle
     /**
      * Runs application boot and warmup hooks once.
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\ApplicationStartupException
      */
     public function start(): void
     {

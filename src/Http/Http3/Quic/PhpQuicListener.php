@@ -25,6 +25,7 @@ final readonly class PhpQuicListener
 
     /**
      * Wrap a native QUIC listener object.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private object $listener)
     {
@@ -37,6 +38,8 @@ final readonly class PhpQuicListener
     /**
      * @param array<string, mixed> $options
      * @throws \Infocyph\Runwire\Exception\ListenerException
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function bind(string $host, int $port, array $options): self
     {

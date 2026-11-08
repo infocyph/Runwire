@@ -29,6 +29,7 @@ final readonly class PhpQuicConnection
 
     /**
      * Wrap and validate a native ext-quic connection object.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private object $connection)
     {
@@ -44,6 +45,7 @@ final readonly class PhpQuicConnection
     /**
      * Accept the next available peer stream.
      * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public function acceptStream(): ?PhpQuicStream
     {
@@ -126,6 +128,7 @@ final readonly class PhpQuicConnection
     /**
      * Open a local QUIC stream with the requested directionality.
      * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public function openStream(bool $bidirectional): PhpQuicStream
     {

@@ -190,6 +190,9 @@ final class TimerQueue
             || ($left['deadline'] === $right['deadline'] && $left['id'] < $right['id']);
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function nextRepeatDeadline(int $previousDeadline, int $interval, int $now): int
     {
         if ($previousDeadline > PHP_INT_MAX - $interval) {
@@ -251,6 +254,9 @@ final class TimerQueue
         $this->heap[$index] = $entry;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function secondsToNanoseconds(float $seconds, bool $allowZero): int
     {
         if (!is_finite($seconds) || $seconds < 0 || (!$allowZero && $seconds <= 0)) {

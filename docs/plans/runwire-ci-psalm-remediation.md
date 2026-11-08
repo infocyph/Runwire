@@ -47,7 +47,8 @@
 | 24 | Correct nullable deadline, DNS family arrays, SOCKS5 encoding, H2/QUIC protocol shapes, TLS callback signatures and Swoole scoping | P1 type and state correctness | Prepared; CI verification pending |
 | 25 | Repair current PHPStan/Pint/PHPCS blockers after Batch 24 | 1 complexity, 1 ordered element, 4 callback warnings | Implemented; CI verification pending |
 | 26 | Document remaining published runtime exception contracts | 103 logged exception sites | Implemented; CI verification pending |
-| 27+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 27 | Published runtime exception contracts | 64 logged sites | Implemented; CI verification pending |
+| 28+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -274,3 +275,10 @@
 - Updated 87 precise exception declarations, without changing function bodies, API signatures or runtime policy.
 - Pinned comparator migration ledger already covers all 13 implementation types, so no speculative new ledger entries were added.
 - Verify actual net Psalm reduction and PHPStan/Pint/PHPCS/source audit/native/protocol acceptance before marking complete. Security P0–P3 review remains open.
+
+### Batch 27 — published runtime exceptions
+
+- On Batch 26, PHP 8.4 Psalm recorded 714 errors, including 538 missing throws; PHPStan passed.
+- Matched 64 remaining throw sites across 15 previously ledgered runtime implementation types, grouped into 31 declaring methods with 40 missing exception annotations.
+- Changes are PHPDoc only; public signatures and method bodies are intact. P0–P3 taint, type and lifecycle findings remain open.
+- Await CI before marking verified.

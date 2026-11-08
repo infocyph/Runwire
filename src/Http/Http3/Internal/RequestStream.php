@@ -223,6 +223,7 @@ final class RequestStream
     /**
      * Resume a request whose QPACK field section has become decodable.
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function resume(DecodedFieldSection $section): void
     {
@@ -464,6 +465,9 @@ final class RequestStream
         $this->drainParsedFrames();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function drainParsedFrames(): void
     {
         while (($frame = $this->parser->shift()) !== null) {
@@ -562,6 +566,9 @@ final class RequestStream
         $this->pendingBudgetBytes = $bytes;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function resumeAfterBodyRelief(): void
     {
         if ($this->cancelled || $this->finished) {
