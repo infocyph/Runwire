@@ -21,6 +21,10 @@ use RuntimeException;
 use Throwable;
 
 
+/**
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function batchPExpectCancelled(Task $task): CancellationReason
 {
     try {

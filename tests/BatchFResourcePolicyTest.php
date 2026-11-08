@@ -31,6 +31,9 @@ use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * @throws \OverflowException
+ */
 function batchFRequest(string $target, ProtocolVersion $version = ProtocolVersion::HTTP_1_1): HttpRequest
 {
     return new HttpRequest(
@@ -42,7 +45,10 @@ function batchFRequest(string $target, ProtocolVersion $version = ProtocolVersio
     );
 }
 
-/** @param ArrayObject<string, mixed> $state */
+/**
+ * @param ArrayObject<string, mixed> $state
+ * @throws \InvalidArgumentException
+ */
 function batchFWriter(ArrayObject $state): ResponseWriterInterface
 {
     return new CallbackResponseWriter(

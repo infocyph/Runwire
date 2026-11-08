@@ -24,6 +24,9 @@ use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \OverflowException
+ */
 function hostRuntimeRequest(string $target = '/host'): HttpRequest
 {
     return new HttpRequest(
@@ -35,6 +38,9 @@ function hostRuntimeRequest(string $target = '/host'): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function hostRuntimeWriter(array &$chunks): ResponseWriterInterface
 {
     return new CallbackResponseWriter(

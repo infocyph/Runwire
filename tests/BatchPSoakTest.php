@@ -21,7 +21,11 @@ use stdClass;
 use WeakReference;
 
 
-/** @return array{WorkerContext, resource} */
+/**
+ * @return array{WorkerContext, resource}
+ * @throws \RuntimeException
+ * @throws \Throwable
+ */
 function batchPWorkerContext(int $generation): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);

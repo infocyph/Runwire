@@ -26,6 +26,9 @@ function expectHttp3Fault(callable $action, ErrorCode $expected): void
     }
 }
 
+/**
+ * @throws \Throwable
+ */
 function abuseRequestHeaders(Encoder $encoder, int $streamId, array $extra = []): string
 {
     return $encoder->encode([

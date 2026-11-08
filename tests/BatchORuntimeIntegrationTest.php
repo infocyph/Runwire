@@ -27,6 +27,9 @@ use LogicException;
 use RuntimeException;
 
 
+/**
+ * @throws \OverflowException
+ */
 function batchORequest(string $target = '/coroutine'): HttpRequest
 {
     return new HttpRequest(
@@ -38,6 +41,9 @@ function batchORequest(string $target = '/coroutine'): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchOWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(

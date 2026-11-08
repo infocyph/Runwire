@@ -9,6 +9,9 @@ use Infocyph\Runwire\Http\Client\Http1ClientRequestWriter;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function runwireHttp1ClientPolicy(): ClientProtocolPolicy
 {
     return new ClientProtocolPolicy(

@@ -24,6 +24,9 @@ function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT
             private readonly int $maxWrite,
         ) {}
 
+        /**
+         * @throws \RuntimeException
+         */
         public function end(): void
         {
             if ($this->failEnd) {
@@ -57,6 +60,9 @@ function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT
             $this->resetCode = $errorCode;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
         public function write(string $data, bool $fin = false): int
         {
             if ($this->failWrite) {

@@ -28,6 +28,9 @@ use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchHRuntimeContext(bool $concurrent = false): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -82,6 +85,9 @@ it('creates a native application from the resolved runtime context factory', fun
     $factory = new class implements RuntimeApplicationFactoryInterface {
         public ?RuntimeContext $createdWith = null;
 
+        /**
+         * @throws \InvalidArgumentException
+         */
         #[\Override]
         public function create(RuntimeContext $context): RuntimeApplicationInterface
         {

@@ -32,6 +32,9 @@ use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchIRuntimeContext(
     RuntimeDriver $driver,
     bool $persistent,
@@ -59,6 +62,9 @@ function batchIRuntimeContext(
     );
 }
 
+/**
+ * @throws \OverflowException
+ */
 function batchIRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -70,6 +76,9 @@ function batchIRequest(string $target): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchIWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
@@ -98,11 +107,17 @@ function batchIState(): ArrayObject
     ]);
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchIApplication(RuntimeContext $context, ArrayObject $state): RuntimeApplication
 {
     $resetter = new class($state) implements RequestResetterInterface {
         public function __construct(private readonly ArrayObject $state) {}
 
+        /**
+         * @throws \RuntimeException
+         */
         #[\Override]
         public function reset(RequestContext $context): void
         {
@@ -160,7 +175,10 @@ function batchIApplication(RuntimeContext $context, ArrayObject $state): Runtime
     );
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function batchISummary(RuntimeContext $context, RuntimeApplication $application, ArrayObject $state): array
 {
     $contexts = $state['request_contexts'];
@@ -194,7 +212,10 @@ function batchISummary(RuntimeContext $context, RuntimeApplication $application,
     ];
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ */
 function batchIRunNative(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::NATIVE, true);
@@ -209,7 +230,12 @@ function batchIRunNative(int $requests): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \Throwable
+ */
 function batchIRunFpm(): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::FPM, false);
@@ -228,7 +254,12 @@ function batchIRunFpm(): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \Throwable
+ */
 function batchIRunFrankenPhp(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::FRANKENPHP, true);
@@ -257,7 +288,12 @@ function batchIRunFrankenPhp(int $requests): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \Throwable
+ */
 function batchIRunRoadRunner(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::ROADRUNNER, true);
@@ -299,7 +335,11 @@ function batchIRunRoadRunner(int $requests): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Throwable
+ */
 function batchIRunSwoole(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::SWOOLE, true, true);

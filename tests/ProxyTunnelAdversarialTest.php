@@ -13,6 +13,11 @@ use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 /**
  * Exercise the real connection callback/ownership path, not only codec methods.
  * Every negative result must have one error, no successful handoff and no leak.
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireProxyAdversarialReply(
     string $protocol,

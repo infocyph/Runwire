@@ -11,6 +11,9 @@ use Infocyph\Runwire\Http\Http3\Internal\RequestStream;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 
+/**
+ * @throws \Throwable
+ */
 function http3RequestHeaders(Encoder $encoder, int $streamId, array $extra = []): string
 {
     $fields = [

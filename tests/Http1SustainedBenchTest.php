@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../benchmarks/http1_sustained_bench.php';
 
-/** @return array{process:resource, script:string, ready:string, stdout:string, stderr:string, port:int} */
+/**
+ * @return array{process:resource, script:string, ready:string, stdout:string, stderr:string, port:int}
+ * @throws \RuntimeException
+ */
 function startHttp1SustainedFixture(string $response, bool $repeat): array
 {
     $base = tempnam(sys_get_temp_dir(), 'runwire-http1-fixture-');

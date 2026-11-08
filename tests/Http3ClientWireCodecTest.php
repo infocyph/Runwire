@@ -18,6 +18,9 @@ use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use InvalidArgumentException;
 
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function h3TestPolicy(): ClientProtocolPolicy
 {
     return new ClientProtocolPolicy(
@@ -103,6 +106,9 @@ it('permits bounded H3 upload headers but rejects ambiguous length and proxy cre
     $body = new class implements \Infocyph\Runwire\Http\Client\ClientBodySourceInterface {
         #[\Override]
         public function eof(): bool { return true; }
+        /**
+         * @throws \InvalidArgumentException
+         */
         #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {

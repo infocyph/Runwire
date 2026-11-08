@@ -17,6 +17,9 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function http3SessionWriter(int $streamId, string $method): ResponseWriterInterface
 {
     if ($streamId < 0) {

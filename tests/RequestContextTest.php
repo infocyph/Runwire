@@ -25,6 +25,9 @@ use LogicException;
 use OverflowException;
 
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchBRuntimeContext(): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(

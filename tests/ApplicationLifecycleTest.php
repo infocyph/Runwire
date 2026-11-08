@@ -17,6 +17,9 @@ use Infocyph\Runwire\Runtime\RequestResetterInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
+/**
+ * @throws \OverflowException
+ */
 function lifecycleRequest(string $target = '/lifecycle'): HttpRequest
 {
     return new HttpRequest(
@@ -28,6 +31,9 @@ function lifecycleRequest(string $target = '/lifecycle'): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function lifecycleWriter(?callable $end = null): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
@@ -107,6 +113,9 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
         new class($state) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $state) {}
 
+            /**
+             * @throws \RuntimeException
+             */
             #[\Override]
             public function reset(RequestContext $context): void
             {
@@ -129,6 +138,9 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
         new class($state) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $state) {}
 
+            /**
+             * @throws \RuntimeException
+             */
             #[\Override]
             public function reset(RequestContext $context): void
             {
@@ -424,6 +436,9 @@ it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse
             new class($failure) implements RequestResetterInterface {
                 public function __construct(private readonly RuntimeException $failure) {}
 
+                /**
+                 * @throws \RuntimeException
+                 */
                 #[\Override]
                 public function reset(RequestContext $context): void
                 {
@@ -457,6 +472,9 @@ it('latches asynchronous reset failure when a delayed response later terminates'
             new class($failure) implements RequestResetterInterface {
                 public function __construct(private readonly RuntimeException $failure) {}
 
+                /**
+                 * @throws \RuntimeException
+                 */
                 #[\Override]
                 public function reset(RequestContext $context): void
                 {

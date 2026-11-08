@@ -17,6 +17,11 @@ use Throwable;
 
 /**
  * @return array{response:string,error:?Throwable,callbacks:int,peer:?string,alpn:?string,sni:?string,origin_received:bool,origin_error:?string}
+ * @throws \RuntimeException
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
 {

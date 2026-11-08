@@ -136,6 +136,11 @@ it('creates independent contexts and metrics when Swoole starts or replaces a wo
     }
 });
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+ * @throws \Infocyph\Runwire\Exception\SupervisorException
+ */
 function swooleWorkerTemplate(): RuntimeContext
 {
     $selection = new RuntimeSelector()->select(new RuntimeOptions(driver: RuntimeDriver::SWOOLE), new RuntimeEnvironment(

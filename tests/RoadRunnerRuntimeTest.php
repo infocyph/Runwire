@@ -19,6 +19,9 @@ use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \OverflowException
+ */
 function roadRunnerRuntimeRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -131,6 +134,9 @@ it('streams RoadRunner response frames and recycles after the generic request bu
             ++$this->stops;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
         #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
@@ -207,6 +213,9 @@ it('suppresses RoadRunner HEAD response body frames', function (): void {
         #[\Override]
         public function stop(): void {}
 
+        /**
+         * @throws \RuntimeException
+         */
         #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {

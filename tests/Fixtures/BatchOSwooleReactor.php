@@ -131,6 +131,9 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return true;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     #[\Override]
     public function suspendCoroutine(): void
     {

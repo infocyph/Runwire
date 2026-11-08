@@ -7,6 +7,7 @@ require __DIR__ . '/http1_sustained_bench.php';
 /**
  * @param array{counter:array<string,int>,histogram:array<int,int>,slot_completed:array<int,int>,elapsed:float,peak_rss:int,start_ticks:int,end_ticks:int} $run
  * @return array<string, int|float|bool>
+ * @throws \RuntimeException
  */
 function adaptiveHttp1Phase(array $run): array
 {

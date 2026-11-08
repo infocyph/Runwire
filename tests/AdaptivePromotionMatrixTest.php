@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../benchmarks/adaptive_promotion_matrix.php';
 
-/** @return array<string, array<string, mixed>> */
+/**
+ * @return array<string, array<string, mixed>>
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function adaptivePromotionValidResults(string $protocol): array
 {
     $comparison = [

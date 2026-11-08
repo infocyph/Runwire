@@ -158,7 +158,14 @@ it('immediately cancels a queued same-origin lease without waiting for pool time
     }
 });
 
-/** @return array{SelectLoop,ProcessExecutor,Dialer,HappyEyeballsDialer,\Infocyph\Runwire\Network\TcpListener,PooledHttp1Session,ClientProtocolPolicy,string} */
+/**
+ * @return array{SelectLoop,ProcessExecutor,Dialer,HappyEyeballsDialer,\Infocyph\Runwire\Network\TcpListener,PooledHttp1Session,ClientProtocolPolicy,string}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \Infocyph\Runwire\Exception\ListenerException
+ * @throws \LogicException
+ */
 function pooledH1AdmissionFixture(): array
 {
     $loop = new SelectLoop();

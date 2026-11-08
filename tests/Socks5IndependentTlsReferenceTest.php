@@ -21,6 +21,11 @@ use Throwable;
  * Run a separate Python TLS peer implementing RFC 1928 and RFC 1929 itself.
  *
  * @return array{error:?Throwable,completed:int,verified:?string,peer:array<string,mixed>}
+ * @throws \RuntimeException
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireIndependentSocksReference(string $host, bool $remoteDns, string $behavior = 'success', string $protocol = 'socks5'): array
 {

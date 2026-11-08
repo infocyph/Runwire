@@ -21,6 +21,13 @@ function runwireHttpPair(): array
     return $pair;
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireHttpExchange(string $wire, callable $handler, ?Http1Limits $limits = null): string
 {
     [$server, $client] = runwireHttpPair();

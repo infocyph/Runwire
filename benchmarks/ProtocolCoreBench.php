@@ -116,6 +116,9 @@ final class ProtocolCoreBench
         $this->qpackWire = (new QpackEncoder(0, 0))->encode($this->http3Headers, 0)->block;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     public function benchHttp1HeadValidation(): int
     {
         return $this->http1Validator->validate(
@@ -190,6 +193,7 @@ final class ProtocolCoreBench
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
      */
     public function benchHttp2HpackIntegerRoundTrip(): int
     {
@@ -217,6 +221,7 @@ final class ProtocolCoreBench
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
      */
     public function benchHttp2HuffmanDecode(): int
     {
@@ -274,6 +279,7 @@ final class ProtocolCoreBench
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function benchHttp3FrameDecode(): int
     {
@@ -351,6 +357,7 @@ final class ProtocolCoreBench
     /**
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function benchHttp3QpackIntegerRoundTrip(): int
     {
@@ -386,6 +393,7 @@ final class ProtocolCoreBench
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function benchHttp3VarIntRoundTrip(): int
     {

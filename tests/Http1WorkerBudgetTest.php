@@ -19,7 +19,10 @@ use Infocyph\Runwire\Network\Internal\ByteBudget;
 use RuntimeException;
 
 
-/** @return array{0: resource, 1: resource} */
+/**
+ * @return array{0: resource, 1: resource}
+ * @throws \RuntimeException
+ */
 function http1BudgetPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -37,6 +40,7 @@ function http1BudgetPair(): array
  *   connections: list<Connection>,
  *   clients: list<resource>
  * }
+ * @throws \InvalidArgumentException
  */
 function http1BudgetRetainedBodies(LoopInterface $loop): array
 {

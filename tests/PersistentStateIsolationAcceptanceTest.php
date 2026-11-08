@@ -19,6 +19,11 @@ use Infocyph\Runwire\Tests\Support\PersistentFixtureState;
 use RuntimeException;
 
 
+/**
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ */
 function persistentIsolationRequest(string $target, int $startNanoseconds): HttpRequest
 {
     return new HttpRequest(
@@ -31,6 +36,9 @@ function persistentIsolationRequest(string $target, int $startNanoseconds): Http
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function persistentIsolationWriter(): CallbackResponseWriter
 {
     return new CallbackResponseWriter(

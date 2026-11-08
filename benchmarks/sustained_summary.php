@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 require __DIR__ . '/comparative_evidence.php';
 
-/** @param list<float> $values */
+/**
+ * @param list<float> $values
+ * @throws \RuntimeException
+ */
 function sustainedMedian(array $values): float
 {
     sort($values, SORT_NUMERIC);

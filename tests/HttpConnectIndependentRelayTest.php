@@ -19,6 +19,11 @@ use Throwable;
  * Independent Python TLS proxy forwards real bytes through a separately bound TCP origin.
  *
  * @return array{status:int, relayed:bool, authenticated:bool, callbacks:int, error:?Throwable, response:string, verified:?string}
+ * @throws \RuntimeException
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireHttpConnectIndependentRelay(bool $deny): array
 {

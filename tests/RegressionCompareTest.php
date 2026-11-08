@@ -31,7 +31,10 @@ function releaseCompareFixture(string $build, float $successfulRps = 1_000.0, fl
     ];
 }
 
-/** @return array{exit: int, report: array<string, mixed>, stderr: string} */
+/**
+ * @return array{exit: int, report: array<string, mixed>, stderr: string}
+ * @throws \RuntimeException
+ */
 function releaseCompareRun(array $baseline, array $candidate): array
 {
     $baselinePath = tempnam(sys_get_temp_dir(), 'runwire-baseline-');

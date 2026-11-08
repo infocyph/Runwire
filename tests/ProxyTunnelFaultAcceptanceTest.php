@@ -19,6 +19,11 @@ use Throwable;
 
 /**
  * @return array{errors:list<Throwable>,successes:int,timers:int,reads:int,writes:int,remainingSubscriptions:int}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireProxyFaultFixture(
     string $protocol,

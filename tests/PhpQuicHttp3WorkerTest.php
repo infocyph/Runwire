@@ -104,6 +104,9 @@ function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
             return $this->lastNegotiatedAlpn;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
         public function openStream(bool $bidirectional = true): object
         {
             $stream = array_shift($this->localStreams);
@@ -148,7 +151,11 @@ function workerQuicListener(array $connections): object
     };
 }
 
-/** @return array{0: string, 1: string} */
+/**
+ * @return array{0: string, 1: string}
+ * @throws \RuntimeException
+ * @throws \Throwable
+ */
 function workerHttp3CertificatePair(): array
 {
     $certificatePath = tempnam(sys_get_temp_dir(), 'runwire-h3-cert-');
@@ -193,7 +200,10 @@ function workerHttp3CertificatePair(): array
     }
 }
 
-/** @return array{0: string, 1: int} */
+/**
+ * @return array{0: string, 1: int}
+ * @throws \RuntimeException
+ */
 function workerHttp3Endpoint(): array
 {
     $probe = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
@@ -219,6 +229,9 @@ function workerHttp3Endpoint(): array
     return [$address, $port];
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function workerHttp3Connect(int $port): PhpQuicConnection
 {
     $connectionClass = new ReflectionClass('Quic\\Connection');
@@ -249,6 +262,12 @@ function workerHttp3Connect(int $port): PhpQuicConnection
     throw new RuntimeException($message, 0, $lastError);
 }
 
+/**
+ * @throws \UnexpectedValueException
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+ */
 function workerHttp3RoundTrip(PhpQuicConnection $connection, string $authority): string
 {
     $control = $connection->openStream(false);
@@ -307,6 +326,9 @@ function workerHttp3Reap(int $runtimePid): array
     return [$reaped, $status];
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function workerHttp3StatusPath(): string
 {
     $path = tempnam(sys_get_temp_dir(), 'runwire-h3-status-');
@@ -317,6 +339,9 @@ function workerHttp3StatusPath(): string
     return $path;
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function workerHttp3WriteStatus(string $path, string $status): void
 {
     if (file_put_contents($path, $status, LOCK_EX) === false) {
@@ -324,6 +349,9 @@ function workerHttp3WriteStatus(string $path, string $status): void
     }
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function workerHttp3AwaitStatus(string $path): void
 {
     $deadline = microtime(true) + 2.0;

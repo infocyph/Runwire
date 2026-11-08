@@ -12,7 +12,11 @@ use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
-/** @return array{WorkerContext, resource} */
+/**
+ * @return array{WorkerContext, resource}
+ * @throws \RuntimeException
+ * @throws \Throwable
+ */
 function batchOWorkerContext(WorkerRole $role = WorkerRole::TASK): array
 {
     [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);

@@ -25,6 +25,9 @@ use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Internal\LifecycleEmitter;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchERuntimeContext(?RuntimeMetrics $metrics = null): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(

@@ -9,7 +9,10 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 
-/** @return array{0: resource, 1: resource} */
+/**
+ * @return array{0: resource, 1: resource}
+ * @throws \RuntimeException
+ */
 function abuseHttp1Pair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -20,6 +23,13 @@ function abuseHttp1Pair(): array
     return $pair;
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \LogicException
+ * @throws \Throwable
+ * @throws \RuntimeException
+ */
 function abuseHttp1Exchange(string $wire, Http1Limits $limits, ?callable $handler = null): array
 {
     [$server, $client] = abuseHttp1Pair();

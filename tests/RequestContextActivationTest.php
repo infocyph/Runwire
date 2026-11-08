@@ -19,6 +19,9 @@ use Infocyph\Runwire\RuntimeContext;
 use LogicException;
 
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function requestContextActivationRuntime(): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -41,6 +44,9 @@ function requestContextActivationRuntime(): RuntimeContext
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function requestContextActivationWriter(): CallbackResponseWriter
 {
     return new CallbackResponseWriter(

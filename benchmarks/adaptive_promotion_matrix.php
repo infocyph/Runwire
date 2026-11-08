@@ -105,6 +105,9 @@ function adaptivePromotionCommandOutput(array $command): string
     return trim($stdout);
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function adaptivePromotionCodeIdentity(): string
 {
     $root = dirname(__DIR__);
@@ -145,7 +148,10 @@ function adaptivePromotionPython(string $protocol): string
     };
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function adaptivePromotionEnvironment(string $protocol): array
 {
     $required = ['event', 'pcntl', 'posix', 'openssl'];
@@ -306,6 +312,8 @@ function adaptivePromotionValidateRecord(
 /**
  * @param array<string, array<string, mixed>> $caseResults
  * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function adaptivePromotionEvaluateProtocol(array $caseResults, string $protocol): array
 {
@@ -361,7 +369,11 @@ function adaptivePromotionEvaluateProtocol(array $caseResults, string $protocol)
     ];
 }
 
-/** @param array<string, mixed> $identity @return array<string, mixed> */
+/**
+ * @param array<string, mixed> $identity @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function adaptivePromotionEvaluate(string $output, string $protocol, array $identity): array
 {
     $results = [];

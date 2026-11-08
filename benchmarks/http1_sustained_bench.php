@@ -552,6 +552,7 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
 
 /**
  * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int, io_start:array<string,int>, io_end:array<string,int>}
+ * @throws \InvalidArgumentException
  */
 function http1SustainedRun(
     string $host,
@@ -695,6 +696,7 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
 /**
  * @param list<string> $argv @return array<string, mixed>
  * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function http1SustainedMain(array $argv): array
 {

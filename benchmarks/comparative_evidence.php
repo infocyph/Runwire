@@ -217,6 +217,9 @@ function renderMarkdown(array $records): string
     return implode(PHP_EOL, $lines) . PHP_EOL;
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function runComparativeEvidence(array $arguments): void
 {
     $records = array_map(loadEvidence(...), array_slice($arguments, 1));

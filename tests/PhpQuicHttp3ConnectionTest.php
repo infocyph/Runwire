@@ -90,6 +90,9 @@ function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = 
             $this->peerResetCode = $errorCode;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
         public function write(string $data, bool $fin = false): int
         {
             if ($this->writeFails) {
@@ -147,6 +150,9 @@ function fakeHttp3ConnectionRaw(array $localStreams, array $acceptedStreams, str
             return $this->alpn;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
         public function openStream(bool $bidirectional = true): object
         {
             $stream = array_shift($this->localStreams);

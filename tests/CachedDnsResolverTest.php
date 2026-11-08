@@ -26,6 +26,9 @@ function cachedDnsFake(): DnsResolverInterface
         /** @var array<int,callable> */
         public array $jobs = [];
 
+        /**
+         * @throws \InvalidArgumentException
+         */
         #[\Override]
         public function resolve(
             string $hostname,
@@ -251,6 +254,9 @@ it('surfaces synchronous DNS consumer failures without poisoning a new lookup', 
     $upstream = new class implements DnsResolverInterface {
         public $pending;
         public int $requests = 0;
+        /**
+         * @throws \InvalidArgumentException
+         */
         #[\Override]
         public function resolve(string $hostname, callable $completion, ?\Infocyph\Runwire\CancellationToken $token = null, ?RequestDeadline $deadline = null): int
         {

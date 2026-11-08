@@ -30,6 +30,12 @@ use Throwable;
  * CONNECT/SOCKS5 negotiation without assuming nested original-target TLS.
  *
  * @return array{received:string,verified:?string,error:?Throwable,completed:int,accepted:bool}
+ * @throws \RuntimeException
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \Infocyph\Runwire\Exception\ListenerException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireAuthenticatedProxyInterop(
     string $protocol,

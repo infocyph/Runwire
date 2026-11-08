@@ -21,6 +21,9 @@ use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
 
+/**
+ * @throws \OverflowException
+ */
 function persistentRuntimeRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -32,6 +35,9 @@ function persistentRuntimeRequest(string $target): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function persistentRuntimeWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
@@ -45,6 +51,7 @@ function persistentRuntimeWriter(): ResponseWriterInterface
 /**
  * @param list<?string> $seenBefore
  * @param list<string> $cleanedState
+ * @throws \InvalidArgumentException
  */
 function persistentRuntimeApplication(
     ?string &$state,
@@ -155,6 +162,9 @@ it('isolates consecutive RoadRunner requests and stops at the generic recycle bu
             $this->stopped = true;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
         #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {

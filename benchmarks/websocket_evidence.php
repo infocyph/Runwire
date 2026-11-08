@@ -129,6 +129,7 @@ function wsReadExact(mixed $socket, int $bytes): string
  * @param resource $socket
  * @return array{opcode: int, fin: bool, payload: string}
  * @throws \WebSocketEvidenceProtocolFailure
+ * @throws \InvalidArgumentException
  */
 function wsReadFrame(mixed $socket): array
 {
@@ -255,7 +256,10 @@ function wsAwaitDataFrame(mixed $socket, int $expectedOpcode): string
     }
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \InvalidArgumentException
+ */
 function wsPing(mixed $socket, string $payload): void
 {
     wsWriteFrame($socket, 0x9, $payload);
@@ -277,6 +281,7 @@ function wsPing(mixed $socket, string $payload): void
 /**
  * @param resource $socket
  * @throws \WebSocketEvidenceProtocolFailure
+ * @throws \InvalidArgumentException
  */
 function wsClose(mixed $socket): void
 {

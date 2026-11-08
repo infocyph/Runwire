@@ -12,6 +12,9 @@ use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function runwireH2Headers(int $streamId, string $path = '/', bool $endStream = true): string
 {
     $block = (new Encoder())->encode([
@@ -29,12 +32,22 @@ function runwireH2Headers(int $streamId, string $path = '/', bool $endStream = t
     ));
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function runwireH2ClientPrelude(array $settings = []): string
 {
     return Http2Connection::CLIENT_PREFACE . FrameWriter::encode(FrameWriter::settings($settings));
 }
 
-/** @return array{0: string, 1: Http2Connection} */
+/**
+ * @return array{0: string, 1: Http2Connection}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireH2Exchange(string $wire, callable $handler, ?Http2Limits $limits = null): array
 {
     [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -52,7 +65,11 @@ function runwireH2Exchange(string $wire, callable $handler, ?Http2Limits $limits
     return [$response, $http2];
 }
 
-/** @return list<Frame> */
+/**
+ * @return list<Frame>
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ */
 function runwireH2Frames(string $wire): array
 {
     return (new FrameParser())->push($wire);

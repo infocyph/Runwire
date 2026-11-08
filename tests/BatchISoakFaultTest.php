@@ -34,6 +34,9 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchISoakRuntime(): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -58,6 +61,9 @@ function batchISoakRuntime(): RuntimeContext
     );
 }
 
+/**
+ * @throws \OverflowException
+ */
 function batchISoakRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -69,6 +75,9 @@ function batchISoakRequest(string $target): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchISoakWriter(?ArrayObject $state = null): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
@@ -110,6 +119,9 @@ it('keeps request contexts metrics resetters and cancellation state bounded unde
     $resetter = new class($resets) implements RequestResetterInterface {
         public function __construct(private readonly ArrayObject $state) {}
 
+        /**
+         * @throws \RuntimeException
+         */
         #[\Override]
         public function reset(RequestContext $context): void
         {

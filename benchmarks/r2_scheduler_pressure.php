@@ -181,6 +181,7 @@ function r2PressureOverloadBoundary(): array
 /**
  * @return array<string, mixed>
  * @throws \InvalidArgumentException
+ * @throws \Throwable
  */
 function runwireR2SchedulerPressure(int $iterations = 6, int $warmup = 2, array $sizes = [8, 32, 128]): array
 {

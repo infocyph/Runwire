@@ -20,6 +20,9 @@ use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 
+/**
+ * @throws \RuntimeException
+ */
 function responseTransferTlsFiles(): array
 {
     $directory = sys_get_temp_dir() . '/runwire-transfer-tls-' . getmypid() . '-' . bin2hex(random_bytes(4));

@@ -111,6 +111,13 @@ function runwireWsParseServerWire(string $wire): array
     return ['head' => $head, 'frames' => $frames];
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireWsExchange(
     string $clientWire,
     callable $handler,

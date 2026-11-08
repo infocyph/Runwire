@@ -18,7 +18,10 @@ use RuntimeException;
 use Throwable;
 
 
-/** @return array{string, string, string} */
+/**
+ * @return array{string, string, string}
+ * @throws \RuntimeException
+ */
 function runwireClientTlsIdentity(): array
 {
     $directory = sys_get_temp_dir() . '/runwire-client-tls-' . bin2hex(random_bytes(8));
@@ -53,6 +56,12 @@ function runwireRemoveClientTlsIdentity(array $identity): void
  * @param list<string>|null $serverAlpn
  * @param array<string, mixed>|null $serverExtraContext
  * @return array{?Connection, ?Throwable, bool}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \Infocyph\Runwire\Exception\ListenerException
+ * @throws \LogicException
+ * @throws \RuntimeException
+ * @throws \Throwable
  */
 function runwireClientTlsAttempt(
     array $identity,

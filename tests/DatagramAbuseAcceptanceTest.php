@@ -7,6 +7,9 @@ use Infocyph\Runwire\Network\Datagram;
 use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\DatagramOptions;
 
+/**
+ * @throws \RuntimeException
+ */
 function abuseUdpClient(string $address)
 {
     $errno = 0;

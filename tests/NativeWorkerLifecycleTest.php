@@ -25,16 +25,27 @@ use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \OverflowException
+ */
 function nativeCompletionRequest(): HttpRequest
 {
     return new HttpRequest('GET', '/', ProtocolVersion::HTTP_1_1, new Headers(), new BufferedRequestBody(''));
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function nativeCompletionWriter(): CallbackResponseWriter
 {
     return new CallbackResponseWriter(static function (): void {}, static function (): void {}, static function (): void {}, 1024);
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ */
 function nativeCompletionDispatch(string $owner, RuntimeApplication $application, WorkerContext $worker, RuntimeContext $runtime, SelectLoop $loop): Closure
 {
     $sampler = new WorkerDiagnosticsSampler($worker, $runtime->metrics, new DiagnosticsPolicy(), $loop);
@@ -93,6 +104,9 @@ it('retires native workers when deferred coroutine cleanup fails after response 
     $handler->attachLoop($loop);
     $application = new RuntimeApplication($handler, runtimeContext: $runtime, lifecycle: new ApplicationLifecycleHooks(resetters: [
         new class implements RequestResetterInterface {
+            /**
+             * @throws \RuntimeException
+             */
             #[\Override]
             public function reset(RequestContext $context): void
             {
@@ -201,6 +215,9 @@ it('drains an attached native TCP worker after a late coroutine reset failure', 
         $loop, $worker, new \Infocyph\Runwire\Runtime\Internal\BoundServer($server, $listener),
         RuntimeContext::standalone(), new \Infocyph\Runwire\Runtime\RequestExecutionPolicy(),
         new ApplicationLifecycleHooks(resetters: [new class implements RequestResetterInterface {
+            /**
+             * @throws \RuntimeException
+             */
             #[\Override]
             public function reset(RequestContext $context): void
             {

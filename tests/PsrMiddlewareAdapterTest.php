@@ -14,6 +14,9 @@ it('composes ordered PSR-15 middleware and preserves host-owned request metadata
     $order = [];
     $middleware = new class($order) implements MiddlewareInterface {
         public function __construct(private array &$order) {}
+        /**
+         * @throws \InvalidArgumentException
+         */
         #[\Override]
         public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
         {

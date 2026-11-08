@@ -10,6 +10,9 @@ use Infocyph\Runwire\Process\Enum\TerminationReason;
 use Infocyph\Runwire\Process\ProcessPolicy;
 use Infocyph\Runwire\Process\ProcessRunner;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function processRunner(array $policy = []): ProcessRunner
 {
     return new ProcessRunner(new ProcessPolicy(...$policy));

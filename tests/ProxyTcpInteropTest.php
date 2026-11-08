@@ -15,6 +15,11 @@ use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
  * CONNECT/SOCKS5 reference conformance or nested original-target TLS tests.
  *
  * @return array{request:string,reply:string,callbacks:int,payload:string}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireProxyLoopbackInterop(string $protocol): array
 {

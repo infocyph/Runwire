@@ -67,6 +67,9 @@ if ($api === 'callback') {
             private readonly Closure $record,
         ) {}
 
+        /**
+         * @throws \InvalidArgumentException
+         */
         #[\Override]
         public function create(RuntimeContext $context): RuntimeApplicationInterface
         {

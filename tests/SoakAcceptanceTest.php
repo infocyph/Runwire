@@ -34,6 +34,9 @@ function runwireSoakSnapshot(): array
     ];
 }
 
+/**
+ * @throws \OverflowException
+ */
 function runwireSoakRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -45,6 +48,9 @@ function runwireSoakRequest(string $target): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function runwireSoakWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
@@ -55,7 +61,14 @@ function runwireSoakWriter(): ResponseWriterInterface
     );
 }
 
-/** @return array{requests: int, responses: int} */
+/**
+ * @return array{requests: int, responses: int}
+ * @throws \RuntimeException
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireSoakHttp1(int $requests): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -107,7 +120,10 @@ function runwireSoakHttp1(int $requests): array
     ];
 }
 
-/** @return array{requests: int, active: int} */
+/**
+ * @return array{requests: int, active: int}
+ * @throws \InvalidArgumentException
+ */
 function runwireSoakHttp2(int $requests): array
 {
     $wire = runwireH2ClientPrelude();
@@ -135,7 +151,11 @@ function runwireSoakHttp2(int $requests): array
     ];
 }
 
-/** @return array{streams: int, lastReleased: bool} */
+/**
+ * @return array{streams: int, lastReleased: bool}
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ */
 function runwireSoakHttp3State(int $requests): array
 {
     $limits = new Http3Limits(
@@ -169,7 +189,12 @@ function runwireSoakHttp3State(int $requests): array
     ];
 }
 
-/** @return array{sections: int, knownReceived: int} */
+/**
+ * @return array{sections: int, knownReceived: int}
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+ */
 function runwireSoakQpack(int $sections): array
 {
     $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);

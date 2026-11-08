@@ -17,6 +17,7 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
  * reactor and does not instrument production request dispatch.
  *
  * @return array<string, mixed>
+ * @throws \InvalidArgumentException
  */
 function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): array
 {

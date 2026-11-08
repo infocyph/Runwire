@@ -31,7 +31,10 @@ function runwireReleaseSummaryFixture(): array
     ];
 }
 
-/** @return array{int, string} */
+/**
+ * @return array{int, string}
+ * @throws \RuntimeException
+ */
 function runwireCompareReleaseSummaries(array $baseline, array $candidate): array
 {
     $first = tempnam(sys_get_temp_dir(), 'runwire-baseline-');
