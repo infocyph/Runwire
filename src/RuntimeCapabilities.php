@@ -7,6 +7,7 @@ namespace Infocyph\Runwire;
 use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\SystemResources;
+use InvalidArgumentException;
 
 /**
  * Describes capabilities and ownership semantics of a resolved runtime driver.
@@ -15,7 +16,7 @@ final readonly class RuntimeCapabilities
 {
     /**
      * Creates a runtime capability snapshot.
-     * @psalm-suppress MissingThrowsDocblock
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public RuntimeDriver $driver,
@@ -48,7 +49,12 @@ final readonly class RuntimeCapabilities
         public bool $supportsUnixSockets = false,
         public bool $supportsPrivilegeDrop = false,
         public SystemResources $resources = new SystemResources(),
-    ) {}
+    ) {
+        if ($resources->effectiveCpuCount < 1
+            || ($resources->effectiveMemoryBytes !== null && $resources->effectiveMemoryBytes < 1)) {
+            throw new InvalidArgumentException('Runtime capability resources must be a valid system snapshot.');
+        }
+    }
 
     /**
      * Reports whether the supplied runtime capability is available.

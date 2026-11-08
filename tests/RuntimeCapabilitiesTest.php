@@ -38,3 +38,15 @@ it('reports explicitly enabled capabilities', function (): void {
         'supports_async_io' => true,
     ]);
 });
+
+it('rejects invalid resource snapshots created without resource constructor validation', function (): void {
+    $reflection = new ReflectionClass(\Infocyph\Runwire\Runtime\SystemResources::class);
+    $invalid = $reflection->newInstanceWithoutConstructor();
+    (new ReflectionProperty(\Infocyph\Runwire\Runtime\SystemResources::class, 'effectiveCpuCount'))
+        ->setValue($invalid, 0);
+    (new ReflectionProperty(\Infocyph\Runwire\Runtime\SystemResources::class, 'effectiveMemoryBytes'))
+        ->setValue($invalid, 1024);
+
+    expect(fn(): RuntimeCapabilities => new RuntimeCapabilities(RuntimeDriver::NATIVE, resources: $invalid))
+        ->toThrow(InvalidArgumentException::class, 'valid system snapshot');
+});

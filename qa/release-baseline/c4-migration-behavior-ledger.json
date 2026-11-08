@@ -1474,8 +1474,8 @@
     {
       "symbol": "Infocyph\\Runwire\\RuntimeCapabilities",
       "executableTest": "tests/RuntimeCapabilitiesTest.php",
-      "behavior": "Immutable runtime capability snapshot, driver ownership and feature availability",
-      "migration": "The existing capability booleans and runtime ownership contract remain unchanged. Constructor exception documentation describes preexisting validation in the default SystemResources dependency; it does not introduce a runtime policy change.",
+      "behavior": "Immutable driver capabilities now reject forged out-of-range effective CPU or memory resource snapshots",
+      "migration": "Capability snapshots preserve default feature flags and resource ownership. An explicitly provided SystemResources instance must retain valid CPU and memory bounds, even when deserialized or constructed using reflection without its own validation. Existing valid resource instances and all public parameter signatures remain unchanged.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

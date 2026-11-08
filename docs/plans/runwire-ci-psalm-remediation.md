@@ -746,3 +746,10 @@
 - Batch 70 hosted RoadRunner PHP 8.4/8.5 both PASS with checksum-verified v3.0.1 official fallback. Both analyzers show no new PHPStan errors; Psalm continues to report 14 active tool/worker taint findings. The QA scanner now reports three remaining promoted-default suppressions.
 - Pint reports exactly one `phpdoc_trim` violation in `NativePhpResponseWriterFactory::validatedHeaderLine`: an empty PHPDoc line left after Batch 68 removed the now-unnecessary header taint escape annotation. Remove only that empty line. Preserve the validated HeaderField constructor, the native response header sink and all security checks.
 - Verify exact-head Pint, Psalm, PHPStan, QA/Pest, Source Audit, hosted/native and documentation. Do not merge, tag or release.
+
+### Batch 72 — validate capability resource invariants across deserialization
+
+- Baseline `1827817b71439b470745ea8f4365ece5d6937b70`: PHPStan green; Psalm 14 active file/SSRF taints; three banned `MissingThrowsDocblock` annotations on default DTO object constructors. Hosted RoadRunner PHP 8.4/8.5 green after pinned download fallback; Batch 71 formatter fix pending exact-head QA.
+- A final readonly SystemResources instance can be deserialized or reflected without calling its validating constructor, leaving an invalid negative or zero effective CPU/memory limit. At the RuntimeCapabilities boundary, reject such snapshots while preserving valid default and explicitly provided object behavior. The public constructor signature stays identical.
+- Replace the existing constructor suppression with an actual `InvalidArgumentException` contract attached to a real guard, add a reflection-forged invalid snapshot regression test, update its existing published migration ledger entry. This is a correctness/security check, not a dummy analyzer workaround.
+- Acceptance: CI Psalm PHP 8.4/8.5 and PHPStan must not gain type or throws findings, all PHPForge QA/Pint/Pest/Rector and Source Audit must pass. The two remaining constructor-default suppressions and 14 CLI/worker taints are still blocking until separately addressed. No merge, tag, or release.
