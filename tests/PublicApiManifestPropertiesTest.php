@@ -65,3 +65,39 @@ PHP);
         rmdir($root);
     }
 });
+
+it('rejects a symlinked PHP declaration that targets a file outside the requested source directory', function (): void {
+    $base = sys_get_temp_dir() . '/runwire-api-link-' . bin2hex(random_bytes(6));
+    $source = $base . '/src';
+    expect(mkdir($source, 0700, true))->toBeTrue();
+    $external = $base . '/Outside.php';
+    $link = $source . '/Linked.php';
+    $output = $base . '/manifest.json';
+
+    try {
+        file_put_contents($external, "<?php\nnamespace Example;\nfinal class Outside {}\n");
+        expect(symlink($external, $link))->toBeTrue();
+        $tool = dirname(__DIR__) . '/tools/public-api-manifest.php';
+        $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($tool)
+            . ' ' . escapeshellarg($source)
+            . ' ' . escapeshellarg($output)
+            . ' ' . escapeshellarg(str_repeat('a', 40));
+        $messages = [];
+        $status = 0;
+        exec($command . ' 2>&1', $messages, $status);
+        expect($status)->not->toBe(0)
+            ->and(implode("\n", $messages))->toContain('refuses symlinked or outside-root');
+    } finally {
+        if (is_link($link)) {
+            unlink($link);
+        }
+        if (is_file($external)) {
+            unlink($external);
+        }
+        if (is_file($output)) {
+            unlink($output);
+        }
+        rmdir($source);
+        rmdir($base);
+    }
+});

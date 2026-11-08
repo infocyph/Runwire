@@ -690,3 +690,9 @@
 - Batch 61 SHA `d72f926e3bb7fe72b4681576cc2612f04268cc51` remains red: Psalm 15 security taints on each supported PHP, PHPStan PASS, Rector FAIL (`RemoveUnusedVariableAssignRector` removes all four `$_ = Fiber::suspend(...)` assignments), PHPForge skip scanner lists five directives; Pest, Pint, PHPCS, Source Audit PASS.
 - Restore exact Batch 60 Fiber semantics and previously documented four purpose-specific `UnusedMethodCall` annotations. Do not replace them with no-op value handling or suppress Rector: resolving the checker-policy conflict cannot justify modifying coroutine behavior.
 - Outstanding: 15 taints (6 SSRF and 9 file sinks), nine existing annotations (four Fiber, four constructor defaults, one validated HTTP header). Source and scanner policies remain unchanged; no merge, release, or tag.
+
+### Batch 63 — source audit linked-file containment
+
+- Input SHA `9e3a87e3532133e5089a5f93d2fd13b1a293bd48`, pending complete CI. The CLI API manifest can enumerate a file symlink whose path is inside an approved root while the target resides outside it; PHP's `SplFileInfo::isFile()` follows such links. Restricting only the root is insufficient.
+- Verify each enumerated PHP declaration path is canonical, within the canonical source directory and not a symlink before reading. Preserve reproducible manifest contents and the published public API comparator. Add actual subprocess regression proving an outside-root link is rejected before producing a manifest.
+- This addresses one real file-boundary weakness; it does not prove the Psalm taint model is satisfied. The remaining taints and strict annotations are separately blocking. Run Source Audit, PHPStan, Psalm, all QA/Pest, native and hosted checks against exact commit. No merge/tag.

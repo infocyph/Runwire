@@ -67,8 +67,13 @@ foreach ($iterator as $file) {
 sort($files, SORT_STRING);
 $symbols = [];
 $unrecognized = [];
+$sourcePrefix = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 foreach ($files as $path) {
-    $source = file_get_contents($path);
+    $canonical = realpath($path);
+    if (is_link($path) || !is_string($canonical) || !str_starts_with($canonical, $sourcePrefix)) {
+        throw new RuntimeException('API manifest refuses symlinked or outside-root PHP source files.');
+    }
+    $source = file_get_contents($canonical);
     if (!is_string($source)) {
         throw new RuntimeException(sprintf('Cannot read PHP source: %s', $path));
     }
