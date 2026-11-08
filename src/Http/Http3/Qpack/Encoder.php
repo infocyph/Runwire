@@ -223,6 +223,7 @@ final class Encoder
      * @param array<int, int> $references
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     private function encodeField(
         string $name,

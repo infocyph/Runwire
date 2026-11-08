@@ -75,7 +75,6 @@ final class PhpQuicHttp3Worker
             throw new InvalidArgumentException('HTTP/3 handshake timeout must be finite and between 0 and 60 seconds.');
         }
 
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->connectionLimit = $connectionLimit;
         $this->handler = $handlerClosure;

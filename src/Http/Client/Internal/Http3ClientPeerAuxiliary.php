@@ -50,7 +50,11 @@ final class Http3ClientPeerAuxiliary
         return ['watch' => $watch, 'completed' => $completed];
     }
 
-    /** @param null|callable(ReadyFieldSection):bool $releaseSibling */
+    /**
+     * @param null|callable(ReadyFieldSection):bool $releaseSibling
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function acceptEncoder(
         string $bytes,
         ?Http3ClientResponseStream $response,

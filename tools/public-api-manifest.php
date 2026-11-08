@@ -10,7 +10,6 @@ declare(strict_types=1);
  * php tools/public-api-manifest.php <source-dir> <destination.json> <source-commit> [--with-properties]
  */
 
-/** @var list<string> $arguments */
 $arguments = $_SERVER['argv'] ?? [];
 $withProperties = count($arguments) === 5 && $arguments[4] === '--with-properties';
 if ((count($arguments) !== 4 && !$withProperties) || !is_dir($arguments[1])) {

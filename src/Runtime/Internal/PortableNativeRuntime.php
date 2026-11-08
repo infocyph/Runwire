@@ -253,6 +253,7 @@ final class PortableNativeRuntime
 
     /**
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     private function scheduleDrainCompletion(SelectLoop $loop): void
     {

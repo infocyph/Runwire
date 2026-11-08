@@ -41,7 +41,6 @@ final class WebSocketUpgradeOwner
         Http1Input $httpInput,
         callable $beforeHandoff,
     ) {
-        /** @var Closure(): void $handoff */
         $handoff = $beforeHandoff(...);
         $this->beforeHandoff = $handoff;
         $this->connection = self::retainConnection($ownedConnection);

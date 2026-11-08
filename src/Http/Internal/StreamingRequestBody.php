@@ -233,7 +233,10 @@ final class StreamingRequestBody implements RequestBodyInterface
         return $this->pressured;
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \OverflowException
+     */
     public function push(string $bytes): bool
     {
         if ($bytes === '' || $this->ended || $this->cancelled) {

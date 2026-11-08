@@ -65,6 +65,7 @@ final class Http2ClientSession
     /**
      * Deliver a fully parsed H2 frame and return bounded control/flow-credit bytes.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function receive(Frame $frame): string
     {

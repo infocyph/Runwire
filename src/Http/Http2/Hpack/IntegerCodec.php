@@ -12,6 +12,7 @@ final class IntegerCodec
     /**
      * Decode an HPACK integer and advance the byte offset.
      * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     * @throws \InvalidArgumentException
      */
     public static function decode(string $data, int &$offset, int $prefixBits): int
     {

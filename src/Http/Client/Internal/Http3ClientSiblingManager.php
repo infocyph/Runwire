@@ -50,6 +50,7 @@ final class Http3ClientSiblingManager
      * @param callable(Throwable):void $fatal
      * @param callable():void $feedback
      * @param callable():void $onEmpty
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -73,7 +74,10 @@ final class Http3ClientSiblingManager
         return $this->exchanges !== [];
     }
 
-    /** Cancel just one sibling and reset its native stream when present. */
+    /**
+     * Cancel just one sibling and reset its native stream when present.
+     * @throws \InvalidArgumentException
+     */
     public function cancel(int $id, Throwable $error): bool
     {
         $state = $this->exchanges[$id] ?? null;

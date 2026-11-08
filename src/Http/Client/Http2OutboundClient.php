@@ -31,6 +31,7 @@ final readonly class Http2OutboundClient
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function connect(
         LoopInterface $loop,

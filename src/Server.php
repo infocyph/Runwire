@@ -81,7 +81,6 @@ final readonly class Server
         }
         self::validateTimeouts($workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds);
 
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
         $this->applicationFactory = $applicationFactory;
@@ -91,7 +90,6 @@ final readonly class Server
 
             return;
         }
-        /** @var Closure(WorkerContext): callable $factoryClosure */
         $factoryClosure = Closure::fromCallable($workerHandlerFactory);
         $this->workerHandlerFactory = $factoryClosure;
     }

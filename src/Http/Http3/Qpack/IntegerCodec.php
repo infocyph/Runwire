@@ -15,6 +15,7 @@ final class IntegerCodec
     /**
      * Decode one complete QPACK prefixed integer and advance the offset.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public static function decode(string $data, int &$offset, int $prefixBits, ErrorCode $errorCode): int
     {

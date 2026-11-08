@@ -515,6 +515,7 @@ final class PhpQuicHttp3Connection
 
     /**
      * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     private function flush(): void
     {

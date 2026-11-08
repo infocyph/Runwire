@@ -73,6 +73,7 @@ final readonly class PhpQuicListener
     /**
      * Accept the next available QUIC connection.
      * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public function accept(): ?PhpQuicConnection
     {

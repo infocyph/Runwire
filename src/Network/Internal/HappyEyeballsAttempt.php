@@ -170,9 +170,8 @@ final class HappyEyeballsAttempt
             foreach ([$first ?? 4, $other] as $family) {
                 if (($families[$family] ?? []) !== []) {
                     $next = array_shift($families[$family]);
-                    if ($next !== null) {
-                        $ordered[] = $next;
-                    }
+                    /** @psalm-var string $next */
+                    $ordered[] = $next;
                 }
             }
         }

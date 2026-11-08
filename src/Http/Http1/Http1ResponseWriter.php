@@ -55,7 +55,6 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         ?callable $upgradeWebSocket = null,
     ) {
         $this->closeAfter = !$keepAlive;
-        /** @var Closure(bool): void $onEndClosure */
         $onEndClosure = Closure::fromCallable($onEnd);
         $this->onEnd = $onEndClosure;
         $this->terminal = new ResponseTerminalState();

@@ -10,7 +10,6 @@ declare(strict_types=1);
  * This checks declarations only; behavioral compatibility needs human review.
  */
 
-/** @var list<string> $arguments */
 $arguments = $_SERVER['argv'] ?? [];
 if (count($arguments) !== 3) {
     throw new InvalidArgumentException('Usage: php tools/public-api-diff.php <baseline.json> <candidate.json>');

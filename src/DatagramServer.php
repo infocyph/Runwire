@@ -52,14 +52,12 @@ final readonly class DatagramServer
             }
         }
 
-        /** @var Closure(Datagram, DatagramListener): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
 
         if ($workerHandlerFactory === null) {
             $this->workerHandlerFactory = null;
         } else {
-            /** @var Closure(WorkerContext): callable $factoryClosure */
             $factoryClosure = Closure::fromCallable($workerHandlerFactory);
             $this->workerHandlerFactory = $factoryClosure;
         }

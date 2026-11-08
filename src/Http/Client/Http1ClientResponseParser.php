@@ -280,7 +280,9 @@ final class Http1ClientResponseParser
         $line = substr($this->buffer, 0, $end);
         $this->buffer = substr($this->buffer, $end + 2);
         $sizeText = explode(';', $line, 2)[0];
-        if (str_contains($line, ';') && preg_match('/[\x00-\x1F\x7F]/', substr($line, strpos($line, ';') + 1)) === 1) {
+        $extensionSeparator = strpos($line, ';');
+        if ($extensionSeparator !== false
+            && preg_match('/[\x00-\x1F\x7F]/', substr($line, $extensionSeparator + 1)) === 1) {
 
             throw new RuntimeException('Malformed HTTP/1.1 chunk extension.');
         }

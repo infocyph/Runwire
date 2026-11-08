@@ -78,7 +78,6 @@ final class Http2Connection
         private readonly Http2Limits $limits,
         callable $handler,
     ) {
-        /** @var Closure(HttpRequest, Http2ResponseWriter): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
         $this->parser = new FrameParser($limits->maxInboundFrameSize, $connection->bufferBudget());

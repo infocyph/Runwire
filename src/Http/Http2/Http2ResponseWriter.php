@@ -318,6 +318,9 @@ final class Http2ResponseWriter implements ResponseWriterInterface
         return (int) $normalized;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function prepareImplicitEnd(string $finalChunk): ?WriteResult
     {
         $oneShot = $this->endOneShot($finalChunk);

@@ -130,6 +130,7 @@ final class WebSocketSession
     /**
      * Begin a standards-compliant close handshake.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function close(int $code = 1000, string $reason = ''): WriteResult
     {
@@ -234,6 +235,7 @@ final class WebSocketSession
     /**
      * Send a WebSocket ping control frame.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function ping(string $payload = ''): WriteResult
     {
@@ -247,6 +249,7 @@ final class WebSocketSession
     /**
      * Send one bounded binary message.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function sendBinary(string $payload): WriteResult
     {
@@ -258,6 +261,7 @@ final class WebSocketSession
     /**
      * Send one bounded UTF-8 text message.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function sendText(string $payload): WriteResult
     {
@@ -456,6 +460,7 @@ final class WebSocketSession
 
     /**
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \OverflowException
      */
     private function handlePeerClose(string $payload): void
     {

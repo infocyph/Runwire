@@ -33,6 +33,7 @@ final readonly class Http3ClientWireCodec
     /**
      * Restrict both directions to unblocked, finite field sections.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(int $maxFieldSectionBytes = 65_536, int $maxHeaderFields = 128, int $decoderCapacity = 0, int $maxBlocked = 0)
     {
@@ -43,6 +44,7 @@ final readonly class Http3ClientWireCodec
     /**
      * Cancel retained QPACK field sections and enqueue the matching stream-cancellation signal.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancelResponseStream(int $wireStreamId): void
     {
@@ -138,6 +140,7 @@ final readonly class Http3ClientWireCodec
      * @return list<ReadyFieldSection>
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function receivePeerEncoderInstructions(string $bytes): array
     {
@@ -153,6 +156,7 @@ final readonly class Http3ClientWireCodec
     /**
      * @return array{status:int, headers:Headers}|null
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function tryDecodeResponseHeaders(string $payload, int $streamId): ?array
     {
@@ -164,6 +168,7 @@ final readonly class Http3ClientWireCodec
     /**
      * Decode trailers or report a bounded QPACK-blocked field section.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function tryDecodeResponseTrailers(string $payload, int $streamId): ?Headers
     {

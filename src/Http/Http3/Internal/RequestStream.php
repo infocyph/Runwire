@@ -135,6 +135,7 @@ final class RequestStream
     /**
      * Cancel request processing and release blocked QPACK state.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancel(): void
     {
@@ -536,6 +537,7 @@ final class RequestStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function processHeaders(string $payload): void
     {

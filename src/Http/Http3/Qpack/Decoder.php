@@ -67,6 +67,7 @@ final class Decoder
      * Decode a field section or retain it when required dynamic entries are unavailable.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function decode(string $block, int $streamId): ?DecodedFieldSection
     {

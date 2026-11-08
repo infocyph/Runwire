@@ -122,6 +122,7 @@ final class Http2ClientMultiplexSession
     /**
      * Consume one frame in wire order, returning bounded connection/stream credit.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function receive(Frame $frame): string
     {

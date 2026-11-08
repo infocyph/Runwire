@@ -17,6 +17,7 @@ final readonly class Http3ClientOrigin
      *
      * @return array{host:string,port:int}
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function validate(ClientRequest $request, QuicClientOptions $options): array
     {

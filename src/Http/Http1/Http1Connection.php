@@ -123,7 +123,6 @@ final class Http1Connection
         private readonly Http1Limits $limits,
         callable $handler,
     ) {
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
         $this->requestHeadValidator = new RequestHeadValidator();

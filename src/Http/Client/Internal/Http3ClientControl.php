@@ -32,13 +32,19 @@ final class Http3ClientControl
 
     private bool $peerTyped = false;
 
-    /** Build an incremental peer control parser with bounded payloads. */
+    /**
+     * Build an incremental peer control parser with bounded payloads.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(int $maxFramePayloadBytes = 65_536, private readonly int $decoderCapacity = 0, private readonly int $maxBlocked = 0)
     {
         $this->peer = new ControlStream($maxFramePayloadBytes);
     }
 
-    /** Fail if the peer closes a mandatory HTTP/3 control stream. */
+    /**
+     * Fail if the peer closes a mandatory HTTP/3 control stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function closePeerControl(): never
     {
         $this->peer->close();

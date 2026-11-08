@@ -38,10 +38,8 @@ final class Http3Session
         private readonly ?string $peerAddress = null,
         private readonly ?string $localAddress = null,
     ) {
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
-        /** @var Closure(int, string): ResponseWriterInterface $factoryClosure */
         $factoryClosure = Closure::fromCallable($writerFactory);
         $this->writerFactory = $factoryClosure;
     }

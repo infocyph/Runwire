@@ -50,9 +50,7 @@ final class TlsHandshake
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('TLS handshake requires a live stream resource.');
         }
-        /** @var Closure(resource, ?string): void $successClosure */
         $successClosure = Closure::fromCallable($onSuccess);
-        /** @var Closure(): void $failureClosure */
         $failureClosure = Closure::fromCallable($onFailure);
 
         $handshake = new self(

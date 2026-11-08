@@ -126,7 +126,8 @@ final readonly class WebSocketClientHandshake
         }
         $parts = parse_url($uri);
         $host = is_array($parts) ? ($parts['host'] ?? null) : null;
-        if (!is_array($parts) || !in_array($parts['scheme'] ?? '', ['ws', 'wss'], true)
+        $scheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
+        if (!is_array($parts) || !in_array($scheme, ['ws', 'wss'], true)
             || !is_string($host) || isset($parts['user'])
             || isset($parts['pass']) || isset($parts['fragment'])) {
             throw new InvalidArgumentException('WebSocket URL must be a credential-free ws/wss origin.');
@@ -135,7 +136,7 @@ final readonly class WebSocketClientHandshake
             && !preg_match('/^\[[0-9a-fA-F:.]+\]$/D', $host)) {
             throw new InvalidArgumentException('WebSocket authority is invalid.');
         }
-        $secure = $parts['scheme'] === 'wss';
+        $secure = $scheme === 'wss';
 
         return [
             'host' => $host,

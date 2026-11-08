@@ -130,6 +130,7 @@ final class Decoder
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     * @throws \InvalidArgumentException
      */
     private function decodeName(string $block, int &$offset, int $prefixBits, int $headerBytes): string
     {

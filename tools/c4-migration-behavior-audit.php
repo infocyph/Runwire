@@ -8,7 +8,6 @@ declare(strict_types=1);
  * This is a documentation coverage gate, not proof that all historical
  * runtime behavior is backward compatible.
  */
-/** @var list<string> $arguments */
 $arguments = $_SERVER['argv'] ?? [];
 if (count($arguments) !== 3) {
     throw new InvalidArgumentException(

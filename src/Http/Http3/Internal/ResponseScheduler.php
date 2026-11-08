@@ -50,6 +50,7 @@ final class ResponseScheduler
     /**
      * Create a response scheduler for the supplied connection state and transport.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         private readonly ConnectionState $state,
@@ -437,6 +438,9 @@ final class ResponseScheduler
         return $this->streams[$streamId] ?? null;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function queueData(ResponseStream $stream, string $data, bool $end): WriteResult
     {
         if ($stream->ended) {

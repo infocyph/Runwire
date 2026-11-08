@@ -369,3 +369,17 @@
 - Correct nullable address extraction in Happy Eyeballs alternate-family ordering: only append non-null candidates, preserving sequence, address family precedence and bounded list behavior.
 - Treat P0 taints, P1 type/state faults, P2 maintenance and P3 hygiene as open until test-backed; no taint escape, blanket suppression, release tag, or merge.
 - Verify exact-head 8.4/8.5 Psalm and PHPStan, source audit, PHPForge four QA lanes, HTTP/3, native hosted, Swoole, and docs; record net errors, not just annotations.
+
+### Batch 36 verified analyzer baseline
+
+- On exact SHA `f315ad4e3ae293307650589dbeaaba5df1fce90a`, both PHP 8.4 and PHP 8.5 Psalm reported **381 errors**, including **219 MissingThrowsDocblock** and **162 other errors**. This is -97 since Batch 35 (478 errors).
+- PHPStan found two correctness/quality issues in Happy Eyeballs' non-null guard (nested cognitive complexity and redundant null comparison). No analyzer suppressions are acceptable; correct the implementation while retaining its invariant.
+
+### Batch 37 — fifty-file mixed-quality remediation
+
+- This commit covers **49 QA/source/tool files plus this tracker**.
+- Remove **25 analyzer-confirmed unnecessary @var annotations** in 16 files (excluding four PHPStan-specific certificate annotations that require a separate cross-analyzer contract review).
+- Restore Happy Eyeballs' low-complexity ordering while preserving its nonempty-family invariant via a Psalm-only local type assertion.
+- Narrow WebSocket URI scheme through a validated local scalar and eliminate redundant two-pass chunk-extension parsing that Psalm flagged as a possibly-false operand.
+- Document **73 confirmed MissingThrowsDocblock locations** across 30 additional source files, retaining exact runtime behavior and ledger coverage.
+- Validate both PHP versions, all PHPForge quality lanes, source audit, hosted and protocol CI. Keep P0 file/SSRF/header taint, P1 correctness, P2 maintenance, P3 hygiene and fresh findings open until individually verified. No merges, tags or global suppressions.

@@ -60,18 +60,15 @@ final readonly class StreamServer
         self::validateTimeouts($workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds);
         self::validateTransport($transport, $tls, $unix);
 
-        /** @var Closure(): FrameCodecInterface $codecClosure */
         $codecClosure = Closure::fromCallable($codecFactory);
         $this->codecFactory = $codecClosure;
 
-        /** @var Closure(string, FramedConnection): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
 
         if ($workerHandlerFactory === null) {
             $this->workerHandlerFactory = null;
         } else {
-            /** @var Closure(WorkerContext): callable $factoryClosure */
             $factoryClosure = Closure::fromCallable($workerHandlerFactory);
             $this->workerHandlerFactory = $factoryClosure;
         }

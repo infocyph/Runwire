@@ -64,6 +64,7 @@ final class ConnectionState
 
     /**
      * Cancel and discard a tracked request stream.
+     * @throws \InvalidArgumentException
      */
     public function cancelRequestStream(int $streamId): void
     {
@@ -193,6 +194,7 @@ final class ConnectionState
 
     /**
      * Release a request stream and cancel it first when unfinished.
+     * @throws \InvalidArgumentException
      */
     public function releaseRequestStream(int $streamId): void
     {
@@ -272,6 +274,7 @@ final class ConnectionState
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function configureEncoder(): void
     {
@@ -336,6 +339,7 @@ final class ConnectionState
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     private function processControl(string $payload): void
     {
@@ -373,6 +377,7 @@ final class ConnectionState
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function processPeerEncoderInstructions(string $payload): void
     {

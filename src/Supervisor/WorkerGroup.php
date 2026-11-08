@@ -63,7 +63,6 @@ final readonly class WorkerGroup
 
         $privilegeDropPolicy->assertSupported();
 
-        /** @var Closure(WorkerContext): void $closure */
         $closure = Closure::fromCallable($bootstrap);
         $this->bootstrap = $closure;
         $this->reloadable = $reloadable ?? $role->defaultReloadable();

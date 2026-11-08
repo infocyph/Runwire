@@ -36,7 +36,10 @@ final class TraceScope
         $this->pid = $pid;
     }
 
-    /** Read the current explicitly owned trace context. */
+    /**
+     * Read the current explicitly owned trace context.
+     * @throws \LogicException
+     */
     public function current(): ?TraceContext
     {
         $this->assertOwner();
@@ -50,7 +53,10 @@ final class TraceScope
         return $context instanceof TraceContext ? $context : null;
     }
 
-    /** Restore the previous scope even when a callback fails or a Fiber suspends. */
+    /**
+     * Restore the previous scope even when a callback fails or a Fiber suspends.
+     * @throws \LogicException
+     */
     public function run(TraceContext $context, callable $callback): mixed
     {
         $this->assertOwner();
@@ -65,7 +71,10 @@ final class TraceScope
         }
     }
 
-    /** Explicitly capture parent context for deferred callbacks and child Fibers. */
+    /**
+     * Explicitly capture parent context for deferred callbacks and child Fibers.
+     * @throws \LogicException
+     */
     public function wrap(callable $callback): Closure
     {
         $this->assertOwner();

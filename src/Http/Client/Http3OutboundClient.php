@@ -406,7 +406,11 @@ final class Http3OutboundClient
         });
     }
 
-    /** Establish one persistent local QPACK instruction stream before requests. */
+    /**
+     * Establish one persistent local QPACK instruction stream before requests.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function openQpackStream(StreamType $type, callable $completed): void
     {
         $this->command('open_uni', 0, '', false, function (array $opened) use ($type, $completed): void {
@@ -430,6 +434,10 @@ final class Http3OutboundClient
         });
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function readControl(int $stream): void
     {
         $this->command(
@@ -447,6 +455,10 @@ final class Http3OutboundClient
         );
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function readPeerAuxiliary(int $stream, int $type): void
     {
         $this->command('read', $stream, '', false, function (array $result) use ($stream, $type): void {
@@ -456,6 +468,8 @@ final class Http3OutboundClient
 
     /**
      * @throws \RuntimeException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function readResponse(): void
     {
@@ -485,7 +499,11 @@ final class Http3OutboundClient
         );
     }
 
-    /** Locate the mandatory peer control stream before processing the response. */
+    /**
+     * Locate the mandatory peer control stream before processing the response.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function receiveControl(): void
     {
         $this->command(
@@ -698,6 +716,8 @@ final class Http3OutboundClient
      * writes without dropping framing bytes or advancing the response early.
      *
      * @param callable():void $completed
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function writeChunk(int $stream, string $bytes, int $offset, bool $fin, callable $completed): void
     {

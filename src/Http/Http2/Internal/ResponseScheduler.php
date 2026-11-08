@@ -85,16 +85,12 @@ final class ResponseScheduler
         private readonly ?\Closure $outboundDataCredit = null,
     ) {
         $this->activeStreamCount = static fn(): int => 0;
-        /** @var Closure(int): ?Http2Stream $lookupClosure */
         $lookupClosure = Closure::fromCallable($streamLookup);
         $this->streamLookup = $lookupClosure;
-        /** @var Closure(Http2Stream): void $cleanupClosure */
         $cleanupClosure = Closure::fromCallable($cleanupClosed);
         $this->cleanupClosed = $cleanupClosure;
-        /** @var Closure(): void $readyClosure */
         $readyClosure = Closure::fromCallable($readyCallback);
         $this->readyCallback = $readyClosure;
-        /** @var Closure(Http2Stream): void $activityClosure */
         $activityClosure = Closure::fromCallable($activityCallback);
         $this->activityCallback = $activityClosure;
         $this->adaptiveResponse = new AdaptiveResponseStrategy(policy: $limits->adaptive);

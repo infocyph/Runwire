@@ -112,6 +112,7 @@ final readonly class FieldSectionDecoder
     /**
      * @return array{0: string, 1: string, 2: bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function decodeField(string $block, int &$offset, int $base): array
     {
