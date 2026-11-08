@@ -464,8 +464,9 @@ final class TcpListener
     }
 
     /**
-     * @param resource $client
      * An external TLS callback may observe a closed handle.
+     *
+     * @param resource $client
      * @throws \Throwable
      * @psalm-suppress DocblockTypeContradiction
      */

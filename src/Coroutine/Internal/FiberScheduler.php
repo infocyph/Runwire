@@ -283,9 +283,9 @@ final class FiberScheduler
 
     /**
      * Suspend the current task for the requested duration.
+     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
      * @throws \InvalidArgumentException
      * @throws \LogicException
-     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
      * @psalm-suppress UnusedMethodCall
      */
     public function sleep(float $seconds): void
@@ -348,9 +348,10 @@ final class FiberScheduler
     }
 
     /**
+     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
+     *
      * @param resource $stream
      * @throws \LogicException
-     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
      * @psalm-suppress UnusedMethodCall
      */
     public function suspendReadable(mixed $stream): void
@@ -369,9 +370,10 @@ final class FiberScheduler
     }
 
     /**
+     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
+     *
      * @param resource $stream
      * @throws \LogicException
-     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
      * @psalm-suppress UnusedMethodCall
      */
     public function suspendWritable(mixed $stream): void
@@ -400,8 +402,8 @@ final class FiberScheduler
 
     /**
      * Cooperatively yield the current task back to the scheduler.
-     * @throws \LogicException
      * Fiber::suspend has a scheduler side effect; the resume payload is unused.
+     * @throws \LogicException
      * @psalm-suppress UnusedMethodCall
      */
     public function yieldNow(): void

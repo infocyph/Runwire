@@ -213,13 +213,13 @@ it('remains reusable across repeated forced terminations', function (): void {
     expect($runner->run(Command::executable(PHP_BINARY, ['-r', 'echo "ok";']))->stdout)->toBe('ok');
 });
 
-it('treats an already closed stdin resource as end of input without leaking the next invocation', function (): void {
+it('rejects an already closed stdin resource without corrupting subsequent runs', function (): void {
     $closed = fopen('php://temp', 'w+');
     expect($closed)->toBeResource();
     fclose($closed);
 
     $runner = processRunner();
-    $command = Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($closed);
-    expect($runner->run($command)->stdout)->toBe('')
-        ->and($runner->run(Command::executable(PHP_BINARY, ['-r', 'echo "ready";']))->stdout)->toBe('ready');
+    expect(fn () => Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($closed))
+        ->toThrow(InvalidArgumentException::class);
+    expect($runner->run(Command::executable(PHP_BINARY, ['-r', 'echo "ready";']))->stdout)->toBe('ready');
 });

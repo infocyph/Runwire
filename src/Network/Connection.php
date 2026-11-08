@@ -602,8 +602,9 @@ final class Connection
     }
 
     /**
+     * Reader callbacks can synchronously close the transport.
+     *
      * @throws \Throwable
-      * Reader callbacks can synchronously close the transport.
      * @psalm-suppress RedundantCondition
      */
     private function handleReadable(): void

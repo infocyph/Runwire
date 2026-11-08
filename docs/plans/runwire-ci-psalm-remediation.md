@@ -541,3 +541,10 @@
 - FLOW-01 quality detectors: both static analyzers, formatting, security scans, tests and CI remain required; evidence pending new SHA.
 - FLOW-02 root-cause fix discipline: treat duplicate split PHPDocs and closed-resource doc models as underlying causes; do not claim remediation from annotation count alone.
 - EXEC-03 completion evidence: final gate status is **pending** until every required check runs on the final commit.
+
+### Batch 47 exact-head QA correction
+
+- First PHP 8.5 analysis: **123 Psalm errors**, a net reduction of **67** from 190 (41 MissingThrowsDocblock, 41 TypeDoesNotContainType, 7 RedundantCondition, 17 P0 taints and 17 other). PHPStan reports three list-versus-array mismatches in ProcessRunner after stream_select() rewrites keys.
+- Four QA lanes found one new Pest test assuming closed stdin is accepted; Command::stdin correctly rejects invalid closed resources. Correct the regression test to assert the existing rejection contract and verify runner reuse.
+- Pint flagged four PHPDoc alignment issues in FiberScheduler, PhpQuicListener, Connection and TcpListener. Move freeform explanations ahead of annotations and normalize indentation. Fix the affected ProcessRunner array parameter contracts to accept keyed arrays.
+- Corrective commit validation required on exact SHA, including PHPStan, Psalm, Pest, Pint, Source Audit, Swoole, QUIC and other CI gates. P0 security taints remain open, no merge/tag/release.

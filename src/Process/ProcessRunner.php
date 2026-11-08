@@ -279,7 +279,7 @@ final readonly class ProcessRunner
         $buffer = $chunk;
     }
 
-    /** @param list<resource> $read */
+    /** @param array<array-key, resource> $read */
     private function readInputResource(array $read, ?int $inputResourceId, InputSource $input, string &$buffer): void
     {
         if ($inputResourceId === null || $buffer !== '') {
@@ -296,7 +296,7 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param list<resource> $read
+     * @param array<array-key, resource> $read
      * @param array<int, resource> $pipes
      */
     private function readOutputs(array $read, array &$pipes, OutputSink $stdout, OutputSink $stderr, int $limit, int &$accepted): bool
@@ -425,7 +425,7 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param list<resource> $write
+     * @param array<array-key, resource> $write
      * @param array<int, resource> $pipes
      */
     private function writeInput(array $write, array &$pipes, string &$buffer, InputSource $input): void
