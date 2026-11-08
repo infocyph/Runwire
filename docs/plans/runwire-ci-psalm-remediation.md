@@ -677,3 +677,10 @@
 - Revert the internal class public method declaration and the speculative focused test to their exact Batch 58 content. Retain the original supported parameter type/default and `@psalm-suppress MissingThrowsDocblock` until a detector-compatible fix can be proved without an API change.
 - This conflict is substantive: changing an existing public declaration solely to satisfy static analysis is not allowed under CORE-01 and FLOW-02. Keep the Source Audit strict, no fabricated ledger authorization and no merge/tag.
 - Recheck exact-head Source Audit, PHPStan, Psalm, four QA lanes and protocol/host tests; the original 15 security taints and nine prohibited annotations remain separately unresolved.
+
+### Batch 61 — PHP 8.4-compatible intentional Fiber return discards
+
+- Starting exact SHA `1f0efc592521315c35aa0a11dd1970de4085b9ef` restored the published adaptive API; Source Audit green. Four existing FiberScheduler `@psalm-suppress UnusedMethodCall` directives remain a strict QA blocker.
+- Use the language-documented `$_ = Fiber::suspend(...)` discard for the four `void` scheduling methods (sleep, suspendReadable, suspendWritable, yieldNow). Unlike PHP 8.5-only `(void)`, this idiom parses on PHP 8.4 and consumes the intentional NoDiscard result while preserving the required suspend/resume side effect.
+- Remove exactly the four unnecessary inline `@psalm-suppress` directives. Do not modify awaitFuture, which intentionally returns its resume value; no additional Fiber calls or scheduling branches are introduced. Existing coroutine/lifecycle tests verify operational behavior.
+- **Hypothesis pending exact SHA verification:** PHPStan, Psalm, Pint, PHPCS and Rector must all accept the intentional `$_` target. If a detector rejects it, restore the original behavior without trying to silence the detector via scanner bypass. The five remaining non-Fiber suppressions and 15 security-taint diagnostics are not waived; no merge/release/tag.
