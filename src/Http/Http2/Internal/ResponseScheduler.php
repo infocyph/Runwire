@@ -336,6 +336,9 @@ final class ResponseScheduler
         return ++$stalled < count($this->flushQueue) + 1;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushOne(Http2Stream $stream): bool
     {
         if ($stream->outbound->isEmpty()) {
@@ -371,6 +374,9 @@ final class ResponseScheduler
         return true;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushWireChunk(): bool
     {
         $chunk = $this->wireQueue->front(min(self::WIRE_CHUNK_BYTES, $this->wireQueue->bytes()));
@@ -496,6 +502,9 @@ final class ResponseScheduler
         return $stream instanceof Http2Stream && $stream->localOpen() ? $stream : null;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function queueData(Http2Stream $stream, string $data, bool $end): WriteResult
     {
         if (!$stream->localOpen()) {
@@ -519,6 +528,9 @@ final class ResponseScheduler
         return $this->streamWriteResult($stream);
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function queueWire(string $wire): WriteResult
     {
         if (strlen($wire) > min(
@@ -578,7 +590,10 @@ final class ResponseScheduler
         return $result;
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @throws \LogicException
+     */
     private function sendHeaders(Http2Stream $stream, int $status, array $headers): WriteResult
     {
         if (!$stream->localOpen()) {
@@ -612,6 +627,7 @@ final class ResponseScheduler
 
     /**
      * @param list<array{0: string, 1: string}> $headers
+     * @throws \LogicException
      */
     private function sendInitialResponse(Http2Stream $stream, array $headers, string $data): ?WriteResult
     {

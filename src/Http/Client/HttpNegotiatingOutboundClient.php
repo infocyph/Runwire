@@ -29,6 +29,8 @@ final readonly class HttpNegotiatingOutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $completion
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
      */
     public static function connect(
         LoopInterface $loop,
@@ -130,6 +132,7 @@ final readonly class HttpNegotiatingOutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $completion
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     private static function startExchange(
         LoopInterface $loop,
@@ -165,7 +168,11 @@ final readonly class HttpNegotiatingOutboundClient
         $exchange->start();
     }
 
-    /** Validate a complete ALPN offer against original peer identity before DNS. */
+    /**
+     * Validate a complete ALPN offer against original peer identity before DNS.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
+     */
     private static function verifiedOptions(
         ClientRequest $request,
         DialOptions $options,

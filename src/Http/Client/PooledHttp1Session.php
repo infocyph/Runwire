@@ -51,6 +51,7 @@ final class PooledHttp1Session
      * Construct one immutable connection trust domain, shared by H1 requests.
      * @param string $scope Opaque worker/tenant identifier; do not reuse across tenants.
      * @param string|null $tlsPolicyIdentity Revisioned certificate/trust policy for HTTPS.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -135,6 +136,8 @@ final class PooledHttp1Session
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function send(
         ClientRequest $request,
@@ -210,6 +213,7 @@ final class PooledHttp1Session
 
     /**
      * @return array{scheme: string, host: string, port: int}
+     * @throws \InvalidArgumentException
      */
     private static function parseOrigin(string $origin): array
     {
@@ -316,6 +320,9 @@ final class PooledHttp1Session
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function verifyRequest(ClientRequest $request): void
     {
         $parts = parse_url($request->uri);

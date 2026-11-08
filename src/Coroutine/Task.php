@@ -58,6 +58,8 @@ final class Task
 
     /**
      * Wait for task completion and return its result.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function await(): mixed
     {
@@ -66,7 +68,11 @@ final class Task
         return $this->completion->future()->await();
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function awaitForCleanup(): mixed
     {
         $this->markObserved();
@@ -90,7 +96,10 @@ final class Task
         return $this->cancellationSource->token();
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function dispatch(ReadyItem $item): mixed
     {
         $previous = $this->state;
@@ -156,7 +165,10 @@ final class Task
         };
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function markRunnable(): bool
     {
         if ($this->isComplete() || $this->state === TaskState::RUNNABLE) {
@@ -179,6 +191,8 @@ final class Task
 
     /**
      * Return the completed task result or throw its terminal failure.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function result(): mixed
     {

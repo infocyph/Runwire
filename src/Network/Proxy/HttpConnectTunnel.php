@@ -40,7 +40,10 @@ final class HttpConnectTunnel
 
     private ?int $timer = null;
 
-    /** @param callable(?Connection, ?Throwable):void $completion */
+    /**
+     * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -71,7 +74,12 @@ final class HttpConnectTunnel
         return true;
     }
 
-    /** Start one bounded nonblocking proxy handshake with exclusive callback ownership. */
+    /**
+     * Start one bounded nonblocking proxy handshake with exclusive callback ownership.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->state !== 'new') {
@@ -135,7 +143,10 @@ final class HttpConnectTunnel
     }
 
     /** Execute the bounded proxy exchange phase. */
-    /** Fail closed when a remote proxy cannot prove an approved destination IP. */
+    /**
+     * Fail closed when a remote proxy cannot prove an approved destination IP.
+     * @throws \RuntimeException
+     */
     private function assertTargetPolicy(): void
     {
         if ($this->targetAddressPolicy === null) {
@@ -148,7 +159,10 @@ final class HttpConnectTunnel
         $this->targetAddressPolicy->assertCandidate($target);
     }
 
-    /** Permit credentials only on a matching, dialer-verified outbound TLS channel. */
+    /**
+     * Permit credentials only on a matching, dialer-verified outbound TLS channel.
+     * @throws \LogicException
+     */
     private function assertVerifiedProxyPeer(): void
     {
         $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
@@ -158,6 +172,9 @@ final class HttpConnectTunnel
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function cleanup(): void
     {
         if ($this->timer !== null) {

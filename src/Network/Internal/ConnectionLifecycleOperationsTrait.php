@@ -16,7 +16,10 @@ use LogicException;
 /** @internal State transition and resource cleanup mechanics for established streams. */
 trait ConnectionLifecycleOperationsTrait
 {
-    /** Bind this established stream to one owner token and its earliest deadline. */
+    /**
+     * Bind this established stream to one owner token and its earliest deadline.
+     * @throws \LogicException
+     */
     public function bindOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
     {
         if ($this->state === ConnectionState::CLOSED || $this->scopeOwnership !== null) {
@@ -39,6 +42,7 @@ trait ConnectionLifecycleOperationsTrait
     /**
      * @internal Preserve the incoming EOF until a duplex relay drains the opposite direction.
      * This is permitted only for cleartext streams with no prior protocol owner.
+     * @throws \LogicException
      */
     public function preservePeerEof(): void
     {
@@ -53,6 +57,7 @@ trait ConnectionLifecycleOperationsTrait
      * Half-close the local write direction while keeping inbound reads active.
      *
      * Pending writes must be drained explicitly before half-closing.
+     * @throws \LogicException
      */
     public function shutdownWrite(): void
     {
@@ -78,6 +83,7 @@ trait ConnectionLifecycleOperationsTrait
      * Queue a local half-close after all accepted bytes have reached the socket.
      * Future application writes are rejected while the pending FIN drains.
      * @param null|callable():void $onHalfClosed
+     * @throws \LogicException
      */
     public function shutdownWriteAfterDrain(?callable $onHalfClosed = null): void
     {
@@ -93,6 +99,7 @@ trait ConnectionLifecycleOperationsTrait
     /**
      * Explicitly rebind a live connection to a different cancellation owner.
      * Existing ownership is preserved if the new token is already cancelled.
+     * @throws \LogicException
      */
     public function transferOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
     {
@@ -108,6 +115,7 @@ trait ConnectionLifecycleOperationsTrait
 
     /**
      * Write bytes immediately when possible or queue them within configured bounds.
+     * @throws \OverflowException
      */
     public function write(string $data): WriteResult
     {

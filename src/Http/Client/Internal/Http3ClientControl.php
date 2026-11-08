@@ -44,7 +44,10 @@ final class Http3ClientControl
         $this->peer->close();
     }
 
-    /** Announce a local QPACK critical stream only after sending HTTP/3 SETTINGS. */
+    /**
+     * Announce a local QPACK critical stream only after sending HTTP/3 SETTINGS.
+     * @throws \LogicException
+     */
     public function localQpackPreamble(StreamType $type): string
     {
         if (!$this->localStarted) {
@@ -73,6 +76,8 @@ final class Http3ClientControl
      * Parse a fragmented peer stream type and control frames.
      *
      * @return list<Frame>
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function receivePeerControl(string $bytes): array
     {
@@ -116,7 +121,10 @@ final class Http3ClientControl
             && $wireStreamId >= $this->peerGoawayId;
     }
 
-    /** Emit local HTTP/3 stream type and SETTINGS, exactly once. */
+    /**
+     * Emit local HTTP/3 stream type and SETTINGS, exactly once.
+     * @throws \LogicException
+     */
     public function start(): string
     {
         if ($this->localStarted) {
@@ -131,7 +139,10 @@ final class Http3ClientControl
         ]));
     }
 
-    /** Accept only a complete, nonincreasing client-bidi GOAWAY request stream ID. */
+    /**
+     * Accept only a complete, nonincreasing client-bidi GOAWAY request stream ID.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function validateGoaway(Frame $frame): void
     {
         $decoded = VarIntCodec::tryDecode($frame->payload);

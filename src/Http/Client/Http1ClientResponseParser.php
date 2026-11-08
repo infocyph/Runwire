@@ -183,6 +183,9 @@ final class Http1ClientResponseParser
         $onBody($bytes);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function prepareBody(bool $chunked, ?int $length, callable $onEnd): void
     {
         if ($chunked) {
@@ -203,6 +206,9 @@ final class Http1ClientResponseParser
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readBody(callable $onBody, callable $onEnd): void
     {
         $available = min(strlen($this->buffer), $this->remaining);
@@ -217,6 +223,9 @@ final class Http1ClientResponseParser
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readChunkData(callable $onBody): void
     {
         $take = min(strlen($this->buffer), $this->remaining);
@@ -333,6 +342,9 @@ final class Http1ClientResponseParser
         $this->prepareBody($head['chunked'], $head['length'], $onEnd);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readTrailers(callable $onEnd): void
     {
         $parsed = Http1ClientResponseHeadParser::parseTrailers($this->buffer, $this->maxHeaderBytes);
@@ -345,6 +357,9 @@ final class Http1ClientResponseParser
         $this->complete($onEnd);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readUntilEof(callable $onBody): void
     {
         if ($this->buffer === '') {

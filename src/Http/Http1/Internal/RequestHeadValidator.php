@@ -134,6 +134,9 @@ final class RequestHeadValidator
         return $tokens;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function validateHost(Headers $headers, string $method, string $target): void
     {
         $host = $headers->all('host');

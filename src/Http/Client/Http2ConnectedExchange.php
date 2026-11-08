@@ -48,6 +48,7 @@ final class Http2ConnectedExchange
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $onComplete
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -74,7 +75,11 @@ final class Http2ConnectedExchange
         $this->finish(new RuntimeException('HTTP/2 exchange closed before response completion.'));
     }
 
-    /** Bind to one open H2 socket and emit the protocol client preface. */
+    /**
+     * Bind to one open H2 socket and emit the protocol client preface.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function start(): void
     {
         if ($this->started || $this->settled || !$this->connection->isPoolIdleSafe()) {
@@ -110,6 +115,10 @@ final class Http2ConnectedExchange
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \RuntimeException
+     */
     private function armDeadline(): void
     {
         $token = $this->request->cancellation;
@@ -161,6 +170,9 @@ final class Http2ConnectedExchange
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function finish(?Throwable $error): void
     {
         if ($this->settled) {
@@ -233,6 +245,9 @@ final class Http2ConnectedExchange
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function queue(string $wire): void
     {
         if ($wire === '') {
