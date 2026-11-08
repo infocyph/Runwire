@@ -616,3 +616,9 @@
 - Correct executor response decoding to use the stored top-level operation rather than substring-matching raw JSON packets; cover nested `op: read` arguments under a successful `sleep` operation.
 - **Security still blocking:** all 15 file/SSRF Psalm taint findings require separate trust-boundary review and regression tests. Existing 17 skip directives likewise remain subject to strict QA; do not weaken detectors or claim clean CI.
 - **Required verification on this new commit:** Psalm and PHPStan on 8.4/8.5, four PHPForge QA lanes, Source Audit, HTTP/3+QUIC, hosted runtimes, docs, and the executor regression. Net diagnostic counts pending GitHub CI. No merge, tag, or release.
+
+### Batch 52 — corrective verification of Batch 51 analyzer contracts and Pint ordering
+
+- Exact Batch 51 commit: `790cdc550c08ae13de05c8ae94848a1ceed797df`. PHPStan **passed** on the PHP 8.4 analyzer; Psalm returned **18 errors**, comprising the original 15 security taints and 3 missing exception annotations in newly introduced checked native-object boundaries. The previous StreamRelay and internal-method findings were resolved. Full cross-version QA remained pending when this correction was prepared.
+- Document the three genuinely thrown validation exceptions at their declaring helpers. Align `ordered_class_elements`: all static private helpers precede private instance methods, with alphabetical sorting inside each group. These changes preserve QUIC extension optionality, worker ownership and event-loop resource behavior.
+- Do not mistake removal of incidental PHPStan/Pint blockers for completion: 15 security taints and 17 strict-QA skip directives remain active and require root-cause remediation. Exact-head PHP 8.4/8.5 Psalm/PHPStan/Pint/Pest/Source Audit/QUIC/hosted checks are pending. No release or merge.

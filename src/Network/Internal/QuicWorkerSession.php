@@ -55,6 +55,19 @@ final class QuicWorkerSession
     /** @var array<int, array{stream:object, bidirectional:bool, readable:bool, writable:bool, send_finished:bool}> */
     private array $streams = [];
 
+    /**
+     * Validate an optional native extension return value without naming an absent class.
+     * @throws \RuntimeException
+     */
+    private static function requireNativeConnection(mixed $value): object
+    {
+        if (!is_object($value)) {
+            throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
+        }
+
+        return $value;
+    }
+
     private function teardown(): void
     {
         $this->streams = [];
@@ -292,16 +305,6 @@ final class QuicWorkerSession
 
             throw $error;
         }
-    }
-
-    /** Validate an optional native extension return value without naming an absent class. */
-    private static function requireNativeConnection(mixed $value): object
-    {
-        if (!is_object($value)) {
-            throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
-        }
-
-        return $value;
     }
 
     private function driveNativeEvents(): void

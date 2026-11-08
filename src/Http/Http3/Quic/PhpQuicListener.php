@@ -123,16 +123,6 @@ final readonly class PhpQuicListener
         ($this->setBlockingCallback)(false);
     }
 
-    /** Fail closed when an optional native constructor lacks an analyzable return type. */
-    private static function requireNativeObject(mixed $value): object
-    {
-        if (!is_object($value)) {
-            throw new ListenerException('Native QUIC listener constructor returned an invalid value.');
-        }
-
-        return $value;
-    }
-
     /**
      * @throws \InvalidArgumentException
      */
@@ -154,6 +144,19 @@ final readonly class PhpQuicListener
         }
 
         return $object->{$method}(...);
+    }
+
+    /**
+     * Fail closed when an optional native constructor lacks an analyzable return type.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
+    private static function requireNativeObject(mixed $value): object
+    {
+        if (!is_object($value)) {
+            throw new ListenerException('Native QUIC listener constructor returned an invalid value.');
+        }
+
+        return $value;
     }
 
     private static function supportsH3(mixed $alpn): bool

@@ -12,7 +12,10 @@ use Throwable;
  * Private off-loop worker entry point. No Composer bootstrap, global hooks or
  * caller-provided PHP code is executed in the child.
  */
-/** Fail closed when an optional extension constructor cannot be typed statically. */
+/**
+ * Fail closed when an optional extension constructor cannot be typed statically.
+ * @throws \RuntimeException
+ */
 function requireNativeQuicObject(mixed $value): object
 {
     if (!is_object($value)) {
