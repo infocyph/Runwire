@@ -34,6 +34,38 @@ function maskedWebSocketFrame(int $opcode, string $payload, bool $fin = true): s
 }
 
 it('parses masked frames incrementally without exposing mask bytes', function (): void {
+    runwireWebSocketFrameParserCase01();
+});
+
+it('accepts minimal 16-bit and 64-bit frame lengths within the configured ceiling', function (): void {
+    runwireWebSocketFrameParserCase02();
+});
+
+it('rejects unmasked, reserved and invalid control frames', function (): void {
+    runwireWebSocketFrameParserCase03();
+});
+
+it('rejects non-minimal lengths and configured frame ceilings', function (): void {
+    runwireWebSocketFrameParserCase04();
+});
+
+it('charges parser bytes to the shared worker budget', function (): void {
+    runwireWebSocketFrameParserCase05();
+});
+
+it('enforces client and server masking directions without admitting invalid frames', function (): void {
+    runwireWebSocketFrameParserCase06();
+});
+
+it('releases incomplete hostile WebSocket parser bytes immediately when the session ends', function (): void {
+    runwireWebSocketFrameParserCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireWebSocketFrameParserCase01(): void
+{
     $parser = new WebSocketFrameParser(new WebSocketOptions());
     $wire = maskedWebSocketFrame(0x1, 'hello');
 
@@ -48,9 +80,13 @@ it('parses masked frames incrementally without exposing mask bytes', function ()
         ->and($frames[0]->opcode)->toBe(0x1)
         ->and($frames[0]->payload)->toBe('hello')
         ->and($parser->bufferedBytes())->toBe(0);
-});
+}
 
-it('accepts minimal 16-bit and 64-bit frame lengths within the configured ceiling', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireWebSocketFrameParserCase02(): void
+{
     $parser = new WebSocketFrameParser(new WebSocketOptions(
         maxFramePayloadBytes: 65_536,
         maxMessageBytes: 131_072,
@@ -67,9 +103,13 @@ it('accepts minimal 16-bit and 64-bit frame lengths within the configured ceilin
         ->and($frames[0]->payload)->toBe($payload126)
         ->and(strlen($frames[1]->payload))->toBe(65_536)
         ->and($frames[1]->payload)->toBe($payload65536);
-});
+}
 
-it('rejects unmasked, reserved and invalid control frames', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireWebSocketFrameParserCase03(): void
+{
     $options = new WebSocketOptions();
 
     $unmasked = new WebSocketFrameParser($options);
@@ -86,9 +126,13 @@ it('rejects unmasked, reserved and invalid control frames', function (): void {
     $fragmentedPing->append(maskedWebSocketFrame(0x9, 'x', false));
     expect(static fn() => $fragmentedPing->parse(1))
         ->toThrow(WebSocketProtocolException::class, 'control frames');
-});
+}
 
-it('rejects non-minimal lengths and configured frame ceilings', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireWebSocketFrameParserCase04(): void
+{
     $mask = "\x01\x02\x03\x04";
 
     $nonMinimal = new WebSocketFrameParser(new WebSocketOptions());
@@ -100,9 +144,13 @@ it('rejects non-minimal lengths and configured frame ceilings', function (): voi
     $oversized->append(maskedWebSocketFrame(0x2, str_repeat('x', 129)));
     expect(static fn() => $oversized->parse(1))
         ->toThrow(WebSocketProtocolException::class, 'payload exceeds');
-});
+}
 
-it('charges parser bytes to the shared worker budget', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireWebSocketFrameParserCase05(): void
+{
     $budget = new ByteBudget(32);
     $parser = new WebSocketFrameParser(
         new WebSocketOptions(maxFramePayloadBytes: 16, maxMessageBytes: 32, maxBufferedBytes: 64),
@@ -118,9 +166,13 @@ it('charges parser bytes to the shared worker budget', function (): void {
     $parser->append(str_repeat('x', 32));
     expect(static fn() => $parser->append('y'))
         ->toThrow(WebSocketProtocolException::class, 'byte budget');
-});
+}
 
-it('enforces client and server masking directions without admitting invalid frames', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireWebSocketFrameParserCase06(): void
+{
     $options = new WebSocketOptions();
     $serverParser = new WebSocketFrameParser($options);
     $serverParser->append("\x81\x01x");
@@ -135,9 +187,13 @@ it('enforces client and server masking directions without admitting invalid fram
     $valid = new WebSocketFrameParser($options, expectMasked: false);
     $valid->append(WebSocketWireCodec::frame(0x1, 'clear-from-server'));
     expect($valid->parse(1)[0]->payload)->toBe('clear-from-server');
-});
+}
 
-it('releases incomplete hostile WebSocket parser bytes immediately when the session ends', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireWebSocketFrameParserCase07(): void
+{
     $budget = new ByteBudget(256);
     $parser = new WebSocketFrameParser(
         new WebSocketOptions(maxFramePayloadBytes: 64, maxMessageBytes: 128, maxBufferedBytes: 256),
@@ -154,4 +210,4 @@ it('releases incomplete hostile WebSocket parser bytes immediately when the sess
     $parser->append(WebSocketWireCodec::clientFrame(0x1, 'ready'));
     expect($parser->parse(1)[0]->payload)->toBe('ready')
         ->and($budget->used())->toBe(0);
-});
+}

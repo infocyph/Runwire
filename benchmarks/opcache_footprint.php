@@ -17,7 +17,7 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 require __DIR__ . '/../vendor/autoload.php';
 
 /**
- * @param array<string, mixed> $metrics
+ * @param array<mixed> $metrics
  * @throws \UnexpectedValueException
  */
 function footprintIntegerMetric(array $metrics, string $name): int

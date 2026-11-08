@@ -11,6 +11,22 @@ use Infocyph\Runwire\Http\Http3\Internal\AdaptiveResponseStrategy;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 
 it('adapts HTTP3 write effort without exceeding the configured maximum', function (): void {
+    runwireHttp3AdaptiveStrategyCase01();
+});
+
+it('adapts HTTP3 read effort while keeping acceptance stable under sustained load', function (): void {
+    runwireHttp3AdaptiveStrategyCase02();
+});
+
+it('adapts HTTP3 poll timing only for idle listeners and pending handshakes', function (): void {
+    runwireHttp3AdaptiveStrategyCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireHttp3AdaptiveStrategyCase01(): void
+{
     $strategy = new AdaptiveResponseStrategy();
     $low = new AdaptiveLoadSample(false, 0, 0);
 
@@ -27,9 +43,13 @@ it('adapts HTTP3 write effort without exceeding the configured maximum', functio
 
     expect($throughput->state())->toBe(AdaptiveLoadState::THROUGHPUT)
         ->and($limit)->toBe(128);
-});
+}
 
-it('adapts HTTP3 read effort while keeping acceptance stable under sustained load', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireHttp3AdaptiveStrategyCase02(): void
+{
     $strategy = new AdaptivePumpStrategy();
 
     foreach (range(1, 3) as $_) {
@@ -47,12 +67,16 @@ it('adapts HTTP3 read effort while keeping acceptance stable under sustained loa
         ->and($high->acceptLimit(64))->toBe(64)
         ->and($high->readLimit(256))->toBe(256)
         ->and($high->byteLimit(262_144))->toBe(262_144);
-});
+}
 
-it('adapts HTTP3 poll timing only for idle listeners and pending handshakes', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireHttp3AdaptiveStrategyCase03(): void
+{
     expect(AdaptivePollStrategy::timeout(0.0, true, 0, 0))->toBe(0.0)
         ->and(AdaptivePollStrategy::timeout(0.05, true, 0, 0))->toBe(0.2)
         ->and(AdaptivePollStrategy::timeout(0.05, true, 0, 1))->toBe(0.01)
         ->and(AdaptivePollStrategy::timeout(0.05, true, 1, 0))->toBe(0.05)
         ->and(AdaptivePollStrategy::timeout(null, true, 0, 0))->toBeNull();
-});
+}

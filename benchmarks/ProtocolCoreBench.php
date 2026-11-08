@@ -367,9 +367,14 @@ final class ProtocolCoreBench
         return QpackIntegerCodec::decode($encoded, $offset, 5, Http3ErrorCode::QPACK_DECOMPRESSION_FAILED);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function benchHttp3QpackStaticDecode(): int
     {
-        return count($this->qpackDecoder->decode($this->qpackWire, 0)->fields);
+        return count($this->qpackDecoder->decode($this->qpackWire, 0)->fields ?? []);
     }
 
     /**
