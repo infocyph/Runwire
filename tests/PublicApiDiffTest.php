@@ -6,10 +6,8 @@ it('diffs immutable PHP source API signatures deterministically without requirin
     $path = dirname(__DIR__) . '/tools/public-api-diff.php';
     expect(is_file($path))->toBeTrue();
 
-    $first = tempnam(sys_get_temp_dir(), 'runwire-api-a-');
-    $second = tempnam(sys_get_temp_dir(), 'runwire-api-b-');
-    expect($first)->toBeString()
-        ->and($second)->toBeString();
+    $packet = tempnam(sys_get_temp_dir(), 'runwire-api-diff-');
+    expect($packet)->toBeString();
 
     $base = [
         'schemaVersion' => 1,
@@ -69,11 +67,9 @@ it('diffs immutable PHP source API signatures deterministically without requirin
     ];
 
     try {
-        file_put_contents($first, json_encode($base, JSON_THROW_ON_ERROR));
-        file_put_contents($second, json_encode($current, JSON_THROW_ON_ERROR));
+        file_put_contents($packet, json_encode(['baseline' => $base, 'candidate' => $current], JSON_THROW_ON_ERROR));
         $command = escapeshellarg(PHP_BINARY) . ' '
-            . escapeshellarg($path) . ' '
-            . escapeshellarg($first) . ' ' . escapeshellarg($second);
+            . escapeshellarg($path) . ' < ' . escapeshellarg($packet);
         $lines = [];
         $status = 0;
         exec($command . ' 2>&1', $lines, $status);
@@ -102,11 +98,8 @@ it('diffs immutable PHP source API signatures deterministically without requirin
         expect($status)->toBe(0)
             ->and($again)->toBe($lines);
     } finally {
-        if (is_string($first) && is_file($first)) {
-            unlink($first);
-        }
-        if (is_string($second) && is_file($second)) {
-            unlink($second);
+        if (is_string($packet) && is_file($packet)) {
+            unlink($packet);
         }
     }
 });

@@ -9,30 +9,22 @@ if (PHP_SAPI !== 'cli') {
 /**
  * Compare two immutable source-only PHP API manifests (no Composer required).
  *
- * php tools/public-api-diff.php <2.1.2-manifest.json> <3.0-manifest.json>
+ * php tools/public-api-diff.php < manifest-envelope.json
  *
  * This checks declarations only; behavioral compatibility needs human review.
  */
 
-/** Validate CLI arguments without trusting the ambient server array shape. */
-$readCliArguments = static function (mixed $input): array {
-    if (!is_array($input) || !array_is_list($input)) {
-        throw new InvalidArgumentException('CLI arguments must be a list of strings.');
-    }
-
-    $arguments = [];
-    foreach ($input as $value) {
-        if (!is_string($value)) {
-            throw new InvalidArgumentException('CLI arguments must be strings.');
-        }
-        $arguments[] = $value;
-    }
-
-    return $arguments;
-};
-$arguments = $readCliArguments($argv ?? []);
-if (count($arguments) !== 3) {
-    throw new InvalidArgumentException('Usage: php tools/public-api-diff.php <baseline.json> <candidate.json>');
+/** Two source-only manifests are passed as a bounded stdin envelope. */
+if (!is_array($argv ?? null) || count($argv) !== 1) {
+    throw new InvalidArgumentException('Usage: php tools/public-api-diff.php < manifest-envelope.json');
+}
+$input = stream_get_contents(STDIN, 33_600_001);
+if (!is_string($input) || $input === '' || strlen($input) > 33_600_000) {
+    throw new InvalidArgumentException('API diff input is missing or exceeds 33.6 MiB.');
+}
+$envelope = json_decode($input, true, 64, JSON_THROW_ON_ERROR);
+if (!is_array($envelope) || array_is_list($envelope)) {
+    throw new InvalidArgumentException('API diff requires a JSON document envelope.');
 }
 
 /**
@@ -76,20 +68,7 @@ $readMethods = static function (mixed $values): array {
 /**
  * @return array{sourceRevision:string,symbols:array<string,array{kind:string,methods:array<string,string>,publicProperties:?array<string,string>,publicConstants:list<string>,enumCases:list<string>,sha256:string}>}
  */
-$load = static function (string $file) use ($readList, $readMethods): array {
-    $canonical = realpath($file);
-    if (!is_string($canonical) || !is_file($canonical) || !is_readable($canonical)) {
-        throw new InvalidArgumentException('API diff requires an existing local manifest file.');
-    }
-    $size = filesize($canonical);
-    if (!is_int($size) || $size > 16_777_216) {
-        throw new InvalidArgumentException('API diff manifest is unreadable or exceeds 16 MiB.');
-    }
-    $json = file_get_contents($canonical);
-    if ($json === false || strlen($json) > 16_777_216) {
-        throw new InvalidArgumentException('API diff manifest is unreadable or exceeds 16 MiB.');
-    }
-    $decoded = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
+$load = static function (mixed $decoded) use ($readList, $readMethods): array {
     if (!is_array($decoded) || ($decoded['schemaVersion'] ?? null) !== 1
         || !is_array($decoded['symbols'] ?? null)
         || !is_string($decoded['sourceRevision'] ?? null)
@@ -119,8 +98,8 @@ $load = static function (string $file) use ($readList, $readMethods): array {
     return ['sourceRevision' => $decoded['sourceRevision'], 'symbols' => $symbols];
 };
 
-$baseline = $load($arguments[1]);
-$candidate = $load($arguments[2]);
+$baseline = $load($envelope['baseline'] ?? null);
+$candidate = $load($envelope['candidate'] ?? null);
 $breaking = [];
 $added = [];
 $changed = [];

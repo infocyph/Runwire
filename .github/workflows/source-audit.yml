@@ -101,7 +101,12 @@ jobs:
           php -l tools/public-api-diff.php
           php tools/public-api-manifest.php published-2.1.2/src 7e9bf20ad0737a187dfed77b723791b141b36378 --with-properties > api-baseline/published-2.1.2-properties.json
           php tools/public-api-manifest.php src "${GITHUB_SHA}" --with-properties > api-baseline/current-properties.json
-          php tools/public-api-diff.php api-baseline/published-2.1.2-properties.json api-baseline/current-properties.json > api-baseline/migration-source-diff.json
+          jq -cn \
+            --slurpfile baseline api-baseline/published-2.1.2-properties.json \
+            --slurpfile candidate api-baseline/current-properties.json \
+            '{baseline: $baseline[0], candidate: $candidate[0]}' \
+            | php tools/public-api-diff.php \
+            > api-baseline/migration-source-diff.json
           jq -e --arg base "7e9bf20ad0737a187dfed77b723791b141b36378" --arg candidate "${GITHUB_SHA}" \
             '.schemaVersion == 1 and .baselineRevision == $base and .candidateRevision == $candidate and .propertyInventoryCompared == true' \
             api-baseline/migration-source-diff.json >/dev/null

@@ -820,3 +820,10 @@
 - Batch 79 switched public-api-manifest JSON output to stdout, and Source Audit succeeded. Its PHPForge Pest run failed two tests in `PublicApiManifestPropertiesTest.php` because their subprocess commands appended `2>&1` **after** the JSON stdout redirection, making PHP's stderr diagnostic output part of the JSON file and hiding the expected symlink rejection message from the captured output.
 - Correct exactly the shell redirection order to `2>&1 > manifest.json` for the normal and rejection commands. This captures stderr in the test output while leaving only generated JSON in the manifest file; the generator, Source Audit and CLI production redirections remain unchanged.
 - Source and API contracts untouched. Verify both Pest regressions, all QA lanes, Source Audit and Psalm exact-head before marking the earlier batch valid. No merge or tag.
+
+### Batch 83 — compare public manifests from stdin without arbitrary file opens
+
+- Previous batches moved manifest creation to stdout, C4 reviewed behavior and migration-audit input to bounded stdin envelopes. Keep complete Source Audit and public PHP method fingerprint comparison unchanged.
+- `tools/public-api-diff.php` still reads arbitrary argv filenames through file_get_contents, yielding one SSRF + one file-taint sink. The comparator now receives two JSON manifest objects in a bounded 33.6 MiB stdin envelope; it performs identical schema-v1, declaration, property and SHA checks. Remove caller-selected read paths from the PHP process entirely.
+- Update the workflow using jq --slurpfile to preserve the pinned published and live property-aware manifests; adapt deterministic test to a single envelope input. Reject invalid envelopes and extra args. Manifest output and source diff format remain unchanged. No taint escape, excluded files or downgraded analyzers.
+- Verify PHP 8.4/8.5 Psalm/PHPStan, four strict QA lanes and Source Audit before updating findings counts. No merge/tag.
