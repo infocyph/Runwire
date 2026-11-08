@@ -426,3 +426,11 @@
 - Keep all P0 file/SSRF/header taint findings, P1 lifecycle/type, P2, P3 and additional diagnostics active until their exact-run checks pass; this small critical-fix batch deliberately avoids padding to 50 files with unrelated edits.
 
 - Batch 41 PHP 8.5 Psalm: **245 errors** (net -4 versus Batch 40 249) and **TaintedHeader reduced 3 → 2**; PHPStan identified one redundant `isset` after the known-allocated synchronous worker write. Remove that redundant check; preserve retire-on-write-failure and unchanged worker ownership.
+
+### Batch 42 — native extension object contracts
+
+- Exact pre-batch PR head `1e017a68ddb99a8fb28089ced7b2843e77b924c6`: Psalm PHP 8.4 and 8.5 each reported **245 errors** (91 missing throws, 17 security taints, 137 other); PHPStan, four QA lanes, HTTP/3+QUIC, Source Audit and packaging passed.
+- Remove impossible non-object checks following successful dynamic native object construction in the QUIC subprocess and HTTP/3 listener.
+- Preserve fail-closed verification of all six required QUIC session methods before ownership transfer. Iterating dynamic method names avoids misleading chained static refinements while retaining runtime checks.
+- Preserve public signatures, TLS verification, address policy, worker dispatch and taint configuration. Validate exact-head Psalm, PHPStan, full QA, QUIC and source audit before marking complete.
+- All outstanding P0 file/SSRF/header and P1-P3 diagnostics remain open. No merge, tag, or release.
