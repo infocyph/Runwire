@@ -10,7 +10,10 @@ use Throwable;
 /** @internal Nonblocking subprocess pipe and worker lifecycle mechanics. */
 trait ExecutorIpcTrait
 {
-    /** @return array{mixed, ?Throwable} */
+    /**
+     * @return array{mixed, ?Throwable}
+     * @throws \RuntimeException
+     */
     private function decodeResponse(int $jobId, string $payload): array
     {
         $response = json_decode($payload, true, 16, JSON_THROW_ON_ERROR);
@@ -115,6 +118,10 @@ trait ExecutorIpcTrait
         $this->schedulePump();
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function startWorker(): int
     {
         $script = dirname(__DIR__, 3) . '/tools/executor-worker.php';

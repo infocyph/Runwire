@@ -83,6 +83,8 @@ final class BoundedConnectionPool
      * @param callable(int,?Connection,?Throwable):void $ready
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function acquire(PoolIsolationKey $key, callable $ready, float $waitSeconds = 10.0): int
     {
@@ -123,7 +125,10 @@ final class BoundedConnectionPool
         return $id;
     }
 
-    /** Number of leased (including pending dial) active connection slots. */
+    /**
+     * Number of leased (including pending dial) active connection slots.
+     * @throws \LogicException
+     */
     public function activeCount(): int
     {
         $this->assertProcessOwner();
@@ -131,7 +136,10 @@ final class BoundedConnectionPool
         return count($this->active);
     }
 
-    /** Cancel a queued waiter exactly once; active leases use release(). */
+    /**
+     * Cancel a queued waiter exactly once; active leases use release().
+     * @throws \LogicException
+     */
     public function cancel(int $id): bool
     {
         $this->assertProcessOwner();
@@ -178,7 +186,10 @@ final class BoundedConnectionPool
         }
     }
 
-    /** Number of quiescent, verified sockets available for identity-safe reuse. */
+    /**
+     * Number of quiescent, verified sockets available for identity-safe reuse.
+     * @throws \LogicException
+     */
     public function idleCount(): int
     {
         $this->assertProcessOwner();
@@ -190,6 +201,7 @@ final class BoundedConnectionPool
      * Snapshot optionally enabled bounded counters without exposing tenant/proxy credentials.
      *
      * @return array<string, int|bool>
+     * @throws \LogicException
      */
     public function metrics(): array
     {
@@ -204,7 +216,10 @@ final class BoundedConnectionPool
         ];
     }
 
-    /** Retire a lease; unhealthy, foreign or closed-pool sockets are aborted. */
+    /**
+     * Retire a lease; unhealthy, foreign or closed-pool sockets are aborted.
+     * @throws \LogicException
+     */
     public function release(int $id, ?Connection $connection = null): bool
     {
         $this->assertProcessOwner();
@@ -226,7 +241,10 @@ final class BoundedConnectionPool
         return true;
     }
 
-    /** Number of bounded FIFO acquisitions awaiting a lease permit. */
+    /**
+     * Number of bounded FIFO acquisitions awaiting a lease permit.
+     * @throws \LogicException
+     */
     public function waitingCount(): int
     {
         $this->assertProcessOwner();

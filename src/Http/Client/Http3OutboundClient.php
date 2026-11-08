@@ -89,6 +89,7 @@ final class Http3OutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \RuntimeException
      */
     private function __construct(
         private readonly LoopInterface $loop,
@@ -117,6 +118,8 @@ final class Http3OutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public static function connect(
         LoopInterface $loop,
@@ -238,6 +241,11 @@ final class Http3OutboundClient
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \RuntimeException
+     */
     private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
     {
         $probe = $this->peerStreams->push($stream, $bytes, $eof);
@@ -483,6 +491,9 @@ final class Http3OutboundClient
         $this->cancellation = null;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function sendControl(int $stream): void
     {
         // This private call site already validates the worker handle via streamId().
@@ -507,6 +518,8 @@ final class Http3OutboundClient
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     private function sendRequest(int $stream, int $wireStreamId): void
     {

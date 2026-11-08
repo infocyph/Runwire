@@ -13,6 +13,7 @@ final readonly class AutoscalePolicy
 {
     /**
      * Define bounded CPU, queue, p99, throughput and operator controls.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $minWorkers = 1,

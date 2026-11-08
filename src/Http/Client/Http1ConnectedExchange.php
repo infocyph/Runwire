@@ -73,7 +73,10 @@ final class Http1ConnectedExchange
         $this->parser = new Http1ClientResponseParser(strcasecmp($request->method, 'HEAD') === 0);
     }
 
-    /** Abort this logical request without returning a reusable connection. */
+    /**
+     * Abort this logical request without returning a reusable connection.
+     * @throws \LogicException
+     */
     public function close(): void
     {
         $this->finish(new RuntimeException('HTTP/1.1 exchange was closed before completion.'));
@@ -90,6 +93,7 @@ final class Http1ConnectedExchange
     /**
      * Exclusively attach the connection and begin bounded request forwarding.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function start(): void
     {
@@ -149,6 +153,9 @@ final class Http1ConnectedExchange
         });
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function consume(): void
     {
         if ($this->settled) {
@@ -179,6 +186,9 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function endOfInput(): void
     {
         if ($this->settled) {
@@ -226,6 +236,9 @@ final class Http1ConnectedExchange
         ($this->completion)($canReuse ? $this->connection : null, $error);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function pump(): void
     {
         if ($this->settled || $this->writer->done()) {

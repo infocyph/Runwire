@@ -27,7 +27,11 @@ final class IdleConnectionPool
 
     private int $nextId = 1;
 
-    /** Set finite idle retention and hard connection admission limit. */
+    /**
+     * Set finite idle retention and hard connection admission limit.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly int $maxIdle = 16,
@@ -68,6 +72,7 @@ final class IdleConnectionPool
     /**
      * Retain an already verified stream only when its previous protocol owner
      * has released every callback/byte. Failure closes the offered socket.
+     * @throws \Throwable
      */
     public function store(PoolIsolationKey $key, Connection $connection): bool
     {
@@ -173,6 +178,9 @@ final class IdleConnectionPool
         return null;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -185,6 +193,9 @@ final class IdleConnectionPool
         $this->release($id)?->abort();
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function release(int $id): ?Connection
     {
         $entry = $this->entries[$id] ?? null;

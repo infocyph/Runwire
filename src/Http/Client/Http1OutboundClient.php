@@ -28,6 +28,7 @@ final readonly class Http1OutboundClient
      * @param callable(int, \Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
      */
     public static function connect(
         LoopInterface $loop,
@@ -89,6 +90,9 @@ final readonly class Http1OutboundClient
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function verifiedOptions(string $host, bool $secure, DialOptions $options): DialOptions
     {
         $tls = $options->tls;

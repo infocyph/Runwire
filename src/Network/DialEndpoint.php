@@ -22,7 +22,10 @@ final readonly class DialEndpoint
         public bool $isIpLiteral,
     ) {}
 
-    /** Parse an outbound endpoint without resolving hostname addresses. */
+    /**
+     * Parse an outbound endpoint without resolving hostname addresses.
+     * @throws \InvalidArgumentException
+     */
     public static function parse(string $uri): self
     {
         if ($uri === '' || str_contains($uri, "\0")) {
@@ -32,6 +35,9 @@ final readonly class DialEndpoint
         return str_starts_with($uri, 'unix://') ? self::parseUnix($uri) : self::parseTcp($uri);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function parseTcp(string $uri): self
     {
         $parts = parse_url($uri);
@@ -56,6 +62,9 @@ final readonly class DialEndpoint
         return new self('tcp', $uri, $host, $port, null, $literal);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function parseUnix(string $uri): self
     {
         $path = substr($uri, 7);
@@ -67,6 +76,9 @@ final readonly class DialEndpoint
         return new self('unix', $uri, null, null, $path, false);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateHost(string $host, bool $ipv6Brackets, bool $literal): void
     {
         if ($ipv6Brackets && (!$literal || filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false)) {

@@ -42,7 +42,10 @@ final class StreamRelay
 
     private int $toRightBytes = 0;
 
-    /** Validate exclusive endpoints and bounded per-tick forwarding budgets. */
+    /**
+     * Validate exclusive endpoints and bounded per-tick forwarding budgets.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $left,
@@ -81,7 +84,11 @@ final class StreamRelay
         return $this->closed;
     }
 
-    /** Take ownership of both established connections and begin forwarding. */
+    /**
+     * Take ownership of both established connections and begin forwarding.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->started || $this->closed) {
@@ -176,6 +183,9 @@ final class StreamRelay
         return true;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function completeDirection(bool $fromLeft): void
     {
         if ($this->closed || ($fromLeft ? $this->leftEofForwarded : $this->rightEofForwarded)) {
@@ -247,6 +257,10 @@ final class StreamRelay
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function moveChunk(Connection $source, Connection $destination, bool $fromLeft, int $remaining): int
     {
         $available = min($destination->availableWriteBytes(), $remaining, $this->chunkBytes);

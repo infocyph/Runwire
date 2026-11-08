@@ -81,6 +81,7 @@ final class CachedDnsResolver implements DnsResolverInterface
     /**
      * Cancel pending callers and drop cache entries without closing the shared upstream.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function close(): void
     {
@@ -94,7 +95,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         );
     }
 
-    /** @return array{cached:int, pendingHosts:int, waiters:int} */
+    /**
+     * @return array{cached:int, pendingHosts:int, waiters:int}
+     * @throws \LogicException
+     */
     public function diagnostics(): array
     {
         $this->assertOwner();
@@ -105,6 +109,9 @@ final class CachedDnsResolver implements DnsResolverInterface
     /**
      * @param callable(list<string>,?Throwable):void $completion
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     #[\Override]
     public function resolve(
@@ -187,7 +194,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         $this->deliver($id, $entry['addresses'], $entry['negative']);
     }
 
-    /** @param list<string> $addresses */
+    /**
+     * @param list<string> $addresses
+     * @throws \Throwable
+     */
     private function completeHost(string $host, int $lookup, array $addresses, ?Throwable $error): void
     {
         $group = $this->pending[$host] ?? null;

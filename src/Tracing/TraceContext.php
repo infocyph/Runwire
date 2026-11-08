@@ -19,7 +19,10 @@ final readonly class TraceContext
 {
     private const string ATTRIBUTE = 'runwire.trace_context';
 
-    /** Validate a W3C trace identity before exposing it to application code. */
+    /**
+     * Validate a W3C trace identity before exposing it to application code.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public string $traceId,
         public string $spanId,
@@ -44,7 +47,10 @@ final readonly class TraceContext
         return $context instanceof self ? $context : null;
     }
 
-    /** Parse one inbound W3C traceparent and optional tracestate header. */
+    /**
+     * Parse one inbound W3C traceparent and optional tracestate header.
+     * @throws \InvalidArgumentException
+     */
     public static function fromHeaders(Headers $headers): ?self
     {
         $parents = $headers->all('traceparent');
@@ -60,7 +66,11 @@ final readonly class TraceContext
         return new self($match[1], $match[2], (int) hexdec($match[3]), $states[0] ?? null);
     }
 
-    /** Bind trace identity to an explicitly owned request, never a global Fiber slot. */
+    /**
+     * Bind trace identity to an explicitly owned request, never a global Fiber slot.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function bind(RequestContext $request): void
     {
         $request->setAttribute(self::ATTRIBUTE, $this);
@@ -90,6 +100,9 @@ final readonly class TraceContext
         return new Headers($fields);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateState(string $state): void
     {
         if ($state === '' || strlen($state) > 512) {

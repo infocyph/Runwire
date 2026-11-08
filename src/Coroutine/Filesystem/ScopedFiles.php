@@ -27,6 +27,7 @@ final readonly class ScopedFiles
     /**
      * Await a bounded binary file read without blocking the owning reactor.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function read(
         string $path,
@@ -54,6 +55,7 @@ final readonly class ScopedFiles
     /**
      * Await a rename with explicit filesystem semantics and no atomicity claim.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function rename(string $from, string $to, ?RequestDeadline $deadline = null): bool
     {
@@ -78,6 +80,7 @@ final readonly class ScopedFiles
      *
      * @return array{size:int,mtime:int,mode:int}
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function stat(string $path, ?RequestDeadline $deadline = null): array
     {
@@ -102,6 +105,7 @@ final readonly class ScopedFiles
     /**
      * Await a bounded worker-local unlink.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function unlink(string $path, ?RequestDeadline $deadline = null): bool
     {
@@ -123,6 +127,7 @@ final readonly class ScopedFiles
     /**
      * Await a bounded binary file write at the supplied absolute offset.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function write(
         string $path,

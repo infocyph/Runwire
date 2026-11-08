@@ -23,7 +23,10 @@ final readonly class AsyncFileSystem
 {
     public const int MAX_OPERATION_BYTES = 1_048_576;
 
-    /** Borrow an off-loop executor; optional root is checked inside each worker operation. */
+    /**
+     * Borrow an off-loop executor; optional root is checked inside each worker operation.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private ProcessExecutor $executor,
         private ?string $rootDirectory = null,
@@ -44,6 +47,9 @@ final readonly class AsyncFileSystem
      * Read at most 1 MiB from a file offset without blocking the owner loop.
      *
      * @param callable(string, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function read(
         string $path,
@@ -79,6 +85,9 @@ final readonly class AsyncFileSystem
      * Rename a file using host filesystem semantics; no cross-device promise.
      *
      * @param callable(bool, ?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function rename(
         string $from,
@@ -108,6 +117,9 @@ final readonly class AsyncFileSystem
      * Retrieve file metadata with the same cancellation/deadline contract.
      *
      * @param callable(array<string,int>, ?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function stat(
         string $path,
@@ -141,6 +153,9 @@ final readonly class AsyncFileSystem
      * Remove a file through the worker without following its contents.
      *
      * @param callable(bool, ?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function unlink(
         string $path,
@@ -168,6 +183,9 @@ final readonly class AsyncFileSystem
      * Write a bounded binary chunk at an absolute offset; no implicit truncate.
      *
      * @param callable(int, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function write(
         string $path,
@@ -199,6 +217,9 @@ final readonly class AsyncFileSystem
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validatePath(string $path): void
     {
         if ($path === '' || str_contains($path, "\0") || strlen($path) > 4096 || str_contains($path, '://')) {
