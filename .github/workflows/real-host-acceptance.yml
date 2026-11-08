@@ -163,17 +163,33 @@ jobs:
           }
           trap cleanup EXIT
 
-          curl -fsSL --retry 3 \
-            'https://github.com/roadrunner-server/roadrunner/releases/download/v3.0.1/roadrunner-3.0.1-linux-amd64.tar.gz' \
-            -o "$tmp/rr.tar.gz"
-          tar -xzf "$tmp/rr.tar.gz" -C "$tmp"
-          rr="$(find "$tmp" -type f -name rr -print -quit)"
-          if [ -z "$rr" ]; then
-            echo "Pinned RoadRunner 3.0.1 executable not found in archive." >&2
+          release_url='https://github.com/roadrunner-server/roadrunner/releases/download/v3.0.1/roadrunner-3.0.1-linux-amd64.tar.gz'
+          release_sha256='a6156d34a08cfdfba4934e737ed3208b11c6eab666def5c81f1b640ef43568e7'
+          if curl --proto '=https' --tlsv1.2 -fsSL --retry 4 --retry-all-errors --retry-delay 2 \
+            "$release_url" -o "$tmp/rr.tar.gz"; then
+            echo "$release_sha256  $tmp/rr.tar.gz" | sha256sum --check --status
+            tar -xzf "$tmp/rr.tar.gz" -C "$tmp"
+            rr="$(find "$tmp" -type f -name rr -print -quit)"
+          else
+            echo 'Pinned GitHub release archive unavailable; trying the official same-version OCI image.' >&2
+            image='ghcr.io/roadrunner-server/roadrunner:3.0.1'
+            docker pull "$image"
+            container_id="$(docker create "$image")"
+            if ! docker cp "$container_id:/usr/bin/rr" "$tmp/rr"; then
+              docker rm -f "$container_id" >/dev/null
+              echo 'Pinned RoadRunner OCI image did not contain the binary.' >&2
+              exit 1
+            fi
+            docker rm "$container_id" >/dev/null
+            rr="$tmp/rr"
+          fi
+          if [ -z "$rr" ] || [ ! -f "$rr" ]; then
+            echo "Pinned RoadRunner 3.0.1 executable unavailable." >&2
             exit 1
           fi
           chmod +x "$rr"
           "$rr" --version
+          "$rr" --version | grep -F '3.0.1' >/dev/null
           port="$(php -r '
           $listener = stream_socket_server("tcp://127.0.0.1:0", $errno, $error);
           if (!is_resource($listener)) { throw new RuntimeException($error); }

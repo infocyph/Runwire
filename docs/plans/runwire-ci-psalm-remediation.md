@@ -734,3 +734,9 @@
 - Batch 67 and 68 Real Hosted Runtime Acceptance showed intermittent RoadRunner HTTP 504s for PHP 8.4/8.5; a retry of the PHP 8.5 job passed. The initial failing script printed only curl exit 22 and discarded the RR server/worker stderr context on request failure, preventing attribution.
 - Preserve all exact three request assertions, the existing HTTP 4-second bound and 504 failure. On any one of the request curls returning nonzero, print both local RoadRunner process and worker error logs and fail with the original status. This is diagnostics-only; no acceptance criteria were weakened, and the worker code is untouched.
 - Re-run hosted acceptance on this SHA to isolate whether failures are deterministic runtime regressions, runner contention or unhandled worker errors. No merge or tag.
+
+### Batch 70 — pin and verify RoadRunner binary transport instead of accepting upstream 504
+
+- Batch 69 revealed the RoadRunner jobs abort before the worker starts: the official GitHub `v3.0.1` tarball download repeatedly returns HTTP **504** despite built-in curl retries. The earlier failed logs did not reach the request-response loop. The failure is external artifact transport, not evidence of a Runwire RoadRunner runtime regression.
+- Keep RoadRunner exactly **3.0.1**. First retry the official release archive via HTTPS/TLS and verify SHA-256 `a6156d34a08cfdfba4934e737ed3208b11c6eab666def5c81f1b640ef43568e7` from the official release asset metadata. If the release transport remains unavailable, retrieve `/usr/bin/rr` from the equally pinned official `ghcr.io/roadrunner-server/roadrunner:3.0.1` OCI image. Fail if neither official source works, and verify `rr --version` before any acceptance exercise.
+- Do not reduce runtime worker assertions, matrix width, version verification, or failure visibility. Verify both PHP 8.4/8.5 live hosted jobs on this SHA. No merge, release or tag.
