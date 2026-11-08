@@ -28,6 +28,7 @@ final class FramedConnection
      * @param callable(string, self): void $onFrame
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function __construct(
         private readonly LoopInterface $loop,

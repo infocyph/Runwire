@@ -227,7 +227,11 @@ final class RestartCoordinator
         );
     }
 
-    /** @return list<int> */
+    /**
+     * @return list<int>
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function recentRestartHistory(WorkerGroup $group, int $now): array
     {
         $window = MonotonicTime::secondsToNanoseconds($group->restartPolicy->windowSeconds);

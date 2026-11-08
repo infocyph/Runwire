@@ -39,6 +39,7 @@ final readonly class AdaptivePumpStrategy
 
     /**
      * Return the stream-accept budget for the current state.
+     * @throws \InvalidArgumentException
      */
     public function acceptLimit(int $maximum): int
     {
@@ -80,6 +81,7 @@ final readonly class AdaptivePumpStrategy
 
     /**
      * Return the read-operation budget for the current state.
+     * @throws \InvalidArgumentException
      */
     public function readLimit(int $maximum): int
     {

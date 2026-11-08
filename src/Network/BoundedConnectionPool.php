@@ -219,6 +219,7 @@ final class BoundedConnectionPool
     /**
      * Retire a lease; unhealthy, foreign or closed-pool sockets are aborted.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function release(int $id, ?Connection $connection = null): bool
     {

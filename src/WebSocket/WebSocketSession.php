@@ -75,6 +75,7 @@ final class WebSocketSession
      * @internal WebSocket sessions are created by the HTTP/1 upgrade owner.
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function __construct(
         LoopInterface $loop,

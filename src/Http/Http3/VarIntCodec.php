@@ -15,6 +15,7 @@ final class VarIntCodec
 
     /**
      * Decode one complete QUIC variable-length integer and advance the offset.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public static function decode(string $bytes, int &$offset = 0): int
     {
@@ -30,6 +31,7 @@ final class VarIntCodec
 
     /**
      * Encode a non-negative integer using QUIC variable-length representation.
+     * @throws \InvalidArgumentException
      */
     public static function encode(int $value): string
     {

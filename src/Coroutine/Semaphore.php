@@ -87,6 +87,7 @@ final class Semaphore
     /**
      * Release one permit or wake the next waiting task.
      * @throws \Infocyph\Runwire\Coroutine\Exception\SynchronizationException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
      */
     public function release(): void
     {

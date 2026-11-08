@@ -42,6 +42,7 @@ final readonly class RequestDeadline
 
     /**
      * Creates a deadline that never expires.
+     * @throws \InvalidArgumentException
      */
     public static function unlimited(): self
     {

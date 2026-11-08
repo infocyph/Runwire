@@ -94,6 +94,9 @@ final readonly class ProcessPolicy
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeLimits(
         float $maxTimeoutSeconds,
         float $maxTerminationGraceSeconds,

@@ -713,7 +713,10 @@ final class Supervisor
         return $this->restartCoordinator->count($group, $slot);
     }
 
-    /** @param resource $childReady */
+    /**
+     * @param resource $childReady
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function runChild(WorkerGroup $group, int $slot, int $generation, mixed $childReady): never
     {
         $this->normalizeChildProcess();

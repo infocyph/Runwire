@@ -261,6 +261,9 @@ final class Dialer
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function finish(int $id, ?Connection $connection, ?Throwable $error): void
     {
         $job = $this->pending[$id] ?? null;

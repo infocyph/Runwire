@@ -179,6 +179,9 @@ final class Channel
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function promoteSender(): void
     {
         if ($this->closed || $this->capacity === 0) {

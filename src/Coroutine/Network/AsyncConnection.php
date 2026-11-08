@@ -309,6 +309,7 @@ final class AsyncConnection
      * Only the returned core connection may be used after handoff.
      * @throws \LogicException
      * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \OverflowException
      */
     public function transferTo(CancellationToken $owner, ?RequestDeadline $deadline = null): Connection
     {
@@ -461,6 +462,9 @@ final class AsyncConnection
         $this->scopeShutdownId = null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function resolveDrain(?CloseReason $reason): void
     {
         $deferred = $this->drainDeferred;
@@ -472,6 +476,9 @@ final class AsyncConnection
         $deferred->resolve($reason);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function resolveReceive(string $data): void
     {
         $deferred = $this->receiveDeferred;

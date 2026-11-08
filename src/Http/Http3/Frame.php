@@ -13,6 +13,7 @@ final readonly class Frame
 {
     /**
      * Create an HTTP/3 frame from its type identifier and payload.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $type,

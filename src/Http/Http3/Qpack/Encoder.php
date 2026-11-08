@@ -111,6 +111,7 @@ final class Encoder
 
     /**
      * Apply peer QPACK decoder-stream feedback.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function pushDecoderInstructions(string $bytes): void
     {

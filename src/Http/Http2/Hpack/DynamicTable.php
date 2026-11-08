@@ -16,6 +16,7 @@ final class DynamicTable
 
     /**
      * Create a dynamic table with the supplied byte capacity.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private int $maxBytes)
     {
@@ -107,6 +108,7 @@ final class DynamicTable
 
     /**
      * Update the table capacity and evict entries as necessary.
+     * @throws \InvalidArgumentException
      */
     public function setMaxBytes(int $bytes): void
     {

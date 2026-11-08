@@ -407,3 +407,12 @@
 - Move `Network/BoundedConnectionPool.php` (one exception site) into the next batch to preserve exactly **50 changed files**.
 
 - Exact first Batch 39 analyzer on PHP 8.4: **261 Psalm errors**, net -30 from the 291 baseline; PHPStan found two inaccurate `InvalidArgumentException` annotations in `AdaptivePollStrategy::timeout()` and `RuntimeOptions::__construct()`. Removed those annotations from the existing Batch 39 commit rather than weakening PHPStan.
+
+### Batch 40 — 50-file exception contract pass
+
+- Latest PHP 8.4 analyzer on Batch 39: **261 Psalm errors**, 103 missing throws and 158 non-throws, net -30 versus Batch 38. Two inaccurate PHPStan exception annotations in Batch 39 were amended out. Source Audit passed with the corrected public-property scanner.
+- **48 source files** + pinned 2.1.2 migration ledger + this tracker = **50 changed files** in one batch. Map 84 logged missing throws to their declaring methods without modifying method bodies, signatures, or security validation.
+- Add 22 test-linked published comparator source-change dispositions. Preserve strict migration, security and downstream protocol checks.
+- Keep top-level executor-worker.php exception and taint diagnostics for a dedicated P0 security/control-flow pass. P0-P3 issues and all additional findings remain open until proven green. No merge/tag/release.
+
+- First Batch 40 analyzer: PHP 8.4 **249 Psalm errors**, net -12 from 261, 91 missing throws. PHPStan found an inaccurate `InvalidArgumentException` constructor declaration in `RuntimeEnvironmentProbe`; this batch removes it while preserving the legitimate `probe()` annotation.

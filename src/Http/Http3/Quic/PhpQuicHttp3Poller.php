@@ -62,6 +62,7 @@ final readonly class PhpQuicHttp3Poller
     /**
      * @param array<int, array{0: object, 1: int}> $items
      * @return array<int, int>
+     * @throws \UnexpectedValueException
      */
     private static function normalizeReady(mixed $ready, array $items): array
     {
@@ -80,6 +81,9 @@ final readonly class PhpQuicHttp3Poller
         return $normalized;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeout(?float $timeoutSeconds): void
     {
         if ($timeoutSeconds !== null && (!is_finite($timeoutSeconds) || $timeoutSeconds < 0)) {

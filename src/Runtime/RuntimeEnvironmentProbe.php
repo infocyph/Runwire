@@ -22,6 +22,7 @@ final readonly class RuntimeEnvironmentProbe
 
     /**
      * Probes and returns the current runtime environment.
+     * @throws \InvalidArgumentException
      */
     public function probe(): RuntimeEnvironment
     {

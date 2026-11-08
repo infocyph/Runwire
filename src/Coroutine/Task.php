@@ -215,6 +215,9 @@ final class Task
         return $this->taskLocals;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function finishCancelled(CancelledException $error): void
     {
         $this->state = TaskState::CANCELLED;
@@ -225,6 +228,9 @@ final class Task
         $this->notifyChange();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function finishCompleted(mixed $value): void
     {
         $this->state = TaskState::COMPLETED;
@@ -234,6 +240,9 @@ final class Task
         $this->notifyChange();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function finishFailed(Throwable $error): void
     {
         $this->state = TaskState::FAILED;

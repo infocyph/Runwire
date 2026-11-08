@@ -333,6 +333,7 @@ final class PhpQuicHttp3Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function cancelRequestStream(int $streamId): void
     {
@@ -496,6 +497,7 @@ final class PhpQuicHttp3Connection
     /**
      * @throws \UnexpectedValueException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function finishPeerStream(int $streamId, PhpQuicStream $stream): void
     {
@@ -576,7 +578,10 @@ final class PhpQuicHttp3Connection
         return (($ready[spl_object_id($object)] ?? 0) & $event) !== 0;
     }
 
-    /** @param array<int, int>|null $ready */
+    /**
+     * @param array<int, int>|null $ready
+     * @throws \InvalidArgumentException
+     */
     private function observePump(?array $ready = null, ?PhpQuicEventMasks $events = null): void
     {
         $active = count($this->requestStreams);

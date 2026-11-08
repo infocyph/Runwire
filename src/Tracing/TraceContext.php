@@ -85,7 +85,10 @@ final readonly class TraceContext
         return new self($this->traceId, bin2hex(random_bytes(8)), $this->flags, $this->traceState);
     }
 
-    /** Produce new header fields, replacing any untrusted inbound trace context. */
+    /**
+     * Produce new header fields, replacing any untrusted inbound trace context.
+     * @throws \InvalidArgumentException
+     */
     public function inject(Headers $headers): Headers
     {
         $fields = [];

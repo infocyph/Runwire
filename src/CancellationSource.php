@@ -137,6 +137,9 @@ final class CancellationSource
         return $this->token;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function earliestDeadline(RequestDeadline $parent, RequestDeadline $requested): RequestDeadline
     {
         $parentAt = $parent->monotonicNanoseconds;

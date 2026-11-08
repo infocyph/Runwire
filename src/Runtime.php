@@ -559,6 +559,7 @@ final class Runtime
     /**
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private function prepareHostRuntime(): RuntimeContext
     {

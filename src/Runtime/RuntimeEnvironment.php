@@ -21,6 +21,7 @@ final readonly class RuntimeEnvironment
     /**
      * @param list<RuntimeDriver> $hostedDrivers
      * @param list<RuntimeDriver> $availableDrivers
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $sapi,

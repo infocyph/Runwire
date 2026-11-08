@@ -18,6 +18,7 @@ final readonly class RequestExecutionPolicy
 {
     /**
      * Creates request execution policy settings.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public ?float $maxExecutionSeconds = null,

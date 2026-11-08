@@ -25,6 +25,7 @@ final class ResponseTerminalState
 
     /**
      * Register one terminal observer, invoking it immediately after termination.
+     * @throws \OverflowException
      */
     public function observe(ResponseWriterInterface $writer, callable $callback): void
     {
@@ -45,6 +46,7 @@ final class ResponseTerminalState
 
     /**
      * Transition to terminal once and invoke every registered observer.
+     * @throws \Throwable
      */
     public function terminate(ResponseWriterInterface $writer): void
     {

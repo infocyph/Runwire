@@ -475,6 +475,7 @@ final class FiberScheduler
 
     /**
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     private function enqueueResume(
         Task $task,

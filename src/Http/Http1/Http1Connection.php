@@ -116,6 +116,7 @@ final class Http1Connection
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -155,6 +156,7 @@ final class Http1Connection
     /**
      * Stop further keep-alive work and finish the accepted initial exchange.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function drain(): void
     {
@@ -567,6 +569,9 @@ final class Http1Connection
         $this->finishExchange($closeAfter);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function parseChunkSizeLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxChunkLineBytes, 400);

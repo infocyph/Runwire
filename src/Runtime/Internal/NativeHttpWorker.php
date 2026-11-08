@@ -186,6 +186,7 @@ final class NativeHttpWorker
      * Runs the bound HTTP listener until worker shutdown and drains active sessions.
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
+     * @throws \LogicException
      */
     public static function run(
         WorkerContext $context,
@@ -230,6 +231,9 @@ final class NativeHttpWorker
      * @param Closure(HttpRequest, ResponseWriterInterface): void $handler
      * @param array<int, NativeHttpConnection> $sessions
      * @param array<int, Connection> $connections
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \LogicException
      */
     private static function attachConnection(
         Connection $connection,

@@ -310,6 +310,9 @@ final class StreamRelay
         $this->completeDirection($fromLeft);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function resume(bool $fromLeft): void
     {
         if ($this->closed) {

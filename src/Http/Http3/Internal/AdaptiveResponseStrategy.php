@@ -22,6 +22,7 @@ final readonly class AdaptiveResponseStrategy
 
     /**
      * Create the HTTP/3 outbound adaptive strategy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?AdaptiveLoadController $controller = null,
@@ -54,6 +55,7 @@ final readonly class AdaptiveResponseStrategy
 
     /**
      * Observe outbound load and return a write budget capped by the configured maximum.
+     * @throws \InvalidArgumentException
      */
     public function writeLimit(AdaptiveLoadSample $sample, int $maximum): int
     {

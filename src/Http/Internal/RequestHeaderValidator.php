@@ -172,6 +172,7 @@ final readonly class RequestHeaderValidator
 
     /**
      * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     * @throws \InvalidArgumentException
      */
     private function normalizeAuthority(?string $authority, ?string $scheme, Headers $regular): Headers
     {

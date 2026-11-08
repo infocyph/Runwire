@@ -13,6 +13,7 @@ final readonly class RoadRunnerOptions
 {
     /**
      * Creates RoadRunner host-driver options.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxRequestBodyBytes = 16_777_216,

@@ -168,6 +168,7 @@ final class SupervisorAutoscaler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private function sample(string $name): void
     {

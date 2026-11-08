@@ -155,6 +155,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function handleData(Frame $frame): void
     {

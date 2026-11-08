@@ -126,6 +126,7 @@ final readonly class Http1ClientResponseHeadParser
 
     /**
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private static function parseField(string $line): HeaderField
     {
