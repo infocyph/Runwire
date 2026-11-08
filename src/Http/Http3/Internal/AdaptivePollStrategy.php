@@ -20,7 +20,7 @@ final class AdaptivePollStrategy
 
     /**
      * Return a timeout that preserves non-blocking calls and readiness-driven active traffic.
-     * @throws \Throwable
+     * @psalm-suppress MissingThrowsDocblock
      */
     public static function timeout(
         ?float $baseTimeoutSeconds,

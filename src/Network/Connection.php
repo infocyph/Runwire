@@ -685,12 +685,6 @@ final class Connection
         }
     }
 
-    /** Re-read connection ownership after user-defined data callbacks. */
-    private function isClosedState(): bool
-    {
-        return $this->state === ConnectionState::CLOSED;
-    }
-
     /**
      * @throws \Throwable
      */
@@ -701,6 +695,12 @@ final class Connection
             $this,
             fn() => $this->abort(),
         );
+    }
+
+    /** Re-read connection ownership after user-defined data callbacks. */
+    private function isClosedState(): bool
+    {
+        return $this->state === ConnectionState::CLOSED;
     }
 
     private function pauseForPressure(): void

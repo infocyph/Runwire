@@ -91,6 +91,7 @@ final class FiberScheduler
             $cancellable,
             $ignoreCancellationOnCompletion,
         ));
+        unset($resumeValue);
     }
 
     /**
@@ -286,7 +287,6 @@ final class FiberScheduler
      * Fiber::suspend has a scheduler side effect; the resume payload is unused.
      * @throws \InvalidArgumentException
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function sleep(float $seconds): void
     {
@@ -300,7 +300,7 @@ final class FiberScheduler
             return;
         }
 
-        Fiber::suspend(new LoopWaitSuspension(
+        $resumeValue = Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->delay(
                 $seconds,
@@ -310,6 +310,7 @@ final class FiberScheduler
                 },
             ),
         ));
+        unset($resumeValue);
     }
 
     /**
@@ -352,12 +353,11 @@ final class FiberScheduler
      *
      * @param resource $stream
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function suspendReadable(mixed $stream): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend(new LoopWaitSuspension(
+        $resumeValue = Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onReadable(
                 $stream,
@@ -367,6 +367,7 @@ final class FiberScheduler
                 },
             ),
         ));
+        unset($resumeValue);
     }
 
     /**
@@ -374,12 +375,11 @@ final class FiberScheduler
      *
      * @param resource $stream
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function suspendWritable(mixed $stream): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend(new LoopWaitSuspension(
+        $resumeValue = Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onWritable(
                 $stream,
@@ -404,12 +404,12 @@ final class FiberScheduler
      * Cooperatively yield the current task back to the scheduler.
      * Fiber::suspend has a scheduler side effect; the resume payload is unused.
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function yieldNow(): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend($this);
+        $resumeValue = Fiber::suspend($this);
+        unset($resumeValue);
     }
 
     private function cancelAll(CancellationReason $reason): void

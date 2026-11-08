@@ -108,9 +108,6 @@ final readonly class TraceContext
     }
 
     /**
-     * @throws \InvalidArgumentException
-     */
-    /**
      * Preserve duplicate detection for externally supplied Header collections.
      * @param list<string> $values
      */
@@ -119,6 +116,9 @@ final readonly class TraceContext
         return count($values) > 1;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateState(string $state): void
     {
         if ($state === '' || strlen($state) > 512) {

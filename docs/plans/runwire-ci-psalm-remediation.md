@@ -629,3 +629,12 @@
 - Reorder native QUIC worker helpers. Replace several stale suppressions with fresh lifecycle-state reads following callbacks and coroutine suspension, without changing stop/close semantics.
 - Retain closed-resource checking with truthful `resource|closed-resource|null` TLS stream typing. Make default-object constructor exceptions explicit and preserve duplicate trace-header rejection via a dedicated cardinality check.
 - Pending exact-head QA and analyzer results; resolve regressions before calling this verified. Remaining taints and remaining suppression annotations are not waived. No merge, release or tag.
+
+### Batch 54 — QA restoration after Batch 53, callback and suspension contracts
+
+- Exact Batch 53 (`1a6b90b2f3e94133da2a2845718649cbf69df298`) reported **32 Psalm** (15 original taints and 17 new exception/state findings), **six PHPStan** errors, **six skip directives**, three Pint method-order findings. Pest, PHPCS, Rector and hosted acceptance remained green.
+- Reattach original accept-stream and trace-state PHPDocs dislodged by newly inserted helper methods; fixes both lost return shape and unnecessary propagated throws.
+- Restore preexisting default-constructor analyzer contracts pending a true dual-analyzer solution: `@throws Throwable` on promoted defaults fails PHPStan and propagates false positive throws through runtime classes. Preserve public constructor signatures rather than silently changing promoted defaults.
+- Reorder new lifecycle predicates to satisfy strict alpha method ordering, and use a freshly loaded loop state at the loop guard. Preserve native TLS option failure checks and warning-handler messages through explicitly typed helper boundaries.
+- Replace Fiber::suspend unused-result annotations with explicit, harmless result discards after mandatory suspension. Preserve coroutine scheduling semantics. Replace TcpListener redundant closed-resource check with a runtime-resilient helper while retaining its rejection behavior.
+- Verify exact SHA Psalm/PHPStan on both versions, QA/Pint/Pest/source audit, hosted acceptance, QUIC and docs before closing; no change to the 15 security taints, no QA exclusions, no merge/tag.

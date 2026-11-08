@@ -115,12 +115,6 @@ final class QuicWorkerSession
     }
 
     /**
-     * Import one peer-created QUIC stream without transferring native ownership.
-     *
-     * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
-     * @throws \RuntimeException
-     */
-    /**
      * Validate an optional native extension return value without naming an absent class.
      * @throws \RuntimeException
      */
@@ -133,6 +127,12 @@ final class QuicWorkerSession
         return $value;
     }
 
+    /**
+     * Import one peer-created QUIC stream without transferring native ownership.
+     *
+     * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
+     * @throws \RuntimeException
+     */
     private function acceptStream(): array
     {
         if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {

@@ -74,6 +74,21 @@ final class ClientTlsHandshake
     }
 
     /**
+     * Apply native stream configuration without assuming the optional extension succeeded.
+     * @param resource $stream
+     */
+    private static function configureContextOption(mixed $stream, string $key, mixed $value): bool
+    {
+        return stream_context_set_option($stream, 'ssl', $key, $value);
+    }
+
+    /** Report the warning recorded by the extension's error handler, if any. */
+    private static function warningOrDefault(?string $warning): string
+    {
+        return $warning ?? 'TLS peer verification or handshake failed.';
+    }
+
+    /**
      * The TLS warning handler may replace the nullable warning during crypto negotiation.
      */
     private function attempt(): void
@@ -106,7 +121,7 @@ final class ClientTlsHandshake
             return;
         }
         if ($result === false) {
-            $this->fail(new RuntimeException($warning ?? 'TLS peer verification or handshake failed.'));
+            $this->fail(new RuntimeException(self::warningOrDefault($warning)));
 
             return;
         }
@@ -134,7 +149,7 @@ final class ClientTlsHandshake
         try {
             $options = $this->policy->context();
             foreach ($options as $key => $value) {
-                if (!stream_context_set_option($stream, 'ssl', $key, $value)) {
+                if (!self::configureContextOption($stream, $key, $value)) {
                     throw new RuntimeException('Unable to configure verified outbound TLS stream.');
                 }
             }

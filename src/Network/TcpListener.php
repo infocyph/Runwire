@@ -335,6 +335,12 @@ final class TcpListener
     /**
      * @throws \Infocyph\Runwire\Exception\ListenerException
      */
+    /** A TLS callback may deliver an already-closed native stream handle. */
+    private static function isLiveAcceptedStream(mixed $stream): bool
+    {
+        return is_resource($stream);
+    }
+
     private static function normalizeAddress(string $address): string
     {
         if (str_contains($address, '://')) {
@@ -468,7 +474,6 @@ final class TcpListener
      *
      * @param resource $client
      * @throws \Throwable
-     * @psalm-suppress DocblockTypeContradiction
      */
     private function startAcceptedConnection(LoopInterface $loop, mixed $client, mixed $peer): void
     {
@@ -488,7 +493,7 @@ final class TcpListener
             $this->tls,
             function (mixed $stream, ?string $protocol) use ($id, $peerAddress, $localAddress): void {
                 unset($this->handshakes[$id]);
-                if (!is_resource($stream)) {
+                if (!self::isLiveAcceptedStream($stream)) {
                     ++$this->rejectedConnections;
                     $this->syncAcceptWatcher();
 

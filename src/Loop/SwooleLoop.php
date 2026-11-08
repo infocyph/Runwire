@@ -403,6 +403,12 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             || $this->writeWatchers !== [];
     }
 
+    /** Re-read the state modified by suspended host coroutines. */
+    private function isStopRequested(): bool
+    {
+        return $this->stopRequested;
+    }
+
     /**
      * @param resource $stream
      * @throws \RuntimeException
@@ -413,12 +419,6 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             throw new RuntimeException('Swoole/OpenSwoole failed to remove a Runwire stream watcher.');
         }
         unset($this->registeredStreams[$resourceId]);
-    }
-
-    /** Re-read the state modified by suspended host coroutines. */
-    private function isStopRequested(): bool
-    {
-        return $this->stopRequested;
     }
 
     private function scheduleIdleCheck(): void

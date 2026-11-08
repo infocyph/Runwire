@@ -198,7 +198,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->running = true;
 
         try {
-            while ($this->running) {
+            while ($this->isRunning()) {
                 $this->runTick();
 
                 if (!$this->isRunning() || !$this->hasReferences()) {
@@ -352,12 +352,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             || $this->deferred !== [];
     }
 
-    /** Re-read the running state after callbacks that can call stop(). */
-    private function isRunning(): bool
-    {
-        return $this->running;
-    }
-
     private function invoke(Closure $callback, mixed ...$arguments): void
     {
         $started = MonotonicTime::nowNanoseconds();
@@ -369,6 +363,12 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
                 ++$this->callbackOverrunsTotal;
             }
         }
+    }
+
+    /** Re-read the running state after callbacks that can call stop(). */
+    private function isRunning(): bool
+    {
+        return $this->running;
     }
 
     /**
