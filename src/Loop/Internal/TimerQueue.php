@@ -34,6 +34,7 @@ final class TimerQueue
 
     /**
      * Add a repeating timer.
+     * @throws \InvalidArgumentException
      */
     public function addRepeat(int $id, float $seconds, Closure $callback): void
     {
@@ -103,6 +104,7 @@ final class TimerQueue
 
     /**
      * Advance a repeating timer to its next future deadline.
+     * @throws \OverflowException
      */
     public function rescheduleRepeat(int $id): void
     {
@@ -152,6 +154,10 @@ final class TimerQueue
         return $this->timers[$id] ?? null;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function add(int $id, float $seconds, int $interval, Closure $callback): void
     {
         $delay = $this->secondsToNanoseconds($seconds, true);
@@ -256,6 +262,7 @@ final class TimerQueue
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function secondsToNanoseconds(float $seconds, bool $allowZero): int
     {

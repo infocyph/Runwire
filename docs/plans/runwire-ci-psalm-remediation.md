@@ -53,7 +53,8 @@
 | 30 | Correct TLS path, process, request timing, DNS-array and header trust-boundary analysis | P0/P1/P2 type and taint findings | Implemented; CI verification pending |
 | 31 | Reconcile PHPStan constructor throws and avoid duplicate TLS realpath calls | 1 PHPStan blocker and resource efficiency | Implemented; CI verification pending |
 | 32 | Restore PHPForge QA, Pint and PHPStan checks after Batch 31 | 4 PHPStan + 3 quality findings | Implemented; CI verification pending |
-| 33+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 33 | Document remaining published protocol/cancellation exception contracts | 99 reported sites | Implemented; CI verification pending |
+| 34+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -333,3 +334,10 @@
 
 - Verified the exact published 2.1.2 comparator tree against the current branch: **164 changed published source files** and **164 corresponding migration ledger entries** after removing the now-unchanged `RuntimeOptions` disposition.
 - This removal follows the source-diff contract and does not downgrade the migration checker.
+
+### Batch 33 — published transport and cancellation exceptions
+
+- Matched 99 Psalm missing-throws sites from the PHP 8.4/8.5 Batch 31 analyzer to 48 declaring methods across 12 reviewed published runtime implementation types.
+- Added 64 precise missing exception tags. Method bodies, signatures, protocol checks and runtime ownership remain unchanged.
+- No new migration ledger entries needed: these source types already have reviewed 2.1.2 migration dispositions.
+- Verify the actual **net** analyzer delta after the latest SHA and all relevant QA/protocol/source checks before marking complete.

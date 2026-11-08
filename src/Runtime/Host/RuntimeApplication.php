@@ -71,6 +71,9 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
 
     /**
      * Handles one HTTP request through the application lifecycle.
+     * @throws \LogicException
+     * @throws \Throwable
+     * @throws \OverflowException
      */
     #[\Override]
     public function handle(
@@ -101,6 +104,7 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
 
     /**
      * Shuts down the application lifecycle.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
      */
     #[\Override]
     public function shutdown(?ShutdownReason $reason = null): void
@@ -119,6 +123,8 @@ final readonly class RuntimeApplication implements RuntimeApplicationInterface
 
     /**
      * Starts application boot and warmup processing.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\ApplicationStartupException
      */
     #[\Override]
     public function start(): void

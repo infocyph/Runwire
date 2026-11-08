@@ -132,6 +132,7 @@ final class RequestStreamProcessor
      * Consume an inbound CONTINUATION frame.
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     public function handleContinuation(Frame $frame): void
     {
@@ -181,6 +182,7 @@ final class RequestStreamProcessor
      * Consume an inbound HEADERS frame.
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     public function handleHeaders(Frame $frame): void
     {
@@ -274,6 +276,7 @@ final class RequestStreamProcessor
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     private function acceptBodyData(Http2Stream $stream, string $data, int $flowBytes, int $protocolConsumed): void
     {
@@ -318,6 +321,7 @@ final class RequestStreamProcessor
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     private function admit(PendingHeaderBlock $pending, ?int $contentLength): bool
     {
@@ -453,6 +457,10 @@ final class RequestStreamProcessor
         return $stream;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function creditBodyBytes(int $streamId, int $bytes): void
     {
         if ($bytes > 0) {

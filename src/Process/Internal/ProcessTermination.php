@@ -48,6 +48,8 @@ final class ProcessTermination
      * Enforce timeout and kill deadlines while the child is running.
      * @throws \Infocyph\Runwire\Exception\ProcessException
      * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function observe(ProcessHandle $process, Command $command, bool $running, int $now): void
     {
@@ -82,6 +84,8 @@ final class ProcessTermination
     /**
      * Begin bounded termination after output exceeds its configured ceiling.
      * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function observeOutputLimit(ProcessHandle $process, Command $command, bool $overflowed, bool $running): void
     {

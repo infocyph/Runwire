@@ -153,6 +153,7 @@ final class ResponseScheduler
 
     /**
      * Send one control frame through the transport scheduler.
+     * @throws \OverflowException
      */
     public function sendControl(Frame $frame): WriteResult
     {
@@ -204,6 +205,9 @@ final class ResponseScheduler
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function adaptiveInitialResponseWireLimit(): int
     {
         $queueCapacity = max(1, min(
@@ -306,6 +310,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function flushEnd(Http2Stream $stream): bool
     {
@@ -325,6 +330,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function flushNextStream(int &$frames, int &$stalled): bool
     {
@@ -349,6 +355,7 @@ final class ResponseScheduler
     /**
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function flushOne(Http2Stream $stream): bool
     {
@@ -424,6 +431,7 @@ final class ResponseScheduler
     /**
      * @param list<array{0: string, 1: string}> $headers
      * @return list<Frame>|null
+     * @throws \InvalidArgumentException
      */
     private function headerFrames(Http2Stream $stream, array $headers): ?array
     {

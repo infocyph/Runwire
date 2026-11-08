@@ -79,6 +79,7 @@ final class EncoderStreamDecoder
     /**
      * @return array{0: int, 1: int}|null
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function duplicate(int $offset): ?array
     {
@@ -105,6 +106,7 @@ final class EncoderStreamDecoder
     /**
      * @return array{0: int, 1: int}|null
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function insertLiteralName(int $offset): ?array
     {
@@ -142,6 +144,7 @@ final class EncoderStreamDecoder
     /**
      * @return array{0: int, 1: int}|null
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function insertNameReference(int $offset): ?array
     {
@@ -184,6 +187,7 @@ final class EncoderStreamDecoder
     /**
      * @return array{0: int, 1: int}|null
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function setCapacity(int $offset): ?array
     {

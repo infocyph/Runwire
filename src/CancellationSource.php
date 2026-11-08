@@ -47,7 +47,11 @@ final class CancellationSource
         });
     }
 
-    /** Creates a source linked to a parent token and the earliest applicable deadline. */
+    /**
+     * Creates a source linked to a parent token and the earliest applicable deadline.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public static function linked(
         CancellationToken $parent,
         ?RequestDeadline $deadline = null,
@@ -77,7 +81,11 @@ final class CancellationSource
         return $this->state->cancel($reason, $this->token);
     }
 
-    /** Creates a structured child source linked without consuming the public observer budget. */
+    /**
+     * Creates a structured child source linked without consuming the public observer budget.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function child(?RequestDeadline $deadline = null): self
     {
         $child = new self(self::earliestDeadline(

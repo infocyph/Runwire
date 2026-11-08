@@ -66,7 +66,10 @@ final class Http2Connection
 
     private ?int $settingsAckTimer;
 
-    /** @param callable(HttpRequest, Http2ResponseWriter): void $handler */
+    /**
+     * @param callable(HttpRequest, Http2ResponseWriter): void $handler
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -127,6 +130,7 @@ final class Http2Connection
 
     /**
      * Begin graceful HTTP/2 connection draining.
+     * @throws \InvalidArgumentException
      */
     public function drain(): void
     {
@@ -242,6 +246,9 @@ final class Http2Connection
         return substr($data, $take);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function failConnection(ErrorCode $code, string $message): void
     {
         if ($this->closed) {
@@ -323,6 +330,7 @@ final class Http2Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \InvalidArgumentException
      */
     private function handlePing(Frame $frame): void
     {
@@ -386,6 +394,7 @@ final class Http2Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \InvalidArgumentException
      */
     private function handleSettings(Frame $frame): void
     {
@@ -408,6 +417,9 @@ final class Http2Connection
         $this->output->flush();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function handleStreamError(StreamError $error): void
     {
         if ($this->closed) {
@@ -423,6 +435,7 @@ final class Http2Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     private function handleWindowUpdate(Frame $frame): void
     {
@@ -456,6 +469,9 @@ final class Http2Connection
         $this->output->flush();
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function processBufferedFrames(string $data): void
     {
         foreach ($this->parser->push($data, $this->limits->maxFramesPerTurn) as $frame) {

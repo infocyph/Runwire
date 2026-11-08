@@ -48,6 +48,8 @@ final class PhpQuicApi
 
     /**
      * Return the accept-connection mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptConnectionEvents(): int
     {
@@ -66,6 +68,8 @@ final class PhpQuicApi
 
     /**
      * Return the accept-stream mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptStreamEvents(): int
     {
@@ -161,6 +165,8 @@ final class PhpQuicApi
 
     /**
      * Return the readable event mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function readEvents(): int
     {
@@ -179,6 +185,8 @@ final class PhpQuicApi
 
     /**
      * Return the writable event mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function writeEvents(): int
     {

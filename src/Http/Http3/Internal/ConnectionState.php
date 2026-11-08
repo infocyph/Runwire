@@ -45,6 +45,7 @@ final class ConnectionState
 
     /**
      * Create connection state with bounded HTTP/3 and QPACK resources.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly Http3Limits $limits = new Http3Limits(),
@@ -160,6 +161,7 @@ final class ConnectionState
 
     /**
      * Feed bytes from a peer unidirectional stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {
@@ -238,6 +240,7 @@ final class ConnectionState
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
      */
     private function claimPeerUnidirectional(PeerUnidirectionalStream $stream, int $typeValue): void
     {
@@ -266,6 +269,9 @@ final class ConnectionState
         $stream->claim();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function configureEncoder(): void
     {
         if ($this->encoder !== null) {
@@ -295,6 +301,7 @@ final class ConnectionState
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function createPeerUnidirectional(int $streamId): PeerUnidirectionalStream
     {

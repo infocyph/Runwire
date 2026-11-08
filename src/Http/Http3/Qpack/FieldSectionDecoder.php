@@ -109,7 +109,10 @@ final readonly class FieldSectionDecoder
         return $requiredInsertCount - $delta - 1;
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function decodeField(string $block, int &$offset, int $base): array
     {
         $first = ord($block[$offset]);
@@ -160,7 +163,10 @@ final readonly class FieldSectionDecoder
         return [$entry['name'], $entry['value'], true];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function literalName(string $block, int &$offset): array
     {
         $name = StringCodec::decode(

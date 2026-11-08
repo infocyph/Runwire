@@ -215,7 +215,11 @@ final class Encoder
             : IntegerCodec::encode($absoluteIndex - $base, 4, 0x10);
     }
 
-    /** @param array<int, int> $references */
+    /**
+     * @param array<int, int> $references
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function encodeField(
         string $name,
         string $value,
@@ -292,6 +296,10 @@ final class Encoder
         return $index;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function literal(string $name, string $value): string
     {
         $sensitive = self::sensitive($name);
@@ -314,6 +322,8 @@ final class Encoder
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function prefix(int $requiredInsertCount, int $base): string
     {
