@@ -186,19 +186,18 @@ trait ExecutorIpcTrait
         if (!isset($this->workers[$id])) {
             return;
         }
-        $worker = &$this->workers[$id];
+        $worker = $this->workers[$id];
         $sent = $this->writePipe($worker['input'], substr($worker['inputBuffer'], 0, self::IO_CHUNK_BYTES));
         if ($sent === false || ($sent === 0 && feof($worker['input']))) {
-            unset($worker);
             $this->retire($id, new RuntimeException('Executor subprocess input closed.'));
 
             return;
         }
-        $worker['inputBuffer'] = substr($worker['inputBuffer'], $sent);
-        if ($worker['inputBuffer'] === '' && $worker['writeWatcher'] !== null) {
-            $this->loop->cancel($worker['writeWatcher']);
-            $worker['writeWatcher'] = null;
+        $this->workers[$id]['inputBuffer'] = substr($worker['inputBuffer'], $sent);
+        if ($this->workers[$id]['inputBuffer'] === '' && $this->workers[$id]['writeWatcher'] !== null) {
+            $watcher = $this->workers[$id]['writeWatcher'];
+            $this->workers[$id]['writeWatcher'] = null;
+            $this->loop->cancel($watcher);
         }
-        unset($worker);
     }
 }

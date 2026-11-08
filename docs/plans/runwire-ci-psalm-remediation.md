@@ -416,3 +416,13 @@
 - Keep top-level executor-worker.php exception and taint diagnostics for a dedicated P0 security/control-flow pass. P0-P3 issues and all additional findings remain open until proven green. No merge/tag/release.
 
 - First Batch 40 analyzer: PHP 8.4 **249 Psalm errors**, net -12 from 261, 91 missing throws. PHPStan found an inaccurate `InvalidArgumentException` constructor declaration in `RuntimeEnvironmentProbe`; this batch removes it while preserving the legitimate `probe()` annotation.
+
+### Batch 41 — targeted P0/P1 correctness and security boundaries
+
+- Exact Batch 40 has 249 Psalm findings on the first PHP 8.4 analyzer; Batch 40's constructor exception correction is awaiting new exact-head analyzer verification.
+- Remove reflection of internal supervisor `LogicException::getMessage()` to the control-plane response. Retain `invalid_target` error code while providing a fixed response safe for untrusted callers (P0 tainted downstream URI/data flow).
+- Eliminate Psalm's unsupported persistent reference into `ExecutorIpcTrait::$workers`; update worker state explicitly, preserving bounded writes, output retirement, and watcher cancellation.
+- Model `stream_select()`'s returned ready-resource array without incorrectly asserting a `list`; continue preserving callback order and stream identity.
+- Keep all P0 file/SSRF/header taint findings, P1 lifecycle/type, P2, P3 and additional diagnostics active until their exact-run checks pass; this small critical-fix batch deliberately avoids padding to 50 files with unrelated edits.
+
+- Batch 41 PHP 8.5 Psalm: **245 errors** (net -4 versus Batch 40 249) and **TaintedHeader reduced 3 → 2**; PHPStan identified one redundant `isset` after the known-allocated synchronous worker write. Remove that redundant check; preserve retire-on-write-failure and unchanged worker ownership.

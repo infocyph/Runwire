@@ -283,7 +283,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return true;
     }
 
-    /** @param list<resource> $ready */
+    /** @param array<array-key, resource> $ready */
     private function dispatchReady(array $ready, bool $readable): void
     {
         foreach ($ready as $stream) {

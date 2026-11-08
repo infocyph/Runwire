@@ -202,8 +202,9 @@ final class ControlServer
 
         try {
             $accepted = $this->supervisor?->recycle($group, $slot) ?? false;
-        } catch (LogicException $error) {
-            $this->respondError($session, 'invalid_target', $error->getMessage());
+        } catch (LogicException) {
+            // Never return internal exception messages to a control-plane caller.
+            $this->respondError($session, 'invalid_target', 'Requested worker target is unavailable.');
 
             return;
         }
