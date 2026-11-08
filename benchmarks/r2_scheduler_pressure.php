@@ -49,6 +49,10 @@ function r2PressureExercise(string $mode, int $tasks): array
     try {
         $completed = $runtime->run(function (CoroutineScope $scope) use ($mode, $tasks, $pair): int {
             if ($mode === 'readable_wait') {
+                if ($pair === null) {
+                    throw new RuntimeException('R2 readable-wait socket pair is unavailable.');
+                }
+
                 $reader = $scope->spawn(function () use ($scope, $pair): string {
                     $scope->waitReadable($pair[0]);
 

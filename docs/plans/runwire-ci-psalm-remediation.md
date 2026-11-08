@@ -19,6 +19,8 @@
 
 ## Progress
 
+**Batch 103 submitted — benchmark sample fidelity:** After Batch 102, fix percentile and CPU sample calculations in U01/U03 so strict arithmetic uses explicit float operands without changing measurement units; guard the R2 readable-wait socket resource inside the closure that actually consumes it. Do not change the benchmark workload, number of trials, public APIs or Psalm configuration. CI for B102 was still active when this follow-on batch was prepared. B103 count and QA **pending**; retain benchmark-first priority and all security findings.
+
 **Batch 102 submitted — benchmark contract integrity:** Continue benchmarks first at parent `3d9abde31d52a12445ebb1189e4e371c10cf6e39`. Repair benchmark writer interface overrides and typed callable lifecycle, native PID false-handling, request resetter override, and accurate benchmark exception docs. These are small real implementation-contract fixes, not analyzer config changes or fabricated tests. The latest B101 analyzer/QA run is still in progress; no net error reduction claimed until exact-head CI. Benchmark findings remain priority ahead of tests. No merge/tag/release.
 
 **Batch 100 exact CI reconciliation:** At `ad14d499ace79f5c636945b7285cb9e643e610d6`, Psalm **2,504 errors** on each PHP 8.4/8.5: **275 benchmarks, 2,211 tests, 11 src, 7 tools**. Benchmark Psalm reduced from original 719 to 275. PHPStan **FAIL**, output limited to first **1,000+ findings** under PHPForge's newly expanded tests+benchmarks scan (at least 553 benchmark and 447 test PHPStan diagnostics in first 1,000). This failure also existed at Batch 98; earlier lines claiming PHPStan PASS for those batches were incorrect and are superseded by this explicit result. Four PHPForge QA variants **FAIL only on Pint** in `benchmarks/u10_pool_live_profile.php` (`no_unused_imports`, `blank_line_before_statement`); Pest, reference integrity, PHPCS, Rector, Deptrac and other reported QA components pass. B101 corrects the exact U10 formatting along with numeric measurement contracts, but full quality gates remain blocking until new CI is verified.
@@ -980,3 +982,9 @@
 - Keep source/runtime API unchanged. In `transfer_compare.php`, explicitly mark seven interface implementation methods with `#[\\Override]` and store drain callbacks as `?\\Closure` via `Closure::fromCallable`, retaining invocability and release behavior while removing an untyped property.
 - `LifecycleRuntimeBench` caches one `getmypid()` result to discriminate false from integer 0 accurately; add missing interface `#[\\Override]` to its request resetter fixture. `HostAdapterBench` and `http1_bench_workload.php` document actual propagated invalid-argument exceptions.
 - B101 CI was in progress at batch creation. Verify PHP 8.4/8.5 Psalm and PHPStan, all four QA variants, benchmark discovery/validation, Source Audit, native/hosted/protocol. Record exact post-run counts and remediation outcome; do not assume completion or weaken tooling.
+
+### Batch 103 — preserve percentile and socket-pair sample contracts
+
+- U01/U03 percentile index calculations explicitly promote the count to float before multiplication, retaining `floor` rank and rounding. CPU usage seconds/microseconds are explicitly float before scale operations, preserving units.
+- R2 scheduler's `readable_wait` closure validates the actual socket pair at the consumption boundary before indexing, so malformed/null fixture states throw instead of passing `null` into a stream read, while valid samples are unchanged.
+- No production files, test behavior, analyzer config, suppression or release metadata modifications. Verify exact-head PHP 8.4/8.5 Psalm/PHPStan, all QA variants and hosted/native/protocol/benchmark checks; report measured deltas, not estimates.

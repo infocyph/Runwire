@@ -10,14 +10,14 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 /** @param list<float> $sorted */
 function u01Percentile(array $sorted, float $fraction): float
 {
-    return round($sorted[(int) floor((count($sorted) - 1) * $fraction)], 3);
+    return round($sorted[(int) floor((float) (count($sorted) - 1) * $fraction)], 3);
 }
 
 /** @param array<string, int> $usage */
 function u01CpuMilliseconds(array $usage, string $prefix): float
 {
-    return (float) (($usage[$prefix . '.tv_sec'] ?? 0) * 1_000)
-        + (float) (($usage[$prefix . '.tv_usec'] ?? 0) / 1_000);
+    return (float) ($usage[$prefix . '.tv_sec'] ?? 0) * 1_000.0
+        + (float) ($usage[$prefix . '.tv_usec'] ?? 0) / 1_000.0;
 }
 
 $loop = new SelectLoop();

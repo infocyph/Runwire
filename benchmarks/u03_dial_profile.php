@@ -11,16 +11,16 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 /** @param list<float> $sorted */
 function u03Percentile(array $sorted, float $fraction): float
 {
-    return round($sorted[(int) floor((count($sorted) - 1) * $fraction)], 4);
+    return round($sorted[(int) floor((float) (count($sorted) - 1) * $fraction)], 4);
 }
 
 /** @param array<string, int> $usage */
 function u03CpuMilliseconds(array $usage): float
 {
-    return (float) (($usage['ru_utime.tv_sec'] ?? 0) * 1_000
-        + ($usage['ru_utime.tv_usec'] ?? 0) / 1_000
-        + ($usage['ru_stime.tv_sec'] ?? 0) * 1_000
-        + ($usage['ru_stime.tv_usec'] ?? 0) / 1_000);
+    return (float) ($usage['ru_utime.tv_sec'] ?? 0) * 1_000.0
+        + (float) ($usage['ru_utime.tv_usec'] ?? 0) / 1_000.0
+        + (float) ($usage['ru_stime.tv_sec'] ?? 0) * 1_000.0
+        + (float) ($usage['ru_stime.tv_usec'] ?? 0) / 1_000.0;
 }
 
 /**
