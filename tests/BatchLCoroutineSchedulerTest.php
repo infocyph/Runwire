@@ -658,3 +658,28 @@ it('inherits the protocol request deadline in attached root and child fibers', f
         $context->complete();
     }
 });
+
+it('resumes cooperative wait and writable tasks without manufacturing a scheduler payload', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false) {
+        throw new RuntimeException('Local stream pair unavailable.');
+    }
+    [$left, $right] = $pair;
+    stream_set_blocking($left, false);
+    stream_set_blocking($right, false);
+    $runtime = new CoroutineRuntime();
+
+    try {
+        $done = $runtime->run(function (CoroutineScope $scope) use ($left): array {
+            $scope->sleep(0.001);
+            $scope->waitWritable($left);
+            $scope->yieldNow();
+
+            return ['completed', 'writable'];
+        });
+        expect($done)->toBe(['completed', 'writable']);
+    } finally {
+        fclose($left);
+        fclose($right);
+    }
+});

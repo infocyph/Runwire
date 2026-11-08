@@ -283,10 +283,9 @@ final class FiberScheduler
 
     /**
      * Suspend the current task for the requested duration.
-     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
+     * Scheduler wakeups are required to resume without a payload.
      * @throws \InvalidArgumentException
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function sleep(float $seconds): void
     {
@@ -300,7 +299,7 @@ final class FiberScheduler
             return;
         }
 
-        Fiber::suspend(new LoopWaitSuspension(
+        if (Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->delay(
                 $seconds,
@@ -309,7 +308,9 @@ final class FiberScheduler
                     $wake();
                 },
             ),
-        ));
+        )) !== null) {
+            throw new LogicException('Loop-backed coroutine resumed with an unexpected payload.');
+        }
     }
 
     /**
@@ -348,16 +349,15 @@ final class FiberScheduler
     }
 
     /**
-     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
+     * Scheduler wakeups are required to resume without a payload.
      *
      * @param resource $stream
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function suspendReadable(mixed $stream): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend(new LoopWaitSuspension(
+        if (Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onReadable(
                 $stream,
@@ -366,20 +366,21 @@ final class FiberScheduler
                     $wake();
                 },
             ),
-        ));
+        )) !== null) {
+            throw new LogicException('Loop-backed coroutine resumed with an unexpected payload.');
+        }
     }
 
     /**
-     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
+     * Scheduler wakeups are required to resume without a payload.
      *
      * @param resource $stream
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function suspendWritable(mixed $stream): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend(new LoopWaitSuspension(
+        if (Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onWritable(
                 $stream,
@@ -388,7 +389,9 @@ final class FiberScheduler
                     $wake();
                 },
             ),
-        ));
+        )) !== null) {
+            throw new LogicException('Loop-backed coroutine resumed with an unexpected payload.');
+        }
     }
 
     /**
@@ -402,14 +405,15 @@ final class FiberScheduler
 
     /**
      * Cooperatively yield the current task back to the scheduler.
-     * Fiber::suspend has a scheduler side effect; the resume payload is unused.
+     * Scheduler wakeups are required to resume without a payload.
      * @throws \LogicException
-     * @psalm-suppress UnusedMethodCall
      */
     public function yieldNow(): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend($this);
+        if (Fiber::suspend($this) !== null) {
+            throw new LogicException('Cooperative yield resumed with an unexpected payload.');
+        }
     }
 
     private function cancelAll(CancellationReason $reason): void

@@ -696,3 +696,10 @@
 - Input SHA `9e3a87e3532133e5089a5f93d2fd13b1a293bd48`, pending complete CI. The CLI API manifest can enumerate a file symlink whose path is inside an approved root while the target resides outside it; PHP's `SplFileInfo::isFile()` follows such links. Restricting only the root is insufficient.
 - Verify each enumerated PHP declaration path is canonical, within the canonical source directory and not a symlink before reading. Preserve reproducible manifest contents and the published public API comparator. Add actual subprocess regression proving an outside-root link is rejected before producing a manifest.
 - This addresses one real file-boundary weakness; it does not prove the Psalm taint model is satisfied. The remaining taints and strict annotations are separately blocking. Run Source Audit, PHPStan, Psalm, all QA/Pest, native and hosted checks against exact commit. No merge/tag.
+
+### Batch 64 — assert no-payload resumption for void Fiber primitives
+
+- Baseline `9d6afe50952e9932f43eed372ddc38654e6687e5` verified 15 taint errors, PHPStan/Pint/Pest/PHPCS/Rector passing, nine forbidden inline annotations. Four are `UnusedMethodCall` suppressions for void suspension methods.
+- The internal `LoopWaitSuspension::arm` always wakes these tasks with `$scheduler->resume($task)` (default `null`). `FiberScheduler::observeSuspension` likewise resumes its cooperative yield with no payload. Assert the invariant directly after `Fiber::suspend()` and reject an unexpected non-null value with a documented `LogicException`. This provides a real integrity check for invalid/stale external resumes instead of a no-op discard.
+- Remove exactly four Fiber suppressions; preserve the public signatures, normal no-payload path, cancellation propagation, and existing wakeup semantics. Add a focused real-loop test spanning sleep, writable wait and explicit cooperative yield. Await exact-SHA Psalm/PHPStan/Pint/Rector/PHPCS/Pest/native and hosted QA. If this changes a supported resume contract, revert rather than pretending it is a free analyzer fix.
+- All 15 security taints and five remaining annotations are separately blocking. No merge or tag.
