@@ -233,8 +233,7 @@ final class SwooleDriver implements HostDriverInterface
         $recycleState = null;
         DynamicHostObject::method($server, 'on')(
             'WorkerStart',
-            function (?object $host = null, ?int $workerId = null) use ($factory, &$recycleState): void {
-                unset($host);
+            function (?object $_host = null, ?int $workerId = null) use ($factory, &$recycleState): void {
                 $this->startApplication($factory, $workerId);
                 $recycleState = new WorkerRecycleState($this->recyclePolicy);
             },

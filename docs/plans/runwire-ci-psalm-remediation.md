@@ -458,3 +458,17 @@
 - Reviewed all 45 implementation/worker files touched by Batch 43. Repair **seven one-line PHPDocs** where the inserted exception tag appeared outside the comment, and normalize the indentation of newly inserted `@throws` tags to the containing PHPDoc block.
 - Preserve method signatures and bodies, native capability validations, public contracts, and all taint checks. This is a parser/style correction only; code behavior is unchanged.
 - Require new exact-head Source Audit, Swoole, HTTP/3+QUIC, PHPForge QA, both Psalm versions and PHPStan before declaring verified. Keep all P0 security and remaining P1-P3 diagnostics open.
+
+### Batch 43 corrected-head verified baseline
+
+- Exact SHA `801a630c8dbf1ea9a84a929e44ecbee3f6dae453`: PHP 8.5 Psalm reports **225 errors** and 153 informational findings, including **86 MissingThrowsDocblock**, **9 TaintedFile**, **6 TaintedSSRF**, and **2 TaintedHeader**. Total net reduction from Batch 42's 226 was only one, as documenting throw boundaries propagated obligations into their callers.
+- PHPStan reports exactly two errors: `QuicWorkerSession` class cognitive complexity 84 (limit <80) and `connect()` complexity 14 (limit <12). Remaining tested host/source/protocol/QA lanes that completed passed; HTTP/3 PHP 8.5 was pending at review.
+- Reconcile actual analyzer sites before claiming successful exception remediation. Do not count annotated source locations as removed errors.
+
+### Batch 44 — constrained correctness and analyzer convergence
+
+- Collapse the QUIC native capability check into one bounded `array_any` validation of all six required methods; preserve the runtime object guard and failure behavior. Follow with narrowly scoped per-method assertions whose runtime guarantees are already enforced by that validation, allowing PHPStan to understand the dynamically loaded extension while reducing class/function complexity.
+- Consolidate the `PhpQuicApi` class and method probe into one pass that uses `class_exists` to validate each dynamic class before `method_exists`. Retain all extension/event requirements and initial fail-closed checks.
+- Correct WebSocket URI parsed-array shape documentation without changing parsing or validation, and avoid unsetting Swoole's unused callback argument. Keep callback signature and worker lifecycle unchanged.
+- In two independent HTTP/2 reference tests, separate the OpenSSL CSR's by-reference private key parameter from the originally validated signing key, removing four misleading PHPStan-only annotations. Preserve the actual certificate/key identity and cryptographic validation.
+- This targeted batch changes six implementation/QA files and the tracker rather than padding to fifty. Require exact SHA Psalm, PHPStan, PHPForge QA/protocol and source audit verification. No suppressions, weakened taint policy, merge, tag or release.

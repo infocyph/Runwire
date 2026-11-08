@@ -48,14 +48,14 @@ foreach ([
                 throw new RuntimeException('Independent H2 multiplexer fixture key generation failed.');
             }
 
-            $csr = openssl_csr_new(['commonName' => 'localhost'], $key, [
+            $csrPrivateKey = $key;
+            $csr = openssl_csr_new(['commonName' => 'localhost'], $csrPrivateKey, [
                 'config' => $config, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256',
             ]);
             if (!$csr instanceof OpenSSLCertificateSigningRequest) {
                 throw new RuntimeException('Independent H2 multiplexer fixture CSR generation failed.');
             }
 
-            /** @phpstan-var OpenSSLAsymmetricKey $key */
 
             $signed = openssl_csr_sign($csr, null, $key, 1, [
                 'config' => $config, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
@@ -64,7 +64,6 @@ foreach ([
                 throw new RuntimeException('Independent H2 multiplexer certificate signing failed.');
             }
             openssl_x509_export($signed, $certificate);
-            /** @phpstan-var OpenSSLAsymmetricKey $key */
 
             openssl_pkey_export($key, $private);
             file_put_contents($cert, $certificate);

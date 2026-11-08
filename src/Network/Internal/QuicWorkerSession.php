@@ -264,24 +264,16 @@ final class QuicWorkerSession
         if (!is_object($connection)) {
             throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
         }
-        if (!method_exists($connection, 'close')) {
+        $requiredMethods = ['close', 'setBlocking', 'getNegotiatedAlpn', 'getVerifyResult', 'handleEvents', 'openStream'];
+        if (array_any($requiredMethods, static fn(string $method): bool => !method_exists($connection, $method))) {
             throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
         }
-        if (!method_exists($connection, 'setBlocking')) {
-            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
-        }
-        if (!method_exists($connection, 'getNegotiatedAlpn')) {
-            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
-        }
-        if (!method_exists($connection, 'getVerifyResult')) {
-            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
-        }
-        if (!method_exists($connection, 'handleEvents')) {
-            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
-        }
-        if (!method_exists($connection, 'openStream')) {
-            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
-        }
+        // The runtime capability check above is authoritative. These assertions
+        // make its per-method guarantees visible to static analyzers.
+        assert(method_exists($connection, 'close'));
+        assert(method_exists($connection, 'setBlocking'));
+        assert(method_exists($connection, 'getNegotiatedAlpn'));
+        assert(method_exists($connection, 'getVerifyResult'));
 
         try {
             $alpn = $connection->getNegotiatedAlpn();

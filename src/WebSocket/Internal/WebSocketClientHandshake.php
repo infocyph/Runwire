@@ -148,7 +148,7 @@ final readonly class WebSocketClientHandshake
     }
 
     /**
-     * @param array{path?:string,query?:string} $parts
+     * @param array{host?:string,path?:string,port?:int,query?:string,scheme?:string} $parts
      * @throws \InvalidArgumentException
      */
     private static function requestTarget(array $parts): string

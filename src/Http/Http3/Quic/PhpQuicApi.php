@@ -98,13 +98,12 @@ final class PhpQuicApi
             return false;
         }
         foreach (self::REQUIRED_CLASS_NAMES as $name) {
-            if (!class_exists(self::className($name))) {
+            $class = self::className($name);
+            if (!class_exists($class)) {
                 return false;
             }
-        }
-        foreach (self::REQUIRED_METHODS as $name => $methods) {
-            foreach ($methods as $method) {
-                if (!method_exists(self::className($name), $method)) {
+            foreach (self::REQUIRED_METHODS[$name] ?? [] as $method) {
+                if (!method_exists($class, $method)) {
                     return false;
                 }
             }
