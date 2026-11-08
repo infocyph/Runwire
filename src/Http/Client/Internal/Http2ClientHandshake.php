@@ -166,11 +166,13 @@ final class Http2ClientHandshake
         }
         $last = unpack('Nlast', substr($frame->payload, 0, 4));
         $error = unpack('Nerror', substr($frame->payload, 4, 4));
-        if (!is_int($last['last'] ?? null) || !is_int($error['error'] ?? null)) {
+        $lastId = is_array($last) ? ($last['last'] ?? null) : null;
+        $errorCode = is_array($error) ? ($error['error'] ?? null) : null;
+        if (!is_int($lastId) || !is_int($errorCode)) {
             throw new RuntimeException('HTTP/2 GOAWAY has invalid stream or error fields.');
         }
-        $this->peerGoAwayLastStreamId = $last['last'] & 0x7FFF_FFFF;
-        $this->peerGoAwayErrorCode = $error['error'];
+        $this->peerGoAwayLastStreamId = $lastId & 0x7FFF_FFFF;
+        $this->peerGoAwayErrorCode = $errorCode;
         $this->closed = true;
 
         return '';

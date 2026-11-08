@@ -46,9 +46,17 @@ final readonly class Socks5Handshake
             ? substr($host, 1, -1)
             : $host;
         if (filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-            $address = "\x01" . inet_pton($target);
+            $packed = inet_pton($target);
+            if ($packed === false) {
+                throw new InvalidArgumentException('Unable to encode SOCKS5 IPv4 destination.');
+            }
+            $address = "\x01" . $packed;
         } elseif (filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
-            $address = "\x04" . inet_pton($target);
+            $packed = inet_pton($target);
+            if ($packed === false) {
+                throw new InvalidArgumentException('Unable to encode SOCKS5 IPv6 destination.');
+            }
+            $address = "\x04" . $packed;
         } else {
             if (!$this->remoteDns) {
                 throw new InvalidArgumentException('SOCKS5 local DNS policy requires a pre-resolved IP.');

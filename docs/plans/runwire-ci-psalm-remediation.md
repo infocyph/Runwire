@@ -44,6 +44,7 @@
 | 21 | Resolve timer heap type coercion, detached process nullability and public API delta array shapes | Type correctness (P1) | Prepared; CI verification pending |
 | 22 | Document 99 more exception locations in 15 new-3.0 service and transport files | 99 throw sites, method-level precision | Prepared; CI verification pending |
 | 23 | Cover 99 exception sites in 23 published implementations with matching migration ledger reviews | 99 throw sites + 23 ledger entries | Prepared; CI verification pending |
+| 24 | Correct nullable deadline, DNS family arrays, SOCKS5 encoding, H2/QUIC protocol shapes, TLS callback signatures and Swoole scoping | P1 type and state correctness | Prepared; CI verification pending |
 | 11+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Not started |
 
 ### Batch 1 verification
@@ -246,3 +247,12 @@
 - Cover 99 remaining `MissingThrowsDocblock` locations across 23 previously published HTTP1/2/3, network, process, runtime and supervisor types, preserving source bodies.
 - Extend pinned 2.1.2 behavior ledger with 23 matching regression-test-backed migration records, ensuring that the Source Audit remains a strict equality gate.
 - No changes to method behavior, public API shape or security enforcement; verify type and quality gates on GitHub after committing.
+
+### Batch 24 — P1 correctness and type-contract refinement
+
+- Preserve non-null request deadline selection and explicitly validate nullable optional deadlines before dereferencing them.
+- Declare bounded address family lists in Happy Eyeballs and reject rare `inet_pton` failure before concatenating SOCKS5 wire bytes.
+- Validate unpacked GOAWAY fields before integer operations; model optional QUIC stream identity fields accurately.
+- Adapt TLS readiness callbacks to event loop signatures without relying on PHP tolerance for excess parameters. Preserve exactly-once cleanup and socket ownership.
+- Remove unused Swoole WorkerStart variable `unset` and rename ignored argument without changing worker callbacks. Existing published Swoole driver is already covered in migration ledger.
+- Verify PHPStan, Psalm and full native/HTTP3/Swoole acceptance on GitHub before closure.

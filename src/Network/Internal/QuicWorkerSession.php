@@ -308,7 +308,7 @@ final class QuicWorkerSession
     /**
      * Open a locally initiated QUIC stream, returning a worker-local handle.
      *
-     * @return array{stream:int, bidirectional:bool}
+     * @return array{stream:int, bidirectional:bool, wire_stream_id?:int}
      * @throws \RuntimeException
      */
     private function openStream(bool $bidirectional): array
