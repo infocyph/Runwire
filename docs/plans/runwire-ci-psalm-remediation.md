@@ -763,3 +763,9 @@
 
 - Batch 73 source audit failed: `RuntimeCapabilityResolver` is a published implementation whose source hash now changes due to precise exception docs but had no existing migration ledger disposition. Keep the independent Source Audit strict; create a dedicated test-backed record against `tests/RuntimeCapabilityResolverTest.php` covering existing driver ownership behavior and the new forged-resource failure.
 - No additional runtime source changes; tracking updates are scoped to ledger + plan. Require exact SHA analysis, source audit, tests and hosted CI. The 14 security taints, two other annotated DTO constructors and remaining QA findings stay open. No merge/tag.
+
+### Batch 75 — finish capability resource guard exception propagation
+
+- Exact Batch 74 (`c18080e842774a86608538de738ff163e002a44f`) PHPStan PASS and Psalm reported the original 14 file/SSRF taints plus exactly **one** `MissingThrowsDocblock` at `RuntimeSelector::select`, after the five driver-specific factories and public dispatcher were documented. No Source Audit failures in Batch 74.
+- Document the actual `InvalidArgumentException` that can arise from a malformed injected resource snapshot during runtime selection. The established `RuntimeSelector` migration ledger entry and existing selector tests cover the unchanged public signature and driver resolution behavior. This change only updates the exception contract, not runtime flow.
+- Check CI for any propagation to runtime callers, for Psalm 14 taints alone, PHPStan zero, two remaining skip-directive annotations and all QA green other than those blockers. No merge or release.

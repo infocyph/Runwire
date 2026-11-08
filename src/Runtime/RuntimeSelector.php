@@ -25,6 +25,7 @@ final readonly class RuntimeSelector
 
     /**
      * Selects a concrete runtime and its capabilities for the environment.
+     * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
