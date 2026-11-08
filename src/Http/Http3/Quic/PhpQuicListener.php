@@ -48,13 +48,12 @@ final readonly class PhpQuicListener
         self::validateBindOptions($host, $port, $options);
         PhpQuicApi::assertAvailable();
 
-        $class = 'Quic\\Listener';
+        $class = \Quic\Listener::class;
         if (!class_exists($class)) {
             throw new ListenerException('Quic\\Listener is unavailable.');
         }
 
         try {
-            /** @var class-string $class */
             $listener = new \ReflectionClass($class)->newInstanceArgs([$host, $port, $options]);
         } catch (Throwable $exception) {
             throw new ListenerException(

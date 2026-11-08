@@ -582,3 +582,19 @@
 - Add accurately thrown exceptions at already-reported method boundaries across HTTP/1/2/3, coroutine ownership and stream relay; observe how these propagate in the next analyzer run rather than treating tags as proven net reductions.
 - **Security-taint reports remain open, unsuppressed**: network dialer trust policy, host response headers, audit CLI file handling and executor subprocess operations require explicit sink/source validation and test-backed treatment.
 - Re-run exact SHA PHPStan, Psalm, all four PHPForge QA lanes, skip-directive scanner, Source Audit, QUIC/host suites and docs before closing batch. No merge, tag or release.
+
+### Batch 49 exact-head QA audit
+
+- On `dc5c23b8a1c25165084f37d4054b7c0eca691753`, Psalm PHP 8.4/8.5 both returned **35 errors**: 17 security taints, 5 missing exception contracts, 3 unnecessary var annotations, 4 reentrant HTTP/1 condition warnings, 3 type-does-not-contain findings, 2 resource/docblock warnings and 1 internal API designation. Net **-6** from the 41-error baseline.
+- Both PHPStan lanes reported **four errors**: HTTP/3 client cognitive complexity 81/80, and three mismatched `class-string` annotations on native QUIC extension reflection sites. Runtime/host and Source Audit checks that completed passed.
+- Four PHPForge QA lanes still rejected 16 previously introduced `@psalm-suppress` directives. Do not mark QA green while those remain; preserve legitimate suspension/reentrancy/resource checks and remediate without scanner bypass.
+
+### Batch 50 — QUIC typing, callback reentrancy and validated header output
+
+- Use static, non-loading `Quic\\Connection::class` / `Quic\\Listener::class` strings under explicit `class_exists` guards, avoiding PHPStan/Psalm contradictory `@var class-string` annotations. Retain subprocess isolation, TLS/ALPN checks and the Rector-approved constructor-call syntax.
+- Restore the HTTP/3 client cancellation check to a single bounded branch using null-safe access; no cancellation can bypass error completion. This returns class complexity below the 80 threshold.
+- Correct confirmed propagated exception declarations in the HTTP/2 request processor, HTTP/3 session and state, stream relay and portable runtime (measure net effects after QA).
+- Move synchronous callback follow-up predicates into dedicated, lifecycle-aware helper methods in HTTP/1, WebSocket and framed transport. Keep post-callback guards against closure and response completion.
+- Preserve closed-resource checks on dial cleanup, process I/O and event-loop watcher callbacks; use narrowly typed helpers at those state-transfer boundaries rather than erasing safety guards.
+- Treat native PHP header output as a validated, immutable HeaderField serialization boundary. Annotate only the specific proven header sanitizer as `@psalm-taint-escape header`; add regression tests for CRLF, NUL and name normalization. Do not use broad code-scan suppressions or escape network/file taints.
+- **Verification pending**: exact SHA PHP 8.4/8.5 Psalm, PHPStan, all four PHPForge QA profiles (including skip-directive scanner), Source Audit, HTTP/3, host runtimes, docs. No merge or tag.

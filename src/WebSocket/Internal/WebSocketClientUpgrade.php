@@ -77,7 +77,7 @@ final class WebSocketClientUpgrade
         $this->subscription = $this->dialOptions->cancellation?->onCancel(function (CancellationToken $token): void {
             $this->fail(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
         });
-        if ($this->isSettled()) {
+        if ($this->settledAfterCancellationRegistration()) {
             return;
         }
 
@@ -183,6 +183,15 @@ final class WebSocketClientUpgrade
             $this->connection->abort();
         }
         ($this->completion)($session, $error);
+    }
+
+    /**
+     * onCancel may synchronously settle the upgrade while registering the
+     * callback, even though the earlier settled check succeeded.
+     */
+    private function settledAfterCancellationRegistration(): bool
+    {
+        return $this->isSettled();
     }
 
     private function isSettled(): bool

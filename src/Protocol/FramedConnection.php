@@ -168,6 +168,19 @@ final class FramedConnection
         }
     }
 
+    /**
+     * Deferred callbacks run after the transport may have closed or changed
+     * ownership; validate the current state at dispatch time.
+     */
+    private function dispatchScheduledFrames(): void
+    {
+        if ($this->connection->state() === ConnectionState::CLOSED) {
+            return;
+        }
+
+        $this->decodeAndDispatch('');
+    }
+
     private function scheduleIfMoreMayBeReady(): void
     {
         if ($this->pumpScheduled || $this->connection->state() === ConnectionState::CLOSED) {
@@ -176,10 +189,7 @@ final class FramedConnection
         $this->pumpScheduled = true;
         $this->loop->defer(function (): void {
             $this->pumpScheduled = false;
-            if ($this->connection->state() === ConnectionState::CLOSED) {
-                return;
-            }
-            $this->decodeAndDispatch('');
+            $this->dispatchScheduledFrames();
         });
     }
 }

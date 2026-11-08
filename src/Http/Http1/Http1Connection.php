@@ -456,7 +456,7 @@ final class Http1Connection
             throw $failure;
         }
 
-        if ($this->body === $body && $body->ended() && !$this->responseEnded) {
+        if ($this->shouldWaitForResponse($body)) {
             $this->waitingResponse = true;
             $this->state = ParserState::WAIT_RESPONSE;
             $this->syncReadPause();
@@ -548,7 +548,7 @@ final class Http1Connection
         if ($this->state !== ParserState::REQUEST_LINE || $this->input->availableBytes() > 0) {
             $this->pump();
         }
-        if (!$this->closed && ($this->state !== ParserState::REQUEST_LINE || $this->input->bufferedBytes() > 0)) {
+        if ($this->incompleteInboundOnEof()) {
             $this->fail(400);
         }
     }
@@ -590,6 +590,16 @@ final class Http1Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
      */
+    /**
+     * Check current state after pump callbacks, which may synchronously close
+     * this connection or consume the final buffered request bytes.
+     */
+    private function incompleteInboundOnEof(): bool
+    {
+        return !$this->closed
+            && ($this->state !== ParserState::REQUEST_LINE || $this->input->bufferedBytes() > 0);
+    }
+
     private function parseChunkSizeLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxChunkLineBytes, 400);
@@ -806,6 +816,15 @@ final class Http1Connection
         if (!$result->accepted()) {
             throw new ParseFailure(503, 'Unable to queue 100 Continue response.');
         }
+    }
+
+    /**
+     * Re-read state after application callbacks may have finished the response
+     * or advanced the request body while handling a newly dispatched request.
+     */
+    private function shouldWaitForResponse(StreamingRequestBody $body): bool
+    {
+        return $this->body === $body && $body->ended() && !$this->responseEnded;
     }
 
     private function step(): bool

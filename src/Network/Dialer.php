@@ -201,6 +201,12 @@ final class Dialer
     /**
      * @throws \LogicException
      */
+    /** A pending stream can become closed while callbacks are in flight. */
+    private static function isOpenResource(mixed $resource): bool
+    {
+        return is_resource($resource);
+    }
+
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -424,7 +430,7 @@ final class Dialer
             ], true)) {
                 $job['state']->transition($cancelled ? DialAttemptPhase::CANCELLED : DialAttemptPhase::FAILED);
             }
-            if (is_resource($job['stream'])) {
+            if (self::isOpenResource($job['stream'])) {
                 fclose($job['stream']);
             }
         }

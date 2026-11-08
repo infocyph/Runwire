@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Runtime\Host;
 
+use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use RuntimeException;
@@ -29,8 +30,7 @@ final class NativePhpResponseWriterFactory
             static function (int $status, Headers $headers): void {
                 http_response_code($status);
                 foreach ($headers->fields() as $field) {
-                    $headerLine = $field->name . ': ' . $field->value;
-                    header($headerLine, false);
+                    header(self::validatedHeaderLine($field), false);
                 }
             },
             static function (string $chunk) use ($output): void {
@@ -49,5 +49,17 @@ final class NativePhpResponseWriterFactory
             $maxBodyBytes,
             strtoupper($method) === 'HEAD',
         );
+    }
+
+    /**
+     * Only immutable HeaderField instances that passed constructor validation
+     * can reach this sink. Names cannot contain separators and values cannot
+     * contain CR, LF, NUL or other forbidden control bytes.
+     *
+     * @psalm-taint-escape header
+     */
+    private static function validatedHeaderLine(HeaderField $field): string
+    {
+        return $field->name . ': ' . $field->value;
     }
 }

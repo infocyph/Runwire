@@ -110,6 +110,7 @@ final class ConnectionState
     /**
      * Finish a tracked request stream.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function finishRequestStream(int $streamId): void
     {

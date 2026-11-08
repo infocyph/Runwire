@@ -176,7 +176,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 }
                 // External extension classes are resolved dynamically by the
                 // worker because they are not a mandatory Composer dependency.
-                $quicConnectionClass = 'Quic' . '\\Connection';
+                $quicConnectionClass = \Quic\Connection::class;
 
                 if (!class_exists($quicConnectionClass)) {
                     throw new RuntimeException('Optional native ext-quic is unavailable for outbound QUIC.');
@@ -185,7 +185,6 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 // This constructor performs its full TLS handshake *before*
                 // setBlocking(false) is possible. It may only run here, in
                 // the isolated, deadline-limited executor worker process.
-                /** @var class-string $quicConnectionClass */
                 $connection = new \ReflectionClass($quicConnectionClass)->newInstanceArgs([$host, $port, $options]);
                 if (!method_exists($connection, 'close')
                     || !method_exists($connection, 'getNegotiatedAlpn')) {

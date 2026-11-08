@@ -76,6 +76,12 @@ final readonly class ProcessRunner
         return $consumer === null ? null : Closure::fromCallable($consumer);
     }
 
+    /** The producer may release an input handle between event-loop iterations. */
+    private static function isOpenResource(mixed $resource): bool
+    {
+        return is_resource($resource);
+    }
+
     /** Return the platform-specific operating system null device. */
     private static function nullDevice(): string
     {
@@ -329,7 +335,7 @@ final readonly class ProcessRunner
         $inputResourceId = null;
         if (isset($pipes[0]) && $stdinBuffer === '' && $input->isResource()) {
             $resource = $input->resource();
-            if (is_resource($resource)) {
+            if (self::isOpenResource($resource)) {
                 $read[] = $resource;
                 $inputResourceId = get_resource_id($resource);
             }

@@ -94,6 +94,7 @@ final class Http3Session
     /**
      * Feed bytes from a request stream and dispatch requests when their heads are ready.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function pushRequestStream(int $streamId, string $bytes): void
     {

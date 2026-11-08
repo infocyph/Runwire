@@ -389,6 +389,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function completeHeaderBlock(PendingHeaderBlock $pending): void
     {

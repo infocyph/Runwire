@@ -46,6 +46,7 @@ final class PortableNativeRuntime
      * @throws \LogicException
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \RuntimeException
      */
     public function run(): void
     {
