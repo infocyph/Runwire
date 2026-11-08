@@ -17,7 +17,7 @@ function adaptiveMatrixMedian(array $values): float
 
     return $count % 2 === 1
         ? (float) $values[$middle]
-        : ((float) $values[$middle - 1] + (float) $values[$middle]) / 2;
+        : ((float) $values[$middle - 1] + (float) $values[$middle]) / 2.0;
 }
 
 /**
@@ -58,13 +58,13 @@ function adaptiveMatrixMetric(array $phase, string $name): float
  */
 function adaptiveMatrixCv(array $values): float
 {
-    $mean = array_sum($values) / count($values);
+    $mean = (float) array_sum($values) / (float) count($values);
     if ($mean <= 0 || count($values) < 2) {
         throw new RuntimeException('Adaptive variance needs repeated positive throughput samples.');
     }
-    $squares = array_sum(array_map(static fn(float $value): float => ($value - $mean) ** 2, $values));
+    $squares = array_sum(array_map(static fn(float $value): float => ($value - $mean) ** 2.0, $values));
 
-    return sqrt($squares / (count($values) - 1)) / $mean * 100;
+    return sqrt((float) $squares / (float) (count($values) - 1)) / $mean * 100.0;
 }
 
 /**
@@ -146,7 +146,7 @@ function adaptiveMatrixSummarize(array $records): array
             }
             if ($metric === 'throughput_rps') {
                 $phases[$name]['rps_cv_percent'] = adaptiveMatrixCv($values);
-                $phases[$name]['throughput_rpm'] = $phases[$name][$metric] * 60;
+                $phases[$name]['throughput_rpm'] = (float) $phases[$name][$metric] * 60.0;
             }
         }
         $phases[$name]['duration_seconds_min'] = min(array_map(static fn(array $record): float => (float) $record['phases'][$name]['duration_seconds'], $records));

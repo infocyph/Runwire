@@ -19,6 +19,8 @@
 
 ## Progress
 
+**Batch 100 started — benchmark measurement numeric type fidelity:** Replace implicit mixed int/float arithmetic only in eight standalone benchmark measurement/summary utilities with explicit numeric conversions. Keep percentile cutoffs, clock domains, response payloads, sample counts, measured workloads and rounding unchanged. This targets the previous benchmark `InvalidOperand` findings, without changing security analysis or adding suppressions. Batch 99 exact-head QA and Psalm are still in progress at the time of this implementation; do not mark either batch complete until CI evidence is available.
+
 **Batch 99 started — benchmark-only typing:** Batch 98 exact `e73dab26c70f595af8823512a69979f486991e2d` has Psalm **2,571 per PHP version**, benchmark findings **342** (down from 468), PHPStan PASS, all four QA PASS including repaired ProtocolCore reference. The U10 TCP pooling benchmark now validates nullable isolation state, actual resource samples, pipe read errors and numeric measurement types, and documents propagated errors. Remaining benchmark concerns continue to be open; B99 post-commit exact CI is pending. Do not merge, release or tag.
 
 **Batch 98 started — benchmark exception contracts and QA compatibility:** Batch 97 `734ab5722bb2d71954fbe437042410530eaf7552` reduced Psalm **2,946 → 2,700** per PHP 8.4 (benchmark findings **719 → 468**), but the namespace change to the existing globally referenced `ProtocolCoreBench` broke five `ProtocolProfilingBenchTest` tests and PHPForge Reference Integrity. Restore only that class's global namespace, preserving its new exception docs and safe initializations. In 12 standalone benchmark scripts, add exact `@throws` contracts to the existing function docs based on observed Psalm diagnostics; preserve all behavior. No custom Psalm config, suppressions, weakened analyzers, merge or release. Exact post-B98 results pending.
@@ -952,3 +954,9 @@
 - Fix U10's captured-but-unused promotion, nullable pool isolation, borrowed callback owner failure propagation, partial TCP response prefix comparison, possibly-false process pipes, explicit float arithmetic and per-mode resource-sample existence. Namespace U10's private internal helper to Runwire ownership without changing CLI execution semantics; do not change benchmark thresholds.
 - Add accurate `@throws` contracts to HTTP/1 bench workload options, opcache factory methods and benchmark regression summary loader. Preserve the preexisting CLI invocation and error status behavior.
 - Require exact-head Psalm/PHPStan 8.4/8.5, four QA variants, source audit, docs, native/hosted/protocol and benchmark validation; no analyzer suppressions or configuration changes, no merge/release.
+
+### Batch 100 — explicit numeric contracts in benchmark measurements
+
+- Base B99 `b77120c1f1ee5dd654c89d9625c25547b5136288`. Last fully verified benchmark Psalm baseline was B98 **342** findings; do not claim B99 numbers until the exact jobs report. B100 covers eight benchmark scripts with previously reported `InvalidOperand` findings, including adaptive promotions, H2/H3 QPACK source profiles, protocol/host pressure percentiles and comparative transfer evidence.
+- Explicitly convert intentional mixed int/float arithmetic into float-only operations in timeouts, averages, deviation calculations and percentile indices. Retain the original output units, limits, trial structure and numerical thresholds. No behavioral changes to Runwire runtime, persistent files or network authorization.
+- Validate exact-head Psalm/PHPStan both PHP versions, all four strict QA variants, benchmark validation, Source Audit and hosted/native/protocol coverage. Keep PR draft/unmerged and do not tag.

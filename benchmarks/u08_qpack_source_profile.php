@@ -63,9 +63,9 @@ $measure = static function (callable $operation) use ($iterations): array {
         $samples[] = $elapsed / $iterations;
     }
     sort($samples, SORT_NUMERIC);
-    $mean = array_sum($samples) / count($samples);
+    $mean = (float) array_sum($samples) / (float) count($samples);
     $variance = array_sum(array_map(
-        static fn(float $value): float => ($value - $mean) ** 2,
+        static fn(float $value): float => ($value - $mean) ** 2.0,
         $samples,
     )) / count($samples);
 
@@ -73,7 +73,7 @@ $measure = static function (callable $operation) use ($iterations): array {
         'iterations' => $iterations,
         'trials' => 5,
         'median_nanoseconds_per_op' => round($samples[2], 2),
-        'cv_percent' => round(100 * sqrt($variance) / $mean, 3),
+        'cv_percent' => round(100.0 * sqrt($variance) / $mean, 3),
     ];
 };
 

@@ -340,8 +340,8 @@ function adaptivePromotionEvaluateProtocol(array $caseResults, string $protocol)
         foreach (['low_before', 'medium', 'high', 'low_after'] as $phase) {
             $delta = is_array($fixed[$phase] ?? null) ? $fixed[$phase] : [];
             $ratio = (float) ($delta['throughput_ratio'] ?? 0);
-            $noise = (float) ($delta['combined_rps_cv_percent'] ?? INF) * 2;
-            if ($ratio >= 1.05 && ($ratio - 1) * 100 > $noise) {
+            $noise = (float) ($delta['combined_rps_cv_percent'] ?? INF) * 2.0;
+            if ($ratio >= 1.05 && ($ratio - 1.0) * 100.0 > $noise) {
                 $gains[] = $name . '/' . $phase;
             }
         }
@@ -494,7 +494,7 @@ function adaptivePromotionStop($process, int $pid): void
     }
     if (($status['running'] ?? false) === true) {
         posix_kill(-$pid, SIGTERM);
-        $deadline = microtime(true) + 10;
+        $deadline = microtime(true) + 10.0;
         do {
             usleep(50_000);
             $status = proc_get_status($process);
@@ -603,7 +603,7 @@ function adaptivePromotionRunTrial(
     $started = adaptivePromotionStart($server, $serverLog, $serverLog, $environment);
 
     try {
-        $deadline = microtime(true) + 10;
+        $deadline = microtime(true) + 10.0;
         while (true) {
             $status = proc_get_status($started['process']);
             if (($status['running'] ?? false) !== true) {
@@ -630,7 +630,7 @@ function adaptivePromotionRunTrial(
             'h3' => [adaptivePromotionPython('h3'), 'benchmarks/http3_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds, (string) $case['payload_bytes']],
         };
         $clientRun = adaptivePromotionStart($client, $resultPath . '.raw', $clientLog, $environment);
-        $timeout = $warmup + (4 * $seconds) + 90;
+        $timeout = (float) $warmup + (4.0 * (float) $seconds) + 90.0;
         $code = adaptivePromotionWait($clientRun['process'], $timeout, $clientLog);
         if ($code !== 0) {
             throw new RuntimeException('Adaptive promotion client failed with exit code ' . $code . '.');

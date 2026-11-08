@@ -19,10 +19,10 @@ function r2PressurePercentiles(array $measurements): array
     $count = count($measurements);
 
     return [
-        'p50_us' => round($measurements[(int) floor(($count - 1) * 0.50)], 3),
-        'p95_us' => round($measurements[(int) floor(($count - 1) * 0.95)], 3),
-        'p99_us' => round($measurements[(int) floor(($count - 1) * 0.99)], 3),
-        'mean_us' => round(array_sum($measurements) / $count, 3),
+        'p50_us' => round($measurements[(int) floor((float) ($count - 1) * 0.50)], 3),
+        'p95_us' => round($measurements[(int) floor((float) ($count - 1) * 0.95)], 3),
+        'p99_us' => round($measurements[(int) floor((float) ($count - 1) * 0.99)], 3),
+        'mean_us' => round((float) array_sum($measurements) / (float) $count, 3),
     ];
 }
 

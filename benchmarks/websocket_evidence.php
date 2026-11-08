@@ -481,7 +481,7 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
         'validation_failures' => $validationFailures,
         'error_samples' => $samples,
         'duration_seconds' => round($elapsed, 6),
-        'messages_per_second' => round($successful / max($elapsed, 0.000001), 3),
+        'messages_per_second' => round((float) $successful / max($elapsed, 0.000001), 3),
         'latency_ms' => [
             'p50' => round(wsPercentile($latencies, 0.50), 3),
             'p95' => round(wsPercentile($latencies, 0.95), 3),
@@ -502,7 +502,7 @@ function wsPercentile(array $values, float $fraction): float
         return 0.0;
     }
 
-    $index = max(0, min(count($values) - 1, (int) ceil($fraction * count($values)) - 1));
+    $index = max(0, min(count($values) - 1, (int) ceil($fraction * (float) count($values)) - 1));
 
     return $values[$index];
 }
@@ -520,7 +520,7 @@ function wsMedian(array $values): float
 
     return $count % 2 === 1
         ? $values[$middle]
-        : ($values[$middle - 1] + $values[$middle]) / 2;
+        : ($values[$middle - 1] + $values[$middle]) / 2.0;
 }
 
 /** @param list<float> $values */
@@ -531,17 +531,17 @@ function wsCoefficientOfVariation(array $values): float
         return 0.0;
     }
 
-    $mean = array_sum($values) / $count;
+    $mean = (float) array_sum($values) / (float) $count;
     if ($mean <= 0.0) {
         return 0.0;
     }
 
     $sum = 0.0;
     foreach ($values as $value) {
-        $sum += ($value - $mean) ** 2;
+        $sum += ($value - $mean) ** 2.0;
     }
 
-    return sqrt($sum / ($count - 1)) / $mean * 100.0;
+    return sqrt($sum / (float) ($count - 1)) / $mean * 100.0;
 }
 
 function wsSlowReader(int $port): bool

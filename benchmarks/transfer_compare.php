@@ -218,7 +218,7 @@ function transferMedian(array $values): float
 
     return $count % 2 === 1
         ? $values[$middle]
-        : ($values[$middle - 1] + $values[$middle]) / 2;
+        : ($values[$middle - 1] + $values[$middle]) / 2.0;
 }
 
 /** @param list<float> $values */
@@ -229,17 +229,17 @@ function transferCoefficientOfVariation(array $values): float
         return 0.0;
     }
 
-    $mean = array_sum($values) / $count;
+    $mean = (float) array_sum($values) / (float) $count;
     if ($mean <= 0.0) {
         return 0.0;
     }
 
     $sum = 0.0;
     foreach ($values as $value) {
-        $sum += ($value - $mean) ** 2;
+        $sum += ($value - $mean) ** 2.0;
     }
 
-    return sqrt($sum / ($count - 1)) / $mean * 100.0;
+    return sqrt($sum / (float) ($count - 1)) / $mean * 100.0;
 }
 
 /**
@@ -264,7 +264,7 @@ function transferTrial(bool $helper, int $bytes): float
         throw new RuntimeException('Response-transfer benchmark produced incorrect byte accounting.');
     }
 
-    return ($bytes / 1_048_576) / $elapsed;
+    return ((float) $bytes / 1_048_576.0) / $elapsed;
 }
 
 $bytes = 256 * 1_048_576;
