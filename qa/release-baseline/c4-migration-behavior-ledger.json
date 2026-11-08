@@ -8,6 +8,14 @@
   "status": "task-specific-behavior-ledger-awaiting-exact-head-GitHub-QA",
   "entries": [
     {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Barrier",
+      "executableTest": "tests/BatchNSynchronizationTest.php",
+      "behavior": "Coroutine barrier admission and release",
+      "migration": "The published coroutine barrier admission and release remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Channel",
       "executableTest": "tests/BatchNSynchronizationTest.php",
       "behavior": "Channel synchronization and closure semantics",
@@ -76,6 +84,14 @@
       "executableTest": "tests/CoroutineHardeningTest.php",
       "behavior": "Event-loop suspension and cancellation cleanup",
       "migration": "Awaited loop callbacks must continue to resume the correct task without leaking a watcher or resuming a cancelled waiter.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Mutex",
+      "executableTest": "tests/BatchNSynchronizationTest.php",
+      "behavior": "Coroutine mutex ownership and cancellation",
+      "migration": "The published coroutine mutex ownership and cancellation remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -216,6 +232,30 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Internal\\ResponseScheduler",
+      "executableTest": "tests/Http3ResponseSchedulerTest.php",
+      "behavior": "HTTP/3 response scheduling and backpressure",
+      "migration": "The published http/3 response scheduling and backpressure remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Qpack\\DynamicTable",
+      "executableTest": "tests/QpackTest.php",
+      "behavior": "QPACK dynamic-table capacity, eviction and bounds",
+      "migration": "The published qpack dynamic-table capacity, eviction and bounds remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Qpack\\FieldSectionDecoder",
+      "executableTest": "tests/QpackTest.php",
+      "behavior": "HTTP/3 QPACK field section parsing and rejection",
+      "migration": "The published http/3 qpack field section parsing and rejection remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicHttp3Connection",
       "executableTest": "tests/PhpQuicHttp3ConnectionTest.php",
       "behavior": "H3 stream lifetime, cancellation and QUIC state",
@@ -244,6 +284,14 @@
       "executableTest": "tests/QuicWorkerSessionTest.php",
       "behavior": "QUIC transport session ownership and native feature detection",
       "migration": "Do not treat a missing native QUIC extension as a silently emulated H3 endpoint.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Internal\\AuthorityValidator",
+      "executableTest": "tests/AuthorityValidatorTest.php",
+      "behavior": "Request authority normalization and validation",
+      "migration": "The published request authority normalization and validation remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -448,6 +496,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Process\\Internal\\InputSource",
+      "executableTest": "tests/ProcessRunnerTest.php",
+      "behavior": "Process input source validation and streaming",
+      "migration": "The published process input source validation and streaming remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Protocol\\LengthPrefixedCodec",
       "executableTest": "tests/ProtocolCodecTest.php",
       "behavior": "Length-prefixed frame validation and stream buffering",
@@ -484,6 +540,14 @@
       "executableTest": "tests/RuntimeTest.php",
       "behavior": "Top-level runtime request, application lifecycle and server startup controls",
       "migration": "Explicit exception contracts preserve the same startup, shutdown and runtime admission errors; no public request or runtime lifecycle signature changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\ApplicationLifecycle",
+      "executableTest": "tests/ApplicationLifecycleTest.php",
+      "behavior": "Application startup and shutdown lifecycle",
+      "migration": "The published application startup and shutdown lifecycle remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -560,6 +624,30 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\NativeHttp3Worker",
+      "executableTest": "tests/NativeWorkerLifecycleTest.php",
+      "behavior": "Native HTTP/3 worker shutdown and cleanup",
+      "migration": "The published native http/3 worker shutdown and cleanup remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\NativeStreamWorker",
+      "executableTest": "tests/NativeWorkerLifecycleTest.php",
+      "behavior": "Native TCP worker startup and shutdown",
+      "migration": "The published native tcp worker startup and shutdown remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\PortableNativeRuntime",
+      "executableTest": "tests/PortableNativeRuntimeTest.php",
+      "behavior": "Portable native listener and scheduler lifecycle",
+      "migration": "The published portable native listener and scheduler lifecycle remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\SystemResourceProbe",
       "executableTest": "tests/SystemResourceProbeCgroupTest.php",
       "behavior": "Conservative effective CPU and memory capacity detection across Linux cgroup quotas, malformed cpusets, and host limits",
@@ -572,6 +660,14 @@
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Immutable runtime identity, capabilities and generation metadata",
       "migration": "Runtime metadata remains read-only and scoped by the appropriate worker/host context; callers must not infer new capabilities from adapter annotations.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\StreamServer",
+      "executableTest": "tests/ServerDefinitionTest.php",
+      "behavior": "Stream server definition and listener configuration",
+      "migration": "The published stream server definition and listener configuration remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -604,6 +700,14 @@
       "executableTest": "tests/PrivilegeDropperAcceptanceTest.php",
       "behavior": "Process identity transition ordering and failure handling",
       "migration": "Native privilege dropping must continue validating identity and supplementary groups before irreversible GID/UID transitions, and fail closed on errors.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\PrivilegeDropper",
+      "executableTest": "tests/PrivilegeDropperTest.php",
+      "behavior": "Worker privilege transition and ordering",
+      "migration": "The published worker privilege transition and ordering remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -660,6 +764,14 @@
       "executableTest": "tests/WorkerRecyclePolicyTest.php",
       "behavior": "Worker-group restart and capacity policy",
       "migration": "Configure worker count and restart/shutdown budgets explicitly for native prefork; hosted modes remain host-owned.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\WorkerRecyclePolicy",
+      "executableTest": "tests/WorkerRecyclePolicyTest.php",
+      "behavior": "Worker recycle limits and thresholds",
+      "migration": "The published worker recycle limits and thresholds remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

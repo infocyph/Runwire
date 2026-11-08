@@ -145,7 +145,10 @@ final class ResponseScheduler
         return $stream !== null && (!$stream->outbound->isEmpty() || $stream->endPending);
     }
 
-    /** @param callable(): void $onEnd */
+    /**
+     * @param callable(): void $onEnd
+     * @throws \LogicException
+     */
     public function writer(int $streamId, string $method, callable $onEnd): Http3ResponseWriter
     {
         if (isset($this->streams[$streamId])) {
@@ -199,7 +202,11 @@ final class ResponseScheduler
         }
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function appendHeader(
         ResponseStream $stream,
         Encoder $encoder,
@@ -315,6 +322,9 @@ final class ResponseScheduler
         return ++$stalled < count($this->flushQueue) + 1;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushQpack(): bool
     {
         if ($this->qpackEncoderQueue->isEmpty()) {
@@ -341,6 +351,9 @@ final class ResponseScheduler
         return true;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushRequest(ResponseStream $stream): bool
     {
         if ($stream->outbound->isEmpty()) {
@@ -431,7 +444,10 @@ final class ResponseScheduler
         return $this->responseResult($stream);
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @throws \LogicException
+     */
     private function queueHeaders(ResponseStream $stream, int $status, array $headers): WriteResult
     {
         if ($stream->ended) {
@@ -494,6 +510,9 @@ final class ResponseScheduler
         );
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function validateWritten(int $written, int $offered): void
     {
         if ($written < 0 || $written > $offered) {

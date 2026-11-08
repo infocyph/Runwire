@@ -29,6 +29,7 @@ final class InputSource
 
     /**
      * Creates an input source with a maximum produced-byte limit.
+     * @throws \Infocyph\Runwire\Exception\ProcessException
      */
     public function __construct(mixed $input, private readonly int $maxBytes)
     {
@@ -93,6 +94,7 @@ final class InputSource
 
     /**
      * Pulls up to the requested number of stdin bytes.
+     * @throws \Infocyph\Runwire\Exception\ProcessException
      */
     public function pull(int $maxBytes): ?string
     {
@@ -122,7 +124,10 @@ final class InputSource
         return $chunk;
     }
 
-    /** @return resource */
+    /**
+     * @return resource
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     public function resource(): mixed
     {
         if (!is_resource($this->stream)) {
@@ -155,6 +160,9 @@ final class InputSource
         return null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private function readProducer(int $maxBytes): ?string
     {
         if ($this->producer === null) {
@@ -174,6 +182,9 @@ final class InputSource
         return $chunk;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private function readStream(int $maxBytes): ?string
     {
         if (!is_resource($this->stream)) {

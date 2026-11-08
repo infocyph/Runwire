@@ -44,6 +44,9 @@ final readonly class PrivilegeDropper
         $this->verifyIdentity($uid, $targetGid);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function applyPrimaryGid(int $currentGid, ?int $targetGid): void
     {
         if ($targetGid === null || $currentGid === $targetGid) {
@@ -55,6 +58,9 @@ final readonly class PrivilegeDropper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function applyUid(int $currentUid, ?int $targetUid): void
     {
         if ($targetUid === null || $currentUid === $targetUid) {
@@ -66,6 +72,9 @@ final readonly class PrivilegeDropper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function assertTransitionAllowed(int $currentUid): void
     {
         if ($currentUid !== 0) {
@@ -73,6 +82,9 @@ final readonly class PrivilegeDropper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function initializeSupplementaryGroups(?int $uid, ?string $username, ?int $targetGid): void
     {
         if ($uid === null) {
@@ -92,7 +104,10 @@ final readonly class PrivilegeDropper
         return $uidMatches && $gidMatches;
     }
 
-    /** @return array{name: non-empty-string, gid: int} */
+    /**
+     * @return array{name: non-empty-string, gid: int}
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function resolvedPasswd(int $uid): array
     {
         $passwd = $this->system->passwd($uid);
@@ -121,6 +136,9 @@ final readonly class PrivilegeDropper
         return [$passwd['name'], $gid ?? $passwd['gid']];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function verifyIdentity(?int $uid, ?int $gid): void
     {
         if ($uid !== null && $this->system->effectiveUid() !== $uid) {

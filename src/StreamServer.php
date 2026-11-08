@@ -268,6 +268,9 @@ final readonly class StreamServer
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateCore(
         string $name,
         string $address,
@@ -290,6 +293,9 @@ final readonly class StreamServer
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateName(string $name): void
     {
         if ($name === '' || strlen($name) > 96 || preg_match('/^[A-Za-z0-9._-]+$/D', $name) !== 1) {
@@ -306,6 +312,9 @@ final readonly class StreamServer
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private static function validateTransport(
         StreamTransport $transport,
         ?TlsOptions $tls,

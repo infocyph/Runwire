@@ -19,6 +19,8 @@ final class NativeStreamWorker
 {
     /**
      * Attach a stream worker to an existing loop without taking loop ownership.
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
     public static function attach(
         LoopInterface $loop,
@@ -94,6 +96,8 @@ final class NativeStreamWorker
 
     /**
      * Runs the bound stream listener until worker shutdown is requested.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function run(
         WorkerContext $context,
@@ -133,6 +137,9 @@ final class NativeStreamWorker
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private static function closeWorkerListener(BoundStreamServer $bound): void
     {
         if ($bound->listener instanceof UnixListener) {

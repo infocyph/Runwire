@@ -13,6 +13,7 @@ final readonly class AuthorityValidator
 {
     /**
      * Return a comparison-safe authority after validating its host and optional port.
+     * @throws \InvalidArgumentException
      */
     public static function normalize(string $authority, ?string $scheme = null): string
     {
@@ -32,7 +33,10 @@ final readonly class AuthorityValidator
         return $port === null ? $host : $host . ':' . $port;
     }
 
-    /** @return array{0: string, 1: ?int} */
+    /**
+     * @return array{0: string, 1: ?int}
+     * @throws \InvalidArgumentException
+     */
     private static function ipLiteral(string $authority): array
     {
         $close = strpos($authority, ']');
@@ -47,6 +51,9 @@ final readonly class AuthorityValidator
         return ['[' . $normalized . ']', self::port($suffix)];
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function normalizeIpLiteral(string $literal): string
     {
         if (filter_var($literal, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
@@ -64,6 +71,9 @@ final readonly class AuthorityValidator
         throw new InvalidArgumentException('HTTP authority contains an invalid IP literal.');
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function port(string $suffix): ?int
     {
         if ($suffix === '') {
@@ -81,7 +91,10 @@ final readonly class AuthorityValidator
         return $port;
     }
 
-    /** @return array{0: string, 1: ?int} */
+    /**
+     * @return array{0: string, 1: ?int}
+     * @throws \InvalidArgumentException
+     */
     private static function registeredName(string $authority): array
     {
         if (substr_count($authority, ':') > 1) {

@@ -30,6 +30,8 @@ final class NativeHttp3Worker
 {
     /**
      * Attach HTTP/3 polling to a shared native loop for portable single-process mode.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
      */
     public static function attach(
         LoopInterface $loop,
@@ -88,6 +90,8 @@ final class NativeHttp3Worker
 
     /**
      * Runs the HTTP/3 worker until shutdown and drains active connections on exit.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
      */
     public static function run(
         WorkerContext $context,
@@ -241,7 +245,10 @@ final class NativeHttp3Worker
         $application->drain($context->shutdownReason());
     }
 
-    /** @return array{0: string, 1: int} */
+    /**
+     * @return array{0: string, 1: int}
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function endpoint(string $address): array
     {
         $uri = str_contains($address, '://') ? $address : 'tcp://' . $address;

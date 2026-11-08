@@ -23,6 +23,7 @@ final class DynamicTable
 
     /**
      * Create a dynamic table with the peer-advertised maximum capacity.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private readonly int $maxCapacity)
     {
@@ -39,7 +40,10 @@ final class DynamicTable
         return $this->capacity;
     }
 
-    /** @return array{name: string, value: string, size: int, pins: int} */
+    /**
+     * @return array{name: string, value: string, size: int, pins: int}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function entry(int $absoluteIndex, ErrorCode $errorCode = ErrorCode::QPACK_DECOMPRESSION_FAILED): array
     {
         $entry = $this->entries[$absoluteIndex] ?? null;
@@ -106,6 +110,7 @@ final class DynamicTable
 
     /**
      * Insert a peer-requested entry or fail the QPACK encoder stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function insertPeer(string $name, string $value): int
     {
@@ -161,6 +166,7 @@ final class DynamicTable
 
     /**
      * Resolve a QPACK pre-base relative index to an absolute dynamic-table index.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function preBaseIndex(int $base, int $relativeIndex): int
     {
@@ -177,6 +183,7 @@ final class DynamicTable
 
     /**
      * Resolve an encoder-stream relative index against the current insert count.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function relativeToInsertCount(
         int $relativeIndex,
@@ -200,6 +207,7 @@ final class DynamicTable
 
     /**
      * Apply peer-requested dynamic-table capacity.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function setCapacityPeer(int $capacity): void
     {
@@ -221,6 +229,7 @@ final class DynamicTable
 
     /**
      * Release one outstanding reference to a dynamic entry.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function unpin(int $absoluteIndex): void
     {
@@ -241,6 +250,9 @@ final class DynamicTable
         return 32 + strlen($name) + strlen($value);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function insert(string $name, string $value, bool $ignorePins): ?int
     {
         $entrySize = self::entrySize($name, $value);

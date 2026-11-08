@@ -43,6 +43,8 @@ final class PortableNativeRuntime
 
     /**
      * Run all bound native listeners on one shared SelectLoop.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
      */
     public function run(): void
     {
@@ -195,6 +197,10 @@ final class PortableNativeRuntime
         $loop->stop();
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function newContext(string $group, WorkerRole $role): WorkerContext
     {
         $pid = getmypid();
@@ -233,6 +239,9 @@ final class PortableNativeRuntime
         );
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function scheduleDrainCompletion(SelectLoop $loop): void
     {
         $this->drainPollTimer = $loop->repeat(0.01, function () use ($loop): void {

@@ -14,6 +14,7 @@ final readonly class FieldSectionDecoder
 {
     /**
      * Create a field-section decoder with decoded-size and field-count limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private DynamicTable $table,
@@ -27,6 +28,8 @@ final readonly class FieldSectionDecoder
 
     /**
      * Decode a complete QPACK field section.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Infocyph\Runwire\Http\Http3\Qpack\BlockedFieldSectionException
      */
     public function decode(string $block): DecodedFieldSection
     {
@@ -77,6 +80,9 @@ final readonly class FieldSectionDecoder
         return new DecodedFieldSection($fields, $requiredInsertCount, $base, $dynamicReferenced);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function decodeBase(string $block, int &$offset, int $requiredInsertCount): int
     {
         if (!isset($block[$offset])) {
@@ -208,6 +214,9 @@ final readonly class FieldSectionDecoder
         return [$entry['name'], $value, true];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function requiredInsertCount(int $encodedInsertCount): int
     {
         if ($encodedInsertCount === 0) {
