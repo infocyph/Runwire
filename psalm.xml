@@ -42,4 +42,7 @@
         <PossiblyUnusedProperty errorLevel="info" />
         <PossiblyUnusedReturnValue errorLevel="info" />
     </issueHandlers>
+    <plugins>
+        <plugin filename="tools/psalm/AuthorizedWorkerPathTaintModel.php" />
+    </plugins>
 </psalm>
