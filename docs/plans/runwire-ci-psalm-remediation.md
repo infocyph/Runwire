@@ -740,3 +740,9 @@
 - Batch 69 revealed the RoadRunner jobs abort before the worker starts: the official GitHub `v3.0.1` tarball download repeatedly returns HTTP **504** despite built-in curl retries. The earlier failed logs did not reach the request-response loop. The failure is external artifact transport, not evidence of a Runwire RoadRunner runtime regression.
 - Keep RoadRunner exactly **3.0.1**. First retry the official release archive via HTTPS/TLS and verify SHA-256 `a6156d34a08cfdfba4934e737ed3208b11c6eab666def5c81f1b640ef43568e7` from the official release asset metadata. If the release transport remains unavailable, retrieve `/usr/bin/rr` from the equally pinned official `ghcr.io/roadrunner-server/roadrunner:3.0.1` OCI image. Fail if neither official source works, and verify `rr --version` before any acceptance exercise.
 - Do not reduce runtime worker assertions, matrix width, version verification, or failure visibility. Verify both PHP 8.4/8.5 live hosted jobs on this SHA. No merge, release or tag.
+
+### Batch 71 — exact strict PHPDoc formatting after header-taint contract cleanup
+
+- Batch 70 hosted RoadRunner PHP 8.4/8.5 both PASS with checksum-verified v3.0.1 official fallback. Both analyzers show no new PHPStan errors; Psalm continues to report 14 active tool/worker taint findings. The QA scanner now reports three remaining promoted-default suppressions.
+- Pint reports exactly one `phpdoc_trim` violation in `NativePhpResponseWriterFactory::validatedHeaderLine`: an empty PHPDoc line left after Batch 68 removed the now-unnecessary header taint escape annotation. Remove only that empty line. Preserve the validated HeaderField constructor, the native response header sink and all security checks.
+- Verify exact-head Pint, Psalm, PHPStan, QA/Pest, Source Audit, hosted/native and documentation. Do not merge, tag or release.

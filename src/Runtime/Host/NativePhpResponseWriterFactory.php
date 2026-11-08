@@ -55,7 +55,6 @@ final class NativePhpResponseWriterFactory
      * Only immutable HeaderField instances that passed constructor validation
      * can reach this sink. Names cannot contain separators and values cannot
      * contain CR, LF, NUL or other forbidden control bytes.
-     *
      */
     private static function validatedHeaderLine(HeaderField $field): string
     {
