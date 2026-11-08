@@ -18,7 +18,7 @@ final class TimerQueue
 
     private int $cancelledEntries = 0;
 
-    /** @var list<array{id: int, deadline: int}> */
+    /** @var array<int, array{id: int, deadline: int}> */
     private array $heap = [];
 
     /** @var array<int, array{deadline: int, interval: int, callback: Closure}> */

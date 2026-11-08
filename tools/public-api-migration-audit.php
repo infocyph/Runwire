@@ -52,10 +52,13 @@ if (($diff['schemaVersion'] ?? null) !== 1
     || preg_match('/^[0-9a-f]{40}$/D', $candidateRevision) !== 1) {
     throw new RuntimeException('API migration review requires the exact 2.1.2 comparator and complete property inventory.');
 }
-foreach (['breaking', 'changed', 'added'] as $section) {
-    if (!is_array($diff[$section] ?? null) || !array_is_list($diff[$section])) {
-        throw new RuntimeException('Invalid public API delta section: ' . $section);
-    }
+$breaking = $diff['breaking'] ?? null;
+$changed = $diff['changed'] ?? null;
+$added = $diff['added'] ?? null;
+if (!is_array($breaking) || !array_is_list($breaking)
+    || !is_array($changed) || !array_is_list($changed)
+    || !is_array($added) || !array_is_list($added)) {
+    throw new RuntimeException('Invalid public API delta sections.');
 }
 
 $expectedRemovals = $policy['sourceMethodRelocations'] ?? null;
@@ -65,7 +68,7 @@ if (!is_array($expectedRemovals) || !is_array($expectedSignatures)
     throw new RuntimeException('Invalid reviewed API migration policy.');
 }
 $actualRemovals = [];
-foreach ($diff['breaking'] as $record) {
+foreach ($breaking as $record) {
     if (!is_array($record) || ($record['type'] ?? null) !== 'removed_method'
         || !is_string($record['symbol'] ?? null)
         || !isset($expectedRemovals[$record['symbol']])
@@ -92,7 +95,7 @@ foreach ($expectedSignatures as $record) {
     $expected[$record['symbol']] = [$record['beforeSha256'], $record['afterSha256']];
 }
 $actual = [];
-foreach ($diff['changed'] as $record) {
+foreach ($changed as $record) {
     if (!is_array($record)) {
         throw new RuntimeException('Invalid changed declaration.');
     }
@@ -115,15 +118,15 @@ if (array_diff(array_keys($expected), array_keys($actual)) !== []) {
     throw new RuntimeException('Approved public signatures are not all represented.');
 }
 
-foreach ($diff['added'] as $record) {
+foreach ($added as $record) {
     if (!is_array($record) || ($record['type'] ?? null) !== 'added_type'
         || !is_string($record['symbol'] ?? null)) {
         throw new RuntimeException('Unsupported new public API declaration class.');
     }
 }
-if (($diff['breakingCount'] ?? null) !== count($diff['breaking'])
-    || ($diff['changeCount'] ?? null) !== count($diff['changed'])
-    || ($diff['additionCount'] ?? null) !== count($diff['added'])) {
+if (($diff['breakingCount'] ?? null) !== count($breaking)
+    || ($diff['changeCount'] ?? null) !== count($changed)
+    || ($diff['additionCount'] ?? null) !== count($added)) {
     throw new RuntimeException('Source-only API delta counts are inconsistent.');
 }
 
@@ -132,6 +135,6 @@ fwrite(STDOUT, json_encode([
     'sourceRevision' => $diff['candidateRevision'],
     'traitRelocations' => count($actualRemovals),
     'reviewedSignatureChanges' => count($actual),
-    'addedTypes' => count($diff['added']),
+    'addedTypes' => count($added),
     'behavioralCompatibilityCertified' => false,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);

@@ -432,6 +432,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Loop\\Internal\\TimerQueue",
+      "executableTest": "tests/SelectLoopTest.php",
+      "behavior": "Deadline-ordered timer heap admission, compaction and expiry",
+      "migration": "Timer queue storage type documents transient heap index assignments while preserving the same ordered timers, cancellations and numeric overflow handling.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Loop\\SelectLoop",
       "executableTest": "tests/SelectLoopTest.php",
       "behavior": "Select fallback, callback timing, watcher cleanup",
@@ -580,6 +588,14 @@
       "executableTest": "tests/ProcessRunnerTest.php",
       "behavior": "Process input source validation and streaming",
       "migration": "The published process input source validation and streaming remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Process\\Internal\\ProcessHandle",
+      "executableTest": "tests/ProcessRunnerTest.php",
+      "behavior": "Detached child process resource ownership and reap lifecycle",
+      "migration": "Detached-process cleanup now guards an empty queue result explicitly, keeping prior process-group signals, ownership and shutdown semantics unchanged.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
