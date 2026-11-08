@@ -214,6 +214,7 @@ final class Http2ClientMultiplexSession
     /**
      * Return client preface exactly once; caller owns actual transport writes.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function start(): string
     {
@@ -302,6 +303,7 @@ final class Http2ClientMultiplexSession
     /**
      * Validate and complete one response without closing sibling exchanges.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function streamFrame(Frame $frame): string
     {

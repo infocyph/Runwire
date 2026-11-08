@@ -82,6 +82,8 @@ final class Http3Session
 
     /**
      * Feed bytes from a peer unidirectional stream into connection state.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
      */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {

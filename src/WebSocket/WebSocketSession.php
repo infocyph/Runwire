@@ -477,6 +477,9 @@ final class WebSocketSession
         $this->connection->closeGracefully();
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function handlePing(string $payload): void
     {
         $result = $this->sendFrame(0xA, $payload, true);
@@ -614,6 +617,9 @@ final class WebSocketSession
         });
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function sendApplicationFrame(int $opcode, string $payload): WriteResult
     {
         if ($this->closed || $this->closing) {
@@ -623,6 +629,9 @@ final class WebSocketSession
         return $this->sendFrame($opcode, $payload, false);
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function sendClosePayload(string $payload, int $code, string $reason): WriteResult
     {
         $this->closing = true;

@@ -79,6 +79,8 @@ final class NativeDatagramWorker
      * Runs the bound datagram listener until worker shutdown is requested.
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \RuntimeException
      */
     public static function run(
         WorkerContext $context,

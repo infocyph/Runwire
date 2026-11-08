@@ -26,6 +26,7 @@ final readonly class WorkerGroup
      *
      * @param callable(WorkerContext): void $bootstrap
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function __construct(
         public string $name,
@@ -72,6 +73,7 @@ final readonly class WorkerGroup
      * Create a worker group from a callback factory.
      *
      * @param callable(WorkerContext): void $factory
+     * @throws \InvalidArgumentException
      */
     public static function callbacks(
         string $name,
@@ -103,7 +105,10 @@ final readonly class WorkerGroup
         );
     }
 
-    /** Return the same immutable worker group contract with a new live slot count. */
+    /**
+     * Return the same immutable worker group contract with a new live slot count.
+     * @throws \InvalidArgumentException
+     */
     public function withCount(int $count): self
     {
         return new self(

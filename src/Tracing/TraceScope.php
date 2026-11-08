@@ -22,7 +22,10 @@ final class TraceScope
 
     private ?TraceContext $root = null;
 
-    /** Initialize request-owned Fiber tracking without global process context. */
+    /**
+     * Initialize request-owned Fiber tracking without global process context.
+     * @throws \LogicException
+     */
     public function __construct()
     {
         $this->fibers = new WeakMap();
@@ -78,6 +81,9 @@ final class TraceScope
         );
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertOwner(): void
     {
         if (getmypid() !== $this->pid) {

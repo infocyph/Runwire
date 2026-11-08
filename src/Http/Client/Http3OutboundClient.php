@@ -143,7 +143,11 @@ final class Http3OutboundClient
         return $client;
     }
 
-    /** Abort exactly once and retire every native worker resource. */
+    /**
+     * Abort exactly once and retire every native worker resource.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->finish(new RuntimeException('HTTP/3 exchange was closed before completion.'));
@@ -224,6 +228,8 @@ final class Http3OutboundClient
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
@@ -253,6 +259,7 @@ final class Http3OutboundClient
      * @throws \LogicException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
     {
@@ -306,7 +313,11 @@ final class Http3OutboundClient
         }
     }
 
-    /** @param callable(array<string,mixed>):void $next */
+    /**
+     * @param callable(array<string,mixed>):void $next
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function command(string $op, int $stream, string $data, bool $fin, callable $next): void
     {
         if ($this->finished) {
@@ -368,6 +379,10 @@ final class Http3OutboundClient
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function finishIfEmpty(): void
     {
         if ($this->rootCompleted) {
@@ -601,6 +616,10 @@ final class Http3OutboundClient
         });
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function start(string $host, int $port): void
     {
         $token = $this->request->cancellation;

@@ -75,7 +75,11 @@ final class HappyEyeballsAttempt
         $this->finish(null, new CancelledException(CancellationReason::HOST_CANCELLED));
     }
 
-    /** Resolve A/AAAA using worker processes before starting candidate sockets. */
+    /**
+     * Resolve A/AAAA using worker processes before starting candidate sockets.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function runHostname(string $hostname, int $port): void
     {
         $this->port = $port;
@@ -114,6 +118,8 @@ final class HappyEyeballsAttempt
      * Start an already resolved address race using the shared numeric connector.
      *
      * @param list<string> $addresses
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function runResolved(array $addresses, int $port): void
     {
@@ -163,7 +169,10 @@ final class HappyEyeballsAttempt
         while (($families[$first ?? 4] ?? []) !== [] || ($families[$other] ?? []) !== []) {
             foreach ([$first ?? 4, $other] as $family) {
                 if (($families[$family] ?? []) !== []) {
-                    $ordered[] = array_shift($families[$family]);
+                    $next = array_shift($families[$family]);
+                    if ($next !== null) {
+                        $ordered[] = $next;
+                    }
                 }
             }
         }

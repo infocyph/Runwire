@@ -18,7 +18,10 @@ use Throwable;
  */
 final readonly class ScopedFiles
 {
-    /** Borrow the shared filesystem executor and its active coroutine scope. */
+    /**
+     * Borrow the shared filesystem executor and its active coroutine scope.
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     */
     public function __construct(private AsyncFileSystem $files, private CoroutineScope $scope)
     {
         $this->scope->cancellation()->throwIfCancelled();

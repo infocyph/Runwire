@@ -161,6 +161,7 @@ final readonly class HttpOutboundDispatcher
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
      */
     private function sendH3(
         ClientRequest $request,

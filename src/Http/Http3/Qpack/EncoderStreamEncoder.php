@@ -22,6 +22,7 @@ final class EncoderStreamEncoder
     /**
      * Encode an Insert With Literal Name instruction.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function insertLiteralName(string $name, string $value): string
     {

@@ -82,6 +82,8 @@ final readonly class StreamServer
      *
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function tcp(string $address, callable $codecFactory, callable $handler, string $name = 'stream'): self
     {
@@ -93,6 +95,8 @@ final readonly class StreamServer
      *
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function unix(string $path, callable $codecFactory, callable $handler, string $name = 'stream'): self
     {
@@ -126,6 +130,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with a different per-tick frame limit.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withMaxFramesPerTick(int $maxFramesPerTick): self
     {
@@ -150,6 +156,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with the supplied TLS configuration.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withTls(?TlsOptions $tls): self
     {
@@ -174,6 +182,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with Unix-domain listener options.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withUnixOptions(UnixListenerOptions $options): self
     {
@@ -198,6 +208,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with a different per-worker connection limit.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withWorkerConnectionLimit(int $limit): self
     {
@@ -224,6 +236,8 @@ final readonly class StreamServer
      * Return a copy whose handler is built separately for each worker.
      *
      * @param callable(WorkerContext): callable $factory
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withWorkerHandlerFactory(callable $factory): self
     {
@@ -248,6 +262,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with a different worker count.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withWorkers(int $workers): self
     {

@@ -17,6 +17,8 @@ final class HostRequestFactory
 {
     /**
      * Builds an HTTP request from PHP superglobals and php://input.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function fromGlobals(int $maxBodyBytes): HttpRequest
     {

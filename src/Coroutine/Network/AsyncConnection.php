@@ -308,6 +308,7 @@ final class AsyncConnection
      * Transfer an idle connection to a new owner and detach this coroutine adapter.
      * Only the returned core connection may be used after handoff.
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\CancelledException
      */
     public function transferTo(CancellationToken $owner, ?RequestDeadline $deadline = null): Connection
     {

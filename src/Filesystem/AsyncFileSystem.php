@@ -37,7 +37,10 @@ final readonly class AsyncFileSystem
         }
     }
 
-    /** Cancel one queued/active filesystem operation without duplicate callbacks. */
+    /**
+     * Cancel one queued/active filesystem operation without duplicate callbacks.
+     * @throws \LogicException
+     */
     public function cancel(int $id): bool
     {
         return $this->executor->cancel($id);

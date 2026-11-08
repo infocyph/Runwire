@@ -166,6 +166,7 @@ final readonly class FieldSectionDecoder
     /**
      * @return array{0: string, 1: string, 2: bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function literalName(string $block, int &$offset): array
     {
@@ -192,6 +193,7 @@ final readonly class FieldSectionDecoder
     /**
      * @return array{0: string, 1: string, 2: bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function literalNameReference(string $block, int &$offset, int $base): array
     {
@@ -215,6 +217,7 @@ final readonly class FieldSectionDecoder
     /**
      * @return array{0: string, 1: string, 2: bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function literalPostBaseNameReference(string $block, int &$offset, int $base): array
     {

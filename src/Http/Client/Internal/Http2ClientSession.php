@@ -91,6 +91,7 @@ final class Http2ClientSession
     /**
      * Emit the one-shot H2 client connection preface and SETTINGS.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function start(): string
     {
@@ -104,6 +105,7 @@ final class Http2ClientSession
 
     /**
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function control(Frame $frame): string
     {

@@ -34,6 +34,7 @@ final class NativeHttp3Worker
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Exception\ListenerException
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \OverflowException
      */
     public static function attach(
         LoopInterface $loop,
@@ -96,6 +97,7 @@ final class NativeHttp3Worker
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Exception\ListenerException
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \OverflowException
      */
     public static function run(
         WorkerContext $context,

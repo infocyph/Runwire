@@ -40,7 +40,10 @@ final readonly class Http3ClientWireCodec
         $this->decoder = new Decoder($decoderCapacity, $maxBlocked, $maxFieldSectionBytes, $maxHeaderFields);
     }
 
-    /** Cancel retained QPACK field sections and enqueue the matching stream-cancellation signal. */
+    /**
+     * Cancel retained QPACK field sections and enqueue the matching stream-cancellation signal.
+     * @throws \InvalidArgumentException
+     */
     public function cancelResponseStream(int $wireStreamId): void
     {
         $this->decoder->cancelStream($wireStreamId);
@@ -131,7 +134,11 @@ final readonly class Http3ClientWireCodec
         $this->encoder->pushDecoderInstructions($bytes);
     }
 
-    /** @return list<ReadyFieldSection> */
+    /**
+     * @return list<ReadyFieldSection>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public function receivePeerEncoderInstructions(string $bytes): array
     {
         return $this->decoder->pushEncoderInstructions($bytes);

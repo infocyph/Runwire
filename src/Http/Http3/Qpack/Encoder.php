@@ -31,6 +31,7 @@ final class Encoder
     /**
      * Create a QPACK encoder constrained by peer settings and local field limits.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         int $peerMaxTableCapacity,
@@ -185,7 +186,10 @@ final class Encoder
         return $sectionBlocking || $this->blockedSections < $this->peerMaxBlockedStreams;
     }
 
-    /** @param array<int, int> $references */
+    /**
+     * @param array<int, int> $references
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function encodeDynamicReference(
         int $absoluteIndex,
         int $base,
@@ -281,6 +285,9 @@ final class Encoder
         $this->knownReceivedCount += $increment;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function insert(string $name, string $value): ?int
     {
         $staticName = StaticTable::findName($name);

@@ -70,6 +70,7 @@ final class ResponseScheduler
      * @param callable(Http2Stream): void $cleanupClosed
      * @param callable(): void $readyCallback
      * @param callable(Http2Stream): void $activityCallback
+     * @throws \LogicException
      */
     public function __construct(
         private readonly Connection $connection,
@@ -599,6 +600,7 @@ final class ResponseScheduler
 
     /**
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     private function sendFrame(Frame $frame): WriteResult
     {

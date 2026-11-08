@@ -107,6 +107,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Schedule a one-shot timer.
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function delay(float $seconds, callable $callback): int
@@ -170,6 +171,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Schedule a repeating timer.
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function repeat(float $interval, callable $callback): int

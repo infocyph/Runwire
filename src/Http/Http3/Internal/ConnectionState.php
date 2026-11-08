@@ -370,6 +370,10 @@ final class ConnectionState
         $this->pendingPeerDecoderInstructions .= $payload;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function processPeerEncoderInstructions(string $payload): void
     {
         if ($payload === '') {

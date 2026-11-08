@@ -51,6 +51,7 @@ final class Decoder
     /**
      * Cancel blocked QPACK work for a request stream and queue cancellation feedback.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancelStream(int $streamId): void
     {
@@ -65,6 +66,7 @@ final class Decoder
     /**
      * Decode a field section or retain it when required dynamic entries are unavailable.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function decode(string $block, int $streamId): ?DecodedFieldSection
     {
@@ -85,6 +87,7 @@ final class Decoder
      * @return list<ReadyFieldSection>
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function pushEncoderInstructions(string $bytes): array
     {
@@ -109,6 +112,7 @@ final class Decoder
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function acknowledge(DecodedFieldSection $section, int $streamId): void
     {

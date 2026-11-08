@@ -133,6 +133,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when connection write pressure drains.
+     * @throws \LogicException
      */
     #[\Override]
     public function onDrain(callable $callback): self
@@ -499,6 +500,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function startForEndIfNeeded(string $finalChunk): ?WriteResult
     {

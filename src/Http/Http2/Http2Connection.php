@@ -70,6 +70,7 @@ final class Http2Connection
      * @param callable(HttpRequest, Http2ResponseWriter): void $handler
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \LogicException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -522,6 +523,7 @@ final class Http2Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function processFrameSafely(Frame $frame): void
     {
@@ -543,6 +545,7 @@ final class Http2Connection
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function pump(): void
     {

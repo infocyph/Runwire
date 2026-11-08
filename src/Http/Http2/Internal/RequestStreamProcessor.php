@@ -472,6 +472,7 @@ final class RequestStreamProcessor
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     private function creditReceive(?Http2Stream $stream, int $bytes): void
     {
@@ -599,6 +600,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function openRequest(PendingHeaderBlock $pending, array $fields): void
     {

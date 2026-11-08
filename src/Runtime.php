@@ -142,6 +142,7 @@ final class Runtime
     /**
      * Requests recycling of a server worker slot and its HTTP/3 peer when configured.
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function recycle(string $serverName, int $slot): bool
     {
@@ -365,6 +366,9 @@ final class Runtime
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function workerUnixOptions(StreamServer $server, AdmissionPolicy $admission): UnixListenerOptions
     {
         $options = $server->unix ?? new UnixListenerOptions(listener: $server->listener);

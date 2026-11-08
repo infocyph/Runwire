@@ -13,6 +13,7 @@ final readonly class WebSocketOptions
 {
     /**
      * Create and validate native WebSocket limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxFramePayloadBytes = 65_536,

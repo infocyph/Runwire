@@ -97,6 +97,7 @@ final class ResponseScheduler
 
     /**
      * Flush queued QPACK and response bytes within the configured write budget.
+     * @throws \InvalidArgumentException
      */
     public function flush(): void
     {
@@ -310,6 +311,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function flushNextResponse(bool $qpackProgress, int &$writes, int &$stalled): bool
     {

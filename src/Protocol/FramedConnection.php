@@ -27,6 +27,7 @@ final class FramedConnection
     /**
      * @param callable(string, self): void $onFrame
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -74,7 +75,10 @@ final class FramedConnection
         return $this->codec;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     */
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);

@@ -63,7 +63,10 @@ final class Socks5Tunnel
         $this->completion = Closure::fromCallable($completion);
     }
 
-    /** Cancel the pending proxy handshake exactly once, retiring all owned resources. */
+    /**
+     * Cancel the pending proxy handshake exactly once, retiring all owned resources.
+     * @throws \LogicException
+     */
     public function cancel(): bool
     {
         if (!$this->pending()) {
@@ -207,7 +210,10 @@ final class Socks5Tunnel
         ($this->completion)(null, $error);
     }
 
-    /** Reject a closed proxy transport during send-drain handoff. */
+    /**
+     * Reject a closed proxy transport during send-drain handoff.
+     * @throws \LogicException
+     */
     private function onDrain(Connection $connection): void
     {
         if ($connection->state() === ConnectionState::CLOSED) {
@@ -284,7 +290,10 @@ final class Socks5Tunnel
         }
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \LogicException
+     */
     private function receive(Connection $connection): void
     {
         if (!$this->pending()) {

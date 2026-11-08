@@ -83,6 +83,9 @@ final readonly class ScopedFileTransfer
         return $total;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validate(int $maxBytes, int $offset, int $chunkBytes): void
     {
         if ($maxBytes < 0 || $maxBytes > self::MAX_TRANSFER_BYTES || $offset < 0

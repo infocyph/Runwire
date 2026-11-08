@@ -193,6 +193,7 @@ final class PhpQuicHttp3Connection
      * @param array<int, int> $ready
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
      */
     public function handleReady(array $ready, PhpQuicEventMasks $events): void
     {
@@ -265,6 +266,7 @@ final class PhpQuicHttp3Connection
      * Pump accepted streams, inbound data, control instructions, and pending responses.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
      */
     public function pump(): void
     {

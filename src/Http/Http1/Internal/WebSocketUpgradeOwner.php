@@ -77,6 +77,8 @@ final class WebSocketUpgradeOwner
      * @throws \RuntimeException
      * @throws \OverflowException
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function upgrade(
         string $accept,

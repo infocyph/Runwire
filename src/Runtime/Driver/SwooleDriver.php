@@ -57,6 +57,7 @@ final class SwooleDriver implements HostDriverInterface
 
     /**
      * Configures and starts the host Swoole/OpenSwoole HTTP server.
+     * @throws \Throwable
      */
     #[\Override]
     public function run(RuntimeApplicationInterface $application): void
@@ -69,6 +70,7 @@ final class SwooleDriver implements HostDriverInterface
      *
      * @param callable(RuntimeContext): RuntimeApplicationInterface $factory
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function runFactory(callable $factory, RuntimeContext $context): void
     {

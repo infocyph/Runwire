@@ -56,7 +56,10 @@ final class Http1PolicyClient
         $this->completion = $onComplete(...);
     }
 
-    /** Begin one bounded series of safe HTTP/1.1 requests. */
+    /**
+     * Begin one bounded series of safe HTTP/1.1 requests.
+     * @throws \RuntimeException
+     */
     public function start(): void
     {
         if ($this->started) {

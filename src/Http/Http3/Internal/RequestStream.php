@@ -134,6 +134,7 @@ final class RequestStream
 
     /**
      * Cancel request processing and release blocked QPACK state.
+     * @throws \InvalidArgumentException
      */
     public function cancel(): void
     {
@@ -442,6 +443,9 @@ final class RequestStream
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function drainFrames(): void
     {
         if ($this->pendingData !== '') {

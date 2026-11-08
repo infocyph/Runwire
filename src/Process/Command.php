@@ -64,7 +64,10 @@ final readonly class Command
         return new self($executable, $arguments);
     }
 
-    /** @param list<string> $arguments */
+    /**
+     * @param list<string> $arguments
+     * @throws \InvalidArgumentException
+     */
     public function arguments(array $arguments): self
     {
         return $this->copy(arguments: $arguments);
@@ -72,13 +75,17 @@ final readonly class Command
 
     /**
      * Returns a copy using the supplied working directory.
+     * @throws \InvalidArgumentException
      */
     public function cwd(?string $cwd): self
     {
         return $this->copy(cwd: $cwd, replaceCwd: true);
     }
 
-    /** @param array<string, string> $environment */
+    /**
+     * @param array<string, string> $environment
+     * @throws \InvalidArgumentException
+     */
     public function environment(array $environment): self
     {
         return $this->copy(environment: $environment);
@@ -86,6 +93,7 @@ final readonly class Command
 
     /**
      * Returns a copy using the supplied output byte ceiling.
+     * @throws \InvalidArgumentException
      */
     public function maxOutputBytes(int $bytes): self
     {
@@ -94,6 +102,7 @@ final readonly class Command
 
     /**
      * Returns a copy using the supplied stdout and stderr modes.
+     * @throws \InvalidArgumentException
      */
     public function output(IoMode $stdout, IoMode $stderr): self
     {
@@ -102,6 +111,7 @@ final readonly class Command
 
     /**
      * Returns a copy using the supplied output-overflow policy.
+     * @throws \InvalidArgumentException
      */
     public function overflowPolicy(OutputOverflowPolicy $policy): self
     {
@@ -110,6 +120,7 @@ final readonly class Command
 
     /**
      * Returns a copy using the supplied stdin source.
+     * @throws \InvalidArgumentException
      */
     public function stdin(mixed $stdin): self
     {
@@ -118,6 +129,7 @@ final readonly class Command
 
     /**
      * Returns a copy using the supplied termination grace period.
+     * @throws \InvalidArgumentException
      */
     public function terminationGrace(float $seconds): self
     {
@@ -126,6 +138,7 @@ final readonly class Command
 
     /**
      * Returns a copy using the supplied execution timeout.
+     * @throws \InvalidArgumentException
      */
     public function timeout(float $seconds): self
     {

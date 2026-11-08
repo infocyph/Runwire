@@ -45,6 +45,7 @@ final class PortableNativeRuntime
      * Run all bound native listeners on one shared SelectLoop.
      * @throws \LogicException
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function run(): void
     {
@@ -67,6 +68,7 @@ final class PortableNativeRuntime
 
     /**
      * Request graceful or forced shutdown of the portable runtime.
+     * @throws \OverflowException
      */
     public function stop(bool $force = false): void
     {

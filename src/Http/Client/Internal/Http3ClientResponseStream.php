@@ -192,6 +192,9 @@ final class Http3ClientResponseStream
         // Unknown extension frames are allowed and ignored by HTTP/3.
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptHeaders(Frame $frame): void
     {
         $response = $this->codec->tryDecodeResponseHeaders($frame->payload, $this->streamId);

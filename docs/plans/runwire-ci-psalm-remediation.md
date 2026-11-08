@@ -356,3 +356,16 @@
 - Selected source files are new since the immutable 2.1.2 comparator or already covered by test-backed source-change ledger entries, retaining Source Audit.
 - Exception PHPDocs only; preserve production behavior, response trust policies, TLS, protocol logic and public API signatures. Measure *net* Psalm delta before marking verified.
 - Continue prioritizing **P0 TaintedFile/TaintedSSRF/TaintedHeader, P1 correctness, P2 design, P3 hygiene** findings and any newly surfaced issue, with no analyzer skips, merge or tag.
+
+### Batch 35 verified analyzer checkpoint
+
+- On `cdff10b13650cba1a818ac0d2185cfe743470b76`, PHP 8.5 Psalm reports **478 errors**: 314 MissingThrowsDocblock, 164 other categories. PHPStan passed, and HTTP/3 8.4 passed.
+- Reduction from the Batch 33 546 baseline: **68 net errors**. Remaining security findings include 9 TaintedFile, 6 TaintedSSRF, 3 TaintedHeader.
+
+### Batch 36 — targeted high-volume exception contracts and type correctness
+
+- Change **49 implementation files and this tracker** in a single commit. Match **163 confirmed MissingThrowsDocblock sites** in the Batch 35 PHP 8.5 analyzer to their declaring methods, using explicit exception types.
+- Preserve protocol behaviors and response validation; maintain existing public API migration-ledger coverage for published source files.
+- Correct nullable address extraction in Happy Eyeballs alternate-family ordering: only append non-null candidates, preserving sequence, address family precedence and bounded list behavior.
+- Treat P0 taints, P1 type/state faults, P2 maintenance and P3 hygiene as open until test-backed; no taint escape, blanket suppression, release tag, or merge.
+- Verify exact-head 8.4/8.5 Psalm and PHPStan, source audit, PHPForge four QA lanes, HTTP/3, native hosted, Swoole, and docs; record net errors, not just annotations.

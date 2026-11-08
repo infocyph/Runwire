@@ -135,6 +135,9 @@ final class ControlServer
         ];
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function handle(string $frame, FramedConnection $session): void
     {
         try {
@@ -183,7 +186,10 @@ final class ControlServer
         return is_string($runtimeId) && is_string($expected) && hash_equals($expected, $runtimeId);
     }
 
-    /** @param array<string, mixed> $request */
+    /**
+     * @param array<string, mixed> $request
+     * @throws \OverflowException
+     */
     private function recycle(array $request, FramedConnection $session): void
     {
         $group = $request['group'] ?? null;
@@ -204,6 +210,9 @@ final class ControlServer
         $this->respond($session, ['accepted' => $accepted]);
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function reload(FramedConnection $session): void
     {
         $this->supervisor?->reload();
@@ -276,7 +285,10 @@ final class ControlServer
         ];
     }
 
-    /** @param array<string, mixed> $request */
+    /**
+     * @param array<string, mixed> $request
+     * @throws \OverflowException
+     */
     private function stop(array $request, FramedConnection $session): void
     {
         $force = $request['force'] ?? false;

@@ -67,6 +67,7 @@ final class RequestContext
     /**
      * Creates a runtime-bound request context using the supplied execution policy.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function create(
         RuntimeContext $runtime,
@@ -90,6 +91,7 @@ final class RequestContext
     /**
      * @internal Used for request objects constructed outside an active runtime.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function standalone(?string $requestId = null, ?int $startNanoseconds = null): self
     {

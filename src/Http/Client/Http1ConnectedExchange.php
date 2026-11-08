@@ -82,7 +82,10 @@ final class Http1ConnectedExchange
         $this->finish(new RuntimeException('HTTP/1.1 exchange was closed before completion.'));
     }
 
-    /** Resume an incremental request body source after it has produced new data. */
+    /**
+     * Resume an incremental request body source after it has produced new data.
+     * @throws \LogicException
+     */
     public function resumeUpload(): void
     {
         if ($this->started && !$this->settled) {
