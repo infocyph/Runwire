@@ -722,3 +722,9 @@
 - Batch 66 introduced per-instance taint specialization annotations on immutable protocol objects. The pinned migration audit failed because `Infocyph\\Runwire\\Http\\Headers` is published and its changed source hash was not included in the explicit test-backed ledger. Do not bypass Source Audit.
 - Add the exact `Headers` implementation to the ordered migration ledger with a focused immutable collection, case-normalized lookup, and instance-isolation regression test. No method signatures changed. Validate that taint specialization does not incorrectly erase real same-object flows; analysis results pending.
 - Batch 66's independent RoadRunner PHP 8.4 504 is also under investigation. Preserve CI and runtime coverage; no merge/tag/release.
+
+### Batch 68 — verify per-instance header safety without taint escape
+
+- At Batch 66 Psalm reduced 15->14 because immutable object specialization correctly split unrelated client/server frame values. Batch 67 restored its required published Headers ledger; Source Audit and documentation passed.
+- The validated `HeaderField` value object rejects all CR, LF, NUL and forbidden control bytes. Test whether precise per-instance taint tracking plus the current runtime constructor checks makes the previous `@psalm-taint-escape header` unnecessary on `NativePhpResponseWriterFactory::validatedHeaderLine`. Remove only the annotation; preserve the header generation logic and its tests.
+- **Do not claim this works before CI**. Any `TaintedHeader` reappearance means the project needs a sound scoped sanitizer declaration accepted by both Psalm and PHPForge; revert the change rather than weakening header checks. The 14 CLI/worker file+SSRF flows remain unresolved. No merge, release or tag.

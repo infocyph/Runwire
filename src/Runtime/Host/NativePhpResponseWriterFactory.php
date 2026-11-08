@@ -56,7 +56,6 @@ final class NativePhpResponseWriterFactory
      * can reach this sink. Names cannot contain separators and values cannot
      * contain CR, LF, NUL or other forbidden control bytes.
      *
-     * @psalm-taint-escape header
      */
     private static function validatedHeaderLine(HeaderField $field): string
     {
