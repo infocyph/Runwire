@@ -224,6 +224,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Headers",
+      "executableTest": "tests/NativeHeaderSecurityTest.php",
+      "behavior": "Immutable validated header collection preserves individual field ownership and iteration behavior",
+      "migration": "The existing Headers value object retains its ordered validated fields, case-normalized name matching and original header rejection semantics. Per-instance taint metadata is analysis-only; no public PHP signature or runtime wire behavior changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http1\\Http1Connection",
       "executableTest": "tests/Http1ConnectionTest.php",
       "behavior": "HTTP/1 parser and connection lifecycle",

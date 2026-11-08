@@ -716,3 +716,9 @@
 - Baseline SHA: `110a3c0de01ef56e0ba8020096be3d5de26b3db3`, Psalm **15 security taints** on both PHP 8.4 and 8.5, PHPStan PASS, strict PHPForge scanner **4** directives, Pest/Pint/PHPCS/Rector/Source Audit PASS.
 - The SSRF report propagates through `Frame::$payload` from an HTTP/2 connection error to an independent inbound/outbound parser and `ClientRequest` URI; this is a potential cross-instance taint alias. Apply documented `@psalm-taint-specialize` to four genuinely `final readonly` protocol objects: `Frame`, `HeaderField`, `Headers` and `DialEndpoint`. This models separate object instances without severing a real tainted input passed through a single instance.
 - This annotation is **not** a taint escape, suppression or detector exclusion. Inspect exact-head taint source->sink graph to ensure only phantom cross-object flows disappear. If Psalm flags immutability violations or real taints vanish incorrectly, revert. Verify PHPStan, Psalm, all QA, immutable API/source audit and runtime acceptance. The unrelated 14 tool/worker taints and 4 skip-policy findings are still open.
+
+### Batch 67 — source-audit disposition for immutable Header collection taint precision
+
+- Batch 66 introduced per-instance taint specialization annotations on immutable protocol objects. The pinned migration audit failed because `Infocyph\\Runwire\\Http\\Headers` is published and its changed source hash was not included in the explicit test-backed ledger. Do not bypass Source Audit.
+- Add the exact `Headers` implementation to the ordered migration ledger with a focused immutable collection, case-normalized lookup, and instance-isolation regression test. No method signatures changed. Validate that taint specialization does not incorrectly erase real same-object flows; analysis results pending.
+- Batch 66's independent RoadRunner PHP 8.4 504 is also under investigation. Preserve CI and runtime coverage; no merge/tag/release.
