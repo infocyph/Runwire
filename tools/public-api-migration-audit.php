@@ -9,40 +9,24 @@ if (PHP_SAPI !== 'cli') {
 /**
  * Certify source-only public API delta against an explicitly reviewed policy.
  *
- * Usage: php tools/public-api-migration-audit.php <diff.json> <policy.json>
+ * Usage: php tools/public-api-migration-audit.php < audit-envelope.json
  *
  * The source parser cannot flatten traits and cannot prove behavioral BC.
  * Unexpected removed declarations or signature changes fail closed.
  */
-$arguments = $argv ?? null;
-if (!is_array($arguments) || count($arguments) !== 3) {
-    throw new InvalidArgumentException('Usage: php tools/public-api-migration-audit.php <diff.json> <policy.json>');
+if (!is_array($argv ?? null) || count($argv) !== 1) {
+    throw new InvalidArgumentException('Usage: php tools/public-api-migration-audit.php < audit-envelope.json');
 }
-
-/** @return array<string,mixed> */
-$read = static function (string $file): array {
-    $canonical = realpath($file);
-    if (!is_string($canonical) || !is_file($canonical) || !is_readable($canonical)) {
-        throw new InvalidArgumentException('Public API audit requires a readable local file.');
-    }
-    $size = filesize($canonical);
-    if (!is_int($size) || $size > 2_097_152) {
-        throw new InvalidArgumentException('Missing or oversized public API audit input.');
-    }
-    $content = file_get_contents($canonical);
-    if (!is_string($content)) {
-        throw new RuntimeException('Unable to read public API audit input.');
-    }
-    $value = json_decode($content, true, 32, JSON_THROW_ON_ERROR);
-    if (!is_array($value) || array_is_list($value)) {
-        throw new InvalidArgumentException('Invalid public API audit document.');
-    }
-
-    return $value;
-};
-
-$diff = $read($arguments[1]);
-$policy = $read($arguments[2]);
+$serialized = stream_get_contents(STDIN, 4_300_001);
+if (!is_string($serialized) || $serialized === '' || strlen($serialized) > 4_300_000) {
+    throw new InvalidArgumentException('Public API audit input exceeds its bounded stdin limit.');
+}
+$envelope = json_decode($serialized, true, 32, JSON_THROW_ON_ERROR);
+$diff = is_array($envelope) ? ($envelope['diff'] ?? null) : null;
+$policy = is_array($envelope) ? ($envelope['policy'] ?? null) : null;
+if (!is_array($diff) || !is_array($policy) || array_is_list($diff) || array_is_list($policy)) {
+    throw new InvalidArgumentException('Invalid public API audit documents.');
+}
 $publishedRevision = $policy['publishedRevision'] ?? null;
 $candidateRevision = $diff['candidateRevision'] ?? null;
 if (($diff['schemaVersion'] ?? null) !== 1

@@ -807,3 +807,10 @@
 - The C4 migration behavior verifier still opened two caller-selected paths from CLI argv (TaintedSSRF plus TaintedFile at the same call). Remove the executable's filesystem-read capability entirely: accept a bounded 33.6 MiB JSON stdin envelope with diff and ledger object members, retaining all schema, source revision, test-evidence and public change checks.
 - Source Audit builds the envelope with the existing pinned checkout via jq --slurpfile, outside of PHP. New subprocess test checks a full real ledger and rejects an invalid partial document. The previous arbitrary-path CLI shape is intentionally retired for this internal-only tool.
 - Do not suppress or escape Psalm taints. Keep all QA and the original Source Audit strict. Verify finding delta only after exact-SHA analyzer logs. No merge/tag.
+
+### Batch 81 — eliminate caller-selected API migration review file reads
+
+- Batch 80 migrated the C4 behavior audit from caller-specified file paths to bounded two-document stdin; source audit and new end-to-end test pending.
+- The private public API migration review tool still opened argv-selected filenames (two taint sinks at file_get_contents). Instead accept bounded JSON stdin containing diff and policy documents, with schema and signature review logic unchanged. The source-audit workflow uses jq --slurpfile to open the pinned inputs outside of PHP, and passes one strict envelope to the reviewer.
+- Update the existing comprehensive migration review regression test to feed a real stdin envelope through shell redirection while preserving its accepted and rejected signature scenarios. Output JSON format remains identical; the retired two-file CLI interface is internal-only, not published Runwire PHP API.
+- Check new SHA Source Audit, Pest, four PHPForge QA configurations and PHP 8.4/8.5 Psalm/PHPStan. Do not reduce source audit security controls, hide taints or merge/tag.

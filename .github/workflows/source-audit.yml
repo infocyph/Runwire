@@ -106,9 +106,11 @@ jobs:
             '.schemaVersion == 1 and .baselineRevision == $base and .candidateRevision == $candidate and .propertyInventoryCompared == true' \
             api-baseline/migration-source-diff.json >/dev/null
           php -l tools/public-api-migration-audit.php
-          php tools/public-api-migration-audit.php \
-            api-baseline/migration-source-diff.json \
-            qa/release-baseline/u16-reviewed-api-delta.json \
+          jq -cn \
+            --slurpfile diff api-baseline/migration-source-diff.json \
+            --slurpfile policy qa/release-baseline/u16-reviewed-api-delta.json \
+            '{diff: $diff[0], policy: $policy[0]}' \
+            | php tools/public-api-migration-audit.php \
             > api-baseline/migration-reviewed-contract.json
           jq -e '.reviewed == true and .traitRelocations == 2 and .reviewedSignatureChanges == 6 and .behavioralCompatibilityCertified == false' \
             api-baseline/migration-reviewed-contract.json >/dev/null
