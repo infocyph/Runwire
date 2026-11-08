@@ -600,6 +600,9 @@ final class Http1Connection
             && ($this->state !== ParserState::REQUEST_LINE || $this->input->bufferedBytes() > 0);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function parseChunkSizeLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxChunkLineBytes, 400);

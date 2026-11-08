@@ -134,6 +134,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function handleContinuation(Frame $frame): void
     {
@@ -186,6 +187,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function handleHeaders(Frame $frame): void
     {

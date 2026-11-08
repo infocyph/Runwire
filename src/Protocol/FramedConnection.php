@@ -171,6 +171,7 @@ final class FramedConnection
     /**
      * Deferred callbacks run after the transport may have closed or changed
      * ownership; validate the current state at dispatch time.
+     * @throws \Throwable
      */
     private function dispatchScheduledFrames(): void
     {

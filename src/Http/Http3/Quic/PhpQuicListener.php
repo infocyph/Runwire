@@ -48,13 +48,13 @@ final readonly class PhpQuicListener
         self::validateBindOptions($host, $port, $options);
         PhpQuicApi::assertAvailable();
 
-        $class = \Quic\Listener::class;
+        $class = 'Quic\\Listener';
         if (!class_exists($class)) {
             throw new ListenerException('Quic\\Listener is unavailable.');
         }
 
         try {
-            $listener = new \ReflectionClass($class)->newInstanceArgs([$host, $port, $options]);
+            $listener = new $class($host, $port, $options);
         } catch (Throwable $exception) {
             throw new ListenerException(
                 sprintf('Unable to bind HTTP/3 QUIC listener on %s:%d: %s', $host, $port, $exception->getMessage()),

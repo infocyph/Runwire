@@ -185,6 +185,11 @@ final class WebSocketClientUpgrade
         ($this->completion)($session, $error);
     }
 
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
     /**
      * onCancel may synchronously settle the upgrade while registering the
      * callback, even though the earlier settled check succeeded.
@@ -192,10 +197,5 @@ final class WebSocketClientUpgrade
     private function settledAfterCancellationRegistration(): bool
     {
         return $this->isSettled();
-    }
-
-    private function isSettled(): bool
-    {
-        return $this->settled;
     }
 }

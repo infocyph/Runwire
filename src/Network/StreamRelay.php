@@ -230,6 +230,7 @@ final class StreamRelay
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function forward(bool $fromLeft): void
     {

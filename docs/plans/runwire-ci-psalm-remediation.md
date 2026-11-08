@@ -598,3 +598,12 @@
 - Preserve closed-resource checks on dial cleanup, process I/O and event-loop watcher callbacks; use narrowly typed helpers at those state-transfer boundaries rather than erasing safety guards.
 - Treat native PHP header output as a validated, immutable HeaderField serialization boundary. Annotate only the specific proven header sanitizer as `@psalm-taint-escape header`; add regression tests for CRLF, NUL and name normalization. Do not use broad code-scan suppressions or escape network/file taints.
 - **Verification pending**: exact SHA PHP 8.4/8.5 Psalm, PHPStan, all four PHPForge QA profiles (including skip-directive scanner), Source Audit, HTTP/3, host runtimes, docs. No merge or tag.
+
+### Batch 50 corrective follow-up — optional extension, PHPDoc attachment, exception propagation
+
+- Exact `c70113dc825e1fdbae1dd32aef62158643bf9909` completed analysis on PHP 8.4/8.5: **39 Psalm errors**, up from Batch 49's 35; **15 security taints** (header taints reduced to zero after the validated HeaderField sink), 11 missing throws and 13 other diagnostics. PHPStan reported **six errors**: optional QUIC extension static class references (3) and one EventLoop lost @param shape causing three type findings. All four QA jobs still fail the existing 16 skip directives; Pint additionally flagged EventLoop/WebSocket ordering.
+- Keep class_exists guards and instantiate hard-coded optional native extension class-name strings dynamically; no nonexistent static class refs or unsupported class-string docblocks. Preserve all QUIC TLS/ALPN and subprocess constraints.
+- Reattach EventLoop watch array shape and exception contracts, restore private helper ordering, and place WebSocket post-callback helper after isSettled. Repair Dialer PHPDoc accidentally split from assertProcessOwner by a resource helper.
+- Add throw-contract annotations only for newly confirmed call edges in HTTP/1/2/3, stream relay and deferred framed transport. Measure net propagated diagnostics on new SHA.
+- Existing skip-directive scanner remains a blocking QA gate: do not claim it green until all 16 directives are actually addressed, including coroutine, external closed-resource and default-constructor contexts.
+- No global taint exclusions. Filesystem/SSRF call paths remain open for trust-boundary review. The header-specific taint escape is backed by immutable HeaderField validation and malicious CRLF/NUL tests.

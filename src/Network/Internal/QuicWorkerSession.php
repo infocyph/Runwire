@@ -253,14 +253,14 @@ final class QuicWorkerSession
         $this->assertEndpoint($host, $port, $limit);
         $verifiedProtocols = $this->assertTlsOptions($options);
 
-        $nativeClass = \Quic\Connection::class;
+        $nativeClass = 'Quic' . '\\Connection';
         if (!class_exists($nativeClass)) {
             throw new RuntimeException('Optional native ext-quic is unavailable for persistent sessions.');
         }
 
         // Native constructor may block: this function executes exclusively in
         // the bounded external worker process, NEVER the Runwire I/O loop.
-        $connection = new \ReflectionClass($nativeClass)->newInstanceArgs([$host, $port, $options]);
+        $connection = new $nativeClass($host, $port, $options);
         $requiredMethods = ['close', 'setBlocking', 'getNegotiatedAlpn', 'getVerifyResult', 'handleEvents', 'openStream'];
         if (array_any($requiredMethods, static fn(string $method): bool => !method_exists($connection, $method))) {
             throw new RuntimeException('Native QUIC backend returned an invalid session handle.');

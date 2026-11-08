@@ -67,6 +67,7 @@ final class Http3Session
     /**
      * Mark a request stream as finished and dispatch newly ready requests.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function finishRequestStream(int $streamId): void
     {

@@ -198,15 +198,15 @@ final class Dialer
         $options->addressPolicy->assertCandidate($endpoint->host ?? '');
     }
 
-    /**
-     * @throws \LogicException
-     */
     /** A pending stream can become closed while callbacks are in flight. */
     private static function isOpenResource(mixed $resource): bool
     {
         return is_resource($resource);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
