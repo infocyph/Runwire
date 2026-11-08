@@ -90,3 +90,10 @@ it('defaults H1 H2 and H3 to FIXED', function (): void {
         ->and($http3->inboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
         ->and($http3->outboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED);
 });
+
+it('preserves default HTTP/3 polling behavior without eagerly constructing an unnecessary policy', function (): void {
+    expect(\Infocyph\Runwire\Http\Http3\Internal\AdaptivePollStrategy::timeout(null, true, 0, 0))->toBeNull()
+        ->and(\Infocyph\Runwire\Http\Http3\Internal\AdaptivePollStrategy::timeout(0.0, true, 0, 0))->toBe(0.0)
+        ->and(\Infocyph\Runwire\Http\Http3\Internal\AdaptivePollStrategy::timeout(0.5, true, 0, 0))->toBe(1.0)
+        ->and(\Infocyph\Runwire\Http\Http3\Internal\AdaptivePollStrategy::timeout(0.5, true, 0, 1))->toBe(0.01);
+});

@@ -664,3 +664,9 @@
 - Batch 57 exact `ce8d847f56627044ab0dafdbdcb9f8f6d39a27e3` Psalm **15** (no taint reduction); four PHPStan `function.alreadyNarrowedType` / `nullCoalesce.offset` findings in the migration-audit CLI precondition. Source Audit and Sphinx passed.
 - PHP provides an argument vector of strings under the guarded CLI SAPI, so PHPStan proves the redundant `is_string` checks and offset coalesces unnecessary. Keep the exact three-argument count gate; malformed counts still fail closed. This does not affect authorized input validation or filesystem trust boundaries.
 - Continue to measure security-taint findings explicitly; no annotation/baseline/exclusion changes, no merge/tag.
+
+### Batch 59 — prove default adaptive policy exception boundary without Psalm suppression
+
+- Baseline exact `de95848b6c81f86095fbf19b6874e47694459633` was fully checked: **15 Psalm taint errors** on PHP 8.4/8.5, PHPStan green, four QA lanes failed only the nine recorded banned annotations; 27 checks passed and two were intentionally skipped. Six active review threads remain, all on CLI taints.
+- In the new internal `AdaptivePollStrategy`, default a nullable policy argument and initialize it in the method only if needed. This preserves the default AUTO timing policy while avoiding allocation for nonpositive/null timeouts; the method explicitly documents an actual `InvalidArgumentException` thrown by the policy constructor. It replaces the prior `@psalm-suppress MissingThrowsDocblock` rather than bypassing either analyzer.
+- Focused regression covers null/zero/idle/handshake-pending timeout semantics. Require both Psalm and PHPStan to accept the precise `@throws`, and Pint/PHPCS/Pest/source audits and QUIC tests to pass, before marking verified. Eight other suppressions and 15 security taints still require separate disposition; no merge/release/tag.

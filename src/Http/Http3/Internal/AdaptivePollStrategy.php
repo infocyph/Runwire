@@ -20,18 +20,19 @@ final class AdaptivePollStrategy
 
     /**
      * Return a timeout that preserves non-blocking calls and readiness-driven active traffic.
-     * @psalm-suppress MissingThrowsDocblock
+     * @throws \InvalidArgumentException
      */
     public static function timeout(
         ?float $baseTimeoutSeconds,
         bool $accepting,
         int $activeConnections,
         int $pendingConnections,
-        AdaptiveProtocolPolicy $policy = new AdaptiveProtocolPolicy(),
+        ?AdaptiveProtocolPolicy $policy = null,
     ): ?float {
         if ($baseTimeoutSeconds === null || $baseTimeoutSeconds <= 0.0) {
             return $baseTimeoutSeconds;
         }
+        $policy ??= new AdaptiveProtocolPolicy();
         if ($policy->mode === AdaptivePolicyMode::FIXED) {
             return $baseTimeoutSeconds;
         }
