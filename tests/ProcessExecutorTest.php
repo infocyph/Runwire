@@ -333,3 +333,24 @@ it('compacts cancelled queue tombstones under repeated bounded admission', funct
         $executor->close();
     }
 });
+
+it('decodes executor results by the top-level operation, never nested JSON argument text', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $results = [];
+
+    try {
+        $executor->submit('sleep', ['milliseconds' => 1, 'op' => 'read'], function ($value, $error) use (&$results): void {
+            $results[] = [$value, $error];
+        });
+        $executor->onDrained(static function () use ($executor): void {
+            $executor->close();
+        });
+        $loop->run();
+
+        expect($results)->toBe([[1, null]])
+            ->and($executor->diagnostics()['workers'])->toBe(0);
+    } finally {
+        $executor->close();
+    }
+});

@@ -607,3 +607,12 @@
 - Add throw-contract annotations only for newly confirmed call edges in HTTP/1/2/3, stream relay and deferred framed transport. Measure net propagated diagnostics on new SHA.
 - Existing skip-directive scanner remains a blocking QA gate: do not claim it green until all 16 directives are actually addressed, including coroutine, external closed-resource and default-constructor contexts.
 - No global taint exclusions. Filesystem/SSRF call paths remain open for trust-boundary review. The header-specific taint escape is backed by immutable HeaderField validation and malicious CRLF/NUL tests.
+
+### Batch 51 — correct optional QUIC contracts, executor IPC and formatter ownership
+
+- Baseline exact SHA: `0dac863c89534f751e011cf6e53e4448d6d22d65`. PHP 8.4/8.5 Psalm each reported **17 errors** (15 file/SSRF taints, one missing `@throws`, one internal-access finding). PHPStan reported **10** optional QUIC type findings. All four QA lanes found **17 forbidden skip directives** and one EventLoop `ordered_class_elements` issue; Source Audit, QUIC, host runtimes and docs passed.
+- Wrap dynamically instantiated optional native QUIC extension objects at checked `mixed`→`object` boundaries, without making ext-quic a dependency or removing method/ALPN/TLS checks. Place the subprocess script in the owning `Infocyph\\Runwire\\Network\\Internal` namespace to make its legitimate internal-session call explicit.
+- Document StreamRelay callback propagation at its declaring method; reorder EventLoop private helpers. Keep runtime behavior and closed-resource checks unchanged.
+- Correct executor response decoding to use the stored top-level operation rather than substring-matching raw JSON packets; cover nested `op: read` arguments under a successful `sleep` operation.
+- **Security still blocking:** all 15 file/SSRF Psalm taint findings require separate trust-boundary review and regression tests. Existing 17 skip directives likewise remain subject to strict QA; do not weaken detectors or claim clean CI.
+- **Required verification on this new commit:** Psalm and PHPStan on 8.4/8.5, four PHPForge QA lanes, Source Audit, HTTP/3+QUIC, hosted runtimes, docs, and the executor regression. Net diagnostic counts pending GitHub CI. No merge, tag, or release.

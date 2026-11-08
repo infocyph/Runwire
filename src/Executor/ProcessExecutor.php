@@ -54,7 +54,7 @@ final class ProcessExecutor
 
     private int $failed = 0;
 
-    /** @var array<int, array{packet:string, callback:Closure, worker:?int, timer:?int, subscription:?CancellationSubscription}> */
+    /** @var array<int, array{packet:string, operation:string, callback:Closure, worker:?int, timer:?int, subscription:?CancellationSubscription}> */
     private array $jobs = [];
 
     private int $nextJobId = 1;
@@ -231,6 +231,7 @@ final class ProcessExecutor
 
         $this->jobs[$id] = [
             'packet' => $packet,
+            'operation' => $operation,
             'callback' => $this->traceScope?->wrap($completion) ?? Closure::fromCallable($completion),
             'worker' => null,
             'timer' => null,

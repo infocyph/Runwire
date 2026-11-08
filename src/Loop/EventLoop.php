@@ -237,12 +237,6 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         return $this->nextId++;
     }
 
-    /** A registered stream may be closed before its native callback fires. */
-    private static function isLiveStream(mixed $stream): bool
-    {
-        return is_resource($stream);
-    }
-
     /**
      * @throws \Throwable
      */
@@ -268,6 +262,12 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
                 ++$this->callbackOverrunsTotal;
             }
         }
+    }
+
+    /** A registered stream may be closed before its native callback fires. */
+    private static function isLiveStream(mixed $stream): bool
+    {
+        return is_resource($stream);
     }
 
     /**

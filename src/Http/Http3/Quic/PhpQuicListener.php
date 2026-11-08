@@ -62,7 +62,7 @@ final readonly class PhpQuicListener
                 $exception,
             );
         }
-        $wrapped = new self($listener);
+        $wrapped = new self(self::requireNativeObject($listener));
         $wrapped->setNonBlocking();
 
         return $wrapped;
@@ -121,6 +121,16 @@ final readonly class PhpQuicListener
     public function setNonBlocking(): void
     {
         ($this->setBlockingCallback)(false);
+    }
+
+    /** Fail closed when an optional native constructor lacks an analyzable return type. */
+    private static function requireNativeObject(mixed $value): object
+    {
+        if (!is_object($value)) {
+            throw new ListenerException('Native QUIC listener constructor returned an invalid value.');
+        }
+
+        return $value;
     }
 
     /**

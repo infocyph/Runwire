@@ -328,6 +328,7 @@ final class StreamRelay
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function resume(bool $fromLeft): void
     {

@@ -2,10 +2,26 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Network\Internal;
+
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
 /**
  * Private off-loop worker entry point. No Composer bootstrap, global hooks or
  * caller-provided PHP code is executed in the child.
  */
+/** Fail closed when an optional extension constructor cannot be typed statically. */
+function requireNativeQuicObject(mixed $value): object
+{
+    if (!is_object($value)) {
+        throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
+    }
+
+    return $value;
+}
+
 const MAX_MESSAGE_BYTES = 1_600_000;
 const MAX_FILE_BYTES = 1_048_576;
 
@@ -185,7 +201,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 // This constructor performs its full TLS handshake *before*
                 // setBlocking(false) is possible. It may only run here, in
                 // the isolated, deadline-limited executor worker process.
-                $connection = new $quicConnectionClass($host, $port, $options);
+                $connection = requireNativeQuicObject(new $quicConnectionClass($host, $port, $options));
                 if (!method_exists($connection, 'close')
                     || !method_exists($connection, 'getNegotiatedAlpn')) {
                     throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');

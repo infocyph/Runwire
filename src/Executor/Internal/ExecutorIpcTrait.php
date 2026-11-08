@@ -27,7 +27,7 @@ trait ExecutorIpcTrait
         }
 
         $value = $response['value'] ?? null;
-        if (str_contains($this->jobs[$jobId]['packet'], '"op":"read"')) {
+        if ($this->jobs[$jobId]['operation'] === 'read') {
             $value = is_string($value) ? base64_decode($value, true) : false;
             if ($value === false) {
                 throw new RuntimeException('Executor returned invalid file data.');
