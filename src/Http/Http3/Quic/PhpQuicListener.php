@@ -34,7 +34,10 @@ final readonly class PhpQuicListener
         $this->setBlockingCallback = self::callback($this->listener, 'setBlocking');
     }
 
-    /** @param array<string, mixed> $options */
+    /**
+     * @param array<string, mixed> $options
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     public static function bind(string $host, int $port, array $options): self
     {
         self::validateBindOptions($host, $port, $options);
@@ -66,6 +69,7 @@ final readonly class PhpQuicListener
 
     /**
      * Accept the next available QUIC connection.
+     * @throws \UnexpectedValueException
      */
     public function accept(): ?PhpQuicConnection
     {
@@ -117,6 +121,9 @@ final readonly class PhpQuicListener
         ($this->setBlockingCallback)(false);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function callback(object $object, string $method): Closure
     {
         $callable = [$object, $method];
@@ -149,7 +156,10 @@ final readonly class PhpQuicListener
         return array_any($alpn, fn(mixed $protocol): bool => $protocol === 'h3');
     }
 
-    /** @param array<string, mixed> $options */
+    /**
+     * @param array<string, mixed> $options
+     * @throws \InvalidArgumentException
+     */
     private static function validateBindOptions(string $host, int $port, array $options): void
     {
         if ($host === '') {

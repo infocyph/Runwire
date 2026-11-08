@@ -25,6 +25,7 @@ final readonly class ResponseTransfer
      * by default, closes the source resource when the transfer completes or fails.
      *
      * @param resource $source
+     * @throws \RuntimeException
      */
     public static function stream(
         CoroutineScope $scope,
@@ -48,6 +49,9 @@ final readonly class ResponseTransfer
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private static function assertAccepted(WriteResult $result): void
     {
         if ($result->accepted()) {
@@ -60,7 +64,10 @@ final readonly class ResponseTransfer
         ));
     }
 
-    /** @param resource $source */
+    /**
+     * @param resource $source
+     * @throws \InvalidArgumentException
+     */
     private static function assertPolicy(mixed $source, int $chunkBytes, int $chunksPerTurn): void
     {
         if (!is_resource($source) || get_resource_type($source) !== 'stream') {
@@ -74,6 +81,11 @@ final readonly class ResponseTransfer
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     * @throws \RuntimeException
+     */
     private static function awaitDrain(CoroutineScope $scope, ResponseWriterInterface $writer): void
     {
         $deferred = $scope->deferred();
@@ -149,6 +161,10 @@ final readonly class ResponseTransfer
             : true;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private static function writeChunk(
         CoroutineScope $scope,
         ResponseWriterInterface $writer,

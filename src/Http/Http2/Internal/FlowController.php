@@ -42,6 +42,8 @@ final class FlowController
 
     /**
      * Debit the connection receive window.
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function consumeConnectionReceive(int $bytes): void
     {
@@ -56,6 +58,8 @@ final class FlowController
 
     /**
      * Debit connection and stream receive windows.
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     public function consumeReceive(Http2Stream $stream, int $bytes): void
     {
@@ -71,6 +75,7 @@ final class FlowController
 
     /**
      * Debit connection and stream send windows.
+     * @throws \LogicException
      */
     public function consumeSend(Http2Stream $stream, int $bytes): void
     {
@@ -81,7 +86,11 @@ final class FlowController
         $stream->sendWindow -= $bytes;
     }
 
-    /** @return list<Frame> */
+    /**
+     * @return list<Frame>
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     public function creditReceive(?Http2Stream $stream, int $bytes): array
     {
         if ($bytes <= 0) {
@@ -105,6 +114,7 @@ final class FlowController
 
     /**
      * Apply a connection WINDOW_UPDATE increment.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function updateConnectionSend(int $increment): void
     {
@@ -119,6 +129,7 @@ final class FlowController
 
     /**
      * Apply a stream WINDOW_UPDATE increment.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     public function updateStreamSend(Http2Stream $stream, int $increment): void
     {

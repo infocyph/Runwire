@@ -15,6 +15,7 @@ final class Http1Syntax
 {
     /**
      * Parse and validate one HTTP header field line.
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
      */
     public function headerField(string $line): HeaderField
     {
@@ -29,7 +30,10 @@ final class Http1Syntax
         return $this->field($line, $colon);
     }
 
-    /** @return array{0: string, 1: string} */
+    /**
+     * @return array{0: string, 1: string}
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     public function requestLine(string $line): array
     {
         if (preg_match("/^([!#$%&'*+.^_`|~0-9A-Za-z-]+) ([^\\x00-\\x20\\x7F]+) HTTP\\/1\\.1$/D", $line, $matches) !== 1) {
@@ -48,6 +52,7 @@ final class Http1Syntax
 
     /**
      * Parse a trailer field while rejecting framing and routing fields.
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
      */
     public function trailerField(string $line): HeaderField
     {
@@ -59,6 +64,9 @@ final class Http1Syntax
         return $field;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function field(string $line, int $colon): HeaderField
     {
         try {
@@ -71,6 +79,9 @@ final class Http1Syntax
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function requestTarget(string $method, string $target): void
     {
         if ($target === '*') {

@@ -77,6 +77,7 @@ final class ConnectionState
 
     /**
      * Finish a peer unidirectional stream while enforcing critical-stream lifetime rules.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function finishPeerUnidirectional(int $streamId): void
     {
@@ -105,6 +106,7 @@ final class ConnectionState
 
     /**
      * Finish a tracked request stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function finishRequestStream(int $streamId): void
     {
@@ -176,6 +178,7 @@ final class ConnectionState
 
     /**
      * Feed bytes into a request stream and return its state object.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function pushRequestStream(int $streamId, string $bytes): RequestStream
     {
@@ -233,6 +236,9 @@ final class ConnectionState
         return $this->encoder?->takeEncoderInstructions() ?? '';
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function claimPeerUnidirectional(PeerUnidirectionalStream $stream, int $typeValue): void
     {
         $type = StreamType::tryFrom($typeValue);
@@ -287,6 +293,9 @@ final class ConnectionState
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function createPeerUnidirectional(int $streamId): PeerUnidirectionalStream
     {
         ++$this->peerUnidirectionalStreamsCreated;
@@ -300,6 +309,10 @@ final class ConnectionState
         return $this->peerUnidirectionalStreams[$streamId] = new PeerUnidirectionalStream($streamId);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function createRequestStream(int $streamId): RequestStream
     {
         ++$this->requestStreamsCreated;
@@ -323,6 +336,9 @@ final class ConnectionState
         $this->configureEncoder();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function processPeerDecoderInstructions(string $payload): void
     {
         if ($payload === '') {

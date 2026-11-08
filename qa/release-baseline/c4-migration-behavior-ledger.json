@@ -8,6 +8,22 @@
   "status": "task-specific-behavior-ledger-awaiting-exact-head-GitHub-QA",
   "entries": [
     {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\Channel",
+      "executableTest": "tests/BatchNSynchronizationTest.php",
+      "behavior": "Channel synchronization and closure semantics",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested channel synchronization and closure semantics while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Coroutine\\CoroutineRuntime",
+      "executableTest": "tests/CoroutineHardeningTest.php",
+      "behavior": "Coroutine runtime lifecycle and cancellation",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested coroutine runtime lifecycle and cancellation while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\CoroutineScope",
       "executableTest": "tests/CoroutineHardeningTest.php",
       "behavior": "Scope cancellation, closed-scope admission and child cleanup",
@@ -80,6 +96,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http1\\Http1Connection",
+      "executableTest": "tests/Http1ConnectionTest.php",
+      "behavior": "HTTP/1 parser and connection lifecycle",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested http/1 parser and connection lifecycle while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http1\\Http1ResponseWriter",
       "executableTest": "tests/Http1ConnectionTest.php",
       "behavior": "HTTP/1 response lifecycle and flushing semantics",
@@ -88,10 +112,26 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http1\\Internal\\Http1Syntax",
+      "executableTest": "tests/Http1ConnectionTest.php",
+      "behavior": "HTTP/1 syntax parser and invalid input rejection",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested http/1 syntax parser and invalid input rejection while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http1\\Internal\\RequestHeadValidator",
       "executableTest": "tests/Http1ConnectionTest.php",
       "behavior": "HTTP/1 request-line, header and connection framing validation",
       "migration": "Preserve bounds on HTTP/1 request headers, parsing and smuggling protections; no endpoint should bypass existing validation or framing checks.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Hpack\\Decoder",
+      "executableTest": "tests/HpackTest.php",
+      "behavior": "HPACK header parsing and bounds",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested hpack header parsing and bounds while handling the same exception categories.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -116,6 +156,14 @@
       "executableTest": "tests/Http2ControlFrameBudgetTest.php",
       "behavior": "Bounded H2 peer control-frame state",
       "migration": "Do not depend on unlimited SETTINGS/PING/PRIORITY floods; invalid over-budget traffic is rejected.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Internal\\FlowController",
+      "executableTest": "tests/Http2ConnectionTest.php",
+      "behavior": "HTTP/2 flow credit and bounds",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested http/2 flow credit and bounds while handling the same exception categories.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -152,6 +200,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Internal\\ConnectionState",
+      "executableTest": "tests/Http3ConnectionStateTest.php",
+      "behavior": "HTTP/3 connection state and stream ownership",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested http/3 connection state and stream ownership while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http3\\Internal\\RequestStream",
       "executableTest": "tests/Http3RequestStreamTest.php",
       "behavior": "HTTP/3 request stream and body admission with stream lifecycle guards",
@@ -172,6 +228,14 @@
       "executableTest": "tests/PhpQuicHttp3WorkerTest.php",
       "behavior": "Optional H3 failure observer and per-worker lifecycle",
       "migration": "Existing constructor defaults remain; new connection-failure reporting is opt-in; verify sibling stream finalization.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicListener",
+      "executableTest": "tests/PhpQuicTransportTest.php",
+      "behavior": "Native QUIC listener control and handshake lifecycle",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested native quic listener control and handshake lifecycle while handling the same exception categories.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -212,6 +276,14 @@
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Streaming request cancellation propagation and bounded body lifecycle",
       "migration": "Streaming bodies continue propagating transport cancellation into request contexts; no new consumer migration is required.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\ResponseTransfer",
+      "executableTest": "tests/ResponseTransferTest.php",
+      "behavior": "HTTP response transfer boundaries, resource limits and cleanup",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested http response transfer boundaries, resource limits and cleanup while handling the same exception categories.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -364,6 +436,14 @@
       "executableTest": "tests/UnixListenerTest.php",
       "behavior": "Unix socket ownership and cleanup",
       "migration": "Delete or reuse Unix socket endpoints under ownership rules, never an unrelated host path.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Process\\Internal\\CommandValidator",
+      "executableTest": "tests/ProcessRunnerTest.php",
+      "behavior": "Process execution command validation and rejection",
+      "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested process execution command validation and rejection while handling the same exception categories.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

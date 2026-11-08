@@ -32,6 +32,7 @@ final class Channel
      * Creates a channel with the requested buffer capacity and waiter limit.
      *
      * @internal
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly FiberScheduler $scheduler,
@@ -72,7 +73,12 @@ final class Channel
         return $this->closed;
     }
 
-    /** Receives the next available value, suspending when necessary. */
+    /**
+     * Receives the next available value, suspending when necessary.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\ChannelClosedException
+     * @throws \Throwable
+     */
     public function receive(): mixed
     {
         $cancellation = $this->scheduler->currentCancellation();
@@ -107,7 +113,12 @@ final class Channel
         }
     }
 
-    /** Sends a value, suspending until capacity or a receiver is available when necessary. */
+    /**
+     * Sends a value, suspending until capacity or a receiver is available when necessary.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\ChannelClosedException
+     * @throws \Throwable
+     */
     public function send(mixed $value): void
     {
         $cancellation = $this->scheduler->currentCancellation();
@@ -146,6 +157,9 @@ final class Channel
         return $this->buffer->count();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     */
     private function assertWaiterCapacity(): void
     {
         if (count($this->senders) + count($this->receivers) >= $this->maxWaiters) {

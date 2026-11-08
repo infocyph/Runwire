@@ -52,6 +52,8 @@ final class CoroutineRuntime
      *
      * @param callable(CoroutineScope): mixed $callback
      * @param callable(Task): void|null $completed
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function attachRequest(RequestContext $context, callable $callback, ?callable $completed = null): Task
     {
@@ -113,7 +115,10 @@ final class CoroutineRuntime
         return $this->execute(new CancellationSource(), $callback);
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * @param callable(CoroutineScope): mixed $callback
+     * @throws \LogicException
+     */
     public function runRequest(RequestContext $context, callable $callback): mixed
     {
         if ($context->completed()) {
@@ -141,7 +146,13 @@ final class CoroutineRuntime
         return new self($loop, $this->policy);
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * @param callable(CoroutineScope): mixed $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     */
     private function execute(CancellationSource $source, callable $callback): mixed
     {
         if ($this->running || $this->attachedRequestScopes > 0) {

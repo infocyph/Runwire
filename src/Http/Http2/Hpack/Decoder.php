@@ -17,6 +17,7 @@ final class Decoder
 
     /**
      * Create an HPACK decoder with table and header-list limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         int $maxDynamicTableBytes = 4_096,
@@ -97,6 +98,7 @@ final class Decoder
 
     /**
      * Update the maximum dynamic-table size accepted from the peer.
+     * @throws \InvalidArgumentException
      */
     public function setAllowedDynamicTableBytes(int $bytes): void
     {
@@ -109,7 +111,10 @@ final class Decoder
         }
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function append(array &$headers, int &$headerBytes, string $name, string $value): void
     {
         if (count($headers) >= $this->maxHeaderCount) {
@@ -133,6 +138,9 @@ final class Decoder
         return $this->decodeString($block, $offset, $this->remainingHeaderBytes($headerBytes, 0));
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function decodeString(string $block, int &$offset, int $maxOutputBytes): string
     {
         if (!isset($block[$offset])) {
@@ -157,7 +165,10 @@ final class Decoder
         return $this->huffman->decode($encoded, $maxOutputBytes);
     }
 
-    /** @return array{0: string, 1: string} */
+    /**
+     * @return array{0: string, 1: string}
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function entry(int $index): array
     {
         if ($index <= count(StaticTable::ENTRIES)) {
@@ -180,6 +191,9 @@ final class Decoder
         return max(0, $this->maxHeaderListBytes - $used - 32 - $nameBytes);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function updateDynamicTable(string $block, int &$offset, bool $sawHeader): void
     {
         if ($sawHeader) {

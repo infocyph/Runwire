@@ -268,7 +268,10 @@ final class Http1Connection
         $this->state = ParserState::WAIT_RESPONSE;
     }
 
-    /** @param callable(int): void $after */
+    /**
+     * @param callable(int): void $after
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function consumeBodyBytes(int $remaining, callable $after): bool
     {
         if ($this->input->availableBytes() === 0) {
@@ -303,6 +306,9 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function consumeChunkCrlf(): bool
     {
         if ($this->input->availableBytes() < 2) {
@@ -338,6 +344,9 @@ final class Http1Connection
         return $this->consumeBodyBytes($this->remainingBody, $this->advanceFixedBody(...));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function createBody(): StreamingRequestBody
     {
         return new StreamingRequestBody(
@@ -372,6 +381,10 @@ final class Http1Connection
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \Throwable
+     */
     private function dispatchRequest(): void
     {
         $headers = new Headers($this->headerFields);
@@ -554,6 +567,9 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function parseHeaderLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxHeaderLineBytes, 431);
@@ -596,6 +612,9 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function parseTrailerLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxHeaderLineBytes, 431);
@@ -634,6 +653,9 @@ final class Http1Connection
         $this->writer = null;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->closed || $this->pumping || $this->webSocketOwner->active()) {
@@ -714,6 +736,9 @@ final class Http1Connection
         });
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function sendContinueIfNeeded(RequestHead $head): void
     {
         if (!$head->expectContinue || (!$head->chunked && $head->contentLength === 0)) {
