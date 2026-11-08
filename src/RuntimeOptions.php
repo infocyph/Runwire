@@ -21,7 +21,6 @@ final readonly class RuntimeOptions
 {
     /**
      * Create a complete runtime configuration with production-safe defaults.
-     * @throws \InvalidArgumentException
      */
     public function __construct(
         public RuntimeDriver $driver = RuntimeDriver::AUTO,
