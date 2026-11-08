@@ -6,7 +6,10 @@ use Infocyph\Runwire\Loop\SelectLoop;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-/** @param list<float> $samples */
+/**
+ * @param list<float> $samples
+ * @throws \InvalidArgumentException
+ */
 function r2MixedPercentile(array $samples, float $percentile): float
 {
     if ($samples === [] || $percentile < 0 || $percentile > 1) {
@@ -18,7 +21,13 @@ function r2MixedPercentile(array $samples, float $percentile): float
     return round($samples[(int) floor((count($samples) - 1) * $percentile)], 3);
 }
 
-/** @return array<string, int|float|bool> */
+/**
+ * @return array<string, int|float|bool>
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ */
 function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
 {
     if ($cpuBurst < 1 || $cpuBurst > 192 || $durationSeconds < 0.1

@@ -111,7 +111,10 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
     }
 }
 
-/** @return resource */
+/**
+ * @return resource
+ * @throws \RuntimeException
+ */
 function transferBenchmarkSource(int $bytes): mixed
 {
     $source = tmpfile();
@@ -135,6 +138,9 @@ function transferBenchmarkSource(int $bytes): mixed
     return $source;
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function manualTransfer(
     CoroutineScope $scope,
     mixed $source,
@@ -236,6 +242,9 @@ function transferCoefficientOfVariation(array $values): float
     return sqrt($sum / ($count - 1)) / $mean * 100.0;
 }
 
+/**
+ * @throws \Throwable
+ */
 function transferTrial(bool $helper, int $bytes): float
 {
     $loop = new SelectLoop();

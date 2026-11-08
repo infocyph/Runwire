@@ -26,7 +26,10 @@ function r2PressurePercentiles(array $measurements): array
     ];
 }
 
-/** @return array{elapsed_us: float, peak_ready: int, resumes: int, spawned: int, cancelled: int, active: int, timers: int, watchers: int} */
+/**
+ * @return array{elapsed_us: float, peak_ready: int, resumes: int, spawned: int, cancelled: int, active: int, timers: int, watchers: int}
+ * @throws \Throwable
+ */
 function r2PressureExercise(string $mode, int $tasks): array
 {
     $loop = new SelectLoop();
@@ -132,7 +135,10 @@ function r2PressureExercise(string $mode, int $tasks): array
     ];
 }
 
-/** @return array{limit: int, overflow_rejected: bool, active_after: int, max_ready: int} */
+/**
+ * @return array{limit: int, overflow_rejected: bool, active_after: int, max_ready: int}
+ * @throws \Throwable
+ */
 function r2PressureOverloadBoundary(): array
 {
     $limit = 8;
@@ -168,7 +174,10 @@ function r2PressureOverloadBoundary(): array
     ];
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ */
 function runwireR2SchedulerPressure(int $iterations = 6, int $warmup = 2, array $sizes = [8, 32, 128]): array
 {
     if ($iterations < 1 || $iterations > 100 || $warmup < 0 || $warmup > 20

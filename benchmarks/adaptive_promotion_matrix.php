@@ -8,7 +8,11 @@ const ADAPTIVE_PROMOTION_MODES = ['fixed', 'latency', 'throughput', 'auto'];
 const ADAPTIVE_PROMOTION_PROTOCOLS = ['http1', 'h2', 'h3'];
 const ADAPTIVE_PROMOTION_PHASES = ['low_before', 'medium', 'transition_up', 'high', 'transition_down', 'low_after'];
 
-/** @return list<array<string, mixed>> */
+/**
+ * @return list<array<string, mixed>>
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function adaptivePromotionCases(string $protocol): array
 {
     if (!in_array($protocol, ADAPTIVE_PROMOTION_PROTOCOLS, true)) {
@@ -30,7 +34,10 @@ function adaptivePromotionCases(string $protocol): array
     ));
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function adaptivePromotionLoadJson(string $path): array
 {
     if (!is_file($path) || !is_readable($path)) {
@@ -49,7 +56,10 @@ function adaptivePromotionLoadJson(string $path): array
     return $value;
 }
 
-/** @param array<string, mixed> $value */
+/**
+ * @param array<string, mixed> $value
+ * @throws \RuntimeException
+ */
 function adaptivePromotionWriteJson(string $path, array $value): void
 {
     $directory = dirname($path);
@@ -68,6 +78,9 @@ function adaptivePromotionWriteJson(string $path, array $value): void
     }
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function adaptivePromotionCommandOutput(array $command): string
 {
     $process = proc_open(
@@ -219,6 +232,7 @@ function adaptivePromotionEnvironment(string $protocol): array
  * @param array<string, mixed> $record
  * @param array<string, mixed> $case
  * @param array<string, mixed> $identity
+ * @throws \RuntimeException
  */
 function adaptivePromotionValidateRecord(
     array $record,
@@ -417,6 +431,9 @@ function adaptivePromotionCanConnect(int $port): bool
     return true;
 }
 
+/**
+ * @throws \RuntimeException
+ */
 function adaptivePromotionPickPort(bool $udp): int
 {
     $server = stream_socket_server(
@@ -441,6 +458,7 @@ function adaptivePromotionPickPort(bool $udp): int
  * @param list<string> $command
  * @param array<string, string> $environment
  * @return array{process:resource,pid:int}
+ * @throws \RuntimeException
  */
 function adaptivePromotionStart(array $command, string $stdout, string $stderr, array $environment = []): array
 {
@@ -488,7 +506,10 @@ function adaptivePromotionStop($process, int $pid): void
     proc_close($process);
 }
 
-/** @param resource $process */
+/**
+ * @param resource $process
+ * @throws \RuntimeException
+ */
 function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog): int
 {
     $deadline = microtime(true) + $timeoutSeconds;
@@ -516,7 +537,10 @@ function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog
     throw new RuntimeException('Adaptive promotion process timed out. ' . $details);
 }
 
-/** @param array<string, mixed> $case @param array<string, mixed> $identity */
+/**
+ * @param array<string, mixed> $case @param array<string, mixed> $identity
+ * @throws \RuntimeException
+ */
 function adaptivePromotionRunTrial(
     string $output,
     array $case,
@@ -627,7 +651,10 @@ function adaptivePromotionRunTrial(
     adaptivePromotionWriteJson($resultPath, $record);
 }
 
-/** @return array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool} */
+/**
+ * @return array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool}
+ * @throws \InvalidArgumentException
+ */
 function adaptivePromotionArguments(array $argv): array
 {
     $action = $argv[1] ?? '';
@@ -671,6 +698,10 @@ function adaptivePromotionArguments(array $argv): array
     return $options;
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function adaptivePromotionMain(array $argv): int
 {
     $options = adaptivePromotionArguments($argv);

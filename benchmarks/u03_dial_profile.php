@@ -23,7 +23,10 @@ function u03CpuMilliseconds(array $usage): float
         + ($usage['ru_stime.tv_usec'] ?? 0) / 1_000);
 }
 
-/** Read the Linux process resident set from the kernel, in bytes. */
+/**
+ * Read the Linux process resident set from the kernel, in bytes.
+ * @throws \RuntimeException
+ */
 function u03ResidentBytes(): int
 {
     $status = file_get_contents('/proc/self/status');
@@ -34,7 +37,10 @@ function u03ResidentBytes(): int
     return (int) $matches[1] * 1_024;
 }
 
-/** @return array<string, float|int|bool> */
+/**
+ * @return array<string, float|int|bool>
+ * @throws \Throwable
+ */
 function u03DialTrial(bool $overlap, int $count): array
 {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);

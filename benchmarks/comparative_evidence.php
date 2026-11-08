@@ -48,7 +48,10 @@ const COMPARABILITY_FIELDS = [
     'connection_reuse',
 ];
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function loadEvidence(string $path): array
 {
     if (!is_file($path) || !is_readable($path)) {
@@ -105,7 +108,10 @@ function loadEvidence(string $path): array
     return $decoded;
 }
 
-/** @param array<string, mixed> $record */
+/**
+ * @param array<string, mixed> $record
+ * @throws \RuntimeException
+ */
 function assertEvidenceRanges(array $record, string $path): void
 {
     foreach (['workers', 'concurrency', 'duration_seconds'] as $field) {
@@ -154,7 +160,10 @@ function assertEvidenceRanges(array $record, string $path): void
     }
 }
 
-/** @param list<array<string, mixed>> $records */
+/**
+ * @param list<array<string, mixed>> $records
+ * @throws \RuntimeException
+ */
 function assertComparable(array $records): void
 {
     if (count($records) < 2) {

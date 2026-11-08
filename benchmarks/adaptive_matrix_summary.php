@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-/** @param list<float|int> $values */
+/**
+ * @param list<float|int> $values
+ * @throws \RuntimeException
+ */
 function adaptiveMatrixMedian(array $values): float
 {
     if ($values === []) {
@@ -17,7 +20,10 @@ function adaptiveMatrixMedian(array $values): float
         : ((float) $values[$middle - 1] + (float) $values[$middle]) / 2;
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function adaptiveMatrixLoad(string $path): array
 {
     $contents = file_get_contents($path);
@@ -32,7 +38,10 @@ function adaptiveMatrixLoad(string $path): array
     return $decoded;
 }
 
-/** @param array<string, mixed> $phase */
+/**
+ * @param array<string, mixed> $phase
+ * @throws \RuntimeException
+ */
 function adaptiveMatrixMetric(array $phase, string $name): float
 {
     $value = $phase[$name] ?? null;
@@ -43,7 +52,10 @@ function adaptiveMatrixMetric(array $phase, string $name): float
     return (float) $value;
 }
 
-/** @param list<float> $values */
+/**
+ * @param list<float> $values
+ * @throws \RuntimeException
+ */
 function adaptiveMatrixCv(array $values): float
 {
     $mean = array_sum($values) / count($values);
@@ -55,7 +67,10 @@ function adaptiveMatrixCv(array $values): float
     return sqrt($squares / (count($values) - 1)) / $mean * 100;
 }
 
-/** @param list<array<string, mixed>> $records @return array<string, mixed> */
+/**
+ * @param list<array<string, mixed>> $records @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function adaptiveMatrixSummarize(array $records): array
 {
     if (count($records) < 5) {

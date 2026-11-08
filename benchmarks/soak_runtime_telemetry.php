@@ -21,7 +21,10 @@ function soakRuntimeSnapshot(): array
     ];
 }
 
-/** @param list<array<string, int|float|bool>> $samples @return array<string, int|float|bool|string> */
+/**
+ * @param list<array<string, int|float|bool>> $samples @return array<string, int|float|bool|string>
+ * @throws \InvalidArgumentException
+ */
 function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSeconds = 1_740.0): array
 {
     if ($minimumDurationSeconds <= 0 || !is_finite($minimumDurationSeconds)) {
@@ -108,7 +111,10 @@ function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSecon
     ];
 }
 
-/** @return list<array<string, int|float|bool>> */
+/**
+ * @return list<array<string, int|float|bool>>
+ * @throws \RuntimeException
+ */
 function soakReadRuntimeSnapshots(string $path): array
 {
     $file = fopen($path, 'rb');
@@ -133,6 +139,10 @@ function soakReadRuntimeSnapshots(string $path): array
     return $records;
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function soakSampleRuntimeHttp(int $port, int $rootPid, string $path, int $interval): void
 {
     if ($port < 1 || $port > 65_535 || $rootPid < 1 || $interval < 1 || $interval > 60) {

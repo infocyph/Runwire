@@ -162,7 +162,10 @@ function http1SustainedTreeRss(int $root): int
     return array_sum(array_map(http1SustainedProcessRss(...), http1SustainedProcessTree($root)));
 }
 
-/** @return array{status:int, length:int, close:bool} */
+/**
+ * @return array{status:int, length:int, close:bool}
+ * @throws \Http1SustainedProtocolError
+ */
 function http1SustainedParseHead(string $head): array
 {
     $lines = explode("\r\n", $head);
@@ -201,7 +204,11 @@ function http1SustainedParseHead(string $head): array
     return ['status' => (int) $matches[1], 'length' => $length, 'close' => $close];
 }
 
-/** @return resource */
+/**
+ * @return resource
+ * @throws \Http1SustainedTimeout
+ * @throws \RuntimeException
+ */
 function http1SustainedConnect(string $host, int $port)
 {
     $errno = 0;
@@ -323,7 +330,10 @@ function http1SustainedReconnect(array &$clients, int $id, string $host, int $po
     $clients[$id] = $client;
 }
 
-/** @param array<string, mixed> $client */
+/**
+ * @param array<string, mixed> $client
+ * @throws \Http1SustainedProtocolError
+ */
 function http1SustainedReadChunk(array &$client, array &$counter): void
 {
     ++$counter['socket_read_calls'];
@@ -347,7 +357,10 @@ function http1SustainedReadChunk(array &$client, array &$counter): void
     }
 }
 
-/** @param array<string, mixed> $client @return array{status:int, body:string, close:bool}|null */
+/**
+ * @param array<string, mixed> $client @return array{status:int, body:string, close:bool}|null
+ * @throws \Http1SustainedProtocolError
+ */
 function http1SustainedTryCompleteResponse(array &$client): ?array
 {
     if ($client['head'] === null) {
@@ -658,7 +671,10 @@ function http1SustainedExtensionVersions(): array
     return $versions;
 }
 
-/** @param array<string, int> $counter */
+/**
+ * @param array<string, int> $counter
+ * @throws \RuntimeException
+ */
 function http1SustainedAssertCorrect(array $counter, string $phase): void
 {
     if (
@@ -676,7 +692,10 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
     }
 }
 
-/** @param list<string> $argv @return array<string, mixed> */
+/**
+ * @param list<string> $argv @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ */
 function http1SustainedMain(array $argv): array
 {
     if (count($argv) !== 6) {

@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function adaptiveCompareLoad(string $path): array
 {
     $contents = file_get_contents($path);
@@ -19,7 +22,10 @@ function adaptiveCompareLoad(string $path): array
 
 require_once __DIR__ . '/adaptive_matrix_summary.php';
 
-/** @param array<string, mixed> $auto @param array<string, mixed> $fixed @return array<string, mixed> */
+/**
+ * @param array<string, mixed> $auto @param array<string, mixed> $fixed @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = false, string $baselineMode = 'fixed'): array
 {
     if (!in_array($baselineMode, ['fixed', 'latency', 'throughput'], true)) {

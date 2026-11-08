@@ -154,6 +154,10 @@ function soakReadProcessTree(int $root): array
     return $totals;
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function soakSampleProcess(int $pid, string $path, int $interval): void
 {
     if ($pid < 1 || $interval < 1 || $interval > 60) {
@@ -195,7 +199,10 @@ function soakSampleProcess(int $pid, string $path, int $interval): void
     }
 }
 
-/** @param list<int|float> $values */
+/**
+ * @param list<int|float> $values
+ * @throws \InvalidArgumentException
+ */
 function soakResourceMedian(array $values): float
 {
     if ($values === []) {
@@ -212,6 +219,7 @@ function soakResourceMedian(array $values): float
 /**
  * @param list<array{elapsed:float,processes:int,rss:int,virtual:int,fd:int}> $samples
  * @return array<string, int|float|bool|string>
+ * @throws \InvalidArgumentException
  */
 function soakAnalyzeSamples(array $samples, float $minimumSeconds = 1740.0): array
 {
@@ -275,7 +283,10 @@ function soakAnalyzeSamples(array $samples, float $minimumSeconds = 1740.0): arr
     ];
 }
 
-/** @return list<array{elapsed:float,processes:int,rss:int,virtual:int,fd:int}> */
+/**
+ * @return list<array{elapsed:float,processes:int,rss:int,virtual:int,fd:int}>
+ * @throws \RuntimeException
+ */
 function soakReadSamples(string $path): array
 {
     $f = fopen($path, 'rb');

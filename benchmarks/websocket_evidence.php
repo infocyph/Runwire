@@ -6,7 +6,11 @@ final class WebSocketEvidenceProtocolFailure extends RuntimeException {}
 
 final class WebSocketEvidenceTimeout extends RuntimeException {}
 
-/** @return resource */
+/**
+ * @return resource
+ * @throws \RuntimeException
+ * @throws \WebSocketEvidenceProtocolFailure
+ */
 function wsConnect(int $port): mixed
 {
     $socket = stream_socket_client(
@@ -88,7 +92,10 @@ function wsReadHead(mixed $socket): string
     return $head . "\r\n\r\n";
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \InvalidArgumentException
+ */
 function wsReadExact(mixed $socket, int $bytes): string
 {
     if ($bytes < 0) {
@@ -121,6 +128,7 @@ function wsReadExact(mixed $socket, int $bytes): string
 /**
  * @param resource $socket
  * @return array{opcode: int, fin: bool, payload: string}
+ * @throws \WebSocketEvidenceProtocolFailure
  */
 function wsReadFrame(mixed $socket): array
 {
@@ -172,7 +180,10 @@ function wsReadFrame(mixed $socket): array
     ];
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \InvalidArgumentException
+ */
 function wsWriteFrame(mixed $socket, int $opcode, string $payload): void
 {
     if ($opcode < 0 || $opcode > 15) {
@@ -263,7 +274,10 @@ function wsPing(mixed $socket, string $payload): void
     }
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \WebSocketEvidenceProtocolFailure
+ */
 function wsClose(mixed $socket): void
 {
     wsWriteFrame($socket, 0x8, pack('n', 1000));
@@ -368,7 +382,10 @@ function wsWorker(int $port, float $duration, int $workerId): array
     ];
 }
 
-/** @return ?array<string, mixed> Null is returned in forked child processes after writing their result. */
+/**
+ * @return ?array<string, mixed> Null is returned in forked child processes after writing their result.
+ * @throws \RuntimeException
+ */
 function wsTrial(int $port, int $concurrency, float $duration): ?array
 {
     if (!function_exists('pcntl_fork')) {
@@ -561,6 +578,10 @@ function wsSlowReader(int $port): bool
     }
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function wsMain(): void
 {
     $options = getopt('', ['port:', 'concurrency::', 'duration::', 'trials::', 'soak-seconds::']);

@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-namespace Infocyph\Runwire\Benchmarks;
-
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHeadValidator;
 use Infocyph\Runwire\Http\Http2\FrameParser as Http2FrameParser;
@@ -24,7 +22,6 @@ use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
 use PhpBench\Attributes\Revs;
 use PhpBench\Attributes\Warmup;
-use RuntimeException;
 
 #[BeforeMethods('setUp')]
 #[Iterations(5)]
