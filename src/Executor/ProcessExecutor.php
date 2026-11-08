@@ -99,6 +99,7 @@ final class ProcessExecutor
             throw new RuntimeException('Unable to establish executor process ownership.');
         }
         $this->ownerPid = $pid;
+
         try {
             $this->ipcKey = bin2hex(random_bytes(32));
         } catch (\Random\RandomException $error) {
