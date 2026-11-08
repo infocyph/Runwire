@@ -61,7 +61,7 @@ final class StreamRelay
         }
     }
 
-        /**
+    /**
      * Abort both connections and release their reactor handles exactly once.
      * @throws \Throwable
      */

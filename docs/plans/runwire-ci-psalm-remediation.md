@@ -516,3 +516,10 @@
 - PHPStan identifies one actual child-status refinement issue: a validated `int|null` PCNTL status is forwarded through the original mixed local rather than its narrowed `int` value. Forward the validated local without changing callback semantics.
 - Source Audit fails because removing unsupported exception annotations restores `RuntimeCapabilities` and `RuntimeOptions` to their exact published 2.1.2 hashes. Their two prior migration entries are therefore stale and must be removed; confirmed by Git tree blob comparison, with **209 changed published source types and 209 remaining ledger dispositions**.
 - PHPForge QA and remaining protocol lanes must be checked on the exact follow-up correction SHA. Preserve both code scanning engines, taint checks, source-audit strictness and migration signoff requirements.
+
+### Batch 46 post-correction QA and review feedback
+
+- Exact-head `09f989e1fdc2cc0780c3fe0ea10ab10b409ed1bd`: PHPStan is **green on PHP 8.4 and 8.5**; Psalm remains **196 errors on each**, consisting of 90 MissingThrowsDocblock, 17 security taints and 89 other errors. The source audit now passes with 209 exact source dispositions after pruning stale ledger entries.
+- Both QA matrices report Pint-only formatting issues: an overindented PHPDoc opener in `StreamRelay::close`, and `SwooleDriver::workerStartCallback` being out of the repository's ordered private-method layout. Restore the intended comment alignment and move the callback helper into the proper method order, keeping the original configure PHPDoc and all runtime behavior unchanged.
+- Four stale OpenSSL annotation review threads and four other resolved historical analyzer threads were closed only after their specific issue types disappeared from exact-head diagnostics. Active taint, resource guard and callback-race review threads remain open.
+- The next work is not another indiscriminate `@throws` sweep. Resolve actual security trust boundaries, analyze propagated callback `Throwable` contracts without degrading lifecycle behavior, and retain defensive runtime guards even when Psalm's closed-world inference misclassifies them.
