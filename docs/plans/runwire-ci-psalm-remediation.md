@@ -19,6 +19,8 @@
 
 ## Progress
 
+**Batch 104 — validate benchmark phase evidence before numerical comparisons:** At `f348e73d3b1c454fe2127584854a6addb51db890`, introduce explicit shape checks for adaptive benchmark comparison input and phase metrics; use the existing finite nonnegative metric validator for typed numeric access. This preserves comparison thresholds, source/runtime APIs, output keys and gates. Fix the malformed per-parameter PHPDoc. This targets genuine PHPStan mixed-offset/cast and Psalm runtime-validation findings, not custom Psalm behavior; exact-head tests and analyzer results pending. B103 and B102 CI status still subject to independent verification. Benchmark-first; no merge/tag/release.
+
 **Batch 103 submitted — benchmark sample fidelity:** After Batch 102, fix percentile and CPU sample calculations in U01/U03 so strict arithmetic uses explicit float operands without changing measurement units; guard the R2 readable-wait socket resource inside the closure that actually consumes it. Do not change the benchmark workload, number of trials, public APIs or Psalm configuration. CI for B102 was still active when this follow-on batch was prepared. B103 count and QA **pending**; retain benchmark-first priority and all security findings.
 
 **Batch 102 submitted — benchmark contract integrity:** Continue benchmarks first at parent `3d9abde31d52a12445ebb1189e4e371c10cf6e39`. Repair benchmark writer interface overrides and typed callable lifecycle, native PID false-handling, request resetter override, and accurate benchmark exception docs. These are small real implementation-contract fixes, not analyzer config changes or fabricated tests. The latest B101 analyzer/QA run is still in progress; no net error reduction claimed until exact-head CI. Benchmark findings remain priority ahead of tests. No merge/tag/release.
@@ -988,3 +990,9 @@
 - U01/U03 percentile index calculations explicitly promote the count to float before multiplication, retaining `floor` rank and rounding. CPU usage seconds/microseconds are explicitly float before scale operations, preserving units.
 - R2 scheduler's `readable_wait` closure validates the actual socket pair at the consumption boundary before indexing, so malformed/null fixture states throw instead of passing `null` into a stream read, while valid samples are unchanged.
 - No production files, test behavior, analyzer config, suppression or release metadata modifications. Verify exact-head PHP 8.4/8.5 Psalm/PHPStan, all QA variants and hosted/native/protocol/benchmark checks; report measured deltas, not estimates.
+
+### Batch 104 — reject malformed adaptive comparison data at ingestion
+
+- Base `f348e73d3b1c454fe2127584854a6addb51db890`, after Batch 103. Modify only `benchmarks/adaptive_matrix_compare.php` and tracker.
+- Decode JSON objects into explicitly string-keyed evidence arrays, reject missing/malformed per-phase data, use the shared `adaptiveMatrixMetric()` finite nonnegative validator for comparisons and calculations, and correct actual separate `@param`/`@return` contracts. No new or custom Psalm plugin, suppression, altered numerical budgets, test bypass, or published Runwire API change.
+- Verify exact-head Psalm/PHPStan PHP 8.4/8.5, benchmark and Pest checks, Pint/PHPCS/Rector/Source Audit, native/hosted/protocol matrices. Do not claim a reduction until CI results are confirmed.

@@ -17,13 +17,45 @@ function adaptiveCompareLoad(string $path): array
         throw new RuntimeException('Adaptive comparison input must decode to an object.');
     }
 
-    return $decoded;
+    $record = [];
+    foreach ($decoded as $name => $value) {
+        if (!is_string($name)) {
+            throw new RuntimeException('Adaptive comparison input requires string field names.');
+        }
+        $record[$name] = $value;
+    }
+
+    return $record;
+}
+
+/**
+ * @param mixed $source
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
+function adaptiveComparePhase(mixed $source, string $name): array
+{
+    if (!is_array($source)) {
+        throw new RuntimeException('Adaptive comparison has missing or invalid phase: ' . $name);
+    }
+
+    $phase = [];
+    foreach ($source as $key => $value) {
+        if (!is_string($key)) {
+            throw new RuntimeException('Adaptive comparison phase requires string metric names.');
+        }
+        $phase[$key] = $value;
+    }
+
+    return $phase;
 }
 
 require_once __DIR__ . '/adaptive_matrix_summary.php';
 
 /**
- * @param array<string, mixed> $auto @param array<string, mixed> $fixed @return array<string, mixed>
+ * @param array<string, mixed> $auto
+ * @param array<string, mixed> $fixed
+ * @return array<string, mixed>
  * @throws \RuntimeException
  */
 function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = false, string $baselineMode = 'fixed'): array
@@ -46,7 +78,9 @@ function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = fal
             throw new RuntimeException('Adaptive comparison metadata mismatch: ' . $name);
         }
     }
-    if (($auto['trials'] ?? 0) < 5 || ($fixed['trials'] ?? 0) < 5) {
+    $autoTrials = adaptiveMatrixMetric($auto, 'trials');
+    $fixedTrials = adaptiveMatrixMetric($fixed, 'trials');
+    if ($autoTrials < 5 || $fixedTrials < 5) {
         throw new RuntimeException('Adaptive comparison requires at least five trials per mode.');
     }
     if (($auto['case'] ?? null) !== ($fixed['case'] ?? null)) {
@@ -60,11 +94,17 @@ function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = fal
     if (isset($auto['case'])) {
         $phaseNames[] = 'medium';
     }
+    $autoPhases = $auto['phases'] ?? null;
+    $fixedPhases = $fixed['phases'] ?? null;
+    if (!is_array($autoPhases) || !is_array($fixedPhases)) {
+        throw new RuntimeException('Adaptive comparison requires named phase summaries.');
+    }
+
     $failures = [];
     $deltas = [];
     foreach ($phaseNames as $phaseName) {
-        $a = $auto['phases'][$phaseName];
-        $f = $fixed['phases'][$phaseName];
+        $a = adaptiveComparePhase($autoPhases[$phaseName] ?? null, $phaseName);
+        $f = adaptiveComparePhase($fixedPhases[$phaseName] ?? null, $phaseName);
 
         foreach (['concurrency', 'requested_duration_seconds'] as $name) {
             if (adaptiveMatrixMetric($a, $name) <= 0 || $a[$name] !== ($f[$name] ?? null)) {
@@ -78,43 +118,45 @@ function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = fal
             foreach (['throughput_rps', 'p95_ms', 'p99_ms', 'cpu_percent', 'rss_peak_bytes', 'fairness_ratio', 'rps_cv_percent', 'duration_seconds_min'] as $metric) {
                 adaptiveMatrixMetric($phase, $metric);
             }
-            if ($phase['throughput_rps'] <= 0 || $phase['fairness_ratio'] < 1) {
+            if (adaptiveMatrixMetric($phase, 'throughput_rps') <= 0 || adaptiveMatrixMetric($phase, 'fairness_ratio') < 1) {
                 throw new RuntimeException('Adaptive comparison has invalid throughput or fairness.');
             }
-            if ($phase['rps_cv_percent'] >= 2.5) {
+            if (adaptiveMatrixMetric($phase, 'rps_cv_percent') >= 2.5) {
                 $evidenceFailures[] = 'Throughput CV must be below 2.5%: ' . $phaseName;
             }
-            if (!str_starts_with($phaseName, 'transition_') && ($phase['duration_seconds_min'] < 180 || $phase['requested_duration_seconds'] < 180)) {
+            if (!str_starts_with($phaseName, 'transition_')
+                && (adaptiveMatrixMetric($phase, 'duration_seconds_min') < 180
+                    || adaptiveMatrixMetric($phase, 'requested_duration_seconds') < 180)) {
                 $evidenceFailures[] = 'Steady-state phases must last at least 180 seconds: ' . $phaseName;
             }
         }
 
-        $throughputRatio = (float) $a['throughput_rps'] / max(0.001, (float) $f['throughput_rps']);
-        $autoP95 = (float) $a['p95_ms'];
-        $fixedP95 = (float) $f['p95_ms'];
-        $autoP99 = (float) $a['p99_ms'];
-        $fixedP99 = (float) $f['p99_ms'];
+        $throughputRatio = adaptiveMatrixMetric($a, 'throughput_rps') / max(0.001, adaptiveMatrixMetric($f, 'throughput_rps'));
+        $autoP95 = adaptiveMatrixMetric($a, 'p95_ms');
+        $fixedP95 = adaptiveMatrixMetric($f, 'p95_ms');
+        $autoP99 = adaptiveMatrixMetric($a, 'p99_ms');
+        $fixedP99 = adaptiveMatrixMetric($f, 'p99_ms');
         $p95Ratio = $autoP95 / max(0.001, $fixedP95);
         $p99Ratio = $autoP99 / max(0.001, $fixedP99);
         $p95AbsoluteDelta = $autoP95 - $fixedP95;
         $p99AbsoluteDelta = $autoP99 - $fixedP99;
-        $cpuLimit = ((float) $f['cpu_percent'] * 1.15) + 5.0;
-        $rssLimit = ((float) $f['rss_peak_bytes'] * 1.10) + 4_194_304;
-        $fairnessLimit = max(1.25, (float) $f['fairness_ratio'] * 1.25);
+        $cpuLimit = (adaptiveMatrixMetric($f, 'cpu_percent') * 1.15) + 5.0;
+        $rssLimit = (adaptiveMatrixMetric($f, 'rss_peak_bytes') * 1.10) + 4_194_304;
+        $fairnessLimit = max(1.25, adaptiveMatrixMetric($f, 'fairness_ratio') * 1.25);
 
         $deltas[$phaseName] = [
             'throughput_ratio' => $throughputRatio,
-            'combined_rps_cv_percent' => sqrt($a['rps_cv_percent'] ** 2 + $f['rps_cv_percent'] ** 2),
+            'combined_rps_cv_percent' => sqrt(adaptiveMatrixMetric($a, 'rps_cv_percent') ** 2 + adaptiveMatrixMetric($f, 'rps_cv_percent') ** 2),
             'p95_ratio' => round($p95Ratio, 4),
             'p99_ratio' => round($p99Ratio, 4),
             'p95_absolute_delta_ms' => round($p95AbsoluteDelta, 4),
             'p99_absolute_delta_ms' => round($p99AbsoluteDelta, 4),
-            'auto_cpu_percent' => (float) $a['cpu_percent'],
-            'fixed_cpu_percent' => (float) $f['cpu_percent'],
-            'auto_rss_peak_bytes' => (int) $a['rss_peak_bytes'],
-            'fixed_rss_peak_bytes' => (int) $f['rss_peak_bytes'],
-            'auto_fairness_ratio' => (float) $a['fairness_ratio'],
-            'fixed_fairness_ratio' => (float) $f['fairness_ratio'],
+            'auto_cpu_percent' => adaptiveMatrixMetric($a, 'cpu_percent'),
+            'fixed_cpu_percent' => adaptiveMatrixMetric($f, 'cpu_percent'),
+            'auto_rss_peak_bytes' => (int) adaptiveMatrixMetric($a, 'rss_peak_bytes'),
+            'fixed_rss_peak_bytes' => (int) adaptiveMatrixMetric($f, 'rss_peak_bytes'),
+            'auto_fairness_ratio' => adaptiveMatrixMetric($a, 'fairness_ratio'),
+            'fixed_fairness_ratio' => adaptiveMatrixMetric($f, 'fairness_ratio'),
         ];
 
         if ($throughputRatio < 0.95) {
@@ -126,13 +168,13 @@ function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = fal
         if ($p99Ratio > 1.15 && $p99AbsoluteDelta > 0.5) {
             $failures[] = $phaseName . ': AUTO p99 regressed more than 15% and 0.5 ms.';
         }
-        if ((float) $a['cpu_percent'] > $cpuLimit) {
+        if (adaptiveMatrixMetric($a, 'cpu_percent') > $cpuLimit) {
             $failures[] = $phaseName . ': AUTO CPU exceeded the regression budget.';
         }
-        if ((float) $a['rss_peak_bytes'] > $rssLimit) {
+        if (adaptiveMatrixMetric($a, 'rss_peak_bytes') > $rssLimit) {
             $failures[] = $phaseName . ': AUTO RSS exceeded the regression budget.';
         }
-        if ((float) $a['fairness_ratio'] > $fairnessLimit) {
+        if (adaptiveMatrixMetric($a, 'fairness_ratio') > $fairnessLimit) {
             $failures[] = $phaseName . ': AUTO fairness exceeded the regression budget.';
         }
     }
@@ -146,7 +188,7 @@ function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = fal
         'promotion_certified' => false,
         'evidence_failures' => array_values(array_unique($evidenceFailures)),
         'measurement_qualified' => $evidenceFailures === [],
-        'trials' => min((int) $auto['trials'], (int) $fixed['trials']),
+        'trials' => (int) min($autoTrials, $fixedTrials),
         'budgets' => [
             'throughput_floor_ratio' => 0.95,
             'rps_cv_ceiling_percent' => 2.5,
