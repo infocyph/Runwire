@@ -150,10 +150,10 @@ try {
     $elapsed = (hrtime(true) - $start) / 1_000_000_000;
     $cpuEnd = getrusage() ?: [];
     sort($networkLatency, SORT_NUMERIC);
-    $cpuSeconds = ((int) ($cpuEnd['ru_utime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_sec'] ?? 0))
-        + ((int) ($cpuEnd['ru_utime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_usec'] ?? 0)) / 1_000_000
-        + ((int) ($cpuEnd['ru_stime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_sec'] ?? 0))
-        + ((int) ($cpuEnd['ru_stime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_usec'] ?? 0)) / 1_000_000;
+    $cpuSeconds = (float) ((int) ($cpuEnd['ru_utime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_sec'] ?? 0))
+        + ((int) ($cpuEnd['ru_utime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_usec'] ?? 0)) / 1_000_000.0
+        + (float) ((int) ($cpuEnd['ru_stime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_sec'] ?? 0))
+        + ((int) ($cpuEnd['ru_stime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_usec'] ?? 0)) / 1_000_000.0;
     $rss = (int) ((getrusage() ?: [])['ru_maxrss'] ?? 0) * 1024;
     $passed = $errors === [] && $networkConnected === $networkAttempted
         && $networkAccepted === $networkAttempted && $fileCompleted === 48
@@ -171,9 +171,9 @@ try {
         'loop_ticks' => $timerTicks,
         'peak_timer_tick_gap_ms' => round($maxGapMs, 3),
         'network_p99_ms' => $networkLatency === [] ? null
-            : round($networkLatency[max(0, (int) ceil(count($networkLatency) * 0.99) - 1)], 3),
+            : round($networkLatency[max(0, (int) ceil((float) count($networkLatency) * 0.99) - 1)], 3),
         'elapsed_seconds' => round($elapsed, 4),
-        'parent_cpu_percent' => round(100 * $cpuSeconds / max($elapsed, 0.001), 3),
+        'parent_cpu_percent' => round(100.0 * $cpuSeconds / max($elapsed, 0.001), 3),
         'parent_peak_rss_bytes' => $rss,
         'max_parent_fds' => $maxFdCount,
         'executor_queued_after' => $diag['queued'],

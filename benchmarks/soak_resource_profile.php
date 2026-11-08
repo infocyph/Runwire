@@ -212,7 +212,7 @@ function soakResourceMedian(array $values): float
     $at = intdiv(count($values), 2);
 
     return count($values) % 2 === 0
-        ? ((float) $values[$at - 1] + (float) $values[$at]) / 2
+        ? ((float) $values[$at - 1] + (float) $values[$at]) / 2.0
         : (float) $values[$at];
 }
 
@@ -257,10 +257,10 @@ function soakAnalyzeSamples(array $samples, float $minimumSeconds = 1740.0): arr
     $lateFd = $late === [] ? 0.0 : soakResourceMedian(array_column($late, 'fd'));
     $earlyProcesses = $early === [] ? 0.0 : soakResourceMedian(array_column($early, 'processes'));
     $lateProcesses = $late === [] ? 0.0 : soakResourceMedian(array_column($late, 'processes'));
-    $rssLimit = $earlyRss * 1.15 + 33_554_432;
-    $fdLimit = $earlyFd + 8;
+    $rssLimit = $earlyRss * 1.15 + 33_554_432.0;
+    $fdLimit = $earlyFd + 8.0;
     $passed = $enough && $lateRss <= $rssLimit && $lateFd <= $fdLimit
-        && $lateProcesses <= $earlyProcesses + 1;
+        && $lateProcesses <= $earlyProcesses + 1.0;
 
     return [
         'passed' => $passed,

@@ -90,9 +90,9 @@ function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSecon
     $earlyCache = $median($early, 'opcache_used_bytes');
     $lateCache = $median($late, 'opcache_used_bytes');
     $passed = $enough
-        && $lateHeap <= $earlyHeap * 1.15 + 16_777_216
-        && $lateRoots <= $earlyRoots + 2_048
-        && $lateCache <= $earlyCache + 8_388_608;
+        && $lateHeap <= $earlyHeap * 1.15 + 16_777_216.0
+        && $lateRoots <= $earlyRoots + 2_048.0
+        && $lateCache <= $earlyCache + 8_388_608.0;
 
     return [
         'passed' => $passed,

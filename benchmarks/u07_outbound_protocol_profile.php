@@ -144,7 +144,7 @@ $childCpuUs = max(0, $usage($childrenAfter) - $usage($childrenBefore));
 $parentRssBytes = (int) ($after['ru_maxrss'] ?? 0) * 1024;
 $childrenRssBytes = (int) ($childrenAfter['ru_maxrss'] ?? 0) * 1024;
 sort($latencies, SORT_NUMERIC);
-$seconds = array_sum($latencies) / 1_000;
+$seconds = (float) array_sum($latencies) / 1_000.0;
 if ($seconds <= 0.0 || count($latencies) !== $count) {
     throw new RuntimeException('Insufficient complete protocol samples.');
 }
@@ -160,9 +160,9 @@ fwrite(STDOUT, json_encode([
     'warmups' => $warmups,
     'successful_requests' => $count,
     'errors' => 0,
-    'successful_rps' => round($count / $seconds, 3),
-    'successful_rpm' => round(60 * $count / $seconds, 3),
-    'p99_ms' => round($latencies[(int) ceil($count * 0.99) - 1], 3),
+    'successful_rps' => round((float) $count / $seconds, 3),
+    'successful_rpm' => round(60.0 * (float) $count / $seconds, 3),
+    'p99_ms' => round($latencies[(int) ceil((float) $count * 0.99) - 1], 3),
     'parent_cpu_ms' => round($parentCpuUs / 1_000, 3),
     'reaped_child_cpu_ms' => round($childCpuUs / 1_000, 3),
     'parent_plus_reaped_child_cpu_ms' => round(($parentCpuUs + $childCpuUs) / 1_000, 3),

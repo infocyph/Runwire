@@ -89,8 +89,8 @@ if (!is_array($startUsage) || !is_array($endUsage)) {
     throw new RuntimeException('Process CPU usage metrics are unavailable.');
 }
 sort($latencies, SORT_NUMERIC);
-$index95 = (int) ceil(count($latencies) * 0.95) - 1;
-$index99 = (int) ceil(count($latencies) * 0.99) - 1;
+$index95 = (int) ceil((float) count($latencies) * 0.95) - 1;
+$index99 = (int) ceil((float) count($latencies) * 0.99) - 1;
 $cpuStart = (int) $startUsage['ru_utime.tv_sec'] * 1_000_000
     + (int) $startUsage['ru_utime.tv_usec']
     + (int) $startUsage['ru_stime.tv_sec'] * 1_000_000
@@ -116,8 +116,8 @@ fwrite(STDOUT, json_encode([
     'successful_requests' => count($latencies),
     'errors_total' => 0,
     'duration_seconds' => $duration,
-    'successful_rps' => round(count($latencies) / $duration, 3),
-    'successful_rpm' => round(count($latencies) * 60 / $duration, 3),
+    'successful_rps' => round((float) count($latencies) / $duration, 3),
+    'successful_rpm' => round((float) count($latencies) * 60.0 / $duration, 3),
     'p50_ms' => round($latencies[(int) floor((count($latencies) - 1) / 2)], 3),
     'p95_ms' => round($latencies[$index95], 3),
     'p99_ms' => round($latencies[$index99], 3),

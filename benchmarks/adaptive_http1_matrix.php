@@ -18,7 +18,7 @@ function adaptiveHttp1Phase(array $run): array
         : 100;
     $ticksPerSecond = max(1, $ticksPerSecond);
     $cpu = $run['elapsed'] > 0
-        ? max(0.0, ($run['end_ticks'] - $run['start_ticks']) / $ticksPerSecond / $run['elapsed'] * 100)
+        ? max(0.0, (float) ($run['end_ticks'] - $run['start_ticks']) / (float) $ticksPerSecond / (float) $run['elapsed'] * 100.0)
         : 0.0;
     $p50 = http1SustainedPercentile($run['histogram'], 0.50);
     $p95 = http1SustainedPercentile($run['histogram'], 0.95);
@@ -35,7 +35,7 @@ function adaptiveHttp1Phase(array $run): array
         'requests' => $requests,
         'errors' => 0,
         'duration_seconds' => $run['elapsed'],
-        'throughput_rps' => $run['elapsed'] > 0 ? round($requests / $run['elapsed'], 3) : 0.0,
+        'throughput_rps' => $run['elapsed'] > 0 ? round((float) $requests / (float) $run['elapsed'], 3) : 0.0,
         'p50_ms' => $p50,
         'p95_ms' => $p95,
         'p99_ms' => $p99,
@@ -63,7 +63,7 @@ if (!in_array($mode, ['auto', 'fixed'], true) || $phaseSeconds < 1.0) {
     throw new InvalidArgumentException('Adaptive HTTP/1.1 mode or phase duration is invalid.');
 }
 
-$transitionSeconds = max(1.0, min(2.0, $phaseSeconds / 2));
+$transitionSeconds = max(1.0, min(2.0, $phaseSeconds / 2.0));
 $highSeconds = max($phaseSeconds, $phaseSeconds + 2.0);
 
 $warmupSeconds = max(1.0, (float) (getenv('RUNWIRE_ADAPTIVE_WARMUP_SECONDS') ?: 1));

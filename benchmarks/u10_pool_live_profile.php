@@ -12,7 +12,6 @@ use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\PoolIsolationKey;
 use InvalidArgumentException;
 use LogicException;
-use OverflowException;
 use RuntimeException;
 use stdClass;
 use Throwable;
@@ -341,6 +340,7 @@ try {
     }
     if (preg_match('/^READY ([0-9]+)\n/', $ready, $matches) !== 1) {
         $errorOutput = stream_get_contents($pipes[2]);
+
         throw new RuntimeException('Independent pool origin failed to bind: ' . ($errorOutput === false ? '' : $errorOutput));
     }
     $port = (int) $matches[1];

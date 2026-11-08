@@ -642,7 +642,7 @@ function http1SustainedPercentile(array $histogram, float $fraction): float
         return 0.0;
     }
     ksort($histogram, SORT_NUMERIC);
-    $rank = max(1, (int) ceil(array_sum($histogram) * $fraction));
+    $rank = max(1, (int) ceil((float) array_sum($histogram) * $fraction));
     $seen = 0;
     foreach ($histogram as $micros => $count) {
         $seen += $count;
@@ -728,7 +728,7 @@ function http1SustainedMain(array $argv): array
         : 100;
     $ticksPerSecond = max(1, $ticksPerSecond);
     $cpu = $measured['elapsed'] > 0
-        ? max(0.0, ($measured['end_ticks'] - $measured['start_ticks']) / $ticksPerSecond / $measured['elapsed'] * 100)
+        ? max(0.0, (float) ($measured['end_ticks'] - $measured['start_ticks']) / (float) $ticksPerSecond / (float) $measured['elapsed'] * 100.0)
         : 0.0;
 
     // Keep the requested contract separate from the measured wall time.
@@ -758,7 +758,7 @@ function http1SustainedMain(array $argv): array
         'requests_total' => $requests,
         'completed_requests' => $counter['completed_requests'],
         'successful_requests' => $counter['successful_requests'],
-        'throughput_rps' => $measured['elapsed'] > 0 ? round($counter['successful_requests'] / $measured['elapsed'], 3) : 0.0,
+        'throughput_rps' => $measured['elapsed'] > 0 ? round((float) $counter['successful_requests'] / (float) $measured['elapsed'], 3) : 0.0,
         'latency_ms' => [
             'p50' => http1SustainedPercentile($measured['histogram'], 0.50),
             'p95' => http1SustainedPercentile($measured['histogram'], 0.95),
