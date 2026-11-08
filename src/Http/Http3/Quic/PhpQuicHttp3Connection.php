@@ -67,6 +67,7 @@ final class PhpQuicHttp3Connection
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
      */
     public function __construct(
         private readonly PhpQuicConnection $connection,
@@ -285,6 +286,9 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function abort(Http3Exception $exception): void
     {
         if ($this->closed) {
@@ -483,6 +487,10 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    /**
+     * @throws \UnexpectedValueException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function finishPeerStream(int $streamId, PhpQuicStream $stream): void
     {
         if (!isset($this->requestStreams[$streamId])) {
@@ -509,6 +517,9 @@ final class PhpQuicHttp3Connection
         $this->scheduler->flush();
     }
 
+    /**
+     * @throws \UnexpectedValueException
+     */
     private function flushPending(PhpQuicStream $stream, string $pending): string
     {
         if ($pending === '') {
@@ -572,6 +583,7 @@ final class PhpQuicHttp3Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \UnexpectedValueException
      */
     private function openCriticalStream(string $name): PhpQuicStream
     {
@@ -687,6 +699,7 @@ final class PhpQuicHttp3Connection
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     private function registerPeerStream(PhpQuicStream $stream): void
     {

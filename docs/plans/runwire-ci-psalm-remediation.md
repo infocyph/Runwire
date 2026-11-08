@@ -46,7 +46,8 @@
 | 23 | Cover 99 exception sites in 23 published implementations with matching migration ledger reviews | 99 throw sites + 23 ledger entries | Prepared; CI verification pending |
 | 24 | Correct nullable deadline, DNS family arrays, SOCKS5 encoding, H2/QUIC protocol shapes, TLS callback signatures and Swoole scoping | P1 type and state correctness | Prepared; CI verification pending |
 | 25 | Repair current PHPStan/Pint/PHPCS blockers after Batch 24 | 1 complexity, 1 ordered element, 4 callback warnings | Implemented; CI verification pending |
-| 26+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 26 | Document remaining published runtime exception contracts | 103 logged exception sites | Implemented; CI verification pending |
+| 27+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -266,3 +267,10 @@
 - PHPCS callback-argument warnings in TLS readiness and Swoole host callbacks addressed by explicit parameter disposal, preserving their event handler signatures and callback semantics.
 - Do not mark verified until PHPForge stable/lowest QA, PHPStan, Psalm, HTTP/3, Source Audit and Swoole acceptance results are inspected.
 - P0 file/SSRF/header taint findings (9/6/3), P1 type invariants, P2 internal contracts, P3 unused/docblock issues, and all further findings remain open until verified green.
+
+### Batch 26 — 103 published runtime exception locations
+
+- Matched 103 logged `MissingThrowsDocblock` sites across 13 already-ledgered, previously published implementations, grouped into 69 declaring methods.
+- Updated 87 precise exception declarations, without changing function bodies, API signatures or runtime policy.
+- Pinned comparator migration ledger already covers all 13 implementation types, so no speculative new ledger entries were added.
+- Verify actual net Psalm reduction and PHPStan/Pint/PHPCS/source audit/native/protocol acceptance before marking complete. Security P0–P3 review remains open.

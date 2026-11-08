@@ -49,6 +49,7 @@ final class ResponseScheduler
 
     /**
      * Create a response scheduler for the supplied connection state and transport.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly ConnectionState $state,
@@ -206,6 +207,7 @@ final class ResponseScheduler
      * @param list<array{0: string, 1: string}> $headers
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function appendHeader(
         ResponseStream $stream,
@@ -324,6 +326,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function flushQpack(): bool
     {
@@ -353,6 +356,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function flushRequest(ResponseStream $stream): bool
     {
@@ -392,6 +396,9 @@ final class ResponseScheduler
         return true;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushResponseStream(ResponseStream $stream): bool
     {
         $progress = $this->flushRequest($stream);
@@ -447,6 +454,7 @@ final class ResponseScheduler
     /**
      * @param list<array{0: string, 1: string}> $headers
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function queueHeaders(ResponseStream $stream, int $status, array $headers): WriteResult
     {

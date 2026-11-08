@@ -36,6 +36,7 @@ final readonly class PhpQuicStream
 
     /**
      * Wrap and validate a native QUIC stream object.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private object $stream)
     {

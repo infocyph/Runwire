@@ -38,6 +38,8 @@ final class PhpQuicApi
 
     /**
      * Return the native accept-connection event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptConnectionEvent(): int
     {
@@ -54,6 +56,8 @@ final class PhpQuicApi
 
     /**
      * Return the native accept-stream event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptStreamEvent(): int
     {
@@ -107,6 +111,8 @@ final class PhpQuicApi
 
     /**
      * Return the native QUIC error event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function errorEvent(): int
     {
@@ -118,6 +124,7 @@ final class PhpQuicApi
      * @return array<int|string, int>
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function poll(array $items, ?float $timeoutSeconds = null): array
     {
@@ -144,6 +151,8 @@ final class PhpQuicApi
 
     /**
      * Return the native readable event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function readEvent(): int
     {
@@ -160,6 +169,8 @@ final class PhpQuicApi
 
     /**
      * Return the native writable event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function writeEvent(): int
     {

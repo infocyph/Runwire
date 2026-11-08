@@ -71,6 +71,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * End the response, optionally writing one final body chunk.
      * @throws \LogicException
+     * @throws \OverflowException
      */
     #[\Override]
     public function end(string $finalChunk = ''): WriteResult
@@ -160,6 +161,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Start the response with status and headers.
      * @throws \LogicException
+     * @throws \OverflowException
      */
     #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
@@ -239,6 +241,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Write a response body chunk.
      * @throws \LogicException
+     * @throws \OverflowException
      */
     #[\Override]
     public function write(string $chunk): WriteResult
@@ -316,6 +319,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function endChunked(string $finalChunk): WriteResult
     {
         $wire = $finalChunk === ''
@@ -355,6 +361,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function endOneShot(string $finalChunk): ?WriteResult
     {
@@ -509,6 +516,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->started ? null : $this->start();
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function writeBodyChunk(string $chunk): WriteResult
     {
         $wire = $this->chunked

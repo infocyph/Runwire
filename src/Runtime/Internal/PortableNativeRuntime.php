@@ -100,6 +100,12 @@ final class PortableNativeRuntime
         return array_all($this->handles, fn(NativeWorkerHandle $handle): bool => $handle->drained());
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     */
     private function attachHttp3(string $name, BoundServer $target): void
     {
         if ($target->definition->http3 === null || !$this->selection->capabilities->supportsQuic) {
@@ -120,6 +126,10 @@ final class PortableNativeRuntime
         );
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function attachTarget(
         string $name,
         BoundServer|BoundStreamServer|BoundDatagramServer $target,
@@ -263,6 +273,9 @@ final class PortableNativeRuntime
         });
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function stopGracefully(SelectLoop $loop): void
     {
         if ($this->stopping) {

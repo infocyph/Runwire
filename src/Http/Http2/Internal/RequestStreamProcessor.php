@@ -63,6 +63,7 @@ final class RequestStreamProcessor
      * @param callable(): void $rotationRequested
      * @param callable(StreamError): void $streamFailure
      * @param callable(): void $streamRemoved
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -130,6 +131,7 @@ final class RequestStreamProcessor
     /**
      * Consume an inbound CONTINUATION frame.
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     public function handleContinuation(Frame $frame): void
     {
@@ -150,6 +152,7 @@ final class RequestStreamProcessor
      * Consume an inbound DATA frame.
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     public function handleData(Frame $frame): void
     {
@@ -297,6 +300,7 @@ final class RequestStreamProcessor
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     private function acceptData(Http2Stream $stream, Frame $frame): void
     {
@@ -371,6 +375,7 @@ final class RequestStreamProcessor
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     private function completeHeaderBlock(PendingHeaderBlock $pending): void
     {
@@ -455,6 +460,10 @@ final class RequestStreamProcessor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function creditReceive(?Http2Stream $stream, int $bytes): void
     {
         foreach ($this->flow->creditReceive($stream, $bytes) as $frame) {
@@ -528,6 +537,7 @@ final class RequestStreamProcessor
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     private function handleDataForMissingStream(Frame $frame): void
     {

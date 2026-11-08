@@ -109,7 +109,13 @@ final class CoroutineRuntime
         );
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * @param callable(CoroutineScope): mixed $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     */
     public function run(callable $callback): mixed
     {
         return $this->execute(new CancellationSource(), $callback);
@@ -118,6 +124,9 @@ final class CoroutineRuntime
     /**
      * @param callable(CoroutineScope): mixed $callback
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
      */
     public function runRequest(RequestContext $context, callable $callback): mixed
     {
@@ -152,6 +161,7 @@ final class CoroutineRuntime
      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      * @throws \OverflowException
      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \Throwable
      */
     private function execute(CancellationSource $source, callable $callback): mixed
     {

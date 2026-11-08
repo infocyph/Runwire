@@ -395,7 +395,11 @@ final class CoroutineScope
         $this->scheduler->suspendWritable($stream);
     }
 
-    /** @param callable(self): mixed $callback */
+    /**
+     * @param callable(self): mixed $callback
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function withDeadline(
         RequestDeadline $deadline,
         callable $callback,
@@ -429,6 +433,10 @@ final class CoroutineScope
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function awaitTask(Task $task, bool $cleanup): void
     {
         if ($cleanup) {

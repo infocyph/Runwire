@@ -129,7 +129,10 @@ final readonly class FieldSectionDecoder
         return $this->literalPostBaseNameReference($block, $offset, $base);
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function indexed(string $block, int &$offset, int $base): array
     {
         $static = (ord($block[$offset]) & 0x40) !== 0;
@@ -145,7 +148,10 @@ final readonly class FieldSectionDecoder
         return [$entry['name'], $entry['value'], true];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function indexedPostBase(string $block, int &$offset, int $base): array
     {
         $index = IntegerCodec::decode($block, $offset, 4, ErrorCode::QPACK_DECOMPRESSION_FAILED);
@@ -177,7 +183,10 @@ final readonly class FieldSectionDecoder
         return [$name, $value, false];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function literalNameReference(string $block, int &$offset, int $base): array
     {
         $static = (ord($block[$offset]) & 0x10) !== 0;
@@ -197,7 +206,10 @@ final readonly class FieldSectionDecoder
         return [$name, $value, !$static];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function literalPostBaseNameReference(string $block, int &$offset, int $base): array
     {
         $index = IntegerCodec::decode($block, $offset, 3, ErrorCode::QPACK_DECOMPRESSION_FAILED);

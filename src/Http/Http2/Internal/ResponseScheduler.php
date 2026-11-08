@@ -244,6 +244,9 @@ final class ResponseScheduler
         return new WriteResult(WriteState::CLOSED, 0);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function completeInitialResponse(
         Http2Stream $stream,
         int $dataBytes,
@@ -268,6 +271,7 @@ final class ResponseScheduler
 
     /**
      * @param list<array{0: string, 1: string}> $headers
+     * @throws \InvalidArgumentException
      */
     private function encodeInitialResponse(Http2Stream $stream, array $headers, string $data): string
     {
@@ -300,6 +304,9 @@ final class ResponseScheduler
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushEnd(Http2Stream $stream): bool
     {
         if (!$stream->endPending) {
@@ -316,6 +323,9 @@ final class ResponseScheduler
         return true;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushNextStream(int &$frames, int &$stalled): bool
     {
         $stream = $this->nextStream();
@@ -338,6 +348,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function flushOne(Http2Stream $stream): bool
     {
@@ -376,6 +387,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function flushWireChunk(): bool
     {
@@ -573,6 +585,9 @@ final class ResponseScheduler
         }
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function sendFrame(Frame $frame): WriteResult
     {
         $wire = FrameWriter::encode($frame);
@@ -628,6 +643,7 @@ final class ResponseScheduler
     /**
      * @param list<array{0: string, 1: string}> $headers
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function sendInitialResponse(Http2Stream $stream, array $headers, string $data): ?WriteResult
     {

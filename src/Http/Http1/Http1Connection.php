@@ -152,6 +152,7 @@ final class Http1Connection
 
     /**
      * Stop further keep-alive work and finish the accepted initial exchange.
+     * @throws \InvalidArgumentException
      */
     public function drain(): void
     {
@@ -322,6 +323,9 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function consumeChunkData(): bool
     {
         if ($this->remainingChunk === 0) {
@@ -333,6 +337,9 @@ final class Http1Connection
         return $this->consumeBodyBytes($this->remainingChunk, $this->advanceChunk(...));
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function consumeFixedBody(): bool
     {
         if ($this->remainingBody === 0) {
@@ -438,6 +445,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function fail(int $status): void
     {
         if ($this->closed) {
@@ -502,6 +512,9 @@ final class Http1Connection
         $this->resetExchange();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleEof(): void
     {
         if ($this->closed) {
@@ -569,6 +582,7 @@ final class Http1Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \Throwable
      */
     private function parseHeaderLine(): bool
     {
@@ -596,6 +610,9 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function parseRequestLine(): bool
     {
         if ($this->input->availableBytes() === 0) {
@@ -738,6 +755,7 @@ final class Http1Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \OverflowException
      */
     private function sendContinueIfNeeded(RequestHead $head): void
     {
