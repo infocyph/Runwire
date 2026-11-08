@@ -59,6 +59,7 @@ final class WebSocketUpgradeOwner
 
     /**
      * Drain an active WebSocket session.
+     * @throws \InvalidArgumentException
      */
     public function drain(): bool
     {
@@ -73,6 +74,9 @@ final class WebSocketUpgradeOwner
 
     /**
      * Queue the 101 response and transfer the existing connection to a WebSocket session.
+     * @throws \RuntimeException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      */
     public function upgrade(
         string $accept,

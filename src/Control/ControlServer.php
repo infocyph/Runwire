@@ -49,7 +49,11 @@ final class ControlServer
         $this->close(false);
     }
 
-    /** Opens the control socket and attaches it to the loop and supervisor. */
+    /**
+     * Opens the control socket and attaches it to the loop and supervisor.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     public function open(LoopInterface $loop, Supervisor $supervisor): void
     {
         if ($this->listener !== null) {
@@ -283,7 +287,10 @@ final class ControlServer
         });
     }
 
-    /** @param array<string, mixed> $payload */
+    /**
+     * @param array<string, mixed> $payload
+     * @throws \OverflowException
+     */
     private function write(FramedConnection $session, array $payload): void
     {
         try {

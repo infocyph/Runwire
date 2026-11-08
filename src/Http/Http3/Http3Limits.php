@@ -108,6 +108,9 @@ final readonly class Http3Limits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertBodyWatermarks(int $low, int $high, int $maximum): void
     {
         if ($low >= $high || $high > $maximum) {
@@ -137,6 +140,9 @@ final readonly class Http3Limits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertResponseLimits(
         int $perStream,
         int $perConnection,
@@ -160,6 +166,9 @@ final readonly class Http3Limits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertResponseWatermarks(int $low, int $high, int $maximum): void
     {
         if ($low < 0 || $low >= $high || $high > $maximum) {

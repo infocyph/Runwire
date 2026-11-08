@@ -16,6 +16,7 @@ final readonly class PrivilegeDropPolicy
 {
     /**
      * Create a worker identity policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public ?int $uid = null,
@@ -75,6 +76,9 @@ final readonly class PrivilegeDropPolicy
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function assertTransitionPermission(?int $targetGid): void
     {
         $effectiveUid = posix_geteuid();
@@ -101,6 +105,9 @@ final readonly class PrivilegeDropPolicy
         return $functions;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function resolveTargetGid(): ?int
     {
         if ($this->uid === null) {

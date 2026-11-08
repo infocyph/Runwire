@@ -46,6 +46,7 @@ final class WorkerCoroutineScope
      * Create a background coroutine scope for one worker loop.
      *
      * @param callable(): void $onFailure
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -76,6 +77,7 @@ final class WorkerCoroutineScope
 
     /**
      * Cancel and close the background coroutine scope immediately.
+     * @throws \Throwable
      */
     public function close(): void
     {
@@ -148,7 +150,11 @@ final class WorkerCoroutineScope
         return $this->loop === $loop;
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * @param callable(CoroutineScope): mixed $callback
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function spawn(callable $callback): Task
     {
         if ($this->closed) {

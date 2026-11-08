@@ -136,6 +136,11 @@ final class RequestFinalizer
         };
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
+     */
     private function finalize(): void
     {
         $this->finalizedRequest = true;

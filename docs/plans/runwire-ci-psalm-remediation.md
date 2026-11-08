@@ -43,6 +43,7 @@
 | 20 | Harden off-loop filesystem paths and CLI audit input file trust boundaries, with regression tests | Security hardening (P0) | Prepared; CI verification pending |
 | 21 | Resolve timer heap type coercion, detached process nullability and public API delta array shapes | Type correctness (P1) | Prepared; CI verification pending |
 | 22 | Document 99 more exception locations in 15 new-3.0 service and transport files | 99 throw sites, method-level precision | Prepared; CI verification pending |
+| 23 | Cover 99 exception sites in 23 published implementations with matching migration ledger reviews | 99 throw sites + 23 ledger entries | Prepared; CI verification pending |
 | 11+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Not started |
 
 ### Batch 1 verification
@@ -239,3 +240,9 @@
 - Resolve 99 logged `MissingThrowsDocblock` sites in 15 3.0-new, source-audit-safe implementation files (filesystem, HTTP1/3, coroutine, network, executor and tracing).
 - Preserve implementation code, API signatures, URI policy and cancellation/resource handling. Group annotations by declaring method; no blanket `Throwable` substitution or analyzer suppressions.
 - Verify actual error reduction on both PHP versions and all PHPForge QA/protocol jobs before completing the batch.
+
+### Batch 23 — published subsystem exception contracts
+
+- Cover 99 remaining `MissingThrowsDocblock` locations across 23 previously published HTTP1/2/3, network, process, runtime and supervisor types, preserving source bodies.
+- Extend pinned 2.1.2 behavior ledger with 23 matching regression-test-backed migration records, ensuring that the Source Audit remains a strict equality gate.
+- No changes to method behavior, public API shape or security enforcement; verify type and quality gates on GitHub after committing.

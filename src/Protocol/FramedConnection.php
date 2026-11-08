@@ -24,7 +24,10 @@ final class FramedConnection
 
     private bool $pumpScheduled = false;
 
-    /** @param callable(string, self): void $onFrame */
+    /**
+     * @param callable(string, self): void $onFrame
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -84,6 +87,7 @@ final class FramedConnection
 
     /**
      * Encodes and writes one application frame.
+     * @throws \OverflowException
      */
     public function send(string $frame): WriteResult
     {
@@ -98,6 +102,9 @@ final class FramedConnection
         return $this->connection;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function decodeAndDispatch(string $bytes): void
     {
         try {
@@ -121,7 +128,10 @@ final class FramedConnection
         }
     }
 
-    /** @param list<string> $frames */
+    /**
+     * @param list<string> $frames
+     * @throws \Throwable
+     */
     private function dispatch(array $frames): void
     {
         if ($this->pumping) {

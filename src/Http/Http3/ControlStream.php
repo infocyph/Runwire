@@ -39,6 +39,7 @@ final class ControlStream
 
     /**
      * Report closure of the critical control stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function close(): never
     {
@@ -68,6 +69,9 @@ final class ControlStream
         return $frames;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function validate(Frame $frame): void
     {
         $type = $frame->knownType();

@@ -42,6 +42,7 @@ final readonly class ProcessRunner
 
     /**
      * Executes a command and returns its captured execution result.
+     * @throws \Throwable
      */
     public function run(Command $command, ?callable $stdoutConsumer = null, ?callable $stderrConsumer = null): ProcessResult
     {
@@ -327,7 +328,11 @@ final readonly class ProcessRunner
         return [$read, $write, $inputResourceId];
     }
 
-    /** @return array{0: ProcessHandle, 1: array<int, resource>} */
+    /**
+     * @return array{0: ProcessHandle, 1: array<int, resource>}
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     * @throws \Throwable
+     */
     private function start(PreparedCommand $prepared): array
     {
         $command = $prepared->command;
@@ -369,6 +374,9 @@ final readonly class ProcessRunner
         return [$handle, $pipes];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     */
     private function validateConsumer(IoMode $mode, ?callable $consumer, string $stream): void
     {
         if ($mode === IoMode::STREAM && $consumer === null) {

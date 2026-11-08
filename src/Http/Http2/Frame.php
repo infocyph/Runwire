@@ -14,6 +14,7 @@ final readonly class Frame
 {
     /**
      * Create an HTTP/2 frame.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $type,

@@ -11,6 +11,7 @@ final class IntegerCodec
 {
     /**
      * Decode an HPACK integer and advance the byte offset.
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
      */
     public static function decode(string $data, int &$offset, int $prefixBits): int
     {
@@ -45,6 +46,7 @@ final class IntegerCodec
 
     /**
      * Encode an HPACK integer with the supplied prefix width and mask.
+     * @throws \InvalidArgumentException
      */
     public static function encode(int $value, int $prefixBits, int $prefixMask = 0): string
     {
@@ -68,6 +70,9 @@ final class IntegerCodec
         return $encoded . self::byte($value);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function byte(int $value): string
     {
         if ($value < 0 || $value > 0xFF) {
@@ -77,6 +82,9 @@ final class IntegerCodec
         return chr($value);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validatePrefix(int $bits): void
     {
         if ($bits < 1 || $bits > 8) {

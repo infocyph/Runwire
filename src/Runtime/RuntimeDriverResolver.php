@@ -22,6 +22,7 @@ final class RuntimeDriverResolver
 
     /**
      * Resolves the runtime driver for the supplied options and environment.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function resolve(RuntimeOptions $options, RuntimeEnvironment $environment): RuntimeDriver
     {
@@ -45,6 +46,9 @@ final class RuntimeDriverResolver
         ));
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private function resolveExplicit(RuntimeDriver $driver, RuntimeEnvironment $environment): RuntimeDriver
     {
         if ($driver === RuntimeDriver::NATIVE) {

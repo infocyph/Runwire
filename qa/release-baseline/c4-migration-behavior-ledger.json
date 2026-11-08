@@ -24,6 +24,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Control\\ControlServer",
+      "executableTest": "tests/ControlServerTest.php",
+      "behavior": "Control server request validation and response lifecycle",
+      "migration": "This previously published component retains control server request validation and response lifecycle and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Coroutine\\Barrier",
       "executableTest": "tests/BatchNSynchronizationTest.php",
       "behavior": "Coroutine barrier admission and release",
@@ -176,10 +184,50 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http1\\Internal\\WebSocketUpgradeOwner",
+      "executableTest": "tests/WebSocketIntegrationTest.php",
+      "behavior": "WebSocket HTTP upgrade and resource handoff",
+      "migration": "This previously published component retains websocket http upgrade and resource handoff and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Frame",
+      "executableTest": "tests/Http2FrameTest.php",
+      "behavior": "HTTP/2 framing and bounds validation",
+      "migration": "This previously published component retains http/2 framing and bounds validation and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\FrameParser",
+      "executableTest": "tests/Http2FrameTest.php",
+      "behavior": "HTTP/2 frame bounds and parser correctness",
+      "migration": "This previously published component retains http/2 frame bounds and parser correctness and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http2\\Hpack\\Decoder",
       "executableTest": "tests/HpackTest.php",
       "behavior": "HPACK header parsing and bounds",
       "migration": "Exception contracts now explicitly document pre-existing validation and failure behavior; callers upgrading to Runwire 3.0 must preserve the tested hpack header parsing and bounds while handling the same exception categories.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Hpack\\HuffmanCodec",
+      "executableTest": "tests/HpackTest.php",
+      "behavior": "HPACK Huffman decoder bounds and encoding",
+      "migration": "This previously published component retains hpack huffman decoder bounds and encoding and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\Hpack\\IntegerCodec",
+      "executableTest": "tests/HpackTest.php",
+      "behavior": "HPACK integer encoding bounds",
+      "migration": "This previously published component retains hpack integer encoding bounds and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -236,6 +284,38 @@
       "executableTest": "tests/Http2AdaptiveResponseStrategyTest.php",
       "behavior": "Optional DATA-credit callback for H2 outbound scheduling",
       "migration": "Previously valid constructor calls retain defaults; optional outbound credit is a new capability, not a required argument.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http2\\PeerSettings",
+      "executableTest": "tests/Http2ConnectionTest.php",
+      "behavior": "HTTP/2 peer settings bounds and state",
+      "migration": "This previously published component retains http/2 peer settings bounds and state and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\ControlStream",
+      "executableTest": "tests/Http3ControlStreamTest.php",
+      "behavior": "HTTP/3 control stream state and SETTINGS",
+      "migration": "This previously published component retains http/3 control stream state and settings and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\FrameParser",
+      "executableTest": "tests/Http3FrameTest.php",
+      "behavior": "HTTP/3 frame parser and length bounds",
+      "migration": "This previously published component retains http/3 frame parser and length bounds and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Http3Limits",
+      "executableTest": "tests/Http3OptionsTest.php",
+      "behavior": "HTTP/3 limits and protocol configuration",
+      "migration": "This previously published component retains http/3 limits and protocol configuration and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -300,6 +380,14 @@
       "executableTest": "tests/QpackTest.php",
       "behavior": "HTTP/3 QPACK field section parsing and rejection",
       "migration": "The published http/3 qpack field section parsing and rejection remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Qpack\\IntegerCodec",
+      "executableTest": "tests/QpackTest.php",
+      "behavior": "QPACK integer encoding and decoding bounds",
+      "migration": "This previously published component retains qpack integer encoding and decoding bounds and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -496,6 +584,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Network\\DatagramOptions",
+      "executableTest": "tests/DatagramListenerTest.php",
+      "behavior": "Datagram connection options and packet limits",
+      "migration": "This previously published component retains datagram connection options and packet limits and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Network\\Enum\\CloseReason",
       "executableTest": "tests/ConnectionStateOwnershipTest.php",
       "behavior": "Connection close classification and callback sequencing",
@@ -600,6 +696,30 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Process\\Internal\\ProcessTermination",
+      "executableTest": "tests/ProcessRunnerTest.php",
+      "behavior": "Process shutdown and reaping behavior",
+      "migration": "This previously published component retains process shutdown and reaping behavior and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Process\\ProcessRunner",
+      "executableTest": "tests/ProcessRunnerTest.php",
+      "behavior": "Process runner lifecycle and resource management",
+      "migration": "This previously published component retains process runner lifecycle and resource management and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Protocol\\FramedConnection",
+      "executableTest": "tests/FramedConnectionTest.php",
+      "behavior": "Application frame boundaries and transport validation",
+      "migration": "This previously published component retains application frame boundaries and transport validation and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Protocol\\LengthPrefixedCodec",
       "executableTest": "tests/ProtocolCodecTest.php",
       "behavior": "Length-prefixed frame validation and stream buffering",
@@ -652,6 +772,14 @@
       "executableTest": "tests/BatchORuntimeIntegrationTest.php",
       "behavior": "Request-bound coroutine scheduling and lifecycle ownership",
       "migration": "The runtime still drains request-owned coroutine tasks before reset and completion, and propagates cancellation across each request lifetime.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\DevelopmentWatchPolicy",
+      "executableTest": "tests/RuntimeOptionsTest.php",
+      "behavior": "Development watcher admission and poll bounds",
+      "migration": "This previously published component retains development watcher admission and poll bounds and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -752,10 +880,34 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\RequestFinalizer",
+      "executableTest": "tests/R1RequestLifecycleRegressionTest.php",
+      "behavior": "Request shutdown hooks and terminal state",
+      "migration": "This previously published component retains request shutdown hooks and terminal state and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\SystemResourceProbe",
       "executableTest": "tests/SystemResourceProbeCgroupTest.php",
       "behavior": "Conservative effective CPU and memory capacity detection across Linux cgroup quotas, malformed cpusets, and host limits",
       "migration": "Valid, ordered Linux cpuset ranges retain the same host and cgroup resource semantics; malformed, duplicate or overlapping cpuset ranges now fail closed to a conservative one-CPU worker sizing value rather than incorrectly allowing full host capacity.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\RuntimeDriverResolver",
+      "executableTest": "tests/RuntimeDriverResolverTest.php",
+      "behavior": "Runtime driver selection and capability validation",
+      "migration": "This previously published component retains runtime driver selection and capability validation and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\SystemResources",
+      "executableTest": "tests/SystemResourceProbeCgroupTest.php",
+      "behavior": "System resource sampling and cgroup limits",
+      "migration": "This previously published component retains system resource sampling and cgroup limits and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -856,6 +1008,30 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\WorkerCoroutineScope",
+      "executableTest": "tests/WorkerContextTest.php",
+      "behavior": "Supervisor-owned coroutine scope lifetime",
+      "migration": "This previously published component retains supervisor-owned coroutine scope lifetime and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\PrivilegeDropPolicy",
+      "executableTest": "tests/PrivilegeDropperTest.php",
+      "behavior": "Privilege drop configuration and identity checks",
+      "migration": "This previously published component retains privilege drop configuration and identity checks and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\ReloadPolicy",
+      "executableTest": "tests/RollingReloadPolicyTest.php",
+      "behavior": "Supervisor reload policy and worker replacement limits",
+      "migration": "This previously published component retains supervisor reload policy and worker replacement limits and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Supervisor\\RestartPolicy",
       "executableTest": "tests/SupervisorTest.php",
       "behavior": "Bounded worker restart policy and exponential backoff",
@@ -892,6 +1068,14 @@
       "executableTest": "tests/WorkerRecyclePolicyTest.php",
       "behavior": "Worker recycle limits and thresholds",
       "migration": "The published worker recycle limits and thresholds remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\SwooleOptions",
+      "executableTest": "tests/SwooleDriverTest.php",
+      "behavior": "Swoole host options and configuration",
+      "migration": "This previously published component retains swoole host options and configuration and existing failure handling. The 3.0 exception declarations document already tested validation and lifecycle behavior without altering runtime semantics.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

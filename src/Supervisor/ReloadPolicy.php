@@ -13,6 +13,7 @@ final readonly class ReloadPolicy
 {
     /**
      * Create a rolling-reload policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxUnavailable = 0,
