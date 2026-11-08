@@ -88,7 +88,8 @@ $jobs = [
  * @param callable(int):int $operation
  * @return array{iterations:int,trials:int,median_nanoseconds_per_op:float,cv_percent:float}
  */
-$measure = static function (callable $operation) use ($iterations): array {
+function runwireHpackMicroprofileMeasure(callable $operation, int $iterations): array
+{
     $checksum = 0;
     for ($i = 0; $i < 64; ++$i) {
         $checksum += $operation($i);
@@ -118,11 +119,11 @@ $measure = static function (callable $operation) use ($iterations): array {
         'median_nanoseconds_per_op' => round($samples[2], 2),
         'cv_percent' => round(100.0 * sqrt($variance) / $average, 3),
     ];
-};
+}
 
 $results = [];
 foreach ($jobs as $name => $job) {
-    $results[$name] = $measure($job);
+    $results[$name] = runwireHpackMicroprofileMeasure($job, $iterations);
 }
 $encoder = new Encoder(512);
 $decoder = new Decoder(512);
@@ -144,7 +145,7 @@ $write = static function (int $index) use ($encoder, $decoder): int {
 
     return strlen($frame);
 };
-$results['header_frame_write_churn'] = $measure($write);
+$results['header_frame_write_churn'] = runwireHpackMicroprofileMeasure($write, $iterations);
 $output = json_encode([
     'schemaVersion' => 1,
     'sourceRevision' => $revision,

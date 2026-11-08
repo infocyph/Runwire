@@ -16,6 +16,20 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 
 require __DIR__ . '/../vendor/autoload.php';
 
+/**
+ * @param array<string, mixed> $metrics
+ * @throws \UnexpectedValueException
+ */
+function footprintIntegerMetric(array $metrics, string $name): int
+{
+    $value = $metrics[$name] ?? 0;
+    if (!is_int($value) || $value < 0) {
+        throw new UnexpectedValueException('Invalid OPcache integer metric: ' . $name);
+    }
+
+    return $value;
+}
+
 $mode = $argv[1] ?? 'bootstrap';
 if (!in_array($mode, ['bootstrap', 'lifecycle', 'coroutine'], true)) {
     throw new InvalidArgumentException(
@@ -78,13 +92,20 @@ $status = function_exists('opcache_get_status') ? opcache_get_status(true) : fal
 $cached = [];
 $cachedBytes = 0;
 if (is_array($status)) {
-    foreach ($status['scripts'] ?? [] as $path => $script) {
-        $file = $relative((string) $path);
+    $scripts = $status['scripts'] ?? [];
+    if (!is_array($scripts)) {
+        throw new UnexpectedValueException('OPcache scripts inventory is malformed.');
+    }
+    foreach ($scripts as $path => $script) {
+        if (!is_string($path) || !is_array($script)) {
+            throw new UnexpectedValueException('OPcache script evidence has an invalid entry.');
+        }
+        $file = $relative($path);
         if ($file === null) {
             continue;
         }
         $cached[] = $file;
-        $cachedBytes += (int) ($script['memory_consumption'] ?? 0);
+        $cachedBytes += footprintIntegerMetric($script, 'memory_consumption');
     }
 }
 sort($cached, SORT_STRING);
@@ -107,9 +128,9 @@ foreach ($iterator as $file) {
 }
 sort($sourceFiles, SORT_STRING);
 
-$memory = is_array($status) ? ($status['memory_usage'] ?? []) : [];
-$statistics = is_array($status) ? ($status['opcache_statistics'] ?? []) : [];
-$interned = is_array($status) ? ($status['interned_strings_usage'] ?? []) : [];
+$memory = is_array($status) && is_array($status['memory_usage'] ?? null) ? $status['memory_usage'] : [];
+$statistics = is_array($status) && is_array($status['opcache_statistics'] ?? null) ? $status['opcache_statistics'] : [];
+$interned = is_array($status) && is_array($status['interned_strings_usage'] ?? null) ? $status['interned_strings_usage'] : [];
 
 $result = [
     'mode' => $mode,
@@ -124,19 +145,19 @@ $result = [
     'included_runwire_scripts' => $included,
     'cached_runwire_scripts' => $cached,
     'opcache' => [
-        'num_cached_scripts' => (int) ($statistics['num_cached_scripts'] ?? 0),
-        'num_cached_keys' => (int) ($statistics['num_cached_keys'] ?? 0),
-        'max_cached_keys' => (int) ($statistics['max_cached_keys'] ?? 0),
+        'num_cached_scripts' => footprintIntegerMetric($statistics, 'num_cached_scripts'),
+        'num_cached_keys' => footprintIntegerMetric($statistics, 'num_cached_keys'),
+        'max_cached_keys' => footprintIntegerMetric($statistics, 'max_cached_keys'),
         'cache_full' => (bool) ($status['cache_full'] ?? false),
-        'oom_restarts' => (int) ($statistics['oom_restarts'] ?? 0),
-        'hash_restarts' => (int) ($statistics['hash_restarts'] ?? 0),
-        'manual_restarts' => (int) ($statistics['manual_restarts'] ?? 0),
-        'used_memory_bytes' => (int) ($memory['used_memory'] ?? 0),
-        'free_memory_bytes' => (int) ($memory['free_memory'] ?? 0),
-        'wasted_memory_bytes' => (int) ($memory['wasted_memory'] ?? 0),
-        'interned_used_memory_bytes' => (int) ($interned['used_memory'] ?? 0),
-        'interned_free_memory_bytes' => (int) ($interned['free_memory'] ?? 0),
-        'interned_strings' => (int) ($interned['number_of_strings'] ?? 0),
+        'oom_restarts' => footprintIntegerMetric($statistics, 'oom_restarts'),
+        'hash_restarts' => footprintIntegerMetric($statistics, 'hash_restarts'),
+        'manual_restarts' => footprintIntegerMetric($statistics, 'manual_restarts'),
+        'used_memory_bytes' => footprintIntegerMetric($memory, 'used_memory'),
+        'free_memory_bytes' => footprintIntegerMetric($memory, 'free_memory'),
+        'wasted_memory_bytes' => footprintIntegerMetric($memory, 'wasted_memory'),
+        'interned_used_memory_bytes' => footprintIntegerMetric($interned, 'used_memory'),
+        'interned_free_memory_bytes' => footprintIntegerMetric($interned, 'free_memory'),
+        'interned_strings' => footprintIntegerMetric($interned, 'number_of_strings'),
     ],
 ];
 

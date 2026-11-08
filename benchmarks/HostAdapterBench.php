@@ -69,8 +69,9 @@ final class HostAdapterBench
         $this->request = $this->factory->fromServer($this->server, $this->body, 1_024);
         $this->application = new RuntimeApplication(
             static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-                $request->headers->first('x-trace-id');
-                $writer->isStarted();
+                if ($request->headers->first('x-trace-id') !== 'benchmark-trace' || $writer->isStarted()) {
+                    throw new \LogicException('Host benchmark request normalization violated its fixture contract.');
+                }
             },
             static function (): void {},
         );
@@ -134,7 +135,9 @@ final class HostAdapterBench
         return new CallbackResponseWriter(
             static function (): void {},
             static function (string $chunk): void {
-                strlen($chunk);
+                if (strlen($chunk) > 1_024) {
+                    throw new \LogicException('Host benchmark writer exceeded its configured buffer ceiling.');
+                }
             },
             static function (): void {},
             1_024,

@@ -131,8 +131,15 @@ function adaptiveMatrixSummarize(array $records): array
     $metrics = ['throughput_rps', 'p50_ms', 'p95_ms', 'p99_ms', 'cpu_percent', 'rss_peak_bytes', 'fairness_ratio'];
     if (isset($reference['case'])) {
         $metrics[] = 'client_cpu_percent';
-        $trialIds = array_column($records, 'trial');
-        if (count($trialIds) !== count($records) || count(array_unique($trialIds)) !== count($records)) {
+        $trialIds = [];
+        foreach ($records as $record) {
+            $trial = $record['trial'] ?? null;
+            if (!is_int($trial) && !is_string($trial)) {
+                throw new RuntimeException('Promotion evidence requires integer or string trial IDs.');
+            }
+            $trialIds[] = $trial;
+        }
+        if (count(array_unique($trialIds)) !== count($records)) {
             throw new RuntimeException('Promotion evidence requires distinct trial IDs.');
         }
     }
@@ -163,7 +170,7 @@ function adaptiveMatrixSummarize(array $records): array
         $recordPhases = [];
         foreach ($phaseNames as $name) {
             $phase = adaptiveMatrixPhase($recordRawPhases[$name] ?? null, $name);
-            $referencePhase = $referencePhases[$name];
+            $referencePhase = $referencePhases[$name] ?? throw new RuntimeException('Missing reference phase: ' . $name);
             if (($phase['correctness_passed'] ?? false) !== true
                 || adaptiveMatrixMetric($phase, 'requests') <= 0
                 || adaptiveMatrixMetric($phase, 'errors') !== 0.0
@@ -189,19 +196,33 @@ function adaptiveMatrixSummarize(array $records): array
     $phases = [];
     foreach ($phaseNames as $name) {
         foreach ($metrics as $metric) {
-            $values = array_map(static fn(array $rows): float => adaptiveMatrixMetric($rows[$name], $metric), $validatedPhases);
-            $phases[$name][$metric] = adaptiveMatrixMedian($values);
+            $values = array_map(
+                static fn(array $rows): float => adaptiveMatrixMetric(
+                    $rows[$name] ?? throw new RuntimeException('Missing validated phase: ' . $name),
+                    $metric,
+                ),
+                $validatedPhases,
+            );
+            $median = adaptiveMatrixMedian($values);
+            $phases[$name][$metric] = $median;
             if ($metric === 'client_cpu_percent') {
                 $phases[$name]['client_cpu_percent_max'] = max($values);
             }
             if ($metric === 'throughput_rps') {
                 $phases[$name]['rps_cv_percent'] = adaptiveMatrixCv($values);
-                $phases[$name]['throughput_rpm'] = (float) $phases[$name][$metric] * 60.0;
+                $phases[$name]['throughput_rpm'] = $median * 60.0;
             }
         }
-        $phases[$name]['duration_seconds_min'] = min(array_map(static fn(array $rows): float => adaptiveMatrixMetric($rows[$name], 'duration_seconds'), $validatedPhases));
+        $phases[$name]['duration_seconds_min'] = min(array_map(
+            static fn(array $rows): float => adaptiveMatrixMetric(
+                $rows[$name] ?? throw new RuntimeException('Missing validated phase: ' . $name),
+                'duration_seconds',
+            ),
+            $validatedPhases,
+        ));
         foreach (['concurrency', 'requested_duration_seconds'] as $field) {
-            $phases[$name][$field] = $referencePhases[$name][$field];
+            $referencePhase = $referencePhases[$name] ?? throw new RuntimeException('Missing reference phase: ' . $name);
+            $phases[$name][$field] = $referencePhase[$field] ?? throw new RuntimeException('Missing reference configuration: ' . $field);
         }
     }
 

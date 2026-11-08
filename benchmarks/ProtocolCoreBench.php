@@ -369,7 +369,7 @@ final class ProtocolCoreBench
 
     public function benchHttp3QpackStaticDecode(): int
     {
-        return count($this->qpackDecoder->decode($this->qpackWire, 0)?->fields ?? []);
+        return count($this->qpackDecoder->decode($this->qpackWire, 0)->fields);
     }
 
     /**

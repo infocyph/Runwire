@@ -45,7 +45,8 @@ spl_autoload_register(static function (string $class) use ($source): void {
  * @param callable(int):int $operation
  * @return array{iterations:int,trials:int,median_nanoseconds_per_op:float,cv_percent:float}
  */
-$measure = static function (callable $operation) use ($iterations): array {
+function runwireQpackMicroprofileMeasure(callable $operation, int $iterations): array
+{
     $checksum = 0;
     for ($i = 0; $i < 64; ++$i) {
         $checksum += $operation($i);
@@ -75,7 +76,7 @@ $measure = static function (callable $operation) use ($iterations): array {
         'median_nanoseconds_per_op' => round($samples[2], 2),
         'cv_percent' => round(100.0 * sqrt($variance) / $mean, 3),
     ];
-};
+}
 
 $jobs = [
     'qpack_continuation_integer' => static function (int $i): int {
@@ -129,7 +130,7 @@ $jobs = [
 
 $results = [];
 foreach ($jobs as $name => $job) {
-    $results[$name] = $measure($job);
+    $results[$name] = runwireQpackMicroprofileMeasure($job, $iterations);
 }
 $json = json_encode([
     'schemaVersion' => 1,
