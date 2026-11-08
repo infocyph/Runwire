@@ -638,3 +638,10 @@
 - Reorder new lifecycle predicates to satisfy strict alpha method ordering, and use a freshly loaded loop state at the loop guard. Preserve native TLS option failure checks and warning-handler messages through explicitly typed helper boundaries.
 - Replace Fiber::suspend unused-result annotations with explicit, harmless result discards after mandatory suspension. Preserve coroutine scheduling semantics. Replace TcpListener redundant closed-resource check with a runtime-resilient helper while retaining its rejection behavior.
 - Verify exact SHA Psalm/PHPStan on both versions, QA/Pint/Pest/source audit, hosted acceptance, QUIC and docs before closing; no change to the 15 security taints, no QA exclusions, no merge/tag.
+
+### Batch 55 — restore trustworthy Fiber semantics and TCP PHPDocs
+
+- Exact Batch 54 (`ede0afef31480eadcf976fd387521227be21cf1a`) reported 18 Psalm (15 security taints, one TCP helper doc split and two Fiber assignment findings), one PHPStan (unreachable post-return Fiber assignment), PHPCS/Rector violations and five remaining skip directives; Pint and Pest passed.
+- Restore the original FiberScheduler suspension expressions: the attempted read-and-unset of an unused resume payload caused dead code, unused-variable, Rector and PHPCS failures. These annotations remain explicit unresolved quality-policy conflicts until a real compatible mechanism is validated; do not replace with code that merely games static analysis.
+- Reattach the listener's `@throws ListenerException` to normalizeAddress after inserting an independent closed-resource predicate. Preserve native TCP/TLS behavior.
+- Remaining P0: 15 file/SSRF taints. Remaining QA: four Fiber suppressions, four constructor-default suppressions, one validated-header taint escape. All require further review; do not downgrade the QA scanner or analyzer scope. Exact-head CI is pending. No merge or release.

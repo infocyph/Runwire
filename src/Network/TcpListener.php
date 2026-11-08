@@ -332,15 +332,15 @@ final class TcpListener
             && str_starts_with($message, 'stream_socket_accept(): Accept failed:');
     }
 
-    /**
-     * @throws \Infocyph\Runwire\Exception\ListenerException
-     */
     /** A TLS callback may deliver an already-closed native stream handle. */
     private static function isLiveAcceptedStream(mixed $stream): bool
     {
         return is_resource($stream);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function normalizeAddress(string $address): string
     {
         if (str_contains($address, '://')) {
