@@ -12,49 +12,17 @@ if (PHP_SAPI !== 'cli') {
  * This is a documentation coverage gate, not proof that all historical
  * runtime behavior is backward compatible.
  */
-/** Validate CLI arguments without trusting the ambient server array shape. */
-$readCliArguments = static function (mixed $input): array {
-    if (!is_array($input) || !array_is_list($input)) {
-        throw new InvalidArgumentException('CLI arguments must be a list of strings.');
-    }
-
-    $arguments = [];
-    foreach ($input as $value) {
-        if (!is_string($value)) {
-            throw new InvalidArgumentException('CLI arguments must be strings.');
-        }
-        $arguments[] = $value;
-    }
-
-    return $arguments;
-};
-$arguments = $readCliArguments($argv ?? []);
-if (count($arguments) !== 3) {
-    throw new InvalidArgumentException(
-        'Usage: php tools/c4-migration-behavior-audit.php <source-diff.json> <ledger.json>',
-    );
+/** Source Audit supplies two already-opened JSON documents through bounded stdin. */
+if (!is_array($argv ?? null) || count($argv) !== 1) {
+    throw new InvalidArgumentException('Usage: php tools/c4-migration-behavior-audit.php < audit-envelope.json');
 }
-
-/** Read only canonical local JSON inputs; no remote stream-wrapper dispatch. */
-$readAuditFile = static function (string $path): string {
-    $canonical = realpath($path);
-    if (!is_string($canonical) || !is_file($canonical) || !is_readable($canonical)) {
-        throw new InvalidArgumentException('Migration audit requires a readable local file.');
-    }
-    $size = filesize($canonical);
-    if (!is_int($size) || $size > 16_777_216) {
-        throw new InvalidArgumentException('Migration audit file is oversized or unreadable.');
-    }
-    $content = file_get_contents($canonical);
-    if (!is_string($content)) {
-        throw new RuntimeException('Migration audit input could not be read.');
-    }
-
-    return $content;
-};
-
-$diff = json_decode($readAuditFile($arguments[1]), true, flags: JSON_THROW_ON_ERROR);
-$ledger = json_decode($readAuditFile($arguments[2]), true, flags: JSON_THROW_ON_ERROR);
+$input = stream_get_contents(STDIN, 33_600_001);
+if (!is_string($input) || $input === '' || strlen($input) > 33_600_000) {
+    throw new InvalidArgumentException('Migration audit input is missing or exceeds 33.6 MiB.');
+}
+$envelope = json_decode($input, true, 64, JSON_THROW_ON_ERROR);
+$diff = is_array($envelope) ? ($envelope['diff'] ?? null) : null;
+$ledger = is_array($envelope) ? ($envelope['ledger'] ?? null) : null;
 if (!is_array($diff) || !is_array($ledger) || ($diff['schemaVersion'] ?? null) !== 1
     || ($ledger['schemaVersion'] ?? null) !== 1
     || ($ledger['publishedRevision'] ?? null) !== $diff['baselineRevision']

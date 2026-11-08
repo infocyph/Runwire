@@ -800,3 +800,10 @@
 - The private `tools/public-api-manifest.php` receives the output path via CLI argv and writes it with `file_put_contents`, a genuine tainted-file sink. A source-only manifest generator does not need filesystem write privileges: write deterministic JSON to stdout; let its trusted CLI invoker supply output redirection. This removes the writable arbitrary-path interface altogether, not merely an analyzer tag.
 - Update all four source-audit workflow calls to redirect stdout into their original manifest filenames, preserving exact contents and immutably pinned 2.1.2 checksum verification. Adapt focused tests (valid manifests, stream-wrapper source rejection, symlinked declaration rejection) to the new CLI usage, and retain stderr operational diagnostics. This intentionally changes an internal audit-tool invocation, not Runwire's published PHP API.
 - Evaluate both analyzers, four QA variants, pinned Source Audit and tests on the exact SHA before declaring the first taint removed. Do not create or suppress Psalm annotations. No merge/tag/release.
+
+### Batch 80 — read migration behavior audit documents from bounded stdin
+
+- Batch 79 replaced the source manifest generator's argv-selected file-output sink with deterministic stdout. Source Audit passed the new SHA.
+- The C4 migration behavior verifier still opened two caller-selected paths from CLI argv (TaintedSSRF plus TaintedFile at the same call). Remove the executable's filesystem-read capability entirely: accept a bounded 33.6 MiB JSON stdin envelope with diff and ledger object members, retaining all schema, source revision, test-evidence and public change checks.
+- Source Audit builds the envelope with the existing pinned checkout via jq --slurpfile, outside of PHP. New subprocess test checks a full real ledger and rejects an invalid partial document. The previous arbitrary-path CLI shape is intentionally retired for this internal-only tool.
+- Do not suppress or escape Psalm taints. Keep all QA and the original Source Audit strict. Verify finding delta only after exact-SHA analyzer logs. No merge/tag.

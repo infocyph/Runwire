@@ -113,9 +113,11 @@ jobs:
           jq -e '.reviewed == true and .traitRelocations == 2 and .reviewedSignatureChanges == 6 and .behavioralCompatibilityCertified == false' \
             api-baseline/migration-reviewed-contract.json >/dev/null
           php -l tools/c4-migration-behavior-audit.php
-          php tools/c4-migration-behavior-audit.php \
-            api-baseline/migration-source-diff.json \
-            qa/release-baseline/c4-migration-behavior-ledger.json \
+          jq -cn \
+            --slurpfile diff api-baseline/migration-source-diff.json \
+            --slurpfile ledger qa/release-baseline/c4-migration-behavior-ledger.json \
+            '{diff: $diff[0], ledger: $ledger[0]}' \
+            | php tools/c4-migration-behavior-audit.php \
             | tee api-baseline/c4-migration-behavior-coverage.json
           jq -e '.allChangedSymbolsDispositioned == true and
             .behavioralCompatibilityCertified == false and
