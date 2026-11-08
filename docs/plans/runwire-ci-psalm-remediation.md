@@ -684,3 +684,9 @@
 - Use the language-documented `$_ = Fiber::suspend(...)` discard for the four `void` scheduling methods (sleep, suspendReadable, suspendWritable, yieldNow). Unlike PHP 8.5-only `(void)`, this idiom parses on PHP 8.4 and consumes the intentional NoDiscard result while preserving the required suspend/resume side effect.
 - Remove exactly the four unnecessary inline `@psalm-suppress` directives. Do not modify awaitFuture, which intentionally returns its resume value; no additional Fiber calls or scheduling branches are introduced. Existing coroutine/lifecycle tests verify operational behavior.
 - **Hypothesis pending exact SHA verification:** PHPStan, Psalm, Pint, PHPCS and Rector must all accept the intentional `$_` target. If a detector rejects it, restore the original behavior without trying to silence the detector via scanner bypass. The five remaining non-Fiber suppressions and 15 security-taint diagnostics are not waived; no merge/release/tag.
+
+### Batch 62 — undo rejected Fiber discard technique
+
+- Batch 61 SHA `d72f926e3bb7fe72b4681576cc2612f04268cc51` remains red: Psalm 15 security taints on each supported PHP, PHPStan PASS, Rector FAIL (`RemoveUnusedVariableAssignRector` removes all four `$_ = Fiber::suspend(...)` assignments), PHPForge skip scanner lists five directives; Pest, Pint, PHPCS, Source Audit PASS.
+- Restore exact Batch 60 Fiber semantics and previously documented four purpose-specific `UnusedMethodCall` annotations. Do not replace them with no-op value handling or suppress Rector: resolving the checker-policy conflict cannot justify modifying coroutine behavior.
+- Outstanding: 15 taints (6 SSRF and 9 file sinks), nine existing annotations (four Fiber, four constructor defaults, one validated HTTP header). Source and scanner policies remain unchanged; no merge, release, or tag.
