@@ -16,6 +16,7 @@ final readonly class Http3ClientOrigin
      * Validate the TLS peer and h3 ALPN against one immutable origin.
      *
      * @return array{host:string,port:int}
+     * @throws \InvalidArgumentException
      */
     public static function validate(ClientRequest $request, QuicClientOptions $options): array
     {
@@ -36,7 +37,10 @@ final readonly class Http3ClientOrigin
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     public static function wireId(array $result): int
     {
         $id = $result['wire_stream_id'] ?? null;

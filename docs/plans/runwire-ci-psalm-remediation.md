@@ -48,7 +48,8 @@
 | 25 | Repair current PHPStan/Pint/PHPCS blockers after Batch 24 | 1 complexity, 1 ordered element, 4 callback warnings | Implemented; CI verification pending |
 | 26 | Document remaining published runtime exception contracts | 103 logged exception sites | Implemented; CI verification pending |
 | 27 | Published runtime exception contracts | 64 logged sites | Implemented; CI verification pending |
-| 28+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 28 | Add exception contracts for 101 new-3.0 implementation sites | 101 logged sites | Implemented; CI verification pending |
+| 29+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -282,3 +283,9 @@
 - Matched 64 remaining throw sites across 15 previously ledgered runtime implementation types, grouped into 31 declaring methods with 40 missing exception annotations.
 - Changes are PHPDoc only; public signatures and method bodies are intact. P0–P3 taint, type and lifecycle findings remain open.
 - Await CI before marking verified.
+
+### Batch 28 — new-3.0 implementation exceptions
+
+- Target 101 logged `MissingThrowsDocblock` sites in 25 newly introduced implementation files (61 in first tree segment; 40 in second), grouped by declaring method; 28 precise new throws tags in second segment.
+- These files were absent from the immutable published 2.1.2 comparator, so no legacy change-ledger entries are appropriate.
+- No method signatures, runtime bodies, network trust policies or permission boundaries changed. Verify net analyzer delta and all PHPForge QA/protocol/source checks.

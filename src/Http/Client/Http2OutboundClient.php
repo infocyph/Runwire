@@ -28,6 +28,9 @@ final readonly class Http2OutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $onComplete
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public static function connect(
         LoopInterface $loop,
@@ -85,6 +88,9 @@ final readonly class Http2OutboundClient
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function verifiedOptions(string $host, DialOptions $options): DialOptions
     {
         $tls = $options->tls ?? new TlsClientOptions($host, alpnProtocols: ['h2']);

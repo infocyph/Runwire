@@ -48,7 +48,10 @@ final class IdleConnectionPool
         $this->ownerPid = $pid;
     }
 
-    /** Close the store and all borrowed-but-not-yet-issued idle sockets. */
+    /**
+     * Close the store and all borrowed-but-not-yet-issued idle sockets.
+     * @throws \LogicException
+     */
     public function close(): void
     {
         $this->assertProcessOwner();
@@ -61,7 +64,10 @@ final class IdleConnectionPool
         }
     }
 
-    /** Number of connections retained in the pool. */
+    /**
+     * Number of connections retained in the pool.
+     * @throws \LogicException
+     */
     public function count(): int
     {
         $this->assertProcessOwner();
@@ -156,6 +162,7 @@ final class IdleConnectionPool
     /**
      * Borrow one healthy, identity-matched connection; never hand back stale
      * or unverified buffer state even when the peer wrote during idle time.
+     * @throws \LogicException
      */
     public function take(PoolIsolationKey $key): ?Connection
     {
@@ -188,6 +195,9 @@ final class IdleConnectionPool
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function discard(int $id): void
     {
         $this->release($id)?->abort();

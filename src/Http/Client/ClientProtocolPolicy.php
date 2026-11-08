@@ -13,6 +13,7 @@ final readonly class ClientProtocolPolicy
 {
     /**
      * @param list<ProtocolVersion> $allowedVersions
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public ProtocolVersion $preferred = ProtocolVersion::HTTP_2,
@@ -29,7 +30,10 @@ final readonly class ClientProtocolPolicy
         }
     }
 
-    /** Resolve a peer-negotiated version and reject every unapproved fallback. */
+    /**
+     * Resolve a peer-negotiated version and reject every unapproved fallback.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public function negotiate(?string $alpn, bool $encrypted, bool $quic = false): ProtocolVersion
     {
         if (!$encrypted) {

@@ -21,6 +21,7 @@ final class Http3ClientPeerAuxiliary
      * Validate peer encoder/decoder stream bytes and flag control-loop liveness.
      *
      * @return array{watch:bool,completed:bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function accept(
         int $type,

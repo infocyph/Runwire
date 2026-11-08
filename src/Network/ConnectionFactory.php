@@ -24,6 +24,8 @@ final class ConnectionFactory
      * Adopt a server-accepted stream with explicit transport metadata.
      *
      * @param resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public static function accepted(
         LoopInterface $loop,
@@ -67,6 +69,8 @@ final class ConnectionFactory
      * Adopt exactly one fully connected and verified outbound stream.
      *
      * @param resource $stream
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public static function dialed(
         DialAttemptLifecycle $attempt,

@@ -23,7 +23,10 @@ use Psr\Http\Message\ResponseInterface;
  */
 final readonly class PsrMessageBridge
 {
-    /** Convert bounded PSR-7 HTTP header metadata without consuming the body stream. */
+    /**
+     * Convert bounded PSR-7 HTTP header metadata without consuming the body stream.
+     * @throws \InvalidArgumentException
+     */
     public static function headers(MessageInterface $message): Headers
     {
         $headers = $message->getHeaders();
@@ -50,7 +53,10 @@ final readonly class PsrMessageBridge
         return Headers::fromArray($normalized);
     }
 
-    /** Safely adapt a bodyless PSR-7 request without a synchronous stream read. */
+    /**
+     * Safely adapt a bodyless PSR-7 request without a synchronous stream read.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public static function outboundRequest(
         RequestInterface $request,
         ?ClientProtocolPolicy $policy = null,
@@ -73,7 +79,10 @@ final readonly class PsrMessageBridge
         );
     }
 
-    /** Never consumes the body: caller must supply an appropriate off-loop stream bridge. */
+    /**
+     * Never consumes the body: caller must supply an appropriate off-loop stream bridge.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public static function requestMetadata(ClientRequest $request, RequestFactoryInterface $factory): RequestInterface
     {
         if ($request->body !== null) {
@@ -88,7 +97,10 @@ final readonly class PsrMessageBridge
         return $message;
     }
 
-    /** Creates response headers only; no synchronous PSR stream read or response execution. */
+    /**
+     * Creates response headers only; no synchronous PSR stream read or response execution.
+     * @throws \InvalidArgumentException
+     */
     public static function responseMetadata(int $status, Headers $headers, ResponseFactoryInterface $factory): ResponseInterface
     {
         if ($status < 100 || $status > 599) {

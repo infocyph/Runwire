@@ -30,7 +30,10 @@ final readonly class Http3ClientWireCodec
 
     private Encoder $encoder;
 
-    /** Restrict both directions to unblocked, finite field sections. */
+    /**
+     * Restrict both directions to unblocked, finite field sections.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(int $maxFieldSectionBytes = 65_536, int $maxHeaderFields = 128, int $decoderCapacity = 0, int $maxBlocked = 0)
     {
         $this->encoder = new Encoder(0, 0, $maxFieldSectionBytes);
@@ -43,7 +46,10 @@ final readonly class Http3ClientWireCodec
         $this->decoder->cancelStream($wireStreamId);
     }
 
-    /** @return array{status:int, headers:Headers} */
+    /**
+     * @return array{status:int, headers:Headers}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function decodeReadyHeaders(DecodedFieldSection $section): array
     {
         return self::parseHeaders($section);
@@ -73,6 +79,7 @@ final readonly class Http3ClientWireCodec
      * Serialize HTTPS request headers for an already verified QUIC+h3 stream.
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
      */
     public function encodeRequestHeaders(ClientRequest $request, int $streamId): string
     {
@@ -93,6 +100,7 @@ final readonly class Http3ClientWireCodec
     /**
      * Encode the final bounded HTTP/3 trailer section without dynamic QPACK.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
      */
     public function encodeRequestTrailers(Headers $trailers, int $streamId): string
     {
@@ -203,7 +211,10 @@ final readonly class Http3ClientWireCodec
         return new Headers($fields);
     }
 
-    /** @return list<array{0:string,1:string}> */
+    /**
+     * @return list<array{0:string,1:string}>
+     * @throws \InvalidArgumentException
+     */
     private static function requestFields(ClientRequest $request): array
     {
         [$authority, $target] = self::validatedOrigin($request->uri);

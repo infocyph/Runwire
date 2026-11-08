@@ -52,6 +52,7 @@ final class PooledHttp1Session
      * @param string $scope Opaque worker/tenant identifier; do not reuse across tenants.
      * @param string|null $tlsPolicyIdentity Revisioned certificate/trust policy for HTTPS.
      * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -105,7 +106,10 @@ final class PooledHttp1Session
         $this->pool = new BoundedConnectionPool($loop, maxActive: $maxConnections, enableMetrics: true);
     }
 
-    /** Close idle connections and cancel active work; remaining callbacks settle once. */
+    /**
+     * Close idle connections and cancel active work; remaining callbacks settle once.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -125,6 +129,7 @@ final class PooledHttp1Session
     /**
      * Bounded pool counters, including actual healthy keep-alive reuse.
      * @return array<string, int|bool>
+     * @throws \LogicException
      */
     public function metrics(): array
     {

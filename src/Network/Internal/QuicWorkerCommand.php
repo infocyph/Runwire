@@ -39,6 +39,7 @@ final class QuicWorkerCommand
      * @return array{id:int, op:string, stream:int, data:string, fin:bool}
      *
      * @throws JsonException
+     * @throws \InvalidArgumentException
      */
     public static function decode(string $packet): array
     {
@@ -91,6 +92,9 @@ final class QuicWorkerCommand
         ], JSON_THROW_ON_ERROR) . "\n";
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertCommand(
         int $requestId,
         string $operation,

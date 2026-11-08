@@ -38,6 +38,7 @@ final class QuicClientSession
     /**
      * Construct one dedicated QUIC process to preserve native session ownership.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function __construct(LoopInterface $loop, int $maxQueuedOperations = 64)
     {
@@ -49,7 +50,10 @@ final class QuicClientSession
         $this->ownerPid = $pid;
     }
 
-    /** Whether this session still has a valid dedicated native worker. */
+    /**
+     * Whether this session still has a valid dedicated native worker.
+     * @throws \LogicException
+     */
     public function active(): bool
     {
         $this->assertProcessOwner();
@@ -172,7 +176,11 @@ final class QuicClientSession
         }
     }
 
-    /** Abort pending operations and destroy worker-local QUIC resources. */
+    /**
+     * Abort pending operations and destroy worker-local QUIC resources.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function dispose(): void
     {
         $this->assertProcessOwner();

@@ -16,7 +16,10 @@ use Throwable;
 /** @internal Exclusive post-CONNECT original-target TLS handshake ownership. */
 final class VerifiedTargetTlsUpgrade
 {
-    /** Refuse upgrades unless the cleartext tunnel is exclusively quiescent. */
+    /**
+     * Refuse upgrades unless the cleartext tunnel is exclusively quiescent.
+     * @throws \LogicException
+     */
     public static function assertAllowed(Connection $connection, mixed $stream): void
     {
         if ($connection->isEncrypted()) {

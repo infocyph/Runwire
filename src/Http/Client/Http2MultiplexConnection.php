@@ -171,6 +171,7 @@ final class Http2MultiplexConnection
      * Claim the socket callbacks and publish the HTTP/2 preface exactly once.
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function start(): void
     {
@@ -229,6 +230,9 @@ final class Http2MultiplexConnection
         return $seconds;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function consume(): void
     {
         if ($this->settled) {
@@ -259,7 +263,10 @@ final class Http2MultiplexConnection
         }
     }
 
-    /** Dispatch frames and emit connection-ready callback after validated SETTINGS. */
+    /**
+     * Dispatch frames and emit connection-ready callback after validated SETTINGS.
+     * @throws \OverflowException
+     */
     private function processFrames(string $bytes): void
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {
@@ -274,6 +281,9 @@ final class Http2MultiplexConnection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->settled || $this->outgoing === '') {

@@ -31,6 +31,8 @@ final readonly class HttpNegotiatingOutboundClient
      * @param callable(?Connection,?Throwable):void $completion
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public static function connect(
         LoopInterface $loop,
@@ -133,6 +135,9 @@ final readonly class HttpNegotiatingOutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $completion
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
     private static function startExchange(
         LoopInterface $loop,

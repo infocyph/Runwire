@@ -69,7 +69,10 @@ final class Http2ConnectedExchange
         $this->completion = Closure::fromCallable($onComplete);
     }
 
-    /** Abort this connection-scoped request and release all callbacks. */
+    /**
+     * Abort this connection-scoped request and release all callbacks.
+     * @throws \LogicException
+     */
     public function close(): void
     {
         $this->finish(new RuntimeException('HTTP/2 exchange closed before response completion.'));
@@ -79,6 +82,7 @@ final class Http2ConnectedExchange
      * Bind to one open H2 socket and emit the protocol client preface.
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
+     * @throws \LogicException
      */
     public function start(): void
     {
@@ -141,6 +145,9 @@ final class Http2ConnectedExchange
         });
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function consume(): void
     {
         if ($this->settled) {
@@ -198,7 +205,10 @@ final class Http2ConnectedExchange
         ($this->completion)(null, $error);
     }
 
-    /** Consume at most one bounded frame batch and stop on response completion. */
+    /**
+     * Consume at most one bounded frame batch and stop on response completion.
+     * @throws \OverflowException
+     */
     private function processFrames(string $bytes): bool
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {
@@ -217,6 +227,9 @@ final class Http2ConnectedExchange
         return false;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function pump(): void
     {
         if ($this->settled || $this->outgoing === '') {

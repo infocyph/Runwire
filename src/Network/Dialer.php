@@ -60,7 +60,10 @@ final class Dialer
         $this->ownerPid = $pid;
     }
 
-    /** Cancel one pending dial without invoking its completion twice. */
+    /**
+     * Cancel one pending dial without invoking its completion twice.
+     * @throws \LogicException
+     */
     public function cancel(int $id): bool
     {
         $this->assertProcessOwner();
@@ -167,7 +170,10 @@ final class Dialer
         return $id;
     }
 
-    /** Number of pending, not-yet-handed-off outgoing sockets. */
+    /**
+     * Number of pending, not-yet-handed-off outgoing sockets.
+     * @throws \LogicException
+     */
     public function pendingCount(): int
     {
         $this->assertProcessOwner();
@@ -178,6 +184,7 @@ final class Dialer
     /**
      * Validate a restricted destination before opening its socket.
      * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     private static function assertAddressPolicy(DialEndpoint $endpoint, DialOptions $options): void
     {

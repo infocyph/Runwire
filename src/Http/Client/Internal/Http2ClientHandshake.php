@@ -112,6 +112,7 @@ final class Http2ClientHandshake
      * Encode one conservative request on a strictly increasing odd client ID.
      * The connected transport owner must still enforce active stream slots.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function requestOnStream(
         int $streamId,
@@ -247,6 +248,9 @@ final class Http2ClientHandshake
         return FrameWriter::encode(FrameWriter::settings([], true));
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function windowUpdate(Frame $frame): string
     {
         if ($frame->streamId !== 0 || $frame->flags !== 0 || strlen($frame->payload) !== 4) {

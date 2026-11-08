@@ -99,7 +99,10 @@ final class ProcessExecutor
         $this->pending = new SplQueue();
     }
 
-    /** Cancel queued or active work and complete the callback exactly once. */
+    /**
+     * Cancel queued or active work and complete the callback exactly once.
+     * @throws \LogicException
+     */
     public function cancel(
         int $id,
         CancellationReason $reason = CancellationReason::HOST_CANCELLED,
@@ -180,6 +183,7 @@ final class ProcessExecutor
 
     /**
      * @param callable():void $callback
+     * @throws \LogicException
      */
     public function onDrained(callable $callback): void
     {
@@ -288,6 +292,10 @@ final class ProcessExecutor
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function availableWorker(): ?int
     {
         $available = array_find_key($this->workers, static fn(array $worker): bool => $worker['job'] === null);

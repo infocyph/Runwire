@@ -26,6 +26,9 @@ final readonly class QuicHandshakeProbe
      * Enqueue a verified QUIC client handshake outside the Runwire I/O loop.
      *
      * @param callable(mixed, ?Throwable): void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function connect(
         string $host,
