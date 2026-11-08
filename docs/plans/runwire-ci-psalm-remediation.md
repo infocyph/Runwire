@@ -841,3 +841,9 @@
 - Write the exact same JSON diff using the already-open standard output resource `fwrite(STDOUT,...)`, matching the other hardened audit tools, not an attacker-controlled file or URL. This change removes a stream-wrapper dispatch surface without changing JSON or Source Audit.
 - Batch 82's manifest tests used a correct `2>&1 > manifest` in the command but then appended another `2>&1` to exec, redirecting error diagnostics into the file. Remove the *second* redirect on the two affected subprocess calls; capture stderr in the test runner stdout and keep manifest JSON clean.
 - Verify PHP 8.4/8.5 Psalm count, four strict QA variants, Pest and Source Audit. All seven executor-worker taints remain independent active findings until verified. No skip/suppressions or merge/release.
+
+### Batch 86 — typed, validated stdin envelopes for security-review tools
+
+- Exact Batch 85 PHP 8.4 Psalm: **7** errors, all executor-worker file/SSRF taints. Both PHPStan versions green, Source Audit green, and PHPForge QA passing in completed lanes. Two new inline code scanning review threads identified nonblocking MixedAssignment issues on untyped `json_decode` results in C4 and migration audit tools.
+- Parse JSON directly into a `mixed` parameter of a tiny typed validation closure, check the top-level object and return `array<string,mixed>` only when valid. This retains all taint on individual payload values, but avoids assigning an unchecked mixed value to the envelope variable. Apply consistently to C4, migration audit, public-api-diff.
+- Add a malformed top-level JSON list regression to public-api-diff's existing subprocess tests. No taint escape, XML configuration changes, or scanner suppression. Verify new SHA, then resolve only review comments proven obsolete by the code-scanning matrix. No merge/tag/release.

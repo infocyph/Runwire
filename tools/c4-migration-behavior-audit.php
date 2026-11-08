@@ -20,9 +20,17 @@ $input = stream_get_contents(STDIN, 33_600_001);
 if (!is_string($input) || $input === '' || strlen($input) > 33_600_000) {
     throw new InvalidArgumentException('Migration audit input is missing or exceeds 33.6 MiB.');
 }
-$envelope = json_decode($input, true, 64, JSON_THROW_ON_ERROR);
-$diff = is_array($envelope) ? ($envelope['diff'] ?? null) : null;
-$ledger = is_array($envelope) ? ($envelope['ledger'] ?? null) : null;
+/** @return array<string, mixed> */
+$validateEnvelope = static function (mixed $decoded): array {
+    if (!is_array($decoded) || array_is_list($decoded)) {
+        throw new InvalidArgumentException('Migration audit requires a JSON object envelope.');
+    }
+
+    return $decoded;
+};
+$envelope = $validateEnvelope(json_decode($input, true, 64, JSON_THROW_ON_ERROR));
+$diff = $envelope['diff'] ?? null;
+$ledger = $envelope['ledger'] ?? null;
 if (!is_array($diff) || !is_array($ledger) || ($diff['schemaVersion'] ?? null) !== 1
     || ($ledger['schemaVersion'] ?? null) !== 1
     || ($ledger['publishedRevision'] ?? null) !== $diff['baselineRevision']

@@ -97,6 +97,12 @@ it('diffs immutable PHP source API signatures deterministically without requirin
         exec($command . ' 2>&1', $again, $status);
         expect($status)->toBe(0)
             ->and($again)->toBe($lines);
+
+        file_put_contents($packet, '[]');
+        $rejected = [];
+        exec($command . ' 2>&1', $rejected, $status);
+        expect($status)->not->toBe(0)
+            ->and(implode("\n", $rejected))->toContain('JSON document envelope');
     } finally {
         if (is_string($packet) && is_file($packet)) {
             unlink($packet);

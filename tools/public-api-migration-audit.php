@@ -21,9 +21,17 @@ $serialized = stream_get_contents(STDIN, 4_300_001);
 if (!is_string($serialized) || $serialized === '' || strlen($serialized) > 4_300_000) {
     throw new InvalidArgumentException('Public API audit input exceeds its bounded stdin limit.');
 }
-$envelope = json_decode($serialized, true, 32, JSON_THROW_ON_ERROR);
-$diff = is_array($envelope) ? ($envelope['diff'] ?? null) : null;
-$policy = is_array($envelope) ? ($envelope['policy'] ?? null) : null;
+/** @return array<string, mixed> */
+$validateEnvelope = static function (mixed $decoded): array {
+    if (!is_array($decoded) || array_is_list($decoded)) {
+        throw new InvalidArgumentException('Public API audit requires a JSON object envelope.');
+    }
+
+    return $decoded;
+};
+$envelope = $validateEnvelope(json_decode($serialized, true, 32, JSON_THROW_ON_ERROR));
+$diff = $envelope['diff'] ?? null;
+$policy = $envelope['policy'] ?? null;
 if (!is_array($diff) || !is_array($policy) || array_is_list($diff) || array_is_list($policy)) {
     throw new InvalidArgumentException('Invalid public API audit documents.');
 }
