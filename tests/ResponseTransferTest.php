@@ -40,6 +40,7 @@ function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): Re
             private readonly int $pressureEvery,
         ) {}
 
+        #[\Override]
         public function end(string $finalChunk = ''): WriteResult
         {
             if ($this->ended) {
@@ -57,16 +58,19 @@ function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): Re
             return new WriteResult(WriteState::ACCEPTED, 0);
         }
 
+        #[\Override]
         public function isEnded(): bool
         {
             return $this->ended;
         }
 
+        #[\Override]
         public function isStarted(): bool
         {
             return $this->started;
         }
 
+        #[\Override]
         public function onDrain(callable $callback): self
         {
             $this->drainCallback = $callback;
@@ -74,6 +78,7 @@ function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): Re
             return $this;
         }
 
+        #[\Override]
         public function onTerminal(callable $callback): self
         {
             if ($this->ended) {
@@ -87,6 +92,7 @@ function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): Re
             return $this;
         }
 
+        #[\Override]
         public function start(int $status = 200, ?Headers $headers = null): WriteResult
         {
             unset($status, $headers);
@@ -95,6 +101,7 @@ function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): Re
             return new WriteResult(WriteState::ACCEPTED, 0);
         }
 
+        #[\Override]
         public function write(string $chunk): WriteResult
         {
             if ($this->ended) {

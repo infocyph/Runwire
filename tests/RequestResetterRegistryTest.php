@@ -9,6 +9,7 @@ use Infocyph\Runwire\Runtime\RequestResetterRegistry;
 it('rejects resetter registrations beyond the bounded capacity', function (): void {
     $registry = new RequestResetterRegistry();
     $resetter = new class implements RequestResetterInterface {
+        #[\Override]
         public function reset(RequestContext $context): void {}
     };
 

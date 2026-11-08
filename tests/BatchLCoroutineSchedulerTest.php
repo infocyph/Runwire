@@ -447,6 +447,7 @@ it('keeps request state and admission until attached coroutine root and children
             new class($state) implements RequestResetterInterface {
                 public function __construct(private readonly ArrayObject $state) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     expect($context->attribute('tenant'))->toBe('A');
@@ -531,6 +532,7 @@ it('records attached coroutine failure after response output before final cleanu
             new class($state) implements RequestResetterInterface {
                 public function __construct(private readonly ArrayObject $state) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     expect($context->attribute('tenant'))->toBe('A');

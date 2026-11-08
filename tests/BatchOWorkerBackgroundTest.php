@@ -101,6 +101,7 @@ it('bounds worker coroutine drain when a task cannot cooperatively wake', functi
     $context->spawnBackground(static function (CoroutineScope $scope): void {
         unset($scope);
         \Fiber::suspend(new class implements Suspension {
+            #[\Override]
             public function arm(FiberScheduler $scheduler, Task $task): void
             {
                 unset($scheduler, $task);

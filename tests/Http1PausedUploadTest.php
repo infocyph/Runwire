@@ -26,11 +26,13 @@ it('resumes a temporarily starved upload without reactor spinning or retaining s
 
         private bool $sent = false;
 
+        #[\Override]
         public function eof(): bool
         {
             return $this->sent;
         }
 
+        #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {
             if (!$this->ready || $this->sent) {
@@ -46,6 +48,7 @@ it('resumes a temporarily starved upload without reactor spinning or retaining s
             $this->ready = true;
         }
 
+        #[\Override]
         public function trailers(): ?Headers
         {
             return null;

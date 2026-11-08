@@ -62,6 +62,7 @@ it('runs boot warmup handle reset drain and shutdown in lifecycle order', functi
         resetters: [new class($events) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $events) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -106,6 +107,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
         new class($state) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $state) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -116,6 +118,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
         new class($state) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $state) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -126,6 +129,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
         new class($state) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $state) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -170,6 +174,7 @@ it('resets request state when automatic response completion fails', function ():
         new class($state) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $state) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -208,6 +213,7 @@ it('lets active work finish after drain and rejects new work', function (): void
         resetters: [new class($events) implements RequestResetterInterface {
             public function __construct(private readonly ArrayObject $events) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -367,6 +373,7 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
             new class($state) implements RequestResetterInterface {
                 public function __construct(private readonly ArrayObject $state) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     unset($context);
@@ -417,6 +424,7 @@ it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse
             new class($failure) implements RequestResetterInterface {
                 public function __construct(private readonly RuntimeException $failure) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     unset($context);
@@ -449,6 +457,7 @@ it('latches asynchronous reset failure when a delayed response later terminates'
             new class($failure) implements RequestResetterInterface {
                 public function __construct(private readonly RuntimeException $failure) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     unset($context);

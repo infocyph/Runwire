@@ -103,6 +103,7 @@ function batchIApplication(RuntimeContext $context, ArrayObject $state): Runtime
     $resetter = new class($state) implements RequestResetterInterface {
         public function __construct(private readonly ArrayObject $state) {}
 
+        #[\Override]
         public function reset(RequestContext $context): void
         {
             $seen = $this->state['reset_contexts'];
@@ -269,13 +270,16 @@ function batchIRunRoadRunner(int $requests): array
 
         public function __construct(private readonly int $requests) {}
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void {}
 
+        #[\Override]
         public function stop(): void
         {
             $this->stopped = true;
         }
 
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1 || $this->stopped || $this->index >= $this->requests) {

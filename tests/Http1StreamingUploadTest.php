@@ -23,11 +23,13 @@ it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a
 
         public function __construct(private readonly string $bytes) {}
 
+        #[\Override]
         public function eof(): bool
         {
             return $this->offset >= strlen($this->bytes);
         }
 
+        #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {
             $slice = substr($this->bytes, $this->offset, $maxBytes);
@@ -36,6 +38,7 @@ it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a
             return $slice;
         }
 
+        #[\Override]
         public function trailers(): ?Headers
         {
             return null;

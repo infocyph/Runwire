@@ -82,6 +82,7 @@ it('creates a native application from the resolved runtime context factory', fun
     $factory = new class implements RuntimeApplicationFactoryInterface {
         public ?RuntimeContext $createdWith = null;
 
+        #[\Override]
         public function create(RuntimeContext $context): RuntimeApplicationInterface
         {
             $this->createdWith = $context;

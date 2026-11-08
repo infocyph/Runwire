@@ -145,14 +145,17 @@ it('isolates consecutive RoadRunner requests and stops at the generic recycle bu
             ];
         }
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void {}
 
+        #[\Override]
         public function stop(): void
         {
             ++$this->stops;
             $this->stopped = true;
         }
 
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1) {

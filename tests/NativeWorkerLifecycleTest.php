@@ -93,6 +93,7 @@ it('retires native workers when deferred coroutine cleanup fails after response 
     $handler->attachLoop($loop);
     $application = new RuntimeApplication($handler, runtimeContext: $runtime, lifecycle: new ApplicationLifecycleHooks(resetters: [
         new class implements RequestResetterInterface {
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -200,6 +201,7 @@ it('drains an attached native TCP worker after a late coroutine reset failure', 
         $loop, $worker, new \Infocyph\Runwire\Runtime\Internal\BoundServer($server, $listener),
         RuntimeContext::standalone(), new \Infocyph\Runwire\Runtime\RequestExecutionPolicy(),
         new ApplicationLifecycleHooks(resetters: [new class implements RequestResetterInterface {
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();

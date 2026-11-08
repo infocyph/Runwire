@@ -25,11 +25,13 @@ $body = new class implements ClientBodySourceInterface {
         $this->remaining = str_repeat('upload-data-', 2730) . 'end';
     }
 
+    #[\Override]
     public function eof(): bool
     {
         return $this->remaining === '';
     }
 
+    #[\Override]
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
         $chunk = substr($this->remaining, 0, min($maxBytes, 1024));
@@ -38,6 +40,7 @@ $body = new class implements ClientBodySourceInterface {
         return $chunk;
     }
 
+    #[\Override]
     public function trailers(): ?Headers
     {
         return Headers::fromArray(['x-upload-finished' => 'yes']);

@@ -110,6 +110,7 @@ it('keeps request contexts metrics resetters and cancellation state bounded unde
     $resetter = new class($resets) implements RequestResetterInterface {
         public function __construct(private readonly ArrayObject $state) {}
 
+        #[\Override]
         public function reset(RequestContext $context): void
         {
             if (!$context->hasAttribute('iteration')) {

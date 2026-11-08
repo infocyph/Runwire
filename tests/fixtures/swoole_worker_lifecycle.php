@@ -67,6 +67,7 @@ if ($api === 'callback') {
             private readonly Closure $record,
         ) {}
 
+        #[\Override]
         public function create(RuntimeContext $context): RuntimeApplicationInterface
         {
             ($this->record)('create', $context);

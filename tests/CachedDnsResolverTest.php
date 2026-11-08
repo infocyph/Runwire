@@ -26,6 +26,7 @@ function cachedDnsFake(): DnsResolverInterface
         /** @var array<int,callable> */
         public array $jobs = [];
 
+        #[\Override]
         public function resolve(
             string $hostname,
             callable $completion,
@@ -41,6 +42,7 @@ function cachedDnsFake(): DnsResolverInterface
             return $this->requests;
         }
 
+        #[\Override]
         public function cancel(int $id): bool
         {
             if (!isset($this->jobs[$id])) {
@@ -249,6 +251,7 @@ it('surfaces synchronous DNS consumer failures without poisoning a new lookup', 
     $upstream = new class implements DnsResolverInterface {
         public $pending;
         public int $requests = 0;
+        #[\Override]
         public function resolve(string $hostname, callable $completion, ?\Infocyph\Runwire\CancellationToken $token = null, ?RequestDeadline $deadline = null): int
         {
             if ($hostname !== 'example.org' || $token?->isCancelled() || $deadline?->expired()) {
@@ -262,6 +265,7 @@ it('surfaces synchronous DNS consumer failures without poisoning a new lookup', 
             }
             return $id;
         }
+        #[\Override]
         public function cancel(int $id): bool { return $id > 0; }
     };
     $resolver = new CachedDnsResolver(new SelectLoop(), $upstream, ttl: 0);

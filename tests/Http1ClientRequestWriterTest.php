@@ -30,11 +30,13 @@ it('streams chunked binary uploads and validates final trailers', function (): v
     $source = new class implements ClientBodySourceInterface {
         private string $remaining = "ab\0cd";
 
+        #[\Override]
         public function eof(): bool
         {
             return $this->remaining === '';
         }
 
+        #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {
             $result = substr($this->remaining, 0, $maxBytes);
@@ -43,6 +45,7 @@ it('streams chunked binary uploads and validates final trailers', function (): v
             return $result;
         }
 
+        #[\Override]
         public function trailers(): ?Headers
         {
             return Headers::fromArray(['x-end' => 'yes']);

@@ -113,6 +113,7 @@ it('streams RoadRunner response frames and recycles after the generic request bu
             ];
         }
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void
         {
             $this->responses[] = [
@@ -123,12 +124,14 @@ it('streams RoadRunner response frames and recycles after the generic request bu
             ];
         }
 
+        #[\Override]
         public function stop(): void
         {
             $this->stopped = true;
             ++$this->stops;
         }
 
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1) {
@@ -190,6 +193,7 @@ it('suppresses RoadRunner HEAD response body frames', function (): void {
         /** @var list<array{status: int, body: string, headers: array<string, list<string>>, end: bool}> */
         public array $responses = [];
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void
         {
             $this->responses[] = [
@@ -200,8 +204,10 @@ it('suppresses RoadRunner HEAD response body frames', function (): void {
             ];
         }
 
+        #[\Override]
         public function stop(): void {}
 
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1) {
@@ -250,13 +256,16 @@ it('enforces declared Content-Length in RoadRunner response writers', function (
     $session = new class implements RoadRunnerSessionInterface {
         public array $responses = [];
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void
         {
             $this->responses[] = [$status, $body, $headers, $endOfStream];
         }
 
+        #[\Override]
         public function stop(): void {}
 
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             unset($maxRequestBodyBytes);

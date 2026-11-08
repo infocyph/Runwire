@@ -25,6 +25,7 @@ $loop = new class($actual) implements LoopInterface {
 
     public function __construct(private readonly SelectLoop $actual) {}
 
+    #[\Override]
     public function cancel(int $id): bool
     {
         if ($this->injectCancelFailure) {
@@ -34,13 +35,21 @@ $loop = new class($actual) implements LoopInterface {
         return $this->actual->cancel($id);
     }
 
+    #[\Override]
     public function defer(callable $callback): int { return $this->actual->defer($callback); }
+    #[\Override]
     public function delay(float $seconds, callable $callback): int { return $this->actual->delay($seconds, $callback); }
+    #[\Override]
     public function now(): float { return $this->actual->now(); }
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int { return $this->actual->onReadable($stream, $callback); }
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int { return $this->actual->onWritable($stream, $callback); }
+    #[\Override]
     public function repeat(float $interval, callable $callback): int { return $this->actual->repeat($interval, $callback); }
+    #[\Override]
     public function run(): void { $this->actual->run(); }
+    #[\Override]
     public function stop(): void { $this->actual->stop(); }
 };
 

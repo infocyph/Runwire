@@ -75,6 +75,7 @@ it('round-trips the versioned bounded metrics snapshot contract', function (): v
 it('applies request-id policy without forcing a tracing header convention', function (): void {
     $runtime = batchERuntimeContext();
     $generator = new class implements RequestIdGeneratorInterface {
+        #[\Override]
         public function generate(RuntimeContext $runtime): string
         {
             return 'generated-' . $runtime->pid;

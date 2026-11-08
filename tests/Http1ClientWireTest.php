@@ -28,11 +28,13 @@ it('interoperates with an independent real TCP peer for binary chunked H1 reques
         $body = new class implements ClientBodySourceInterface {
             private string $bytes = "binary\0payload";
 
+            #[\Override]
             public function eof(): bool
             {
                 return $this->bytes === '';
             }
 
+            #[\Override]
             public function read(int $maxBytes = PHP_INT_MAX): string
             {
                 $chunk = substr($this->bytes, 0, $maxBytes);
@@ -41,6 +43,7 @@ it('interoperates with an independent real TCP peer for binary chunked H1 reques
                 return $chunk;
             }
 
+            #[\Override]
             public function trailers(): ?Headers
             {
                 return Headers::fromArray(['x-finish' => 'ok']);

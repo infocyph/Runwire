@@ -81,6 +81,7 @@ it('drains request-owned coroutine work before resetters and request completion'
                     private readonly CoroutineRuntime $runtime,
                 ) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     expect($this->runtime->activeTaskCount())->toBe(0)
@@ -180,6 +181,7 @@ it('propagates request cancellation through suspended coroutine children before 
                     private readonly CoroutineRuntime $runtime,
                 ) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     expect($this->runtime->activeTaskCount())->toBe(0)
