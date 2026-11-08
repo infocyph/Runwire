@@ -21,7 +21,7 @@ $serialized = stream_get_contents(STDIN, 4_300_001);
 if (!is_string($serialized) || $serialized === '' || strlen($serialized) > 4_300_000) {
     throw new InvalidArgumentException('Public API audit input exceeds its bounded stdin limit.');
 }
-/** @return array<string, mixed> */
+/** @return array<array-key, mixed> */
 $validateEnvelope = static function (mixed $decoded): array {
     if (!is_array($decoded) || array_is_list($decoded)) {
         throw new InvalidArgumentException('Public API audit requires a JSON object envelope.');

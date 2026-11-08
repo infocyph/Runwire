@@ -22,7 +22,7 @@ $input = stream_get_contents(STDIN, 33_600_001);
 if (!is_string($input) || $input === '' || strlen($input) > 33_600_000) {
     throw new InvalidArgumentException('API diff input is missing or exceeds 33.6 MiB.');
 }
-/** @return array<string, mixed> */
+/** @return array<array-key, mixed> */
 $validateEnvelope = static function (mixed $decoded): array {
     if (!is_array($decoded) || array_is_list($decoded)) {
         throw new InvalidArgumentException('API diff requires a JSON document envelope.');
