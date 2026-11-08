@@ -90,3 +90,11 @@ it('defaults H1 H2 and H3 to FIXED', function (): void {
         ->and($http3->inboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
         ->and($http3->outboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED);
 });
+
+it('rejects impossible negative HTTP3 connection counters without changing valid poll timings', function (): void {
+    expect(fn() => AdaptivePollStrategy::timeout(0.01, true, -1, 0))
+        ->toThrow(InvalidArgumentException::class, 'non-negative')
+        ->and(fn() => AdaptivePollStrategy::timeout(0.01, true, 0, -1))
+        ->toThrow(InvalidArgumentException::class, 'non-negative')
+        ->and(AdaptivePollStrategy::timeout(0.01, true, 0, 1))->toBe(0.01);
+});

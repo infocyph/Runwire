@@ -20,7 +20,7 @@ final class AdaptivePollStrategy
 
     /**
      * Return a timeout that preserves non-blocking calls and readiness-driven active traffic.
-     * @psalm-suppress MissingThrowsDocblock
+     * @throws \InvalidArgumentException
      */
     public static function timeout(
         ?float $baseTimeoutSeconds,
@@ -29,6 +29,9 @@ final class AdaptivePollStrategy
         int $pendingConnections,
         AdaptiveProtocolPolicy $policy = new AdaptiveProtocolPolicy(),
     ): ?float {
+        if ($activeConnections < 0 || $pendingConnections < 0) {
+            throw new \InvalidArgumentException('HTTP/3 connection counters must be non-negative.');
+        }
         if ($baseTimeoutSeconds === null || $baseTimeoutSeconds <= 0.0) {
             return $baseTimeoutSeconds;
         }

@@ -703,3 +703,10 @@
 - The internal `LoopWaitSuspension::arm` always wakes these tasks with `$scheduler->resume($task)` (default `null`). `FiberScheduler::observeSuspension` likewise resumes its cooperative yield with no payload. Assert the invariant directly after `Fiber::suspend()` and reject an unexpected non-null value with a documented `LogicException`. This provides a real integrity check for invalid/stale external resumes instead of a no-op discard.
 - Remove exactly four Fiber suppressions; preserve the public signatures, normal no-payload path, cancellation propagation, and existing wakeup semantics. Add a focused real-loop test spanning sleep, writable wait and explicit cooperative yield. Await exact-SHA Psalm/PHPStan/Pint/Rector/PHPCS/Pest/native and hosted QA. If this changes a supported resume contract, revert rather than pretending it is a free analyzer fix.
 - All 15 security taints and five remaining annotations are separately blocking. No merge or tag.
+
+### Batch 65 — enforce non-negative adaptive HTTP/3 poll counters
+
+- Exact starting SHA `e75eee57cab07d5ed0c594ab6ce64c59002c868d`: 15 original Psalm taints; PHPStan PASS; 5 remaining PHPForge directives (down from 9), Pest/Pint/PHPCS/Rector PASS. Four Fiber suppressions resolved with a real scheduler integrity assertion.
+- Negative active/pending native connection counts are structurally invalid and must never influence QUIC poll timing. Fail closed with an `InvalidArgumentException` on those inputs, and advertise the now actually thrown exception from the *unchanged* public method signature. Do not alter default-object policy initialization or Source Audit’s published declaration contract.
+- Add explicit negative-count tests and valid pending-handshake timing check. This replaces one `MissingThrowsDocblock` annotation while avoiding disabled analyzers or broad suppressions. Verify exact commit on PHP 8.4/8.5: PHPStan/Psalm/QA/Pint/Pest/Source Audit/native QUIC and hosted matrices before marking verified.
+- Four remaining annotations and 15 taint flows need separate resolution. No merge/release/tag.
