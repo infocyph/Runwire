@@ -26,6 +26,7 @@ final readonly class WebSocketUpgrade
      * Browser Origin headers are rejected unless an explicit origin policy is supplied.
      *
      * @param callable(string, HttpRequest): bool|null $originPolicy
+      * @throws \LogicException
      */
     public static function accept(
         HttpRequest $request,

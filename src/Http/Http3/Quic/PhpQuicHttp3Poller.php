@@ -42,6 +42,8 @@ final readonly class PhpQuicHttp3Poller
      * @param list<PhpQuicHttp3Connection> $connections
      * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, int>
+      * @throws \InvalidArgumentException
+      * @throws \UnexpectedValueException
      */
     public function poll(
         ?PhpQuicListener $listener,

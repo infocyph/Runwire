@@ -124,6 +124,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Registers a callback invoked when response ownership becomes terminal.
+      * @throws \OverflowException
      */
     #[\Override]
     public function onTerminal(callable $callback): self
@@ -204,6 +205,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         return $this->started ? new WriteResult(WriteState::ACCEPTED, 0) : $this->start();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finish(string $body): void
     {
         $this->session->respond($this->status, $body, $this->headerMap(), true);

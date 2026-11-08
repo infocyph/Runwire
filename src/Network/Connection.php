@@ -559,6 +559,9 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finalize(CloseReason $reason): void
     {
         if ($this->state === ConnectionState::CLOSED) {
@@ -669,6 +672,9 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function invoke(?Closure $callback): void
     {
         ConnectionCallbackDispatcher::invoke(

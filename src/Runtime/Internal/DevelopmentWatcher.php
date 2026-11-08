@@ -102,6 +102,7 @@ final class DevelopmentWatcher
         }
     }
 
+     * @throws \RuntimeException
     /** @param list<string> $entries */
     private function appendSnapshotEntry(SplFileInfo $file, array &$entries): void
     {

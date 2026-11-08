@@ -54,6 +54,7 @@ final class StaticTable
         97 => ['x-frame-options', 'deny'], 98 => ['x-frame-options', 'sameorigin'],
     ];
 
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
     /** @return array{0: string, 1: string} */
     public static function entry(int $index, ErrorCode $errorCode = ErrorCode::QPACK_DECOMPRESSION_FAILED): array
     {

@@ -131,6 +131,7 @@ final class ConnectionState
 
     /**
      * Build the local QPACK decoder-stream type preamble.
+      * @throws \InvalidArgumentException
      */
     public function localQpackDecoderPreamble(): string
     {
@@ -139,6 +140,7 @@ final class ConnectionState
 
     /**
      * Build the local QPACK encoder-stream type preamble.
+      * @throws \InvalidArgumentException
      */
     public function localQpackEncoderPreamble(): string
     {
@@ -277,6 +279,7 @@ final class ConnectionState
     /**
      * @throws \InvalidArgumentException
      * @throws \LogicException
+      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     private function configureEncoder(): void
     {

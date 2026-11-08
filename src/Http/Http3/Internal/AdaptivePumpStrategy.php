@@ -50,6 +50,7 @@ final readonly class AdaptivePumpStrategy
 
     /**
      * Return the inbound-byte budget for the current state.
+      * @throws \InvalidArgumentException
      */
     public function byteLimit(int $maximum): int
     {

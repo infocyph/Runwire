@@ -394,6 +394,7 @@ final class AsyncConnection
 
     /**
      * @throws \InvalidArgumentException
+      * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
      */
     private function handleData(Connection $connection): void
     {
@@ -407,6 +408,9 @@ final class AsyncConnection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function handleDrain(Connection $connection): void
     {
         unset($connection);
@@ -415,6 +419,7 @@ final class AsyncConnection
 
     /**
      * @throws \InvalidArgumentException
+      * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
      */
     private function handleEof(Connection $connection): void
     {

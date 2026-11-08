@@ -28,6 +28,7 @@ final class ControlStream
 
     /**
      * Build the local control-stream preamble and SETTINGS frame.
+      * @throws \InvalidArgumentException
      */
     public static function preamble(Settings $settings): string
     {

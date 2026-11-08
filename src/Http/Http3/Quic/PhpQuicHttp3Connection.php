@@ -304,6 +304,9 @@ final class PhpQuicHttp3Connection
         $this->closeObservedConnection();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function acceptAvailableStreams(): void
     {
         $acceptLimit = $this->adaptivePump->acceptLimit($this->limits->maxStreamsAcceptedPerPump);
@@ -444,6 +447,7 @@ final class PhpQuicHttp3Connection
         return [$reads, $bytes, $requestStream ? 0 : $bytes];
     }
 
+     * @throws \InvalidArgumentException
     /** @param array<int, int>|null $ready */
     private function drainStreams(?array $ready = null, ?PhpQuicEventMasks $events = null): void
     {
@@ -498,6 +502,7 @@ final class PhpQuicHttp3Connection
      * @throws \UnexpectedValueException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+      * @throws \LogicException
      */
     private function finishPeerStream(int $streamId, PhpQuicStream $stream): void
     {

@@ -434,3 +434,20 @@
 - Preserve fail-closed verification of all six required QUIC session methods before ownership transfer. Iterating dynamic method names avoids misleading chained static refinements while retaining runtime checks.
 - Preserve public signatures, TLS verification, address policy, worker dispatch and taint configuration. Validate exact-head Psalm, PHPStan, full QA, QUIC and source audit before marking complete.
 - All outstanding P0 file/SSRF/header and P1-P3 diagnostics remain open. No merge, tag, or release.
+
+### Batch 42 exact-head QA reconciliation
+
+- On `be0bb8f0d419ba160e1f4a96a81ae79709e77899`, PHP 8.4/8.5 Psalm both report **226 errors** (91 missing throws, 17 file/SSRF/header taints, 118 other): net **-19** from Batch 41's 245. This was a reduction in repeated native-extension object-type contradictions, not a reduction in validated P0 security findings.
+- PHPStan exposed a Batch 42 regression in the dynamic QUIC constructor contracts: six QuicWorkerSession method-call/type errors, one executor-worker type/method error cluster and one PhpQuicListener constructor argument issue. All are taken into the next batch before closure, rather than declaring this batch green.
+- Accelerated Event Loop PHP 8.4/8.5 jobs failed during Composer dependency acquisition (HTTP/2 504 and curl timeout), not a demonstrated event-loop runtime failure. Re-run on the latest batch SHA to distinguish environmental failures.
+- The HTTP/3 + QUIC PHP 8.5 job was still pending during this reconciliation. Do not treat outstanding jobs as green.
+
+### Batch 43 — cross-analyzer correction and fifty-file exception sweep
+
+- **Exactly 50 files in one atomic commit**: 45 production/source/worker files (43 files receiving exception contracts, including executor-worker, and two dedicated native-object type-guard files), three targeted tests, one pinned 2.1.2 migration ledger and this tracker.
+- Source exception work maps **81 previously reported MissingThrowsDocblock locations** to relevant throwing methods where the implementation already throws or forwards the exception. No method bodies, public signatures, response trust behavior or protocol framing changes are made for those contract-only files.
+- Reconcile native-extension PHPStan by restoring the runtime object-type validation at PhpQuicListener and executor-worker, and by using independent runtime method checks for all six QuicWorkerSession required capabilities. Preserve the verified native TLS/ALPN and close-on-error path, avoiding security bypasses and global suppressions.
+- Add adversarial tests for development-watch maxFiles containment, finite/positive/upper diagnostics thresholds, and request resetter registration capacity. Add **9 test-linked source-change dispositions** for previously untouched 2.1.2 published types while preserving comparator strictness.
+- Deliberately defer empty-constructor inferred throws in RuntimeOptions, RuntimeCapabilities, RuntimeEnvironmentProbe, and AdaptivePollStrategy because PHPStan has previously rejected inaccurate constructor/timeout tags. Analyze the real exception execution contract separately rather than inventing throws.
+- **Verification pending:** require both Psalm versions, PHPStan, all PHPForge QA lanes, Source Audit, HTTP/3, Swoole, host integrations and docs to report on the exact new SHA; record net diagnostics and fix each regression before considering this batch closed.
+- Remaining P0: 9 file, 6 SSRF and 2 header taint reports remain open; no taint suppression, disablement, merge, tag, or version bump.

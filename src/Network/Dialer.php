@@ -279,6 +279,9 @@ final class Dialer
         ($job['callback'])($connection, null);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function handoff(int $id, ?string $protocol): void
     {
         $job = $this->pending[$id] ?? null;
@@ -346,6 +349,9 @@ final class Dialer
         return $stream;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function ready(int $id): void
     {
         $job = $this->pending[$id] ?? null;

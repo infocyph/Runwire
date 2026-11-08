@@ -98,6 +98,8 @@ final class NativeHttp3Worker
      * @throws \Infocyph\Runwire\Exception\ListenerException
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \OverflowException
+      * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+      * @throws \Throwable
      */
     public static function run(
         WorkerContext $context,

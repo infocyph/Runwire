@@ -640,6 +640,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Qpack\\StaticTable",
+      "executableTest": "tests/QpackTest.php",
+      "behavior": "QPACK static-name table lookups and invalid index rejection",
+      "migration": "Only the exception documentation for out-of-range QPACK static indices changes; RFC 9204 static lookup and decoder behavior remain verified by QPACK tests.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http3\\Qpack\\StringCodec",
       "executableTest": "tests/QpackTest.php",
       "behavior": "StringCodec runtime validation, state transitions and bounded failure handling",
@@ -724,6 +732,14 @@
       "executableTest": "tests/Http3FrameTest.php",
       "behavior": "Existing test-backed validation, protocol and lifecycle semantics for VarIntCodec",
       "migration": "Retain previously supported validation, lifecycle and failure behavior. Exception documentation clarifies this contract without changing execution semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\HttpRequest",
+      "executableTest": "tests/HostRuntimeTest.php",
+      "behavior": "HTTP request construction and streaming-body cancellation wiring",
+      "migration": "The request context and streaming-body cancellation forwarding preserve their existing request lifecycle; constructor exception documentation does not change execution.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -880,6 +896,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Metrics\\DiagnosticsPolicy",
+      "executableTest": "tests/DiagnosticsPolicyTest.php",
+      "behavior": "Finite and bounded metrics sampling thresholds",
+      "migration": "Threshold validation retains the existing finite-positive and upper-bound invariants; new tests exercise zero, nonfinite and oversized policies.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Metrics\\GcPolicy",
       "executableTest": "tests/MetricsDiagnosticsTest.php",
       "behavior": "GcPolicy runtime validation, state transitions and bounded failure handling",
@@ -908,6 +932,14 @@
       "executableTest": "tests/ConnectionTest.php",
       "behavior": "Public onClose/write trait relocation; optional TLS identity and EOF",
       "migration": "Both public methods remain available through traits; existing constructor calls retain optional defaults; strict TLS EOF must be selected explicitly.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Network\\ConnectionLimits",
+      "executableTest": "tests/ConnectionTest.php",
+      "behavior": "Connection buffer and watermark capacity bounds",
+      "migration": "Receive and send buffer low/high watermarks keep their existing safety constraints; exception docs do not change the bounded connection behavior.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -1224,6 +1256,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Host\\DynamicHostObject",
+      "executableTest": "tests/SwooleDriverTest.php",
+      "behavior": "Dynamic hosted runtime method availability guards",
+      "migration": "Hosted Swoole method dispatch remains dynamically validated and fails closed for unsupported host methods; only the thrown exception contract is documented.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Host\\HostRequestFactory",
       "executableTest": "tests/HostRuntimeTest.php",
       "behavior": "Host-owned request context isolation and lifecycle",
@@ -1272,6 +1312,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\DevelopmentWatcher",
+      "executableTest": "tests/DevelopmentWatcherTest.php",
+      "behavior": "Development watcher snapshot file-capacity handling",
+      "migration": "The existing file snapshot limit remains fail-contained by watcher polling; the regression test verifies that excess files cannot initiate reload callbacks.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\NativeDatagramWorker",
       "executableTest": "tests/NativeWorkerLifecycleTest.php",
       "behavior": "Native datagram worker execution and lifecycle",
@@ -1308,6 +1356,14 @@
       "executableTest": "tests/NativeWorkerLifecycleTest.php",
       "behavior": "Native TCP worker startup and shutdown",
       "migration": "The published native tcp worker startup and shutdown remains test-backed and retains the existing rejection, cancellation and failure contracts; newly documented exceptions reflect preexisting behavior without public API changes.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\NativeTopologyValidator",
+      "executableTest": "tests/NativeTopologyValidatorTest.php",
+      "behavior": "Native worker topology and recycle-policy validation",
+      "migration": "Portable native host configuration continues to reject unsupported worker recycle settings and invalid topologies before runtime startup.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -1356,6 +1412,14 @@
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Existing test-backed validation, protocol and lifecycle semantics for RequestExecutionPolicy",
       "migration": "Retain previously supported validation, lifecycle and failure behavior. Exception documentation clarifies this contract without changing execution semantics.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\RequestResetterRegistry",
+      "executableTest": "tests/RequestResetterRegistryTest.php",
+      "behavior": "Bounded request-resetter registration",
+      "migration": "Registry capacity remains limited to 64 resetters with explicit failure on the next registration; execution and cleanup semantics are unchanged.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
@@ -1612,6 +1676,14 @@
       "executableTest": "tests/WebSocketClientRoleTest.php",
       "behavior": "Optional outbound client-mode and close/ping lifecycle",
       "migration": "Existing server mode default remains; explicitly set client role for outbound sessions and preserve close-handshake timing.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\WebSocket\\WebSocketUpgrade",
+      "executableTest": "tests/WebSocketIntegrationTest.php",
+      "behavior": "Validated WebSocket handshake and upgrade behavior",
+      "migration": "WebSocket negotiation retains existing upgrade and origin checks, while documenting the preexisting failure contract for unavailable upgrade paths.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     }

@@ -18,6 +18,8 @@ $quicSessionWorker = null;
  * ancestors/leaf and off-root parents without filesystem syscalls on the loop.
  * The check is intentionally NOT an openat2/dirfd race-free sandbox.
  * @param array<mixed> $args
+  * @throws \InvalidArgumentException
+  * @throws \RuntimeException
  */
 function guardFilePath(array $args, string $name): void
 {
@@ -51,6 +53,7 @@ function guardFilePath(array $args, string $name): void
     guardFilePathPermissions($args, $name, $path, $parent);
 }
 
+ * @throws \RuntimeException
 /** @internal Validate components without a path mutation or symlink hop. */
 function guardFilePathSegments(string $relative, string $canonicalRoot): void
 {
@@ -69,6 +72,7 @@ function guardFilePathSegments(string $relative, string $canonicalRoot): void
     }
 }
 
+ * @throws \RuntimeException
 /** @param array<mixed> $args */
 function guardFilePathPermissions(array $args, string $name, string $path, string $parent): void
 {
@@ -178,7 +182,8 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 // setBlocking(false) is possible. It may only run here, in
                 // the isolated, deadline-limited executor worker process.
                 $connection = new $quicConnectionClass($host, $port, $options);
-                if (!method_exists($connection, 'close')
+                if (!is_object($connection)
+                    || !method_exists($connection, 'close')
                     || !method_exists($connection, 'getNegotiatedAlpn')) {
                     throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
                 }

@@ -155,6 +155,7 @@ final class DynamicTable
 
     /**
      * Resolve a QPACK post-base index to an absolute dynamic-table index.
+      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function postBaseIndex(int $base, int $postBaseIndex): int
     {

@@ -18,6 +18,7 @@ final class NativeTopologyValidator
 {
     /**
      * @param array<string, Server|StreamServer|DatagramServer> $servers
+      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function assertSupported(
         array $servers,

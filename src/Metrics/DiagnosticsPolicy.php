@@ -25,6 +25,9 @@ final readonly class DiagnosticsPolicy
         self::positiveBounded($workerReportIntervalSeconds, 60.0, 'Worker metrics report interval');
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function positiveBounded(float $value, float $maximum, string $label): void
     {
         if (!is_finite($value) || $value <= 0 || $value > $maximum) {

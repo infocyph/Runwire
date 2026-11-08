@@ -261,11 +261,26 @@ final class QuicWorkerSession
         // Native constructor may block: this function executes exclusively in
         // the bounded external worker process, NEVER the Runwire I/O loop.
         $connection = new $nativeClass($host, $port, $options);
-        // Check dynamic extension capabilities before transferring session ownership.
-        foreach (['close', 'setBlocking', 'getNegotiatedAlpn', 'getVerifyResult', 'handleEvents', 'openStream'] as $method) {
-            if (!method_exists($connection, $method)) {
-                throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
-            }
+        if (!is_object($connection)) {
+            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
+        }
+        if (!method_exists($connection, 'close')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
+        }
+        if (!method_exists($connection, 'setBlocking')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
+        }
+        if (!method_exists($connection, 'getNegotiatedAlpn')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
+        }
+        if (!method_exists($connection, 'getVerifyResult')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
+        }
+        if (!method_exists($connection, 'handleEvents')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
+        }
+        if (!method_exists($connection, 'openStream')) {
+            throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
         }
 
         try {

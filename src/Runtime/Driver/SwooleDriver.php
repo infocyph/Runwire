@@ -90,6 +90,8 @@ final class SwooleDriver implements HostDriverInterface
 
     /**
      * Requests shutdown of the active Swoole/OpenSwoole server.
+      * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+      * @throws \Throwable
      */
     #[\Override]
     public function stop(): void

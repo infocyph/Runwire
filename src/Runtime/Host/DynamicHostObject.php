@@ -37,6 +37,7 @@ final class DynamicHostObject
 
     /**
      * Returns a callable host method or fails when the method is unavailable.
+      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function method(object $object, string $method): Closure
     {

@@ -49,6 +49,9 @@ final readonly class ConnectionLimits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateWatermarks(string $name, int $low, int $high, int $max): void
     {
         if ($low < 0 || $high <= 0 || $low >= $high || $high > $max) {

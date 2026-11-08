@@ -144,6 +144,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when response ownership becomes terminal.
+      * @throws \OverflowException
      */
     #[\Override]
     public function onTerminal(callable $callback): self
@@ -234,6 +235,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::CLOSED, 0);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finish(WriteResult $result): WriteResult
     {
         if (!$result->accepted()) {

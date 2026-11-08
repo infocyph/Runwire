@@ -18,6 +18,7 @@ final readonly class HttpRequest
 
     /**
      * Create an HTTP request from normalized protocol, headers, body, and transport metadata.
+      * @throws \OverflowException
      */
     public function __construct(
         public string $method,

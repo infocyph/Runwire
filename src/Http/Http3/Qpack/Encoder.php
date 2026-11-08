@@ -172,6 +172,9 @@ final class Encoder
         unset($this->outstanding[$streamId]);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function canReference(int $absoluteIndex, bool $sectionBlocking): bool
     {
         $required = CheckedInteger::add(

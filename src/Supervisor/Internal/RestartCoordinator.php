@@ -243,6 +243,10 @@ final class RestartCoordinator
         ));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function reserveRestart(WorkerGroup $group, int $slot): ?float
     {
         $now = MonotonicTime::nowNanoseconds();

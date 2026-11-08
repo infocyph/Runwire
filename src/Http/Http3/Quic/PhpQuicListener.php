@@ -60,7 +60,10 @@ final readonly class PhpQuicListener
                 $exception,
             );
         }
-        // A successful native constructor always produces an object.
+        if (!is_object($listener)) {
+            throw new ListenerException('Quic\\Listener construction returned an invalid listener.');
+        }
+
         $wrapped = new self($listener);
         $wrapped->setNonBlocking();
 

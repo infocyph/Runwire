@@ -198,6 +198,10 @@ final class NativeHttp3Attachment
         $this->context->requestStop();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
+     */
     private function shutdown(?Throwable $primaryFailure = null): void
     {
         $failures = [];
