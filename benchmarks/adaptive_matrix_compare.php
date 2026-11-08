@@ -28,28 +28,6 @@ function adaptiveCompareLoad(string $path): array
     return $record;
 }
 
-/**
- * @param mixed $source
- * @return array<string, mixed>
- * @throws \RuntimeException
- */
-function adaptiveComparePhase(mixed $source, string $name): array
-{
-    if (!is_array($source)) {
-        throw new RuntimeException('Adaptive comparison has missing or invalid phase: ' . $name);
-    }
-
-    $phase = [];
-    foreach ($source as $key => $value) {
-        if (!is_string($key)) {
-            throw new RuntimeException('Adaptive comparison phase requires string metric names.');
-        }
-        $phase[$key] = $value;
-    }
-
-    return $phase;
-}
-
 require_once __DIR__ . '/adaptive_matrix_summary.php';
 
 /**
@@ -103,8 +81,8 @@ function adaptiveMatrixCompare(array $auto, array $fixed, bool $diagnostic = fal
     $failures = [];
     $deltas = [];
     foreach ($phaseNames as $phaseName) {
-        $a = adaptiveComparePhase($autoPhases[$phaseName] ?? null, $phaseName);
-        $f = adaptiveComparePhase($fixedPhases[$phaseName] ?? null, $phaseName);
+        $a = adaptiveMatrixPhase($autoPhases[$phaseName] ?? null, $phaseName);
+        $f = adaptiveMatrixPhase($fixedPhases[$phaseName] ?? null, $phaseName);
 
         foreach (['concurrency', 'requested_duration_seconds'] as $name) {
             if (adaptiveMatrixMetric($a, $name) <= 0 || $a[$name] !== ($f[$name] ?? null)) {

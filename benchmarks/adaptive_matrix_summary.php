@@ -35,7 +35,36 @@ function adaptiveMatrixLoad(string $path): array
         throw new RuntimeException('Adaptive matrix evidence must decode to an object.');
     }
 
-    return $decoded;
+    $record = [];
+    foreach ($decoded as $name => $value) {
+        if (!is_string($name)) {
+            throw new RuntimeException('Adaptive matrix evidence requires string field names.');
+        }
+        $record[$name] = $value;
+    }
+
+    return $record;
+}
+
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
+function adaptiveMatrixPhase(mixed $source, string $name): array
+{
+    if (!is_array($source)) {
+        throw new RuntimeException('Adaptive comparison has missing or invalid phase: ' . $name);
+    }
+
+    $phase = [];
+    foreach ($source as $key => $value) {
+        if (!is_string($key)) {
+            throw new RuntimeException('Adaptive comparison phase requires string metric names.');
+        }
+        $phase[$key] = $value;
+    }
+
+    return $phase;
 }
 
 /**
@@ -58,8 +87,12 @@ function adaptiveMatrixMetric(array $phase, string $name): float
  */
 function adaptiveMatrixCv(array $values): float
 {
-    $mean = (float) array_sum($values) / (float) count($values);
-    if ($mean <= 0 || count($values) < 2) {
+    $count = count($values);
+    if ($count < 2) {
+        throw new RuntimeException('Adaptive variance needs repeated positive throughput samples.');
+    }
+    $mean = (float) array_sum($values) / (float) $count;
+    if ($mean <= 0) {
         throw new RuntimeException('Adaptive variance needs repeated positive throughput samples.');
     }
     $squares = array_sum(array_map(static fn(float $value): float => ($value - $mean) ** 2.0, $values));
@@ -68,7 +101,8 @@ function adaptiveMatrixCv(array $values): float
 }
 
 /**
- * @param list<array<string, mixed>> $records @return array<string, mixed>
+ * @param list<array<string, mixed>> $records
+ * @return array<string, mixed>
  * @throws \RuntimeException
  */
 function adaptiveMatrixSummarize(array $records): array
@@ -102,6 +136,17 @@ function adaptiveMatrixSummarize(array $records): array
             throw new RuntimeException('Promotion evidence requires distinct trial IDs.');
         }
     }
+    $referenceRawPhases = $reference['phases'] ?? null;
+    if (!is_array($referenceRawPhases)) {
+        throw new RuntimeException('Adaptive evidence requires named phase summaries.');
+    }
+    $referencePhases = [];
+    foreach ($phaseNames as $name) {
+        $referencePhases[$name] = adaptiveMatrixPhase($referenceRawPhases[$name] ?? null, $name);
+    }
+
+    /** @var list<array<string, array<string, mixed>>> $validatedPhases */
+    $validatedPhases = [];
     foreach ($records as $record) {
         foreach ($metadata as $name) {
             if (($record[$name] ?? null) !== $reference[$name]) {
@@ -111,11 +156,14 @@ function adaptiveMatrixSummarize(array $records): array
         if (($record['correctness_passed'] ?? false) !== true) {
             throw new RuntimeException('Adaptive evidence failed correctness.');
         }
-        if (count($record['phases'] ?? []) !== count($phaseNames)) {
+        $recordRawPhases = $record['phases'] ?? null;
+        if (!is_array($recordRawPhases) || count($recordRawPhases) !== count($phaseNames)) {
             throw new RuntimeException('Adaptive evidence has missing or unexpected phases.');
         }
+        $recordPhases = [];
         foreach ($phaseNames as $name) {
-            $phase = $record['phases'][$name] ?? [];
+            $phase = adaptiveMatrixPhase($recordRawPhases[$name] ?? null, $name);
+            $referencePhase = $referencePhases[$name];
             if (($phase['correctness_passed'] ?? false) !== true
                 || adaptiveMatrixMetric($phase, 'requests') <= 0
                 || adaptiveMatrixMetric($phase, 'errors') !== 0.0
@@ -126,20 +174,22 @@ function adaptiveMatrixSummarize(array $records): array
             }
             foreach (['concurrency', 'requested_duration_seconds'] as $field) {
                 if (adaptiveMatrixMetric($phase, $field) <= 0
-                    || $phase[$field] !== $reference['phases'][$name][$field]) {
+                    || $phase[$field] !== ($referencePhase[$field] ?? null)) {
                     throw new RuntimeException('Adaptive phase configuration mismatch: ' . $field);
                 }
             }
             foreach ($metrics as $metric) {
                 adaptiveMatrixMetric($phase, $metric);
             }
+            $recordPhases[$name] = $phase;
         }
+        $validatedPhases[] = $recordPhases;
     }
 
     $phases = [];
     foreach ($phaseNames as $name) {
         foreach ($metrics as $metric) {
-            $values = array_map(static fn(array $record): float => (float) $record['phases'][$name][$metric], $records);
+            $values = array_map(static fn(array $rows): float => adaptiveMatrixMetric($rows[$name], $metric), $validatedPhases);
             $phases[$name][$metric] = adaptiveMatrixMedian($values);
             if ($metric === 'client_cpu_percent') {
                 $phases[$name]['client_cpu_percent_max'] = max($values);
@@ -149,9 +199,9 @@ function adaptiveMatrixSummarize(array $records): array
                 $phases[$name]['throughput_rpm'] = (float) $phases[$name][$metric] * 60.0;
             }
         }
-        $phases[$name]['duration_seconds_min'] = min(array_map(static fn(array $record): float => (float) $record['phases'][$name]['duration_seconds'], $records));
+        $phases[$name]['duration_seconds_min'] = min(array_map(static fn(array $rows): float => adaptiveMatrixMetric($rows[$name], 'duration_seconds'), $validatedPhases));
         foreach (['concurrency', 'requested_duration_seconds'] as $field) {
-            $phases[$name][$field] = $reference['phases'][$name][$field];
+            $phases[$name][$field] = $referencePhases[$name][$field];
         }
     }
 
