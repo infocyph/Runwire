@@ -16,6 +16,7 @@ final class RuntimeCapabilityResolver
 {
     /**
      * Resolves capabilities for the selected runtime driver.
+     * @throws \InvalidArgumentException
      */
     public function resolve(
         RuntimeDriver $driver,
@@ -34,6 +35,9 @@ final class RuntimeCapabilityResolver
         };
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function fpm(RuntimeEnvironment $environment): RuntimeCapabilities
     {
         return new RuntimeCapabilities(
@@ -47,6 +51,9 @@ final class RuntimeCapabilityResolver
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function frankenPhp(RuntimeEnvironment $environment, RuntimeOptions $options): RuntimeCapabilities
     {
         $worker = $options->frankenPhp->mode === FrankenPhpMode::WORKER
@@ -66,6 +73,9 @@ final class RuntimeCapabilityResolver
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function native(RuntimeEnvironment $environment): RuntimeCapabilities
     {
         $prefork = $environment->nativePreforkEligible();
@@ -102,6 +112,9 @@ final class RuntimeCapabilityResolver
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function roadRunner(RuntimeEnvironment $environment): RuntimeCapabilities
     {
         return new RuntimeCapabilities(
@@ -117,6 +130,9 @@ final class RuntimeCapabilityResolver
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function swoole(RuntimeEnvironment $environment, RuntimeOptions $options): RuntimeCapabilities
     {
         return new RuntimeCapabilities(
