@@ -814,3 +814,9 @@
 - The private public API migration review tool still opened argv-selected filenames (two taint sinks at file_get_contents). Instead accept bounded JSON stdin containing diff and policy documents, with schema and signature review logic unchanged. The source-audit workflow uses jq --slurpfile to open the pinned inputs outside of PHP, and passes one strict envelope to the reviewer.
 - Update the existing comprehensive migration review regression test to feed a real stdin envelope through shell redirection while preserving its accepted and rejected signature scenarios. Output JSON format remains identical; the retired two-file CLI interface is internal-only, not published Runwire PHP API.
 - Check new SHA Source Audit, Pest, four PHPForge QA configurations and PHP 8.4/8.5 Psalm/PHPStan. Do not reduce source audit security controls, hide taints or merge/tag.
+
+### Batch 82 — correct manifest subprocess stderr redirection order
+
+- Batch 79 switched public-api-manifest JSON output to stdout, and Source Audit succeeded. Its PHPForge Pest run failed two tests in `PublicApiManifestPropertiesTest.php` because their subprocess commands appended `2>&1` **after** the JSON stdout redirection, making PHP's stderr diagnostic output part of the JSON file and hiding the expected symlink rejection message from the captured output.
+- Correct exactly the shell redirection order to `2>&1 > manifest.json` for the normal and rejection commands. This captures stderr in the test output while leaving only generated JSON in the manifest file; the generator, Source Audit and CLI production redirections remain unchanged.
+- Source and API contracts untouched. Verify both Pest regressions, all QA lanes, Source Audit and Psalm exact-head before marking the earlier batch valid. No merge or tag.

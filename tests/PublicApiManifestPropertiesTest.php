@@ -28,7 +28,7 @@ PHP);
         $command = escapeshellarg(PHP_BINARY) . ' '
             . escapeshellarg($tool) . ' '
             . escapeshellarg($root) . ' '
-            . escapeshellarg($revision) . ' --with-properties > ' . escapeshellarg($manifest);
+            . escapeshellarg($revision) . ' --with-properties 2>&1 > ' . escapeshellarg($manifest);
         $output = [];
         $status = 0;
         exec($command . ' 2>&1', $output, $status);
@@ -79,7 +79,7 @@ it('rejects a symlinked PHP declaration that targets a file outside the requeste
         $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($tool)
             . ' ' . escapeshellarg($source)
             . ' ' . escapeshellarg(str_repeat('a', 40))
-            . ' > ' . escapeshellarg($output);
+            . ' 2>&1 > ' . escapeshellarg($output);
         $messages = [];
         $status = 0;
         exec($command . ' 2>&1', $messages, $status);
