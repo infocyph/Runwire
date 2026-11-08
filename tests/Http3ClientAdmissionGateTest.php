@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientAdmissionGate;
+use InvalidArgumentException;
+use OverflowException;
+use RuntimeException;
 
 it('bounds active multiplexed request streams and grants waiting siblings in FIFO order', function (): void {
     $gate = new Http3ClientAdmissionGate(2, 3);

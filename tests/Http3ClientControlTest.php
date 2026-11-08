@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientControl;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\SettingIdentifier;
@@ -11,6 +13,7 @@ use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Settings;
 use Infocyph\Runwire\Http\Http3\SettingsCodec;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
+use LogicException;
 
 it('emits one outbound HTTP3 control preamble with zero QPACK blocking', function (): void {
     $client = new Http3ClientControl();

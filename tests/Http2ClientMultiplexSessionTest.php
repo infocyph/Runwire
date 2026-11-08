@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
@@ -11,6 +13,9 @@ use Infocyph\Runwire\Http\Http2\FrameParser;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
 
 it('shares one H2 preface and HPACK decoder across simultaneously live response streams', function (): void {
     $session = new Http2ClientMultiplexSession(2);

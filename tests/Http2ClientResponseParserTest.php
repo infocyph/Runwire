@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientResponseParser;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
+use InvalidArgumentException;
+use RuntimeException;
 
 it('delivers bounded H2 headers only after CONTINUATION then streams DATA until END_STREAM', function (): void {
     $parser = new Http2ClientResponseParser();

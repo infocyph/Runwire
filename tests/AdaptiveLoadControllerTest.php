@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadController;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
-use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use InvalidArgumentException;
 
 it('normalizes adaptive load counters without exceeding basis-point bounds', function (): void {
