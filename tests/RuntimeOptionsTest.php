@@ -16,3 +16,15 @@ it('defaults to automatic runtime and opcache selection with worker recycling an
         ->and($options->fpm->maxRequestBodyBytes)->toBe(16_777_216)
         ->and($options->frankenPhp->maxResponseBytes)->toBe(16_777_216);
 });
+
+it('rejects forged worker-recycling jitter options that bypass their constructor guard', function (): void {
+    $reflection = new ReflectionClass(\Infocyph\Runwire\Supervisor\WorkerRecyclePolicy::class);
+    $invalid = $reflection->newInstanceWithoutConstructor();
+    (new ReflectionProperty(\Infocyph\Runwire\Supervisor\WorkerRecyclePolicy::class, 'maxRequests'))
+        ->setValue($invalid, 0);
+    (new ReflectionProperty(\Infocyph\Runwire\Supervisor\WorkerRecyclePolicy::class, 'jitterRequests'))
+        ->setValue($invalid, 1);
+
+    expect(fn(): RuntimeOptions => new RuntimeOptions(workerRecycle: $invalid))
+        ->toThrow(InvalidArgumentException::class, 'matching limit');
+});

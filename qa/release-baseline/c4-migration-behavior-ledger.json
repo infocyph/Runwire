@@ -1498,8 +1498,8 @@
     {
       "symbol": "Infocyph\\Runwire\\RuntimeOptions",
       "executableTest": "tests/RuntimeOptionsTest.php",
-      "behavior": "Existing tested validation, state and lifecycle behavior for RuntimeOptions",
-      "migration": "Preserve preexisting validation, lifecycle and error behavior when migrating to 3.0; changes clarify exception declarations without changing runtime implementation.",
+      "behavior": "Runtime options preserve default driver and operational policy while rejecting malformed injected worker-recycle jitter",
+      "migration": "RuntimeOptions preserves all public promoted constructor arguments and default objects. Valid WorkerRecyclePolicy instances continue to behave identically; a bypass-hydrated object with nonzero jitter but no corresponding request or lifetime limit now fails closed during options construction, preventing inconsistent worker restart policy.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
