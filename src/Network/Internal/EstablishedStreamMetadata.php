@@ -17,6 +17,7 @@ final class EstablishedStreamMetadata
     /**
      * @param resource $stream
      * @return array{peer:?string, local:?string, protocol:?string, encrypted:bool, fingerprint:?string}
+     * @throws \InvalidArgumentException
      */
     public static function capture(
         mixed $stream,

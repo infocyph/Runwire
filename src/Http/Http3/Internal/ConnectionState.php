@@ -65,6 +65,7 @@ final class ConnectionState
     /**
      * Cancel and discard a tracked request stream.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancelRequestStream(int $streamId): void
     {
@@ -195,6 +196,7 @@ final class ConnectionState
     /**
      * Release a request stream and cancel it first when unfinished.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function releaseRequestStream(int $streamId): void
     {
@@ -340,6 +342,7 @@ final class ConnectionState
     /**
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
      */
     private function processControl(string $payload): void
     {

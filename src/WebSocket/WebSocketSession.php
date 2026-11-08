@@ -155,6 +155,7 @@ final class WebSocketSession
     /**
      * Ask an upgraded session to stop accepting application work during worker drain.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function drain(): void
     {
@@ -495,6 +496,7 @@ final class WebSocketSession
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function heartbeat(): void
     {

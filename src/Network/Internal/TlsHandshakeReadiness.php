@@ -34,6 +34,7 @@ final class TlsHandshakeReadiness
      * @param resource $stream
      * @param callable():void $onReady
      * @param callable():void $onTimeout
+     * @throws \Throwable
      */
     public function start(
         mixed $stream,

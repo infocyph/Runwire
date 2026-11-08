@@ -73,6 +73,7 @@ final class QuicWorkerCommand
 
     /**
      * Encode exactly one bounded stream command, never a native resource.
+     * @throws \InvalidArgumentException
      */
     public static function encode(
         int $requestId,

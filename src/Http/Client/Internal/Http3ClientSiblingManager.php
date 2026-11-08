@@ -77,6 +77,7 @@ final class Http3ClientSiblingManager
     /**
      * Cancel just one sibling and reset its native stream when present.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancel(int $id, Throwable $error): bool
     {

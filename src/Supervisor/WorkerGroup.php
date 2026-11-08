@@ -73,6 +73,7 @@ final readonly class WorkerGroup
      *
      * @param callable(WorkerContext): void $factory
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function callbacks(
         string $name,
@@ -107,6 +108,7 @@ final readonly class WorkerGroup
     /**
      * Return the same immutable worker group contract with a new live slot count.
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function withCount(int $count): self
     {

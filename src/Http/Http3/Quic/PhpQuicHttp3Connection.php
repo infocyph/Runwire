@@ -68,6 +68,7 @@ final class PhpQuicHttp3Connection
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
+     * @throws \LogicException
      */
     public function __construct(
         private readonly PhpQuicConnection $connection,

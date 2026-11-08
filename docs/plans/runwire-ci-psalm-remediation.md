@@ -383,3 +383,15 @@
 - Narrow WebSocket URI scheme through a validated local scalar and eliminate redundant two-pass chunk-extension parsing that Psalm flagged as a possibly-false operand.
 - Document **73 confirmed MissingThrowsDocblock locations** across 30 additional source files, retaining exact runtime behavior and ledger coverage.
 - Validate both PHP versions, all PHPForge quality lanes, source audit, hosted and protocol CI. Keep P0 file/SSRF/header taint, P1 correctness, P2 maintenance, P3 hygiene and fresh findings open until individually verified. No merges, tags or global suppressions.
+
+### Batch 37 verified analyzer checkpoint
+
+- Exact commit `cd4915a3aceaeafbf0ed34b3e8fac592a92f4d04`: PHP 8.4 and 8.5 Psalm **315 errors** (171 MissingThrowsDocblock, 144 other), net -66 versus Batch 36 381.
+- PHPStan reports 22 errors: 21 from three CLI audit scripts losing essential list<string> argument typing when redundant Psalm annotations were removed, plus one over-wide `AdaptivePollStrategy::timeout()` exception tag.
+- Security-taint (file, SSRF and headers) remains unresolved and explicitly in scope.
+
+### Batch 38 — CLI contract and exception cleanup
+
+- **50 changed files**: three CLI tools now validate the actual argv list/type contract, `AdaptivePollStrategy` loses an inaccurate @throws declaration, **45 source files** receive precise documented exceptions (approximately 64 logged sites), and this tracker records the scope.
+- The helper checks argument values before consumption, without hiding Psalm diagnostics behind tool-specific var annotations or changing the command-line contract for valid callers.
+- Confirm exact-head PHPStan/Psalm on PHP 8.4 and 8.5, PHPForge QA, Source Audit, security and protocol tests. Keep all P0/P1/P2/P3 findings open until actually resolved, no silent suppressions, no merge or tag.

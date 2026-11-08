@@ -19,6 +19,7 @@ trait ConnectionLifecycleOperationsTrait
     /**
      * Bind this established stream to one owner token and its earliest deadline.
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function bindOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
     {

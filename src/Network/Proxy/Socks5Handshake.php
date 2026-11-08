@@ -137,7 +137,10 @@ final readonly class Socks5Handshake
         }
     }
 
-    /** Encode a previously validated numeric SOCKS5 destination. */
+    /**
+     * Encode a previously validated numeric SOCKS5 destination.
+     * @throws \InvalidArgumentException
+     */
     private static function encodedIp(string $target, string $family): string
     {
         $packed = inet_pton($target);

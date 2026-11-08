@@ -151,6 +151,7 @@ final class ResponseScheduler
     /**
      * Send one control frame through the transport scheduler.
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     public function sendControl(Frame $frame): WriteResult
     {

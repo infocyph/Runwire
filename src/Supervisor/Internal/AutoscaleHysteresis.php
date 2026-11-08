@@ -47,6 +47,7 @@ final class AutoscaleHysteresis
      * Return an at-most-one-worker capacity change from monotonic samples.
      * Request backlog prevents idle-down, and a full worker group may scale
      * out even before the application records a queued request.
+     * @throws \InvalidArgumentException
      */
     public function propose(int $current, int $busy, int $queued, int $nowNanoseconds): int
     {

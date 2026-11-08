@@ -42,6 +42,7 @@ final class ClientTlsHandshake
      * @param resource $stream
      * @param callable(?string):void $onSuccess
      * @param callable(Throwable):void $onFailure
+     * @throws \InvalidArgumentException
      */
     public static function start(
         LoopInterface $loop,

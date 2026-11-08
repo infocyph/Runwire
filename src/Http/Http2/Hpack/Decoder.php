@@ -198,6 +198,7 @@ final class Decoder
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     * @throws \InvalidArgumentException
      */
     private function updateDynamicTable(string $block, int &$offset, bool $sawHeader): void
     {

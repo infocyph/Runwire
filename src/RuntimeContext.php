@@ -54,6 +54,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 
     /**
      * Build a runtime context directly from a resolved capability set.
+     * @throws \InvalidArgumentException
      */
     public static function fromCapabilities(
         RuntimeCapabilities $capabilities,

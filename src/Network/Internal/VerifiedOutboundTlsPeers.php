@@ -24,7 +24,10 @@ final class VerifiedOutboundTlsPeers
         return self::$names === null ? null : (self::$names[$connection] ?? null);
     }
 
-    /** Record the peer only after the dialer's secure client TLS handshake succeeded. */
+    /**
+     * Record the peer only after the dialer's secure client TLS handshake succeeded.
+     * @throws \LogicException
+     */
     public static function register(Connection $connection, string $peerName): void
     {
         if (!$connection->isEncrypted() || $peerName === '') {

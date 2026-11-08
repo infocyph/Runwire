@@ -91,6 +91,7 @@ final class Http3OutboundClient
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function __construct(
         private readonly LoopInterface $loop,
@@ -598,6 +599,8 @@ final class Http3OutboundClient
     /**
      * Pull one bounded producer chunk only after the previous QUIC write completes.
      * @throws \RuntimeException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function sendUpload(): void
     {
@@ -700,6 +703,8 @@ final class Http3OutboundClient
      * Write a complete frame through partial, bounded native QUIC writes.
      *
      * @param callable():void $completed
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function writeAll(int $stream, string $bytes, bool $fin, callable $completed): void
     {

@@ -317,6 +317,9 @@ final class StreamRelay
         $this->forward($fromLeft);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function transfer(bool $fromLeft): void
     {
         $source = $fromLeft ? $this->left : $this->right;

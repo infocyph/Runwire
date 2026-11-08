@@ -128,6 +128,7 @@ final readonly class QuicClientOptions
      * Return a verified TLS 1.3 client policy for the ext-quic backend.
      *
      * @return array<string, bool|int|string|list<string>>
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function nativeOptions(): array
     {

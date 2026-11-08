@@ -26,6 +26,7 @@ final readonly class ResponseTransfer
      *
      * @param resource $source
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public static function stream(
         CoroutineScope $scope,

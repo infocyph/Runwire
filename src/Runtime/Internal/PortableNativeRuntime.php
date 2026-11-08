@@ -278,6 +278,7 @@ final class PortableNativeRuntime
 
     /**
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     private function stopGracefully(SelectLoop $loop): void
     {

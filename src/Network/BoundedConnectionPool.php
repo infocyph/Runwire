@@ -308,7 +308,10 @@ final class BoundedConnectionPool
         ($entry['callback'])($id, null, $error);
     }
 
-    /** Preserve socket ownership and bounded opt-in accounting after lease retirement. */
+    /**
+     * Preserve socket ownership and bounded opt-in accounting after lease retirement.
+     * @throws \Throwable
+     */
     private function retainReleasedConnection(PoolIsolationKey $key, Connection $connection): void
     {
         if ($this->closed) {

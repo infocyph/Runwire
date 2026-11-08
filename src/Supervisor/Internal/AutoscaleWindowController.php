@@ -52,7 +52,10 @@ final class AutoscaleWindowController
         return $this->lastChangeAt;
     }
 
-    /** Propose a worker target from monotonic metrics, never spawning children. */
+    /**
+     * Propose a worker target from monotonic metrics, never spawning children.
+     * @throws \InvalidArgumentException
+     */
     public function observe(
         int $currentWorkers,
         float $cpuRatio,

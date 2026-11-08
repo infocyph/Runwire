@@ -22,6 +22,7 @@ final class Http3ClientPeerAuxiliary
      *
      * @return array{watch:bool,completed:bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function accept(
         int $type,
@@ -54,6 +55,7 @@ final class Http3ClientPeerAuxiliary
      * @param null|callable(ReadyFieldSection):bool $releaseSibling
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function acceptEncoder(
         string $bytes,

@@ -20,7 +20,6 @@ final class AdaptivePollStrategy
 
     /**
      * Return a timeout that preserves non-blocking calls and readiness-driven active traffic.
-     * @throws \InvalidArgumentException
      */
     public static function timeout(
         ?float $baseTimeoutSeconds,

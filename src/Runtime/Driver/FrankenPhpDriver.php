@@ -37,6 +37,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
      * @param callable(): HttpRequest|null $requestFactory
      * @param callable(string): ResponseWriterInterface|null $writerFactory
      * @param callable(callable): bool|null $workerRequestHandler
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private FrankenPhpOptions $options,

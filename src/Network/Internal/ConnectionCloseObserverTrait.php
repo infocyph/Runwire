@@ -28,6 +28,7 @@ trait ConnectionCloseObserverTrait
     /**
      * Register a close observer with a removable handle.
      * The callback executes immediately for an already closed connection.
+     * @throws \OverflowException
      */
     public function registerCloseObserver(callable $callback): ?int
     {

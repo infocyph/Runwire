@@ -26,7 +26,10 @@ final class RoadRunnerDriver implements HostDriverInterface
 
     private ?RoadRunnerSessionInterface $session = null;
 
-    /** @param callable(): RoadRunnerSessionInterface|null $sessionFactory */
+    /**
+     * @param callable(): RoadRunnerSessionInterface|null $sessionFactory
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly RoadRunnerOptions $options,
         ?callable $sessionFactory = null,

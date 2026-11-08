@@ -97,7 +97,10 @@ final class ProcessHandle
         return proc_close($resource);
     }
 
-    /** @return resource */
+    /**
+     * @return resource
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     public function resource(): mixed
     {
         if (!is_resource($this->resource)) {

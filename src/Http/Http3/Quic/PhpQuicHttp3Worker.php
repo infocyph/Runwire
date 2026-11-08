@@ -157,6 +157,7 @@ final class PhpQuicHttp3Worker
     /**
      * Execute one bounded HTTP/3 worker polling cycle.
      * @throws \Infocyph\Runwire\Exception\ListenerException
+     * @throws \InvalidArgumentException
      */
     public function tick(?float $timeoutSeconds = self::DEFAULT_POLL_TIMEOUT_SECONDS): void
     {

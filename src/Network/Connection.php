@@ -622,6 +622,9 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function handleWritable(): void
     {
         if ($this->state === ConnectionState::CLOSED) {

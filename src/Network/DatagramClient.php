@@ -78,6 +78,7 @@ final class DatagramClient
      * @param callable(Datagram,self):void $onDatagram
      * @param callable(self):void $onTimeout
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function receiveOnce(
         LoopInterface $loop,

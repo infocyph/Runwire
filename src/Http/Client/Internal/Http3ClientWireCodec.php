@@ -157,6 +157,7 @@ final readonly class Http3ClientWireCodec
      * @return array{status:int, headers:Headers}|null
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function tryDecodeResponseHeaders(string $payload, int $streamId): ?array
     {
@@ -169,6 +170,7 @@ final readonly class Http3ClientWireCodec
      * Decode trailers or report a bounded QPACK-blocked field section.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function tryDecodeResponseTrailers(string $payload, int $streamId): ?Headers
     {

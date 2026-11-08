@@ -8,7 +8,23 @@ declare(strict_types=1);
  * This is a documentation coverage gate, not proof that all historical
  * runtime behavior is backward compatible.
  */
-$arguments = $_SERVER['argv'] ?? [];
+/** Validate CLI arguments without trusting the ambient server array shape. */
+$readCliArguments = static function (mixed $input): array {
+    if (!is_array($input) || !array_is_list($input)) {
+        throw new InvalidArgumentException('CLI arguments must be a list of strings.');
+    }
+
+    $arguments = [];
+    foreach ($input as $value) {
+        if (!is_string($value)) {
+            throw new InvalidArgumentException('CLI arguments must be strings.');
+        }
+        $arguments[] = $value;
+    }
+
+    return $arguments;
+};
+$arguments = $readCliArguments($_SERVER['argv'] ?? []);
 if (count($arguments) !== 3) {
     throw new InvalidArgumentException(
         'Usage: php tools/c4-migration-behavior-audit.php <source-diff.json> <ledger.json>',

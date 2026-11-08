@@ -91,6 +91,7 @@ final readonly class RuntimeSelector
 
     /**
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private function validatePrivilegeDrop(RuntimeOptions $options, RuntimeDriver $driver, bool $supported): void
     {

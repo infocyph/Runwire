@@ -511,6 +511,7 @@ final class RequestStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function processFrame(Frame $frame): void
     {
@@ -538,6 +539,7 @@ final class RequestStream
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function processHeaders(string $payload): void
     {

@@ -626,6 +626,7 @@ final class Runtime
     /**
      * @param callable(RuntimeContext): RuntimeApplicationInterface $factory
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function runHostApplication(callable $factory, RuntimeContext $context): void
     {

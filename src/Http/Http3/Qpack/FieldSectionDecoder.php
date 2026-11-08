@@ -30,6 +30,7 @@ final readonly class FieldSectionDecoder
      * Decode a complete QPACK field section.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \Infocyph\Runwire\Http\Http3\Qpack\BlockedFieldSectionException
+     * @throws \InvalidArgumentException
      */
     public function decode(string $block): DecodedFieldSection
     {
@@ -82,6 +83,7 @@ final readonly class FieldSectionDecoder
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function decodeBase(string $block, int &$offset, int $requiredInsertCount): int
     {
@@ -136,6 +138,7 @@ final readonly class FieldSectionDecoder
     /**
      * @return array{0: string, 1: string, 2: bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function indexed(string $block, int &$offset, int $base): array
     {
@@ -155,6 +158,7 @@ final readonly class FieldSectionDecoder
     /**
      * @return array{0: string, 1: string, 2: bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function indexedPostBase(string $block, int &$offset, int $base): array
     {

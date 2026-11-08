@@ -192,7 +192,10 @@ final class HttpConnectTunnel
         }
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \LogicException
+     */
     private function fail(Throwable $error): void
     {
         if ($this->state !== 'pending') {
