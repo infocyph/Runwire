@@ -198,6 +198,7 @@ final class HttpConnectTunnel
     /**
      * Execute the bounded proxy exchange phase.
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function fail(Throwable $error): void
     {

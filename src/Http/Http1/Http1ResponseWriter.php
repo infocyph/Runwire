@@ -168,6 +168,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
      * @throws \OverflowException
      */
     #[\Override]
+    /**
+     * @throws \Throwable
+     */
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -249,6 +252,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
      * @throws \OverflowException
      */
     #[\Override]
+    /**
+     * @throws \Throwable
+     */
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {
@@ -530,6 +536,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function writeBodyChunk(string $chunk): WriteResult
     {

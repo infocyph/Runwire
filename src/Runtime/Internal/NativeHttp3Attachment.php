@@ -186,6 +186,7 @@ final class NativeHttp3Attachment
      * @throws \Infocyph\Runwire\Exception\ListenerException
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     private function poll(): void
     {

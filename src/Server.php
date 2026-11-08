@@ -140,6 +140,7 @@ final readonly class Server
 
     /**
      * Build the runtime application used by a specific worker.
+     * @throws \InvalidArgumentException
      */
     public function applicationFor(
         WorkerContext $workerContext,

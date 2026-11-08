@@ -179,6 +179,7 @@ final class Http2ConnectedExchange
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function finish(?Throwable $error): void
     {

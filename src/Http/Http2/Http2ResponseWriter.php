@@ -330,6 +330,7 @@ final class Http2ResponseWriter implements ResponseWriterInterface
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function prepareImplicitEnd(string $finalChunk): ?WriteResult
     {

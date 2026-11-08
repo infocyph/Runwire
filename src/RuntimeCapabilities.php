@@ -15,7 +15,6 @@ final readonly class RuntimeCapabilities
 {
     /**
      * Creates a runtime capability snapshot.
-     * @throws \InvalidArgumentException
      */
     public function __construct(
         public RuntimeDriver $driver,

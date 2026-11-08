@@ -394,6 +394,7 @@ final class ResponseScheduler
     /**
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function flushWireChunk(): bool
     {
@@ -552,6 +553,7 @@ final class ResponseScheduler
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function queueWire(string $wire): WriteResult
     {
@@ -598,6 +600,7 @@ final class ResponseScheduler
     /**
      * @throws \OverflowException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function sendFrame(Frame $frame): WriteResult
     {
@@ -655,6 +658,7 @@ final class ResponseScheduler
      * @param list<array{0: string, 1: string}> $headers
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function sendInitialResponse(Http2Stream $stream, array $headers, string $data): ?WriteResult
     {

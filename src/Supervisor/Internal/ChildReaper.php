@@ -130,14 +130,6 @@ final class ChildReaper
     }
 
     /**
-     * Keep the PCNTL false-on-unsupported-OS contract visible across analyzers.
-     */
-    private static function supportedStatus(mixed $status): ?int
-    {
-        return is_int($status) ? $status : null;
-    }
-
-    /**
      * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private static function retryWait(): bool
@@ -151,5 +143,13 @@ final class ChildReaper
         }
 
         throw new SupervisorException(sprintf('waitpid failed with PCNTL error %d.', $error));
+    }
+
+    /**
+     * Keep the PCNTL false-on-unsupported-OS contract visible across analyzers.
+     */
+    private static function supportedStatus(mixed $status): ?int
+    {
+        return is_int($status) ? $status : null;
     }
 }

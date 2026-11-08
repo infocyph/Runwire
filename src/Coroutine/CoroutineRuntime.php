@@ -89,7 +89,6 @@ final class CoroutineRuntime
             );
         } catch (\Throwable $error) {
             if (!$closed) {
-                $closed = true;
                 $scope->close();
                 --$this->attachedRequestScopes;
             }

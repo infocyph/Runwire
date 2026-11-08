@@ -133,6 +133,7 @@ final readonly class Http3ClientWireCodec
     /**
      * Validate the peer QPACK decoder stream; no dynamic references are outstanding.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function receivePeerDecoderInstructions(string $bytes): void
     {

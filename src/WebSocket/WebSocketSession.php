@@ -76,6 +76,7 @@ final class WebSocketSession
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function __construct(
         LoopInterface $loop,
@@ -157,6 +158,7 @@ final class WebSocketSession
      * Ask an upgraded session to stop accepting application work during worker drain.
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): void
     {
@@ -463,6 +465,7 @@ final class WebSocketSession
     /**
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function handlePeerClose(string $payload): void
     {
@@ -486,6 +489,7 @@ final class WebSocketSession
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function handlePing(string $payload): void
     {
@@ -498,6 +502,7 @@ final class WebSocketSession
     /**
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function heartbeat(): void
     {
@@ -545,6 +550,9 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function protocolFailure(int $code, string $reason): void
     {
         if ($this->closed) {
@@ -670,6 +678,7 @@ final class WebSocketSession
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function sendFrame(int $opcode, string $payload, bool $allowClosing): WriteResult
     {

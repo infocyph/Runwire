@@ -66,7 +66,9 @@ it('keeps fpm request-bound application state non-persistent', function (): void
     expect($capabilities->persistentProcess)->toBeTrue()
         ->and($capabilities->persistentApplication)->toBeFalse()
         ->and($capabilities->ownsListener)->toBeFalse()
-        ->and($capabilities->ownsWorkerPool)->toBeFalse();
+        ->and($capabilities->ownsWorkerPool)->toBeFalse()
+        ->and($capabilities->supportsHttp2)->toBeFalse()
+        ->and($capabilities->supportsQuic)->toBeFalse();
 });
 
 

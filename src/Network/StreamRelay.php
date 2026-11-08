@@ -61,7 +61,10 @@ final class StreamRelay
         }
     }
 
-    /** Abort both connections and release their reactor handles exactly once. */
+        /**
+     * Abort both connections and release their reactor handles exactly once.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -268,6 +271,7 @@ final class StreamRelay
     /**
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function moveChunk(Connection $source, Connection $destination, bool $fromLeft, int $remaining): int
     {

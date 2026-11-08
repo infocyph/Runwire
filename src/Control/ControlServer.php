@@ -309,6 +309,7 @@ final class ControlServer
     /**
      * @param array<string, mixed> $payload
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function write(FramedConnection $session, array $payload): void
     {

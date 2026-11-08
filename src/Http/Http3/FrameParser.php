@@ -62,6 +62,7 @@ final class FrameParser
     /**
      * @return list<Frame>
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function push(string $bytes): array
     {

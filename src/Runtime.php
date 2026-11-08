@@ -77,6 +77,7 @@ final class Runtime
 
     /**
      * Creates a runtime using the supplied or default options.
+     * @throws \InvalidArgumentException
      */
     public static function create(?RuntimeOptions $options = null): self
     {

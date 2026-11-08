@@ -29,6 +29,7 @@ final readonly class NativeHttpConnection
      * @throws \InvalidArgumentException
      * @throws \OverflowException
      * @throws \LogicException
+     * @throws \Throwable
      */
     public static function attach(
         LoopInterface $loop,

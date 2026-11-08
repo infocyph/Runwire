@@ -29,6 +29,7 @@ final class FramedConnection
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -54,6 +55,7 @@ final class FramedConnection
 
     /**
      * Aborts the underlying transport with the supplied close reason.
+     * @throws \Throwable
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
@@ -93,6 +95,7 @@ final class FramedConnection
     /**
      * Encodes and writes one application frame.
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function send(string $frame): WriteResult
     {

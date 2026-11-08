@@ -71,6 +71,7 @@ final class Http2Connection
      * @throws \InvalidArgumentException
      * @throws \OverflowException
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -224,6 +225,9 @@ final class Http2Connection
         $this->requests->cleanupIfClosed($stream);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function consumePreface(string $data): string
     {
         if ($this->prefaceComplete) {
@@ -251,6 +255,7 @@ final class Http2Connection
     /**
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function failConnection(ErrorCode $code, string $message): void
     {

@@ -12,5 +12,7 @@ it('defaults to automatic runtime and opcache selection with worker recycling an
     expect($options->driver)->toBe(RuntimeDriver::AUTO)
         ->and($options->opcache)->toBe(OpcacheMode::AUTO)
         ->and($options->workerRecycle->enabled())->toBeFalse()
-        ->and($options->requestExecution->maxExecutionSeconds)->toBeNull();
+        ->and($options->requestExecution->maxExecutionSeconds)->toBeNull()
+        ->and($options->fpm->maxRequestBodyBytes)->toBe(16_777_216)
+        ->and($options->frankenPhp->maxResponseBytes)->toBe(16_777_216);
 });

@@ -117,6 +117,7 @@ final class Http1Connection
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -458,6 +459,7 @@ final class Http1Connection
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function fail(int $status): void
     {
@@ -773,6 +775,7 @@ final class Http1Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function sendContinueIfNeeded(RequestHead $head): void
     {

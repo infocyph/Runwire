@@ -178,6 +178,7 @@ trait ConnectionLifecycleOperationsTrait
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function finishPendingWriteShutdown(): void
     {

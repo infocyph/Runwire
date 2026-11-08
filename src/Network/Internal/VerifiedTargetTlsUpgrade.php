@@ -19,6 +19,7 @@ final class VerifiedTargetTlsUpgrade
     /**
      * Refuse upgrades unless the cleartext tunnel is exclusively quiescent.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public static function assertAllowed(Connection $connection, mixed $stream): void
     {

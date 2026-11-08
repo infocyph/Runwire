@@ -15,7 +15,6 @@ final readonly class RuntimeEnvironmentProbe
 {
     /**
      * Creates an environment probe using the supplied resource probe.
-     * @throws \InvalidArgumentException
      */
     public function __construct(
         private SystemResourceProbe $resourceProbe = new SystemResourceProbe(),

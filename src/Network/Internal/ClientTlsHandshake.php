@@ -111,9 +111,8 @@ final class ClientTlsHandshake
         $meta = stream_get_meta_data($stream);
         $crypto = $meta['crypto'] ?? null;
         $alpn = null;
-        if (is_array($crypto)) {
-            /** @var array<string, mixed> $crypto */
-            $alpn = $crypto['alpn_protocol'] ?? null;
+        if (is_array($crypto) && array_key_exists('alpn_protocol', $crypto)) {
+            $alpn = $crypto['alpn_protocol'];
         }
         $this->finish();
         ($this->onSuccess)(is_string($alpn) ? $alpn : null);

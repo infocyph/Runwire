@@ -195,6 +195,7 @@ final class Socks5Tunnel
     /**
      * Execute the bounded proxy exchange phase.
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function fail(Throwable $error): void
     {
@@ -231,6 +232,7 @@ final class Socks5Tunnel
      * Execute the bounded proxy exchange phase.
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function readAuthenticationReply(Connection $connection): void
     {
@@ -267,6 +269,7 @@ final class Socks5Tunnel
      * Execute the bounded proxy exchange phase.
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function readMethodReply(Connection $connection): void
     {

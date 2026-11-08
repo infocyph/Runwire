@@ -209,6 +209,7 @@ final class Http1ConnectedExchange
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function finish(?Throwable $error): void
     {
@@ -269,6 +270,7 @@ final class Http1ConnectedExchange
     /**
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     private function sendFrame(): bool
     {

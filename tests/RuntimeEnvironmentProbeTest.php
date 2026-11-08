@@ -12,5 +12,8 @@ it('detects the mandatory unix process baseline in the cli test runtime', functi
         ->and($environment->supportsFork)->toBeTrue()
         ->and($environment->supportsSignals)->toBeTrue()
         ->and($environment->supportsPosix)->toBeTrue()
+        ->and($environment->supportsOpenSsl)->toBe(
+            extension_loaded('openssl') && function_exists('stream_socket_enable_crypto'),
+        )
         ->and($environment->isAvailable(RuntimeDriver::NATIVE))->toBeTrue();
 });

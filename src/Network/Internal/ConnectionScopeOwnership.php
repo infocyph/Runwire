@@ -28,6 +28,7 @@ final class ConnectionScopeOwnership
      * Attach exactly one token and the earliest inherited or explicit deadline.
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public static function attach(
         Connection $connection,

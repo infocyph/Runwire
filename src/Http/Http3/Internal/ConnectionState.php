@@ -360,6 +360,7 @@ final class ConnectionState
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function processPeerDecoderInstructions(string $payload): void
     {

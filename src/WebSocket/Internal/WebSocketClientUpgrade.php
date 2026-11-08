@@ -154,6 +154,9 @@ final class WebSocketClientUpgrade
         $this->finish(null, $error);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finish(?WebSocketSession $session, ?Throwable $error): void
     {
         if ($this->settled) {

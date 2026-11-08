@@ -235,6 +235,7 @@ final class Connection
 
     /**
      * Begin a graceful local close after queued writes drain.
+     * @throws \Throwable
      */
     public function closeGracefully(): void
     {

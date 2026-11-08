@@ -79,6 +79,7 @@ final class WebSocketUpgradeOwner
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function upgrade(
         string $accept,

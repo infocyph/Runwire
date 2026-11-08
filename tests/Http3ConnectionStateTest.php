@@ -22,7 +22,9 @@ it('builds local HTTP/3 control and QPACK stream preambles', function (): void {
 
     expect(VarIntCodec::decode($control, $offset))->toBe(StreamType::CONTROL->value)
         ->and(VarIntCodec::decode($state->localQpackEncoderPreamble()))->toBe(StreamType::QPACK_ENCODER->value)
-        ->and(VarIntCodec::decode($state->localQpackDecoderPreamble()))->toBe(StreamType::QPACK_DECODER->value);
+        ->and(VarIntCodec::decode($state->localQpackDecoderPreamble()))->toBe(StreamType::QPACK_DECODER->value)
+        ->and($state->localQpackDecoderPreamble())->toBe(VarIntCodec::encode(StreamType::QPACK_DECODER->value))
+        ->and($state->localQpackEncoderPreamble())->toBe(VarIntCodec::encode(StreamType::QPACK_ENCODER->value));
 });
 
 it('configures the response QPACK encoder from bounded peer settings', function (): void {

@@ -121,6 +121,7 @@ final class AsyncConnection
     /**
      * Abort the underlying connection immediately.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
@@ -337,6 +338,7 @@ final class AsyncConnection
      * Write data through the underlying connection.
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function write(string $data): WriteResult
     {
