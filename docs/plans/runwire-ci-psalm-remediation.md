@@ -853,3 +853,9 @@
 - Batch 86 improved object-shape validation so Psalm code scanning no longer reports MixedAssignment on the raw json_decode result. Follow-on informational review alerts flagged MixedReturnTypeCoercion because the guard checks is_array and array_is_list but Psalm conservatively infers array<array-key,mixed>, not array<string,mixed>.
 - Keep the strict runtime object check; change only the private local helper return annotations to array<array-key,mixed>, matching Psalm's actual inferred representation. Data retains unmodified taint and is still rechecked by each consumer's schemas. No runtime logic or exclusion changes.
 - Check PHP 8.4/8.5 Psalm and PHPStan, QA and fresh review-thread results; older informational threads must not be closed until exact-head diagnostics disappear. Seven executor-worker taint errors remain open.
+
+### Batch 88 — bounded retry for transient Composer downloads in ext-event acceptance
+
+- Exact Batch 87 accelerated-event PHP 8.5 job failed before test execution: Composer dependency downloads received repeated curl error 28 (GitHub API timeouts). This is external artifact transport, unrelated to the event-loop assertions or worker taint fixes.
+- In only the accelerated-event test dependency installation step, perform at most three identical Composer installs with bounded backoff. Composer resumes partial successful dependency downloads on retry. Fail after all attempts; do not skip tests, change dependency versions or remove extension coverage. Keep all worker and protocol cases intact.
+- Verify exact SHA both PHP 8.4/8.5 accelerated-event jobs and check matrix. Seven worker security taints remain independently blocking; no merges or tags.
