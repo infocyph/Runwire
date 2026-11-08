@@ -148,6 +148,9 @@ if (!$completed) {
     throw new RuntimeException('Runwire footprint workload did not complete successfully.');
 }
 
+/**
+ * @throws \OverflowException
+ */
 function footprintRequest(): HttpRequest
 {
     return new HttpRequest(
@@ -159,6 +162,9 @@ function footprintRequest(): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function footprintWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(

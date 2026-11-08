@@ -6,7 +6,10 @@ if ($argc !== 3) {
     throw new InvalidArgumentException('Usage: php regression_compare.php <baseline-summary.json> <candidate-summary.json>');
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function loadSummary(string $path): array
 {
     if (!is_file($path) || !is_readable($path)) {

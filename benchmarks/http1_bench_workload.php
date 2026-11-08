@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-/** The same bounded response payload is used by HTTP/1 native servers and client. */
+/**
+ * The same bounded response payload is used by HTTP/1 native servers and client.
+ * @throws \InvalidArgumentException
+ */
 function http1BenchResponseBody(): string
 {
     $raw = getenv('RUNWIRE_BENCH_RESPONSE_BYTES');
@@ -16,7 +19,10 @@ function http1BenchResponseBody(): string
     return (int) $raw === 2 ? 'ok' : str_repeat('x', (int) $raw);
 }
 
-/** Keep the close/reuse experimental dimension explicit. */
+/**
+ * Keep the close/reuse experimental dimension explicit.
+ * @throws \InvalidArgumentException
+ */
 function http1BenchConnectionMode(): string
 {
     $value = getenv('RUNWIRE_BENCH_CONNECTION_MODE');
