@@ -157,6 +157,9 @@ final class NativeHttp3Attachment
         $this->cancelDrainTimer();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function forceStop(): void
     {
         $this->context->requestStop();
@@ -173,6 +176,11 @@ final class NativeHttp3Attachment
         ($this->observeTransport)();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function poll(): void
     {
         $this->worker->tick(0.0);
@@ -182,6 +190,9 @@ final class NativeHttp3Attachment
         $this->finishDrain();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function requestStop(): void
     {
         $this->context->requestStop();

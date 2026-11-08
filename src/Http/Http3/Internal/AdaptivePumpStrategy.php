@@ -22,6 +22,7 @@ final readonly class AdaptivePumpStrategy
 
     /**
      * Create the HTTP/3 inbound adaptive strategy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?AdaptiveLoadController $controller = null,
@@ -56,6 +57,7 @@ final readonly class AdaptivePumpStrategy
 
     /**
      * Observe ready and active request-stream pressure.
+     * @throws \InvalidArgumentException
      */
     public function observe(int $readyWork, int $activeWork, int $capacity): AdaptiveLoadState
     {
@@ -107,6 +109,9 @@ final readonly class AdaptivePumpStrategy
         };
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertMaximum(int $maximum): void
     {
         if ($maximum < 1) {

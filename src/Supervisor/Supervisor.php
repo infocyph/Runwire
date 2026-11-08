@@ -611,6 +611,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function normalizeChildProcess(): void
     {
         $this->controlServer?->closeInheritedInChild();

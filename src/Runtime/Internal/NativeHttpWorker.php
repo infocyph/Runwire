@@ -33,6 +33,7 @@ final class NativeHttpWorker
 
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
+     * @throws \LogicException
      */
     public static function attach(
         LoopInterface $loop,
@@ -183,6 +184,8 @@ final class NativeHttpWorker
 
     /**
      * Runs the bound HTTP listener until worker shutdown and drains active sessions.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public static function run(
         WorkerContext $context,
@@ -304,6 +307,7 @@ final class NativeHttpWorker
      * @param Closure(): void $drainApplication
      * @param array<int, NativeHttpConnection> $sessions
      * @param array<int, Connection> $connections
+     * @throws \LogicException
      */
     private static function beginDrain(
         Closure $drainApplication,
@@ -340,6 +344,7 @@ final class NativeHttpWorker
     /**
      * @param array<int, Connection> $connections
      * @param-out null $stopWatcher
+     * @throws \LogicException
      */
     private static function closeWorker(
         LoopInterface $loop,

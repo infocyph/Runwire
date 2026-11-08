@@ -216,6 +216,9 @@ final class StreamRelay
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function forward(bool $fromLeft): void
     {
         if ($this->closed || ($fromLeft ? $this->forwardingLeft : $this->forwardingRight)) {

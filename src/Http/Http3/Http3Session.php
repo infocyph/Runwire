@@ -47,6 +47,7 @@ final class Http3Session
     /**
      * Cancel and release a tracked request stream.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancelRequestStream(int $streamId): void
     {
@@ -106,6 +107,7 @@ final class Http3Session
     /**
      * Release a request stream after response processing completes.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function releaseRequestStream(int $streamId): void
     {

@@ -143,6 +143,7 @@ final class SupervisorAutoscaler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private function resize(WorkerGroup $group, int $target): void
     {
@@ -165,6 +166,9 @@ final class SupervisorAutoscaler
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function sample(string $name): void
     {
         if (($this->isBlocked)()) {

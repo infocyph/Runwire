@@ -26,6 +26,9 @@ final readonly class NativeHttpConnection
 
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \LogicException
      */
     public static function attach(
         LoopInterface $loop,
@@ -61,6 +64,8 @@ final readonly class NativeHttpConnection
 
     /**
      * Begin graceful draining for the selected HTTP protocol.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function drain(): void
     {

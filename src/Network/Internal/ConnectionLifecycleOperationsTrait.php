@@ -102,6 +102,7 @@ trait ConnectionLifecycleOperationsTrait
      * Existing ownership is preserved if the new token is already cancelled.
      * @throws \LogicException
      * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \OverflowException
      */
     public function transferOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
     {

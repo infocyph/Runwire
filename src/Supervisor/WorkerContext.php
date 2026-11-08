@@ -417,6 +417,7 @@ final class WorkerContext
     /**
      * Record request completion and request recycling when a threshold is reached.
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function recordRequestCompleted(): bool
     {

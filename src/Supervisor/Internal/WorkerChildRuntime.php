@@ -85,6 +85,7 @@ final class WorkerChildRuntime
     /**
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private static function prepareBackgroundLoop(WorkerGroup $group, WorkerContext $context): ?SelectLoop
     {

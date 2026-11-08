@@ -69,6 +69,7 @@ final class PortableNativeRuntime
     /**
      * Request graceful or forced shutdown of the portable runtime.
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     public function stop(bool $force = false): void
     {
@@ -239,6 +240,9 @@ final class PortableNativeRuntime
         return $this->loop ?? throw new LogicException('Portable native loop is unavailable before run().');
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function runtimeContext(WorkerContext $context): RuntimeContext
     {
         return RuntimeContext::fromCapabilities(

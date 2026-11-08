@@ -391,7 +391,11 @@ final class Http3OutboundClient
         }
     }
 
-    /** Serialize decoder feedback on the one locally owned critical stream. */
+    /**
+     * Serialize decoder feedback on the one locally owned critical stream.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function flushQpackFeedback(): void
     {
         $this->qpackFeedbackQueue .= $this->codec->takeDecoderInstructions();
@@ -539,6 +543,7 @@ final class Http3OutboundClient
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function sendControl(int $stream): void
     {

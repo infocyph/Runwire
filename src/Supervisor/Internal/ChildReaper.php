@@ -129,6 +129,9 @@ final class ChildReaper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private static function retryWait(): bool
     {
         $error = pcntl_get_last_error();

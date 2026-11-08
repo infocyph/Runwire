@@ -13,6 +13,7 @@ final readonly class UnixListenerOptions
 {
     /**
      * Creates Unix-domain listener options.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public ListenerOptions $listener = new ListenerOptions(),

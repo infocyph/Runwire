@@ -395,3 +395,15 @@
 - **50 changed files**: three CLI tools now validate the actual argv list/type contract, `AdaptivePollStrategy` loses an inaccurate @throws declaration, **45 source files** receive precise documented exceptions (approximately 64 logged sites), and this tracker records the scope.
 - The helper checks argument values before consumption, without hiding Psalm diagnostics behind tool-specific var annotations or changing the command-line contract for valid callers.
 - Confirm exact-head PHPStan/Psalm on PHP 8.4 and 8.5, PHPForge QA, Source Audit, security and protocol tests. Keep all P0/P1/P2/P3 findings open until actually resolved, no silent suppressions, no merge or tag.
+
+### Batch 39 — 50-file exception-contract and source audit reconciliation
+
+- Baseline `c743db86e22cd03c3566ceb35c9fb40f1e18bfb5`: both PHP versions have **291 Psalm errors** (156 missing throws, 135 other); PHPStan and four QA lanes passed, as did HTTP/3. Source Audit failed because `ConnectionTimeouts` had no published migration disposition.
+- In one commit change **47 source files**, the API manifest parser, this tracker and the migration ledger: **50 files**. Document 96 reported exception locations at their declaring methods while preserving function bodies and public signatures.
+- Add **15 test-linked published migration dispositions**, including the previously missing `ConnectionTimeouts`, without weakening checks.
+- P0 file/SSRF/header taint, P1 type/state correctness, P2 maintenance and P3 hygiene remain open. Verify exact-head net Psalm delta, PHPStan and Source Audit before advancing; no merge, tag, or version bump.
+
+- Batch 39 audit correction: the public-property source parser previously included multiline PHPDoc after constructor-promoted parameters until the first method semicolon, falsely changing property fingerprints when adding exception docs. Prevent direct-property patterns from crossing newline boundaries; constructor-promoted properties remain independently parsed from the constructor signature.
+- Move `Network/BoundedConnectionPool.php` (one exception site) into the next batch to preserve exactly **50 changed files**.
+
+- Exact first Batch 39 analyzer on PHP 8.4: **261 Psalm errors**, net -30 from the 291 baseline; PHPStan found two inaccurate `InvalidArgumentException` annotations in `AdaptivePollStrategy::timeout()` and `RuntimeOptions::__construct()`. Removed those annotations from the existing Batch 39 commit rather than weakening PHPStan.

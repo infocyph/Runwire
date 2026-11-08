@@ -248,6 +248,7 @@ final class Runtime
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \LogicException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function serve(callable $handler, ?callable $requestCleanup = null, ?callable $shutdown = null): void
     {
@@ -268,6 +269,7 @@ final class Runtime
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \LogicException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function serveApplication(RuntimeApplicationFactoryInterface $factory): void
     {
@@ -516,6 +518,9 @@ final class Runtime
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function hostRuntimeContext(): RuntimeContext
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
@@ -534,6 +539,9 @@ final class Runtime
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function nativeRuntimeContext(WorkerContext $context): RuntimeContext
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
@@ -581,6 +589,7 @@ final class Runtime
     /**
      * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
     {

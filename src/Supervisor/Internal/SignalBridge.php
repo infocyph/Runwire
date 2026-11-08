@@ -78,6 +78,7 @@ final class SignalBridge
      * Install signal handlers and start delivering pending signal batches.
      *
      * @param callable(list<int>): void $consumer
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function open(callable $consumer): void
     {

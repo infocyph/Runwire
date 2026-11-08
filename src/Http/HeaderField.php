@@ -17,6 +17,7 @@ final readonly class HeaderField
 
     /**
      * Create a normalized HTTP header field.
+     * @throws \InvalidArgumentException
      */
     public function __construct(string $name, string $value)
     {

@@ -156,7 +156,7 @@ foreach ($files as $path) {
         // The property manifest is additive to historical schema-v1 archives.
         $properties = [];
         preg_match_all(
-            '/^\\s*public\\s+(?:(?:readonly|static)\\s+)*(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b[^;]*;/m',
+            '/^\\s*public\\s+(?:(?:readonly|static)\\s+)*(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b[^\r\n;]*;/m',
             $source,
             $propertyMatches,
             PREG_SET_ORDER,

@@ -308,6 +308,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function acceptData(Http2Stream $stream, Frame $frame): void
     {

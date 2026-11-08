@@ -68,6 +68,7 @@ final class PeriodicTaskRegistry
 
     /**
      * Drain active timers and release all registered tasks and loop state.
+     * @throws \Throwable
      */
     public function close(): void
     {

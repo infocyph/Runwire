@@ -47,6 +47,7 @@ final class WorkerCoroutineScope
      *
      * @param callable(): void $onFailure
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         private readonly LoopInterface $loop,

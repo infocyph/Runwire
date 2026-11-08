@@ -29,6 +29,7 @@ final readonly class QuicHandshakeProbe
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function connect(
         string $host,

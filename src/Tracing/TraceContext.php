@@ -76,7 +76,10 @@ final readonly class TraceContext
         $request->setAttribute(self::ATTRIBUTE, $this);
     }
 
-    /** Create an independent span while preserving the trace and bounded tracestate. */
+    /**
+     * Create an independent span while preserving the trace and bounded tracestate.
+     * @throws \InvalidArgumentException
+     */
     public function child(): self
     {
         return new self($this->traceId, bin2hex(random_bytes(8)), $this->flags, $this->traceState);

@@ -110,6 +110,9 @@ final class TlsHandshake
         ($this->onSuccess)($stream, is_string($protocol) ? $protocol : null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function begin(): void
     {
         $stream = $this->stream;

@@ -129,6 +129,7 @@ final class Http3ClientSiblingManager
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function enqueue(
         ClientRequest $request,

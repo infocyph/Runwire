@@ -132,6 +132,7 @@ final readonly class ProcessRunner
      * @param array<int, resource> $pipes
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Exception\ProcessException
      */
     private function execute(PreparedCommand $prepared, ProcessHandle $process, array &$pipes, InputSource $input, OutputSink $stdout, OutputSink $stderr): ProcessResult
     {

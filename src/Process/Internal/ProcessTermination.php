@@ -114,6 +114,9 @@ final class ProcessTermination
         return $this->reason;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private static function force(ProcessHandle $process): bool
     {
         $resource = $process->resource();

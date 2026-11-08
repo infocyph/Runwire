@@ -26,6 +26,7 @@ final readonly class RuntimeSelector
     /**
      * Selects a concrete runtime and its capabilities for the environment.
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function select(RuntimeOptions $options, RuntimeEnvironment $environment): RuntimeSelection
     {

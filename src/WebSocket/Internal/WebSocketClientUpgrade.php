@@ -49,7 +49,10 @@ final class WebSocketClientUpgrade
         $this->completion = Closure::fromCallable($completion);
     }
 
-    /** Begin the bounded outbound upgrade and transfer callbacks on success. */
+    /**
+     * Begin the bounded outbound upgrade and transfer callbacks on success.
+     * @throws \OverflowException
+     */
     public function start(): void
     {
         $deadline = $this->dialOptions->deadline?->remainingSeconds();
@@ -97,6 +100,9 @@ final class WebSocketClientUpgrade
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function consume(): void
     {
         if ($this->settled) {

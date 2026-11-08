@@ -23,6 +23,7 @@ final class Http3ClientPeerAuxiliary
      * @return array{watch:bool,completed:bool}
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function accept(
         int $type,

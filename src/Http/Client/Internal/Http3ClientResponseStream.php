@@ -164,6 +164,7 @@ final class Http3ClientResponseStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function acceptFrame(Frame $frame): void
     {
@@ -195,6 +196,7 @@ final class Http3ClientResponseStream
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function acceptHeaders(Frame $frame): void
     {
@@ -210,6 +212,7 @@ final class Http3ClientResponseStream
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function acceptTrailers(Frame $frame): void
     {

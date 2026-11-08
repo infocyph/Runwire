@@ -83,6 +83,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 
     /**
      * Create a minimal standalone context for work outside a managed runtime.
+     * @throws \InvalidArgumentException
      */
     public static function standalone(): self
     {

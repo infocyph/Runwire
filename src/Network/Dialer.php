@@ -390,6 +390,9 @@ final class Dialer
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function release(int $id, bool $handedOff = false, bool $cancelled = false): void
     {
         $job = $this->pending[$id] ?? null;
