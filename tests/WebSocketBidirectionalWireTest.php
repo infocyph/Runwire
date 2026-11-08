@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\WebSocket\Internal\WebSocketFrameParser;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
+use InvalidArgumentException;
 
 it('encodes fresh masked client frames and decodes them with existing bounded server parser', function (): void {
     $payloads = [

@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http2\Internal\AdaptiveResponseStrategy;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
+use InvalidArgumentException;
 
 it('adapts HTTP2 initial-response wire intent from sustained protocol load', function (): void {
     $strategy = new AdaptiveResponseStrategy();

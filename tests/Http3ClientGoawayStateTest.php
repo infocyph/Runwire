@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientAdmissionGate;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientGoawayState;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientSiblingExchange;
+use RuntimeException;
 
 it('drains only refused H3 IDs, preserves admitted predecessors and rejects late opens', function (): void {
     $admission = new Http3ClientAdmissionGate(2, 3);
