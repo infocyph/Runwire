@@ -127,12 +127,16 @@ trait ExecutorIpcTrait
         $script = dirname(__DIR__, 3) . '/tools/executor-worker.php';
         $pipes = [];
         $nullDevice = '/dev/null';
+        // A fresh key authenticates each request at the worker-owned IPC boundary.
+        $environment = getenv();
+        $environment = is_array($environment) ? $environment : [];
+        $environment['RUNWIRE_EXECUTOR_IPC_KEY'] = $this->ipcKey;
         $process = proc_open(
             [$this->phpBinary, '-d', 'display_errors=stderr', $script],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', $nullDevice, 'a']],
             $pipes,
             null,
-            null,
+            $environment,
             ['bypass_shell' => true],
         );
         if (!is_resource($process)) {

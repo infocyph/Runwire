@@ -43,6 +43,9 @@ final class ProcessExecutor
 
     private readonly string $phpBinary;
 
+    /** Per-executor authorization key for its private subprocess pipes. */
+    private readonly string $ipcKey;
+
     private int $cancelled = 0;
 
     private bool $closed = false;
@@ -74,6 +77,7 @@ final class ProcessExecutor
      * Create an executor with bounded workers and pending jobs.
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
+     * @throws \Random\RandomException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -96,6 +100,7 @@ final class ProcessExecutor
             throw new RuntimeException('Unable to establish executor process ownership.');
         }
         $this->ownerPid = $pid;
+        $this->ipcKey = bin2hex(random_bytes(32));
         $this->pending = new SplQueue();
     }
 
@@ -221,10 +226,11 @@ final class ProcessExecutor
         }
 
         $id = $this->nextJobId++;
-        $packet = json_encode(
+        $payload = json_encode(
             ['id' => $id, 'op' => $operation, 'args' => $arguments],
             JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES,
-        ) . "\n";
+        );
+        $packet = hash_hmac('sha256', $payload, $this->ipcKey) . ':' . $payload . "\n";
         if (strlen($packet) > self::MAX_PACKET_BYTES) {
             throw new InvalidArgumentException('Executor payload exceeds its bounded IPC limit.');
         }

@@ -389,3 +389,46 @@ it('binds every subprocess file operation to a validated path and rejects wrappe
         unlink($file);
     }
 });
+
+it('does not execute unsigned or incorrectly signed subprocess requests', function (): void {
+    $fixture = tempnam(sys_get_temp_dir(), 'runwire-ipc-protected-');
+    expect($fixture)->toBeString();
+    file_put_contents($fixture, 'protected');
+    $key = str_repeat('a', 64);
+
+    try {
+        foreach (['unsigned', 'incorrect-signature'] as $case) {
+            $pipes = [];
+            $process = proc_open(
+                [PHP_BINARY, '-d', 'display_errors=stderr', dirname(__DIR__) . '/tools/executor-worker.php'],
+                [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes,
+                null,
+                ['RUNWIRE_EXECUTOR_IPC_KEY' => $key],
+                ['bypass_shell' => true],
+            );
+            expect(is_resource($process))->toBeTrue();
+            $payload = json_encode([
+                'id' => 1,
+                'op' => 'write',
+                'args' => ['path' => $fixture, 'data' => base64_encode('corrupt'), 'offset' => 0],
+            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+            $packet = $case === 'unsigned' ? $payload : str_repeat('0', 64) . ':' . $payload;
+            fwrite($pipes[0], $packet . "\n");
+            fclose($pipes[0]);
+            $result = stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+            $stderr = stream_get_contents($pipes[2]);
+            fclose($pipes[2]);
+            $status = proc_close($process);
+            expect($result)->toContain('"ok":false')
+                ->and($result)->toContain('Unauthenticated executor IPC request')
+                ->and($status)->toBe(0, (string) $stderr)
+                ->and(file_get_contents($fixture))->toBe('protected');
+        }
+    } finally {
+        if (is_file($fixture)) {
+            unlink($fixture);
+        }
+    }
+});

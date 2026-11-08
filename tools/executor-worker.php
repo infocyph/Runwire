@@ -28,6 +28,12 @@ function requireNativeQuicObject(mixed $value): object
 const MAX_MESSAGE_BYTES = 1_600_000;
 const MAX_FILE_BYTES = 1_048_576;
 
+$ipcKey = getenv('RUNWIRE_EXECUTOR_IPC_KEY');
+if (!is_string($ipcKey) || strlen($ipcKey) !== 64 || !ctype_xdigit($ipcKey)) {
+    throw new RuntimeException('Executor worker requires a private per-process IPC authorization key.');
+}
+putenv('RUNWIRE_EXECUTOR_IPC_KEY');
+
 // This state belongs to this one long-lived subprocess and can never escape
 // through the host's nonblocking IPC transport.
 $quicSessionWorker = null;
@@ -123,7 +129,15 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
     }
 
     try {
-        $request = json_decode($line, true, 16, JSON_THROW_ON_ERROR);
+        // Never interpret a request from a process that does not own this worker.
+        $signature = substr($line, 0, 64);
+        $payload = substr($line, 65, -1);
+        if (strlen($line) < 67 || $line[64] !== ':'
+            || preg_match('/^[a-f0-9]{64}$/D', $signature) !== 1
+            || !hash_equals(hash_hmac('sha256', $payload, $ipcKey), $signature)) {
+            throw new InvalidArgumentException('Unauthenticated executor IPC request.');
+        }
+        $request = json_decode($payload, true, 16, JSON_THROW_ON_ERROR);
         if (!is_array($request) || !isset($request['id'], $request['op']) || !is_int($request['id'])) {
             throw new InvalidArgumentException('Invalid worker request.');
         }
