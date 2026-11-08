@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Task;
@@ -19,11 +21,22 @@ final class CoroutineRuntimeBench
 {
     private CoroutineRuntime $runtime;
 
+    /**
+     * Initialize fixtures before PHPBench's per-iteration setup refresh.
+     */
+    public function __construct()
+    {
+        $this->setUp();
+    }
+
     public function setUp(): void
     {
         $this->runtime = new CoroutineRuntime();
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchBufferedChannelThroughput(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -48,6 +61,9 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchFutureAwaitResolve(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -61,6 +77,10 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function benchRequestContextWithoutCoroutine(): int
     {
         $context = RequestContext::standalone();
@@ -70,6 +90,9 @@ final class CoroutineRuntimeBench
         return $length;
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchRequestRootCoroutine(): int
     {
         $context = RequestContext::standalone();
@@ -88,6 +111,9 @@ final class CoroutineRuntimeBench
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchSchedulerYieldResume(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -99,6 +125,9 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchSemaphoreAcquireRelease(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -112,6 +141,9 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchTaskCreateStartComplete(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -119,6 +151,9 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchTaskGroupSpawnJoin(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -136,6 +171,9 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchUnbufferedChannelHandoff(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {

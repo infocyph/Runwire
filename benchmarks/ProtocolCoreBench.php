@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http1\Internal\RequestHeadValidator;
 use Infocyph\Runwire\Http\Http2\FrameParser as Http2FrameParser;
@@ -22,6 +24,7 @@ use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
 use PhpBench\Attributes\Revs;
 use PhpBench\Attributes\Warmup;
+use RuntimeException;
 
 #[BeforeMethods('setUp')]
 #[Iterations(5)]
@@ -61,6 +64,18 @@ final class ProtocolCoreBench
 
     private string $qpackWire;
 
+    /**
+     * Initialize fixtures before PHPBench's per-iteration setup refresh.
+     * @throws \Throwable
+     */
+    public function __construct()
+    {
+        $this->setUp();
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function setUp(): void
     {
         $this->http1Validator = new RequestHeadValidator();
@@ -114,6 +129,10 @@ final class ProtocolCoreBench
         )->contentLength;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     public function benchHttp2FragmentedFrameParse(): int
     {
         $parser = new Http2FrameParser();
@@ -123,6 +142,10 @@ final class ProtocolCoreBench
         return strlen($frames[0]->payload);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     public function benchHttp2FrameParse(): int
     {
         $frames = (new Http2FrameParser())->push($this->http2FrameWire);
@@ -135,6 +158,9 @@ final class ProtocolCoreBench
         return count($this->hpackDecoder->decode($this->hpackWire));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp2HpackDynamicTableChurn(): int
     {
         $encoder = new HpackEncoder(512);
@@ -157,11 +183,17 @@ final class ProtocolCoreBench
         return $validated;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp2HpackEncode(): int
     {
         return strlen($this->hpackEncoder->encode($this->http2Headers));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp2HpackIntegerRoundTrip(): int
     {
         $encoded = HpackIntegerCodec::encode(16_384, 5);
@@ -170,6 +202,10 @@ final class ProtocolCoreBench
         return HpackIntegerCodec::decode($encoded, $offset, 5);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function benchHttp2HpackLongContinuationInteger(): int
     {
         $encoded = HpackIntegerCodec::encode(PHP_INT_MAX, 5);
@@ -182,6 +218,9 @@ final class ProtocolCoreBench
         return $decoded;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp2HuffmanDecode(): int
     {
         return strlen($this->huffmanCodec->decode($this->huffmanWire, 256));
@@ -192,6 +231,10 @@ final class ProtocolCoreBench
         return strlen($this->huffmanCodec->encode('https://example.test/benchmark'));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function benchHttp2HuffmanLargeBoundedDecode(): int
     {
         $value = str_repeat('runwire-hpack-pressure/', 12);
@@ -203,6 +246,10 @@ final class ProtocolCoreBench
         return strlen($wire);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp2RequestHeaderValidation(): int
     {
         $head = (new RequestHeaderValidator('HTTP/2'))->request($this->http2Headers);
@@ -228,6 +275,9 @@ final class ProtocolCoreBench
         return $validated;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3FrameDecode(): int
     {
         $frames = (new FrameParser())->push($this->http3Wire);
@@ -235,11 +285,17 @@ final class ProtocolCoreBench
         return strlen($frames[0]->payload);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3FrameEncode(): int
     {
         return strlen($this->http3Frame->encode());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchHttp3QpackBlockedUnblock(): int
     {
         $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
@@ -271,6 +327,9 @@ final class ProtocolCoreBench
         return count($unblocked[0]->section->fields);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchHttp3QpackDynamicRoundTrip(): int
     {
         $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
@@ -292,6 +351,10 @@ final class ProtocolCoreBench
         return count($decoded->fields);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function benchHttp3QpackIntegerRoundTrip(): int
     {
         $encoded = QpackIntegerCodec::encode(16_384, 5);
@@ -305,11 +368,18 @@ final class ProtocolCoreBench
         return count($this->qpackDecoder->decode($this->qpackWire, 0)?->fields ?? []);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchHttp3QpackStaticEncode(): int
     {
         return strlen($this->qpackEncoder->encode($this->http3Headers, 0)->block);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3RequestHeaderValidation(): int
     {
         $head = (new RequestHeaderValidator('HTTP/3'))->request($this->http3Headers);
@@ -317,6 +387,9 @@ final class ProtocolCoreBench
         return strlen($head->target);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3VarIntRoundTrip(): int
     {
         $encoded = VarIntCodec::encode(1_073_741_824);

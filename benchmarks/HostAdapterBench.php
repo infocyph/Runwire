@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
@@ -30,6 +32,20 @@ final class HostAdapterBench
     /** @var array<string, mixed> */
     private array $server;
 
+    /**
+     * Initialize fixtures before PHPBench's per-iteration setup refresh.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
+    public function __construct()
+    {
+        $this->setUp();
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     public function setUp(): void
     {
         $this->factory = new HostRequestFactory();
@@ -60,6 +76,9 @@ final class HostAdapterBench
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchApplicationDispatchAndCleanup(): int
     {
         $request = $this->newApplicationRequest();
@@ -68,6 +87,10 @@ final class HostAdapterBench
         return strlen($request->method);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     public function benchHostRequestNormalization(): int
     {
         $request = $this->factory->fromServer($this->server, $this->body, 1_024);
@@ -83,6 +106,9 @@ final class HostAdapterBench
         return $result->bufferedBytes;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function newApplicationRequest(): HttpRequest
     {
         return new HttpRequest(
@@ -97,6 +123,9 @@ final class HostAdapterBench
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function newWriter(): ResponseWriterInterface
     {
         return new CallbackResponseWriter(
