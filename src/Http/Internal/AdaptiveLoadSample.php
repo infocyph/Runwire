@@ -29,6 +29,7 @@ final readonly class AdaptiveLoadSample
 
     /**
      * Normalize bounded queue and active-work counters into basis points.
+     * @throws \InvalidArgumentException
      */
     public static function fromCounters(
         bool $pressured,
@@ -59,6 +60,9 @@ final readonly class AdaptiveLoadSample
         return intdiv(($this->backlogBasisPoints * 7) + ($this->activeBasisPoints * 3), 10);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertBasisPoints(int $value, string $name): void
     {
         if ($value < 0 || $value > self::MAX_BASIS_POINTS) {

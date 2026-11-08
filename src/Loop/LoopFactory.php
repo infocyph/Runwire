@@ -35,6 +35,8 @@ final class LoopFactory
 
     /**
      * Create the native worker loop for the current runtime.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public static function native(DiagnosticsPolicy $diagnostics): LoopInterface
     {

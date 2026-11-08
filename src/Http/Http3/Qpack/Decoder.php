@@ -29,6 +29,7 @@ final class Decoder
 
     /**
      * Create a bounded QPACK decoder.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         int $maxTableCapacity,
@@ -62,6 +63,7 @@ final class Decoder
 
     /**
      * Decode a field section or retain it when required dynamic entries are unavailable.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function decode(string $block, int $streamId): ?DecodedFieldSection
     {
@@ -107,6 +109,9 @@ final class Decoder
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function block(string $block, int $streamId): void
     {
         $newStream = !isset($this->blocked[$streamId]);

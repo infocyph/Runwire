@@ -16,6 +16,7 @@ final class StringCodec
 {
     /**
      * Decode a complete QPACK string literal and advance the offset.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public static function decode(
         string $data,
@@ -37,6 +38,7 @@ final class StringCodec
 
     /**
      * Encode a QPACK string literal, using Huffman coding when it is smaller.
+     * @throws \InvalidArgumentException
      */
     public static function encode(
         string $value,
@@ -56,7 +58,11 @@ final class StringCodec
         ) . $payload;
     }
 
-    /** @return array{0: string, 1: int}|null */
+    /**
+     * @return array{0: string, 1: int}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public static function tryDecode(
         string $data,
         int $offset,

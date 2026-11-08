@@ -38,6 +38,8 @@ final readonly class CancellationToken
      * Registers a callback that is invoked when cancellation occurs.
      *
      * @param callable(self): void $callback
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function onCancel(callable $callback): CancellationSubscription
     {
@@ -77,7 +79,10 @@ final readonly class CancellationToken
         return $this->state->subscriptionCount();
     }
 
-    /** Throws when cancellation has occurred, including deadline-triggered cancellation. */
+    /**
+     * Throws when cancellation has occurred, including deadline-triggered cancellation.
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     */
     public function throwIfCancelled(?int $nowNanoseconds = null): void
     {
         $this->refreshDeadline($nowNanoseconds);

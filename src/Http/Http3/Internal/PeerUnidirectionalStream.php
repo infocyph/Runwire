@@ -21,6 +21,7 @@ final class PeerUnidirectionalStream
 
     /**
      * Create state for a client-initiated unidirectional stream.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private readonly int $streamId)
     {
@@ -31,6 +32,7 @@ final class PeerUnidirectionalStream
 
     /**
      * Mark the decoded stream type as claimed by connection state.
+     * @throws \LogicException
      */
     public function claim(): void
     {
@@ -51,6 +53,7 @@ final class PeerUnidirectionalStream
 
     /**
      * Feed bytes and return payload bytes following the stream-type prefix.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function push(string $bytes): string
     {

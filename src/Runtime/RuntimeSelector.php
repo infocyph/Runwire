@@ -25,6 +25,7 @@ final readonly class RuntimeSelector
 
     /**
      * Selects a concrete runtime and its capabilities for the environment.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function select(RuntimeOptions $options, RuntimeEnvironment $environment): RuntimeSelection
     {
@@ -65,7 +66,10 @@ final readonly class RuntimeSelector
         ];
     }
 
-    /** @return list<string> */
+    /**
+     * @return list<string>
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private function validateOpcache(RuntimeOptions $options, RuntimeEnvironment $environment): array
     {
         if ($options->opcache === OpcacheMode::OFF || $options->opcache === OpcacheMode::AUTO) {
@@ -85,6 +89,9 @@ final readonly class RuntimeSelector
         return ['OPcache was requested but is unavailable or disabled for the active PHP SAPI.'];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private function validatePrivilegeDrop(RuntimeOptions $options, RuntimeDriver $driver, bool $supported): void
     {
         if (!$options->privilegeDrop->enabled()) {

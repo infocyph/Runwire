@@ -49,7 +49,8 @@
 | 26 | Document remaining published runtime exception contracts | 103 logged exception sites | Implemented; CI verification pending |
 | 27 | Published runtime exception contracts | 64 logged sites | Implemented; CI verification pending |
 | 28 | Add exception contracts for 101 new-3.0 implementation sites | 101 logged sites | Implemented; CI verification pending |
-| 29+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 29 | Document published HTTP, QUIC, runtime and network exception contracts | 102 logged sites + 24 ledger entries | Implemented; CI verification pending |
+| 30+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -289,3 +290,9 @@
 - Target 101 logged `MissingThrowsDocblock` sites in 25 newly introduced implementation files (61 in first tree segment; 40 in second), grouped by declaring method; 28 precise new throws tags in second segment.
 - These files were absent from the immutable published 2.1.2 comparator, so no legacy change-ledger entries are appropriate.
 - No method signatures, runtime bodies, network trust policies or permission boundaries changed. Verify net analyzer delta and all PHPForge QA/protocol/source checks.
+
+### Batch 29 — published contract completion sweep
+
+- Matched 102 logged thrown-exception locations across 24 previously published implementations (66 first stage; 36 second stage), consolidating annotations at declaring methods; 25 added precise annotations in the second stage.
+- Added 24 migration-ledger dispositions linked to existing subsystem regression tests, retaining the immutable published 2.1.2 comparator and source-diff validation.
+- No implementation code or method signatures changed. Verify the latest Psalm delta and Source Audit before asserting published API coverage.

@@ -33,6 +33,7 @@ final class EncoderStreamDecoder
 
     /**
      * Feed encoder-stream bytes and return the number of completed insertions.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function push(string $bytes): int
     {
@@ -75,7 +76,10 @@ final class EncoderStreamDecoder
         };
     }
 
-    /** @return array{0: int, 1: int}|null */
+    /**
+     * @return array{0: int, 1: int}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function duplicate(int $offset): ?array
     {
         $decoded = IntegerCodec::tryDecode(
@@ -98,7 +102,10 @@ final class EncoderStreamDecoder
         return [$next, 1];
     }
 
-    /** @return array{0: int, 1: int}|null */
+    /**
+     * @return array{0: int, 1: int}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function insertLiteralName(int $offset): ?array
     {
         $name = StringCodec::tryDecode(
@@ -132,7 +139,10 @@ final class EncoderStreamDecoder
         return [$next, 1];
     }
 
-    /** @return array{0: int, 1: int}|null */
+    /**
+     * @return array{0: int, 1: int}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function insertNameReference(int $offset): ?array
     {
         $static = (ord($this->buffer[$offset]) & 0x40) !== 0;
@@ -171,7 +181,10 @@ final class EncoderStreamDecoder
         return [$next, 1];
     }
 
-    /** @return array{0: int, 1: int}|null */
+    /**
+     * @return array{0: int, 1: int}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function setCapacity(int $offset): ?array
     {
         $decoded = IntegerCodec::tryDecode(

@@ -81,6 +81,7 @@ final readonly class Http1Input
 
     /**
      * Consume up to the requested number of bytes.
+     * @throws \InvalidArgumentException
      */
     public function take(int $bytes): string
     {
@@ -98,6 +99,10 @@ final readonly class Http1Input
         return $data;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     */
     private function takeLine(string $buffer, int $position, int $maxBytes, int $tooLongStatus): string
     {
         if ($position > $maxBytes) {

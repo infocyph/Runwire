@@ -11,6 +11,7 @@ final class DecoderStreamEncoder
 {
     /**
      * Encode an Insert Count Increment instruction.
+     * @throws \InvalidArgumentException
      */
     public function insertCountIncrement(int $increment): string
     {
@@ -23,6 +24,7 @@ final class DecoderStreamEncoder
 
     /**
      * Encode a Section Acknowledgement instruction.
+     * @throws \InvalidArgumentException
      */
     public function sectionAcknowledgement(int $streamId): string
     {
@@ -31,6 +33,7 @@ final class DecoderStreamEncoder
 
     /**
      * Encode a Stream Cancellation instruction.
+     * @throws \InvalidArgumentException
      */
     public function streamCancellation(int $streamId): string
     {

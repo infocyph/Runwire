@@ -25,6 +25,7 @@ final readonly class DatagramServer
     /**
      * @param callable(Datagram, DatagramListener): void $handler
      * @param callable(WorkerContext): callable|null $workerHandlerFactory
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $name,

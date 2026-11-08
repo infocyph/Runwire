@@ -30,7 +30,10 @@ final class CancellationSource
 
     private ?CancellationSubscription $parentSubscription = null;
 
-    /** Creates a cancellation source using the supplied deadline or an unlimited deadline. */
+    /**
+     * Creates a cancellation source using the supplied deadline or an unlimited deadline.
+     * @throws \LogicException
+     */
     public function __construct(?RequestDeadline $deadline = null)
     {
         $this->state = new CancellationState($deadline ?? RequestDeadline::unlimited());
@@ -111,6 +114,8 @@ final class CancellationSource
      * Binds the effective deadline and immediately refreshes cancellation state.
      *
      * @internal
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
      */
     public function setDeadline(RequestDeadline $deadline): void
     {
@@ -191,6 +196,9 @@ final class CancellationSource
         }
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function registerChild(self $child): int
     {
         $this->pruneChildren();

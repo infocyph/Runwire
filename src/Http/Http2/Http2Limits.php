@@ -15,6 +15,7 @@ final readonly class Http2Limits
 {
     /**
      * Create and validate HTTP/2 connection limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxInboundFrameSize = 16_384,
@@ -94,6 +95,9 @@ final readonly class Http2Limits
         return min(65_535, $this->maxPendingBodyBytesPerStream);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateWatermarks(int $low, int $high, int $maximum, string $kind): void
     {
         if ($low < 0 || $low >= $high || $high > $maximum) {
