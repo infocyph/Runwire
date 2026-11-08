@@ -27,7 +27,9 @@ it('supports bounded string resource and producer stdin', function (): void {
     $runner = processRunner();
     $echo = static fn (mixed $input) : string => $runner->run(Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($input))->stdout;
     $resource = fopen('php://temp', 'w+');
-    expect($resource)->toBeResource();
+    if (!is_resource($resource)) {
+        throw new RuntimeException('Unable to create process stdin stream fixture.');
+    }
     fwrite($resource, 'resource');
     rewind($resource);
     $chunks = ['pro', 'ducer', null];
@@ -115,7 +117,9 @@ it('rejects non-stream stdin resources before spawning the configured command', 
         [0 => ['file', $nullDevice, 'r'], 1 => ['file', $nullDevice, 'w'], 2 => ['file', $nullDevice, 'w']],
         $pipes,
     );
-    expect($fixture)->toBeResource();
+    if (!is_resource($fixture)) {
+        throw new RuntimeException('Unable to start process resource fixture.');
+    }
 
     try {
         expect(fn() => Command::executable(PHP_BINARY)->stdin($fixture))
@@ -218,7 +222,9 @@ it('remains reusable across repeated forced terminations', function (): void {
 
 it('rejects an already closed stdin resource without corrupting subsequent runs', function (): void {
     $closed = fopen('php://temp', 'w+');
-    expect($closed)->toBeResource();
+    if (!is_resource($closed)) {
+        throw new RuntimeException('Unable to create closed stdin fixture.');
+    }
     fclose($closed);
 
     $runner = processRunner();

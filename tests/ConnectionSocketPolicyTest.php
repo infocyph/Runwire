@@ -68,9 +68,12 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
             );
             $dialedSocket = socket_import_stream($outbound);
             $acceptedSocket = socket_import_stream($incoming);
-            expect($dialedSocket)->not->toBeFalse()
-                ->and($acceptedSocket)->not->toBeFalse()
-                ->and(socket_get_option($dialedSocket, SOL_TCP, TCP_NODELAY))->toBe((int) $policy)
+            if (!$dialedSocket instanceof \Socket || !$acceptedSocket instanceof \Socket) {
+                $dialed->abort();
+                $accepted->abort();
+                throw new RuntimeException('Unable to inspect adopted TCP sockets.');
+            }
+            expect(socket_get_option($dialedSocket, SOL_TCP, TCP_NODELAY))->toBe((int) $policy)
                 ->and(socket_get_option($acceptedSocket, SOL_TCP, TCP_NODELAY))->toBe((int) !$policy);
 
             $dialed->applyTcpNoDelayDefault(!$policy);
@@ -87,7 +90,10 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
 
 it('does not treat Unix-domain streams as TCP sockets for optional tuning', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    if (!is_array($pair) || !isset($pair[0], $pair[1])
+        || !is_resource($pair[0]) || !is_resource($pair[1])) {
+        throw new RuntimeException('Unable to establish Unix socket pair.');
+    }
     [$stream, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted(

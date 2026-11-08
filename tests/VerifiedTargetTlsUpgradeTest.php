@@ -10,12 +10,15 @@ use Infocyph\Runwire\Network\ConnectionLimits;
 use Infocyph\Runwire\Network\Internal\VerifiedTargetTlsUpgrade;
 use Infocyph\Runwire\Network\TlsClientOptions;
 use LogicException;
+use RuntimeException;
 use Throwable;
 
 
 it('fails a closed post-tunnel TLS stream without starting an asynchronous handshake', function (): void {
     $stream = fopen('php://temp', 'w+');
-    expect($stream)->toBeResource();
+    if (!is_resource($stream)) {
+        throw new RuntimeException('Unable to open the closed TLS-stream fixture.');
+    }
     fclose($stream);
 
     $calls = 0;

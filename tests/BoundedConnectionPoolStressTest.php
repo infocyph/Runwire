@@ -12,7 +12,14 @@ it('stays within active and waiter quotas across repeated overloaded lease waves
     $pool = new BoundedConnectionPool($loop, maxActive: 4, maxWaiting: 32, maxIdle: 4);
     $key = new PoolIsolationKey(DialEndpoint::parse('unix:///tmp/runwire-pool-admission.sock'), 'load-worker');
     $beforeMemory = memory_get_usage(true);
-    $beforeFds = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd')) : null;
+    $beforeFds = null;
+    if (is_dir('/proc/self/fd')) {
+        $entries = scandir('/proc/self/fd');
+        if (!is_array($entries)) {
+            throw new RuntimeException('Unable to inspect process file descriptors.');
+        }
+        $beforeFds = count($entries);
+    }
     $completed = 0;
     $cancelled = 0;
 
@@ -70,7 +77,11 @@ it('stays within active and waiter quotas across repeated overloaded lease waves
             ->and($cancelled)->toBe(128)
             ->and(memory_get_usage(true) - $beforeMemory)->toBeLessThan(8_388_608);
         if ($beforeFds !== null) {
-            expect(count(scandir('/proc/self/fd')) - $beforeFds)->toBeLessThanOrEqual(2);
+            $entries = scandir('/proc/self/fd');
+            if (!is_array($entries)) {
+                throw new RuntimeException('Unable to inspect final file descriptors.');
+            }
+            expect(count($entries) - $beforeFds)->toBeLessThanOrEqual(2);
         }
     } finally {
         $pool->close();

@@ -7,21 +7,32 @@ use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Hpack\HpackException;
 use Infocyph\Runwire\Http\Http2\Hpack\HuffmanCodec;
 
+/** @throws \InvalidArgumentException */
+function runwireHpackBytesFromHex(string $hex): string
+{
+    $bytes = hex2bin($hex);
+    if (!is_string($bytes)) {
+        throw new InvalidArgumentException('Invalid HPACK hexadecimal test fixture.');
+    }
+
+    return $bytes;
+}
+
 it('matches RFC HPACK request examples without Huffman coding', function (): void {
     $decoder = new Decoder();
 
-    expect($decoder->decode(hex2bin('828684410f7777772e6578616d706c652e636f6d')))->toBe([
+    expect($decoder->decode(runwireHpackBytesFromHex('828684410f7777772e6578616d706c652e636f6d')))->toBe([
         [':method', 'GET'],
         [':scheme', 'http'],
         [':path', '/'],
         [':authority', 'www.example.com'],
-    ])->and($decoder->decode(hex2bin('828684be58086e6f2d6361636865')))->toBe([
+    ])->and($decoder->decode(runwireHpackBytesFromHex('828684be58086e6f2d6361636865')))->toBe([
         [':method', 'GET'],
         [':scheme', 'http'],
         [':path', '/'],
         [':authority', 'www.example.com'],
         ['cache-control', 'no-cache'],
-    ])->and($decoder->decode(hex2bin('828785bf400a637573746f6d2d6b65790576616c7565')))->toBe([
+    ])->and($decoder->decode(runwireHpackBytesFromHex('828785bf400a637573746f6d2d6b65790576616c7565')))->toBe([
         [':method', 'GET'],
         [':scheme', 'https'],
         [':path', '/index.html'],
@@ -40,10 +51,10 @@ it('matches RFC Huffman values and decodes a Huffman request example', function 
         'custom-value' => '25a849e95bb8e8b4bf',
     ] as $plain => $hex) {
         expect(bin2hex($codec->encode($plain)))->toBe($hex)
-            ->and($codec->decode(hex2bin($hex), 1_024))->toBe($plain);
+            ->and($codec->decode(runwireHpackBytesFromHex($hex), 1_024))->toBe($plain);
     }
 
-    $headers = (new Decoder())->decode(hex2bin('828684418cf1e3c2e5f23a6ba0ab90f4ff'));
+    $headers = (new Decoder())->decode(runwireHpackBytesFromHex('828684418cf1e3c2e5f23a6ba0ab90f4ff'));
     expect($headers[3])->toBe([':authority', 'www.example.com']);
 });
 
@@ -67,7 +78,7 @@ it('round-trips indexed, dynamic and never-indexed fields', function (): void {
 
 it('enforces decoded header-list and Huffman output limits', function (): void {
     expect(fn () => (new Decoder(64, 40, 10))->decode(
-        hex2bin('400a637573746f6d2d6b65790d637573746f6d2d686561646572'),
+        runwireHpackBytesFromHex('400a637573746f6d2d6b65790d637573746f6d2d686561646572'),
     ))->toThrow(HpackException::class);
 
     expect(fn () => (new HuffmanCodec())->decode("\xff", 1_024))
