@@ -233,7 +233,11 @@ final class SwooleDriver implements HostDriverInterface
         $recycleState = null;
         DynamicHostObject::method($server, 'on')(
             'WorkerStart',
-            function (?object $_host = null, ?int $workerId = null) use ($factory, &$recycleState): void {
+            function (mixed ...$workerArguments) use ($factory, &$recycleState): void {
+                $workerId = $workerArguments[1] ?? null;
+                if ($workerId !== null && !is_int($workerId)) {
+                    throw new RuntimeException('Swoole worker-start event returned an invalid worker identifier.');
+                }
                 $this->startApplication($factory, $workerId);
                 $recycleState = new WorkerRecycleState($this->recyclePolicy);
             },

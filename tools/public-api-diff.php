@@ -181,15 +181,15 @@ foreach ($baseline['symbols'] as $name => $old) {
     }
 }
 
-foreach ($candidate['symbols'] as $name => $new) {
+foreach (array_keys($candidate['symbols']) as $name) {
     if (!array_key_exists($name, $baseline['symbols'])) {
         $added[] = ['type' => 'added_type', 'symbol' => $name];
     }
 }
 
 /**
- * @param array{symbol:string,type:string} $left
- * @param array{symbol:string,type:string} $right
+ * @param array<string, mixed> $left
+ * @param array<string, mixed> $right
  */
 $bySymbol = static function (array $left, array $right): int {
     $leftSymbol = $left['symbol'] ?? null;

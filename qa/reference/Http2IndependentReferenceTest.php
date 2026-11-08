@@ -66,7 +66,6 @@ foreach ([
                 throw new RuntimeException('Independent H2 TLS fixture CSR generation failed.');
             }
 
-
             $signed = openssl_csr_sign($csr, null, $key, 1, [
                 'config' => $cfg, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
             ]);

@@ -472,3 +472,17 @@
 - Correct WebSocket URI parsed-array shape documentation without changing parsing or validation, and avoid unsetting Swoole's unused callback argument. Keep callback signature and worker lifecycle unchanged.
 - In two independent HTTP/2 reference tests, separate the OpenSSL CSR's by-reference private key parameter from the originally validated signing key, removing four misleading PHPStan-only annotations. Preserve the actual certificate/key identity and cryptographic validation.
 - This targeted batch changes six implementation/QA files and the tracker rather than padding to fifty. Require exact SHA Psalm, PHPStan, PHPForge QA/protocol and source audit verification. No suppressions, weakened taint policy, merge, tag or release.
+
+### Batch 44 exact-head analyzer and QA reconciliation
+
+- On `62adc39e557ac634623582fabe8048fd85c76612`, PHP 8.4 and 8.5 Psalm each have **218 errors**, net **-7** from Batch 43 (225). PHPStan passes without complexity or dynamic-call errors. The **17 P0 taint reports** remain unchanged and open.
+- PHPForge quality lanes failed due to precisely two `no_extra_blank_lines` Pint warnings in independent HTTP/2 reference fixtures and one PHPCS unused first callback parameter warning in the Swoole worker-start hook. Pest, Rector, reference integrity, syntax, duplicates and comment policy passed; handle quality regressions before progressing.
+- Preserve full security checks, QUIC extension capability enforcement and the existing native host runtime acceptance.
+
+### Batch 45 — strict-QA remediation and API tooling contracts
+
+- Restore single blank-line spacing in both independent HTTP/2 RSA fixture checks without changing certificate/key material or TLS assertions.
+- Replace the Swoole worker-start callback's unused first formal parameter with an explicit variadic native-event argument reader and strict optional worker-id validation. Preserve worker-id nullability and callback timing; fail closed for malformed dynamic extension arguments instead of silently accepting them.
+- In the source-only public API diff audit, iterate candidate symbol names without an unused value binding and model the comparator input as validated string-key maps, allowing the existing runtime string checks to handle flexible record shapes.
+- In the public API manifest generator, confirm all three required argument offsets before indexing and initialize the public property inventory in all control paths. Keep its manifest schema, SHA and source-audit contracts intact.
+- This batch touches five implementation/QA/tool files plus the tracker. No analyzer ignore rules, taint escapes, releases, tags or merges. Validate both Psalm/PHPStan versions, all four QA matrices, source audit, hosted and HTTP/3 integration on the exact new SHA and record net error change.

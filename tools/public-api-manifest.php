@@ -28,12 +28,15 @@ $readCliArguments = static function (mixed $input): array {
 };
 $arguments = $readCliArguments($_SERVER['argv'] ?? []);
 $withProperties = count($arguments) === 5 && $arguments[4] === '--with-properties';
-if ((count($arguments) !== 4 && !$withProperties) || !is_dir($arguments[1])) {
+if ((count($arguments) !== 4 && !$withProperties)
+    || !isset($arguments[1], $arguments[2], $arguments[3])
+    || !is_dir($arguments[1])) {
     throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');
 }
 
-[$command, $inputRoot, $output, $revision] = $arguments;
-unset($command);
+$inputRoot = $arguments[1];
+$output = $arguments[2];
+$revision = $arguments[3];
 $root = realpath($inputRoot);
 if ($root === false || !preg_match('/^[0-9a-f]{40}$/D', $revision)) {
     throw new InvalidArgumentException('Expected an existing source directory and immutable 40-character source SHA.');
@@ -151,6 +154,7 @@ foreach ($files as $path) {
         sort($cases, SORT_STRING);
     }
 
+    $properties = [];
     if ($withProperties) {
         // Track declared public fields and constructor-promoted public properties.
         // The property manifest is additive to historical schema-v1 archives.
