@@ -86,6 +86,7 @@ final class Http1ConnectedExchange
     /**
      * Resume an incremental request body source after it has produced new data.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function resumeUpload(): void
     {

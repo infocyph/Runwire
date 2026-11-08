@@ -543,6 +543,7 @@ final class Http2Connection
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function processFrameSafely(Frame $frame): void
     {

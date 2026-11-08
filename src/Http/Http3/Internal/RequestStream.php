@@ -160,6 +160,7 @@ final class RequestStream
     /**
      * Mark transport FIN received and complete the request when unblocked.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function finish(): void
     {

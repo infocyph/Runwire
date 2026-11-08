@@ -346,6 +346,15 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             unset($this->writeWatchers[$id], $this->writeIndex[$resourceId]);
         }
 
+        // The stream may have been closed by its owner after watcher registration.
+        // A closed stream cannot be passed back to the native reactor.
+        if (!is_resource($watcher['stream'])) {
+            unset($this->registeredStreams[$resourceId]);
+            $this->scheduleIdleCheck();
+
+            return true;
+        }
+
         try {
             $this->syncWatcher($watcher['stream'], $resourceId);
         } catch (Throwable $error) {

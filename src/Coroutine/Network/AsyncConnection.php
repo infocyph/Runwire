@@ -311,6 +311,7 @@ final class AsyncConnection
      * @throws \LogicException
      * @throws \Infocyph\Runwire\Exception\CancelledException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     public function transferTo(CancellationToken $owner, ?RequestDeadline $deadline = null): Connection
     {

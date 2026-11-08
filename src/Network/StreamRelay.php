@@ -255,6 +255,7 @@ final class StreamRelay
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function manageReadPressure(Connection $source, Connection $destination, bool $fromLeft): void
     {

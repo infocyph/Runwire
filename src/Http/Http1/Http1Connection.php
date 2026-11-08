@@ -202,6 +202,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function advanceFixedBody(int $bytes): void
     {
         $this->remainingBody -= $bytes;
@@ -353,6 +356,7 @@ final class Http1Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function consumeFixedBody(): bool
     {
@@ -662,6 +666,7 @@ final class Http1Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \Throwable
      */
     private function parseTrailerLine(): bool
     {

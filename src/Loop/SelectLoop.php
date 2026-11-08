@@ -188,6 +188,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
      * @throws \LogicException
      * @psalm-suppress RedundantCondition
      * @psalm-suppress TypeDoesNotContainType
+     * @throws \RuntimeException
      */
     #[\Override]
     public function run(): void
@@ -256,6 +257,25 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         throw new RuntimeException($warning ?? 'stream_select() failed permanently.');
     }
 
+    /**
+     * @param array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> $watchers
+     * @return list<resource>
+     */
+    private static function liveStreams(array $watchers): array
+    {
+        $live = [];
+        foreach ($watchers as $watcher) {
+            if (is_resource($watcher['stream'])) {
+                $live[] = $watcher['stream'];
+            }
+        }
+
+        return $live;
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
     /**
      * @throws \OverflowException
      */
@@ -350,22 +370,6 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * @throws \RuntimeException
      */
-    /**
-     * @param array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> $watchers
-     * @return list<resource>
-     */
-    private static function liveStreams(array $watchers): array
-    {
-        $live = [];
-        foreach ($watchers as $watcher) {
-            if (is_resource($watcher['stream'])) {
-                $live[] = $watcher['stream'];
-            }
-        }
-
-        return $live;
-    }
-
     private function poll(): void
     {
         [$read, $write] = $this->selectStreams();
@@ -548,12 +552,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return;
         }
 
-        $deadline = $this->timers->nextDeadline();
-        if ($deadline === null) {
-            return;
-        }
-
-        $remaining = $deadline - MonotonicTime::nowNanoseconds();
+        $remaining = ($this->timers->nextDeadline() ?? 0) - MonotonicTime::nowNanoseconds();
         if ($remaining <= 0) {
             return;
         }

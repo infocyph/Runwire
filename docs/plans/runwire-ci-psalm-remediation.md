@@ -571,3 +571,14 @@
 - Reduce hot-loop SelectLoop duplication by a single small typed live-watcher collector while preserving per-resource guard, avoid extra per-tick intermediary arrays, and use the null-safe token predicate for HTTP/3 outbound without raising class complexity.
 - Align WebSocketClientUpgrade private method ordering for Pint. **Verification pending on follow-up exact SHA**: both PHPForge analysis engines, both PHP versions, four QA matrices, security scan, Source Audit, Swoole/QUIC/native acceptance and packaging.
 - Continue to treat all 17 security-taint reports as active until actual trust-boundary tests exist. The other 16+ locally annotated suppressions remain blocking in PHPForge's skip-directive checker; cannot claim green by removing the scanner.
+
+### Batch 49 — exact-head 41-error reconciliation and native/exception convergence
+
+- Baseline `603de6635b3e9f54aff64508f2c554b6aa0f551a`: **41 Psalm errors** each on PHP 8.4/8.5 (12 MissingThrowsDocblock, 17 security taints, 12 other), **five PHPStan** failures, four PHPForge QA failures and unresolved skip-directive policy findings. Source Audit, native hosted integration and most other CI jobs green. The 190/196-error counts are obsolete.
+- Correct nullable cancellation-token access during HTTP/3 startup; preserve cancellation state transitions.
+- Keep runtime guards for dynamic optional QUIC extension classes while supplying class-string contracts to ReflectionClass. Follow the repository Rector style for new method calls; do not bypass ALPN or verification.
+- Preserve Swoole watcher cancellation after an external owner closes a watched stream; remove stale local registrations without passing closed resources to the reactor.
+- Reduce SelectLoop cognitive complexity without removing deadline checks or changing timer semantics. Restore Pint's static/private method grouping in the HTTP/3 client, SelectLoop, and TLS upgrade helper.
+- Add accurately thrown exceptions at already-reported method boundaries across HTTP/1/2/3, coroutine ownership and stream relay; observe how these propagate in the next analyzer run rather than treating tags as proven net reductions.
+- **Security-taint reports remain open, unsuppressed**: network dialer trust policy, host response headers, audit CLI file handling and executor subprocess operations require explicit sink/source validation and test-backed treatment.
+- Re-run exact SHA PHPStan, Psalm, all four PHPForge QA lanes, skip-directive scanner, Source Audit, QUIC/host suites and docs before closing batch. No merge, tag or release.

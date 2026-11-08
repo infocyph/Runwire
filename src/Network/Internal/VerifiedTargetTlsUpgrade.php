@@ -91,11 +91,6 @@ final class VerifiedTargetTlsUpgrade
         }
     }
 
-    private static function isLiveStream(mixed $stream): bool
-    {
-        return is_resource($stream);
-    }
-
     /**
      * @param Closure(?Connection, ?Throwable):void $notify
      */
@@ -106,6 +101,11 @@ final class VerifiedTargetTlsUpgrade
         }
 
         $notify(null, $error);
+    }
+
+    private static function isLiveStream(mixed $stream): bool
+    {
+        return is_resource($stream);
     }
 
     /**
