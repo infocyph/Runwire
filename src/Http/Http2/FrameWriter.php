@@ -14,6 +14,7 @@ final class FrameWriter
 {
     /**
      * Encode a frame to its wire representation.
+     * @throws \InvalidArgumentException
      */
     public static function encode(Frame $frame): string
     {

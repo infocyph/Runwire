@@ -115,6 +115,7 @@ final class CoroutineRuntime
      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      * @throws \OverflowException
      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \Throwable
      */
     public function run(callable $callback): mixed
     {
@@ -127,6 +128,8 @@ final class CoroutineRuntime
      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      * @throws \OverflowException
      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \Throwable
      */
     public function runRequest(RequestContext $context, callable $callback): mixed
     {

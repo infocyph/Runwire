@@ -56,6 +56,7 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Flush the local QPACK encoder stream preamble.
+     * @throws \UnexpectedValueException
      */
     public function flushQpackEncoderPreamble(): bool
     {
@@ -89,6 +90,7 @@ final class PhpQuicTransport implements Http3TransportInterface
      * Register a client-initiated bidirectional request stream.
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     public function registerRequestStream(PhpQuicStream $stream): void
     {
@@ -122,6 +124,7 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Write bytes to the local QPACK encoder stream.
+     * @throws \UnexpectedValueException
      */
     #[\Override]
     public function writeQpackEncoder(string $bytes): int

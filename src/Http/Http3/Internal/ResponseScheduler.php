@@ -169,6 +169,9 @@ final class ResponseScheduler
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function adaptiveWriteLimit(): int
     {
         $queueCapacity = max(1, min(
@@ -305,6 +308,9 @@ final class ResponseScheduler
         return $bytes;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function flushNextResponse(bool $qpackProgress, int &$writes, int &$stalled): bool
     {
         $stream = $this->nextStream();
@@ -398,6 +404,7 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function flushResponseStream(ResponseStream $stream): bool
     {
@@ -455,6 +462,7 @@ final class ResponseScheduler
      * @param list<array{0: string, 1: string}> $headers
      * @throws \LogicException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function queueHeaders(ResponseStream $stream, int $status, array $headers): WriteResult
     {

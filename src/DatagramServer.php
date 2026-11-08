@@ -65,7 +65,10 @@ final readonly class DatagramServer
         }
     }
 
-    /** @param callable(Datagram, DatagramListener): void $handler */
+    /**
+     * @param callable(Datagram, DatagramListener): void $handler
+     * @throws \InvalidArgumentException
+     */
     public static function udp(string $address, callable $handler, string $name = 'udp'): self
     {
         return new self($name, $address, $handler);
@@ -84,7 +87,10 @@ final readonly class DatagramServer
         return $closure;
     }
 
-    /** @param callable(WorkerContext): callable $factory */
+    /**
+     * @param callable(WorkerContext): callable $factory
+     * @throws \InvalidArgumentException
+     */
     public function withWorkerHandlerFactory(callable $factory): self
     {
         return new self(
@@ -101,6 +107,7 @@ final readonly class DatagramServer
 
     /**
      * Return a copy configured with a different worker count.
+     * @throws \InvalidArgumentException
      */
     public function withWorkers(int $workers): self
     {

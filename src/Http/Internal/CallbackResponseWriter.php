@@ -66,6 +66,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     /**
      * End the response, optionally writing a final chunk first.
+     * @throws \LogicException
      */
     #[\Override]
     public function end(string $finalChunk = ''): WriteResult
@@ -131,6 +132,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     /**
      * Start the response with status and headers.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult

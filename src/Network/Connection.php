@@ -359,7 +359,10 @@ final class Connection
         return $this->negotiatedProtocol;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     */
     public function onData(callable $callback): self
     {
         $this->assertCallbackSlotsUnclaimed();
@@ -371,7 +374,10 @@ final class Connection
         return $this;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     */
     public function onDrain(callable $callback): self
     {
         $this->assertCallbackSlotsUnclaimed();
@@ -380,7 +386,10 @@ final class Connection
         return $this;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     */
     public function onEof(callable $callback): self
     {
         $this->assertCallbackSlotsUnclaimed();
@@ -507,6 +516,7 @@ final class Connection
      * Upgrade a quiescent cleartext tunnel to original-target verified TLS.
      *
      * @param callable(?self, ?Throwable):void $completion
+     * @throws \LogicException
      */
     public function upgradeToVerifiedTls(TlsClientOptions $policy, callable $completion): void
     {

@@ -60,6 +60,7 @@ final class FlowController
      * Debit connection and stream receive windows.
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function consumeReceive(Http2Stream $stream, int $bytes): void
     {
@@ -90,6 +91,7 @@ final class FlowController
      * @return list<Frame>
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
      */
     public function creditReceive(?Http2Stream $stream, int $bytes): array
     {

@@ -50,6 +50,7 @@ final class PhpQuicHttp3Worker
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(Throwable): void|null $connectionFailureObserver
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly PhpQuicListener $listener,
@@ -156,6 +157,7 @@ final class PhpQuicHttp3Worker
 
     /**
      * Execute one bounded HTTP/3 worker polling cycle.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public function tick(?float $timeoutSeconds = self::DEFAULT_POLL_TIMEOUT_SECONDS): void
     {

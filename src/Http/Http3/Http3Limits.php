@@ -13,6 +13,7 @@ final readonly class Http3Limits
 {
     /**
      * Create and validate HTTP/3 resource limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxFramePayloadBytes = 1_048_576,

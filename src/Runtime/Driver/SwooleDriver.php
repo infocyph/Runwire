@@ -41,7 +41,10 @@ final class SwooleDriver implements HostDriverInterface
 
     private ?object $server = null;
 
-    /** @param callable(string, int): object|null $serverFactory */
+    /**
+     * @param callable(string, int): object|null $serverFactory
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly SwooleOptions $options,
         ?callable $serverFactory = null,
@@ -332,7 +335,10 @@ final class SwooleDriver implements HostDriverInterface
         );
     }
 
-    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    /**
+     * @param Closure(?int): RuntimeApplicationInterface|null $factory
+     * @throws \Throwable
+     */
     private function runServer(?RuntimeApplicationInterface $application, ?Closure $factory = null): void
     {
         $server = ($this->serverFactory)($this->options->host, $this->options->port);
@@ -357,7 +363,10 @@ final class SwooleDriver implements HostDriverInterface
         $this->finishApplication($failure);
     }
 
-    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    /**
+     * @param Closure(?int): RuntimeApplicationInterface|null $factory
+     * @throws \Throwable
+     */
     private function startApplication(?Closure $factory, ?int $workerId): void
     {
         try {
@@ -376,6 +385,9 @@ final class SwooleDriver implements HostDriverInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function writer(object $response, string $method): ResponseWriterInterface
     {
         $status = DynamicHostObject::method($response, 'status');

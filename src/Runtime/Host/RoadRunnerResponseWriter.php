@@ -135,6 +135,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Starts the response with status and optional headers.
+     * @throws \InvalidArgumentException
      */
     #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult

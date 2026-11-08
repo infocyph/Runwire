@@ -54,7 +54,8 @@
 | 31 | Reconcile PHPStan constructor throws and avoid duplicate TLS realpath calls | 1 PHPStan blocker and resource efficiency | Implemented; CI verification pending |
 | 32 | Restore PHPForge QA, Pint and PHPStan checks after Batch 31 | 4 PHPStan + 3 quality findings | Implemented; CI verification pending |
 | 33 | Document remaining published protocol/cancellation exception contracts | 99 reported sites | Implemented; CI verification pending |
-| 34+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
+| 34 | Document published protocol, networking and worker lifecycle exceptions | 94 reported sites | Implemented; CI verification pending |
+| 35+ | Fix remaining PHP type contracts, security taints and exception propagation | TBD | Pending |
 
 ### Batch 1 verification
 
@@ -341,3 +342,9 @@
 - Added 64 precise missing exception tags. Method bodies, signatures, protocol checks and runtime ownership remain unchanged.
 - No new migration ledger entries needed: these source types already have reviewed 2.1.2 migration dispositions.
 - Verify the actual **net** analyzer delta after the latest SHA and all relevant QA/protocol/source checks before marking complete.
+
+### Batch 34 — continued published runtime exception contracts
+
+- Matched 94 logged missing-throws sites across 26 reviewed published runtime files without touching a method body or public signature.
+- First segment: 55 sites, 36 methods, 39 new precise annotations. Second segment: 39 sites, 27 methods, 31 annotations.
+- All selected implementation symbols are already represented in the pinned 2.1.2 migration change ledger. Validate exact SHA net Psalm reduction, PHPStan/Pint/PHPCS and HTTP/3/Source Audit before closing.

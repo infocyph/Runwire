@@ -58,6 +58,7 @@ final class LengthPrefixedCodec implements FrameCodecInterface
     /**
      * Decodes up to the requested number of complete frames from incoming bytes.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     #[\Override]
     public function push(string $bytes, int $maxFrames = 256): array
@@ -151,6 +152,7 @@ final class LengthPrefixedCodec implements FrameCodecInterface
 
     /**
      * @throws \Infocyph\Runwire\Protocol\CodecException
+     * @throws \InvalidArgumentException
      */
     private function nextFrame(): ?string
     {

@@ -192,6 +192,7 @@ final class PhpQuicHttp3Connection
     /**
      * @param array<int, int> $ready
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function handleReady(array $ready, PhpQuicEventMasks $events): void
     {
@@ -263,6 +264,7 @@ final class PhpQuicHttp3Connection
     /**
      * Pump accepted streams, inbound data, control instructions, and pending responses.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function pump(): void
     {
@@ -509,6 +511,9 @@ final class PhpQuicHttp3Connection
         $this->cleanupFinishedRequests();
     }
 
+    /**
+     * @throws \UnexpectedValueException
+     */
     private function flush(): void
     {
         $this->controlPending = $this->flushPending($this->controlStream, $this->controlPending);
@@ -584,6 +589,7 @@ final class PhpQuicHttp3Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     private function openCriticalStream(string $name): PhpQuicStream
     {

@@ -18,6 +18,7 @@ final readonly class SystemResourceProbe
 
     /**
      * @param callable(string): ?string|null $reader
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?callable $reader = null,
@@ -36,6 +37,7 @@ final readonly class SystemResourceProbe
 
     /**
      * Probes and returns effective CPU and memory resources.
+     * @throws \InvalidArgumentException
      */
     public function probe(): SystemResources
     {

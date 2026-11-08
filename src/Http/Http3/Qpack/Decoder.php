@@ -50,6 +50,7 @@ final class Decoder
 
     /**
      * Cancel blocked QPACK work for a request stream and queue cancellation feedback.
+     * @throws \InvalidArgumentException
      */
     public function cancelStream(int $streamId): void
     {
@@ -80,7 +81,11 @@ final class Decoder
         return $section;
     }
 
-    /** @return list<ReadyFieldSection> */
+    /**
+     * @return list<ReadyFieldSection>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public function pushEncoderInstructions(string $bytes): array
     {
         $insertions = $this->encoderStream->push($bytes);
@@ -102,6 +107,9 @@ final class Decoder
         return $instructions;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function acknowledge(DecodedFieldSection $section, int $streamId): void
     {
         if ($section->requiredInsertCount > 0) {

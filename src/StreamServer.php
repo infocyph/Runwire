@@ -36,6 +36,8 @@ final readonly class StreamServer
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
      * @param callable(WorkerContext): callable|null $workerHandlerFactory
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         public string $name,

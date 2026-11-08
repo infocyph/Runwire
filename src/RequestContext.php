@@ -42,6 +42,7 @@ final class RequestContext
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function __construct(
         private RuntimeContext $runtime,
@@ -65,6 +66,7 @@ final class RequestContext
 
     /**
      * Creates a runtime-bound request context using the supplied execution policy.
+     * @throws \InvalidArgumentException
      */
     public static function create(
         RuntimeContext $runtime,
@@ -85,7 +87,10 @@ final class RequestContext
         );
     }
 
-    /** @internal Used for request objects constructed outside an active runtime. */
+    /**
+     * @internal Used for request objects constructed outside an active runtime.
+     * @throws \InvalidArgumentException
+     */
     public static function standalone(?string $requestId = null, ?int $startNanoseconds = null): self
     {
         $start = $startNanoseconds ?? self::nowNanoseconds();

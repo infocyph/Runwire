@@ -58,6 +58,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Create a select-loop with the callback-overrun threshold.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function __construct(float $callbackOverrunSeconds = 0.05)
     {
@@ -147,6 +148,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Register a readable stream watcher.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
@@ -157,6 +159,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Register a writable stream watcher.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     #[\Override]
     public function onWritable(mixed $stream, callable $callback): int

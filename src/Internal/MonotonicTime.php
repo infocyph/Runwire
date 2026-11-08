@@ -35,6 +35,8 @@ final class MonotonicTime
 
     /**
      * Build a checked absolute deadline from a monotonic start and duration.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public static function deadlineAfterSeconds(int $startNanoseconds, float $seconds): int
     {

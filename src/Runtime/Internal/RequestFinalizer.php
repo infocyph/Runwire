@@ -174,6 +174,11 @@ final class RequestFinalizer
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
+     */
     private function finalizeIfReady(): void
     {
         if ($this->finalizedRequest || $this->handlerRunning || $this->context->hasOwnedWork()) {
