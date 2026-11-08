@@ -15,8 +15,7 @@ if (PHP_SAPI !== 'cli') {
  * Unexpected removed declarations or signature changes fail closed.
  */
 $arguments = $argv ?? null;
-if (!is_array($arguments) || count($arguments) !== 3
-    || !is_string($arguments[1] ?? null) || !is_string($arguments[2] ?? null)) {
+if (!is_array($arguments) || count($arguments) !== 3) {
     throw new InvalidArgumentException('Usage: php tools/public-api-migration-audit.php <diff.json> <policy.json>');
 }
 

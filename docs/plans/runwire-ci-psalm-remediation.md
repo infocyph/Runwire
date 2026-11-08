@@ -658,3 +658,9 @@
 - Exact starting SHA: `848e9f3f7414e87a164f57e56f65a6b60cf3af58`, Psalm 15 file/SSRF taints on each PHP version, PHPStan green; PHPForge QA eight PHP suppressions plus one reviewed header sanitizer still failing.
 - Require `PHP_SAPI === 'cli'` before any source-audit tool accepts input, and obtain CLI process arguments from the top-level PHP CLI `$argv` rather than a general-purpose `$_SERVER` key. Retain argument shape, path canonicalization, size limits, schema validation and output semantics. This makes invocation authorization explicit rather than treating arbitrary web-server input as a legitimate audit request.
 - Verify complete Source Audit and the CLI migration tests. Measure whether the analyzer regards correctly scoped CLI argv as tainted; do not claim a taint reduction without actual output. If the same taint reports remain, retain safe local input checks rather than hiding diagnostics. No suppression changes, no merge/tag/release.
+
+### Batch 58 — typed CLI argument contract after Batch 57
+
+- Batch 57 exact `ce8d847f56627044ab0dafdbdcb9f8f6d39a27e3` Psalm **15** (no taint reduction); four PHPStan `function.alreadyNarrowedType` / `nullCoalesce.offset` findings in the migration-audit CLI precondition. Source Audit and Sphinx passed.
+- PHP provides an argument vector of strings under the guarded CLI SAPI, so PHPStan proves the redundant `is_string` checks and offset coalesces unnecessary. Keep the exact three-argument count gate; malformed counts still fail closed. This does not affect authorized input validation or filesystem trust boundaries.
+- Continue to measure security-taint findings explicitly; no annotation/baseline/exclusion changes, no merge/tag.
