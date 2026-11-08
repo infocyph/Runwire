@@ -203,6 +203,6 @@ $output = json_encode([
     'changed' => $changed,
     'added' => $added,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-if (file_put_contents('php://stdout', $output . PHP_EOL) === false) {
+if (fwrite(STDOUT, $output . PHP_EOL) === false) {
     throw new RuntimeException('Unable to write the public API diff.');
 }

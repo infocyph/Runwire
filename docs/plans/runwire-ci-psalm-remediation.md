@@ -834,3 +834,10 @@
 - Previously guardFilePath() validated an array entry and returned void while all worker operation closures independently reused the original untrusted value. Return the guarded non-empty-string from a central path-validation boundary and require all five operations to use it directly. Preserve optional root scope, anti-wrapper/NUL/length checks, canonical parents and symlink restrictions.
 - Add direct ProcessExecutor regression rejecting PHP and HTTP stream wrappers inside the child, alongside a successful bounded ordinary file read. This is a real guard wiring change, not a taint laundering annotation. Psalm may still report tainted file access where unrestricted developer-controlled paths are intentionally supported; never claim they are cleared without evidence.
 - Verify PHPStan/Psalm/QA/Pest/Source Audit. No analyzer suppressions, exclusions, merge or release.
+
+### Batch 85 — eliminate public diff stream-wrapper sink and correct final manifest test redirect
+
+- Batch 83 exact PHP 8.4 Psalm reports **9** security findings: seven original executor-worker file/SSRF flows, plus new HTML/text-with-quotes output taints at public-api-diff.php:206 because the refactor still used `file_put_contents('php://stdout', ...)`. The output function may dispatch a stream wrapper and is a recognized Psalm sink.
+- Write the exact same JSON diff using the already-open standard output resource `fwrite(STDOUT,...)`, matching the other hardened audit tools, not an attacker-controlled file or URL. This change removes a stream-wrapper dispatch surface without changing JSON or Source Audit.
+- Batch 82's manifest tests used a correct `2>&1 > manifest` in the command but then appended another `2>&1` to exec, redirecting error diagnostics into the file. Remove the *second* redirect on the two affected subprocess calls; capture stderr in the test runner stdout and keep manifest JSON clean.
+- Verify PHP 8.4/8.5 Psalm count, four strict QA variants, Pest and Source Audit. All seven executor-worker taints remain independent active findings until verified. No skip/suppressions or merge/release.

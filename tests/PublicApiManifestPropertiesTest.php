@@ -31,7 +31,7 @@ PHP);
             . escapeshellarg($revision) . ' --with-properties 2>&1 > ' . escapeshellarg($manifest);
         $output = [];
         $status = 0;
-        exec($command . ' 2>&1', $output, $status);
+        exec($command, $output, $status);
         expect($status)->toBe(0, implode("\n", $output));
 
         $wrapperCommand = escapeshellarg(PHP_BINARY) . ' '
@@ -82,7 +82,7 @@ it('rejects a symlinked PHP declaration that targets a file outside the requeste
             . ' 2>&1 > ' . escapeshellarg($output);
         $messages = [];
         $status = 0;
-        exec($command . ' 2>&1', $messages, $status);
+        exec($command, $messages, $status);
         expect($status)->not->toBe(0)
             ->and(implode("\n", $messages))->toContain('refuses symlinked or outside-root');
     } finally {
