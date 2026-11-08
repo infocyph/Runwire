@@ -170,6 +170,9 @@ final readonly class RequestHeaderValidator
         return preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', $value) === 1;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     private function normalizeAuthority(?string $authority, ?string $scheme, Headers $regular): Headers
     {
         $host = $this->host($regular);

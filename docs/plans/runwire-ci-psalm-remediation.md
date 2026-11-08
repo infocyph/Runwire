@@ -348,3 +348,11 @@
 - Matched 94 logged missing-throws sites across 26 reviewed published runtime files without touching a method body or public signature.
 - First segment: 55 sites, 36 methods, 39 new precise annotations. Second segment: 39 sites, 27 methods, 31 annotations.
 - All selected implementation symbols are already represented in the pinned 2.1.2 migration change ledger. Validate exact SHA net Psalm reduction, PHPStan/Pint/PHPCS and HTTP/3/Source Audit before closing.
+
+### Batch 35 — first 50-file commit toward zero analyzer findings
+
+- Preserve the published Batch 34 commit as-is. This batch edits **49 disjoint source files plus this tracker** in one commit, rather than overwriting parallel work.
+- Match 133 exact outstanding `MissingThrowsDocblock` sites from the Batch 33 PHP 8.5 546-error analyzer to their declaring methods; only touch unchanged files so line mapping remains valid.
+- Selected source files are new since the immutable 2.1.2 comparator or already covered by test-backed source-change ledger entries, retaining Source Audit.
+- Exception PHPDocs only; preserve production behavior, response trust policies, TLS, protocol logic and public API signatures. Measure *net* Psalm delta before marking verified.
+- Continue prioritizing **P0 TaintedFile/TaintedSSRF/TaintedHeader, P1 correctness, P2 design, P3 hygiene** findings and any newly surfaced issue, with no analyzer skips, merge or tag.

@@ -53,6 +53,7 @@ final class HappyEyeballsAttempt
     /**
      * @param Closure(?Connection, ?Throwable):void $completion
      * @param Closure():void $onSettled
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -124,6 +125,9 @@ final class HappyEyeballsAttempt
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function addressUri(string $address, int $port): string
     {
         if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
@@ -167,6 +171,10 @@ final class HappyEyeballsAttempt
         return $ordered;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function begin(): void
     {
         $this->remaining = $this->options->connectTimeoutSeconds;

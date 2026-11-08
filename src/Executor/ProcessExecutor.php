@@ -258,6 +258,10 @@ final class ProcessExecutor
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function attachCancellation(int $id, ?CancellationToken $token): void
     {
         if ($token === null) {

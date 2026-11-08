@@ -24,7 +24,11 @@ final class ConnectionScopeOwnership
 
     private function __construct(private readonly LoopInterface $loop, private readonly CancellationToken $token) {}
 
-    /** Attach exactly one token and the earliest inherited or explicit deadline. */
+    /**
+     * Attach exactly one token and the earliest inherited or explicit deadline.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public static function attach(
         Connection $connection,
         LoopInterface $loop,

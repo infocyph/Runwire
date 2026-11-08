@@ -213,7 +213,10 @@ final class ControlServer
         ]);
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * @param array<string, mixed> $data
+     * @throws \OverflowException
+     */
     private function respond(FramedConnection $session, array $data): void
     {
         $this->write($session, [
@@ -224,6 +227,9 @@ final class ControlServer
         ]);
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function respondError(FramedConnection $session, string $code, string $message): void
     {
         $this->write($session, [

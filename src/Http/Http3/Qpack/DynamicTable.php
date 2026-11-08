@@ -102,6 +102,7 @@ final class DynamicTable
 
     /**
      * Insert a locally generated entry when eviction constraints permit it.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function insertLocal(string $name, string $value): ?int
     {
@@ -143,6 +144,7 @@ final class DynamicTable
 
     /**
      * Pin a dynamic entry while an outstanding field section references it.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function pin(int $absoluteIndex): void
     {

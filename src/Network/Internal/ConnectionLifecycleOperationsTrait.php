@@ -100,6 +100,7 @@ trait ConnectionLifecycleOperationsTrait
      * Explicitly rebind a live connection to a different cancellation owner.
      * Existing ownership is preserved if the new token is already cancelled.
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\CancelledException
      */
     public function transferOwner(CancellationToken $token, ?RequestDeadline $deadline = null): void
     {
@@ -168,6 +169,9 @@ trait ConnectionLifecycleOperationsTrait
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function finishPendingWriteShutdown(): void
     {
         if (!$this->writeShutdownPending || !$this->sendBuffer->isEmpty()

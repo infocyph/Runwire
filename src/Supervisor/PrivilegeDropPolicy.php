@@ -32,6 +32,7 @@ final readonly class PrivilegeDropPolicy
 
     /**
      * Apply the configured identity to the current worker process.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function apply(): void
     {
@@ -45,6 +46,7 @@ final readonly class PrivilegeDropPolicy
 
     /**
      * Verify that the runtime can perform the configured identity changes.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function assertSupported(): void
     {

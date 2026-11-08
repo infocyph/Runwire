@@ -55,7 +55,10 @@ final readonly class Command
         }
     }
 
-    /** @param list<string> $arguments */
+    /**
+     * @param list<string> $arguments
+     * @throws \InvalidArgumentException
+     */
     public static function executable(string $executable, array $arguments = []): self
     {
         return new self($executable, $arguments);
@@ -132,6 +135,7 @@ final readonly class Command
     /**
      * @param list<string>|null $arguments
      * @param array<string, string>|null $environment
+     * @throws \InvalidArgumentException
      */
     private function copy(
         ?array $arguments = null,

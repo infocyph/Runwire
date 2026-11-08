@@ -145,6 +145,9 @@ final class InputSource
         return is_bool($blocked) ? $blocked : null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private function read(int $maxBytes): ?string
     {
         if ($this->string !== null) {

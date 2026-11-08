@@ -15,6 +15,8 @@ final class NativePhpResponseWriterFactory
 {
     /**
      * Creates a bounded native PHP response writer for the request method.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function create(string $method, int $maxBodyBytes): CallbackResponseWriter
     {

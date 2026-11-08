@@ -26,6 +26,8 @@ final class TimerQueue
 
     /**
      * Add a one-shot timer.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function addDelay(int $id, float $seconds, Closure $callback): void
     {
@@ -35,6 +37,7 @@ final class TimerQueue
     /**
      * Add a repeating timer.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function addRepeat(int $id, float $seconds, Closure $callback): void
     {

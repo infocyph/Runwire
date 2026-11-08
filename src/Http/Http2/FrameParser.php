@@ -21,6 +21,7 @@ final class FrameParser
 
     /**
      * Create a frame parser with an inbound frame-size limit.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private int $maxFrameSize = 16_384, ?ByteBudget $budget = null)
     {
@@ -86,6 +87,7 @@ final class FrameParser
 
     /**
      * Update the maximum accepted inbound frame size.
+     * @throws \InvalidArgumentException
      */
     public function setMaxFrameSize(int $bytes): void
     {

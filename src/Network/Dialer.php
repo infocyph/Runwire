@@ -208,6 +208,10 @@ final class Dialer
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function attachCancellation(int $id, DialOptions $options): void
     {
         $token = $options->cancellation;

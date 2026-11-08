@@ -128,7 +128,11 @@ final readonly class ProcessRunner
         }
     }
 
-    /** @param array<int, resource> $pipes */
+    /**
+     * @param array<int, resource> $pipes
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function execute(PreparedCommand $prepared, ProcessHandle $process, array &$pipes, InputSource $input, OutputSink $stdout, OutputSink $stderr): ProcessResult
     {
         $child = $process->resource();
@@ -255,7 +259,10 @@ final readonly class ProcessRunner
         return max(0, $micros);
     }
 
-    /** @param array<int, resource> $pipes */
+    /**
+     * @param array<int, resource> $pipes
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private function primeInput(InputSource $input, string &$buffer, array &$pipes): void
     {
         if (!isset($pipes[0]) || $buffer !== '' || $input->isResource()) {
@@ -307,6 +314,7 @@ final readonly class ProcessRunner
     /**
      * @param array<int, resource> $pipes
      * @return array{0: list<resource>, 1: list<resource>, 2: ?int}
+     * @throws \Infocyph\Runwire\Exception\ProcessException
      */
     private function selectSets(array $pipes, InputSource $input, string $stdinBuffer): array
     {

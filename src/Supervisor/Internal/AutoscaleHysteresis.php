@@ -20,7 +20,10 @@ final class AutoscaleHysteresis
 
     private int $lowSamples = 0;
 
-    /** Define stable capacity thresholds without scheduling any process work. */
+    /**
+     * Define stable capacity thresholds without scheduling any process work.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly int $minWorkers,
         private readonly int $maxWorkers,
@@ -77,6 +80,9 @@ final class AutoscaleHysteresis
         $this->lastChangeNanoseconds = null;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function assertSample(int $current, int $busy, int $queued, int $nowNanoseconds): void
     {
         if ($current < $this->minWorkers || $current > $this->maxWorkers

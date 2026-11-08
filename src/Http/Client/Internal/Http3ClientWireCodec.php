@@ -143,7 +143,10 @@ final readonly class Http3ClientWireCodec
         return $this->decoder->takeDecoderInstructions();
     }
 
-    /** @return array{status:int, headers:Headers}|null */
+    /**
+     * @return array{status:int, headers:Headers}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function tryDecodeResponseHeaders(string $payload, int $streamId): ?array
     {
         $section = $this->decoder->decode($payload, $streamId);
@@ -151,7 +154,10 @@ final readonly class Http3ClientWireCodec
         return $section === null ? null : self::parseHeaders($section);
     }
 
-    /** Decode trailers or report a bounded QPACK-blocked field section. */
+    /**
+     * Decode trailers or report a bounded QPACK-blocked field section.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function tryDecodeResponseTrailers(string $payload, int $streamId): ?Headers
     {
         $section = $this->decoder->decode($payload, $streamId);

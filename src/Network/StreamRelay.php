@@ -238,6 +238,9 @@ final class StreamRelay
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function manageReadPressure(Connection $source, Connection $destination, bool $fromLeft): void
     {
         if ($source->peerReadClosed() && $source->receivedBytes() === 0) {
@@ -286,6 +289,9 @@ final class StreamRelay
         return $length;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function onEof(bool $fromLeft): void
     {
         if ($this->closed) {

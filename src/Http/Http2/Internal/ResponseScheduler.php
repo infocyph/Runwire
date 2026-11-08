@@ -331,6 +331,7 @@ final class ResponseScheduler
     /**
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function flushNextStream(int &$frames, int &$stalled): bool
     {
@@ -478,6 +479,9 @@ final class ResponseScheduler
             && !$stream->endPending;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function initialResponseIntent(
         Http2Stream $stream,
         int $headerBytes,

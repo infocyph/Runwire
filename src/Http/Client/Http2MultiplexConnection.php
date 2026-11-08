@@ -76,6 +76,7 @@ final class Http2MultiplexConnection
      * Cancel only the selected response, retaining unrelated stream owners.
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function cancel(int $streamId): void
     {
@@ -123,6 +124,7 @@ final class Http2MultiplexConnection
      * @param callable(?Throwable):void $onComplete
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function request(
         ClientRequest $request,

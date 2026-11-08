@@ -29,6 +29,9 @@ final readonly class Http1OutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Connection, ?Throwable):void $completion
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public static function connect(
         LoopInterface $loop,

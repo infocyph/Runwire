@@ -98,6 +98,7 @@ final class NativeStreamWorker
      * Runs the bound stream listener until worker shutdown is requested.
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \RuntimeException
      */
     public static function run(
         WorkerContext $context,
@@ -114,7 +115,10 @@ final class NativeStreamWorker
         }
     }
 
-    /** @param array<int, FramedConnection> $sessions */
+    /**
+     * @param array<int, FramedConnection> $sessions
+     * @throws \LogicException
+     */
     private static function beginDrain(
         WorkerContext $context,
         BoundStreamServer $bound,

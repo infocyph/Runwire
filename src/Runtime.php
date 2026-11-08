@@ -348,6 +348,9 @@ final class Runtime
         return $prefix . ':' . $server->name;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function workerListenerOptions(
         ListenerOptions $options,
         int $workerLimit,
@@ -606,6 +609,9 @@ final class Runtime
         ));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function resolvedWorkerCount(int $configured): int
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');

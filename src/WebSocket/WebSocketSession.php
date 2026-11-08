@@ -74,6 +74,7 @@ final class WebSocketSession
     /**
      * @internal WebSocket sessions are created by the HTTP/1 upgrade owner.
      * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \LogicException
      */
     public function __construct(
         LoopInterface $loop,
@@ -554,6 +555,9 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function pump(): void
     {
         $this->pumpScheduled = false;
@@ -647,6 +651,9 @@ final class WebSocketSession
         return $result;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function sendFrame(int $opcode, string $payload, bool $allowClosing): WriteResult
     {
         if ($this->closed || (!$allowClosing && $this->closing)) {

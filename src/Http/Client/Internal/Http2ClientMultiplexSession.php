@@ -225,7 +225,10 @@ final class Http2ClientMultiplexSession
         return $this->handshake->start();
     }
 
-    /** Account for receive-window consumption without extending terminated streams. */
+    /**
+     * Account for receive-window consumption without extending terminated streams.
+     * @throws \InvalidArgumentException
+     */
     private static function credit(Frame $frame): string
     {
         $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
@@ -240,7 +243,10 @@ final class Http2ClientMultiplexSession
         return $wire;
     }
 
-    /** Enforce connection SETTINGS and reject GOAWAY streams above peer last ID. */
+    /**
+     * Enforce connection SETTINGS and reject GOAWAY streams above peer last ID.
+     * @throws \RuntimeException
+     */
     private function control(Frame $frame): string
     {
         $wire = $this->handshake->receive($frame);

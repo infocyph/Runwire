@@ -69,6 +69,7 @@ final class Http2Connection
     /**
      * @param callable(HttpRequest, Http2ResponseWriter): void $handler
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -131,6 +132,7 @@ final class Http2Connection
     /**
      * Begin graceful HTTP/2 connection draining.
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function drain(): void
     {
@@ -248,6 +250,7 @@ final class Http2Connection
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function failConnection(ErrorCode $code, string $message): void
     {
@@ -331,6 +334,7 @@ final class Http2Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function handlePing(Frame $frame): void
     {
@@ -395,6 +399,7 @@ final class Http2Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function handleSettings(Frame $frame): void
     {
@@ -419,6 +424,7 @@ final class Http2Connection
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function handleStreamError(StreamError $error): void
     {
@@ -515,6 +521,7 @@ final class Http2Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \InvalidArgumentException
      */
     private function processFrameSafely(Frame $frame): void
     {
@@ -534,6 +541,9 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function pump(): void
     {
         if ($this->closed) {

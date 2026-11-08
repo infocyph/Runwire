@@ -39,7 +39,10 @@ final class Http2ClientHandshake
 
     private bool $started = false;
 
-    /** Prepare one new connection-scoped outbound HTTP/2 handshake owner. */
+    /**
+     * Prepare one new connection-scoped outbound HTTP/2 handshake owner.
+     * @throws \InvalidArgumentException
+     */
     public function __construct()
     {
         $this->encoder = new Encoder();
@@ -49,6 +52,7 @@ final class Http2ClientHandshake
     /**
      * Preserve the initial one-shot request contract for the existing client.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function firstRequest(string $method, string $scheme, string $authority, string $path, ?Headers $headers = null): string
     {
@@ -145,6 +149,7 @@ final class Http2ClientHandshake
     /**
      * Return the exact H2 client connection preface and first SETTINGS.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function start(): string
     {
@@ -219,6 +224,7 @@ final class Http2ClientHandshake
 
     /**
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function settings(Frame $frame): string
     {

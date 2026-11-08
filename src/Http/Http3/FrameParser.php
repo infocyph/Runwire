@@ -59,7 +59,10 @@ final class FrameParser
         return strlen($this->buffer);
     }
 
-    /** @return list<Frame> */
+    /**
+     * @return list<Frame>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function push(string $bytes): array
     {
         $this->append($bytes);

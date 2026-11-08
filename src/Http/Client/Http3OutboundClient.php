@@ -90,6 +90,7 @@ final class Http3OutboundClient
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function __construct(
         private readonly LoopInterface $loop,
@@ -120,6 +121,9 @@ final class Http3OutboundClient
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     * @throws \RuntimeException
      */
     public static function connect(
         LoopInterface $loop,
@@ -155,6 +159,7 @@ final class Http3OutboundClient
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function enqueue(
         ClientRequest $request,
@@ -217,6 +222,9 @@ final class Http3OutboundClient
         return $stream;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
         $outcome = $this->auxiliary->accept(
@@ -335,6 +343,10 @@ final class Http3OutboundClient
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function finish(?Throwable $error): void
     {
         if ($this->finished) {
@@ -520,6 +532,7 @@ final class Http3OutboundClient
      * @throws \InvalidArgumentException
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
      */
     private function sendRequest(int $stream, int $wireStreamId): void
     {

@@ -162,6 +162,7 @@ final class ConnectionState
     /**
      * Feed bytes from a peer unidirectional stream.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
      */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {
@@ -333,6 +334,9 @@ final class ConnectionState
         return $this->requestStreams[$streamId] = new RequestStream($streamId, $this->decoder, $this->limits, budget: $this->bufferBudget);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function processControl(string $payload): void
     {
         if ($payload === '') {

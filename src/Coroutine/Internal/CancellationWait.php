@@ -56,6 +56,8 @@ final class CancellationWait
 
     /**
      * Begin observing cancellation and deadline expiry.
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function start(): void
     {

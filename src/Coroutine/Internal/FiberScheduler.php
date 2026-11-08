@@ -254,6 +254,7 @@ final class FiberScheduler
 
     /**
      * Enqueue a task to resume with a value.
+     * @throws \LogicException
      */
     public function resume(Task $task, mixed $value = null, bool $ignoreCancellation = false): bool
     {
@@ -262,6 +263,7 @@ final class FiberScheduler
 
     /**
      * Enqueue a task to resume by throwing an exception into it.
+     * @throws \LogicException
      */
     public function resumeException(Task $task, Throwable $error, bool $ignoreCancellation = false): bool
     {

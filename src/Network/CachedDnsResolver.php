@@ -334,6 +334,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function watchCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): void
     {
         $remaining = $deadline?->remainingSeconds();

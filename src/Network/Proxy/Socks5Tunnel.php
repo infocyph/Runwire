@@ -189,7 +189,10 @@ final class Socks5Tunnel
         }
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \LogicException
+     */
     private function fail(Throwable $error): void
     {
         if (!$this->pending()) {
@@ -238,6 +241,7 @@ final class Socks5Tunnel
 
     /**
      * @throws \RuntimeException
+     * @throws \LogicException
      */
     private function readConnectReply(Connection $connection): void
     {

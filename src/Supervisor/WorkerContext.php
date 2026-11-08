@@ -416,6 +416,7 @@ final class WorkerContext
 
     /**
      * Record request completion and request recycling when a threshold is reached.
+     * @throws \RuntimeException
      */
     public function recordRequestCompleted(): bool
     {
@@ -484,6 +485,7 @@ final class WorkerContext
     /**
      * Request an orderly worker recycle for the supplied reason.
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function requestRecycle(ShutdownReason $reason = ShutdownReason::MANUAL_RECYCLE): void
     {
@@ -533,6 +535,7 @@ final class WorkerContext
      *
      * @param callable(CoroutineScope): mixed $callback
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function spawnBackground(callable $callback): Task
     {

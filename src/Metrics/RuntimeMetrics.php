@@ -127,6 +127,8 @@ final class RuntimeMetrics implements MetricsProviderInterface
 
     /**
      * Collect cyclic garbage when the configured thresholds are reached.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function maybeCollectGarbage(GcPolicy $policy): void
     {

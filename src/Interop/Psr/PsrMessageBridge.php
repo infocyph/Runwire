@@ -56,6 +56,7 @@ final readonly class PsrMessageBridge
     /**
      * Safely adapt a bodyless PSR-7 request without a synchronous stream read.
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
      */
     public static function outboundRequest(
         RequestInterface $request,

@@ -24,6 +24,7 @@ final class Http3ClientPeerStreamRegistry
      * Classify one stream without assuming a one-byte QUIC varint.
      *
      * @return array{type:int,payload:string,wire:string,initial:bool}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function push(int $stream, string $bytes, bool $eof): ?array
     {
@@ -47,6 +48,9 @@ final class Http3ClientPeerStreamRegistry
         return $probe + ['initial' => true];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function assertUniqueCritical(int $type): void
     {
         if (!in_array($type, [

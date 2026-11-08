@@ -17,6 +17,7 @@ final readonly class AdaptiveLoadSample
 
     /**
      * Create a normalized adaptive load sample.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public bool $pressured,

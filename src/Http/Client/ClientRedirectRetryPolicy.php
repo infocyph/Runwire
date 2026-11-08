@@ -61,6 +61,7 @@ final readonly class ClientRedirectRetryPolicy
      * Preserve only safely replayable requests, with explicit credential
      * stripping for every changed origin including the port and scheme.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function redirect(ClientRequest $request, string $location, int $redirectsUsed): ClientRequest
     {

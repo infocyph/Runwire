@@ -56,6 +56,7 @@ final class SignalBridge
 
     /**
      * Reset inherited supervisor signal state inside a forked child process.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function normalizeChild(): void
     {
@@ -145,6 +146,9 @@ final class SignalBridge
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function openWakeChannel(): void
     {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);

@@ -241,6 +241,7 @@ final class Supervisor
     /**
      * Start replacement of one currently serving worker slot.
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function recycle(string $group, int $slot): bool
     {
@@ -300,6 +301,7 @@ final class Supervisor
      * Start the supervisor, spawn workers, and run until shutdown completes.
      * @throws \Infocyph\Runwire\Exception\SupervisorException
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public function run(): void
     {
@@ -505,6 +507,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function handleChildExit(int $pid, int $status): void
     {
         $record = $this->children[$pid] ?? null;
