@@ -201,8 +201,8 @@ final readonly class AsyncFileSystem
 
     private static function validatePath(string $path): void
     {
-        if ($path === '' || str_contains($path, "\0") || strlen($path) > 4096) {
-            throw new InvalidArgumentException('Filesystem path is empty, excessive or contains NUL.');
+        if ($path === '' || str_contains($path, "\0") || strlen($path) > 4096 || str_contains($path, '://')) {
+            throw new InvalidArgumentException('Filesystem path is empty, excessive, a stream wrapper or contains NUL.');
         }
     }
 }

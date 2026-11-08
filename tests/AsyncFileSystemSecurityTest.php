@@ -115,3 +115,28 @@ it('rejects restricted-root traversal, symlinks and denied permissions in the ac
         rmdir($base);
     }
 });
+
+it('rejects stream-wrapper filesystem paths before worker dispatch', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $filesystem = new AsyncFileSystem($executor);
+
+    try {
+        foreach (['php://memory', 'data://text/plain,secret', 'http://127.0.0.1/secret'] as $path) {
+            expect(fn(): int => $filesystem->read($path, 16, static function (): void {}))
+                ->toThrow(InvalidArgumentException::class);
+            expect(fn(): int => $filesystem->write($path, 'data', static function (): void {}))
+                ->toThrow(InvalidArgumentException::class);
+            expect(fn(): int => $filesystem->stat($path, static function (): void {}))
+                ->toThrow(InvalidArgumentException::class);
+            expect(fn(): int => $filesystem->unlink($path, static function (): void {}))
+                ->toThrow(InvalidArgumentException::class);
+            expect(fn(): int => $filesystem->rename($path, '/tmp/unused.txt', static function (): void {}))
+                ->toThrow(InvalidArgumentException::class);
+        }
+        expect($executor->diagnostics()['queued'])->toBe(0)
+            ->and($executor->diagnostics()['workers'])->toBe(0);
+    } finally {
+        $executor->close();
+    }
+});

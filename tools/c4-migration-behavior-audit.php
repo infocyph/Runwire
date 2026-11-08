@@ -16,8 +16,26 @@ if (count($arguments) !== 3) {
     );
 }
 
-$diff = json_decode((string) file_get_contents($arguments[1]), true, flags: JSON_THROW_ON_ERROR);
-$ledger = json_decode((string) file_get_contents($arguments[2]), true, flags: JSON_THROW_ON_ERROR);
+/** Read only canonical local JSON inputs; no remote stream-wrapper dispatch. */
+$readAuditFile = static function (string $path): string {
+    $canonical = realpath($path);
+    if (!is_string($canonical) || !is_file($canonical) || !is_readable($canonical)) {
+        throw new InvalidArgumentException('Migration audit requires a readable local file.');
+    }
+    $size = filesize($canonical);
+    if (!is_int($size) || $size > 16_777_216) {
+        throw new InvalidArgumentException('Migration audit file is oversized or unreadable.');
+    }
+    $content = file_get_contents($canonical);
+    if (!is_string($content)) {
+        throw new RuntimeException('Migration audit input could not be read.');
+    }
+
+    return $content;
+};
+
+$diff = json_decode($readAuditFile($arguments[1]), true, flags: JSON_THROW_ON_ERROR);
+$ledger = json_decode($readAuditFile($arguments[2]), true, flags: JSON_THROW_ON_ERROR);
 if (!is_array($diff) || !is_array($ledger) || ($diff['schemaVersion'] ?? null) !== 1
     || ($ledger['schemaVersion'] ?? null) !== 1
     || ($ledger['publishedRevision'] ?? null) !== $diff['baselineRevision']

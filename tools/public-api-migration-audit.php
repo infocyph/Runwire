@@ -18,10 +18,19 @@ if (!is_array($arguments) || count($arguments) !== 3
 
 /** @return array<string,mixed> */
 $read = static function (string $file): array {
-    if (!is_file($file) || !is_readable($file) || filesize($file) > 2_097_152) {
+    $canonical = realpath($file);
+    if (!is_string($canonical) || !is_file($canonical) || !is_readable($canonical)) {
+        throw new InvalidArgumentException('Public API audit requires a readable local file.');
+    }
+    $size = filesize($canonical);
+    if (!is_int($size) || $size > 2_097_152) {
         throw new InvalidArgumentException('Missing or oversized public API audit input.');
     }
-    $value = json_decode((string) file_get_contents($file), true, 32, JSON_THROW_ON_ERROR);
+    $content = file_get_contents($canonical);
+    if (!is_string($content)) {
+        throw new RuntimeException('Unable to read public API audit input.');
+    }
+    $value = json_decode($content, true, 32, JSON_THROW_ON_ERROR);
     if (!is_array($value) || array_is_list($value)) {
         throw new InvalidArgumentException('Invalid public API audit document.');
     }

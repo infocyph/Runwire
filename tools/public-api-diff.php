@@ -58,10 +58,15 @@ $readMethods = static function (mixed $values): array {
  * @return array{sourceRevision:string,symbols:array<string,array{kind:string,methods:array<string,string>,publicProperties:?array<string,string>,publicConstants:list<string>,enumCases:list<string>,sha256:string}>}
  */
 $load = static function (string $file) use ($readList, $readMethods): array {
-    if (!is_file($file) || !is_readable($file)) {
-        throw new InvalidArgumentException('API diff manifest file is unavailable.');
+    $canonical = realpath($file);
+    if (!is_string($canonical) || !is_file($canonical) || !is_readable($canonical)) {
+        throw new InvalidArgumentException('API diff requires an existing local manifest file.');
     }
-    $json = file_get_contents($file);
+    $size = filesize($canonical);
+    if (!is_int($size) || $size > 16_777_216) {
+        throw new InvalidArgumentException('API diff manifest is unreadable or exceeds 16 MiB.');
+    }
+    $json = file_get_contents($canonical);
     if ($json === false || strlen($json) > 16_777_216) {
         throw new InvalidArgumentException('API diff manifest is unreadable or exceeds 16 MiB.');
     }

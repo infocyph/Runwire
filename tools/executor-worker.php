@@ -21,13 +21,17 @@ $quicSessionWorker = null;
  */
 function guardFilePath(array $args, string $name): void
 {
+    $path = $args[$name] ?? null;
+    if (!is_string($path) || $path === '' || strlen($path) > 4096
+        || str_contains($path, "\0") || str_contains($path, '://')) {
+        throw new InvalidArgumentException('Invalid executor filesystem path or stream wrapper.');
+    }
     $root = $args['root'] ?? null;
     if ($root === null) {
         return;
     }
-    $path = $args[$name] ?? null;
-    if (!is_string($root) || !is_string($path) || $root === '' || $path === ''
-        || str_contains($root, "\0") || str_contains($path, "\0")) {
+    if (!is_string($root) || $root === '' || str_contains($root, "\0")
+        || str_contains($root, '://')) {
         throw new InvalidArgumentException('Invalid restricted filesystem path.');
     }
     $canonicalRoot = realpath($root);
