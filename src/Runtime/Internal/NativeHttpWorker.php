@@ -34,7 +34,7 @@ final class NativeHttpWorker
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
      * @throws \LogicException
-      * @throws \OverflowException
+     * @throws \OverflowException
      */
     public static function attach(
         LoopInterface $loop,
@@ -188,7 +188,7 @@ final class NativeHttpWorker
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      * @throws \LogicException
-      * @throws \Throwable
+     * @throws \Throwable
      */
     public static function run(
         WorkerContext $context,

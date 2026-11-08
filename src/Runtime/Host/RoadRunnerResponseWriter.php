@@ -124,7 +124,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Registers a callback invoked when response ownership becomes terminal.
-      * @throws \OverflowException
+     * @throws \OverflowException
      */
     #[\Override]
     public function onTerminal(callable $callback): self

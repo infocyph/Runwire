@@ -28,7 +28,7 @@ final class RequestResetterRegistry
 
     /**
      * Registers a request resetter in execution order.
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function register(RequestResetterInterface $resetter): self
     {

@@ -67,7 +67,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
     /**
      * End the response, optionally writing a final chunk first.
      * @throws \LogicException
-      * @throws \Throwable
+     * @throws \Throwable
      */
     #[\Override]
     public function end(string $finalChunk = ''): WriteResult
@@ -122,7 +122,7 @@ final class CallbackResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when response ownership becomes terminal.
-      * @throws \OverflowException
+     * @throws \OverflowException
      */
     #[\Override]
     public function onTerminal(callable $callback): self

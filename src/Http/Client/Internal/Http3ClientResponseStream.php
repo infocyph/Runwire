@@ -270,7 +270,7 @@ final class Http3ClientResponseStream
      * Hold later frames behind a blocked QPACK HEADERS section.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
-      * @throws \LogicException
+     * @throws \LogicException
      */
     private function dispatchFrame(Frame $frame): void
     {

@@ -99,7 +99,7 @@ final class FrameParser
     /**
      * @return array{0: Frame, 1: int}|null
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     private function nextFrame(int $offset): ?array
     {

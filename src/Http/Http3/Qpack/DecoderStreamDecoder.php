@@ -23,7 +23,7 @@ final class DecoderStreamDecoder
     /**
      * @return list<DecoderInstruction>
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function push(string $bytes): array
     {

@@ -13,7 +13,7 @@ final readonly class FpmOptions
 {
     /**
      * Create validated FPM runtime limits.
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxRequestBodyBytes = 16_777_216,

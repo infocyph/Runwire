@@ -14,7 +14,7 @@ final readonly class FrankenPhpOptions
 {
     /**
      * Create validated FrankenPHP runtime options.
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public FrankenPhpMode $mode = FrankenPhpMode::AUTO,

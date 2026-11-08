@@ -426,7 +426,7 @@ final class Http3ClientSiblingManager
 
     /**
      * @throws \RuntimeException
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     private function upload(int $id): void
     {
@@ -466,8 +466,10 @@ final class Http3ClientSiblingManager
         });
     }
 
+    /**
+     * @param callable():void $next
      * @throws \InvalidArgumentException
-    /** @param callable():void $next */
+     */
     private function write(int $id, string $bytes, bool $fin, callable $next, int $offset = 0): void
     {
         $state = $this->exchanges[$id] ?? null;

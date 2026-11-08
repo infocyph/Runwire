@@ -149,7 +149,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when response ownership becomes terminal.
-      * @throws \OverflowException
+     * @throws \OverflowException
      */
     #[\Override]
     public function onTerminal(callable $callback): self
@@ -218,7 +218,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * @internal Terminalize the HTTP handshake and transfer the connection to a WebSocket session.
      * @throws \LogicException
-      * @throws \Throwable
+     * @throws \Throwable
      */
     public function upgradeWebSocket(
         string $accept,

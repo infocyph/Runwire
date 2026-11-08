@@ -18,8 +18,8 @@ $quicSessionWorker = null;
  * ancestors/leaf and off-root parents without filesystem syscalls on the loop.
  * The check is intentionally NOT an openat2/dirfd race-free sandbox.
  * @param array<mixed> $args
-  * @throws \InvalidArgumentException
-  * @throws \RuntimeException
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function guardFilePath(array $args, string $name): void
 {
@@ -53,8 +53,10 @@ function guardFilePath(array $args, string $name): void
     guardFilePathPermissions($args, $name, $path, $parent);
 }
 
+/**
+ * @internal Validate components without a path mutation or symlink hop.
  * @throws \RuntimeException
-/** @internal Validate components without a path mutation or symlink hop. */
+ */
 function guardFilePathSegments(string $relative, string $canonicalRoot): void
 {
     $parts = explode('/', $relative);
@@ -72,8 +74,10 @@ function guardFilePathSegments(string $relative, string $canonicalRoot): void
     }
 }
 
+/**
+ * @param array<mixed> $args
  * @throws \RuntimeException
-/** @param array<mixed> $args */
+ */
 function guardFilePathPermissions(array $args, string $name, string $path, string $parent): void
 {
     $parentMode = fileperms($parent);

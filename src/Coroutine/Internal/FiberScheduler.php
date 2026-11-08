@@ -255,7 +255,7 @@ final class FiberScheduler
     /**
      * Enqueue a task to resume with a value.
      * @throws \LogicException
-      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     public function resume(Task $task, mixed $value = null, bool $ignoreCancellation = false): bool
     {
@@ -265,7 +265,7 @@ final class FiberScheduler
     /**
      * Enqueue a task to resume by throwing an exception into it.
      * @throws \LogicException
-      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     public function resumeException(Task $task, Throwable $error, bool $ignoreCancellation = false): bool
     {

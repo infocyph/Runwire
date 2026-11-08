@@ -447,8 +447,10 @@ final class PhpQuicHttp3Connection
         return [$reads, $bytes, $requestStream ? 0 : $bytes];
     }
 
+    /**
+     * @param array<int, int>|null $ready
      * @throws \InvalidArgumentException
-    /** @param array<int, int>|null $ready */
+     */
     private function drainStreams(?array $ready = null, ?PhpQuicEventMasks $events = null): void
     {
         $readLimit = $this->adaptivePump->readLimit($this->limits->maxReadsPerPump);
@@ -502,7 +504,7 @@ final class PhpQuicHttp3Connection
      * @throws \UnexpectedValueException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
-      * @throws \LogicException
+     * @throws \LogicException
      */
     private function finishPeerStream(int $streamId, PhpQuicStream $stream): void
     {

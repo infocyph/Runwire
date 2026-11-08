@@ -451,3 +451,10 @@
 - Deliberately defer empty-constructor inferred throws in RuntimeOptions, RuntimeCapabilities, RuntimeEnvironmentProbe, and AdaptivePollStrategy because PHPStan has previously rejected inaccurate constructor/timeout tags. Analyze the real exception execution contract separately rather than inventing throws.
 - **Verification pending:** require both Psalm versions, PHPStan, all PHPForge QA lanes, Source Audit, HTTP/3, Swoole, host integrations and docs to report on the exact new SHA; record net diagnostics and fix each regression before considering this batch closed.
 - Remaining P0: 9 file, 6 SSRF and 2 header taint reports remain open; no taint suppression, disablement, merge, tag, or version bump.
+
+### Batch 43 corrective QA pass — PHPDoc parser safety
+
+- The first Batch 43 Source Audit failed immediately on a PHP syntax error in `Http3ClientSiblingManager.php:469`: an exception tag was placed before an existing one-line PHPDoc. This also surfaced as HTTP 500 in Swoole and blocked downstream hosted/QUIC acceptance; these runs do not establish runtime defects.
+- Reviewed all 45 implementation/worker files touched by Batch 43. Repair **seven one-line PHPDocs** where the inserted exception tag appeared outside the comment, and normalize the indentation of newly inserted `@throws` tags to the containing PHPDoc block.
+- Preserve method signatures and bodies, native capability validations, public contracts, and all taint checks. This is a parser/style correction only; code behavior is unchanged.
+- Require new exact-head Source Audit, Swoole, HTTP/3+QUIC, PHPForge QA, both Psalm versions and PHPStan before declaring verified. Keep all P0 security and remaining P1-P3 diagnostics open.

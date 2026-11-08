@@ -130,8 +130,10 @@ final readonly class Http3ClientWireCodec
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
+    /**
+     * Validate the peer QPACK decoder stream; no dynamic references are outstanding.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-    /** Validate the peer QPACK decoder stream; no dynamic references are outstanding. */
+     */
     public function receivePeerDecoderInstructions(string $bytes): void
     {
         $this->encoder->pushDecoderInstructions($bytes);

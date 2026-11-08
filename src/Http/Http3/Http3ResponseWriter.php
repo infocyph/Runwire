@@ -144,7 +144,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when response ownership becomes terminal.
-      * @throws \OverflowException
+     * @throws \OverflowException
      */
     #[\Override]
     public function onTerminal(callable $callback): self

@@ -62,7 +62,7 @@ final class ApplicationLifecycle
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(): void|null $legacyCleanup
      * @param callable(): void|null $legacyShutdown
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         callable $handler,

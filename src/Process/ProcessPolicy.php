@@ -15,7 +15,7 @@ final readonly class ProcessPolicy
      * @param list<string>|null $allowedExecutables null allows any absolute executable
      * @param list<string> $allowedEnvironmentKeys empty forbids explicit environment variables
      * @param list<string> $allowedCwdRoots empty forbids cwd overrides
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public ?array $allowedExecutables = null,

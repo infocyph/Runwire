@@ -102,8 +102,10 @@ final class DevelopmentWatcher
         }
     }
 
+    /**
+     * @param list<string> $entries
      * @throws \RuntimeException
-    /** @param list<string> $entries */
+     */
     private function appendSnapshotEntry(SplFileInfo $file, array &$entries): void
     {
         if (count($entries) >= $this->policy->maxFiles) {

@@ -31,7 +31,7 @@ final readonly class RequestHeaderValidator
     /**
      * @param list<array{0: string, 1: string}> $fields
      * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function request(array $fields): ValidatedRequestHead
     {

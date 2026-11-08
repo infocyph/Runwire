@@ -26,7 +26,7 @@ final readonly class Frame
 
     /**
      * Encode this frame including its type and payload length.
-      * @throws \InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function encode(): string
     {
