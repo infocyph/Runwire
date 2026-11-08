@@ -50,6 +50,7 @@ final class Http1ConnectedExchange
      * @param callable(int, \Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection, ?Throwable):void $onComplete
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -86,7 +87,10 @@ final class Http1ConnectedExchange
         }
     }
 
-    /** Exclusively attach the connection and begin bounded request forwarding. */
+    /**
+     * Exclusively attach the connection and begin bounded request forwarding.
+     * @throws \InvalidArgumentException
+     */
     public function start(): void
     {
         if ($this->started || $this->settled || !$this->connection->isPoolIdleSafe()) {
@@ -118,6 +122,10 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \RuntimeException
+     */
     private function armDeadline(): void
     {
         $token = $this->request->cancellation;
@@ -186,6 +194,9 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function finish(?Throwable $error): void
     {
         if ($this->settled) {
@@ -239,6 +250,10 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function sendFrame(): bool
     {
         if ($this->settled || $this->writer->done()) {

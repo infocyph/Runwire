@@ -69,7 +69,11 @@ final readonly class Http3ClientWireCodec
             ?? throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response trailer QPACK is unsupported.');
     }
 
-    /** Serialize HTTPS request headers for an already verified QUIC+h3 stream. */
+    /**
+     * Serialize HTTPS request headers for an already verified QUIC+h3 stream.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function encodeRequestHeaders(ClientRequest $request, int $streamId): string
     {
         $request->protocol->negotiate('h3', true, true);
@@ -86,7 +90,10 @@ final readonly class Http3ClientWireCodec
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
-    /** Encode the final bounded HTTP/3 trailer section without dynamic QPACK. */
+    /**
+     * Encode the final bounded HTTP/3 trailer section without dynamic QPACK.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function encodeRequestTrailers(Headers $trailers, int $streamId): string
     {
         $fields = [];
@@ -144,6 +151,9 @@ final readonly class Http3ClientWireCodec
         return $section === null ? null : self::parseTrailers($section);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertRequestHeader(string $name, string $value, bool $hasBody): void
     {
         if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'proxy-authorization', 'transfer-encoding', 'upgrade'], true)
@@ -153,7 +163,10 @@ final readonly class Http3ClientWireCodec
         }
     }
 
-    /** @return array{status:int, headers:Headers} */
+    /**
+     * @return array{status:int, headers:Headers}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private static function parseHeaders(DecodedFieldSection $decoded): array
     {
         $status = null;
@@ -208,6 +221,9 @@ final readonly class Http3ClientWireCodec
         return $fields;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private static function responseField(string $name, string $value): HeaderField
     {
         if (str_starts_with($name, ':') || preg_match('/[A-Z]/', $name) === 1) {
@@ -224,7 +240,10 @@ final readonly class Http3ClientWireCodec
         }
     }
 
-    /** @return array{0:string,1:string} */
+    /**
+     * @return array{0:string,1:string}
+     * @throws \InvalidArgumentException
+     */
     private static function validatedOrigin(string $uri): array
     {
         $parts = parse_url($uri);

@@ -150,6 +150,8 @@ final class Http3OutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function enqueue(
         ClientRequest $request,
@@ -184,7 +186,10 @@ final class Http3OutboundClient
         return $this->siblings->enqueue($request, $onHeaders, $onBody, $completion, $onTrailers);
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     private static function decodeBytes(array $result): string
     {
         $data = $result['data'] ?? null;
@@ -195,7 +200,10 @@ final class Http3OutboundClient
         return $bytes;
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     private static function streamId(array $result): int
     {
         $stream = $result['stream'] ?? null;
@@ -271,7 +279,10 @@ final class Http3OutboundClient
         $this->poll(fn() => $this->readControl($stream));
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     private function assertWritten(array $result, int $length): void
     {
         if (($result['written'] ?? null) !== $length) {
@@ -408,6 +419,9 @@ final class Http3OutboundClient
         });
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function readResponse(): void
     {
         $response = $this->response;
@@ -491,6 +505,9 @@ final class Http3OutboundClient
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function sendRequest(int $stream, int $wireStreamId): void
     {
         if ($stream < 1) {
@@ -519,7 +536,10 @@ final class Http3OutboundClient
         );
     }
 
-    /** Pull one bounded producer chunk only after the previous QUIC write completes. */
+    /**
+     * Pull one bounded producer chunk only after the previous QUIC write completes.
+     * @throws \RuntimeException
+     */
     private function sendUpload(): void
     {
         $body = $this->request->body;

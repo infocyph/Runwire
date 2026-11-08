@@ -24,7 +24,10 @@ final readonly class ScopedFiles
         $this->scope->cancellation()->throwIfCancelled();
     }
 
-    /** Await a bounded binary file read without blocking the owning reactor. */
+    /**
+     * Await a bounded binary file read without blocking the owning reactor.
+     * @throws \LogicException
+     */
     public function read(
         string $path,
         int $length,
@@ -48,7 +51,10 @@ final readonly class ScopedFiles
         return $result;
     }
 
-    /** Await a rename with explicit filesystem semantics and no atomicity claim. */
+    /**
+     * Await a rename with explicit filesystem semantics and no atomicity claim.
+     * @throws \LogicException
+     */
     public function rename(string $from, string $to, ?RequestDeadline $deadline = null): bool
     {
         $result = $this->await(
@@ -71,6 +77,7 @@ final readonly class ScopedFiles
      * Await bounded metadata stat in the existing scope.
      *
      * @return array{size:int,mtime:int,mode:int}
+     * @throws \LogicException
      */
     public function stat(string $path, ?RequestDeadline $deadline = null): array
     {
@@ -92,7 +99,10 @@ final readonly class ScopedFiles
         return ['size' => $result['size'], 'mtime' => $result['mtime'], 'mode' => $result['mode']];
     }
 
-    /** Await a bounded worker-local unlink. */
+    /**
+     * Await a bounded worker-local unlink.
+     * @throws \LogicException
+     */
     public function unlink(string $path, ?RequestDeadline $deadline = null): bool
     {
         $result = $this->await(
@@ -110,7 +120,10 @@ final readonly class ScopedFiles
         return $result;
     }
 
-    /** Await a bounded binary file write at the supplied absolute offset. */
+    /**
+     * Await a bounded binary file write at the supplied absolute offset.
+     * @throws \LogicException
+     */
     public function write(
         string $path,
         string $bytes,
@@ -136,6 +149,8 @@ final readonly class ScopedFiles
 
     /**
      * @param callable(callable(mixed, ?Throwable): void): int $dispatch
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function await(callable $dispatch): mixed
     {

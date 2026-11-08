@@ -17,7 +17,10 @@ use Throwable;
  */
 final readonly class ClientRedirectRetryPolicy
 {
-    /** Set finite HTTP redirect/retry bounds with cross-origin rejection by default. */
+    /**
+     * Set finite HTTP redirect/retry bounds with cross-origin rejection by default.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public int $maxRedirects = 4,
         public int $maxRetries = 1,
@@ -28,7 +31,10 @@ final readonly class ClientRedirectRetryPolicy
         }
     }
 
-    /** @return array{string,string,int} */
+    /**
+     * @return array{string,string,int}
+     * @throws \InvalidArgumentException
+     */
     public static function origin(string $uri): array
     {
         $parts = parse_url($uri);
@@ -54,6 +60,7 @@ final readonly class ClientRedirectRetryPolicy
     /**
      * Preserve only safely replayable requests, with explicit credential
      * stripping for every changed origin including the port and scheme.
+     * @throws \RuntimeException
      */
     public function redirect(ClientRequest $request, string $location, int $redirectsUsed): ClientRequest
     {
@@ -119,6 +126,9 @@ final readonly class ClientRedirectRetryPolicy
         return new Headers($fields);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private static function resolve(string $origin, string $location): string
     {
         if ($location === '' || strlen($location) > 2_048

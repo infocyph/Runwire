@@ -187,6 +187,7 @@ final class Runtime
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \Infocyph\Runwire\Exception\SupervisorException
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function run(): void
     {
@@ -243,6 +244,9 @@ final class Runtime
      * @param callable(\Infocyph\Runwire\Http\HttpRequest, \Infocyph\Runwire\Http\ResponseWriterInterface): void $handler
      * @param callable(): void|null $requestCleanup
      * @param callable(): void|null $shutdown
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
      */
     public function serve(callable $handler, ?callable $requestCleanup = null, ?callable $shutdown = null): void
     {
@@ -260,6 +264,9 @@ final class Runtime
 
     /**
      * Runs an application factory through the selected host-owned runtime driver.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
      */
     public function serveApplication(RuntimeApplicationFactoryInterface $factory): void
     {
@@ -301,6 +308,9 @@ final class Runtime
         return $this;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private static function closeBound(
         BoundServer|BoundStreamServer|BoundDatagramServer $target,
         bool $master,
@@ -451,7 +461,10 @@ final class Runtime
         return new BoundStreamServer($server, $listener);
     }
 
-    /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
+    /**
+     * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
+     * @throws \LogicException
+     */
     private function buildSupervisor(array $bound): Supervisor
     {
         $supervisor = new Supervisor(reloadPolicy: $this->options->reload);

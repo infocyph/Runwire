@@ -70,7 +70,11 @@ final class ProcessExecutor
     /** @var array<int, array{process:resource, input:resource, output:resource, readWatcher:int, writeWatcher:?int, outputBuffer:string, inputBuffer:string, job:?int}> */
     private array $workers = [];
 
-    /** Create an executor with bounded workers and pending jobs. */
+    /**
+     * Create an executor with bounded workers and pending jobs.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly int $maxWorkers = 2,
@@ -118,6 +122,7 @@ final class ProcessExecutor
 
     /**
      * Stop all work, release watchers/pipes/processes and reject outstanding jobs.
+     * @throws \Throwable
      */
     public function close(): void
     {
@@ -186,6 +191,9 @@ final class ProcessExecutor
     /**
      * @param array<string,mixed> $arguments
      * @param callable(mixed, ?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function submit(
         string $operation,
@@ -236,6 +244,9 @@ final class ProcessExecutor
         return $id;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {

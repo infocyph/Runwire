@@ -17,10 +17,7 @@ final class TraceScope
 {
     private readonly int $pid;
 
-    /**
-     * @phpstan-var WeakMap<Fiber<mixed, mixed, mixed, mixed>, TraceContext>
-     * @psalm-var WeakMap<Fiber[impure], TraceContext>
-     */
+    /** @var WeakMap<object, mixed> */
     private WeakMap $fibers;
 
     private ?TraceContext $root = null;
@@ -28,9 +25,7 @@ final class TraceScope
     /** Initialize request-owned Fiber tracking without global process context. */
     public function __construct()
     {
-        /** @psalm-var WeakMap<Fiber[impure], TraceContext> $fiberScopes */
-        $fiberScopes = new WeakMap();
-        $this->fibers = $fiberScopes;
+        $this->fibers = new WeakMap();
         $pid = getmypid();
         if (!is_int($pid)) {
             throw new LogicException('Trace scope requires a process owner.');
@@ -44,7 +39,12 @@ final class TraceScope
         $this->assertOwner();
         $fiber = Fiber::getCurrent();
 
-        return $fiber === null ? $this->root : ($this->fibers[$fiber] ?? null);
+        if ($fiber === null) {
+            return $this->root;
+        }
+        $context = $this->fibers[$fiber] ?? null;
+
+        return $context instanceof TraceContext ? $context : null;
     }
 
     /** Restore the previous scope even when a callback fails or a Fiber suspends. */

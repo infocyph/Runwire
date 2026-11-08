@@ -176,6 +176,8 @@ final class RequestStreamProcessor
 
     /**
      * Consume an inbound HEADERS frame.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     public function handleHeaders(Frame $frame): void
     {
@@ -292,6 +294,10 @@ final class RequestStreamProcessor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function acceptData(Http2Stream $stream, Frame $frame): void
     {
         [$data, $flowBytes, $protocolConsumed] = $this->dataPayload($frame);
@@ -364,6 +370,7 @@ final class RequestStreamProcessor
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     private function completeHeaderBlock(PendingHeaderBlock $pending): void
     {
@@ -547,6 +554,7 @@ final class RequestStreamProcessor
 
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      */
     private function headersFragment(Frame $frame): string
     {
@@ -567,7 +575,12 @@ final class RequestStreamProcessor
         return substr($payload, $offset, $length - $offset - $padding);
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \InvalidArgumentException
+     */
     private function openRequest(PendingHeaderBlock $pending, array $fields): void
     {
         $head = $this->validatedHead($pending, $fields);

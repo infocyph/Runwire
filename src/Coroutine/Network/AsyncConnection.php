@@ -51,6 +51,9 @@ final class AsyncConnection
 
     /**
      * Bind coroutine waits to the supplied connection.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function __construct(private readonly Connection $connection, private readonly CoroutineScope $scope)
     {
@@ -117,6 +120,7 @@ final class AsyncConnection
 
     /**
      * Abort the underlying connection immediately.
+     * @throws \LogicException
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
@@ -127,6 +131,7 @@ final class AsyncConnection
     /**
      * Gracefully close the connection and wait for its close reason.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function close(): CloseReason
     {
@@ -203,6 +208,7 @@ final class AsyncConnection
     /**
      * Wait until write pressure drains or the connection closes.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function drain(): ?CloseReason
     {
@@ -240,6 +246,7 @@ final class AsyncConnection
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function receive(int $maxBytes = PHP_INT_MAX): string
     {
@@ -325,6 +332,7 @@ final class AsyncConnection
 
     /**
      * Write data through the underlying connection.
+     * @throws \LogicException
      */
     public function write(string $data): WriteResult
     {
@@ -343,6 +351,9 @@ final class AsyncConnection
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function detachCallbacks(): void
     {
         if (!$this->attached) {
@@ -374,6 +385,9 @@ final class AsyncConnection
         unset($connection);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function handleData(Connection $connection): void
     {
         if ($this->receiveDeferred === null) {
@@ -392,6 +406,9 @@ final class AsyncConnection
         $this->resolveDrain(null);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function handleEof(Connection $connection): void
     {
         $remaining = $connection->read();

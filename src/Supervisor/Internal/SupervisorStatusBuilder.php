@@ -75,7 +75,7 @@ final class SupervisorStatusBuilder
             runtimeId: $runtimeId,
             masterPid: $masterPid,
             startedAtUnix: $startedAtUnix,
-            uptimeSeconds: $started === null ? 0.0 : max(0.0, $now - (float) $started),
+            uptimeSeconds: $started === null ? 0.0 : max(0.0, $now - $started),
             running: $running,
             stopping: $stopping,
             reloading: $reloading,
