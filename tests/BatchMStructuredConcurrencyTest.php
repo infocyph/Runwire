@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Enum\TaskGroupFailureMode;
@@ -12,6 +14,12 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use LogicException;
+use RuntimeException;
+use stdClass;
+use Throwable;
+use WeakReference;
+
 
 it('fails fast on an unhandled child failure and drains cancelled siblings', function (): void {
     $runtime = new CoroutineRuntime();

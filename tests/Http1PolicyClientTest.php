@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRedirectRetryPolicy;
@@ -14,6 +16,8 @@ use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use Throwable;
+
 
 it('follows one bounded independent H1 redirect without forwarding cross-origin credentials', function (): void {
     $first = stream_socket_server('tcp://127.0.0.1:0', $code, $reason);

@@ -2,23 +2,29 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
-use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Runtime\Enum\CancellationReason;
-use Infocyph\Runwire\WebSocket\Internal\WebSocketClientHandshake;
-use Infocyph\Runwire\WebSocket\Internal\WebSocketClientUpgrade;
-use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
+use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketClientHandshake;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketClientUpgrade;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketClient;
+use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
 
 it('upgrades a real outbound TCP socket against an independent peer and delivers coalesced data', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $reason);

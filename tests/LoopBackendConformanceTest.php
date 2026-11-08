@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\EventLoop;
 use Infocyph\Runwire\Loop\LoopFactory;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Loop\SwooleLoop;
 use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Tests\Fixtures\BatchOSwooleReactor;
+use RuntimeException;
+
 
 it('unregisters read/write watchers and deferred work exactly once on every backend', function (): void {
     $loops = [

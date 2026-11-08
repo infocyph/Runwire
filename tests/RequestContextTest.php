@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
@@ -19,6 +21,9 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeContext;
+use LogicException;
+use OverflowException;
+
 
 function batchBRuntimeContext(): RuntimeContext
 {

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http1ClientResponseParser;
@@ -9,6 +11,9 @@ use Infocyph\Runwire\Http\Client\Http1ConnectedExchange;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use RuntimeException;
+use Throwable;
+
 
 it('rejects an adversarial response framing corpus before publishing headers', function (): void {
     for ($index = 1; $index <= 32; ++$index) {

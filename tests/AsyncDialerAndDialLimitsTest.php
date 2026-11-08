@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -15,6 +17,11 @@ use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\TlsClientOptions;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use InvalidArgumentException;
+use OverflowException;
+use RuntimeException;
+use Throwable;
+
 
 it('cancels a queued DNS race before a late worker answer and invokes completion once', function (): void {
     $loop = new SelectLoop();

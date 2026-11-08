@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Filesystem\ScopedFiles;
@@ -12,6 +14,8 @@ use Infocyph\Runwire\Filesystem\AsyncFileSystem;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
+use InvalidArgumentException;
+
 
 it('sends a 128 KiB binary file to a real socket with hash parity and worker cleanup', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'runwire-transfer-');

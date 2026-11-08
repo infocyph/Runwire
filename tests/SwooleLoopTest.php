@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Loop\SwooleLoop;
 use Infocyph\Runwire\Tests\Fixtures\BatchOSwooleReactor;
+use LogicException;
+
 
 it('drives Runwire Fibers through a host-owned Swoole reactor bridge', function (): void {
     $reactor = new BatchOSwooleReactor();

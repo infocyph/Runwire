@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Http1ClientResponseParser;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType as H2FrameType;
 use Infocyph\Runwire\Http\Http2\Frame as H2Frame;
@@ -14,10 +16,13 @@ use Infocyph\Runwire\Http\Http3\Enum\FrameType as H3FrameType;
 use Infocyph\Runwire\Http\Http3\Frame as H3Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser as H3Parser;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
-use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\Http3\Qpack\DynamicTable as QpackTable;
 use Infocyph\Runwire\Http\Http3\Qpack\FieldSectionDecoder;
+use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
+use InvalidArgumentException;
+use RuntimeException;
+
 
 /**
  * Reproducible bounds corpus; each hostile decoder has a fully independent

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -11,6 +13,9 @@ use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\Proxy\Socks5Handshake;
 use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use RuntimeException;
+use Throwable;
+
 
 /**
  * @return array{errors:list<Throwable>,successes:int,timers:int,reads:int,writes:int,remainingSubscriptions:int}

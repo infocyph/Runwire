@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
@@ -14,6 +16,8 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Tests\Support\PersistentFixtureResetter;
 use Infocyph\Runwire\Tests\Support\PersistentFixtureState;
+use RuntimeException;
+
 
 function persistentIsolationRequest(string $target, int $startNanoseconds): HttpRequest
 {

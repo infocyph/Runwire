@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
@@ -9,6 +11,9 @@ use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
 use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use RuntimeException;
+use Throwable;
+
 
 /**
  * Independent Python TLS proxy forwards real bytes through a separately bound TCP origin.

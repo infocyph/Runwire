@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialEndpoint;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\IdleConnectionPool;
 use Infocyph\Runwire\Network\PoolIsolationKey;
+
 
 it('never reuses a stream under a different tenant scope and closes overflow victims', function (): void {
     $loop = new SelectLoop();

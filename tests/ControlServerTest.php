@@ -2,12 +2,19 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use Closure;
 use Infocyph\Runwire\Control\ControlOptions;
 use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\Supervisor\Internal\ChildReaper;
 use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
 
 it('serves bounded runtime control over a protected unix socket', function (int $publicationDelayMicroseconds): void {
     $socket = sys_get_temp_dir() . '/runwire-control-test-' . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sock';

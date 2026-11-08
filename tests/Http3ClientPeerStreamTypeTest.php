@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamType;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
+
 
 it('routes nonminimal two-byte control type without confusing it with unknown streams', function (): void {
     $reader = new Http3ClientPeerStreamType();

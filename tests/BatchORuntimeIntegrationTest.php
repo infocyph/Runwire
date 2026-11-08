@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use ArrayObject;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\TaskLocal;
@@ -20,6 +23,9 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Runtime\RequestResetterInterface;
+use LogicException;
+use RuntimeException;
+
 
 function batchORequest(string $target = '/coroutine'): HttpRequest
 {

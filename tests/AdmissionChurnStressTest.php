@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\ProcessExecutor;
@@ -9,6 +11,9 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use OverflowException;
+use Throwable;
+
 
 it('enforces numeric TCP dial admission under 12 repeated full-capacity cancellation waves', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $error);

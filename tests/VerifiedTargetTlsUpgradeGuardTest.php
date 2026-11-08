@@ -2,10 +2,16 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use LogicException;
+use RuntimeException;
+use stdClass;
+
 
 it('closes an encrypted proxy connection rather than exposing it as verified origin TLS', function (): void {
     [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);

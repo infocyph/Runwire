@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\CachedDnsResolver;
 use Infocyph\Runwire\Network\DnsResolverInterface;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use InvalidArgumentException;
+use OverflowException;
+use RuntimeException;
 use Throwable;
+
 
 function cachedDnsFake(): DnsResolverInterface
 {

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
@@ -17,6 +19,9 @@ use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketClient;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
+use RuntimeException;
+use Throwable;
+
 
 it('connects WSS with a trusted certificate and independently scripted 101 plus close frames', function (): void {
     $directory = sys_get_temp_dir() . '/runwire-wss-' . bin2hex(random_bytes(6));

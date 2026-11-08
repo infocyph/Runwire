@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\Dialer;
+use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
 use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\Proxy\Socks5Handshake;
 use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use RuntimeException;
+use Throwable;
+
 
 /**
  * Run a separate Python TLS peer implementing RFC 1928 and RFC 1929 itself.

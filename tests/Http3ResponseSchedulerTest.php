@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+namespace Infocyph\Runwire\Tests;
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
@@ -19,6 +20,8 @@ use Infocyph\Runwire\Http\Http3\SettingsCodec;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Tests\Fixtures\Http3SchedulerTransport;
+
+
 
 it('frames and finishes HTTP/3 responses without transport coupling', function (): void {
     $limits = new Http3Limits();

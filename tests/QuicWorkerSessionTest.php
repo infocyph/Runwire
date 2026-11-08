@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
 use Infocyph\Runwire\Network\Internal\QuicWorkerSession;
+use InvalidArgumentException;
+use ReflectionProperty;
+use RuntimeException;
+
 
 /** @return array{QuicWorkerSession, object} */
 function runwireNativeQuicWorkerFixture(int $limit = 2, bool $partialWrites = false): array

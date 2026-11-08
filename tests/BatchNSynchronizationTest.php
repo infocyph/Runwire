@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -12,6 +14,8 @@ use Infocyph\Runwire\Coroutine\Exception\SynchronizationException;
 use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use RuntimeException;
+
 
 it('performs FIFO rendezvous handoff without reserving payload sentinels', function (): void {
     $runtime = new CoroutineRuntime();

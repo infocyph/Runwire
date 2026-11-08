@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use Closure;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
@@ -16,6 +19,11 @@ use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\TlsClientOptions;
 use Infocyph\Runwire\Network\TlsOptions;
+use InvalidArgumentException;
+use LogicException;
+use RuntimeException;
+use Throwable;
+
 
 /**
  * Exercise real nonblocking TLS client/proxy handshakes and authenticated

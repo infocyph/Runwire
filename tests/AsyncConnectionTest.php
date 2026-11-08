@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Network\AsyncConnection;
@@ -15,6 +17,10 @@ use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use LogicException;
+use ReflectionProperty;
+use RuntimeException;
+
 
 function runwireAsyncConnectionPair(): array
 {

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
@@ -9,6 +11,8 @@ use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use RuntimeException;
+
 
 it('drains 128 simultaneous socket pairs without abandoned watchers, owner tokens or queued bytes', function (): void {
     $before = is_dir('/proc/self/fd') ? count(glob('/proc/self/fd/*') ?: []) : null;

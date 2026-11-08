@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Tracing\TraceContext;
+use InvalidArgumentException;
+use LogicException;
+
 
 it('roundtrips W3C traceparent and bounded tracestate without global state', function (): void {
     $trace = new TraceContext(str_repeat('a', 32), str_repeat('b', 16), 1, 'vendor=one');

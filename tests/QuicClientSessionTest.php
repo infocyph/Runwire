@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -9,6 +11,11 @@ use Infocyph\Runwire\Network\Internal\QuicWorkerSession;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use InvalidArgumentException;
+use LogicException;
+use RuntimeException;
+use Throwable;
+
 
 it('rejects stream commands before a verified worker session and after disposal', function (): void {
     $loop = new SelectLoop();

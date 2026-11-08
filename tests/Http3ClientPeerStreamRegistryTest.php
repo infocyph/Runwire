@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientPeerStreamRegistry;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
+
 
 it('tracks fragmented nonminimal control type without consuming first frame payload', function (): void {
     $registry = new Http3ClientPeerStreamRegistry();

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientBodySourceInterface;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -11,6 +13,8 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
+use Throwable;
+
 
 it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a real Unix socket', function (ConnectionLimits $limits): void {
     $payload = str_repeat("binary\x00\xff", 16_384);

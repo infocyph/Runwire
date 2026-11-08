@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
 use Infocyph\Runwire\Network\Internal\DialAttemptLifecycle;
+use RuntimeException;
+
 
 it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams', function (): void {
     foreach ([true, false] as $policy) {

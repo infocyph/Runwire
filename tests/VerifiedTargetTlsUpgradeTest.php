@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
 use Infocyph\Runwire\Network\Internal\VerifiedTargetTlsUpgrade;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use LogicException;
+use Throwable;
+
 
 it('fails a closed post-tunnel TLS stream without starting an asynchronous handshake', function (): void {
     $stream = fopen('php://temp', 'w+');

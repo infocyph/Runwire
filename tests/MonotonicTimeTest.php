@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Internal\MonotonicTime;
 use Infocyph\Runwire\RequestDeadline;
+use InvalidArgumentException;
+use OverflowException;
+
 
 it('converts monotonic durations without rounding positive deadlines down', function (): void {
     expect(MonotonicTime::secondsToNanoseconds(0.0000000001, true))->toBe(1)

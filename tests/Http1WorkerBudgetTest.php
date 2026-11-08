@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Http1\Http1Connection;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\HttpRequest;
@@ -14,6 +16,8 @@ use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
+use RuntimeException;
+
 
 /** @return array{0: resource, 1: resource} */
 function http1BudgetPair(): array
