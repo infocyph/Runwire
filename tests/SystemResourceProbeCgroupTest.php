@@ -47,3 +47,13 @@ it('keeps valid sparse cpusets bounded without double counting', function (): vo
 
     expect($probe->probe()->effectiveCpuCount)->toBe(6);
 });
+
+it('rejects malformed resource probe overrides after constructor-bypassing hydration', function (): void {
+    $reflection = new ReflectionClass(SystemResourceProbe::class);
+    $broken = $reflection->newInstanceWithoutConstructor();
+    (new ReflectionProperty(SystemResourceProbe::class, 'hostCpuCount'))->setValue($broken, 0);
+    (new ReflectionProperty(SystemResourceProbe::class, 'hostMemoryBytes'))->setValue($broken, 1024);
+
+    expect(fn(): \Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe => new \Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe($broken))
+        ->toThrow(InvalidArgumentException::class, 'CPU count override must be positive');
+});

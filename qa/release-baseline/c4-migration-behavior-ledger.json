@@ -1458,8 +1458,8 @@
     {
       "symbol": "Infocyph\\Runwire\\Runtime\\RuntimeEnvironmentProbe",
       "executableTest": "tests/RuntimeEnvironmentProbeTest.php",
-      "behavior": "Existing test-backed validation, protocol and lifecycle semantics for RuntimeEnvironmentProbe",
-      "migration": "Retain previously supported validation, lifecycle and failure behavior. Exception documentation clarifies this contract without changing execution semantics.",
+      "behavior": "Runtime environment detection validates deserialized system-resource overrides and preserves host capability reporting",
+      "migration": "RuntimeEnvironmentProbe maintains the same public constructor and runtime detection behavior. An injected SystemResourceProbe that bypassed its original constructor is validated again before use, so invalid CPU or memory overrides are rejected. The existing host SAPI and extension checks remain unchanged.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

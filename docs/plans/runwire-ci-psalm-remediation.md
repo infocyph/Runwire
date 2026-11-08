@@ -769,3 +769,10 @@
 - Exact Batch 74 (`c18080e842774a86608538de738ff163e002a44f`) PHPStan PASS and Psalm reported the original 14 file/SSRF taints plus exactly **one** `MissingThrowsDocblock` at `RuntimeSelector::select`, after the five driver-specific factories and public dispatcher were documented. No Source Audit failures in Batch 74.
 - Document the actual `InvalidArgumentException` that can arise from a malformed injected resource snapshot during runtime selection. The established `RuntimeSelector` migration ledger entry and existing selector tests cover the unchanged public signature and driver resolution behavior. This change only updates the exception contract, not runtime flow.
 - Check CI for any propagation to runtime callers, for Psalm 14 taints alone, PHPStan zero, two remaining skip-directive annotations and all QA green other than those blockers. No merge or release.
+
+### Batch 76 — resource probe rehydration invariant, no suppression
+
+- Starting SHA `04702f184f5b1db27d6405b92a2b9d7f33764f9b`: exact Psalm 14 (all CLI/worker file or SSRF), PHPStan PASS, PHPForge scanner 2 banned promoted-default annotations; Pint, Pest, Rector, PHPCS, Deptrac and Source Audit PASS.
+- `SystemResourceProbe` validates positive CPU and memory overrides at construction but can be reflection-hydrated with negative/zero override values. Expose one cheap idempotent validation function and reuse it both in the probe constructor and the host RuntimeEnvironmentProbe injection boundary, without probing cgroups or adding startup I/O. Preserve default creation and all resource calculation semantics.
+- Replace outer constructor skip directive with accurate `@throws InvalidArgumentException`. Add a forged invalid configuration regression and explicit published implementation ledger note. Check `MissingThrowsDocblock` propagation across caller methods; any regressions require correction, not suppressions.
+- Remaining separate blocking issues: 14 tainted paths, one default DTO constructor annotation on `RuntimeOptions` after this batch if accepted. No merge, release or tag.
