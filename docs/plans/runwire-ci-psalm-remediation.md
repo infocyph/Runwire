@@ -509,3 +509,10 @@
 - Restore ChildReaper private-member ordering for Pint and remove a dead catch-path assignment. Declare propagated exception contracts only at logged method boundaries, without global taint suppressions or coverage changes.
 - **Verification mandatory:** inspect full Source Audit, PHPStan, both PHP 8.4/8.5 Psalm histograms, all four QA matrix jobs, Swoole/HTTP3 and packaging at the new exact SHA before closing. The 35-file exception pass may propagate documented throws into callers; only count a net drop after analysis.
 - Continue P0 **TaintedFile, TaintedSSRF, TaintedHeader** investigation, non-documentation type/cancellation/resource lifecycle diagnostics and any worker findings after this batch. PR stays draft, unmerged, untagged.
+
+### Batch 46 first exact-head QA review
+
+- SHA `7181043e9aedadc05176b2a3e7a3f8fc487db40f` on PHP 8.4: **196 Psalm errors**, including **90 MissingThrowsDocblock** and the unchanged **17 P0 taint findings**; this is a *three-error regression* from the prior 193. Most newly annotated exception contracts simply propagated to unannotated callers. Do not mark the source-locations closed by counting PHPDoc additions.
+- PHPStan identifies one actual child-status refinement issue: a validated `int|null` PCNTL status is forwarded through the original mixed local rather than its narrowed `int` value. Forward the validated local without changing callback semantics.
+- Source Audit fails because removing unsupported exception annotations restores `RuntimeCapabilities` and `RuntimeOptions` to their exact published 2.1.2 hashes. Their two prior migration entries are therefore stale and must be removed; confirmed by Git tree blob comparison, with **209 changed published source types and 209 remaining ledger dispositions**.
+- PHPForge QA and remaining protocol lanes must be checked on the exact follow-up correction SHA. Preserve both code scanning engines, taint checks, source-audit strictness and migration signoff requirements.

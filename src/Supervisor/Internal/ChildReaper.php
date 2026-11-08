@@ -60,10 +60,11 @@ final class ChildReaper
             $pid = pcntl_waitpid(-1, $status, WNOHANG);
 
             if ($pid > 0) {
-                if (self::supportedStatus($status) === null) {
+                $exitStatus = self::supportedStatus($status);
+                if ($exitStatus === null) {
                     throw new SupervisorException('waitpid returned a non-integer child status.');
                 }
-                $onExit($pid, $status);
+                $onExit($pid, $exitStatus);
 
                 continue;
             }
