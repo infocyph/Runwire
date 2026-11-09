@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/cli_local_paths.php';
+
 /**
  * Sample Linux process RSS, virtual memory and descriptor counts externally.
  * No instrumentation runs inside the measured Runwire server.
@@ -214,6 +216,8 @@ function soakSampleProcess(int $pid, string $path, int $interval): void
     if ($pid < 1 || $interval < 1 || $interval > 60) {
         throw new InvalidArgumentException('Invalid sampler PID or sample interval.');
     }
+    $path = runwireBenchmarkOutputPath($path);
+    $interval = runwireBenchmarkSampleInterval($interval);
     $output = fopen($path, 'wb');
     if (!is_resource($output)) {
         throw new RuntimeException('Unable to open resource sample file.');
@@ -373,6 +377,7 @@ function soakAnalyzeSamples(array $samples, float $minimumSeconds = 1740.0): arr
  */
 function soakReadSamples(string $path): array
 {
+    $path = runwireBenchmarkReadablePath($path);
     $f = fopen($path, 'rb');
     if (!is_resource($f)) {
         throw new RuntimeException('Resource sample CSV is not readable.');
@@ -402,7 +407,7 @@ if (is_string($scriptFilename) && realpath($scriptFilename) === __FILE__) {
         soakSampleProcess((int) $argv[2], $argv[3], (int) $argv[4]);
     } elseif ($argc === 4 && $argv[1] === 'analyze') {
         $result = soakAnalyzeSamples(soakReadSamples($argv[2]));
-        file_put_contents($argv[3], json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL);
+        file_put_contents(runwireBenchmarkOutputPath($argv[3]), json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL);
         if (!$result['passed']) {
             throw new RuntimeException('Resource drift or sample coverage gate failed.');
         }

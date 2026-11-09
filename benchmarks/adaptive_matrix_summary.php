@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/cli_local_paths.php';
+
 /**
  * @param list<float|int> $values
  * @throws \RuntimeException
@@ -29,6 +31,7 @@ function adaptiveMatrixLoad(string $path): array
     if (!is_file($path) || !is_readable($path)) {
         throw new RuntimeException('Unable to read adaptive matrix evidence: ' . $path);
     }
+    $path = runwireBenchmarkReadablePath($path);
     $contents = file_get_contents($path);
     if (!is_string($contents)) {
         throw new RuntimeException('Unable to read adaptive matrix evidence: ' . $path);

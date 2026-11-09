@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 147 — local benchmark paths and interval trust boundaries
+
+- Parent \`df007d4e1898ac1a368dacd957050041a3119cda\`. Most recent completed PHP 8.5 analyzer snapshot (Batch 145) reports **53 blocking Psalm findings** (49 taint, one unresolved include, 3 propagated exceptions), PHPStan **PASS**. Batch 146 CI is not yet certified.
+- Introduce a small CLI-specific path validator for existing readable regular evidence files and writable local output files. Reject stream wrappers, oversized/NUL paths, missing parents, and symlink output leaves. Validate telemetry sampling interval 1..60 seconds. Narrow security-specific Psalm taint sanitizer annotations apply only to these real checked trust boundaries; no analyzer suppression/exclusion, scan reduction or configuration change.
+- Use these boundaries at original filesystem sinks in five benchmark files; add a focused Pest test covering good local paths, stream-wrapper and symlink rejection, and bounded intervals. Seven PHP files total including the new validator/test, plus tracker; one commit.
+- Preserve benchmark JSON schemas, profiler metrics, supported CLI parameters, performance budget, protocols, and source/public APIs. Exact-head Psalm, PHPStan, four strict QA, source audit, native, Swoole, HTTP/2/HTTP/3, benchmarks and docs **PENDING**. No merge or tag.
+
+
+
 ## Batch 146 — exact-head QA regression and true exception owners
 
 - Parent `3eb345f2563ed05d096952817b98afe698755df5`, Security & Standards `42681848396`. PHP 8.5 analyzer job `129378430296` reports **53 Psalm blocking findings** (55→53, net −2; 49 security taint, 1 dynamic include, 3 MissingThrowsDocblock); PHPStan **PASS**. PHP 8.4 exact count separately pending. Pest and Pint PASS but PHPForge PHPCS rejects `exit()` inserted in the smoke fixture by Batch 145. Source Audit, hosted, native, docs, Swoole and HTTP/2 PASS.

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/cli_local_paths.php';
+
 if (!isset($argc, $argv)) {
     throw new \RuntimeException('CLI arguments are unavailable.');
 }
@@ -76,6 +78,7 @@ function loadSummary(string $path): array
         throw new RuntimeException(sprintf('Summary "%s" is not readable.', $path));
     }
 
+    $path = runwireBenchmarkReadablePath($path);
     $decoded = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
     if (!is_array($decoded)) {
         throw new RuntimeException(sprintf('Summary "%s" must contain a JSON object.', $path));

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/cli_local_paths.php';
+
 /**
  * @return array<string, int|bool>
  * @throws \RuntimeException
@@ -148,6 +150,7 @@ function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSecon
  */
 function soakReadRuntimeSnapshots(string $path): array
 {
+    $path = runwireBenchmarkReadablePath($path);
     $file = fopen($path, 'rb');
     if (!is_resource($file)) {
         throw new RuntimeException('Internal soak JSONL is unreadable.');
@@ -187,6 +190,8 @@ function soakSampleRuntimeHttp(int $port, int $rootPid, string $path, int $inter
         throw new InvalidArgumentException('Invalid internal telemetry sampler arguments.');
     }
 
+    $path = runwireBenchmarkOutputPath($path);
+    $interval = runwireBenchmarkSampleInterval($interval);
     $file = fopen($path, 'wb');
     if (!is_resource($file)) {
         throw new RuntimeException('Cannot write internal runtime telemetry.');
@@ -229,7 +234,7 @@ if (is_string($scriptFilename) && realpath($scriptFilename) === __FILE__) {
         soakSampleRuntimeHttp((int) $argv[2], (int) $argv[3], $argv[4], (int) $argv[5]);
     } elseif ($argc === 4 && $argv[1] === 'analyze') {
         $result = soakAnalyzeRuntimeSnapshots(soakReadRuntimeSnapshots($argv[2]));
-        file_put_contents($argv[3], json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL);
+        file_put_contents(runwireBenchmarkOutputPath($argv[3]), json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL);
         if (!$result['passed']) {
             throw new RuntimeException('Runwire worker GC/OPcache/heap soak analysis failed.');
         }

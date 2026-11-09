@@ -11,6 +11,7 @@ function adaptiveCompareLoad(string $path): array
     if (!is_file($path) || !is_readable($path)) {
         throw new RuntimeException('Adaptive comparison requires a readable local file.');
     }
+    $path = runwireBenchmarkReadablePath($path);
     $contents = file_get_contents($path);
     if (!is_string($contents)) {
         throw new RuntimeException('Unable to read adaptive comparison input: ' . $path);
