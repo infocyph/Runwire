@@ -42,7 +42,7 @@ try {
         || $executor->diagnostics()['workers'] !== 0) {
         throw new RuntimeException(
             'Off-loop QUIC handshake acceptance failed: ' .
-            ($results[0][1] instanceof Throwable ? $results[0][1]->getMessage() : 'invalid result'),
+            (($results[0][1] ?? null) instanceof Throwable ? $results[0][1]->getMessage() : 'invalid result'),
         );
     }
 

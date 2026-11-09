@@ -11,7 +11,7 @@ use Infocyph\Runwire\Network\Dialer;
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 /**
- * @param array<string, mixed> $usage
+ * @param array<array-key, mixed> $usage
  * @throws RuntimeException
  */
 function c4CpuMicroseconds(array $usage): int
@@ -58,7 +58,11 @@ $maxGapMs = 0.0;
 $lastTick = hrtime(true);
 $maxFdCount = 0;
 $start = hrtime(true);
-$cpuStart = c4CpuMicroseconds(getrusage());
+$usageBefore = getrusage();
+if ($usageBefore === false) {
+    throw new RuntimeException('C4 benchmark could not read initial CPU usage.');
+}
+$cpuStart = c4CpuMicroseconds($usageBefore);
 $networkLatency = [];
 $runtimeBuild = getenv('RUNWIRE_RUNTIME_BUILD');
 $listenerWatcher = $loop->onReadable($listener, static function () use ($listener, $progress): void {
@@ -169,10 +173,14 @@ try {
     $diag = $executor->diagnostics();
     $loopDiag = $loop->diagnostics();
     $elapsed = (hrtime(true) - $start) / 1_000_000_000;
-    $cpuEnd = c4CpuMicroseconds(getrusage());
+    $usageAfter = getrusage();
+    if ($usageAfter === false) {
+        throw new RuntimeException('C4 benchmark could not read final CPU usage.');
+    }
+    $cpuEnd = c4CpuMicroseconds($usageAfter);
     sort($networkLatency, SORT_NUMERIC);
     $cpuSeconds = (float) ($cpuEnd - $cpuStart) / 1_000_000.0;
-    $rss = (int) ((getrusage() ?: [])['ru_maxrss'] ?? 0) * 1024;
+    $rss = (int) ($usageAfter['ru_maxrss'] ?? 0) * 1024;
     $passed = $errors === [] && $progress->networkConnected === $networkAttempted
         && $progress->networkAccepted === $networkAttempted && $progress->fileCompleted === 48
         && $timerTicks >= 4 && $maxGapMs < 150 && $progress->sleepFinished
@@ -191,7 +199,7 @@ try {
         'network_p99_ms' => $networkLatency === [] ? null
             : round($networkLatency[max(0, (int) ceil((float) count($networkLatency) * 0.99) - 1)], 3),
         'elapsed_seconds' => round($elapsed, 4),
-        'parent_cpu_percent' => round(100.0 * (float) $cpuSeconds / max($elapsed, 0.001), 3),
+        'parent_cpu_percent' => round(100.0 * $cpuSeconds / max($elapsed, 0.001), 3),
         'parent_peak_rss_bytes' => $rss,
         'max_parent_fds' => $maxFdCount,
         'executor_queued_after' => $diag['queued'],

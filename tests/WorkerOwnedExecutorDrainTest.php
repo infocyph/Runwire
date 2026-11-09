@@ -16,11 +16,11 @@ it('cancels owned queued file jobs once when the worker stops and rejects late o
     try {
         $worker->ownExecutor($executor);
         $executor->submit('sleep', ['milliseconds' => 100], static function (mixed $value, ?Throwable $error) use (&$callbacks): void {
-            unset($value);
+            expect($value)->toBeNull();
             $callbacks[] = $error;
         });
         $executor->submit('sleep', ['milliseconds' => 100], static function (mixed $value, ?Throwable $error) use (&$callbacks): void {
-            unset($value);
+            expect($value)->toBeNull();
             $callbacks[] = $error;
         });
         $worker->requestStop();

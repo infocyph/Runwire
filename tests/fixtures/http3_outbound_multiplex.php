@@ -32,7 +32,6 @@ $options = new QuicClientOptions(
     maxOpenStreams: 20,
     connectTimeoutMilliseconds: 4_000,
 );
-$requests = [];
 $bodies = array_fill(1, 4, '');
 $statuses = [];
 $completions = [];

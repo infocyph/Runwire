@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Tests;
 
-use Closure;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
@@ -19,155 +18,24 @@ use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Connection;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Tests\Fixtures\FakeHttp3ConnectionRaw;
+use Infocyph\Runwire\Tests\Fixtures\FakeHttp3ConnectionStream;
 use ReflectionProperty;
 use RuntimeException;
 
-
-function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = [], int $maxWrite = PHP_INT_MAX): object
+/** @param list<string|null> $reads */
+function fakeHttp3ConnectionStream(int $id, bool $bidirectional, array $reads = [], int $maxWrite = PHP_INT_MAX): FakeHttp3ConnectionStream
 {
-    return new class($id, $bidirectional, $reads, $maxWrite) {
-        public bool $ended = false;
-
-        public ?int $peerResetCode = null;
-
-        public int $readBytes = 0;
-
-        public ?Closure $writeFailure = null;
-
-        public bool $writeFails = false;
-
-        public string $written = '';
-
-        /** @param list<string|null> $reads */
-        public function __construct(
-            private readonly int $id,
-            private readonly bool $bidirectional,
-            private array $reads,
-            private readonly int $maxWrite,
-        ) {}
-
-        public function end(): void
-        {
-            $this->ended = true;
-        }
-
-        public function getId(): int
-        {
-            return $this->id;
-        }
-
-        public function getResetCode(): ?int
-        {
-            return $this->peerResetCode;
-        }
-
-        public function isBidirectional(): bool
-        {
-            return $this->bidirectional;
-        }
-
-        public function read(int $length): ?string
-        {
-            $next = array_shift($this->reads);
-            if ($next === null || $next === '') {
-                return $next;
-            }
-            if (strlen($next) <= $length) {
-                $this->readBytes += strlen($next);
-
-                return $next;
-            }
-
-            $chunk = substr($next, 0, $length);
-            $this->readBytes += strlen($chunk);
-            array_unshift($this->reads, substr($next, $length));
-
-            return $chunk;
-        }
-
-        public function reset(int $errorCode = 0): void
-        {
-            $this->peerResetCode = $errorCode;
-        }
-
-        /**
-         * @throws \RuntimeException
-         */
-        public function write(string $data, bool $fin = false): int
-        {
-            if ($this->writeFails) {
-                ($this->writeFailure)?->__invoke();
-
-                throw new RuntimeException('Native QUIC stream is already shut down.');
-            }
-
-            $written = min(strlen($data), $this->maxWrite);
-            $this->written .= substr($data, 0, $written);
-            if ($fin) {
-                $this->ended = true;
-            }
-
-            return $written;
-        }
-    };
+    return new FakeHttp3ConnectionStream($id, $bidirectional, $reads, $maxWrite);
 }
 
-function fakeHttp3ConnectionRaw(array $localStreams, array $acceptedStreams, string $alpn = 'h3'): object
+/**
+ * @param list<FakeHttp3ConnectionStream> $localStreams
+ * @param list<FakeHttp3ConnectionStream> $acceptedStreams
+ */
+function fakeHttp3ConnectionRaw(array $localStreams, array $acceptedStreams, string $alpn = 'h3'): FakeHttp3ConnectionRaw
 {
-    return new class($localStreams, $acceptedStreams, $alpn) {
-        public bool $blocking = true;
-
-        /** @var list<array{0: int, 1: string, 2: bool}> */
-        public array $closed = [];
-
-        /** @var array{error_code: int, frame_type: int, reason: string, local: bool, transport: bool}|null */
-        public ?array $closeInfo = null;
-
-        /** @param list<object> $localStreams @param list<object> $acceptedStreams */
-        public function __construct(
-            private array $localStreams,
-            public array $acceptedStreams,
-            private readonly string $alpn,
-        ) {}
-
-        public function acceptStream(): ?object
-        {
-            return array_shift($this->acceptedStreams);
-        }
-
-        public function close(int $errorCode = 0, string $reason = '', bool $rapid = false): void
-        {
-            $this->closed[] = [$errorCode, $reason, $rapid];
-        }
-
-        public function getCloseInfo(): ?array
-        {
-            return $this->closeInfo;
-        }
-
-        public function getNegotiatedAlpn(): ?string
-        {
-            return $this->alpn;
-        }
-
-        /**
-         * @throws \RuntimeException
-         */
-        public function openStream(bool $bidirectional = true): object
-        {
-            $stream = array_shift($this->localStreams);
-            if (!is_object($stream) || $stream->isBidirectional() !== $bidirectional) {
-                throw new RuntimeException('Invalid local test QUIC stream.');
-            }
-
-            return $stream;
-        }
-
-        public function setBlocking(bool $blocking): void
-        {
-            $this->blocking = $blocking;
-        }
-    };
+    return new FakeHttp3ConnectionRaw($localStreams, $acceptedStreams, $alpn);
 }
 
 it('pumps a client request through the shared HTTP contract and flushes the HTTP/3 response', function (): void {

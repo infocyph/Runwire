@@ -1,6 +1,17 @@
-# Runwire CI / Psalm remediation batches
+# Runwire CI / Psalm and PHPStan remediation batches
 
-## Current dual-analyzer checkpoint — Batch 119 exact HEAD
+## Current dual-analyzer checkpoint — Batch 137 exact HEAD
+
+- Exact source SHA: `ab1c344c66d55d0d2c80060faf4a34775b475124`; Security & Standards run `42557158756`.
+- PHP 8.4 and PHP 8.5 Psalm: **390 blocking errors each**, with 1,069 / 1,070 non-blocking informational issues respectively. These version outputs overlap; do not add them.
+- PHPStan: **1,000+ errors per PHP version**, truncated at the first 1,000 in table output. The visible inventories overlap in 80 PHP files; request full diagnostics with existing `PHPSTAN_TABLE_ERROR_FORMATTER_FORCE_SHOW_ALL_ERRORS=1` in a diagnostic run, without lowering strictness.
+- Four PHPForge QA jobs, both benchmarks, both HTTP/3+QUIC jobs and all seven independent workflows pass. Only two analysis jobs fail on this exact source SHA.
+- The PR has 70 unresolved review threads (69 not outdated); code-scanning threads can overlap active analyzer findings and must be verified against exact source, not separately double-counted.
+- From Batch 138 onward: one coherent commit per batch, **up to 100 actual affected PHP files** (count unique files; do not pad), fixing Psalm **and** PHPStan together. Prioritize true security boundaries, tests and benchmark typing; preserve all strict CI gates and public behavior.
+
+**Batch 138 submitted — concrete HTTP/3 fake typing and exact callback/OS boundaries:** Extract two in-memory QUIC fixture classes into their PSR-4 test namespace, give both factories real generically-typed stream contracts, preserve their original test behavior, and eliminate generic `object` property/method losses. Validate queued executor/pool cancellation callback values in two tests instead of unusable `unset` calls. Guard absent async QUIC result when producing failure diagnostics, remove a genuinely unused request array, require actual getrusage() results for C4 benchmark CPU samples and reuse the final usage snapshot for RSS while keeping all throughput/resource thresholds unchanged. **Eight actual affected PHP files plus this plan**; no unrelated filler. Exact-head Psalm, PHPStan, strict QA, native, Swoole, benchmarks and protocol validation PENDING. PR stays draft/open/unmerged; no release tag.
+
+## Historical dual-analyzer checkpoint — Batch 119 exact HEAD
 
 - Exact source SHA: `93206cb0c2f91d25b0b2807777a667f375a8daec` (2026-11-09); latest completed **Security & Standards** run: 42541785714.
 - PHP 8.4 and PHP 8.5: **789 blocking Psalm errors each**, with 1,126 / 1,127 additional informational issues respectively; counts are per analyzer job, **not additive**.
