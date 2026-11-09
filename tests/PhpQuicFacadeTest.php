@@ -88,7 +88,7 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
             $this->accepted = $peerStream;
         }
 
-        public function acceptStream(): null
+        public function acceptStream(): ?object
         {
             $stream = $this->accepted;
             $this->accepted = null;

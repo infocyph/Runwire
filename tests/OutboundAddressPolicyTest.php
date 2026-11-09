@@ -15,8 +15,8 @@ it('blocks private loopback link-local reserved and IPv4-mapped destinations', f
     foreach (['127.0.0.1', '10.1.1.1', '169.254.1.2', '192.168.0.1', '0.0.0.0', '::1', 'fe80::1', '::ffff:127.0.0.1'] as $ip) {
         expect(fn() => $policy->assertCandidate($ip))->toThrow(RuntimeException::class);
     }
-    expect(static fn() => $policy->assertCandidate('8.8.8.8'))->not->toThrow();
-    expect(static fn() => $policy->assertCandidate('2606:4700:4700::1111'))->not->toThrow();
+    $policy->assertCandidate('8.8.8.8');
+    $policy->assertCandidate('2606:4700:4700::1111');
 });
 
 it('rejects shared special-use documentation and multicast destinations', function (string $ip): void {

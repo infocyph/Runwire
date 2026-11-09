@@ -72,7 +72,7 @@ it('builds bounded local settings from HTTP/2 limits', function (): void {
 it('builds protocol control frames without shelling out or hidden state', function (): void {
     expect(FrameWriter::rstStream(3, ErrorCode::CANCEL)->payload)->toBe(pack('N', ErrorCode::CANCEL->value))
         ->and(FrameWriter::windowUpdate(1, 1024)->payload)->toBe(pack('N', 1024))
-        ->and(FrameWriter::goAway(7, ErrorCode::NO_ERROR->value)->payload)->toStartWith(pack('NN', 7, 0));
+        ->and(FrameWriter::goAway(7, ErrorCode::NO_ERROR)->payload)->toStartWith(pack('NN', 7, 0));
 });
 
 
