@@ -12,6 +12,14 @@ use Infocyph\Runwire\WebSocket\WebSocketOptions;
 
 
 it('decodes 512 deterministic fragmented client and server frames without cross-peer leaks', function (): void {
+    runwireOwnedWebSocketDeterministicFuzzTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketDeterministicFuzzTestCase01(): void
+{
     $options = new WebSocketOptions(
         maxFramePayloadBytes: 1_024,
         maxMessageBytes: 2_048,
@@ -42,9 +50,17 @@ it('decodes 512 deterministic fragmented client and server frames without cross-
     }
 
     expect(memory_get_usage(true) - $memoryBefore)->toBeLessThan(8_388_608);
-});
+}
 
 it('rejects 256 deterministic mask, opcode, control, RSV and oversized frame faults with no worker budget leak', function (): void {
+    runwireOwnedWebSocketDeterministicFuzzTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketDeterministicFuzzTestCase02(): void
+{
     $options = new WebSocketOptions(
         maxFramePayloadBytes: 128,
         maxMessageBytes: 256,
@@ -66,4 +82,4 @@ it('rejects 256 deterministic mask, opcode, control, RSV and oversized frame fau
         unset($parser);
         expect($budget->used())->toBe(0);
     }
-});
+}

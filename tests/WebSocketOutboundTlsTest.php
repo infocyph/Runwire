@@ -24,6 +24,14 @@ use Throwable;
 
 
 it('connects WSS with a trusted certificate and independently scripted 101 plus close frames', function (): void {
+    runwireOwnedWebSocketOutboundTlsTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundTlsTestCase01(): void
+{
     $directory = sys_get_temp_dir() . '/runwire-wss-' . bin2hex(random_bytes(6));
     expect(mkdir($directory, 0700))->toBeTrue();
     $certFile = $directory . '/cert.pem';
@@ -156,4 +164,4 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
         unlink($configFile);
         rmdir($directory);
     }
-});
+}

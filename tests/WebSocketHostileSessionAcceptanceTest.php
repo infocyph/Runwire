@@ -14,6 +14,14 @@ use Infocyph\Runwire\WebSocket\WebSocketSession;
 
 
 it('isolates simultaneous fragmented, invalid-control, oversized and cancelled WebSocket sessions', function (): void {
+    runwireOwnedWebSocketHostileSessionAcceptanceTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketHostileSessionAcceptanceTestCase01(): void
+{
     $loop = new SelectLoop();
     $options = new WebSocketOptions(
         maxFramePayloadBytes: 64,
@@ -107,4 +115,4 @@ it('isolates simultaneous fragmented, invalid-control, oversized and cancelled W
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+}

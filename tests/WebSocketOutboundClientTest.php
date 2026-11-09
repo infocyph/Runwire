@@ -27,6 +27,14 @@ use Throwable;
 
 
 it('upgrades a real outbound TCP socket against an independent peer and delivers coalesced data', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase01(): void
+{
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $reason);
     expect($server)->not->toBeFalse();
     stream_set_blocking($server, false);
@@ -112,9 +120,17 @@ it('upgrades a real outbound TCP socket against an independent peer and delivers
         }
         fclose($server);
     }
-});
+}
 
 it('rejects oversized upgrade response headers without unbounded buffering', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase02(): void
+{
     $loop = new SelectLoop();
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray()->toHaveCount(2);
@@ -142,9 +158,17 @@ it('rejects oversized upgrade response headers without unbounded buffering', fun
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('settles an outbound WebSocket upgrade exactly once on token cancellation', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase03(): void
+{
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
@@ -183,9 +207,17 @@ it('settles an outbound WebSocket upgrade exactly once on token cancellation', f
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('rejects an upgrade when the independent peer closes before HTTP 101', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase04(): void
+{
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
@@ -224,9 +256,17 @@ it('rejects an upgrade when the independent peer closes before HTTP 101', functi
             fclose($peer);
         }
     }
-});
+}
 
 it('refuses TLS downgrade and mismatched TLS or ALPN before opening a socket', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase05(): void
+{
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
     $dialer = new Dialer($loop);
@@ -249,4 +289,4 @@ it('refuses TLS downgrade and mismatched TLS or ALPN before opening a socket', f
         $dialer->close();
         $executor->close();
     }
-});
+}

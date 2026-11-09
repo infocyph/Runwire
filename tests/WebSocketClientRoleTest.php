@@ -14,6 +14,14 @@ use Infocyph\Runwire\WebSocket\WebSocketSession;
 
 
 it('reuses one session lifecycle with correct masking when a verified client role is adopted', function (): void {
+    runwireOwnedWebSocketClientRoleTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketClientRoleTestCase01(): void
+{
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
@@ -60,4 +68,4 @@ it('reuses one session lifecycle with correct masking when a verified client rol
         $connection->abort();
         fclose($peer);
     }
-});
+}

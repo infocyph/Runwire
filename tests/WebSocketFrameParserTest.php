@@ -34,32 +34,88 @@ function maskedWebSocketFrame(int $opcode, string $payload, bool $fin = true): s
 }
 
 it('parses masked frames incrementally without exposing mask bytes', function (): void {
-    runwireWebSocketFrameParserCase01();
+    runwireOwnedWebSocketFrameParserTestCase01();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketFrameParserTestCase01(): void
+{
+    runwireWebSocketFrameParserCase01();
+}
 
 it('accepts minimal 16-bit and 64-bit frame lengths within the configured ceiling', function (): void {
-    runwireWebSocketFrameParserCase02();
+    runwireOwnedWebSocketFrameParserTestCase02();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketFrameParserTestCase02(): void
+{
+    runwireWebSocketFrameParserCase02();
+}
 
 it('rejects unmasked, reserved and invalid control frames', function (): void {
-    runwireWebSocketFrameParserCase03();
+    runwireOwnedWebSocketFrameParserTestCase03();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketFrameParserTestCase03(): void
+{
+    runwireWebSocketFrameParserCase03();
+}
 
 it('rejects non-minimal lengths and configured frame ceilings', function (): void {
-    runwireWebSocketFrameParserCase04();
+    runwireOwnedWebSocketFrameParserTestCase04();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketFrameParserTestCase04(): void
+{
+    runwireWebSocketFrameParserCase04();
+}
 
 it('charges parser bytes to the shared worker budget', function (): void {
-    runwireWebSocketFrameParserCase05();
+    runwireOwnedWebSocketFrameParserTestCase05();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketFrameParserTestCase05(): void
+{
+    runwireWebSocketFrameParserCase05();
+}
 
 it('enforces client and server masking directions without admitting invalid frames', function (): void {
-    runwireWebSocketFrameParserCase06();
+    runwireOwnedWebSocketFrameParserTestCase06();
 });
 
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketFrameParserTestCase06(): void
+{
+    runwireWebSocketFrameParserCase06();
+}
+
 it('releases incomplete hostile WebSocket parser bytes immediately when the session ends', function (): void {
-    runwireWebSocketFrameParserCase07();
+    runwireOwnedWebSocketFrameParserTestCase07();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketFrameParserTestCase07(): void
+{
+    runwireWebSocketFrameParserCase07();
+}
 
 /**
  * @throws \Throwable

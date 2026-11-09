@@ -29,6 +29,14 @@ function adaptiveSamplerConnection(): array
 }
 
 it('bounds HTTP1 AUTO admission sampling independently of active population', function (): void {
+    runwireOwnedHttp1AdaptiveConnectionSamplerTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp1AdaptiveConnectionSamplerTestCase01(): void
+{
     $sampler = new AdaptiveConnectionSampler(activeCapacity: 256, maxSamples: 2);
     $resources = [];
     $connections = [];
@@ -52,9 +60,17 @@ it('bounds HTTP1 AUTO admission sampling independently of active population', fu
     foreach ($resources as $resource) {
         fclose($resource);
     }
-});
+}
 
 it('bypasses HTTP1 load sampling for deterministic policy modes', function (): void {
+    runwireOwnedHttp1AdaptiveConnectionSamplerTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp1AdaptiveConnectionSamplerTestCase02(): void
+{
     $fixed = new AdaptiveConnectionStrategy(
         policy: new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED),
     );
@@ -72,4 +88,4 @@ it('bypasses HTTP1 load sampling for deterministic policy modes', function (): v
         ->and($latency->tcpNoDelay())->toBeTrue()
         ->and($throughput->tcpNoDelay())->toBeFalse()
         ->and((new AdaptiveConnectionStrategy())->requiresLoadSample())->toBeTrue();
-});
+}

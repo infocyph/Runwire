@@ -14,6 +14,14 @@ use Infocyph\Runwire\WebSocket\WebSocketSession;
 
 
 it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners isolated', function (): void {
+    runwireOwnedWebSocketConcurrentSessionsTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketConcurrentSessionsTestCase01(): void
+{
     $loop = new SelectLoop();
     $connections = [];
     $peers = [];
@@ -89,4 +97,4 @@ it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners iso
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+}

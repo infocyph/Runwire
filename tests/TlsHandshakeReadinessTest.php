@@ -8,6 +8,14 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Internal\TlsHandshakeReadiness;
 
 it('cleans read, write, and deadline watches when a handshake is cancelled', function (): void {
+    runwireOwnedTlsHandshakeReadinessTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsHandshakeReadinessTestCase01(): void
+{
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($sockets)->toBeArray()->toHaveCount(2);
     $loop = new SelectLoop();
@@ -23,9 +31,17 @@ it('cleans read, write, and deadline watches when a handshake is cancelled', fun
         ->and($loop->diagnostics()->timersActive)->toBe(0);
     fclose($sockets[0]);
     fclose($sockets[1]);
-});
+}
 
 it('keeps the server read-only handshake on a common bounded timer', function (): void {
+    runwireOwnedTlsHandshakeReadinessTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsHandshakeReadinessTestCase02(): void
+{
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($sockets)->toBeArray()->toHaveCount(2);
     $loop = new SelectLoop();
@@ -43,10 +59,18 @@ it('keeps the server read-only handshake on a common bounded timer', function ()
         ->and($loop->diagnostics()->timersActive)->toBe(0);
     fclose($sockets[0]);
     fclose($sockets[1]);
-});
+}
 
 
 it('bounds TLS handshake readiness watchers across repeated pre-negotiation cancellations', function (): void {
+    runwireOwnedTlsHandshakeReadinessTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsHandshakeReadinessTestCase03(): void
+{
     $loop = new SelectLoop();
     $beforeMemory = memory_get_usage(true);
     $beforeFds = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd')) : null;
@@ -72,4 +96,4 @@ it('bounds TLS handshake readiness watchers across repeated pre-negotiation canc
     if ($beforeFds !== null) {
         expect(count(scandir('/proc/self/fd')) - $beforeFds)->toBeLessThanOrEqual(2);
     }
-});
+}

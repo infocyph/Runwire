@@ -15,29 +15,77 @@ use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use InvalidArgumentException;
 
 it('supports deterministic fixed adaptive protocol modes', function (): void {
-    runwireAdaptiveProtocolPolicyCase01();
+    runwireOwnedAdaptiveProtocolPolicyTestCase01();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdaptiveProtocolPolicyTestCase01(): void
+{
+    runwireAdaptiveProtocolPolicyCase01();
+}
 
 it('supports protocol-local AUTO crossover overrides', function (): void {
-    runwireAdaptiveProtocolPolicyCase02();
+    runwireOwnedAdaptiveProtocolPolicyTestCase02();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdaptiveProtocolPolicyTestCase02(): void
+{
+    runwireAdaptiveProtocolPolicyCase02();
+}
 
 it('keeps HTTP3 fixed policy deterministic and poll timing static', function (): void {
-    runwireAdaptiveProtocolPolicyCase03();
+    runwireOwnedAdaptiveProtocolPolicyTestCase03();
 });
 
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdaptiveProtocolPolicyTestCase03(): void
+{
+    runwireAdaptiveProtocolPolicyCase03();
+}
+
 it('rejects invalid adaptive protocol crossover configuration', function (): void {
-    runwireAdaptiveProtocolPolicyCase04();
+    runwireOwnedAdaptiveProtocolPolicyTestCase04();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdaptiveProtocolPolicyTestCase04(): void
+{
+    runwireAdaptiveProtocolPolicyCase04();
+}
 
 
 it('defaults H1 H2 and H3 to FIXED', function (): void {
-    runwireAdaptiveProtocolPolicyCase05();
+    runwireOwnedAdaptiveProtocolPolicyTestCase05();
 });
 
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdaptiveProtocolPolicyTestCase05(): void
+{
+    runwireAdaptiveProtocolPolicyCase05();
+}
+
 it('rejects impossible negative HTTP3 connection counters without changing valid poll timings', function (): void {
-    runwireAdaptiveProtocolPolicyCase06();
+    runwireOwnedAdaptiveProtocolPolicyTestCase06();
 });
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdaptiveProtocolPolicyTestCase06(): void
+{
+    runwireAdaptiveProtocolPolicyCase06();
+}
 
 /**
  * @throws \Throwable
