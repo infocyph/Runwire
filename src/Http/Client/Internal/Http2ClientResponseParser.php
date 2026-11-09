@@ -180,6 +180,7 @@ final class Http2ClientResponseParser
     /**
      * @param callable(int,Headers):void $onHeaders
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function continuation(Frame $frame, callable $onHeaders): void
     {
@@ -224,6 +225,7 @@ final class Http2ClientResponseParser
     /**
      * @param callable(int,Headers):void $onHeaders
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function headers(Frame $frame, callable $onHeaders): void
     {

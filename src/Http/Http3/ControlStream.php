@@ -77,6 +77,7 @@ final class ControlStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     private function validate(Frame $frame): void
     {

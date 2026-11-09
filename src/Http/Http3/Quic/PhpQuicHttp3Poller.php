@@ -44,6 +44,7 @@ final readonly class PhpQuicHttp3Poller
      * @return array<int, int>
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
+     * @throws \LogicException
      */
     public function poll(
         ?PhpQuicListener $listener,

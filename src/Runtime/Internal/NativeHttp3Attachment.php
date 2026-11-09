@@ -147,6 +147,9 @@ final class NativeHttp3Attachment
         return $this->state->isStopping() && $this->worker->drainComplete();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function expireDrain(): void
     {
         if (!$this->worker->drainComplete()) {

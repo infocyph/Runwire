@@ -416,6 +416,9 @@ final class PhpQuicHttp3Connection
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     private function drainReadableStreams(): void
     {
@@ -425,6 +428,9 @@ final class PhpQuicHttp3Connection
     /**
      * @param array<int, int> $ready
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     private function drainReadyStreams(array $ready, PhpQuicEventMasks $events): void
     {
@@ -539,6 +545,7 @@ final class PhpQuicHttp3Connection
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function finishPeerStream(int $streamId, PhpQuicStream $stream): void
     {

@@ -305,6 +305,7 @@ final class Http1ClientResponseParser
 
     /**
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function readHead(callable $onHead, callable $onEnd): void
     {
@@ -346,6 +347,7 @@ final class Http1ClientResponseParser
 
     /**
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function readTrailers(callable $onEnd): void
     {

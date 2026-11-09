@@ -201,6 +201,8 @@ final class RequestStream
      * Feed request-stream bytes through HTTP/3 frame processing.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function push(string $bytes): void
     {
@@ -510,6 +512,8 @@ final class RequestStream
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     private function finishIfReady(): void
     {
@@ -532,6 +536,7 @@ final class RequestStream
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function processFrame(Frame $frame): void
     {
@@ -597,6 +602,8 @@ final class RequestStream
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     private function resumeAfterBodyRelief(): void
     {

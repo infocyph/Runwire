@@ -1,6 +1,13 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
-## Current dual-analyzer checkpoint — Batch 140 committed for validation
+## Current dual-analyzer checkpoint — Batch 141, SHA 40b0930fc58f
+
+- Exact source SHA: `40b0930fc58fa3def3a6a0375b63f53e993d377c`; Security & Standards `42673791199`, PHP 8.4 analysis job `129351375885`. **Psalm: 82 blocking errors** across 29 unique PHP files, consisting of 32 missing exception docs, 49 security taint (32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep), and one dynamic unresolved include. **PHPStan: one error**, `complexity.classLike` for Supervisor (81 vs 80 limit). PHP 8.5 analysis not yet independently verified for this SHA.
+- PHP 8.5 prefer-lowest QA job `129351377208`: Pint reports **one `ordered_class_elements` issue** for Supervisor; Pest, PHP lint, duplicate and reference checks passed. Avoid claiming QA fully green.
+- Multiple independent workflow runs failed before scheduling any jobs, despite other suites running normally; retrying source-audit run `42673790665` returned `403 This workflow run cannot be retried`. GitHub previously reported a November 9 Actions/Webhooks incident, but it was already resolved by these run timestamps, so a common root cause is **not verified**.
+- **Batch 142:** resolve the 32 reported `MissingThrowsDocblock` diagnostics by documenting propagated exceptions at 14 affected PHP file/method owners without changing runtime logic; fix supervisor PER class-property ordering and replace shutdown-only timer `??=` with assignment because `stop()` already prevents subsequent timer creation through `$this->stopping`, reducing one complexity operation without changing shutdown behavior. One coherent commit, 14 actual affected PHP files plus this tracker; do not pad to 100 when only 29 files have current verified findings. Security-taint and dynamic source-loading boundary audit remains, with no blanket suppression, scope reduction, dependency change, merge or release tag. Full exact-head CI verification **PENDING**.
+
+## Historical checkpoint — Batch 140 committed for validation
 
 - Verified parent source SHA: `c5a13e8b2a299f453a9114d991961ac34f2651d5`, **Security & Standards** run `42667862813` (PHP 8.4 and 8.5).
 - **PHPStan passes** on this parent. Both Psalm variants report **310 blocking errors each**, 258 `MissingThrowsDocblock`, 49 security taint (`TaintedFile` 32, `TaintedSSRF` 12, `TaintedInclude` 3, `TaintedSleep` 2), one unresolved include and two unused variables. The PHP-version findings overlap and are not additive.

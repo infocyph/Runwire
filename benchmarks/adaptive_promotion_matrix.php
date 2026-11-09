@@ -1107,6 +1107,7 @@ function adaptivePromotionPrepareEvidence(string $environmentPath, array $identi
  * @param list<string> $argv
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
+ * @throws \Throwable
  */
 function adaptivePromotionMain(array $argv): int
 {

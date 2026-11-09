@@ -85,6 +85,9 @@ final class Supervisor
 
     private bool $running = false;
 
+    /** Reap fallback is active only while workers are being shut down. */
+    private ?int $shutdownReapTimerId = null;
+
     private bool $started = false;
 
     private ?int $startedAtNs = null;
@@ -92,9 +95,6 @@ final class Supervisor
     private ?float $startedAtUnix = null;
 
     private bool $stopping = false;
-
-    /** Reap fallback is active only while workers are being shut down. */
-    private ?int $shutdownReapTimerId = null;
 
     /**
      * Create a supervisor with optional custom event loop and reload policy.
@@ -421,7 +421,7 @@ final class Supervisor
 
         // POSIX may coalesce or lose a child notification during shutdown.
         // Poll only while stopping, and retain the existing SIGCHLD fast path.
-        $this->shutdownReapTimerId ??= $this->loop->repeat(0.1, function (): void {
+        $this->shutdownReapTimerId = $this->loop->repeat(0.1, function (): void {
             $this->reapChildren();
         });
     }
@@ -501,6 +501,9 @@ final class Supervisor
         $this->stop(reason: ShutdownReason::FATAL_RUNTIME_ERROR);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function forceCleanupChildren(): void
     {
         $this->restartCoordinator->cancelAll();
@@ -668,6 +671,9 @@ final class Supervisor
     }
 
     /** @param list<int> $signals */
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function processSignals(array $signals): void
     {
         if (in_array(SIGCHLD, $signals, true)) {

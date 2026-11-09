@@ -110,6 +110,7 @@ it('streams RoadRunner response frames and recycles after the generic request bu
 
         /**
          * @throws \OverflowException
+         * @throws \InvalidArgumentException
          */
         public function __construct()
         {

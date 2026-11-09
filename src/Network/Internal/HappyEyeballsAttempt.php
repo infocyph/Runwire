@@ -251,6 +251,9 @@ final class HappyEyeballsAttempt
         ($this->completion)($winner, $error);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function launchCandidate(): void
     {
         if ($this->completed) {

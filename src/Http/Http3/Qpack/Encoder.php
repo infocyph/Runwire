@@ -164,6 +164,9 @@ final class Encoder
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function cancel(int $streamId): void
     {
         foreach ($this->outstanding[$streamId] ?? [] as $section) {

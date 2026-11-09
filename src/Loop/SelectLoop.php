@@ -189,6 +189,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
      * @throws \RuntimeException
      */
     #[\Override]
+    /**
+     * @throws \Throwable
+     */
     public function run(): void
     {
         if ($this->running) {
@@ -224,6 +227,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Execute one non-polling loop tick.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function tick(): void
     {
