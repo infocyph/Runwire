@@ -41,10 +41,10 @@ $dialer = new Dialer($loop, 64);
 $paths = [];
 $networkAttempted = 48;
 $progress = new class {
-    public int $progress->networkConnected = 0;
-    public int $progress->networkAccepted = 0;
-    public int $progress->fileCompleted = 0;
-    public bool $progress->sleepFinished = false;
+    public int $networkConnected = 0;
+    public int $networkAccepted = 0;
+    public int $fileCompleted = 0;
+    public bool $sleepFinished = false;
 };
 $errors = [];
 $timerTicks = 0;
