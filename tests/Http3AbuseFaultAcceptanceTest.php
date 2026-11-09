@@ -15,7 +15,10 @@ use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
-/** @param callable(): void $action */
+/**
+ * @param callable(): void $action
+ * @throws \PHPUnit\Framework\AssertionFailedError
+ */
 function expectHttp3Fault(callable $action, ErrorCode $expected): void
 {
     try {
