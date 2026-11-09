@@ -35,7 +35,7 @@ it('throws a reason-carrying cancellation checkpoint exception', function (): vo
 
     try {
         $source->token()->throwIfCancelled();
-        test()->fail('Expected cancellation checkpoint to throw.');
+        \PHPUnit\Framework\Assert::fail('Expected cancellation checkpoint to throw.');
     } catch (CancelledException $exception) {
         expect($exception->reason)->toBe(CancellationReason::WORKER_SHUTDOWN);
     }

@@ -19,7 +19,7 @@ it('cleans child cancellation ownership when task admission is rejected', functi
         for ($attempt = 0; $attempt < 128; ++$attempt) {
             try {
                 $scope->spawn(static function (): void {});
-                test()->fail('Expected child task admission to be rejected.');
+                \PHPUnit\Framework\Assert::fail('Expected child task admission to be rejected.');
             } catch (CoroutineOverflowException) {
                 // The root task consumes the only task slot; rejected child sources must be disposed.
             }

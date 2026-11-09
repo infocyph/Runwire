@@ -20,7 +20,7 @@ function expectHttp3Fault(callable $action, ErrorCode $expected): void
 {
     try {
         $action();
-        test()->fail(sprintf('Expected HTTP/3 fault %s.', $expected->name));
+        \PHPUnit\Framework\Assert::fail(sprintf('Expected HTTP/3 fault %s.', $expected->name));
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe($expected);
     }

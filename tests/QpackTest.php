@@ -44,7 +44,7 @@ it('rejects QPACK Base arithmetic overflow as a decompression failure', function
 
     try {
         $decoder->decode($block);
-        test()->fail('Expected QPACK arithmetic overflow to fail.');
+        \PHPUnit\Framework\Assert::fail('Expected QPACK arithmetic overflow to fail.');
     } catch (Http3Exception $error) {
         expect($error->errorCode)->toBe(ErrorCode::QPACK_DECOMPRESSION_FAILED)
             ->and($error->getMessage())->toContain('Base exceeds');
@@ -56,7 +56,7 @@ it('rejects QPACK post-base index overflow as a decompression failure', function
 
     try {
         $table->postBaseIndex(PHP_INT_MAX, 1);
-        test()->fail('Expected QPACK post-base arithmetic overflow to fail.');
+        \PHPUnit\Framework\Assert::fail('Expected QPACK post-base arithmetic overflow to fail.');
     } catch (Http3Exception $error) {
         expect($error->errorCode)->toBe(ErrorCode::QPACK_DECOMPRESSION_FAILED)
             ->and($error->getMessage())->toContain('post-base index');

@@ -16,54 +16,58 @@ use RuntimeException;
 use Throwable;
 
 
-function cachedDnsFake(): DnsResolverInterface
+final class CachedDnsFakeResolver implements DnsResolverInterface
 {
-    return new class implements DnsResolverInterface {
-        public int $requests = 0;
+    public int $requests = 0;
 
-        public int $cancelled = 0;
+    public int $cancelled = 0;
 
-        /** @var array<int,callable> */
-        public array $jobs = [];
+    /** @var array<int, callable(list<string>, ?Throwable): void> */
+    public array $jobs = [];
 
-        /**
-         * @throws \InvalidArgumentException
-         */
-        #[\Override]
-        public function resolve(
-            string $hostname,
-            callable $completion,
-            ?\Infocyph\Runwire\CancellationToken $token = null,
-            ?RequestDeadline $deadline = null,
-        ): int {
-            if ($hostname === '' || $token?->isCancelled() || $deadline?->expired()) {
-                throw new InvalidArgumentException('Test DNS lookup requires a live hostname and caller.');
-            }
-            ++$this->requests;
-            $this->jobs[$this->requests] = $completion;
-
-            return $this->requests;
+    /**
+     * @throws \InvalidArgumentException
+     */
+    #[\Override]
+    public function resolve(
+        string $hostname,
+        callable $completion,
+        ?\Infocyph\Runwire\CancellationToken $token = null,
+        ?RequestDeadline $deadline = null,
+    ): int {
+        if ($hostname === '' || $token?->isCancelled() || $deadline?->expired()) {
+            throw new InvalidArgumentException('Test DNS lookup requires a live hostname and caller.');
         }
+        ++$this->requests;
+        $this->jobs[$this->requests] = $completion;
 
-        #[\Override]
-        public function cancel(int $id): bool
-        {
-            if (!isset($this->jobs[$id])) {
-                return false;
-            }
-            unset($this->jobs[$id]);
-            ++$this->cancelled;
+        return $this->requests;
+    }
 
-            return true;
+    #[\Override]
+    public function cancel(int $id): bool
+    {
+        if (!isset($this->jobs[$id])) {
+            return false;
         }
+        unset($this->jobs[$id]);
+        ++$this->cancelled;
 
-        public function complete(int $id, array $addresses, ?Throwable $error = null): void
-        {
-            $callback = $this->jobs[$id];
-            unset($this->jobs[$id]);
-            $callback($addresses, $error);
-        }
-    };
+        return true;
+    }
+
+    /** @param list<string> $addresses */
+    public function complete(int $id, array $addresses, ?Throwable $error = null): void
+    {
+        $callback = $this->jobs[$id];
+        unset($this->jobs[$id]);
+        $callback($addresses, $error);
+    }
+}
+
+function cachedDnsFake(): CachedDnsFakeResolver
+{
+    return new CachedDnsFakeResolver();
 }
 
 it('coalesces pending host lookups but independently cancels each caller', function (): void {
@@ -82,21 +86,24 @@ it('coalesces pending host lookups but independently cancels each caller', funct
     expect($upstream->requests)->toBe(1)
         ->and($resolver->diagnostics()['pendingHosts'])->toBe(1);
     $source->cancel(CancellationReason::HOST_CANCELLED);
-    expect($results['one'][1])->toBeInstanceOf(Throwable::class)
+    $oneResult = $results['one'] ?? throw new RuntimeException('Cancelled DNS waiter did not settle.');
+    expect($oneResult[1])->toBeInstanceOf(Throwable::class)
         ->and($resolver->cancel($one))->toBeFalse()
         ->and($upstream->cancelled)->toBe(0);
 
     $upstream->complete(1, ['8.8.8.8']);
-    expect($results['two'][0])->toBe(['8.8.8.8'])
-        ->and($results['two'][1])->toBeNull()
+    $twoResult = $results['two'] ?? throw new RuntimeException('DNS completion was not delivered.');
+    expect($twoResult[0])->toBe(['8.8.8.8'])
+        ->and($twoResult[1])->toBeNull()
         ->and($resolver->cancel($two))->toBeFalse()
         ->and($resolver->diagnostics()['cached'])->toBe(1);
     $resolver->resolve('example.com', function ($ips, $failure) use (&$results): void {
         $results['cache'] = [$ips, $failure];
     });
     $loop->run();
+    $cacheResult = $results['cache'] ?? throw new RuntimeException('Cached DNS result was not delivered.');
     expect($upstream->requests)->toBe(1)
-        ->and($results['cache'][0])->toBe(['8.8.8.8'])
+        ->and($cacheResult[0])->toBe(['8.8.8.8'])
         ->and($resolver->diagnostics()['waiters'])->toBe(0);
     $resolver->close();
     $source->dispose();
@@ -242,6 +249,7 @@ it('preserves reentrant DNS lookups and cancellation while an older fanout fails
         expect($ips)->toBe([])->and($error)->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
         ++$cancelled;
     });
+    expect($second)->toBeGreaterThan(0);
     expect(fn() : mixed => $upstream->complete(1, ['8.8.8.8']))->toThrow(RuntimeException::class, 'first consumer failed');
     expect($cancelled)->toBe(1)->and($upstream->requests)->toBe(2)
         ->and($resolver->diagnostics()['pendingHosts'])->toBe(1);
@@ -252,7 +260,7 @@ it('preserves reentrant DNS lookups and cancellation while an older fanout fails
 
 it('surfaces synchronous DNS consumer failures without poisoning a new lookup', function (): void {
     $upstream = new class implements DnsResolverInterface {
-        public $pending;
+        public ?\Closure $pending = null;
         public int $requests = 0;
         /**
          * @throws \InvalidArgumentException
@@ -267,7 +275,7 @@ it('surfaces synchronous DNS consumer failures without poisoning a new lookup', 
             if ($id === 1) {
                 $completion(['8.8.8.8'], null);
             } else {
-                $this->pending = $completion;
+                $this->pending = \Closure::fromCallable($completion);
             }
             return $id;
         }
@@ -283,7 +291,11 @@ it('surfaces synchronous DNS consumer failures without poisoning a new lookup', 
         });
     })->toThrow(RuntimeException::class, 'synchronous consumer failed');
     expect($resolver->diagnostics()['waiters'])->toBe(1);
-    ($upstream->pending)(['1.1.1.1'], null);
+    $pending = $upstream->pending;
+    if (!$pending instanceof \Closure) {
+        throw new RuntimeException('Synchronous DNS fixture did not retain a pending completion.');
+    }
+    $pending(['1.1.1.1'], null);
     expect($next)->toBe(['1.1.1.1'])->and($resolver->diagnostics()['waiters'])->toBe(0);
     $resolver->close();
 });
