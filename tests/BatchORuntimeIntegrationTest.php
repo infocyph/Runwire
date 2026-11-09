@@ -232,9 +232,9 @@ it('completes coroutine sleep through a SelectLoop timer without retaining the t
     $events = [];
 
     $runtime->run(function (CoroutineScope $scope) use (&$events): void {
-        $events->append('before');
+        $events[] = 'before';
         $scope->sleep(0.001);
-        $events->append('after');
+        $events[] = 'after';
     });
 
     expect($events)->toBe(['before', 'after'])
