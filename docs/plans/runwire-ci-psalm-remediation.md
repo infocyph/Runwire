@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 148 — restore strict PHPForge policy and correct exception contracts
+
+- Parent `7c9951fbf56831dd517820cf77eec70bdecc23a0`, Security & Standards `42683140866`: Psalm PHP 8.4 and 8.5 **46 blocking findings** (53 → 46; −7), PHPStan PASS. Strict QA fails Skip Directive Scanner on four `@psalm-taint-escape` tags and Comment Policy on three `@psalm-flow` tags in the new CLI helper; such tags are prohibited by PHPForge FLOW-02 regardless of apparent Psalm reductions. Pest, Pint, PHPCS, Deptrac and Rector passed in the inspected QA run.
+- **Batch 148 correction:** Remove all forbidden analyzer-flow/taint-escape annotations while keeping the canonical local file, symlink, wrapper and sampling bounds and associated regression tests. Preserve original RuntimeException failures on invalid benchmark evidence/output paths, remove an analyzer-proven unreachable basename empty check. Move the smoke fixture's explicit `@throws \\Throwable` contract to the actual `run()` delegate and remove its incorrect `stop()` counterpart. Three affected PHP files + tracker, one commit.
+- The 49 taint reports remain an independent security-design audit: never suppress or exclude. Verify next exact SHA on both analyzers, four PHPForge QA configs, benchmarks, Source Audit, native/hosted, HTTP/2/3+QUIC, Swoole and Sphinx before claiming green. Keep draft/open/unmerged, no release tag.
+
+
+
 ## Batch 147 — local benchmark paths and interval trust boundaries
 
 - Parent \`df007d4e1898ac1a368dacd957050041a3119cda\`. Most recent completed PHP 8.5 analyzer snapshot (Batch 145) reports **53 blocking Psalm findings** (49 taint, one unresolved include, 3 propagated exceptions), PHPStan **PASS**. Batch 146 CI is not yet certified.

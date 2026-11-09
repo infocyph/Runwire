@@ -7,20 +7,17 @@ declare(strict_types=1);
  * permits an operator-selected source, but no stream-wrapper network or
  * virtual-file source can cross the read boundary.
  *
- * @psalm-flow ($path) -> return
- * @psalm-taint-escape file
- * @psalm-taint-escape ssrf
- * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function runwireBenchmarkReadablePath(string $path): string
 {
     if ($path === '' || strlen($path) > 4096 || str_contains($path, "\0") || str_contains($path, '://')) {
-        throw new InvalidArgumentException('Benchmark evidence must be a local filesystem path.');
+        throw new RuntimeException('Benchmark evidence must be a local filesystem path.');
     }
 
     $canonical = realpath($path);
     if ($canonical === false || !is_file($canonical) || !is_readable($canonical)) {
-        throw new InvalidArgumentException('Benchmark evidence must be an existing readable regular file.');
+        throw new RuntimeException('Benchmark evidence must be an existing readable regular file.');
     }
 
     return $canonical;
@@ -29,26 +26,24 @@ function runwireBenchmarkReadablePath(string $path): string
 /**
  * Restrict output to an existing local writable parent without symlink leaves.
  *
- * @psalm-flow ($path) -> return
- * @psalm-taint-escape file
- * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function runwireBenchmarkOutputPath(string $path): string
 {
     if ($path === '' || strlen($path) > 4096 || str_contains($path, "\0") || str_contains($path, '://')) {
-        throw new InvalidArgumentException('Benchmark output must be a local filesystem path.');
+        throw new RuntimeException('Benchmark output must be a local filesystem path.');
     }
 
     $name = basename($path);
     $parent = realpath(dirname($path));
-    if ($name === '' || $name === '.' || $name === '..' || $parent === false
+    if ($name === '.' || $name === '..' || $parent === false
         || !is_dir($parent) || !is_writable($parent)) {
-        throw new InvalidArgumentException('Benchmark output requires an existing writable parent directory.');
+        throw new RuntimeException('Benchmark output requires an existing writable parent directory.');
     }
 
     $resolved = $parent . DIRECTORY_SEPARATOR . $name;
     if (is_link($resolved)) {
-        throw new InvalidArgumentException('Benchmark output must not follow a symlink.');
+        throw new RuntimeException('Benchmark output must not follow a symlink.');
     }
 
     return $resolved;
@@ -57,9 +52,7 @@ function runwireBenchmarkOutputPath(string $path): string
 /**
  * Bound a caller-provided sampling interval before a blocking sleep.
  *
- * @psalm-flow ($interval) -> return
- * @psalm-taint-escape sleep
- * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function runwireBenchmarkSampleInterval(int $interval): int
 {

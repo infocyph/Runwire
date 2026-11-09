@@ -72,12 +72,10 @@ $loop = new class($actual) implements LoopInterface {
     /**
      * @throws \LogicException
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     #[\Override]
     public function run(): void { $this->actual->run(); }
-    /**
-     * @throws \Throwable
-     */
     #[\Override]
     public function stop(): void { $this->actual->stop(); }
 };

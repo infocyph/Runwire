@@ -10,11 +10,11 @@ it('accepts regular local benchmark evidence and refuses stream wrappers', funct
     try {
         expect(runwireBenchmarkReadablePath($path))->toBe(realpath($path));
         expect(fn(): string => runwireBenchmarkReadablePath('php://filter/resource=' . $path))
-            ->toThrow(InvalidArgumentException::class);
+            ->toThrow(RuntimeException::class);
         expect(fn(): string => runwireBenchmarkReadablePath(sys_get_temp_dir()))
-            ->toThrow(InvalidArgumentException::class);
+            ->toThrow(RuntimeException::class);
         expect(fn(): string => runwireBenchmarkReadablePath($path . '.missing'))
-            ->toThrow(InvalidArgumentException::class);
+            ->toThrow(RuntimeException::class);
     } finally {
         unlink($path);
     }
@@ -29,8 +29,8 @@ it('rejects symlinked output paths and unbounded benchmark sampling delays', fun
     \PHPUnit\Framework\Assert::assertTrue(symlink($target, $link));
     try {
         expect(runwireBenchmarkOutputPath($directory . '/report.json'))->toBe($directory . '/report.json');
-        expect(fn(): string => runwireBenchmarkOutputPath($link))->toThrow(InvalidArgumentException::class);
-        expect(fn(): string => runwireBenchmarkOutputPath('php://memory'))->toThrow(InvalidArgumentException::class);
+        expect(fn(): string => runwireBenchmarkOutputPath($link))->toThrow(RuntimeException::class);
+        expect(fn(): string => runwireBenchmarkOutputPath('php://memory'))->toThrow(RuntimeException::class);
         expect(runwireBenchmarkSampleInterval(1))->toBe(1)
             ->and(runwireBenchmarkSampleInterval(60))->toBe(60);
         expect(fn(): int => runwireBenchmarkSampleInterval(61))->toThrow(InvalidArgumentException::class);
