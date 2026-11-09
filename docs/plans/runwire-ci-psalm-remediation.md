@@ -15,6 +15,8 @@
 
 **Shutdown-only SIGCHLD fallback regression follow-up:** The intermittent PHP 8.5 prefer-stable control-server watchdog (20 seconds) can occur if a shutdown child event is missed: existing stop logic starts per-worker kill timers but only the signal bridge reaps exited children. Add a 100 ms reaping fallback timer only after a supervisor is stopping with live children, cancel it in `run()` cleanup, and retain the immediate SIGCHLD path. `tests/SupervisorLifecycleTest.php` deliberately replaces SIGCHLD notification after WORKER_READY and asserts bounded teardown and zero lingering timers. Performance impact is restricted to shutdown, not steady-state request processing; full QA/worker/hosted runs required before marking the fix verified.
 
+**Batch 141 proactive migration-audit repair:** Comparing source hashes against the pinned 2.1.2 baseline identified `ApplicationLifecycleHooks` and `AdmissionController` as the only two classes newly changed from the original published source by Batch 141 without existing ledger entries. Add documented/test-backed contracts (covered by `tests/ApplicationLifecycleTest.php`), retaining the Source Audit's fail-closed rule. This is a release-audit correction only; no runtime code or strictness changes. CI scheduling remains separately unverified.
+
 ## Historical dual-analyzer checkpoint — Batch 137 exact HEAD
 
 - Exact source SHA: `ab1c344c66d55d0d2c80060faf4a34775b475124`; Security & Standards run `42557158756`.

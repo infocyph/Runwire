@@ -1232,6 +1232,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Runtime\\ApplicationLifecycleHooks",
+      "executableTest": "tests/ApplicationLifecycleTest.php",
+      "behavior": "Application boot, drain, shutdown and request-resetter callback binding",
+      "migration": "The application lifecycle hook constructor continues to bind optional callbacks and validate existing resetter registration; added exception documentation makes the preexisting invalid-resetter failure contract explicit without changing behavior.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Runtime\\CoroutineRequestHandler",
       "executableTest": "tests/BatchORuntimeIntegrationTest.php",
       "behavior": "Request-bound coroutine scheduling and lifecycle ownership",
@@ -1324,6 +1332,14 @@
       "executableTest": "tests/RequestContextTest.php",
       "behavior": "Persistent application lifecycle and request-scoped context cleanup",
       "migration": "Application callbacks remain isolated by request contexts; completed requests cannot be re-entered, and state must be reset after each handling cycle.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\AdmissionController",
+      "executableTest": "tests/ApplicationLifecycleTest.php",
+      "behavior": "Per-worker request admission counters and protocol-aware overload responses",
+      "migration": "The admission controller retains existing request and stream budgets, releases counters on completion and writes the tested 503 response on rejection; new exception documentation only clarifies preexisting malformed-header validation behavior.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
