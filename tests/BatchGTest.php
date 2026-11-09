@@ -23,7 +23,7 @@ it('ticks due work without starting the blocking event loop', function (): void 
 });
 
 it('runs named periodic work and stops scheduling it when drain begins', function (): void {
-    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$readyParent, $readyChild] = runwireBatchGTestSocketPair();
     $context = new WorkerContext(
         'tasks',
         0,
@@ -61,7 +61,7 @@ it('runs named periodic work and stops scheduling it when drain begins', functio
 });
 
 it('rejects duplicate periodic task names per worker', function (): void {
-    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$readyParent, $readyChild] = runwireBatchGTestSocketPair();
     $context = new WorkerContext('tasks', 0, 1, posix_getpid(), posix_getppid(), $readyChild);
     $context->attachLoop(new SelectLoop());
     $context->every('same-name', 1.0, static function (): void {});
@@ -258,3 +258,17 @@ it('routes development file changes through the existing rolling reload path', f
         rmdir($directory);
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireBatchGTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

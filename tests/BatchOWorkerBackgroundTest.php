@@ -19,7 +19,7 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
  */
 function batchOWorkerContext(WorkerRole $role = WorkerRole::TASK): array
 {
-    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$readyParent, $readyChild] = runwireBatchOWorkerBackgroundTestSocketPair();
 
     return [
         new WorkerContext(
@@ -140,3 +140,17 @@ it('keeps worker coroutine admission scoped to background worker roles', functio
     $context->close();
     fclose($readyParent);
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireBatchOWorkerBackgroundTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

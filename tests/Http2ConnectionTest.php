@@ -138,7 +138,7 @@ it('honors fragmented transport input while retaining protocol state', function 
  */
 function runwireOwnedHttp2ConnectionTestCase04(): void
 {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireHttp2ConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server, new ConnectionLimits(
         readChunkBytes: 1,
@@ -375,7 +375,7 @@ it('finishes accepted fragmented HTTP2 headers across drain and refuses later st
  */
 function runwireOwnedHttp2ConnectionTestCase10(): void
 {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireHttp2ConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server);
     $requests = [];
@@ -419,4 +419,18 @@ function runwireOwnedHttp2ConnectionTestCase10(): void
     } finally {
         fclose($client);
     }
+}
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireHttp2ConnectionTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
 }

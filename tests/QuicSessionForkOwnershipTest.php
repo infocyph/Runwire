@@ -10,7 +10,7 @@ it('does not let a forked worker inherit ownership of a native QUIC session', fu
 
     $loop = new SelectLoop();
     $session = new QuicClientSession($loop, 2);
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireQuicSessionForkOwnershipTestSocketPair();
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
 
@@ -51,3 +51,17 @@ it('does not let a forked worker inherit ownership of a native QUIC session', fu
         $session->dispose();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireQuicSessionForkOwnershipTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

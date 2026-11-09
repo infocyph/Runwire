@@ -12,7 +12,7 @@ use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 
 it('rejects proxy-mediated non-public target IPs before sending bytes', function (string $target): void {
     foreach (['http', 'socks5'] as $protocol) {
-        [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        [$stream, $peer] = runwireProxyTargetAddressPolicyTestSocketPair();
         $loop = new SelectLoop();
         $connection = ConnectionFactory::accepted($loop, $stream);
         $policy = new OutboundAddressPolicy();
@@ -41,7 +41,7 @@ it('rejects proxy-mediated non-public target IPs before sending bytes', function
 
 it('refuses policy bypass through an unresolved target behind an allowed proxy IP', function (): void {
     foreach (['http', 'socks5'] as $protocol) {
-        [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        [$stream, $peer] = runwireProxyTargetAddressPolicyTestSocketPair();
         $loop = new SelectLoop();
         $connection = ConnectionFactory::accepted($loop, $stream);
         $tunnel = $protocol === 'http'
@@ -68,7 +68,7 @@ it('refuses policy bypass through an unresolved target behind an allowed proxy I
 
 it('allows approved public numeric proxy targets while preserving finite cancellation', function (): void {
     foreach (['http', 'socks5'] as $protocol) {
-        [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        [$stream, $peer] = runwireProxyTargetAddressPolicyTestSocketPair();
         $loop = new SelectLoop();
         $connection = ConnectionFactory::accepted($loop, $stream);
         $tunnel = $protocol === 'http'
@@ -93,3 +93,17 @@ it('allows approved public numeric proxy targets while preserving finite cancell
         }
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireProxyTargetAddressPolicyTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

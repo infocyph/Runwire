@@ -24,7 +24,7 @@ $loop = new SelectLoop();
 $executor = new ProcessExecutor($loop, 1, 2);
 $dialer = new Dialer($loop);
 $happy = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
-[$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+[$reader, $writer] = runwirenative_dialer_smokeSocketPair();
 $pid = pcntl_fork();
 if ($pid < 0) {
     throw new RuntimeException('Unable to fork outbound resource ownership smoke.');
@@ -85,4 +85,18 @@ try {
     $happy->close();
     $dialer->close();
     $executor->close();
+}
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwirenative_dialer_smokeSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
 }

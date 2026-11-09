@@ -18,7 +18,7 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 
 it('selects HTTP/1.1 for cleartext native connections', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server);
     $version = null;
@@ -46,7 +46,7 @@ it('selects HTTP/1.1 for cleartext native connections', function (): void {
 });
 
 it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection(
         $loop,
@@ -99,7 +99,7 @@ it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): voi
 });
 
 it('rejects unsupported negotiated protocols without failing the worker', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server, negotiatedProtocol: 'spdy/3', encrypted: true);
 
@@ -112,7 +112,7 @@ it('rejects unsupported negotiated protocols without failing the worker', functi
 });
 
 it('drains an active HTTP/1.1 exchange without accepting another request', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server);
     $writer = null;
@@ -279,3 +279,17 @@ it('applies a throughput-biased NODELAY default only when H1 is newly attached',
     $connection->abort();
     fclose($client);
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireNativeHttpConnectionTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

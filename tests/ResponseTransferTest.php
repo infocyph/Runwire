@@ -175,7 +175,7 @@ it('cancels a blocked transfer and closes its source', function (): void {
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
     $context = RequestContext::standalone();
-    [$source, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$source, $peer] = runwireResponseTransferTestSocketPair();
     expect($source)->toBeResource()->and($peer)->toBeResource();
     $writer = responseTransferWriter($loop);
 
@@ -252,3 +252,17 @@ it('rejects invalid transfer sources and unsafe chunk policies', function (): vo
         }
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireResponseTransferTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

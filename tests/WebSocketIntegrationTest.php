@@ -124,7 +124,7 @@ function runwireWsExchange(
     ?ConnectionLimits $connectionLimits = null,
     float $timeout = 0.25,
 ): string {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireWebSocketIntegrationTestSocketPair();
     expect($server)->toBeResource()->and($client)->toBeResource();
 
     $loop = new SelectLoop();
@@ -311,3 +311,17 @@ it('enforces fragmented-message ceilings and idle close deadlines', function ():
     $idleCode = unpack('nvalue', substr($idleClose['payload'], 0, 2));
     expect((int) ($idleCode['value'] ?? 0))->toBe(1001);
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireWebSocketIntegrationTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

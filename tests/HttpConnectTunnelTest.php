@@ -24,7 +24,7 @@ it('establishes a bounded real nonblocking CONNECT and preserves the first tunne
  */
 function runwireOwnedHttpConnectTunnelTestCase01(): void
 {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$stream, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $request = '';
@@ -79,7 +79,7 @@ it('aborts a failed CONNECT response without handing out the connection', functi
  */
 function runwireOwnedHttpConnectTunnelTestCase02(): void
 {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$stream, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $results = [];
@@ -118,7 +118,7 @@ it('cancels a pending CONNECT once and releases all callback owners', function (
  */
 function runwireOwnedHttpConnectTunnelTestCase03(): void
 {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$stream, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $source = new CancellationSource();
@@ -157,7 +157,7 @@ it('refuses to disclose CONNECT credentials on a plaintext socket with a claimed
  */
 function runwireOwnedHttpConnectTunnelTestCase04(): void
 {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$socket, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
     try {
@@ -178,4 +178,18 @@ function runwireOwnedHttpConnectTunnelTestCase04(): void
         $connection->abort();
         fclose($peer);
     }
+}
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireHttpConnectTunnelTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
 }

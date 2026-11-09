@@ -14,7 +14,7 @@ use stdClass;
 
 
 it('closes an encrypted proxy connection rather than exposing it as verified origin TLS', function (): void {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$stream, $peer] = runwireVerifiedTargetTlsUpgradeGuardTestSocketPair();
     $loop = new SelectLoop();
     $proxy = ConnectionFactory::accepted($loop, $stream, encrypted: true);
     $completed = 0;
@@ -40,7 +40,7 @@ it('closes an encrypted proxy connection rather than exposing it as verified ori
 });
 
 it('refuses an unowned TLS upgrade while another consumer owns the tunnel', function (): void {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$stream, $peer] = runwireVerifiedTargetTlsUpgradeGuardTestSocketPair();
     $loop = new SelectLoop();
     $tunnel = ConnectionFactory::accepted($loop, $stream);
     $owner = new stdClass();
@@ -63,3 +63,17 @@ it('refuses an unowned TLS upgrade while another consumer owns the tunnel', func
         fclose($peer);
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireVerifiedTargetTlsUpgradeGuardTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

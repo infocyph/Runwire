@@ -15,7 +15,7 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
     $pool = new BoundedConnectionPool($loop, 1, 2);
     $idle = new IdleConnectionPool($loop, 1);
     $key = new PoolIsolationKey(DialEndpoint::parse('tcp://127.0.0.1:9001'), 'fork-scope');
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireConnectionPoolForkOwnershipTestSocketPair();
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
 
@@ -73,3 +73,17 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
         $idle->close();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireConnectionPoolForkOwnershipTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

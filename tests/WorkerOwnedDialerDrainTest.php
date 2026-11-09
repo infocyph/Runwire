@@ -14,7 +14,7 @@ it('rejects inherited outbound dial state but keeps the original process owner v
     $executor = new ProcessExecutor($loop, 1, 2);
     $dialer = new Dialer($loop);
     $happy = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireWorkerOwnedDialerDrainTestSocketPair();
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
 
@@ -88,3 +88,17 @@ it('closes real pending dial sockets through worker ownership once', function ()
         $dialer->close();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireWorkerOwnedDialerDrainTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

@@ -9,7 +9,7 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
     expect(function_exists('pcntl_fork'))->toBeTrue();
 
     $listener = TcpListener::bind('127.0.0.1:0');
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireTcpListenerForkOwnershipTestSocketPair();
 
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
@@ -75,3 +75,17 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
         $listener->close();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireTcpListenerForkOwnershipTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

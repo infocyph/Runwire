@@ -42,7 +42,7 @@ function runwireOwnedWebSocketHostileSessionAcceptanceTestCase01(): void
 
     try {
         for ($index = 0; $index < $count; ++$index) {
-            [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+            [$socket, $peer] = runwireWebSocketHostileSessionAcceptanceTestSocketPair();
             stream_set_blocking($peer, false);
             $budget = new ByteBudget(256);
             $connection = new Connection($loop, $socket, bufferBudget: $budget);
@@ -115,4 +115,18 @@ function runwireOwnedWebSocketHostileSessionAcceptanceTestCase01(): void
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
+}
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireWebSocketHostileSessionAcceptanceTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
 }
