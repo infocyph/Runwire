@@ -29,11 +29,17 @@ $serverConnection = null;
 try {
     file_put_contents($configFile, "[req]\ndistinguished_name=req_dn\nreq_extensions=v3_req\n[req_dn]\n[v3_req]\nsubjectAltName=IP:127.0.0.1\n");
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    if ($key === false) {
+        throw new \RuntimeException('Unable to generate dialer_isolated_tls private key.');
+    }
     $csr = openssl_csr_new(
         ['commonName' => 'localhost'],
         $key,
         ['config' => $configFile, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
+    if ($csr === false) {
+        throw new \RuntimeException('Unable to create dialer_isolated_tls certificate request.');
+    }
     $cert = openssl_csr_sign(
         $csr,
         null,
@@ -41,7 +47,7 @@ try {
         1,
         ['config' => $configFile, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
-    if (!$key || !$csr || !$cert || !openssl_x509_export($cert, $certPem) || !openssl_pkey_export($key, $keyPem)) {
+    if ($cert === false || !openssl_x509_export($cert, $certPem) || !openssl_pkey_export($key, $keyPem)) {
         throw new RuntimeException('Could not generate independent TLS test certificate.');
     }
     file_put_contents($certificate, $certPem);

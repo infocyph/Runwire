@@ -28,9 +28,15 @@ function responseTransferTlsFiles(): array
     $directory = sys_get_temp_dir() . '/runwire-transfer-tls-' . getmypid() . '-' . bin2hex(random_bytes(4));
     mkdir($directory, 0700, true);
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    if ($key === false) {
+        throw new \RuntimeException('Unable to generate Response Transfer Tls Test private key.');
+    }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
+    if ($csr === false) {
+        throw new \RuntimeException('Unable to create Response Transfer Tls Test certificate request.');
+    }
     $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    if ($key === false || $csr === false || $certificate === false) {
+    if ($certificate === false) {
         throw new RuntimeException('Unable to create response-transfer TLS fixture.');
     }
 

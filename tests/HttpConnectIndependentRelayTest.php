@@ -32,9 +32,20 @@ function runwireHttpConnectIndependentRelay(bool $deny): array
         throw new RuntimeException('Cannot prepare independent CONNECT relay TLS reference.');
     }
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    expect($key)->not->toBeFalse();
+    if ($key === false) {
+        throw new \RuntimeException('Unable to generate Http Connect Independent Relay Test private key.');
+    }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
+    expect($csr)->not->toBeFalse();
+    if ($csr === false) {
+        throw new \RuntimeException('Unable to create Http Connect Independent Relay Test certificate request.');
+    }
     $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($certificate)->not->toBeFalse();
+    expect($certificate)->not->toBeFalse();
+    if ($certificate === false) {
+        throw new \RuntimeException('Unable to sign Http Connect Independent Relay Test certificate.');
+    }
     openssl_x509_export($certificate, $pem);
     openssl_pkey_export($key, $privatePem);
     $ca = $dir . '/ca.pem';
