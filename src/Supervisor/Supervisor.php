@@ -93,6 +93,9 @@ final class Supervisor
 
     private bool $stopping = false;
 
+    /** Reap fallback is active only while workers are being shut down. */
+    private ?int $shutdownReapTimerId = null;
+
     /**
      * Create a supervisor with optional custom event loop and reload policy.
      */
@@ -332,6 +335,10 @@ final class Supervisor
             $this->failure ??= $exception;
         } finally {
             $this->running = false;
+            if ($this->shutdownReapTimerId !== null) {
+                $this->loop->cancel($this->shutdownReapTimerId);
+                $this->shutdownReapTimerId = null;
+            }
             $this->autoscaler->stop();
             $this->developmentWatcher?->stop();
             $this->developmentWatcherFailures = $this->developmentWatcher?->failureCount()
@@ -408,7 +415,15 @@ final class Supervisor
         }
         if ($this->children === []) {
             $this->loop->stop();
+
+            return;
         }
+
+        // POSIX may coalesce or lose a child notification during shutdown.
+        // Poll only while stopping, and retain the existing SIGCHLD fast path.
+        $this->shutdownReapTimerId ??= $this->loop->repeat(0.1, function (): void {
+            $this->reapChildren();
+        });
     }
 
     /**

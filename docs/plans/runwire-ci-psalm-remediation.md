@@ -13,6 +13,8 @@
 
 **Batch 141 — propagated exception contracts:** Against Batch 140 SHA `b62ed1f2c52678afe8b0e600bd96b4fd2147f8cb`, the PHP 8.5 analyzer confirmed 124 blocking Psalm errors (72 additional `MissingThrowsDocblock` after exception propagation, 49 security taint, one unresolved include, two unused variables), down from 310 on the parent; PHPStan remains passing. The intervening audit-ledger correction SHA `21dfc99d8c5c8e475444b9d8a619da853e8680cc` removes the two unused fixture assignments. Batch 141 records all 72 newly exposed exception propagation findings in **37 actual affected PHP files**, retaining implementation behavior; rerun strict analyzers, Source Audit, QA, benchmarks and protocols on the new SHA before calling a reduction verified. The 49 taint and include findings remain a separate trust-boundary audit. No merge or tag.
 
+**Shutdown-only SIGCHLD fallback regression follow-up:** The intermittent PHP 8.5 prefer-stable control-server watchdog (20 seconds) can occur if a shutdown child event is missed: existing stop logic starts per-worker kill timers but only the signal bridge reaps exited children. Add a 100 ms reaping fallback timer only after a supervisor is stopping with live children, cancel it in `run()` cleanup, and retain the immediate SIGCHLD path. `tests/SupervisorLifecycleTest.php` deliberately replaces SIGCHLD notification after WORKER_READY and asserts bounded teardown and zero lingering timers. Performance impact is restricted to shutdown, not steady-state request processing; full QA/worker/hosted runs required before marking the fix verified.
+
 ## Historical dual-analyzer checkpoint — Batch 137 exact HEAD
 
 - Exact source SHA: `ab1c344c66d55d0d2c80060faf4a34775b475124`; Security & Standards run `42557158756`.

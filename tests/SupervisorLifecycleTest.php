@@ -310,3 +310,55 @@ it('keeps live HTTP1 TCP and UDP responsive across crash recycle and rolling rel
         fclose($udp);
     }
 });
+
+it('reaps stopping workers when the SIGCHLD notification is deliberately lost', function (): void {
+    $loop = new SelectLoop();
+    $supervisor = new Supervisor($loop);
+    $ready = false;
+    $timedOut = false;
+
+    $supervisor->onEvent(static function (SupervisorEvent $event) use ($supervisor, &$ready): void {
+        if ($event->type !== SupervisorEventType::WORKER_READY || $ready) {
+            return;
+        }
+
+        $ready = true;
+        // Simulate a missed SIGCHLD notification after the worker is ready.
+        // The supervisor must still reap the child through its shutdown fallback.
+        pcntl_signal(SIGCHLD, static function (): void {});
+        $supervisor->stop();
+    });
+    $supervisor->group(WorkerGroup::callbacks(
+        name: 'workers',
+        count: 1,
+        factory: static function (WorkerContext $context): void {
+            $context->ready();
+            $stop = $context->stopStream();
+            while (!$context->stopping()) {
+                $read = [$stop];
+                $write = [];
+                $except = [];
+                stream_select($read, $write, $except, 1, 0);
+                $context->consumeStopWake();
+            }
+        },
+        automaticReady: false,
+        readyTimeoutSeconds: 0.5,
+        shutdownTimeoutSeconds: 0.2,
+    ));
+    $watchdog = $loop->delay(3.0, static function () use (&$timedOut, $loop): void {
+        $timedOut = true;
+        $loop->stop();
+    });
+
+    try {
+        $supervisor->run();
+    } finally {
+        $loop->cancel($watchdog);
+    }
+
+    expect($ready)->toBeTrue()
+        ->and($timedOut)->toBeFalse()
+        ->and($supervisor->status()->workerCount)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
