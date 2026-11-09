@@ -86,6 +86,7 @@ $jobs = [
 /**
  * @param callable(int):int $operation
  * @return array{iterations:int,trials:int,median_nanoseconds_per_op:float,cv_percent:float}
+ * @throws \RuntimeException
  */
 function runwireHpackMicroprofileMeasure(callable $operation, int $iterations): array
 {

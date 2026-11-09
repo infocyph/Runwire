@@ -318,6 +318,9 @@ final readonly class StreamServer
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeouts(float $ready, float $shutdown): void
     {
         foreach ([$ready, $shutdown] as $seconds) {

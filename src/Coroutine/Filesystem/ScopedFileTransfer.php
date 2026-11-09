@@ -25,6 +25,7 @@ final readonly class ScopedFileTransfer
      * Receive a bounded byte range into the existing file at an explicit offset.
      * This operation never truncates or atomically replaces the target.
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function receive(
         string $path,
@@ -55,6 +56,7 @@ final readonly class ScopedFileTransfer
      * Read file chunks off-loop, respect connection pressure and preserve
      * caller ownership of graceful network closure or reuse.
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function send(
         string $path,

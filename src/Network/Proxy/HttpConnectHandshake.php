@@ -101,7 +101,10 @@ final readonly class HttpConnectHandshake
         return $this->username !== null;
     }
 
-    /** @param list<string> $lines */
+    /**
+     * @param list<string> $lines
+     * @throws \RuntimeException
+     */
     private static function assertResponseHeaders(array $lines): void
     {
         foreach ($lines as $line) {

@@ -528,6 +528,9 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function notifyDrain(): void
     {
         if ($this->closed) {

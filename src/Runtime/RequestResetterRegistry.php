@@ -18,7 +18,10 @@ final class RequestResetterRegistry
     /** @var list<RequestResetterInterface> */
     private array $resetters = [];
 
-    /** @param iterable<RequestResetterInterface> $resetters */
+    /**
+     * @param iterable<RequestResetterInterface> $resetters
+     * @throws \InvalidArgumentException
+     */
     public function __construct(iterable $resetters = [])
     {
         foreach ($resetters as $resetter) {

@@ -52,6 +52,7 @@ final class ChildReaper
      *
      * @param callable(int, int): void $onExit
      * @param callable(): void $onNoChildren
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function reap(callable $onExit, callable $onNoChildren): void
     {
@@ -104,6 +105,7 @@ final class ChildReaper
 
     /**
      * Poll for one child until it is reaped or the monotonic deadline expires.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function waitForUntil(int $pid, int $deadlineNanoseconds): bool
     {

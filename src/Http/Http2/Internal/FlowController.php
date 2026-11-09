@@ -17,7 +17,10 @@ final class FlowController
 
     private int $connectionSendWindow = 65_535;
 
-    /** @param array<int, Http2Stream> $streams */
+    /**
+     * @param array<int, Http2Stream> $streams
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     public function applyInitialWindowDelta(array $streams, int $delta): void
     {
         foreach ($streams as $stream) {

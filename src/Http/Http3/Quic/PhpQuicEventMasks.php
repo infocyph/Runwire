@@ -13,6 +13,7 @@ final readonly class PhpQuicEventMasks
 {
     /**
      * Create and validate a set of QUIC event masks.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $read,

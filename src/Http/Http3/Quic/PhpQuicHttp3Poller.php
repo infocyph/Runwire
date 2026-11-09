@@ -125,6 +125,7 @@ final readonly class PhpQuicHttp3Poller
     /**
      * @param array<int, array{0: object, 1: int}> $items
      * @param array<int, array{0: object, 1: int}> $incoming
+     * @throws \LogicException
      */
     private function mergePollItems(array &$items, array $incoming): void
     {

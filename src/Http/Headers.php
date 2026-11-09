@@ -15,6 +15,7 @@ final readonly class Headers
 
     /**
      * @param array<string, string|list<string>> $headers
+     * @throws \InvalidArgumentException
      */
     public static function fromArray(array $headers): self
     {

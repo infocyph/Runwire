@@ -189,6 +189,9 @@ final class U10PoolNetworkTrial
         $this->loop->stop();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function fill(): void
     {
         if ($this->failure !== null) {

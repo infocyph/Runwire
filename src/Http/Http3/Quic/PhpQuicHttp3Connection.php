@@ -306,6 +306,9 @@ final class PhpQuicHttp3Connection
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     private function acceptAvailableStreams(): void
     {
@@ -352,6 +355,10 @@ final class PhpQuicHttp3Connection
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function cleanupFinishedRequests(): void
     {
         foreach (array_keys($this->peerFinishedRequests) as $streamId) {
@@ -371,6 +378,10 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function closeObservedConnection(): void
     {
         if ($this->closed) {
@@ -417,7 +428,13 @@ final class PhpQuicHttp3Connection
         $this->drainStreams($ready, $events);
     }
 
-    /** @return array{0: int, 1: int, 2: int} */
+    /**
+     * @return array{0: int, 1: int, 2: int}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \UnexpectedValueException
+     */
     private function drainStream(int $streamId, int $readBudget, int $byteBudget, int $controlBudget): array
     {
         $stream = $this->peerStreams[$streamId] ?? null;
@@ -484,6 +501,11 @@ final class PhpQuicHttp3Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function expireRequestStreams(): void
     {
         foreach (array_keys($this->requestStreams) as $streamId) {

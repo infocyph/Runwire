@@ -163,6 +163,9 @@ final class DevelopmentWatcher
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function snapshot(): string
     {
         $entries = [];

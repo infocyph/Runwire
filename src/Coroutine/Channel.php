@@ -167,6 +167,9 @@ final class Channel
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function drainBufferedReceivers(): void
     {
         while (!$this->buffer->isEmpty()) {
@@ -197,6 +200,9 @@ final class Channel
         $sender->deferred->resolve(null);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function rejectReceivers(): void
     {
         $waiters = $this->receivers;
@@ -211,6 +217,9 @@ final class Channel
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function rejectSenders(): void
     {
         $waiters = $this->senders;

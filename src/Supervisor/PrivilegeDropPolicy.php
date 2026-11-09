@@ -66,6 +66,9 @@ final readonly class PrivilegeDropPolicy
         return $this->uid !== null || $this->gid !== null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function assertRequiredFunctions(): void
     {
         foreach ($this->requiredFunctions() as $function) {

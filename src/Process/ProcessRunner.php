@@ -126,6 +126,9 @@ final readonly class ProcessRunner
         return $allowed < strlen($chunk);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     */
     private function ensureProcessFunctions(): void
     {
         foreach (['proc_open', 'proc_get_status', 'proc_terminate', 'proc_close'] as $function) {

@@ -141,7 +141,10 @@ final class Http1ClientRequestWriter
         return $head;
     }
 
-    /** Validate trailer names and sizes before the final chunk is sent. */
+    /**
+     * Validate trailer names and sizes before the final chunk is sent.
+     * @throws \RuntimeException
+     */
     private function finalChunk(?Headers $trailers): string
     {
         $frame = "0\r\n";

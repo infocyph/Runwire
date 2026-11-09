@@ -59,6 +59,7 @@ final class IntegerCodec
     /**
      * @return array{0: int, 1: int}|null
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public static function tryDecode(string $data, int $offset, int $prefixBits, ErrorCode $errorCode): ?array
     {

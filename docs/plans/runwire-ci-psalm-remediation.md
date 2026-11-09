@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
-## Current dual-analyzer checkpoint — Batch 137 exact HEAD
+## Current dual-analyzer checkpoint — Batch 140 committed for validation
+
+- Verified parent source SHA: `c5a13e8b2a299f453a9114d991961ac34f2651d5`, **Security & Standards** run `42667862813` (PHP 8.4 and 8.5).
+- **PHPStan passes** on this parent. Both Psalm variants report **310 blocking errors each**, 258 `MissingThrowsDocblock`, 49 security taint (`TaintedFile` 32, `TaintedSSRF` 12, `TaintedInclude` 3, `TaintedSleep` 2), one unresolved include and two unused variables. The PHP-version findings overlap and are not additive.
+- Psalm's 310 errors involve **95 unique PHP files**; 258 missing exception contracts involve **81 unique PHP files**. As only 95 files have known findings, do not fabricate a 100-file batch.
+- **Batch 140:** one coherent commit documents the observed propagated exception types at their owning named functions and methods across all **81 directly affected PHP files**. No method bodies, PHP runtime logic, APIs, analyzers, security controls, dependencies or benchmark thresholds change. This batch targets the complete parent-SHA set of 258 `MissingThrowsDocblock` diagnostics; verify the actual delta before marking complete, since additional propagated exceptions may be exposed by rerunning Psalm.
+- **Outstanding independent work:** review the 49 taint diagnostics against genuine CLI, file, networking and process trust boundaries, without suppressions or permission broadening; investigate the intermittent PHP 8.5 prefer-stable `ControlServerTest.php:167` 20-second supervisor-shutdown watchdog failure (all other PHPForge QA variants pass on parent); confirm the include and unused-variable diagnostics. No claim of fully green CI while those remain.
+- **Engineering check:** PHPForge `CORE-01` / `COMPAT-04` / `FLOW-02` / `EXEC-01..03`: preserve runtime/exception behavior and precise docs, leave detector strictness untouched; assess QA and Source Audit on the resulting SHA. Keep PR open/draft/unmerged, with no release tag.
+
+## Historical dual-analyzer checkpoint — Batch 137 exact HEAD
 
 - Exact source SHA: `ab1c344c66d55d0d2c80060faf4a34775b475124`; Security & Standards run `42557158756`.
 - PHP 8.4 and PHP 8.5 Psalm: **390 blocking errors each**, with 1,069 / 1,070 non-blocking informational issues respectively. These version outputs overlap; do not add them.

@@ -723,6 +723,9 @@ final class Supervisor
         WorkerChildRuntime::run($group, $slot, $generation, $childReady);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function spawnInitialWorkers(): void
     {
         foreach (ChildSet::slots($this->groups) as [$group, $slot]) {

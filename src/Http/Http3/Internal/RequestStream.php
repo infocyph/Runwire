@@ -395,6 +395,10 @@ final class RequestStream
         $this->finished = true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \OverflowException
+     */
     private function deliverData(string $payload): void
     {
         while ($payload !== '') {
@@ -419,6 +423,11 @@ final class RequestStream
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function drainBufferedFrames(): void
     {
         $frames = $this->blockedFrames;
@@ -477,6 +486,7 @@ final class RequestStream
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function drainParsedFrames(): void
     {

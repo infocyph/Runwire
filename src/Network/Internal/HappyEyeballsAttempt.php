@@ -150,6 +150,7 @@ final class HappyEyeballsAttempt
     /**
      * @param list<string> $addresses
      * @return list<string>
+     * @throws \InvalidArgumentException
      */
     private static function orderAddresses(array $addresses, int $port): array
     {
@@ -215,6 +216,9 @@ final class HappyEyeballsAttempt
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function finish(?Connection $winner, ?Throwable $error): void
     {
         if ($this->completed) {

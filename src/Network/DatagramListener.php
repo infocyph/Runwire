@@ -303,6 +303,9 @@ final class DatagramListener
         return $this->closed || $this->paused || $this->stream !== $stream;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleReadable(): void
     {
         $callback = $this->callback;

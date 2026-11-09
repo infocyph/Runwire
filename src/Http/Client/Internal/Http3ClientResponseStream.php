@@ -104,6 +104,7 @@ final class Http3ClientResponseStream
      * Accept bytes from a worker-owned QUIC request stream.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function push(string $bytes): void
     {
@@ -118,6 +119,8 @@ final class Http3ClientResponseStream
     /**
      * Finish a previously blocked field section and preserve peer frame ordering.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function resumeQpack(ReadyFieldSection $ready): void
     {

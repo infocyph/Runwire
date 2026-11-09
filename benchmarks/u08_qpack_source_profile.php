@@ -43,6 +43,7 @@ spl_autoload_register(static function (string $class) use ($source): void {
 /**
  * @param callable(int):int $operation
  * @return array{iterations:int,trials:int,median_nanoseconds_per_op:float,cv_percent:float}
+ * @throws \RuntimeException
  */
 function runwireQpackMicroprofileMeasure(callable $operation, int $iterations): array
 {

@@ -32,7 +32,11 @@ final class Decoder
         $this->huffman = new HuffmanCodec();
     }
 
-    /** @return list<array{0: string, 1: string}> */
+    /**
+     * @return list<array{0: string, 1: string}>
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     * @throws \InvalidArgumentException
+     */
     public function decode(string $block): array
     {
         $offset = 0;

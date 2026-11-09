@@ -124,6 +124,7 @@ final class TcpListener
     /**
      * Immediately aborts every active connection.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function abortConnections(): void
     {
@@ -212,6 +213,7 @@ final class TcpListener
     /**
      * Begins graceful closure of all active connections.
      * @throws \LogicException
+     * @throws \Throwable
      */
     public function closeConnectionsGracefully(): void
     {
@@ -422,6 +424,7 @@ final class TcpListener
 
     /**
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function handleAccept(): void
     {

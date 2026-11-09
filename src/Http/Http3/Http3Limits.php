@@ -121,7 +121,10 @@ final readonly class Http3Limits
         }
     }
 
-    /** @param array<string, int> $values */
+    /**
+     * @param array<string, int> $values
+     * @throws \InvalidArgumentException
+     */
     private static function assertNonNegative(array $values): void
     {
         foreach ($values as $name => $value) {
@@ -131,7 +134,10 @@ final readonly class Http3Limits
         }
     }
 
-    /** @param array<string, int> $values */
+    /**
+     * @param array<string, int> $values
+     * @throws \InvalidArgumentException
+     */
     private static function assertPositive(array $values): void
     {
         foreach ($values as $name => $value) {
@@ -179,7 +185,10 @@ final readonly class Http3Limits
         }
     }
 
-    /** @param array<string, int> $values */
+    /**
+     * @param array<string, int> $values
+     * @throws \InvalidArgumentException
+     */
     private static function assertVarIntCompatible(array $values): void
     {
         foreach ($values as $name => $value) {

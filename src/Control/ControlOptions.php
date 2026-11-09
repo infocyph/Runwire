@@ -40,6 +40,9 @@ final readonly class ControlOptions
         self::validateTimeouts($idleTimeoutSeconds, $lifetimeTimeoutSeconds);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeouts(float ...$timeouts): void
     {
         foreach ($timeouts as $seconds) {

@@ -84,6 +84,9 @@ final class HuffmanCodec
         return $output;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function consume(int &$buffer, int &$bits, string &$output, int $maxOutputBytes): void
     {
         while ($bits >= 5) {

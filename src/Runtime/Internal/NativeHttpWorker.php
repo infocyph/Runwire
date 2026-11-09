@@ -317,6 +317,7 @@ final class NativeHttpWorker
      * @param array<int, NativeHttpConnection> $sessions
      * @param array<int, Connection> $connections
      * @throws \LogicException
+     * @throws \Throwable
      */
     private static function beginDrain(
         Closure $drainApplication,
@@ -354,6 +355,7 @@ final class NativeHttpWorker
      * @param array<int, Connection> $connections
      * @param-out null $stopWatcher
      * @throws \LogicException
+     * @throws \Throwable
      */
     private static function closeWorker(
         LoopInterface $loop,
@@ -433,7 +435,10 @@ final class NativeHttpWorker
         $application->drain($context->shutdownReason());
     }
 
-    /** @param array<int, Connection> $connections */
+    /**
+     * @param array<int, Connection> $connections
+     * @throws \Throwable
+     */
     private static function forceClose(array $connections, LoopInterface $loop, WorkerStopState $state): void
     {
         foreach ($connections as $connection) {

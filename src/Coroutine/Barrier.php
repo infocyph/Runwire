@@ -110,6 +110,9 @@ final class Barrier
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function breakGeneration(int $generation): void
     {
         if ($this->generation !== $generation) {
@@ -128,6 +131,9 @@ final class Barrier
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function completeGeneration(int $generation): void
     {
         $waiters = $this->waiters;

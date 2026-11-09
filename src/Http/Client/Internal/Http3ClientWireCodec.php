@@ -222,6 +222,9 @@ final readonly class Http3ClientWireCodec
         return ['status' => $status, 'headers' => new Headers($fields)];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private static function parseTrailers(DecodedFieldSection $decoded): Headers
     {
         $fields = [];

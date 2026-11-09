@@ -102,6 +102,7 @@ final readonly class RuntimeEnvironment
     /**
      * @param list<RuntimeDriver> $drivers
      * @return list<RuntimeDriver>
+     * @throws \InvalidArgumentException
      */
     private static function normalizeDrivers(array $drivers): array
     {

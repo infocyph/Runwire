@@ -998,6 +998,7 @@ function adaptivePromotionRunCell(string $output, array $case, string $mode, int
  * @param array{build:string,environment_id:string,...<string,mixed>} $identity
  * @param array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool} $options
  * @throws RuntimeException
+ * @throws \Throwable
  */
 function adaptivePromotionSchedule(string $output, array $selected, array $identity, array $options, string $temporary): void
 {

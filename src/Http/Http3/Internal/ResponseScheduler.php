@@ -99,6 +99,7 @@ final class ResponseScheduler
     /**
      * Flush queued QPACK and response bytes within the configured write budget.
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function flush(): void
     {
@@ -195,6 +196,10 @@ final class ResponseScheduler
         return $this->adaptiveResponse->writeLimit($sample, $this->limits->maxWritesPerFlush);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function appendDataFrames(ResponseStream $stream, string $data): void
     {
         $offset = 0;

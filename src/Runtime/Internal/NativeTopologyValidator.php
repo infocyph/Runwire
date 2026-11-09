@@ -42,6 +42,7 @@ final class NativeTopologyValidator
 
     /**
      * @param array<string, Server|StreamServer|DatagramServer> $servers
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     private static function assertHttp3(array $servers, RuntimeSelection $selection): void
     {
@@ -71,6 +72,7 @@ final class NativeTopologyValidator
 
     /**
      * @param array<string, Server|StreamServer|DatagramServer> $servers
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     private static function assertPortableWorkers(array $servers): void
     {

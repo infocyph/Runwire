@@ -52,6 +52,7 @@ final class FrameParser
     /**
      * @return list<Frame>
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     public function push(string $bytes, int $maxFrames = PHP_INT_MAX): array
     {

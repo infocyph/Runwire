@@ -117,6 +117,7 @@ final class NativeStreamWorker
     /**
      * @param array<int, FramedConnection> $sessions
      * @throws \LogicException
+     * @throws \Throwable
      */
     private static function beginDrain(
         WorkerContext $context,

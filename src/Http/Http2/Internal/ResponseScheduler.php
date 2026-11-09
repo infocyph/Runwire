@@ -130,6 +130,7 @@ final class ResponseScheduler
 
     /**
      * Flush schedulable response data to the transport.
+     * @throws \Throwable
      */
     public function flush(): void
     {
@@ -419,6 +420,9 @@ final class ResponseScheduler
         return true;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleTransportDrain(): void
     {
         $this->transportPressured = false;
@@ -626,6 +630,7 @@ final class ResponseScheduler
     /**
      * @param list<array{0: string, 1: string}> $headers
      * @throws \LogicException
+     * @throws \Throwable
      */
     private function sendHeaders(Http2Stream $stream, int $status, array $headers): WriteResult
     {

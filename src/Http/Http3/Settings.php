@@ -14,7 +14,10 @@ final readonly class Settings
     /** @var array<int, int> */
     private array $values;
 
-    /** @param array<int, int> $values */
+    /**
+     * @param array<int, int> $values
+     * @throws \InvalidArgumentException
+     */
     public function __construct(array $values = [])
     {
         $normalized = [];

@@ -140,6 +140,7 @@ final class PhpQuicHttp3Worker
 
     /**
      * Stop accepting new connections and begin graceful draining.
+     * @throws \Throwable
      */
     public function stopAccepting(): void
     {
@@ -207,6 +208,10 @@ final class PhpQuicHttp3Worker
         return hrtime(true) / 1_000_000_000;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     */
     private function acceptConnections(): void
     {
         $remaining = $this->connectionLimit - $this->connectionCount();

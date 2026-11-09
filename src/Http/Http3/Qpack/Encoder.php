@@ -366,7 +366,10 @@ final class Encoder
             : $prefix . IntegerCodec::encode($requiredInsertCount - $base - 1, 7, 0x80);
     }
 
-    /** @param array<int, int> $references */
+    /**
+     * @param array<int, int> $references
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function releaseReferences(array $references): void
     {
         foreach ($references as $absoluteIndex) {
@@ -391,7 +394,10 @@ final class Encoder
         return $sectionBlocking || $this->blockedSections < $this->peerMaxBlockedStreams;
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \InvalidArgumentException
+     */
     private function validateFields(array $fields): void
     {
         $bytes = 0;

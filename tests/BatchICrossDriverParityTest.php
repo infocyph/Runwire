@@ -244,6 +244,7 @@ function batchISummary(RuntimeContext $context, RuntimeApplication $application,
  * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
+ * @throws \Throwable
  */
 function batchIRunNative(int $requests): array
 {

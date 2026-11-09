@@ -126,6 +126,9 @@ final class SignalBridge
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function installHandlers(): void
     {
         $this->previousAsyncSignals = pcntl_async_signals();
@@ -173,6 +176,9 @@ final class SignalBridge
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function restoreHandlers(): void
     {
         if ($this->previousHandlers === []) {

@@ -493,6 +493,7 @@ final class Http2Connection
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function processBufferedFrames(string $data): void
     {

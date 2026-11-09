@@ -48,7 +48,10 @@ final readonly class RequestHeaderValidator
         return new ValidatedRequestHead($method, $target, $regular, $this->contentLength($regular));
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     */
     public function trailers(array $fields): Headers
     {
         [, $regular] = $this->split($fields, false);
@@ -289,6 +292,7 @@ final readonly class RequestHeaderValidator
     /**
      * @param list<array{0: string, 1: string}> $fields
      * @return array{array<string, string>, Headers}
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
      */
     private function split(array $fields, bool $allowPseudo): array
     {

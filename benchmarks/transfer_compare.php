@@ -150,6 +150,7 @@ function transferBenchmarkSource(int $bytes): mixed
  * @param resource $source
  * @param positive-int $chunkBytes
  * @throws RuntimeException
+ * @throws \Throwable
  */
 function manualRead(CoroutineScope $scope, mixed $source, int $chunkBytes): ?string
 {
@@ -193,6 +194,7 @@ function manualEnd(ResponseWriterInterface $writer): void
  * @param resource $source
  * @param positive-int $chunkBytes
  * @throws \RuntimeException
+ * @throws \Throwable
  */
 function manualTransfer(
     CoroutineScope $scope,

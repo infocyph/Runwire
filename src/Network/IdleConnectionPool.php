@@ -165,6 +165,7 @@ final class IdleConnectionPool
      * or unverified buffer state even when the peer wrote during idle time.
      * @throws \LogicException
      * @phpstan-impure
+     * @throws \Throwable
      */
     public function take(PoolIsolationKey $key): ?Connection
     {

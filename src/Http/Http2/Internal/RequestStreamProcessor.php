@@ -485,6 +485,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function creditReceive(?Http2Stream $stream, int $bytes): void
     {

@@ -125,6 +125,9 @@ final class Http3Session
         return $this->state;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function dispatchReadyRequests(): void
     {
         foreach (array_keys($this->pendingRequestStreams) as $streamId) {

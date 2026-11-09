@@ -273,6 +273,8 @@ final class Http2MultiplexConnection
     /**
      * Dispatch frames and emit connection-ready callback after validated SETTINGS.
      * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     private function processFrames(string $bytes): void
     {

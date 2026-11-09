@@ -263,6 +263,9 @@ final class BoundedConnectionPool
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function dispatch(): void
     {
         while (!$this->closed && count($this->active) < $this->maxActive && $this->waiting !== []) {

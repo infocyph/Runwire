@@ -164,6 +164,7 @@ function runwireSoakHttp2(int $requests): array
  * @return array{streams: int, lastReleased: bool}
  * @throws \InvalidArgumentException
  * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireSoakHttp3State(int $requests): array
 {
@@ -203,6 +204,7 @@ function runwireSoakHttp3State(int $requests): array
  * @throws \InvalidArgumentException
  * @throws \LogicException
  * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+ * @throws \Throwable
  */
 function runwireSoakQpack(int $sections): array
 {

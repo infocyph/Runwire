@@ -483,6 +483,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function runDueTimers(): void
     {
         for ($processed = 0; $this->running && $processed < self::MAX_TIMERS_PER_TICK;) {

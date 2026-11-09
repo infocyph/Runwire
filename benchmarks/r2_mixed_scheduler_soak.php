@@ -95,6 +95,7 @@ final class R2MixedProgress
 
     /** @param resource $writer
      * @throws RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function onTimer(SelectLoop $loop, mixed $writer, int $cpuBurst): void
     {
@@ -206,7 +207,13 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
     ];
 }
 
-/** @return array{schema:int,profile:string,runtime_build:string,php_version:string,backend:string,tier_count:int,duration_seconds_per_tier:float,real_socket_io:bool,timers_and_cpu:bool,tiers:list<array{cpu_callbacks_per_tick:int,socket_writes:int,socket_reads:int,pending_socket_bytes:int,max_pending_bytes:int,cpu_callbacks:int,max_sampled_php_bytes:int,memory_drift_bytes:int,watchers_after:int,timers_after:int,deferred_after:int,duration_seconds:float,readable_p50_ms:float,readable_p95_ms:float,readable_p99_ms:float,max_tick_ms:float,max_timer_lag_ms:float,correctness_passed:bool}>,correctness_passed:bool} */
+/**
+ * @return array{schema:int,profile:string,runtime_build:string,php_version:string,backend:string,tier_count:int,duration_seconds_per_tier:float,real_socket_io:bool,timers_and_cpu:bool,tiers:list<array{cpu_callbacks_per_tick:int,socket_writes:int,socket_reads:int,pending_socket_bytes:int,max_pending_bytes:int,cpu_callbacks:int,max_sampled_php_bytes:int,memory_drift_bytes:int,watchers_after:int,timers_after:int,deferred_after:int,duration_seconds:float,readable_p50_ms:float,readable_p95_ms:float,readable_p99_ms:float,max_tick_ms:float,max_timer_lag_ms:float,correctness_passed:bool}>,correctness_passed:bool}
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ */
 function runwireR2MixedSchedulerSoak(float $durationSeconds = 2.0): array
 {
     $tiers = [];

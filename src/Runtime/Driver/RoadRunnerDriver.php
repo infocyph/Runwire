@@ -74,6 +74,9 @@ final class RoadRunnerDriver implements HostDriverInterface
         $this->session?->stop();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function runRequests(RoadRunnerSessionInterface $session, RuntimeApplicationInterface $application): void
     {
         $recycle = new WorkerRecycleState($this->recyclePolicy);

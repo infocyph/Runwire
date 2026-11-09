@@ -103,7 +103,10 @@ final readonly class ResponseTransfer
         $deferred->future()->await();
     }
 
-    /** @param resource $source */
+    /**
+     * @param resource $source
+     * @throws \Throwable
+     */
     private static function pump(
         CoroutineScope $scope,
         mixed $source,

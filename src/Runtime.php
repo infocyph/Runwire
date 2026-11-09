@@ -474,6 +474,7 @@ final class Runtime
     /**
      * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
      * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private function buildSupervisor(array $bound): Supervisor
     {
@@ -659,7 +660,10 @@ final class Runtime
         }
     }
 
-    /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
+    /**
+     * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
+     * @throws \LogicException
+     */
     private function runNativeWorker(WorkerContext $context, array $bound, BoundServer|BoundStreamServer|BoundDatagramServer $target): void
     {
         foreach ($bound as $candidate) {

@@ -75,6 +75,7 @@ final class UnixListener
 
     /**
      * Immediately aborts every active connection.
+     * @throws \Throwable
      */
     public function abortConnections(): void
     {
@@ -149,6 +150,7 @@ final class UnixListener
 
     /**
      * Begins graceful closure of all active connections.
+     * @throws \Throwable
      */
     public function closeConnectionsGracefully(): void
     {
@@ -391,6 +393,9 @@ final class UnixListener
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleAccept(): void
     {
         $loop = $this->loop;

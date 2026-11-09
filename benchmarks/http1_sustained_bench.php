@@ -559,6 +559,7 @@ function http1SustainedHandleReadable(
  * @param array<int, array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}> $clients
  * @param array<string, int> $counter
  * @return array{read:list<resource>, write:list<resource>, map:array<int,int>}
+ * @throws \RuntimeException
  */
 function http1SustainedSelectSets(array &$clients, array &$counter, int $requestLength): array
 {
@@ -661,6 +662,7 @@ function http1SustainedCloseClients(array &$clients): void
 /**
  * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int, io_start:array<string,int>, io_end:array<string,int>}
  * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function http1SustainedRun(
     string $host,

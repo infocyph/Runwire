@@ -83,6 +83,7 @@ final readonly class Http1ClientResponseHeadParser
     /** @param list<string> $lines
      * @return list<HeaderField>
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private static function fields(array $lines, bool $trailers): array
     {

@@ -334,6 +334,9 @@ final readonly class Server
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeouts(float $readySeconds, float $shutdownSeconds): void
     {
         foreach ([

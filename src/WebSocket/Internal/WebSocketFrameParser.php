@@ -87,6 +87,7 @@ final class WebSocketFrameParser
      *
      * @return list<WebSocketFrame>
      * @throws \OverflowException
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      */
     public function parse(int $maxFrames): array
     {

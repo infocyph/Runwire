@@ -275,6 +275,7 @@ function wsWriteAll(mixed $socket, string $wire): void
  * @param resource $socket
  * @throws \WebSocketEvidenceTimeout
  * @throws \RuntimeException
+ * @throws \InvalidArgumentException
  */
 function wsAwaitDataFrame(mixed $socket, int $expectedOpcode): string
 {
@@ -774,6 +775,7 @@ function wsOptions(array $options): array
 /**
  * @return list<array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,error_samples:list<string>,duration_seconds:float,messages_per_second:float,latency_ms:array{p50:float,p95:float,p99:float},correctness_passed:bool}>|null
  * @throws RuntimeException
+ * @throws \JsonException
  */
 function wsTrialSeries(int $port, int $concurrency, float $duration, int $trials): ?array
 {

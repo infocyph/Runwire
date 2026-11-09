@@ -83,6 +83,7 @@ final readonly class PsrMessageBridge
     /**
      * Never consumes the body: caller must supply an appropriate off-loop stream bridge.
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
      */
     public static function requestMetadata(ClientRequest $request, RequestFactoryInterface $factory): RequestInterface
     {

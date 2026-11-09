@@ -48,6 +48,9 @@ final readonly class Http1Input
 
     /**
      * Read one CRLF-terminated line within the configured limit.
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function readLine(int $maxBytes, int $tooLongStatus): ?string
     {

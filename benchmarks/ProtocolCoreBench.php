@@ -160,6 +160,7 @@ final class ProtocolCoreBench
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function benchHttp2HpackDynamicTableChurn(): int
     {
@@ -259,6 +260,10 @@ final class ProtocolCoreBench
         return strlen($head->target);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp2RequestHeaderValidationChurn(): int
     {
         $headers = [

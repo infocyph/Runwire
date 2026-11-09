@@ -47,6 +47,7 @@ final class PortableNativeRuntime
      * @throws \InvalidArgumentException
      * @throws \OverflowException
      * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function run(): void
     {
@@ -177,6 +178,9 @@ final class PortableNativeRuntime
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function close(): void
     {
         $this->cancelDrainTimers();

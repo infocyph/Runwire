@@ -469,6 +469,10 @@ final class FiberScheduler
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \LogicException
+     */
     private function drain(): void
     {
         $this->drainScheduled = false;

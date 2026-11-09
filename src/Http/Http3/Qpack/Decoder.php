@@ -143,7 +143,12 @@ final class Decoder
         $this->blockedBytes += strlen($block);
     }
 
-    /** @return list<ReadyFieldSection> */
+    /**
+     * @return list<ReadyFieldSection>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function retryBlocked(): array
     {
         $ready = [];

@@ -52,6 +52,7 @@ function r0ProfileHandle(HttpRequest $request, ResponseWriterInterface $writer):
  *
  * @return array{schema:int,profile:string,runtime_build:string,php_version:string,iterations:int,warmup_iterations:int,completed:int,correctness_passed:bool,host_network_included:bool,phases:array<string,array{p50_us:float,p95_us:float,p99_us:float,mean_us:float}>,elapsed_seconds:float,php_allocation_delta_bytes:int,php_peak_bytes:int,process_peak_rss_bytes:?int}
  * @throws \InvalidArgumentException
+ * @throws \Throwable
  */
 function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): array
 {

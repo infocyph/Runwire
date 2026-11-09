@@ -200,6 +200,7 @@ final class Http2ClientHandshake
 
     /**
      * @return list<array{0:string,1:string}>
+     * @throws \RuntimeException
      */
     private function requestHeaders(string $method, string $scheme, string $authority, string $path, ?Headers $headers): array
     {

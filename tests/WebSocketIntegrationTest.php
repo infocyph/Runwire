@@ -60,7 +60,10 @@ function runwireWsHandshake(string $headers = '', string $frames = ''): string
         . $frames;
 }
 
-/** @return array{head: string, frames: list<array{opcode: int, payload: string}>} */
+/**
+ * @return array{head: string, frames: list<array{opcode: int, payload: string}>}
+ * @throws \RuntimeException
+ */
 function runwireWsParseServerWire(string $wire): array
 {
     $separator = strpos($wire, "\r\n\r\n");

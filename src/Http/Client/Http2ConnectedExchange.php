@@ -217,6 +217,7 @@ final class Http2ConnectedExchange
     /**
      * Consume at most one bounded frame batch and stop on response completion.
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function processFrames(string $bytes): bool
     {

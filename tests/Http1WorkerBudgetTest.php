@@ -45,6 +45,7 @@ function http1BudgetPair(): array
  *   clients: list<resource>
  * }
  * @throws \InvalidArgumentException
+ * @throws \Throwable
  */
 function http1BudgetRetainedBodies(LoopInterface $loop): array
 {

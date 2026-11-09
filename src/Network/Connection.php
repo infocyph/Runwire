@@ -731,7 +731,10 @@ final class Connection
             && $this->callbackOwnership->unclaimed();
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \Throwable
+     */
     private function readAvailable(mixed $stream, bool &$received, bool &$sawEof): void
     {
         $readThisTick = 0;
