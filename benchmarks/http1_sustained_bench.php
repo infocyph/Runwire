@@ -38,7 +38,7 @@ function http1SustainedCpuModel(): string
     if (is_array($lines)) {
         foreach ($lines as $line) {
             if (str_starts_with(strtolower($line), 'model name') && str_contains($line, ':')) {
-                return trim(explode(':', $line, 2)[1]);
+                return trim(explode(':', $line, 2)[1] ?? '');
             }
         }
     }
@@ -146,7 +146,7 @@ function http1SustainedTreeIoCounters(int $root): array
             }
             [$key, $raw] = explode(':', $line, 2);
             if (in_array($key, ['syscr', 'syscw', 'rchar', 'wchar'], true) && preg_match('/^\\d+$/D', trim($raw)) === 1) {
-                $totals[$key] += max(0, (int) trim($raw));
+                $totals[$key] = ($totals[$key] ?? 0) + max(0, (int) trim($raw));
             }
         }
     }

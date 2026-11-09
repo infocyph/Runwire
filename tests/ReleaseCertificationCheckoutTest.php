@@ -5,9 +5,6 @@ declare(strict_types=1);
 it('checks out the exact matched benchmark candidate in its own working tree', function (): void {
     $workflow = file_get_contents(dirname(__DIR__) . '/.github/workflows/release-certification.yml');
     expect($workflow)->toBeString()->toContain('  matched-performance:', '  candidate-soak:');
-    if (!is_string($workflow)) {
-        throw new RuntimeException('Unable to read release certification workflow.');
-    }
     $performance = explode('  matched-performance:', $workflow, 2)[1]
         ?? throw new RuntimeException('Matched-performance section is missing.');
     $matched = explode('  candidate-soak:', $performance, 2)[0];

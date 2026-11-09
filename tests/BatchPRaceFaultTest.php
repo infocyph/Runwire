@@ -55,7 +55,6 @@ it('reports bounded scheduler and request scope diagnostics without task labels'
 
     $after = $runtime->diagnostics();
     expect($during)->not->toBeNull();
-    $during = $during ?? throw new RuntimeException('Coroutine scheduler diagnostics were not captured.');
     expect($during->activeTasks)->toBe(1)
         ->and($during->runnableTasks)->toBe(1)
         ->and($during->rootScopesActive)->toBe(1)
@@ -89,7 +88,6 @@ it('reports bounded scheduler and request scope diagnostics without task labels'
     $context->complete();
 
     expect($requestDuring)->not->toBeNull();
-    $requestDuring = $requestDuring ?? throw new RuntimeException('Request scope diagnostics were not captured.');
     expect($requestDuring->rootScopesActive)->toBe(1)
         ->and($requestDuring->requestScopesActive)->toBe(1)
         ->and($requestRuntime->diagnostics()->requestScopesActive)->toBe(0);
@@ -162,7 +160,6 @@ it('settles future resolution versus waiter cancellation exactly once', function
 
     $diagnostics = $runtime->diagnostics();
     expect($task)->not->toBeNull();
-    $task = $task ?? throw new RuntimeException('Future waiter task was not captured.');
     expect($task->state())->toBe(TaskState::CANCELLED)
         ->and($diagnostics->spawnedTotal)->toBe(2)
         ->and($diagnostics->completedTotal)->toBe(1)
@@ -272,7 +269,6 @@ it('drains suspended request children before the request root leaves the schedul
 
     $diagnostics = $runtime->diagnostics();
     expect($caught)->not->toBeNull();
-    $caught = $caught ?? throw new RuntimeException('Expected request cancellation was not captured.');
     expect($caught->reason)->toBe(CancellationReason::HOST_CANCELLED)
         ->and($runtime->activeTaskCount())->toBe(0)
         ->and($diagnostics->requestScopesActive)->toBe(0)

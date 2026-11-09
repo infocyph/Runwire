@@ -46,7 +46,6 @@ function runwireOwnedHttp3ClientWireCodecTestCase01(): void
         ->and($frames[0]->type)->toBe(FrameType::HEADERS->value);
     $decoded = (new Decoder(0, 0))->decode($frames[0]->payload, 1);
     expect($decoded)->not->toBeNull();
-    $decoded = $decoded ?? throw new RuntimeException('QPACK request headers did not decode.');
     expect($decoded->requiredInsertCount)->toBe(0)
         ->and($decoded->fields)->toContain(
             [':method', 'GET'],
@@ -208,7 +207,6 @@ function runwireOwnedHttp3ClientWireCodecTestCase08(): void
     expect($frames)->toHaveCount(1)->and($frames[0]->type)->toBe(FrameType::HEADERS->value);
     $fields = (new Decoder(0, 0))->decode($frames[0]->payload, 3);
     expect($fields)->not->toBeNull();
-    $fields = $fields ?? throw new RuntimeException('QPACK request trailers did not decode.');
     expect($fields->fields)->toContain(['x-upload-finished', 'yes']);
     expect(fn() => $codec->encodeRequestTrailers(Headers::fromArray(['content-length' => '42']), 3))
         ->toThrow(InvalidArgumentException::class, 'prohibited')

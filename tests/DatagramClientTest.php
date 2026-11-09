@@ -31,7 +31,6 @@ it('round trips real connected IPv4 UDP through the same inbound datagram engine
     $client->close();
     $server->close();
     expect($response)->toBeInstanceOf(Datagram::class);
-    $response = $response ?? throw new RuntimeException('Expected UDP response was not received.');
     expect($response->payload)->toBe('pong')
         ->and($response->peerAddress)->toBe($server->address())
         ->and($loop->diagnostics()->readWatchers)->toBe(0);

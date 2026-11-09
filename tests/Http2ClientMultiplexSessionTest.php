@@ -116,8 +116,10 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase02(): void
     expect($session->activeCount())->toBe(0)
         ->and($secondFailure)->toBeInstanceOf(RuntimeException::class);
     $session->close();
-    expect($failures['a'])->toHaveCount(1)
-        ->and($failures['b'])->toHaveCount(1);
+    $firstCompletions = $failures['a'] ?? throw new RuntimeException('HTTP/2 cancellation result was not recorded.');
+    $secondCompletions = $failures['b'] ?? throw new RuntimeException('HTTP/2 reset result was not recorded.');
+    expect($firstCompletions)->toHaveCount(1)
+        ->and($secondCompletions)->toHaveCount(1);
 }
 
 it('rejects cross-origin requests, invalid continuation interleaving and unaccepted GOAWAY streams', function (): void {

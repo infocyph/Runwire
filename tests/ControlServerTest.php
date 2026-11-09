@@ -17,6 +17,8 @@ use Throwable;
 
 /**
  * Preserve the production monotonic deadline contract inside test-owned code.
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
  */
 function runwireControlTestDeadline(float $seconds): int
 {

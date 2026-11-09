@@ -206,8 +206,8 @@ it('expires a queued H1 request at its earliest request or inherited deadline', 
         expect($session->metrics()['waiting'])->toBe(1);
         $loop->run();
         expect($completed)->toHaveCount(1)
-            ->and($completed[0])->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class)
-            ->and($completed[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
+            ->and($completed[0])->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
+        expect($completed[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
             ->and($second->settled())->toBeTrue()
             ->and($second->cancel())->toBeFalse()
             ->and($session->metrics()['waiting'])->toBe(0)
@@ -236,8 +236,8 @@ it('settles already expired pooled H1 work without dialing or retaining admissio
             deadline: new \Infocyph\Runwire\RequestDeadline(0),
         ), static function (): void {}, static function (): void {}, static function ($error) use (&$errors): void { $errors[] = $error; });
         expect($errors)->toHaveCount(1)
-            ->and($errors[0])->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class)
-            ->and($errors[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
+            ->and($errors[0])->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
+        expect($errors[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
             ->and($handle->settled())->toBeTrue()
             ->and($session->metrics()['active'])->toBe(0)
             ->and($session->metrics()['waiting'])->toBe(0)

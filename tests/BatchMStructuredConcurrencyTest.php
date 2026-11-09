@@ -54,7 +54,6 @@ it('fails fast on an unhandled child failure and drains cancelled siblings', fun
     expect($caught)->toBe($failure)
         ->and($siblingCleaned)->toBeTrue()
         ->and($capturedScope)->toBeInstanceOf(CoroutineScope::class);
-    $capturedScope = $capturedScope ?? throw new LogicException('Sibling cleanup scope was not captured.');
     expect($capturedScope->secondaryFailures())->toHaveCount(1)
         ->and($capturedScope->secondaryFailures()[0]->getMessage())->toBe('secondary-cleanup-failure')
         ->and($runtime->activeTaskCount())->toBe(0);
@@ -190,7 +189,6 @@ it('drains child cleanup when a nested deadline cancels its owner task', functio
 
     $diagnostics = $loop->diagnostics();
     expect($caught)->toBeInstanceOf(CancelledException::class);
-    $caught = $caught ?? throw new LogicException('Expected deadline cancellation was not observed.');
     expect($caught->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
         ->and($cleaned)->toBeTrue()
         ->and($runtime->activeTaskCount())->toBe(0)
