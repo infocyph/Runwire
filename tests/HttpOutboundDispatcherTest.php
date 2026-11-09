@@ -194,10 +194,16 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
     });
     $results = [];
     $bodies = [];
-    $dispatcher = null;
+    $dispatchState = new class {
+        public ?HttpOutboundDispatcher $dispatcher = null;
+    };
     $owner = new \Infocyph\Runwire\Http\Client\Http2MultiplexConnection(
         $loop, $connection,
-        static function () use (&$dispatcher, &$results, &$bodies, $loop): void {
+        static function () use ($dispatchState, &$results, &$bodies, $loop): void {
+            $dispatcher = $dispatchState->dispatcher;
+            if (!$dispatcher instanceof HttpOutboundDispatcher) {
+                throw new RuntimeException('HTTP/2 dispatcher was not initialized before connection readiness.');
+            }
             $strict = new ClientProtocolPolicy(ProtocolVersion::HTTP_2, [ProtocolVersion::HTTP_2]);
             foreach (['one', 'two'] as $id) {
                 $dispatcher->send(
@@ -217,13 +223,16 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
         },
         maxConcurrentStreams: 2,
     );
-    $dispatcher = new HttpOutboundDispatcher($loop, $dialer, h2Session: $owner);
+    $dispatchState->dispatcher = new HttpOutboundDispatcher($loop, $dialer, h2Session: $owner);
     $watchdog = $loop->delay(3.0, static fn() => $loop->stop());
     try {
         $owner->start();
         $loop->run();
-        expect($results)->toHaveCount(2)
-            ->and($results['one'])->toBeNull()
+        expect($results)->toHaveCount(2);
+        if (!array_key_exists('one', $results) || !array_key_exists('two', $results)) {
+            throw new RuntimeException('HTTP/2 multiplex responses were not both settled.');
+        }
+        expect($results['one'])->toBeNull()
             ->and($results['two'])->toBeNull()
             ->and($bodies)->toBe(['two' => 'two', 'one' => 'one'])
             ->and($seen)->toHaveCount(2)

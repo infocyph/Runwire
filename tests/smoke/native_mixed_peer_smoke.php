@@ -30,6 +30,9 @@ if (!is_resource($http) || !is_resource($tcp) || !is_resource($udp)) {
 $httpAddress = stream_socket_get_name($http, false);
 $tcpAddress = stream_socket_get_name($tcp, false);
 $udpAddress = stream_socket_get_name($udp, false);
+if (!is_string($httpAddress) || !is_string($tcpAddress) || !is_string($udpAddress)) {
+    throw new RuntimeException('Unable to resolve mixed-protocol native socket addresses.');
+}
 $loop = new SelectLoop();
 $supervisor = new Supervisor($loop);
 $supervisor->group(WorkerGroup::callbacks(
@@ -79,9 +82,14 @@ $supervisor->group(WorkerGroup::callbacks(
     shutdownTimeoutSeconds: 0.2,
 ));
 
-$rounds = 0;
-$pids = [];
-$reloadCompleted = false;
+$state = new class {
+    public bool $reloadCompleted = false;
+
+    /** @var list<int> */
+    public array $pids = [];
+
+    public int $rounds = 0;
+};
 $exchange = static function (string $address, string $payload): string {
     $peer = stream_socket_client('tcp://' . $address, $code, $message, 1.0);
     if (!is_resource($peer)) {
@@ -99,11 +107,11 @@ $exchange = static function (string $address, string $payload): string {
 };
 
 $supervisor->onEvent(static function ($event) use (
-    $supervisor, $loop, $httpAddress, $tcpAddress, $udpAddress, $exchange, &$rounds, &$pids, &$reloadCompleted,
+    $supervisor, $loop, $httpAddress, $tcpAddress, $udpAddress, $exchange, $state,
 ): void {
     if ($event->type === SupervisorEventType::RELOAD_COMPLETED) {
-        $reloadCompleted = true;
-        if ($rounds === 4) {
+        $state->reloadCompleted = true;
+        if ($state->rounds === 4) {
             $supervisor->stop();
         }
 
@@ -112,7 +120,7 @@ $supervisor->onEvent(static function ($event) use (
     if ($event->type !== SupervisorEventType::WORKER_READY || $event->pid === null) {
         return;
     }
-    $pids[] = $event->pid;
+    $state->pids[] = $event->pid;
     $response = $exchange($httpAddress, "GET /live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
     if (!str_contains($response, '200 OK') || !str_ends_with($response, "\r\n\r\nok")
         || $exchange($tcpAddress, 'ping') !== 'pong') {
@@ -131,16 +139,16 @@ $supervisor->onEvent(static function ($event) use (
     } finally {
         fclose($udpClient);
     }
-    ++$rounds;
-    if ($rounds === 1) {
+    ++$state->rounds;
+    if ($state->rounds === 1) {
         posix_kill($event->pid, SIGKILL);
-    } elseif ($rounds === 2) {
+    } elseif ($state->rounds === 2) {
         if (!$supervisor->recycle('mixed-native', 0)) {
             throw new RuntimeException('Native recycle unexpectedly refused.');
         }
-    } elseif ($rounds === 3) {
+    } elseif ($state->rounds === 3) {
         $loop->delay(0.05, static fn() => $supervisor->reload());
-    } elseif ($rounds === 4 && $reloadCompleted) {
+    } elseif ($state->rounds === 4 && $state->reloadCompleted) {
         $supervisor->stop();
     }
 });
@@ -148,8 +156,8 @@ $supervisor->onEvent(static function ($event) use (
 $loop->delay(7.0, static fn() => $supervisor->stop(true));
 try {
     $supervisor->run();
-    if ($rounds !== 4 || !$reloadCompleted
-        || count(array_unique($pids)) !== 4 || $supervisor->status()->workerCount !== 0) {
+    if ($state->rounds !== 4 || !$state->reloadCompleted
+        || count(array_unique($state->pids)) !== 4 || $supervisor->status()->workerCount !== 0) {
         throw new RuntimeException('Mixed-peer crash, recycle, reload, or stop did not fully complete.');
     }
     fwrite(STDOUT, "Native live HTTP/1 + TCP + UDP across SIGKILL/recycle/reload/stop passed.\n");
