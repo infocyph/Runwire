@@ -1,5 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
+
+## Batch 144 — exact-head reconciliation and remaining exception contracts
+
+- Parent: `5a4e41f31360cab8eca158abfe6886d244ae02f3`; Security & Standards run `42676537249`, PHP 8.4 and 8.5 analyzer jobs `129359372287` / `129359372351`. Each has **61 Psalm blocking issues in 25 unique PHP files** (not 122 independent issues); PHPStan **PASS (0)** on both, Composer audit **PASS**. All four PHPForge QA variants, both benchmark lanes, both HTTP/3+QUIC, Swoole, hosted, portable native, Source Audit, HTTP/2 reference, release candidate and Sphinx passed on that parent.
+- Exact parent Psalm inventory: 32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep, 1 UnresolvableInclude, 10 MissingThrowsDocblock, 1 PossiblyNullArgument. Forty-nine security-taint findings remain an independent trust-boundary audit; never suppress, alter scanner scope or loosen security policy.
+- **Batch 144 submitted:** Accurate propagated `@throws` contracts in 7 PHP files (HTTP/3, QPACK, native workers and scheduler benchmark) and non-null proven DevelopmentWatchPolicy in Supervisor. Eight affected PHP files plus this tracker, one commit; no arbitrary padding. The top-level smoke fixture's MissingThrowsDocblock is carried for root-cause evaluation.
+- Source Audit already contains test-backed dispositions for the touched published classes. Run exact-head Source Audit to verify this remains true; do not declare it certified on parent evidence.
+- Rules: PHPForge CORE-01 preserves public/protocol/exception semantics, FLOW-02 forbids detector evasion, EXEC-03 requires exact-head verification; unchanged dependency versions, thresholds, scan scope, runtime code, benchmark limits and tests. Exact-head Psalm/PHPStan and full QA **PENDING**. PR remains open/draft/unmerged/untagged. Next batch: audit and correct real file/network/dynamic include trust boundaries, up to 100 affected files.
+
+
 ## Current dual-analyzer checkpoint — Batch 142, SHA b371964eec34
 
 - Exact source SHA: `40b0930fc58fa3def3a6a0375b63f53e993d377c`; Security & Standards `42673791199`, PHP 8.4 analysis job `129351375885`. **Psalm: 82 blocking errors** across 29 unique PHP files, consisting of 32 missing exception docs, 49 security taint (32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep), and one dynamic unresolved include. **PHPStan: one error**, `complexity.classLike` for Supervisor (81 vs 80 limit). PHP 8.5 analysis not yet independently verified for this SHA.

@@ -111,7 +111,9 @@ final class ConnectionState
      * Finish a tracked request stream.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
-     */
+          * @throws \LogicException
+     * @throws \OverflowException
+*/
     public function finishRequestStream(int $streamId): void
     {
         $stream = $this->requestStreams[$streamId] ?? null;
@@ -390,7 +392,8 @@ final class ConnectionState
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \LogicException
-     */
+          * @throws \OverflowException
+*/
     private function processPeerEncoderInstructions(string $payload): void
     {
         if ($payload === '') {

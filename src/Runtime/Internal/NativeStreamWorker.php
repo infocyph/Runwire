@@ -98,7 +98,8 @@ final class NativeStreamWorker
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \RuntimeException
-     */
+          * @throws \Throwable
+*/
     public static function run(
         WorkerContext $context,
         BoundStreamServer $bound,

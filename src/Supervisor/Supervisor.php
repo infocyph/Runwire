@@ -854,6 +854,7 @@ final class Supervisor
             return;
         }
 
+        /** @var DevelopmentWatchPolicy $policy */
         $this->developmentWatcher = new DevelopmentWatcher(
             $this->loop,
             $policy,

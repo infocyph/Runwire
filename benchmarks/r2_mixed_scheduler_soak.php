@@ -128,7 +128,8 @@ final class R2MixedProgress
  * @throws \LogicException
  * @throws \OverflowException
  * @throws \RuntimeException
- */
+      * @throws \Throwable
+*/
 function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
 {
     if ($cpuBurst < 1 || $cpuBurst > 192 || $durationSeconds < 0.1

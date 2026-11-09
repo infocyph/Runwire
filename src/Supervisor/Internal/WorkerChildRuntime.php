@@ -103,7 +103,8 @@ final class WorkerChildRuntime
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      * @throws \LogicException
-     */
+          * @throws \Throwable
+*/
     private static function runBackgroundLoop(?SelectLoop $loop, WorkerContext $context): void
     {
         if ($loop === null) {

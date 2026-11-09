@@ -486,7 +486,8 @@ final class PhpQuicHttp3Connection
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \LogicException
      * @throws \UnexpectedValueException
-     */
+          * @throws \OverflowException
+*/
     private function drainStreams(?array $ready = null, ?PhpQuicEventMasks $events = null): void
     {
         $readLimit = $this->adaptivePump->readLimit($this->limits->maxReadsPerPump);
