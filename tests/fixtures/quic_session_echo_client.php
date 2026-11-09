@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/benchmarks/cli_local_paths.php';
+
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/NativeReply.php';
 
@@ -16,6 +18,7 @@ if (!isset($argc, $argv)) {
 if ($argc !== 5 || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
     throw new InvalidArgumentException('Expected host, UDP port, trusted CA and uni receipt marker.');
 }
+$receiptPath = runwireBenchmarkOutputPath($argv[4]);
 $loop = new SelectLoop();
 $session = new QuicClientSession($loop, 8);
 $completed = [];
@@ -134,13 +137,13 @@ try {
             json_encode($completed, JSON_THROW_ON_ERROR),
         )));
     });
-    $sendUni = static function () use ($session, $loop, $stop, $timeout, &$completed, $argv): void {
+    $sendUni = static function () use ($session, $loop, $stop, $timeout, &$completed, $receiptPath): void {
         $session->command(
             'open_uni',
             0,
             '',
             false,
-            static function (mixed $opened, ?Throwable $error) use ($session, $loop, $stop, $timeout, &$completed, $argv): void {
+            static function (mixed $opened, ?Throwable $error) use ($session, $loop, $stop, $timeout, &$completed, $receiptPath): void {
                 if ($error === null) {
                     $opened = \Infocyph\Runwire\Tests\Support\nativeReply($opened);
                 }
@@ -154,7 +157,7 @@ try {
                     $opened['stream'],
                     'one-way-quic-stream',
                     true,
-                    static function (mixed $written, ?Throwable $error) use ($session, $loop, $stop, $timeout, &$completed, $argv): void {
+                    static function (mixed $written, ?Throwable $error) use ($session, $loop, $stop, $timeout, &$completed, $receiptPath): void {
                         if ($error === null) {
                             $written = \Infocyph\Runwire\Tests\Support\nativeReply($written);
                         }
@@ -163,11 +166,11 @@ try {
 
                             return;
                         }
-                        $poll = static function () use (&$poll, $session, $loop, $stop, $timeout, &$completed, $argv): void {
+                        $poll = static function () use (&$poll, $session, $loop, $stop, $timeout, &$completed, $receiptPath): void {
                             if (!$session->active()) {
                                 return;
                             }
-                            $receipt = is_file($argv[4]) ? file_get_contents($argv[4]) : false;
+                            $receipt = is_file($receiptPath) ? file_get_contents($receiptPath) : false;
                             if ($receipt === false) {
                                 // The independent peer may lose the first post-handshake
                                 // packet. Worker-local QUIC retransmission must keep
@@ -203,7 +206,7 @@ try {
                                 0,
                                 '',
                                 false,
-                                static function (mixed $profile, ?Throwable $error) use ($session, $loop, $stop, $timeout, $argv): void {
+                                static function (mixed $profile, ?Throwable $error) use ($session, $loop, $stop, $timeout, $receiptPath): void {
                                     if ($error === null) {
                                         $profile = \Infocyph\Runwire\Tests\Support\nativeReply($profile);
                                     }
@@ -213,7 +216,7 @@ try {
 
                                         return;
                                     }
-                                    $path = $argv[4] . '.profile.json';
+                                    $path = $receiptPath . '.profile.json';
                                     $written = file_put_contents($path, json_encode($profile, JSON_THROW_ON_ERROR));
                                     if (!is_int($written) || $written < 1) {
                                         $stop(new RuntimeException('Unable to persist native QUIC worker profile.'));
@@ -444,7 +447,7 @@ try {
         throw new RuntimeException('Native QUIC worker session leaked ownership or failed echo parity.');
     }
 
-    $profileJson = file_get_contents($argv[4] . '.profile.json');
+    $profileJson = file_get_contents($receiptPath . '.profile.json');
     $profile = is_string($profileJson) ? json_decode($profileJson, true, 32, JSON_THROW_ON_ERROR) : null;
     if (!is_array($profile) || ($profile['poll_calls'] ?? 0) < 1
         || ($profile['write_calls'] ?? 0) < 1 || ($profile['read_calls'] ?? 0) < 1

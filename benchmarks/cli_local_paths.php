@@ -52,7 +52,7 @@ function runwireBenchmarkOutputPath(string $path): string
 /**
  * Bound a caller-provided sampling interval before a blocking sleep.
  *
- * @throws \RuntimeException
+ * @throws \InvalidArgumentException
  */
 function runwireBenchmarkSampleInterval(int $interval): int
 {

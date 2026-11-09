@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/cli_local_paths.php';
+
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Headers;
@@ -27,7 +29,7 @@ if ($argc !== 7) {
 $port = (int) $argv[1];
 $certificate = $argv[2];
 $privateKey = $argv[3];
-$readyFile = $argv[4];
+$readyFile = runwireBenchmarkOutputPath($argv[4]);
 $mode = AdaptivePolicyMode::from(strtolower($argv[5]));
 $payloadBytes = (int) $argv[6];
 if ($port < 1 || $port > 65_535 || $payloadBytes < 1 || $payloadBytes > 1_048_576) {

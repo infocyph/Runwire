@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/benchmarks/cli_local_paths.php';
+
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
@@ -23,6 +25,7 @@ $api = $argv[3] ?? 'factory';
 if ($port < 1 || $port > 65_535 || $trace === '' || !in_array($api, ['factory', 'callback'], true)) {
     throw new InvalidArgumentException('Expected a port, trace path and factory/callback API.');
 }
+$trace = runwireBenchmarkOutputPath($trace);
 $record = static function (string $event, RuntimeContext $context) use ($trace): void {
     $line = json_encode(['event' => $event, 'pid' => getmypid(), 'runtime_pid' => $context->pid], JSON_THROW_ON_ERROR);
     if (file_put_contents($trace, $line . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {

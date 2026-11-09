@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/benchmarks/cli_local_paths.php';
+
 use Infocyph\Runwire\DatagramServer;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Http3Options;
@@ -50,7 +52,7 @@ $tcpPort = mixedNativePort($argv[2]);
 $udpPort = mixedNativePort($argv[3]);
 $certificate = $argv[4] ?? throw new InvalidArgumentException('Missing certificate path.');
 $key = $argv[5] ?? throw new InvalidArgumentException('Missing private key path.');
-$eventLog = $argv[6] ?? throw new InvalidArgumentException('Missing event log path.');
+$eventLog = runwireBenchmarkOutputPath($argv[6] ?? throw new InvalidArgumentException('Missing event log path.'));
 $http = new Server(
     name: 'mixed-http',
     address: '127.0.0.1:' . $tlsPort,

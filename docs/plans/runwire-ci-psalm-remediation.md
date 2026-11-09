@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 149 — validated local HTTP/3, QUIC and lifecycle evidence paths
+
+- Parent `8f599ef85c9d262dfa82ac50d66ef5501488cdc0`, Security & Standards `42684345925`. PHP 8.4 Psalm **51 blocking findings** (49 taint, 1 dynamic include, 1 exception contract); PHPStan PASS. All four strict PHPForge QA variants PASS on parent; both benchmark jobs PASS, HTTP/3 PHP 8.4 PASS, PHP 8.5 protocol still in progress at preparation. The same Psalm count should be independently verified on PHP 8.5.
+- **Batch 149 submitted:** Fix the one observed exception-docblock mismatch in the bounded CLI sampling helper. Apply the existing tested canonical-local output validator to readiness artifacts in two HTTP/3 benchmark servers and one interop fixture, native mixed-runtime event logs, Swoole lifecycle trace and QUIC receipt/profile artifacts. QUIC callback captures use only the validated receipt filename, not the full unvalidated CLI argument array. The validator rejects wrappers, symlink output leaves and non-writable parents; no taint escape/suppression or analyzer configuration changes.
+- **Seven affected PHP files + tracker, one commit**, not padded. Existing Swoole, QUIC, HTTP/3, benchmark and native suites must demonstrate parity on exact new SHA. Verify both strict analyzers, four QA, source audit, docs and complete runtime/protocol checks before certification.
+- Security-taint sinks may remain reported because Psalm conservatively tracks CLI-selected paths even after runtime authorization. Maintain the strict detections and investigate all remaining sites rather than hiding them or changing public contracts solely for analyzer output. PR stays open/draft/unmerged and untagged.
+
+
+
 ## Batch 148 — restore strict PHPForge policy and correct exception contracts
 
 - Parent `7c9951fbf56831dd517820cf77eec70bdecc23a0`, Security & Standards `42683140866`: Psalm PHP 8.4 and 8.5 **46 blocking findings** (53 → 46; −7), PHPStan PASS. Strict QA fails Skip Directive Scanner on four `@psalm-taint-escape` tags and Comment Policy on three `@psalm-flow` tags in the new CLI helper; such tags are prohibited by PHPForge FLOW-02 regardless of apparent Psalm reductions. Pest, Pint, PHPCS, Deptrac and Rector passed in the inspected QA run.
