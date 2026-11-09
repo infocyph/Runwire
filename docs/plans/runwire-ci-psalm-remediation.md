@@ -1,5 +1,15 @@
 # Runwire CI / Psalm remediation batches
 
+## Current dual-analyzer checkpoint — Batch 119 exact HEAD
+
+- Exact source SHA: `93206cb0c2f91d25b0b2807777a667f375a8daec` (2026-11-09); latest completed **Security & Standards** run: 42541785714.
+- PHP 8.4 and PHP 8.5: **789 blocking Psalm errors each**, with 1,126 / 1,127 additional informational issues respectively; counts are per analyzer job, **not additive**.
+- PHPStan fails on both versions and reports **1,000+ errors** per job; only the first 1,000 are displayed. Use the existing `PHPSTAN_TABLE_ERROR_FORMATTER_FORCE_SHOW_ALL_ERRORS=1` environment setting in a diagnostic run to obtain a complete inventory; do not reduce analysis scope or strictness.
+- All four PHPForge QA configurations, both benchmark jobs, HTTP/3/QUIC, Source Audit, portable native, hosted runtime, Swoole, HTTP/2 reference, release-candidate and documentation workflows passed for the exact SHA. The two PHPForge analysis jobs failed.
+- **Execution target from Batch 120 onward:** up to 100 actual affected PHP files per commit, addressing Psalm and PHPStan together. Never pad a batch with unrelated files. Count unique files, and measure post-commit analyzer deltas before calling a batch verified. No custom analyzer config, suppressions, ignored paths or automatic merge/release.
+
+**Batch 120 implementation submitted — benchmark evidence typing:** Four benchmark files plus this tracker. Normalize decoded regression-summary object keys into an explicitly string-keyed map, reject invalid keys before metrics comparisons, remove redundant float casts in adaptive aggregation, maintain named metadata checks and list return shapes, keep all original variance/latency/RSS budgets while making float expressions explicit, and use the guaranteed `proc_get_status()` shape (PHP 8.4+) without redundant array/cast checks. Replace a false-or-array `glob()` shortcut with an explicit failure distinction. No published Runwire API, benchmark thresholds, analyzer settings, test assertions, or security authorization changes. **Pending:** verify the exact Batch 120 commit in Psalm and PHPStan PHP 8.4/8.5, four strict QA variants, benchmarks, source audit, Swoole/native/hosted/protocol and documentation. Taint findings require separate boundary review.
+
 ## Baseline
 
 - Base branch: `main`, commit `7034ff908058edf476e4918ff60902c4004e39bf`.

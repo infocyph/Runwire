@@ -500,33 +500,28 @@ function adaptivePromotionStart(array $command, string $stdout, string $stderr, 
         throw new RuntimeException('Unable to start adaptive promotion process.');
     }
     $status = proc_get_status($process);
-    if (!is_array($status) || (int) ($status['pid'] ?? 0) < 2) {
+    if ($status['pid'] < 2) {
         proc_terminate($process);
         proc_close($process);
 
         throw new RuntimeException('Adaptive promotion process did not expose a PID.');
     }
 
-    return ['process' => $process, 'pid' => (int) $status['pid']];
+    return ['process' => $process, 'pid' => $status['pid']];
 }
 
 /** @param resource $process */
 function adaptivePromotionStop($process, int $pid): void
 {
     $status = proc_get_status($process);
-    if (!is_array($status)) {
-        proc_close($process);
-
-        return;
-    }
-    if (($status['running'] ?? false) === true) {
+    if ($status['running']) {
         posix_kill(-$pid, SIGTERM);
         $deadline = microtime(true) + 10.0;
         do {
             usleep(50_000);
             $status = proc_get_status($process);
-        } while (($status['running'] ?? false) === true && microtime(true) < $deadline);
-        if (($status['running'] ?? false) === true) {
+        } while ($status['running'] && microtime(true) < $deadline);
+        if ($status['running']) {
             posix_kill(-$pid, SIGKILL);
         }
     }
@@ -542,11 +537,8 @@ function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog
     $deadline = microtime(true) + $timeoutSeconds;
     do {
         $status = proc_get_status($process);
-        if (!is_array($status)) {
-            throw new RuntimeException('Unable to inspect adaptive promotion process.');
-        }
-        if (($status['running'] ?? false) !== true) {
-            $code = (int) ($status['exitcode'] ?? -1);
+        if (!$status['running']) {
+            $code = $status['exitcode'];
             proc_close($process);
 
             return $code;
@@ -554,7 +546,7 @@ function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog
         usleep(50_000);
     } while (microtime(true) < $deadline);
 
-    $pid = (int) ($status['pid'] ?? 0);
+    $pid = $status['pid'];
     if ($pid > 1) {
         posix_kill(-$pid, SIGKILL);
     }
@@ -657,7 +649,7 @@ function adaptivePromotionRunTrial(
             'h3' => [adaptivePromotionPython('h3'), 'benchmarks/http3_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds, (string) $case['payload_bytes']],
         };
         $clientRun = adaptivePromotionStart($client, $resultPath . '.raw', $clientLog, $environment);
-        $timeout = (float) $warmup + (4.0 * (float) $seconds) + 90.0;
+        $timeout = $warmup + (4.0 * $seconds) + 90.0;
         $code = adaptivePromotionWait($clientRun['process'], $timeout, $clientLog);
         if ($code !== 0) {
             throw new RuntimeException('Adaptive promotion client failed with exit code ' . $code . '.');
@@ -847,9 +839,12 @@ function adaptivePromotionMain(array $argv): int
             }
         }
     } finally {
-        foreach (glob($temporary . '/*') ?: [] as $path) {
-            if (is_file($path)) {
-                unlink($path);
+        $temporaryFiles = glob($temporary . '/*');
+        if (is_array($temporaryFiles)) {
+            foreach ($temporaryFiles as $path) {
+                if (is_file($path)) {
+                    unlink($path);
+                }
             }
         }
         if (is_dir($temporary)) {

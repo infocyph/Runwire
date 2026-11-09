@@ -91,13 +91,13 @@ function adaptiveMatrixCv(array $values): float
     if ($count < 2) {
         throw new RuntimeException('Adaptive variance needs repeated positive throughput samples.');
     }
-    $mean = (float) array_sum($values) / (float) $count;
+    $mean = array_sum($values) / (float) $count;
     if ($mean <= 0) {
         throw new RuntimeException('Adaptive variance needs repeated positive throughput samples.');
     }
     $squares = array_sum(array_map(static fn(float $value): float => ($value - $mean) ** 2.0, $values));
 
-    return sqrt((float) $squares / (float) (count($values) - 1)) / $mean * 100.0;
+    return sqrt($squares / (float) (count($values) - 1)) / $mean * 100.0;
 }
 
 /**
@@ -120,7 +120,7 @@ function adaptiveMatrixSummarize(array $records): array
             throw new RuntimeException('Adaptive evidence is missing metadata: ' . $name);
         }
     }
-    if (!in_array($reference['mode'], ['auto', 'fixed', 'latency', 'throughput'], true)) {
+    if (!in_array($reference['mode'] ?? null, ['auto', 'fixed', 'latency', 'throughput'], true)) {
         throw new RuntimeException('Adaptive evidence has an invalid policy mode.');
     }
     adaptiveMatrixMetric($reference, 'warmup_seconds');
@@ -156,7 +156,7 @@ function adaptiveMatrixSummarize(array $records): array
     $validatedPhases = [];
     foreach ($records as $record) {
         foreach ($metadata as $name) {
-            if (($record[$name] ?? null) !== $reference[$name]) {
+            if (($record[$name] ?? null) !== ($reference[$name] ?? null)) {
                 throw new RuntimeException('Adaptive evidence metadata mismatch: ' . $name);
             }
         }
@@ -235,6 +235,6 @@ function adaptiveMatrixSummarize(array $records): array
 }
 
 if (realpath($argv[0] ?? '') === __FILE__) {
-    $records = array_map(adaptiveMatrixLoad(...), array_slice($argv, 1));
+    $records = array_values(array_map(adaptiveMatrixLoad(...), array_slice($argv, 1)));
     fwrite(STDOUT, json_encode(adaptiveMatrixSummarize($records), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 }

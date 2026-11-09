@@ -37,12 +37,20 @@ function loadSummary(string $path): array
         throw new RuntimeException(sprintf('Summary "%s" must contain a JSON object.', $path));
     }
 
+    $summary = [];
+    foreach ($decoded as $name => $value) {
+        if (!is_string($name)) {
+            throw new RuntimeException(sprintf('Summary "%s" requires string field names.', $path));
+        }
+        $summary[$name] = $value;
+    }
+
     foreach ([
         'protocol', 'workload', 'php_version', 'hardware_id', 'host_os', 'host_cpu',
         'instrumentation', 'tls', 'opcache', 'connection_reuse',
         'runtime_build',
     ] as $field) {
-        if (!isset($decoded[$field]) || !is_string($decoded[$field]) || $decoded[$field] === '') {
+        if (!isset($summary[$field]) || !is_string($summary[$field]) || $summary[$field] === '') {
             throw new RuntimeException(sprintf('Summary "%s" requires string "%s".', $path, $field));
         }
     }
@@ -51,28 +59,28 @@ function loadSummary(string $path): array
         'median_successful_rps', 'median_successful_rpm', 'rps_cv_percent',
         'median_p99_ms', 'peak_rss_bytes',
     ] as $field) {
-        regressionSummaryMetric($decoded, $field);
+        regressionSummaryMetric($summary, $field);
     }
-    if ((regressionSummaryMetric($decoded, 'trials') < 5) || regressionSummaryMetric($decoded, 'duration_seconds_per_trial') < 180
-        || regressionSummaryMetric($decoded, 'workers') <= 0 || regressionSummaryMetric($decoded, 'concurrency') <= 0
-        || regressionSummaryMetric($decoded, 'median_successful_rps') <= 0 || regressionSummaryMetric($decoded, 'median_successful_rpm') <= 0
-        || regressionSummaryMetric($decoded, 'rps_cv_percent') < 0 || regressionSummaryMetric($decoded, 'median_p99_ms') < 0
-        || regressionSummaryMetric($decoded, 'peak_rss_bytes') < 0) {
+    if ((regressionSummaryMetric($summary, 'trials') < 5) || regressionSummaryMetric($summary, 'duration_seconds_per_trial') < 180
+        || regressionSummaryMetric($summary, 'workers') <= 0 || regressionSummaryMetric($summary, 'concurrency') <= 0
+        || regressionSummaryMetric($summary, 'median_successful_rps') <= 0 || regressionSummaryMetric($summary, 'median_successful_rpm') <= 0
+        || regressionSummaryMetric($summary, 'rps_cv_percent') < 0 || regressionSummaryMetric($summary, 'median_p99_ms') < 0
+        || regressionSummaryMetric($summary, 'peak_rss_bytes') < 0) {
         throw new RuntimeException(sprintf('Summary "%s" has invalid measurement ranges.', $path));
     }
-    if (($decoded['correctness_passed'] ?? null) !== true) {
+    if (($summary['correctness_passed'] ?? null) !== true) {
         throw new RuntimeException(sprintf('Summary "%s" did not pass correctness.', $path));
     }
-    if (!isset($decoded['extension_versions']) || !is_array($decoded['extension_versions'])) {
+    if (!isset($summary['extension_versions']) || !is_array($summary['extension_versions'])) {
         throw new RuntimeException(sprintf('Summary "%s" is missing extension version provenance.', $path));
     }
-    foreach ($decoded['extension_versions'] as $name => $version) {
+    foreach ($summary['extension_versions'] as $name => $version) {
         if (!is_string($name) || $name === '' || !is_string($version) || $version === '') {
             throw new RuntimeException(sprintf('Summary "%s" has invalid extension version provenance.', $path));
         }
     }
 
-    return $decoded;
+    return $summary;
 }
 
 $baseline = loadSummary($argv[1]);
