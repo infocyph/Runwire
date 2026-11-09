@@ -13,12 +13,19 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
 
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
 function runwireHttpPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray();
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
 
-    return $pair;
+    return [$pair[0], $pair[1]];
 }
 
 /**
@@ -40,6 +47,9 @@ function runwireHttpExchange(string $wire, callable $handler, ?Http1Limits $limi
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
     fclose($client);
+    if (!is_string($response)) {
+        throw new \RuntimeException('Unable to read the HTTP/1 response fixture.');
+    }
 
     return $response;
 }

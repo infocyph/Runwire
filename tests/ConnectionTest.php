@@ -9,11 +9,19 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
 function runwireConnectionPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray();
-    return $pair;
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
 }
 
 it('bounds receive buffering and resumes below the low watermark', function (): void {

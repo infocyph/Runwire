@@ -22,12 +22,19 @@ use ReflectionProperty;
 use RuntimeException;
 
 
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
 function runwireAsyncConnectionPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray();
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
 
-    return $pair;
+    return [$pair[0], $pair[1]];
 }
 
 function runwireCurrentRssBytes(): ?int

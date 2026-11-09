@@ -10,12 +10,19 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
 
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
 function runwireHttpBackpressurePair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray();
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
 
-    return $pair;
+    return [$pair[0], $pair[1]];
 }
 
 it('pauses request intake at the body watermark and resumes after consumption', function (): void {
