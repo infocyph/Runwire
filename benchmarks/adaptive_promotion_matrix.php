@@ -140,12 +140,21 @@ function adaptivePromotionCodeIdentity(): string
 
 function adaptivePromotionPython(string $protocol): string
 {
-    return match ($protocol) {
-        'http1' => getenv('RUNWIRE_H1_PYTHON') ?: '/usr/bin/python3',
-        'h2' => getenv('RUNWIRE_H2_PYTHON') ?: '/tmp/runwire-h2/bin/python',
-        'h3' => getenv('RUNWIRE_AIOQUIC_PYTHON') ?: '/tmp/runwire-aioquic/bin/python',
+    $variable = match ($protocol) {
+        'http1' => 'RUNWIRE_H1_PYTHON',
+        'h2' => 'RUNWIRE_H2_PYTHON',
+        'h3' => 'RUNWIRE_AIOQUIC_PYTHON',
         default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
     };
+    $fallback = match ($protocol) {
+        'http1' => '/usr/bin/python3',
+        'h2' => '/tmp/runwire-h2/bin/python',
+        'h3' => '/tmp/runwire-aioquic/bin/python',
+        default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
+    };
+    $configured = getenv($variable);
+
+    return $configured !== false && $configured !== '' && $configured !== '0' ? $configured : $fallback;
 }
 
 /**
@@ -213,8 +222,9 @@ function adaptivePromotionEnvironment(string $protocol): array
         }
     }
 
+    $hostname = gethostname();
     $environment = [
-        'host' => gethostname() ?: 'unknown',
+        'host' => $hostname !== false && $hostname !== '' && $hostname !== '0' ? $hostname : 'unknown',
         'system' => php_uname(),
         'cpu' => array_keys($cpu),
         'runtime' => [
@@ -463,7 +473,12 @@ function adaptivePromotionPickPort(bool $udp): int
         throw new RuntimeException('Unable to resolve ephemeral benchmark port.');
     }
 
-    return (int) substr(strrchr($name, ':'), 1);
+    $separator = strrpos($name, ':');
+    if ($separator === false) {
+        throw new RuntimeException('Unable to resolve ephemeral benchmark port.');
+    }
+
+    return (int) substr($name, $separator + 1);
 }
 
 /**

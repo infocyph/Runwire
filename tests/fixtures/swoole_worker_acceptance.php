@@ -12,15 +12,21 @@ $request = static function (int $port, string $path = '/probe') use ($check): ar
     $stream = fopen('http://127.0.0.1:' . $port . $path, 'r', false, stream_context_create([
         'http' => ['timeout' => 3, 'ignore_errors' => true],
     ]));
-    $check(is_resource($stream), 'HTTP request failed: ' . $path);
+    if (!is_resource($stream)) {
+        throw new RuntimeException('HTTP request failed: ' . $path);
+    }
     try {
         $metadata = stream_get_meta_data($stream);
         $check(preg_match('/^HTTP\/\S+ 200\b/', $metadata['wrapper_data'][0] ?? '') === 1, 'Unexpected HTTP status.');
         $body = stream_get_contents($stream);
         $metadata = stream_get_meta_data($stream);
-        $check(is_string($body) && !$metadata['timed_out'], 'Incomplete HTTP response.');
+        if (!is_string($body) || $metadata['timed_out']) {
+            throw new RuntimeException('Incomplete HTTP response.');
+        }
         $result = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
-        $check(is_array($result), 'Expected a JSON response object.');
+        if (!is_array($result)) {
+            throw new RuntimeException('Expected a JSON response object.');
+        }
 
         return $result;
     } finally {
@@ -38,7 +44,9 @@ $parallelRequests = static function (int $port, int $count) use ($check): array 
     try {
         for ($index = 0; $index < $count; ++$index) {
             $socket = stream_socket_client('tcp://127.0.0.1:' . $port, $errorCode, $error, 3.0);
-            $check(is_resource($socket), 'Unable to create concurrent worker probe: ' . $error);
+            if (!is_resource($socket)) {
+                throw new RuntimeException('Unable to create concurrent worker probe: ' . $error);
+            }
             stream_set_timeout($socket, 5);
             $check(fwrite($socket, $requestBytes) === strlen($requestBytes), 'Incomplete concurrent worker probe request.');
             $sockets[] = $socket;
@@ -46,9 +54,13 @@ $parallelRequests = static function (int $port, int $count) use ($check): array 
 
         foreach ($sockets as $socket) {
             $response = stream_get_contents($socket);
-            $check(is_string($response), 'Unable to read concurrent worker probe response.');
+            if (!is_string($response)) {
+                throw new RuntimeException('Unable to read concurrent worker probe response.');
+            }
             $boundary = strpos($response, "\r\n\r\n");
-            $check($boundary !== false, 'Concurrent worker probe returned incomplete HTTP headers.');
+            if ($boundary === false) {
+                throw new RuntimeException('Concurrent worker probe returned incomplete HTTP headers.');
+            }
             $status = substr($response, 0, $boundary);
             $check(preg_match('/^HTTP\/\S+ 200\b/', $status) === 1, 'Concurrent worker probe returned a non-200 status.');
             $body = substr($response, $boundary + 4);
@@ -57,7 +69,9 @@ $parallelRequests = static function (int $port, int $count) use ($check): array 
                 $decodedChunks = [];
                 while (true) {
                     $lineEnd = strpos($body, "\r\n", $cursor);
-                    $check($lineEnd !== false, 'Truncated chunked worker response header.');
+                    if ($lineEnd === false) {
+                        throw new RuntimeException('Truncated chunked worker response header.');
+                    }
                     $sizeLine = explode(';', substr($body, $cursor, $lineEnd - $cursor), 2)[0];
                     $check($sizeLine !== '' && ctype_xdigit($sizeLine), 'Invalid chunk size from worker.');
                     $size = hexdec($sizeLine);
@@ -110,18 +124,25 @@ $check(mkdir($directory, 0700), 'Unable to create acceptance workspace.');
 try {
     foreach (['factory', 'callback'] as $api) {
         $reservation = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
-        $check(is_resource($reservation), 'Unable to reserve a port: ' . $errorMessage);
+        if (!is_resource($reservation)) {
+            throw new RuntimeException('Unable to reserve a port: ' . $errorMessage);
+        }
         $address = stream_socket_get_name($reservation, false);
         fclose($reservation);
-        $check(is_string($address), 'Unable to resolve the reserved port.');
-        $port = (int) substr($address, strrpos($address, ':') + 1);
+        if (!is_string($address) || ($separator = strrpos($address, ':')) === false) {
+            throw new RuntimeException('Unable to resolve the reserved port.');
+        }
+        $port = (int) substr($address, $separator + 1);
         $trace = $directory . '/' . $api . '.jsonl';
         $log = $directory . '/' . $api . '.log';
         $server = proc_open([
             PHP_BINARY, __DIR__ . '/swoole_worker_lifecycle.php', (string) $port, $trace, $api,
         ], [0 => ['file', '/dev/null', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes);
-        $check(is_resource($server), 'Unable to start the Swoole-family host.');
+        if (!is_resource($server)) {
+            throw new RuntimeException('Unable to start the Swoole-family host.');
+        }
         $clients = [];
+        $clientPipes = [];
         try {
             $status = proc_get_status($server);
             $masterPid = $status['pid'];
@@ -145,7 +166,9 @@ try {
                 $client = proc_open([PHP_BINARY, __FILE__, 'client', (string) $port], [
                     0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', $log, 'a'],
                 ], $clientPipes);
-                $check(is_resource($client), 'Unable to start an acceptance client.');
+                if (!is_resource($client)) {
+                    throw new RuntimeException('Unable to start an acceptance client.');
+                }
                 $clients[] = [$client, $clientPipes[1]];
             }
             $responses = [];
@@ -153,7 +176,14 @@ try {
                 $json = stream_get_contents($output);
                 fclose($output);
                 $check(proc_close($client) === 0, 'Acceptance client failed.');
-                array_push($responses, ...json_decode($json, true, flags: JSON_THROW_ON_ERROR));
+                if (!is_string($json)) {
+                    throw new RuntimeException('Unable to read acceptance client output.');
+                }
+                $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+                if (!is_array($decoded) || !array_is_list($decoded)) {
+                    throw new RuntimeException('Acceptance client output must contain a JSON response list.');
+                }
+                array_push($responses, ...$decoded);
             }
             $workers = array_unique(array_column($responses, 'pid'));
             // Reactor scheduling need not distribute the initial burst evenly.
@@ -196,7 +226,9 @@ try {
             } while ($status['running']);
             $check($status['exitcode'] === 0, 'Host exited unsuccessfully.');
             $lines = file($trace, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            $check(is_array($lines), 'Worker lifecycle evidence is missing.');
+            if (!is_array($lines)) {
+                throw new RuntimeException('Worker lifecycle evidence is missing.');
+            }
             $events = array_map(static fn(string $line): array => json_decode($line, true, flags: JSON_THROW_ON_ERROR), $lines);
             $eventPids = array_unique(array_column($events, 'pid'));
             sort($eventPids);
@@ -244,8 +276,11 @@ try {
         }
     }
 } finally {
-    foreach (glob($directory . '/*') as $file) {
-        unlink($file);
+    $files = glob($directory . '/*');
+    if (is_array($files)) {
+        foreach ($files as $file) {
+            unlink($file);
+        }
     }
     rmdir($directory);
 }
