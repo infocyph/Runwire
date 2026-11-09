@@ -85,8 +85,10 @@ if ($duration <= 0.0) {
     throw new RuntimeException('Nonpositive native QUIC transport measurement duration.');
 }
 $endUsage = getrusage();
-if (!is_array($startUsage) || !is_array($endUsage)) {
-    throw new RuntimeException('Process CPU usage metrics are unavailable.');
+foreach ([$startUsage, $endUsage] as $usage) {
+    if (!isset($usage['ru_utime.tv_sec'], $usage['ru_utime.tv_usec'], $usage['ru_stime.tv_sec'], $usage['ru_stime.tv_usec'])) {
+        throw new RuntimeException('Process CPU usage metrics are missing required fields.');
+    }
 }
 sort($latencies, SORT_NUMERIC);
 $index95 = (int) ceil((float) count($latencies) * 0.95) - 1;
@@ -102,7 +104,7 @@ $cpuEnd = (int) $endUsage['ru_utime.tv_sec'] * 1_000_000
 
 fwrite(STDOUT, json_encode([
     'schema' => 1,
-    'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
+    'runtime_build' => (($build = getenv('RUNWIRE_RUNTIME_BUILD')) === false || $build === '' || $build === '0') ? 'unknown' : $build,
     'php_version' => PHP_VERSION,
     'protocol' => 'h3',
     'implementation' => 'native-ext-quic-worker',
@@ -116,7 +118,7 @@ fwrite(STDOUT, json_encode([
     'successful_requests' => count($latencies),
     'errors_total' => 0,
     'duration_seconds' => $duration,
-    'successful_rps' => round((float) count($latencies) / $duration, 3),
+    'successful_rps' => round(count($latencies) / $duration, 3),
     'successful_rpm' => round((float) count($latencies) * 60.0 / $duration, 3),
     'p50_ms' => round($latencies[(int) floor((count($latencies) - 1) / 2)], 3),
     'p95_ms' => round($latencies[$index95], 3),

@@ -60,8 +60,8 @@ function u03DialTrial(bool $overlap, int $count): array
     $finished = 0;
     $failed = 0;
     $startCpu = getrusage();
-    if (!is_array($startCpu)) {
-        throw new RuntimeException('CPU usage is unavailable.');
+    if (!isset($startCpu['ru_utime.tv_sec'], $startCpu['ru_stime.tv_sec'])) {
+        throw new RuntimeException('CPU usage is unavailable or incomplete.');
     }
     $start = hrtime(true);
     $launch = static function () use ($dialer, $address, $loop, &$elapsed, &$finished, &$failed, $count, $overlap): void {
@@ -111,8 +111,8 @@ function u03DialTrial(bool $overlap, int $count): array
     fclose($listener);
     $dialer->close();
     $endCpu = getrusage();
-    if (!is_array($endCpu)) {
-        throw new RuntimeException('Could not read final CPU usage.');
+    if (!isset($endCpu['ru_utime.tv_sec'], $endCpu['ru_stime.tv_sec'])) {
+        throw new RuntimeException('Could not read complete final CPU usage.');
     }
 
     sort($elapsed, SORT_NUMERIC);
@@ -125,7 +125,7 @@ function u03DialTrial(bool $overlap, int $count): array
         'failed' => $failed,
         'accepted' => $accepted,
         'elapsed_s' => round($seconds, 5),
-        'successful_connects_per_s' => round(($finished - $failed) / max(0.000001, $seconds), 2),
+        'successful_connects_per_s' => round((float) ($finished - $failed) / max(0.000001, $seconds), 2),
         'p99_ms' => $elapsed !== [] ? u03Percentile($elapsed, 0.99) : 0.0,
         'cpu_parent_ms' => round(max(0, u03CpuMilliseconds($endCpu) - u03CpuMilliseconds($startCpu)), 3),
         'rss_bytes' => u03ResidentBytes(),
@@ -142,7 +142,7 @@ $sequential = u03DialTrial(false, 24);
 $overlap = u03DialTrial(true, 24);
 $profile = [
     'schema' => 1,
-    'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'local',
+    'runtime_build' => (($build = getenv('RUNWIRE_RUNTIME_BUILD')) === false || $build === '' || $build === '0') ? 'local' : $build,
     'php' => PHP_VERSION,
     'method' => 'real local TCP verified connection handoff on a single machine',
     'real_socket_io' => true,

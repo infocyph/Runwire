@@ -62,6 +62,9 @@ function nativeCompletionWriter(): CallbackResponseWriter
 function nativeCompletionDispatch(string $owner, RuntimeApplication $application, WorkerContext $worker, RuntimeContext $runtime, SelectLoop $loop): Closure
 {
     $sampler = new WorkerDiagnosticsSampler($worker, $runtime->metrics, new DiagnosticsPolicy(), $loop);
+    if (!in_array($owner, [NativeHttpWorker::class, NativeHttp3Worker::class], true)) {
+        throw new InvalidArgumentException('Unknown native worker request-handler owner.');
+    }
     $dispatch = (new ReflectionMethod($owner, 'requestHandler'))->invoke(null, $application, $worker, $sampler);
     if (!$dispatch instanceof Closure) {
         throw new RuntimeException('Native worker dispatch factory did not return a closure.');
@@ -76,7 +79,7 @@ it('counts native completion and recycles only after the coroutine and its child
     $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0, recyclePolicy: new WorkerRecyclePolicy(maxRequests: 1));
     $events = [];
     $handler = new CoroutineRequestHandler(new CoroutineRuntime(), static function ($request, $writer, CoroutineScope $scope) use ($worker, &$events): void {
-        unset($request);
+        expect($request->target)->toBe('/');
         $scope->spawn(static function () use ($scope, $worker, &$events): void {
             $scope->sleep(0.005);
             $events[] = [$worker->requestsTotal(), $worker->stopping()];
@@ -150,7 +153,7 @@ it('keeps native work active through coroutine cancellation cleanup', function (
     $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0, recyclePolicy: new WorkerRecyclePolicy(maxRequests: 1));
     $events = [];
     $handler = new CoroutineRequestHandler(new CoroutineRuntime(), static function ($request, $writer, CoroutineScope $scope) use ($worker, &$events): void {
-        unset($writer);
+        expect($writer->isEnded())->toBeFalse();
         try {
             $scope->sleep(1.0);
         } finally {
@@ -294,6 +297,9 @@ it('finishes the first accepted HTTP request when recycling precedes header comp
         $loop->run();
         stream_set_blocking($client, false);
         $response = stream_get_contents($client);
+        if (!is_string($response)) {
+            throw new RuntimeException('Unable to read the recycled native HTTP response.');
+        }
 
         expect($response)->toContain('accepted-first')
             ->and(substr_count($response, 'HTTP/1.1 200'))->toBe(1)

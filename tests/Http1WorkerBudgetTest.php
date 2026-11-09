@@ -122,13 +122,9 @@ function http1BudgetRetainedBodies(LoopInterface $loop): array
 function assertHttp1RetainedBodiesRespectBudget(LoopInterface $loop): void
 {
     $scenario = http1BudgetRetainedBodies($loop);
-    /** @var ByteBudget $budget */
     $budget = $scenario['budget'];
-    /** @var list<StreamingRequestBody> $bodies */
     $bodies = $scenario['bodies'];
-    /** @var list<Connection> $connections */
     $connections = $scenario['connections'];
-    /** @var list<resource> $clients */
     $clients = $scenario['clients'];
 
     try {

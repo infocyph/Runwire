@@ -29,8 +29,8 @@ $ticks = 0;
 $latency = [];
 $starts = [];
 $beforeCpu = getrusage();
-if (!is_array($beforeCpu)) {
-    throw new RuntimeException('U01 profiling requires PHP getrusage().');
+if (!isset($beforeCpu['ru_utime.tv_sec'], $beforeCpu['ru_stime.tv_sec'])) {
+    throw new RuntimeException('U01 profiling requires complete PHP getrusage() CPU counters.');
 }
 $begin = hrtime(true);
 
@@ -62,14 +62,14 @@ $executor->onDrained(static function () use ($executor, $loop, $ticker): void {
 $loop->run();
 $elapsedSeconds = (hrtime(true) - $begin) / 1_000_000_000;
 $afterCpu = getrusage();
-if (!is_array($afterCpu)) {
-    throw new RuntimeException('U01 profiling could not capture final CPU usage.');
+if (!isset($afterCpu['ru_utime.tv_sec'], $afterCpu['ru_stime.tv_sec'])) {
+    throw new RuntimeException('U01 profiling could not capture complete final CPU usage.');
 }
 sort($latency, SORT_NUMERIC);
 $stats = $executor->diagnostics();
 $profile = [
     'schema' => 1,
-    'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'local',
+    'runtime_build' => (($build = getenv('RUNWIRE_RUNTIME_BUILD')) === false || $build === '' || $build === '0') ? 'local' : $build,
     'php' => PHP_VERSION,
     'method' => 'end-to-end bounded off-loop PHP subprocess IPC fixture',
     'real_network_included' => false,
@@ -80,7 +80,7 @@ $profile = [
     'worker_count_after' => $stats['workers'],
     'loop_ticks' => $ticks,
     'elapsed_seconds' => round($elapsedSeconds, 4),
-    'operations_per_second' => round($completed / max(0.000001, $elapsedSeconds), 2),
+    'operations_per_second' => round((float) $completed / max(0.000001, $elapsedSeconds), 2),
     'latency' => [
         'p50_ms' => $latency !== [] ? u01Percentile($latency, 0.50) : 0.0,
         'p95_ms' => $latency !== [] ? u01Percentile($latency, 0.95) : 0.0,

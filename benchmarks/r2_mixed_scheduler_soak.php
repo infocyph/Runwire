@@ -18,7 +18,7 @@ function r2MixedPercentile(array $samples, float $percentile): float
 
     sort($samples, SORT_NUMERIC);
 
-    return round($samples[(int) floor((count($samples) - 1) * $percentile)], 3);
+    return round($samples[(int) floor((float) (count($samples) - 1) * $percentile)], 3);
 }
 
 /**
@@ -94,7 +94,9 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
         $lastCpuTimerIds = [];
         for ($index = 0; $index < $cpuBurst; ++$index) {
             $lastCpuTimerIds[] = $loop->delay(0.0, static function () use (&$cpuCalls): void {
-                hash('sha256', 'runwire-mixed-scheduler-' . $cpuCalls);
+                if (strlen(hash('sha256', 'runwire-mixed-scheduler-' . $cpuCalls)) !== 64) {
+                    throw new RuntimeException('Mixed scheduler CPU digest did not complete.');
+                }
                 ++$cpuCalls;
             });
         }
@@ -145,6 +147,9 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
         ));
     }
 
+    if ($sampledMemory === []) {
+        throw new RuntimeException('Mixed scheduler did not capture any memory samples.');
+    }
     $p99 = r2MixedPercentile($latency, 0.99);
     if ($p99 > 500.0) {
         throw new RuntimeException('Mixed scheduler p99 socket progress exceeded 500 ms.');
@@ -180,10 +185,12 @@ function runwireR2MixedSchedulerSoak(float $durationSeconds = 2.0): array
         $tiers[] = r2MixedPressureTier($cpuBurst, $durationSeconds);
     }
 
+    $build = getenv('RUNWIRE_RUNTIME_BUILD');
+
     return [
         'schema' => 1,
         'profile' => 'mixed-real-socket-timers-cpu',
-        'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'local-unpinned',
+        'runtime_build' => $build === false || $build === '' || $build === '0' ? 'local-unpinned' : $build,
         'php_version' => PHP_VERSION,
         'backend' => 'select-loop',
         'tier_count' => count($tiers),
