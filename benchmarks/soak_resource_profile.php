@@ -41,6 +41,7 @@ function soakProcfsEntries(string $path): array|false
     }
 }
 
+/** @return array{processes:int,rss:int,virtual:int,fd:int} */
 function soakReadProcessTree(int $root): array
 {
     $pending = [$root];
@@ -49,7 +50,7 @@ function soakReadProcessTree(int $root): array
 
     while ($pending !== []) {
         $pid = array_pop($pending);
-        if (!is_int($pid) || $pid < 1 || isset($seen[$pid])) {
+        if ($pid < 1 || isset($seen[$pid])) {
             continue;
         }
         $seen[$pid] = true;
@@ -72,7 +73,9 @@ function soakReadProcessTree(int $root): array
             // Descendants can vanish immediately after appearing in their
             // parent's children list. Retry boundedly before checking /stat.
             for ($attempt = 0; $attempt < 3 && !is_string($status); ++$attempt) {
-                time_nanosleep(0, 2_000_000);
+                if (time_nanosleep(0, 2_000_000) === false) {
+                    throw new RuntimeException('Unable to retry Linux process metrics after a transient exit.');
+                }
                 $status = soakProcfsRead($statusPath);
             }
             if (!is_string($status)) {
@@ -99,7 +102,9 @@ function soakReadProcessTree(int $root): array
                     || (is_string($latestStatus) && preg_match('/^State:\s+(?:Z|X|x)\b/m', $latestStatus) === 1))) {
                     continue 2;
                 }
-                time_nanosleep(0, 2_000_000);
+                if (time_nanosleep(0, 2_000_000) === false) {
+                    throw new RuntimeException('Unable to retry Linux process metrics after a transient exit.');
+                }
                 $fds = soakProcfsEntries($fdPath);
                 if (is_array($fds)) {
                     break;
@@ -189,7 +194,9 @@ function soakSampleProcess(int $pid, string $path, int $interval): void
             fflush($output);
             ++$total;
             // External observer only: do not suspend a Runwire worker or event loop.
-            time_nanosleep($interval, 0);
+            if (time_nanosleep($interval, 0) === false) {
+                throw new RuntimeException('Resource sample interval could not be observed.');
+            }
         }
         if ($total === 0) {
             throw new RuntimeException('No resource samples collected.');
@@ -300,7 +307,7 @@ function soakReadSamples(string $path): array
         }
         $samples = [];
         while (($row = fgetcsv($f, 0, ',', '"', '')) !== false) {
-            if (count($row) !== 5 || !is_numeric($row[0]) || !ctype_digit($row[1])
+            if (!is_array($row) || count($row) !== 5 || !is_numeric($row[0]) || !ctype_digit($row[1])
                 || !ctype_digit($row[2]) || !ctype_digit($row[3]) || !ctype_digit($row[4])) {
                 throw new RuntimeException('Invalid resource sample CSV row.');
             }

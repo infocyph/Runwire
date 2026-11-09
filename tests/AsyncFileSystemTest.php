@@ -234,9 +234,7 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
             $executor->close();
         });
         $executor->onDrained(static function () use ($executor, $loop, $timer, $watchdog): void {
-            if ($timer->id !== null) {
-                $loop->cancel($timer->id);
-            }
+            $loop->cancel($timer->id);
             $loop->cancel($watchdog);
             $executor->close();
         });

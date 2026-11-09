@@ -10,6 +10,7 @@ use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use LogicException;
 use OverflowException;
 use ReflectionProperty;
 use RuntimeException;

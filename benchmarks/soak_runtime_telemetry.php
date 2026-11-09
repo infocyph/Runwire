@@ -7,17 +7,24 @@ function soakRuntimeSnapshot(): array
 {
     $gc = gc_status();
     $opcache = function_exists('opcache_get_status') ? opcache_get_status(false) : false;
+    $memory = is_array($opcache) ? ($opcache['memory_usage'] ?? null) : null;
+    $statistics = is_array($opcache) ? ($opcache['opcache_statistics'] ?? null) : null;
+    $usedBytes = is_array($memory) ? ($memory['used_memory'] ?? 0) : 0;
+    $cachedScripts = is_array($statistics) ? ($statistics['num_cached_scripts'] ?? 0) : 0;
+    if (!is_int($usedBytes) || !is_int($cachedScripts)) {
+        throw new RuntimeException('OPcache metrics must contain non-negative integer counters.');
+    }
 
     return [
         'allocated_bytes' => memory_get_usage(true),
         'peak_allocated_bytes' => memory_get_peak_usage(true),
         'gc_enabled' => gc_enabled(),
-        'gc_runs' => (int) ($gc['runs'] ?? 0),
-        'gc_collected' => (int) ($gc['collected'] ?? 0),
-        'gc_roots' => (int) ($gc['roots'] ?? 0),
+        'gc_runs' => $gc['runs'],
+        'gc_collected' => $gc['collected'],
+        'gc_roots' => $gc['roots'],
         'opcache_enabled' => is_array($opcache) && ($opcache['opcache_enabled'] ?? false) === true,
-        'opcache_used_bytes' => is_array($opcache) ? (int) ($opcache['memory_usage']['used_memory'] ?? 0) : 0,
-        'opcache_cached_scripts' => is_array($opcache) ? (int) ($opcache['opcache_statistics']['num_cached_scripts'] ?? 0) : 0,
+        'opcache_used_bytes' => $usedBytes,
+        'opcache_cached_scripts' => $cachedScripts,
     ];
 }
 
@@ -130,7 +137,14 @@ function soakReadRuntimeSnapshots(string $path): array
             if (!is_array($record)) {
                 throw new RuntimeException('Internal soak JSONL row is not an object.');
             }
-            $records[] = $record;
+            $validated = [];
+            foreach ($record as $name => $value) {
+                if (!is_string($name) || (!is_int($value) && !is_float($value) && !is_bool($value))) {
+                    throw new RuntimeException('Internal soak telemetry must contain named scalar metrics.');
+                }
+                $validated[$name] = $value;
+            }
+            $records[] = $validated;
         }
     } finally {
         fclose($file);
@@ -173,7 +187,9 @@ function soakSampleRuntimeHttp(int $port, int $rootPid, string $path, int $inter
             $snapshot['elapsed_seconds'] = round((hrtime(true) - $start) / 1_000_000_000, 3);
             fwrite($file, json_encode($snapshot, JSON_THROW_ON_ERROR) . "\n");
             fflush($file);
-            time_nanosleep($interval, 0);
+            if (time_nanosleep($interval, 0) === false) {
+                throw new RuntimeException('Internal telemetry sample interval could not be observed.');
+            }
         }
     } finally {
         fclose($file);

@@ -26,7 +26,7 @@ it('recycles one worker after replacement readiness and restores normal restart 
         $readyPids[] = $event->pid;
         $readyCount = count($readyPids);
         if ($readyCount === 1) {
-            $loop->delay(0.01, static function () use (&$recycleResults, &$statusDuring, $supervisor): void {
+            $loop->defer(static function () use (&$recycleResults, &$statusDuring, $supervisor): void {
                 $statusDuring = $supervisor->status();
                 $recycleResults[] = $supervisor->recycle('workers', 0);
                 $recycleResults[] = $supervisor->recycle('workers', 0);
@@ -35,11 +35,11 @@ it('recycles one worker after replacement readiness and restores normal restart 
         }
         if ($readyCount === 2) {
             $pid = $event->pid;
-            $loop->delay(0.04, static function () use ($pid): void { posix_kill($pid, SIGKILL); });
+            $loop->defer(static function () use ($pid): void { posix_kill($pid, SIGKILL); });
             return;
         }
         if ($readyCount === 3) {
-            $loop->delay(0.02, static function () use ($supervisor): void { $supervisor->stop(); });
+            $loop->defer(static function () use ($supervisor): void { $supervisor->stop(); });
         }
     });
 

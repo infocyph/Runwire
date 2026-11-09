@@ -62,3 +62,17 @@ it('rejects incomplete worker telemetry and reset GC counters', function (): voi
         ->and($reset)->toHaveCount(121)
         ->and(soakAnalyzeRuntimeSnapshots($reset)['passed'])->toBeFalse();
 });
+
+
+it('rejects malformed runtime JSONL records before numerical analysis', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'runwire-soak-jsonl-');
+    if (!is_string($path)) {
+        throw new RuntimeException('Unable to allocate runtime telemetry fixture.');
+    }
+    try {
+        file_put_contents($path, '{"elapsed_seconds":[],"gc_enabled":true}' . "\n");
+        expect(fn() => soakReadRuntimeSnapshots($path))->toThrow(RuntimeException::class, 'named scalar metrics');
+    } finally {
+        unlink($path);
+    }
+});

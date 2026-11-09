@@ -55,7 +55,11 @@ it('counts a real Linux worker process tree rather than only a root server PID',
         return;
     }
 
-    $current = soakReadProcessTree(getmypid());
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to identify current Linux process.');
+    }
+    $current = soakReadProcessTree($pid);
     expect($current['processes'])->toBeGreaterThanOrEqual(1)
         ->and($current['rss'])->toBeGreaterThan(0)
         ->and($current['fd'])->toBeGreaterThan(0);
