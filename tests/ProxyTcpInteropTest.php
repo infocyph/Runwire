@@ -28,7 +28,10 @@ function runwireProxyLoopbackInterop(string $protocol): array
     stream_set_blocking($listener, false);
     $address = stream_socket_get_name($listener, false);
     expect($address)->toBeString();
-    $port = (int) substr(strrchr($address, ':'), 1);
+    if (!is_string($address) || ($separator = strrpos($address, ':')) === false) {
+        throw new RuntimeException('Independent proxy listener has no valid TCP port.');
+    }
+    $port = (int) substr($address, $separator + 1);
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);
     $serverWatcher = null;

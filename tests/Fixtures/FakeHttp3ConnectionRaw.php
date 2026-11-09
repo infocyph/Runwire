@@ -17,11 +17,12 @@ final class FakeHttp3ConnectionRaw
     /** @var array{error_code: int, frame_type: int, reason: string, local: bool, transport: bool}|null */
     public ?array $closeInfo = null;
 
-    /** @param list<FakeHttp3ConnectionStream> $localStreams @param list<FakeHttp3ConnectionStream> $acceptedStreams */
+    /** @param list<FakeHttp3ConnectionStream> $localStreams
+     * @param list<FakeHttp3ConnectionStream> $acceptedStreams */
     public function __construct(
-        private array $localStreams,
+        public array $localStreams,
         public array $acceptedStreams,
-        private readonly string $alpn,
+        public readonly string $alpn,
     ) {}
 
     public function acceptStream(): ?FakeHttp3ConnectionStream

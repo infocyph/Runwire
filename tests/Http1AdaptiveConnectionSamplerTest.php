@@ -13,6 +13,7 @@ use Infocyph\Runwire\Network\Connection;
 
 
 /**
+ * @return array{0: Connection, 1: resource}
  * @throws \InvalidArgumentException
  * @throws \OverflowException
  * @throws \RuntimeException
@@ -20,6 +21,9 @@ use Infocyph\Runwire\Network\Connection;
 function adaptiveSamplerConnection(): array
 {
     $streams = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($streams === false || count($streams) !== 2) {
+        throw new \RuntimeException('Adaptive sampler requires a complete socket pair.');
+    }
     expect($streams)->toBeArray()->toHaveCount(2);
 
     $loop = new SelectLoop();

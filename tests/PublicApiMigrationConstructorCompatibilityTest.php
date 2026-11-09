@@ -25,6 +25,9 @@ it('preserves all six reviewed 2.1.2 constructor required-arity contracts', func
             throw new RuntimeException('Missing reviewed public constructor: ' . $class);
         }
         $parameters = $constructor->getParameters();
+        if ($parameters === []) {
+            throw new RuntimeException('Reviewed public constructor has no parameters: ' . $class);
+        }
         $last = $parameters[count($parameters) - 1];
         expect($constructor->isPublic())->toBeTrue($class)
             ->and($constructor->getNumberOfRequiredParameters())->toBe($required, $class)
@@ -38,6 +41,9 @@ it('preserves all six reviewed 2.1.2 constructor required-arity contracts', func
     // The one constructor with two appended options must preserve both
     // original TLS identity and backward-compatible non-strict EOF defaults.
     $parameters = (new ReflectionMethod(Connection::class, '__construct'))->getParameters();
+    if (count($parameters) < 2) {
+        throw new RuntimeException('Connection constructor is missing its reviewed TLS options.');
+    }
     $fingerprint = $parameters[count($parameters) - 2];
     expect($fingerprint->getName())->toBe('tlsPeerFingerprint')
         ->and($fingerprint->isOptional())->toBeTrue()

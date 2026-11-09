@@ -7,6 +7,19 @@ namespace Infocyph\Runwire\Tests;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Internal\TlsHandshakeReadiness;
 
+/**
+ * @throws \RuntimeException
+ */
+function runwireTlsHandshakeFdCount(): int
+{
+    $entries = scandir('/proc/self/fd');
+    if ($entries === false) {
+        throw new \RuntimeException('Unable to inspect TLS handshake fixture descriptors.');
+    }
+
+    return count($entries);
+}
+
 it('cleans read, write, and deadline watches when a handshake is cancelled', function (): void {
     runwireOwnedTlsHandshakeReadinessTestCase01();
 });
@@ -73,7 +86,7 @@ function runwireOwnedTlsHandshakeReadinessTestCase03(): void
 {
     $loop = new SelectLoop();
     $beforeMemory = memory_get_usage(true);
-    $beforeFds = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd')) : null;
+    $beforeFds = is_dir('/proc/self/fd') ? runwireTlsHandshakeFdCount() : null;
 
     for ($index = 0; $index < 32; ++$index) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -94,6 +107,6 @@ function runwireOwnedTlsHandshakeReadinessTestCase03(): void
 
     expect(memory_get_usage(true) - $beforeMemory)->toBeLessThan(8_388_608);
     if ($beforeFds !== null) {
-        expect(count(scandir('/proc/self/fd')) - $beforeFds)->toBeLessThanOrEqual(2);
+        expect(runwireTlsHandshakeFdCount() - $beforeFds)->toBeLessThanOrEqual(2);
     }
 }

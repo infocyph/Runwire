@@ -34,7 +34,7 @@ function runwireWsClientFrame(int $opcode, string $payload, bool $fin = true, bo
 
     $wire = $payload;
     for ($index = 0; $index < $length; ++$index) {
-        $wire[$index] = $wire[$index] ^ $mask[$index & 3];
+        $wire[$index] = $wire[$index] ^ substr($mask, $index & 3, 1);
     }
 
     return $head . $mask . $wire;
@@ -170,7 +170,7 @@ it('upgrades HTTP1, negotiates a subprotocol, and echoes a pipelined text frame'
                 ),
             );
             expect($session)->toBeInstanceOf(WebSocketSession::class);
-            $session?->onMessage(static function (WebSocketSession $session, $message) use (&$messages): void {
+            $session->onMessage(static function (WebSocketSession $session, $message) use (&$messages): void {
                 $messages[] = $message->data;
                 $session->sendText('echo:' . $message->data);
                 $session->close(1000, 'done');

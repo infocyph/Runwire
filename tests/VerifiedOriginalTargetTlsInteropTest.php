@@ -16,6 +16,20 @@ use Throwable;
 
 
 /**
+ * @param resource $pipe
+ * @throws \RuntimeException
+ */
+function runwireRequiredOriginalTargetPipe(mixed $pipe): string
+{
+    $bytes = stream_get_contents($pipe);
+    if ($bytes === false) {
+        throw new RuntimeException('Independent TLS peer pipe read failed.');
+    }
+
+    return $bytes;
+}
+
+/**
  * @return array{response:string,error:?Throwable,callbacks:int,peer:?string,alpn:?string,sni:?string,origin_received:bool,origin_error:?string}
  * @throws \RuntimeException
  * @throws \OverflowException
@@ -78,14 +92,14 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
         $ready = '';
         $started = microtime(true);
         while (!str_contains($ready, "\n") && microtime(true) - $started < 5.0) {
-            $ready .= stream_get_contents($pipes[1]);
+            $ready .= runwireRequiredOriginalTargetPipe($pipes[1]);
             if (str_contains($ready, "\n") || !proc_get_status($proc)['running']) {
                 break;
             }
             usleep(10000);
         }
         if (preg_match('/^READY ([0-9]+)\n/', $ready, $matches) !== 1) {
-            throw new RuntimeException('TLS origin fixture startup failed: ' . stream_get_contents($pipes[2]));
+            throw new RuntimeException('TLS origin fixture startup failed: ' . runwireRequiredOriginalTargetPipe($pipes[2]));
         }
         $watchdog = $loop->delay(8.0, static function () use ($loop): void {
             $loop->stop();
@@ -165,14 +179,14 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
         $status = null;
         $start = microtime(true);
         while (microtime(true) - $start < 3.0) {
-            $output .= stream_get_contents($pipes[1]);
+            $output .= runwireRequiredOriginalTargetPipe($pipes[1]);
             $status = proc_get_status($proc);
             if (!$status['running']) {
                 break;
             }
             usleep(10000);
         }
-        $output .= stream_get_contents($pipes[1]);
+        $output .= runwireRequiredOriginalTargetPipe($pipes[1]);
         expect($status['running'] ?? true)->toBeFalse();
         $lines = array_values(array_filter(explode("\n", trim($output))));
         $peer = json_decode((string) end($lines), true, 512, JSON_THROW_ON_ERROR);

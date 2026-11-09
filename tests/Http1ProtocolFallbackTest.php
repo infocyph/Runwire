@@ -113,6 +113,7 @@ it('never reclassifies verified TLS as plaintext under 48 explicit H1/H2/H3 perm
                             'http/1.1' => ProtocolVersion::HTTP_1_1,
                             'h2' => ProtocolVersion::HTTP_2,
                             'h3' => ProtocolVersion::HTTP_3,
+                            default => throw new \RuntimeException('Unexpected ALPN was negotiated rather than rejected.'),
                         });
                         expect($allowFallback || $preferred === $result)->toBeTrue();
                         ++$accepted;

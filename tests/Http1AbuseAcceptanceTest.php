@@ -24,6 +24,7 @@ function abuseHttp1Pair(): array
 }
 
 /**
+ * @return array{0: string, 1: int}
  * @throws \InvalidArgumentException
  * @throws \OverflowException
  * @throws \LogicException
@@ -54,6 +55,9 @@ function abuseHttp1Exchange(string $wire, Http1Limits $limits, ?callable $handle
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
     fclose($client);
+    if ($response === false) {
+        throw new RuntimeException('Unable to obtain the independent HTTP/1 response.');
+    }
 
     return [$response, $called];
 }

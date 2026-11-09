@@ -168,19 +168,29 @@ function runwireCanInspectTcpNoDelay(): bool
         && defined('TCP_NODELAY');
 }
 
+/** @return array{0: resource, 1: resource} */
 function runwireNativeTcpPair(): array
 {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
     expect($listener)->toBeResource();
     $address = stream_socket_get_name($listener, false);
     expect($address)->toBeString();
+    if ($address === false) {
+        throw new \RuntimeException('Native TCP pair listener returned no address.');
+    }
 
     $client = stream_socket_client('tcp://' . $address, $clientErrno, $clientError, 1.0);
     expect($client)->toBeResource();
+    if (!is_resource($client)) {
+        throw new \RuntimeException('Unable to connect native TCP pair fixture.');
+    }
 
     $server = stream_socket_accept($listener, 1.0);
     fclose($listener);
     expect($server)->toBeResource();
+    if (!is_resource($server)) {
+        throw new \RuntimeException('Unable to accept native TCP pair fixture.');
+    }
 
     return [$server, $client];
 }

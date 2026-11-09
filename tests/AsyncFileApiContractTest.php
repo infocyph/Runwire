@@ -23,8 +23,9 @@ it('declares portable asynchronous file operations and explicit open mode permis
     $open = $fileOperations->getMethod('open');
     $returnType = $open->getReturnType();
     $modeType = $open->getParameters()[1]->getType();
-    expect($returnType)->toBeInstanceOf(ReflectionNamedType::class)
-        ->and($modeType)->toBeInstanceOf(ReflectionNamedType::class);
+    if (!$returnType instanceof ReflectionNamedType || !$modeType instanceof ReflectionNamedType) {
+        throw new \RuntimeException('Async file API must expose named return and mode parameter types.');
+    }
     expect($returnType->getName())->toBe('int')
         ->and($modeType->getName())->toBe(FileAccessMode::class);
 

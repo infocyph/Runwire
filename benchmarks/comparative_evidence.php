@@ -218,6 +218,7 @@ function renderMarkdown(array $records): string
 }
 
 /**
+ * @param list<string> $arguments
  * @throws \RuntimeException
  */
 function runComparativeEvidence(array $arguments): void

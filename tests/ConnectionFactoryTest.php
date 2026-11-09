@@ -47,6 +47,9 @@ it('adopts real connected TCP streams through the one established connection eng
 
 it('requires a verified dial attempt and transfers established stream ownership only once', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray();
     [$outbound, $peer] = $pair;
     $loop = new SelectLoop();
@@ -75,6 +78,9 @@ it('requires a verified dial attempt and transfers established stream ownership 
 
 it('preserves verified metadata overrides and rejects invalid established resources', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray();
     [$connected, $peer] = $pair;
     $loop = new SelectLoop();

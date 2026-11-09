@@ -15,7 +15,10 @@ it('falls back from a failing IPv6 candidate to a real IPv4 listener without lea
         throw new RuntimeException($message);
     }
     $address = stream_socket_get_name($server, false);
-    $port = (int) substr((string) $address, strrpos((string) $address, ':') + 1);
+    if (!is_string($address) || ($separator = strrpos($address, ':')) === false) {
+        throw new RuntimeException('Happy Eyeballs test listener did not return a TCP port.');
+    }
+    $port = (int) substr($address, $separator + 1);
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);
     $dialer = new Dialer($loop);
@@ -49,7 +52,10 @@ it('resolves localhost off-loop and hands the winner to the same numeric connect
         throw new RuntimeException($message);
     }
     $address = stream_socket_get_name($server, false);
-    $port = (int) substr((string) $address, strrpos((string) $address, ':') + 1);
+    if (!is_string($address) || ($separator = strrpos($address, ':')) === false) {
+        throw new RuntimeException('Happy Eyeballs test listener did not return a TCP port.');
+    }
+    $port = (int) substr($address, $separator + 1);
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);
     $dialer = new Dialer($loop);

@@ -37,7 +37,7 @@ function workerQuicStream(int $id, bool $bidirectional): object
             return $this->id;
         }
 
-        public function getResetCode(): ?int
+        public function getResetCode(): null
         {
             return null;
         }
@@ -85,7 +85,7 @@ function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
             ];
         }
 
-        public function acceptStream(): ?object
+        public function acceptStream(): null
         {
             return null;
         }
@@ -124,6 +124,7 @@ function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
     };
 }
 
+/** @param list<object> $connections */
 function workerQuicListener(array $connections): object
 {
     return new class($connections) {

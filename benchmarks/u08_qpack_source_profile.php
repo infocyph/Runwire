@@ -63,7 +63,7 @@ function runwireQpackMicroprofileMeasure(callable $operation, int $iterations): 
         $samples[] = $elapsed / $iterations;
     }
     sort($samples, SORT_NUMERIC);
-    $mean = array_sum($samples) / (float) count($samples);
+    $mean = (float) array_sum($samples) / (float) count($samples);
     $variance = array_sum(array_map(
         static fn(float $value): float => ($value - $mean) ** 2.0,
         $samples,

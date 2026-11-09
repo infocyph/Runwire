@@ -107,7 +107,12 @@ function runwireOwnedWebSocketOutboundTlsTestCase01(): void
                 $request = '';
             });
         });
-        $port = (int) substr(strrchr($listener->address(), ':'), 1);
+        $address = $listener->address();
+        $separator = strrpos($address, ':');
+        if ($separator === false) {
+            throw new RuntimeException('Independent WSS listener returned no valid TCP port.');
+        }
+        $port = (int) substr($address, $separator + 1);
         WebSocketClient::connect(
             $loop,
             $race,

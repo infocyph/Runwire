@@ -70,8 +70,8 @@ it('round-trips the versioned bounded metrics snapshot contract', function (): v
         ->and($decoded?->queuedBytesPeak)->toBe(1_024)
         ->and($decoded?->queuedBytesLimit)->toBe(67_108_864)
         ->and($decoded?->errors[ApplicationErrorClass::PROTOCOL_ERROR->value])->toBe(1)
-        ->and(array_keys($decoded?->protocol ?? []))->toHaveCount(count(ProtocolMetric::cases()))
-        ->and(array_keys($decoded?->errors ?? []))->toHaveCount(count(ApplicationErrorClass::cases()))
+        ->and(array_keys($decoded->protocol))->toHaveCount(count(ProtocolMetric::cases()))
+        ->and(array_keys($decoded->errors))->toHaveCount(count(ApplicationErrorClass::cases()))
         ->and(RuntimeMetricsSnapshot::fromArray($unknown))->toBeNull();
 });
 

@@ -29,7 +29,8 @@ function soakRuntimeSnapshot(): array
 }
 
 /**
- * @param list<array<string, int|float|bool>> $samples @return array<string, int|float|bool|string>
+ * @param list<array<string, int|float|bool>> $samples
+ * @return array<string, int|float|bool|string>
  * @throws \InvalidArgumentException
  */
 function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSeconds = 1_740.0): array

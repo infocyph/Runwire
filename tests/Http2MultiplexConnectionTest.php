@@ -16,6 +16,9 @@ use Infocyph\Runwire\Network\Connection;
 
 it('routes two live H2 streams over one callback-owned established connection', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
@@ -120,6 +123,9 @@ it('routes two live H2 streams over one callback-owned established connection', 
 
 it('sends stream-local CANCEL without terminating the sibling live H2 exchange', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);

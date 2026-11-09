@@ -12,6 +12,7 @@ use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 
 /**
+ * @param list<array{0: string, 1: string}> $extra
  * @throws \Throwable
  */
 function http3RequestHeaders(Encoder $encoder, int $streamId, array $extra = []): string

@@ -21,6 +21,9 @@ it('holds a strict four-socket idle cap under repeated real socket admission and
         for ($wave = 0; $wave < 8; ++$wave) {
             for ($j = 0; $j < 12; ++$j) {
                 $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+                if ($pair === false || count($pair) !== 2) {
+                    throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+                }
                 expect($pair)->toBeArray()->toHaveCount(2);
                 [$socket, $peer] = $pair;
                 $connection = new Connection($loop, $socket);
@@ -58,6 +61,9 @@ it('refuses to retain a callback-owned stream and never hands it to a different 
     $pool = new IdleConnectionPool($loop);
     $key = new PoolIsolationKey(DialEndpoint::parse('unix:///tmp/runwire-pool-guard.sock'), 'worker-a');
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
     $connection = new Connection($loop, $socket);

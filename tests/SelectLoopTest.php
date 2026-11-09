@@ -54,16 +54,19 @@ it('bounds a large deferred queue to the current tick without admitting callback
 it('skips a deferred callback cancelled by a prior callback within the same tick', function (): void {
     $loop = new SelectLoop();
     $seen = [];
-    $cancelled = null;
+    $cancelled = (object) ['id' => null];
 
-    $loop->defer(function () use ($loop, &$cancelled, &$seen): void {
+    $loop->defer(function () use ($loop, $cancelled, &$seen): void {
         $seen[] = 'first';
-        expect($loop->cancel($cancelled))->toBeTrue();
+        if (!is_int($cancelled->id)) {
+            throw new \RuntimeException('Deferred cancellation watcher has not been registered.');
+        }
+        expect($loop->cancel($cancelled->id))->toBeTrue();
     });
     $loop->defer(static function () use (&$seen): void {
         $seen[] = 'second';
     });
-    $cancelled = $loop->defer(static function () use (&$seen): void {
+    $cancelled->id = $loop->defer(static function () use (&$seen): void {
         $seen[] = 'cancelled';
     });
 

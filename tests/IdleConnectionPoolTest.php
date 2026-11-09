@@ -20,6 +20,9 @@ it('never reuses a stream under a different tenant scope and closes overflow vic
     $b = new PoolIsolationKey($origin, 'worker-b');
     $first = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $second = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($first === false || $second === false || count($first) !== 2 || count($second) !== 2) {
+        throw new \RuntimeException('Two complete idle-pool socket pairs are required.');
+    }
     expect($first)->toBeArray()->toHaveCount(2)
         ->and($second)->toBeArray()->toHaveCount(2);
     [$sockA, $peerA] = $first;
@@ -63,6 +66,9 @@ it('refuses to retain a plaintext socket under a TLS and ALPN identity', functio
         negotiatedAlpn: 'http/1.1',
     );
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
     $connection = new Connection($loop, $socket);
@@ -85,6 +91,9 @@ it('evicts idle sockets on unsolicited response bytes or deadline without stale 
     $key = new PoolIsolationKey(DialEndpoint::parse('unix:///tmp/runwire-pool-b.sock'), 'worker-a');
     $first = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $second = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($first === false || $second === false || count($first) !== 2 || count($second) !== 2) {
+        throw new \RuntimeException('Two complete idle-pool socket pairs are required.');
+    }
     expect($first)->toBeArray()->toHaveCount(2)
         ->and($second)->toBeArray()->toHaveCount(2);
     [$sockA, $peerA] = $first;

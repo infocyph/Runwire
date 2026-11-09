@@ -118,7 +118,7 @@ function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): arr
     return [
         'schema' => 1,
         'profile' => 'host-synthetic-request-path',
-        'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'local-unpinned',
+        'runtime_build' => (($build = getenv('RUNWIRE_RUNTIME_BUILD')) === false || $build === '' || $build === '0') ? 'local-unpinned' : $build,
         'php_version' => PHP_VERSION,
         'iterations' => $iterations,
         'warmup_iterations' => $warmup,

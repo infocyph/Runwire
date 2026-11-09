@@ -58,8 +58,12 @@ function runwireOwnedHttp3ClientControlTestCase02(): void
         $client->receivePeerControl($chunk);
     }
 
-    expect($client->peerSettings())->not->toBeNull()
-        ->and($client->peerSettings()->qpackMaxTableCapacity())->toBe(0);
+    $peerSettings = $client->peerSettings();
+    expect($peerSettings)->not->toBeNull();
+    if ($peerSettings === null) {
+        throw new \RuntimeException('HTTP/3 control stream did not retain SETTINGS.');
+    }
+    expect($peerSettings->qpackMaxTableCapacity())->toBe(0);
     $wrong = new Http3ClientControl();
     $wrong->start();
     expect(fn() => $wrong->receivePeerControl("\x01"))->toThrow(Http3Exception::class, 'wrong stream type');

@@ -26,6 +26,9 @@ it('drains 128 simultaneous socket pairs without abandoned watchers, owner token
     $owned = 0;
     for ($i = 0; $i < 128; ++$i) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        if ($pair === false || count($pair) !== 2) {
+            throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+        }
         expect($pair)->toBeArray();
         [$stream, $peer] = $pair;
         $connection = ConnectionFactory::accepted($loop, $stream, bufferBudget: $budget);

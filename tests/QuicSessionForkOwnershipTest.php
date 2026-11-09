@@ -36,7 +36,10 @@ it('does not let a forked worker inherit ownership of a native QUIC session', fu
     fclose($writer);
     try {
         $result = stream_get_contents($reader);
-        pcntl_waitpid($pid, $status);
+        $waited = pcntl_waitpid($pid, $status);
+        if ($waited !== $pid || !is_int($status)) {
+            throw new \RuntimeException('Unable to collect owned QUIC session child status.');
+        }
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($result)->toBe('2')

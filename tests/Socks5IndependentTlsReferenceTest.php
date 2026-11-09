@@ -18,6 +18,20 @@ use Throwable;
 
 
 /**
+ * @param resource $pipe
+ * @throws \RuntimeException
+ */
+function runwireRequiredSocksPipe(mixed $pipe): string
+{
+    $bytes = stream_get_contents($pipe);
+    if ($bytes === false) {
+        throw new RuntimeException('Independent TLS peer pipe read failed.');
+    }
+
+    return $bytes;
+}
+
+/**
  * Run a separate Python TLS peer implementing RFC 1928 and RFC 1929 itself.
  *
  * @return array{error:?Throwable,completed:int,verified:?string,peer:array<string,mixed>}
@@ -80,7 +94,7 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
         $readyLine = '';
         $started = microtime(true);
         while (!str_contains($readyLine, "\n") && microtime(true) - $started < 4.0) {
-            $readyLine .= stream_get_contents($pipes[1]);
+            $readyLine .= runwireRequiredSocksPipe($pipes[1]);
             if (str_contains($readyLine, "\n")) {
                 break;
             }
@@ -91,7 +105,7 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
             usleep(10_000);
         }
         if (preg_match('/^READY ([0-9]+)\n/', $readyLine, $matches) !== 1) {
-            throw new RuntimeException('Independent Python SOCKS5 peer could not bind: ' . stream_get_contents($pipes[2]));
+            throw new RuntimeException('Independent Python SOCKS5 peer could not bind: ' . runwireRequiredSocksPipe($pipes[2]));
         }
         $port = (int) $matches[1];
         $watchdog = $loop->delay(5, static function () use (&$expired, $loop): void {
@@ -161,14 +175,14 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
         $state = null;
         $finished = microtime(true);
         while (microtime(true) - $finished < 2.0) {
-            $output .= stream_get_contents($pipes[1]);
+            $output .= runwireRequiredSocksPipe($pipes[1]);
             $state = proc_get_status($process);
             if (!$state['running']) {
                 break;
             }
             usleep(10_000);
         }
-        $output .= stream_get_contents($pipes[1]);
+        $output .= runwireRequiredSocksPipe($pipes[1]);
         expect($state['running'] ?? true)->toBeFalse();
         $lines = array_filter(explode("\n", trim($output)));
         $decoded = json_decode((string) end($lines), true, 512, JSON_THROW_ON_ERROR);

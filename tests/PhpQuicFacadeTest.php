@@ -26,7 +26,7 @@ function fakePhpQuicFacadeStream(int $id, bool $bidirectional): object
             return $this->id;
         }
 
-        public function getResetCode(): ?int
+        public function getResetCode(): null
         {
             return null;
         }
@@ -88,7 +88,7 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
             $this->accepted = $peerStream;
         }
 
-        public function acceptStream(): ?object
+        public function acceptStream(): null
         {
             $stream = $this->accepted;
             $this->accepted = null;
@@ -101,7 +101,7 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
             $this->closed[] = [$errorCode, $reason, $rapid];
         }
 
-        public function getNegotiatedAlpn(): ?string
+        public function getNegotiatedAlpn(): string
         {
             return 'h3';
         }
@@ -138,14 +138,14 @@ it('wraps listener acceptance and immediately makes accepted connections non-blo
 
         public ?bool $openedBidirectional = null;
 
-        public function acceptStream(): ?object
+        public function acceptStream(): null
         {
             return null;
         }
 
         public function close(int $errorCode = 0, string $reason = '', bool $rapid = false): void {}
 
-        public function getNegotiatedAlpn(): ?string
+        public function getNegotiatedAlpn(): string
         {
             return 'h3';
         }

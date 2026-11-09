@@ -231,6 +231,9 @@ it('does not certify requested soak time when all clients terminate early', func
 
 it('starts the strict HTTP/1.1 request deadline on first write, not while queued', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray();
     [$socket, $peer] = $pair;
     stream_set_blocking($socket, false);
@@ -279,6 +282,9 @@ it('reports detailed strict request counters on benchmark correctness failure', 
 
 it('treats transient zero-byte nonblocking writes as bounded retry rather than a failed request', function (): void {
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($sockets === false || count($sockets) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($sockets)->toBeArray();
     [$socket, $peer] = $sockets;
     stream_set_blocking($socket, false);

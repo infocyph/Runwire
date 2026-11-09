@@ -135,6 +135,9 @@ it('uses an explicitly injected same-origin H1 pool and keeps forbidden origins 
 
 it('reuses a verified H2 multiplex session for two independent dispatcher requests', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);

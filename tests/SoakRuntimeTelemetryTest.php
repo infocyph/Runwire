@@ -10,7 +10,7 @@ function soakInternalFixture(int $heapStep = 0, int $rootsStep = 0, int $cacheSt
     $samples = [];
     for ($i = 0; $i <= 120; ++$i) {
         $samples[] = [
-            'elapsed_seconds' => $i * 15.0,
+            'elapsed_seconds' => (float) $i * 15.0,
             'allocated_bytes' => 16_777_216 + $i * $heapStep,
             'peak_allocated_bytes' => 16_777_216,
             'gc_enabled' => true,

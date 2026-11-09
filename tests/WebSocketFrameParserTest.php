@@ -27,7 +27,7 @@ function maskedWebSocketFrame(int $opcode, string $payload, bool $fin = true): s
 
     $masked = $payload;
     for ($index = 0; $index < $length; ++$index) {
-        $masked[$index] = $masked[$index] ^ $mask[$index & 3];
+        $masked[$index] = $masked[$index] ^ substr($mask, $index & 3, 1);
     }
 
     return $head . $mask . $masked;

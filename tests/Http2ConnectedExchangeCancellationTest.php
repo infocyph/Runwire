@@ -18,6 +18,9 @@ use Throwable;
 
 it('reclaims an idle H2 request socket and cancellation observer on explicit host cancellation', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$outbound, $silentPeer] = $pair;
     $loop = new SelectLoop();
@@ -63,6 +66,9 @@ it('reclaims an idle H2 request socket and cancellation observer on explicit hos
 
 it('enforces a monotonic response deadline against a silent H2 peer without orphaned watchers', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$outbound, $silentPeer] = $pair;
     $loop = new SelectLoop();

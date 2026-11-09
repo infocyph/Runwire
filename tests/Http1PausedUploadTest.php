@@ -18,6 +18,9 @@ use Throwable;
 it('resumes a temporarily starved upload without reactor spinning or retaining socket ownership', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray()->toHaveCount(2);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('HTTP/1 paused upload requires a complete socket pair.');
+    }
     [$clientSocket, $serverSocket] = $pair;
     stream_set_blocking($serverSocket, false);
 

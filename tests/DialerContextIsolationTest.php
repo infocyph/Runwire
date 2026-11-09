@@ -10,6 +10,9 @@ it('does not inherit a poisoned PHP default TLS context when dialing a verified 
         dirname(__DIR__),
     );
     expect($process)->toBeResource();
+    if (!is_resource($process)) {
+        throw new \RuntimeException('Unable to launch isolated TLS dialer fixture.');
+    }
 
     $stdout = stream_get_contents($pipes[1]);
     $stderr = stream_get_contents($pipes[2]);

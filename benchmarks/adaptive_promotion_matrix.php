@@ -79,6 +79,7 @@ function adaptivePromotionWriteJson(string $path, array $value): void
 }
 
 /**
+ * @param list<string> $command
  * @throws \RuntimeException
  */
 function adaptivePromotionCommandOutput(array $command): string
@@ -380,7 +381,8 @@ function adaptivePromotionEvaluateProtocol(array $caseResults, string $protocol)
 }
 
 /**
- * @param array<string, mixed> $identity @return array<string, mixed>
+ * @param array<string, mixed> $identity
+ * @return array<string, mixed>
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
  */
@@ -557,7 +559,8 @@ function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog
 }
 
 /**
- * @param array<string, mixed> $case @param array<string, mixed> $identity
+ * @param array<string, mixed> $case
+ * @param array<string, mixed> $identity
  * @throws \RuntimeException
  */
 function adaptivePromotionRunTrial(

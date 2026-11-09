@@ -48,6 +48,9 @@ it('handles chunked binary responses with split chunk framing and trailers', fun
     ] as $fragment) {
         $parser->push($fragment, $head, $data, $end);
     }
+    if (!$trailers instanceof Headers) {
+        throw new \RuntimeException('HTTP/1 response parser did not deliver its expected trailers.');
+    }
     expect($body)->toBe("ab\0cd")
         ->and($parser->done())->toBeTrue()
         ->and($trailers)->toBeInstanceOf(Headers::class)

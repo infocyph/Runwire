@@ -37,7 +37,10 @@ function adaptivePromotionValidResults(string $protocol): array
     return $results;
 }
 
-/** @return array<string, mixed> */
+/**
+ * @param array<string, mixed> $case
+ * @return array<string, mixed>
+ */
 function adaptivePromotionFixtureRecord(array $case, string $mode, int $trial): array
 {
     $phase = [

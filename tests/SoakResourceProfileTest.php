@@ -10,7 +10,7 @@ function soakResourceTestSamples(int $rssStep = 0, int $fdStep = 0): array
     $samples = [];
     for ($i = 0; $i <= 120; ++$i) {
         $samples[] = [
-            'elapsed' => $i * 15.0,
+            'elapsed' => (float) $i * 15.0,
             'processes' => 2,
             'rss' => 100_000_000 + $i * $rssStep,
             'virtual' => 300_000_000,

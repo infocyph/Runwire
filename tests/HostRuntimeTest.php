@@ -39,6 +39,7 @@ function hostRuntimeRequest(string $target = '/host'): HttpRequest
 }
 
 /**
+ * @param list<string> $chunks
  * @throws \InvalidArgumentException
  */
 function hostRuntimeWriter(array &$chunks): ResponseWriterInterface

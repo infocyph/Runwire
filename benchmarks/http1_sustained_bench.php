@@ -278,7 +278,10 @@ function http1SustainedOpenClient(string $host, int $port, array &$counter): ?ar
     ];
 }
 
-/** @param array<string, mixed> $client @param array<string, int> $counter */
+/**
+ * @param array<string, mixed> $client
+ * @param array<string, int> $counter
+ */
 function http1SustainedPrepareRequest(array &$client, array &$counter): void
 {
     ++$counter['requests_total'];
@@ -330,6 +333,7 @@ function http1SustainedReconnect(array &$clients, int $id, string $host, int $po
 
 /**
  * @param array<string, mixed> $client
+ * @param array<string, int> $counter
  * @throws \Http1SustainedProtocolError
  */
 function http1SustainedReadChunk(array &$client, array &$counter): void
@@ -356,7 +360,8 @@ function http1SustainedReadChunk(array &$client, array &$counter): void
 }
 
 /**
- * @param array<string, mixed> $client @return array{status:int, body:string, close:bool}|null
+ * @param array<string, mixed> $client
+ * @return array{status:int, body:string, close:bool}|null
  * @throws \Http1SustainedProtocolError
  */
 function http1SustainedTryCompleteResponse(array &$client): ?array

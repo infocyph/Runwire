@@ -85,8 +85,9 @@ it('runs one real verified TLS h2 GET against a separate reference frame-speakin
     if (!$cert instanceof \OpenSSLCertificate) {
         throw new RuntimeException('Unable to sign independent HTTP/2 peer certificate.');
     }
-    openssl_x509_export($cert, $certificate);
-    openssl_pkey_export($key, $private);
+    if (!openssl_x509_export($cert, $certificate) || !openssl_pkey_export($key, $private)) {
+        throw new RuntimeException('Unable to export the independent HTTP/2 TLS identity.');
+    }
     file_put_contents($certFile, $certificate);
     file_put_contents($keyFile, $private);
 

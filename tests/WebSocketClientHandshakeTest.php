@@ -83,6 +83,9 @@ it('round-trips the upgrade challenge with an independent real Unix socket peer'
             . "Sec-WebSocket-Accept: $accept\r\nSec-WebSocket-Protocol: chat\r\n\r\n";
         expect(fwrite($peer, $response))->toBe(strlen($response));
         $reply = fread($client, 4_096);
+        if ($reply === false) {
+            throw new \RuntimeException('Independent WebSocket peer response read failed.');
+        }
         expect(WebSocketClientHandshake::verify($reply, $request['key'], ['chat']))->toBe('chat');
     } finally {
         fclose($client);

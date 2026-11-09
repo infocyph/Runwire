@@ -30,6 +30,7 @@ function expectHttp3Fault(callable $action, ErrorCode $expected): void
 }
 
 /**
+ * @param list<array{0: string, 1: string}> $extra
  * @throws \Throwable
  */
 function abuseRequestHeaders(Encoder $encoder, int $streamId, array $extra = []): string

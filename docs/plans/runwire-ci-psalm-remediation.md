@@ -11,6 +11,114 @@
 
 **Batch 138 submitted — concrete HTTP/3 fake typing and exact callback/OS boundaries:** Extract two in-memory QUIC fixture classes into their PSR-4 test namespace, give both factories real generically-typed stream contracts, preserve their original test behavior, and eliminate generic `object` property/method losses. Validate queued executor/pool cancellation callback values in two tests instead of unusable `unset` calls. Guard absent async QUIC result when producing failure diagnostics, remove a genuinely unused request array, require actual getrusage() results for C4 benchmark CPU samples and reuse the final usage snapshot for RSS while keeping all throughput/resource thresholds unchanged. **Eight actual affected PHP files plus this plan**; no unrelated filler. Exact-head Psalm, PHPStan, strict QA, native, Swoole, benchmarks and protocol validation PENDING. PR stays draft/open/unmerged; no release tag.
 
+## Batch 139 — 100 affected PHP files, one commit (post-commit CI pending)
+
+- Parent: `ebf68ad4915d1021e8d74cdf0bb51bc19e27db23` (Batch 138). Exactly **100 distinct PHP files** changed, plus this remediation tracker; file inventory below. One commit for the complete batch.
+- Resolve concrete PHPStan nullable/mixed resource handling by validating all socket pair fixtures before destructuring; validate TLS subprocess streams, failed OS resource reads, HTTP/3/QUIC fixture contracts and ReflectionNamedType return values. Correct missing PHPDoc value/list/array shapes and non-null returns, fix genuine strict integer/float arithmetic in profiles while preserving numeric budgets. Preserve async callback ownership through mutable event/watcher holders instead of treating by-reference closures as constant null. Make no change to production `src/` files or public APIs.
+- Eliminate Batch 138's six test-only fixture `UnusedProperty` findings by declaring the fixture state public where the fake transport owns it. Keep all original tests or replace tautological checks with real behavior assertions. No custom Psalm/PHPStan configuration, suppressions, baseline, dependency changes, benchmark threshold changes, merged PR or release tag.
+- **100-file inventory:**
+  - `benchmarks/adaptive_promotion_matrix.php`
+  - `benchmarks/comparative_evidence.php`
+  - `benchmarks/http1_sustained_bench.php`
+  - `benchmarks/r0_host_profile.php`
+  - `benchmarks/r2_scheduler_pressure.php`
+  - `benchmarks/soak_runtime_telemetry.php`
+  - `benchmarks/u08_hpack_source_profile.php`
+  - `benchmarks/u08_qpack_source_profile.php`
+  - `tests/AdaptivePromotionMatrixTest.php`
+  - `tests/AdmissionChurnStressTest.php`
+  - `tests/ApplicationLifecycleTest.php`
+  - `tests/AsyncFileApiContractTest.php`
+  - `tests/AsyncFileBackendContractTest.php`
+  - `tests/AsyncFilesystemSocketFairnessTest.php`
+  - `tests/BoundedConnectionPoolTest.php`
+  - `tests/CachedDnsResolverTest.php`
+  - `tests/ConnectionChurnTest.php`
+  - `tests/ConnectionFactoryTest.php`
+  - `tests/ConnectionPoolForkOwnershipTest.php`
+  - `tests/ConnectionPoolReuseGuardTest.php`
+  - `tests/ConnectionStateOwnershipTest.php`
+  - `tests/ConnectionTest.php`
+  - `tests/DatagramClientTest.php`
+  - `tests/DialerContextIsolationTest.php`
+  - `tests/DialerTest.php`
+  - `tests/Fixtures/FakeHttp3ConnectionRaw.php`
+  - `tests/Fixtures/FakeHttp3ConnectionStream.php`
+  - `tests/Fixtures/FakeSwooleRequest.php`
+  - `tests/HappyEyeballsDialerTest.php`
+  - `tests/HostRuntimeTest.php`
+  - `tests/Http1AbuseAcceptanceTest.php`
+  - `tests/Http1AdaptiveConnectionSamplerTest.php`
+  - `tests/Http1AdaptiveConnectionStrategyTest.php`
+  - `tests/Http1ClientAdversarialPeerTest.php`
+  - `tests/Http1ClientRequestWriterTest.php`
+  - `tests/Http1ClientResponseParserTest.php`
+  - `tests/Http1ClientWireTest.php`
+  - `tests/Http1ConnectedExchangeTest.php`
+  - `tests/Http1MalformedPeerTest.php`
+  - `tests/Http1OutboundClientTest.php`
+  - `tests/Http1PausedUploadTest.php`
+  - `tests/Http1PoolReuseIntegrationTest.php`
+  - `tests/Http1ProtocolFallbackTest.php`
+  - `tests/Http1StreamingUploadTest.php`
+  - `tests/Http1SustainedBenchTest.php`
+  - `tests/Http2AbuseTest.php`
+  - `tests/Http2ConnectedExchangeCancellationTest.php`
+  - `tests/Http2ConnectedExchangeTest.php`
+  - `tests/Http2ConnectionTest.php`
+  - `tests/Http2FrameTest.php`
+  - `tests/Http2MultiplexConnectionTest.php`
+  - `tests/Http2OutboundClientTest.php`
+  - `tests/Http3AbuseFaultAcceptanceTest.php`
+  - `tests/Http3ClientControlTest.php`
+  - `tests/Http3OptionsTest.php`
+  - `tests/Http3RequestStreamTest.php`
+  - `tests/Http3SessionTest.php`
+  - `tests/HttpOutboundDispatcherTest.php`
+  - `tests/IdleConnectionPoolStressTest.php`
+  - `tests/IdleConnectionPoolTest.php`
+  - `tests/MatchedReleaseDurationGateTest.php`
+  - `tests/MetricsDiagnosticsTest.php`
+  - `tests/NativeHttpConnectionTest.php`
+  - `tests/OutboundAddressPolicyTest.php`
+  - `tests/PhpQuicFacadeTest.php`
+  - `tests/PhpQuicHttp3ConnectionTest.php`
+  - `tests/PhpQuicHttp3WorkerTest.php`
+  - `tests/PrivilegeDropOrderingTest.php`
+  - `tests/ProcessExecutorForkOwnershipTest.php`
+  - `tests/ProcessExecutorTest.php`
+  - `tests/ProcessRunnerTest.php`
+  - `tests/ProxyTcpInteropTest.php`
+  - `tests/ProxyTunnelAdversarialTest.php`
+  - `tests/ProxyTunnelCallbackOwnershipTest.php`
+  - `tests/ProxyTunnelDrainPressureTest.php`
+  - `tests/ProxyTunnelFaultAcceptanceTest.php`
+  - `tests/PsrMiddlewareAdapterTest.php`
+  - `tests/PublicApiMigrationConstructorCompatibilityTest.php`
+  - `tests/QuicSessionForkOwnershipTest.php`
+  - `tests/RegressionCompareTest.php`
+  - `tests/ResponseTransferTlsTest.php`
+  - `tests/RollingReloadPolicyTest.php`
+  - `tests/SelectLoopTest.php`
+  - `tests/SoakResourceProfileTest.php`
+  - `tests/SoakRuntimeTelemetryTest.php`
+  - `tests/Socks5IndependentTlsReferenceTest.php`
+  - `tests/StreamRelayLargeTransferTest.php`
+  - `tests/TlsHandshakeReadinessTest.php`
+  - `tests/TlsListenerTest.php`
+  - `tests/TraceContextTest.php`
+  - `tests/VerifiedOriginalTargetTlsInteropTest.php`
+  - `tests/WebSocketClientHandshakeTest.php`
+  - `tests/WebSocketFrameParserTest.php`
+  - `tests/WebSocketIntegrationTest.php`
+  - `tests/WebSocketOutboundClientTest.php`
+  - `tests/WebSocketOutboundTlsTest.php`
+  - `tests/WorkerContextTest.php`
+  - `tests/smoke/native_dialer_smoke.php`
+  - `tests/smoke/native_filesystem_smoke.php`
+  - `tests/smoke/native_mixed_peer_smoke.php`
+- **CI verification PENDING:** record Psalm blocking errors for PHP 8.4 and 8.5, full PHPStan inventory (first 1,000 are truncated), four strict QA variants, benchmarks, QUIC, Swoole, hosted/native, source audit and documentation on exact resulting commit. Treat the recurring 20-second ControlServer watchdog failure as an independent QA issue; do not claim it permanently fixed. Do not merge or tag.
+
 ## Historical dual-analyzer checkpoint — Batch 119 exact HEAD
 
 - Exact source SHA: `93206cb0c2f91d25b0b2807777a667f375a8daec` (2026-11-09); latest completed **Security & Standards** run: 42541785714.

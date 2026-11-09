@@ -50,7 +50,10 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
     fclose($writer);
     try {
         $childOutput = stream_get_contents($reader);
-        pcntl_waitpid($pid, $status);
+        $waited = pcntl_waitpid($pid, $status);
+        if ($waited !== $pid || !is_int($status)) {
+            throw new \RuntimeException('Unable to collect owned connection-pool child status.');
+        }
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($childOutput)->toBe('11');

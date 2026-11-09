@@ -18,8 +18,14 @@ use Throwable;
 it('enforces numeric TCP dial admission under 12 repeated full-capacity cancellation waves', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $error);
     expect($listener)->toBeResource();
+    if (!is_resource($listener)) {
+        throw new \RuntimeException('Unable to bind the admission-stress TCP listener.');
+    }
     stream_set_blocking($listener, false);
     $address = stream_socket_get_name($listener, false);
+    if ($address === false) {
+        throw new \RuntimeException('Admission-stress TCP listener has no bound address.');
+    }
     expect($address)->toBeString();
 
     $loop = new SelectLoop();

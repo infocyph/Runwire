@@ -24,10 +24,10 @@ final class FakeHttp3ConnectionStream
 
     /** @param list<string|null> $reads */
     public function __construct(
-        private readonly int $id,
-        private readonly bool $bidirectional,
-        private array $reads,
-        private readonly int $maxWrite,
+        public readonly int $id,
+        public readonly bool $bidirectional,
+        public array $reads,
+        public readonly int $maxWrite,
     ) {}
 
     public function end(): void

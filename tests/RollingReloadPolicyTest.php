@@ -28,11 +28,15 @@ it('reports worker activity and receives a shutdown reason over lifecycle IPC', 
 
     [$master, $worker] = $pair;
     stream_set_blocking($master, false);
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new \RuntimeException('Unable to determine rolling reload fixture PID.');
+    }
     $context = new WorkerContext(
         group: 'lifecycle',
         slot: 0,
         generation: 1,
-        pid: getmypid(),
+        pid: $pid,
         parentPid: posix_getppid(),
         readyStream: $worker,
     );

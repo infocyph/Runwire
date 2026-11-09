@@ -30,7 +30,9 @@ it('round trips real connected IPv4 UDP through the same inbound datagram engine
     $loop->cancel($timeout);
     $client->close();
     $server->close();
-    expect($response)->toBeInstanceOf(Datagram::class);
+    if (!$response instanceof Datagram) {
+        throw new \RuntimeException('Datagram client callback did not deliver its expected response.');
+    }
     expect($response->payload)->toBe('pong')
         ->and($response->peerAddress)->toBe($server->address())
         ->and($loop->diagnostics()->readWatchers)->toBe(0);

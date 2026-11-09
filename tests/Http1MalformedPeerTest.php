@@ -12,6 +12,9 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 
 it('aborts a connected HTTP/1.1 exchange on ambiguous response framing without pooling the socket', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);

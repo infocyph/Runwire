@@ -9,10 +9,13 @@ it('requires the bounded off-loop executor instead of silently selecting synchro
     $constructor = new ReflectionMethod(AsyncFileSystem::class, '__construct');
     $parameters = $constructor->getParameters();
 
+    $type = $parameters[0]->getType();
+    if (!$type instanceof ReflectionNamedType) {
+        throw new \RuntimeException('Async filesystem constructor must have a named executor type.');
+    }
     expect($parameters[0]->getName())->toBe('executor')
         ->and($parameters[0]->isOptional())->toBeFalse()
-        ->and($parameters[0]->getType())->toBeInstanceOf(ReflectionNamedType::class)
-        ->and($parameters[0]->getType()->getName())->toBe(ProcessExecutor::class);
+        ->and($type->getName())->toBe(ProcessExecutor::class);
 
     // This is a source-backed capability guard, not an assertion that any
     // native extension or fake file-async shim has been implemented.

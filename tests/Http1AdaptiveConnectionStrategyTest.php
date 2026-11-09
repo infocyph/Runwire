@@ -29,8 +29,8 @@ function runwireOwnedHttp1AdaptiveConnectionStrategyTestCase01(): void
 
     $high = new AdaptiveConnectionStrategy();
     $pressured = new AdaptiveLoadSample(true, 10_000, 10_000);
-    $result = true;
-    foreach (range(1, 3) as $_) {
+    $result = $high->tcpNoDelay($pressured);
+    foreach (range(2, 3) as $_) {
         $result = $high->tcpNoDelay($pressured);
     }
 

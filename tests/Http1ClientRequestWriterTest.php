@@ -49,7 +49,7 @@ it('streams chunked binary uploads and validates final trailers', function (): v
         }
 
         #[\Override]
-        public function trailers(): ?Headers
+        public function trailers(): Headers
         {
             return Headers::fromArray(['x-end' => 'yes']);
         }

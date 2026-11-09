@@ -42,6 +42,9 @@ it('rejects an adversarial response framing corpus before publishing headers', f
 it('streams a binary one-megabyte independent H1 response without retaining the body', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray()->toHaveCount(2);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Independent HTTP/1 response requires a complete socket pair.');
+    }
     [$socket, $server] = $pair;
     stream_set_blocking($server, false);
 

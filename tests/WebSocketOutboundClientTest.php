@@ -40,7 +40,10 @@ function runwireOwnedWebSocketOutboundClientTestCase01(): void
     stream_set_blocking($server, false);
     $address = stream_socket_get_name($server, false);
     expect($address)->toBeString();
-    $port = (int) substr(strrchr($address, ':'), 1);
+    if (!is_string($address) || ($separator = strrpos($address, ':')) === false) {
+        throw new RuntimeException('Independent WebSocket listener returned no valid TCP port.');
+    }
+    $port = (int) substr($address, $separator + 1);
 
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);

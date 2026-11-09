@@ -9,6 +9,10 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\TlsOptions;
 
+/**
+ * @return array{string, string, string}
+ * @throws \RuntimeException
+ */
 function runwireTlsFiles(): array
 {
     $directory = sys_get_temp_dir() . '/runwire-tls-' . getmypid() . '-' . bin2hex(random_bytes(4));

@@ -12,7 +12,10 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-/** @return array{p50_us: float, p95_us: float, p99_us: float, mean_us: float} */
+/**
+ * @param list<float> $measurements
+ * @return array{p50_us: float, p95_us: float, p99_us: float, mean_us: float}
+ */
 function r2PressurePercentiles(array $measurements): array
 {
     sort($measurements, SORT_NUMERIC);
@@ -179,6 +182,7 @@ function r2PressureOverloadBoundary(): array
 }
 
 /**
+ * @param list<int> $sizes
  * @return array<string, mixed>
  * @throws \InvalidArgumentException
  * @throws \Throwable

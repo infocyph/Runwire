@@ -15,6 +15,9 @@ use stdClass;
 
 it('supports a real local half-close while still accepting inbound data', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray();
     [$client, $peer] = $pair;
     $loop = new SelectLoop();
@@ -55,6 +58,9 @@ it('supports a real local half-close while still accepting inbound data', functi
 
 it('rejects local half-close after draining or closing without double-close events', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray();
     [$client, $peer] = $pair;
     $loop = new SelectLoop();
@@ -74,6 +80,9 @@ it('rejects local half-close after draining or closing without double-close even
 
 it('delivers unread bounded bytes to a new protocol callback owner once', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray();
     [$client, $peer] = $pair;
     $loop = new SelectLoop();

@@ -58,7 +58,7 @@ $supervisor->group(WorkerGroup::callbacks(
                     $context->consumeStopWake();
                 } elseif ($socket === $udp) {
                     $remote = null;
-                    if (stream_socket_recvfrom($udp, 1024, 0, $remote) === 'ping' && is_string($remote)) {
+                    if (stream_socket_recvfrom($udp, 1024, 0, $remote) === 'ping') {
                         stream_socket_sendto($udp, 'pong', 0, $remote);
                     }
                 } else {

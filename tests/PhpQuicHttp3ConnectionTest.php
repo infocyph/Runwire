@@ -595,7 +595,7 @@ function runwireOwnedPhpQuicHttp3ConnectionTestCase13(): void
     $connection = new PhpQuicHttp3Connection(new PhpQuicConnection($raw), $application->handle(...));
     $connection->pump();
     $listener = new \Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener(new class {
-        public function accept(): ?object { return null; }
+        public function accept(): null { return null; }
         public function close(): void {}
         public function setBlocking(bool $blocking): void { unset($blocking); }
     });
@@ -611,7 +611,11 @@ function runwireOwnedPhpQuicHttp3ConnectionTestCase13(): void
     (new ReflectionProperty($worker, 'connections'))->setValue($worker, [spl_object_id($raw) => $connection]);
     $loop = new \Infocyph\Runwire\Loop\SelectLoop();
     $taskLoop = new \Infocyph\Runwire\Loop\SelectLoop();
-    $context = new \Infocyph\Runwire\Supervisor\WorkerContext('h3', 0, 1, getmypid(), 0);
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to determine HTTP/3 worker test process PID.');
+    }
+    $context = new \Infocyph\Runwire\Supervisor\WorkerContext('h3', 0, 1, $pid, 0);
     $context->attachLoop($taskLoop);
     $sampler = new \Infocyph\Runwire\Runtime\Internal\WorkerDiagnosticsSampler($context, $runtime->metrics, new \Infocyph\Runwire\Metrics\DiagnosticsPolicy(), $taskLoop);
     $attachment = new \Infocyph\Runwire\Runtime\Internal\NativeHttp3Attachment($loop, $taskLoop, $context, $application, $worker, $sampler, static function (): void {});

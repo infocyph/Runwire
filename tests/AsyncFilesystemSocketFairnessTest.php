@@ -10,6 +10,9 @@ it('preserves real socket readiness during bounded worker-backed file transfers'
     $directory = sys_get_temp_dir() . '/runwire-fs-socket-' . bin2hex(random_bytes(8));
     expect(mkdir($directory, 0700))->toBeTrue();
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray();
     [$reader, $writer] = $pair;
     stream_set_blocking($reader, false);

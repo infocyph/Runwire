@@ -15,6 +15,9 @@ it('establishes a real numeric IPv4 TCP connection without blocking on stream ac
         throw new RuntimeException($message);
     }
     $address = stream_socket_get_name($server, false);
+    if ($address === false) {
+        throw new RuntimeException('Numeric dialer test listener returned no bound address.');
+    }
     expect($address)->toBeString();
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);
@@ -27,8 +30,11 @@ it('establishes a real numeric IPv4 TCP connection without blocking on stream ac
     });
     $loop->run();
     expect($failed)->toBeNull()
-        ->and($resolved)->toBeInstanceOf(Connection::class)
-        ->and($resolved->state())->toBe(ConnectionState::OPEN)
+        ->and($resolved)->toBeInstanceOf(Connection::class);
+    if (!$resolved instanceof Connection) {
+        throw new RuntimeException('Numeric dialer did not publish a connected socket.');
+    }
+    expect($resolved->state())->toBe(ConnectionState::OPEN)
         ->and($dialer->pendingCount())->toBe(0);
     $peer = stream_socket_accept($server, 1.0);
     expect($peer)->toBeResource();

@@ -85,7 +85,7 @@ it('observes supervisor stop control through the attached worker loop', function
 it('coalesces sustained worker request activity without saturating the lifecycle channel', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray();
-    if ($pair === false || !isset($pair[0], $pair[1])) {
+    if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }
     [$readyParent, $readyChild] = $pair;
@@ -131,7 +131,7 @@ it('coalesces sustained worker request activity without saturating the lifecycle
 it('retains immediate busy and idle state when a worker has no attached loop', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     expect($pair)->toBeArray();
-    if ($pair === false || !isset($pair[0], $pair[1])) {
+    if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }
     [$parent, $child] = $pair;
@@ -155,7 +155,7 @@ it('retains immediate busy and idle state when a worker has no attached loop', f
 function runwireWorkerContextTestSocketPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || !isset($pair[0], $pair[1])) {
+    if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }
 

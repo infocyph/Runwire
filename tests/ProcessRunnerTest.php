@@ -11,6 +11,7 @@ use Infocyph\Runwire\Process\ProcessPolicy;
 use Infocyph\Runwire\Process\ProcessRunner;
 
 /**
+ * @param array<string, mixed> $policy
  * @throws \InvalidArgumentException
  */
 function processRunner(array $policy = []): ProcessRunner

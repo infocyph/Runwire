@@ -385,7 +385,7 @@ it('runs and retains every failing shutdown operation', function (): void {
         ->and($failure?->shutdownFailures)->toHaveCount(3)
         ->and(array_map(
             static fn(Throwable $error): string => $error->getMessage(),
-            $failure?->shutdownFailures ?? [],
+            $failure->shutdownFailures,
         ))->toBe(['drain failed', 'shutdown hook failed', 'legacy shutdown failed']);
 });
 

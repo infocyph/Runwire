@@ -25,7 +25,11 @@ use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
  */
 function responseTransferTlsFiles(): array
 {
-    $directory = sys_get_temp_dir() . '/runwire-transfer-tls-' . getmypid() . '-' . bin2hex(random_bytes(4));
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new \RuntimeException('Unable to determine TLS transfer test PID.');
+    }
+    $directory = sys_get_temp_dir() . '/runwire-transfer-tls-' . $pid . '-' . bin2hex(random_bytes(4));
     mkdir($directory, 0700, true);
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     if ($key === false) {

@@ -44,6 +44,9 @@ it('rejects short diagnostic trials as matched release certification', function 
             2 => ['pipe', 'w'],
         ], $pipes);
         expect(is_resource($process))->toBeTrue();
+        if (!is_resource($process)) {
+            throw new \RuntimeException('Unable to start the invalid-duration fixture.');
+        }
         fclose($pipes[0]);
         $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);

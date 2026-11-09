@@ -396,7 +396,11 @@ function runwireOwnedHttp2ConnectionTestCase10(): void
         $loop->delay(0.08, static fn() => $loop->stop());
         $loop->run();
         stream_set_blocking($client, false);
-        $frames = runwireH2Frames(stream_get_contents($client));
+        $wire = stream_get_contents($client);
+        if ($wire === false) {
+            throw new \RuntimeException('Unable to read the independent HTTP/2 test response.');
+        }
+        $frames = runwireH2Frames($wire);
         $data = '';
         $boundary = null;
         $refused = null;

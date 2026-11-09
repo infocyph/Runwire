@@ -16,6 +16,9 @@ use Throwable;
 
 it('streams an independent HTTP/1.1 server response without retaining a body or reusing an unsafe socket', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $server] = $pair;
     stream_set_blocking($server, false);
@@ -89,6 +92,9 @@ it('streams an independent HTTP/1.1 server response without retaining a body or 
 
 it('rejects silent plaintext fallback when a secure URI is requested', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || count($pair) !== 2) {
+        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+    }
     expect($pair)->toBeArray()->toHaveCount(2);
     [$socket, $server] = $pair;
     $loop = new SelectLoop();

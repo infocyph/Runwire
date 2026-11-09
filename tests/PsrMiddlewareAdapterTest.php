@@ -13,6 +13,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 it('composes ordered PSR-15 middleware and preserves host-owned request metadata', function (): void {
     $order = [];
     $middleware = new class($order) implements MiddlewareInterface {
+        /** @param list<string> $order */
         public function __construct(private array &$order) {}
         /**
          * @throws \InvalidArgumentException
@@ -28,6 +29,7 @@ it('composes ordered PSR-15 middleware and preserves host-owned request metadata
         }
     };
     $terminal = new class($order) implements RequestHandlerInterface {
+        /** @param list<string> $order */
         public function __construct(private array &$order) {}
         #[\Override]
         public function handle(ServerRequestInterface $request): ResponseInterface

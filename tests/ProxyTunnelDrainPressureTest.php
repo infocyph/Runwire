@@ -14,6 +14,9 @@ use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 it('drains a pressure-limited CONNECT or SOCKS5 greeting before transferring tunnel callbacks', function (): void {
     foreach (['http', 'socks5'] as $protocol) {
         $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+        if ($sockets === false || count($sockets) !== 2) {
+            throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
+        }
         expect($sockets)->toBeArray();
         [$socket, $peer] = $sockets;
         stream_set_blocking($peer, false);

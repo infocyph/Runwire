@@ -54,7 +54,7 @@ it('interoperates with an independent real TCP peer for binary chunked H1 reques
             }
 
             #[\Override]
-            public function trailers(): ?Headers
+            public function trailers(): Headers
             {
                 return Headers::fromArray(['x-finish' => 'ok']);
             }

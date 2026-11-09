@@ -62,6 +62,9 @@ if (!is_resource($server)) {
     throw new RuntimeException('Unable to bind outgoing native pending-dial fixture.');
 }
 $address = stream_socket_get_name($server, false);
+if ($address === false) {
+    throw new RuntimeException('Unable to determine the bound outbound smoke endpoint.');
+}
 $context = new WorkerContext('dialer-native', 0, 1, posix_getpid(), posix_getpid());
 $settled = [];
 try {
