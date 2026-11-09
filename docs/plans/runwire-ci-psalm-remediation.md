@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 146 — exact-head QA regression and true exception owners
+
+- Parent `3eb345f2563ed05d096952817b98afe698755df5`, Security & Standards `42681848396`. PHP 8.5 analyzer job `129378430296` reports **53 Psalm blocking findings** (55→53, net −2; 49 security taint, 1 dynamic include, 3 MissingThrowsDocblock); PHPStan **PASS**. PHP 8.4 exact count separately pending. Pest and Pint PASS but PHPForge PHPCS rejects `exit()` inserted in the smoke fixture by Batch 145. Source Audit, hosted, native, docs, Swoole and HTTP/2 PASS.
+- **Batch 146 submitted:** Restore the smoke fixture's original two `every()` registrations (Batch 145 incorrectly targeted those) and document the true exception site: the anonymous loop adapter's `stop()` delegate at line 77. This fixes root cause without forbidden functions or altered smoke semantics. Add the two propagated `OverflowException` contracts on `PhpQuicHttp3Connection::handleReady` and `pump`. **Two actual PHP files + tracker, one commit.**
+- Rerun all PHPForge QA, Psalm, PHPStan, benchmarks, native/hosted/protocol, docs and Source Audit on the new exact SHA. No detector relaxations, thresholds, suppressed taints, new dependencies, merge, tag, or release. Next: genuine validated CLI file/network/dynamic-source boundary fixes; preserve benchmark inputs and native executor capabilities.
+
+
+
 ## Batch 145 — restore PHPForge format and propagated exception boundaries
 
 - Parent `e0a9b4e8db0b3faad95d9188bb7a80cf3a08132f`; exact-head Security & Standards `42680666090` analysis jobs `129374251394` and `129374251663`: **55 Psalm blocking issues each (61→55, net −6)**, **PHPStan passes PHP 8.4 and 8.5**, 49 taint diagnostics unchanged, 1 dynamic include, and 5 exception contracts (4 propagated, 1 top-level smoke script). Four PHPForge QA variants FAIL exclusively due 7 `phpdoc_align` errors introduced in Batch 144: this is a true QA regression, not acceptable release readiness. Source Audit, hosted, portable native, documentation, Swoole and HTTP/2 PASS, benchmarks PASS.

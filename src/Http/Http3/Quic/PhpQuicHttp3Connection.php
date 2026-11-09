@@ -196,6 +196,7 @@ final class PhpQuicHttp3Connection
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function handleReady(array $ready, PhpQuicEventMasks $events): void
     {
@@ -270,6 +271,7 @@ final class PhpQuicHttp3Connection
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function pump(): void
     {

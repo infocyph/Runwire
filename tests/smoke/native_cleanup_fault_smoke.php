@@ -75,6 +75,9 @@ $loop = new class($actual) implements LoopInterface {
      */
     #[\Override]
     public function run(): void { $this->actual->run(); }
+    /**
+     * @throws \Throwable
+     */
     #[\Override]
     public function stop(): void { $this->actual->stop(); }
 };
@@ -82,13 +85,8 @@ $loop = new class($actual) implements LoopInterface {
 $context = new WorkerContext('cleanup-fault', 0, 1, posix_getpid(), posix_getpid());
 $executor = new ProcessExecutor($loop, 1, 2);
 $context->attachLoop($loop);
-try {
-    $context->every('first', 20, static function (): void {});
-    $context->every('second', 20, static function (): void {});
-} catch (Throwable $error) {
-    fwrite(STDERR, $error->getMessage() . PHP_EOL);
-    exit(1);
-}
+$context->every('first', 20, static function (): void {});
+$context->every('second', 20, static function (): void {});
 $context->ownExecutor($executor);
 $loop->injectCancelFailure = true;
 
