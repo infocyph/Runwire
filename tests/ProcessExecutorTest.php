@@ -106,8 +106,11 @@ it('does bounded file reads and stat in a subprocess and enforces deadlines', fu
         deadline: RequestDeadline::afterSeconds(0.03, hrtime(true)),
     );
     $loop->run();
-    expect($error)->toBeInstanceOf(RuntimeException::class)
-        ->and($error->getMessage())->toContain('deadline');
+    expect($error)->toBeInstanceOf(RuntimeException::class);
+    if (!$error instanceof RuntimeException) {
+        throw new LogicException('Deadline callback did not produce a runtime failure.');
+    }
+    expect($error->getMessage())->toContain('deadline');
 });
 
 it('bounds deferred callbacks while maintaining timer and socket progress', function (): void {
@@ -205,9 +208,13 @@ it('honors the earliest inherited token deadline instead of extending the operat
         $executor->close();
     });
     $loop->run();
-    expect($errors)->toHaveCount(1)
-        ->and($errors[0])->toBeInstanceOf(CancelledException::class)
-        ->and($errors[0]->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
+    expect($errors)->toHaveCount(1);
+    $deadlineError = $errors[0] ?? null;
+    expect($deadlineError)->toBeInstanceOf(CancelledException::class);
+    if (!$deadlineError instanceof CancelledException) {
+        throw new LogicException('Inherited deadline did not cancel the worker.');
+    }
+    expect($deadlineError->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
         ->and($executor->diagnostics()['active'])->toBe(0);
     $source->dispose();
 });
@@ -238,10 +245,15 @@ it('cancels a queued filesystem read at the inherited token deadline before its 
         );
         $loop->run();
 
-        expect($completed)->toHaveCount(1)
-            ->and($completed[0][0])->toBeNull()
-            ->and($completed[0][1])->toBeInstanceOf(CancelledException::class)
-            ->and($completed[0][1]->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
+        expect($completed)->toHaveCount(1);
+        $completion = $completed[0] ?? throw new RuntimeException('Missing inherited-deadline callback.');
+        $deadlineError = $completion[1];
+        expect($completion[0])->toBeNull()
+            ->and($deadlineError)->toBeInstanceOf(CancelledException::class);
+        if (!$deadlineError instanceof CancelledException) {
+            throw new LogicException('Queued worker did not report the inherited deadline.');
+        }
+        expect($deadlineError->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
             ->and($source->token()->subscriptionCount())->toBe(0)
             ->and($executor->diagnostics()['active'])->toBe(0)
             ->and($executor->diagnostics()['queued'])->toBe(0)

@@ -207,13 +207,15 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
                 $callbacks[] = [$bytes, $error];
             },
         );
-        $check = null;
-        $check = $loop->repeat(0.01, static function () use (
+        $timer = new class {
+            public ?int $id = null;
+        };
+        $timer->id = $loop->repeat(0.01, static function () use (
             $loop,
             $executor,
             $filesystem,
             $id,
-            &$check,
+            $timer,
             &$activeObserved,
             &$cancelSucceeded,
         ): void {
@@ -221,8 +223,8 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
                 return;
             }
             $activeObserved = true;
-            if (is_int($check)) {
-                $loop->cancel($check);
+            if ($timer->id !== null) {
+                $loop->cancel($timer->id);
             }
             $loop->delay(0.02, static function () use ($filesystem, $id, &$cancelSucceeded): void {
                 $cancelSucceeded = $filesystem->cancel($id);
@@ -231,9 +233,9 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
         $watchdog = $loop->delay(1.5, static function () use ($executor): void {
             $executor->close();
         });
-        $executor->onDrained(static function () use ($executor, $loop, &$check, $watchdog): void {
-            if (is_int($check)) {
-                $loop->cancel($check);
+        $executor->onDrained(static function () use ($executor, $loop, $timer, $watchdog): void {
+            if ($timer->id !== null) {
+                $loop->cancel($timer->id);
             }
             $loop->cancel($watchdog);
             $executor->close();

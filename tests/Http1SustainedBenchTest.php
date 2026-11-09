@@ -136,7 +136,11 @@ it('rotates announced close connections without phantom requests', function (): 
         true,
     );
     try {
-        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 2, 0.15, getmypid(), true);
+        $serverPid = getmypid();
+        if ($serverPid === false) {
+            throw new RuntimeException('Cannot resolve the HTTP benchmark server process ID.');
+        }
+        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 2, 0.15, $serverPid, true);
         $counter = $result['counter'];
         expect($counter['requests_total'])->toBeGreaterThan(1)
             ->and($counter['completed_requests'])->toBe($counter['requests_total'])
@@ -155,7 +159,11 @@ it('counts a dropped response body as a failed attempted request', function (): 
         false,
     );
     try {
-        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 1, 0.15, getmypid(), false);
+        $serverPid = getmypid();
+        if ($serverPid === false) {
+            throw new RuntimeException('Cannot resolve the HTTP benchmark server process ID.');
+        }
+        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 1, 0.15, $serverPid, false);
         expect($result['counter'])->toMatchArray([
             'requests_total' => 1,
             'completed_requests' => 0,

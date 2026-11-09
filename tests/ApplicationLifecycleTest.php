@@ -70,6 +70,7 @@ it('runs boot warmup handle reset drain and shutdown in lifecycle order', functi
             /** @param ArrayObject<int|string, mixed> $events */
             public function __construct(private readonly ArrayObject $events) {}
 
+            /** @throws \LogicException */
             #[\Override]
             public function reset(RequestContext $context): void
             {
@@ -119,7 +120,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
     $hooks = new ApplicationLifecycleHooks(resetters: [
         new class($state) implements RequestResetterInterface {
             /** @param ArrayObject<int|string, mixed> $state */
-                public function __construct(private readonly ArrayObject $state) {}
+            public function __construct(private readonly ArrayObject $state) {}
 
             /**
              * @throws \RuntimeException
@@ -134,7 +135,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
         },
         new class($state) implements RequestResetterInterface {
             /** @param ArrayObject<int|string, mixed> $state */
-                public function __construct(private readonly ArrayObject $state) {}
+            public function __construct(private readonly ArrayObject $state) {}
 
             #[\Override]
             public function reset(RequestContext $context): void
@@ -146,7 +147,7 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
         },
         new class($state) implements RequestResetterInterface {
             /** @param ArrayObject<int|string, mixed> $state */
-                public function __construct(private readonly ArrayObject $state) {}
+            public function __construct(private readonly ArrayObject $state) {}
 
             /**
              * @throws \RuntimeException
@@ -196,8 +197,9 @@ it('resets request state when automatic response completion fails', function ():
     $hooks = new ApplicationLifecycleHooks(resetters: [
         new class($state) implements RequestResetterInterface {
             /** @param ArrayObject<int|string, mixed> $state */
-                public function __construct(private readonly ArrayObject $state) {}
+            public function __construct(private readonly ArrayObject $state) {}
 
+            /** @throws \LogicException */
             #[\Override]
             public function reset(RequestContext $context): void
             {
@@ -389,16 +391,18 @@ it('runs and retains every failing shutdown operation', function (): void {
 
 
 it('holds admission and cleanup until asynchronous response ownership becomes terminal', function (): void {
-    $captured = null;
+    $capture = new class {
+        public ?ResponseWriterInterface $writer = null;
+    };
     $handled = [];
     /** @var ArrayObject<int|string, mixed> $state */
     $state = new ArrayObject(['resets' => 0]);
     $runtime = RuntimeContext::standalone();
     $lifecycle = new ApplicationLifecycle(
-        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured, &$handled): void {
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($capture, &$handled): void {
             $handled[] = $request->target;
             if ($request->target === '/async') {
-                $captured = $writer;
+                $capture->writer = $writer;
 
                 return;
             }
@@ -409,17 +413,18 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
         hooks: new ApplicationLifecycleHooks(resetters: [
             new class($state) implements RequestResetterInterface {
                 /** @param ArrayObject<int|string, mixed> $state */
-                public function __construct(private readonly ArrayObject $state) {}
+            public function __construct(private readonly ArrayObject $state) {}
 
+                /** @throws \LogicException */
                 #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     unset($context);
                     $resets = $this->state['resets'] ?? null;
-                if (!is_int($resets)) {
-                    throw new LogicException('Invalid reset-counter fixture state.');
-                }
-                $this->state['resets'] = $resets + 1;
+                    if (!is_int($resets)) {
+                        throw new LogicException('Invalid reset-counter fixture state.');
+                    }
+                    $this->state['resets'] = $resets + 1;
                 }
             },
         ]),
@@ -443,9 +448,13 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
 
     expect($handled)->toBe(['/async'])
         ->and($rejected)->toBe([503])
-        ->and($captured)->toBeInstanceOf(ResponseWriterInterface::class);
+        ->and($capture->writer)->toBeInstanceOf(ResponseWriterInterface::class);
 
-    $captured?->end();
+    $pendingWriter = $capture->writer;
+    if (!$pendingWriter instanceof ResponseWriterInterface) {
+        throw new LogicException('Asynchronous handler did not retain response ownership.');
+    }
+    $pendingWriter->end();
 
     expect($first->context->completed())->toBeTrue()
         ->and($state['resets'])->toBe(1);
@@ -489,13 +498,15 @@ it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse
 });
 
 it('latches asynchronous reset failure when a delayed response later terminates', function (): void {
-    $captured = null;
+    $capture = new class {
+        public ?ResponseWriterInterface $writer = null;
+    };
     $failure = new RuntimeException('late reset failed');
     $request = lifecycleRequest('/late');
     $lifecycle = new ApplicationLifecycle(
-        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured): void {
-            unset($request);
-            $captured = $writer;
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($capture): void {
+            expect($request->target)->toBe('/late');
+            $capture->writer = $writer;
         },
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
@@ -520,8 +531,12 @@ it('latches asynchronous reset failure when a delayed response later terminates'
 
     expect($request->context->completed())->toBeFalse()
         ->and($lifecycle->healthy())->toBeTrue()
-        ->and($captured)->toBeInstanceOf(ResponseWriterInterface::class)
-        ->and(fn () => $captured?->end())->toThrow(RequestLifecycleException::class)
+        ->and($capture->writer)->toBeInstanceOf(ResponseWriterInterface::class);
+    $pendingWriter = $capture->writer;
+    if (!$pendingWriter instanceof ResponseWriterInterface) {
+        throw new LogicException('Delayed response was not captured by the handler.');
+    }
+    expect(fn () => $pendingWriter->end())->toThrow(RequestLifecycleException::class)
         ->and($request->context->completed())->toBeTrue()
         ->and($lifecycle->healthy())->toBeFalse()
         ->and($lifecycle->healthFailure())->toBe($failure);
