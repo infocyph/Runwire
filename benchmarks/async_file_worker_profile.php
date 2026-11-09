@@ -87,9 +87,10 @@ $executor = new ProcessExecutor($loop, $workers, 128);
 $filesystem = new AsyncFileSystem($executor, $directory);
 $payload = substr(str_repeat('runwire-fs-profile/', intdiv($bytes, 19) + 1), 0, $bytes);
 $paths = [];
-$remaining = new class($operations) {
-    public function __construct(public int $value) {}
+$remaining = new class {
+    public int $value = 0;
 };
+$remaining->value = $operations;
 $completed = 0;
 $failure = null;
 $heartbeats = 0;

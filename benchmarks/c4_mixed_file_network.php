@@ -41,9 +41,12 @@ $dialer = new Dialer($loop, 64);
 $paths = [];
 $networkAttempted = 48;
 $progress = new class {
-    public int $networkConnected = 0;
-    public int $networkAccepted = 0;
     public int $fileCompleted = 0;
+
+    public int $networkAccepted = 0;
+
+    public int $networkConnected = 0;
+
     public bool $sleepFinished = false;
 };
 $errors = [];
