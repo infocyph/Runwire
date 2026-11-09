@@ -51,8 +51,7 @@ function runwireH2ClientPrelude(array $settings = []): string
 function runwireH2Exchange(string $wire, callable $handler, ?Http2Limits $limits = null): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if (!is_array($pair) || !isset($pair[0], $pair[1])
-        || !is_resource($pair[0]) || !is_resource($pair[1])) {
+    if (!is_array($pair) || count($pair) !== 2) {
         throw new RuntimeException('Unable to create independent HTTP/2 reference sockets.');
     }
     [$server, $client] = $pair;

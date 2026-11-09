@@ -17,8 +17,7 @@ use Infocyph\Runwire\Http\Http3\VarIntCodec;
  */
 $args = $_SERVER['argv'] ?? null;
 if (!is_array($args) || count($args) < 3 || count($args) > 4
-    || !is_string($args[1] ?? null) || !is_string($args[2] ?? null)
-    || (isset($args[3]) && !is_string($args[3]))) {
+    || !is_string($args[1] ?? null) || !is_string($args[2] ?? null)) {
     throw new InvalidArgumentException('Expected source directory, immutable revision and optional iterations.');
 }
 $source = realpath($args[1]);
@@ -68,7 +67,7 @@ function runwireQpackMicroprofileMeasure(callable $operation, int $iterations): 
     $variance = array_sum(array_map(
         static fn(float $value): float => ($value - $mean) ** 2.0,
         $samples,
-    )) / count($samples);
+    )) / (float) count($samples);
 
     return [
         'iterations' => $iterations,
@@ -92,7 +91,11 @@ $jobs = [
     },
     'quic_varint_widths' => static function (int $i): int {
         $values = [63, 16_384, VarIntCodec::MAX_VALUE];
-        $value = $values[$i % count($values)];
+        $offset = $i % count($values);
+        if ($offset < 0) {
+            throw new InvalidArgumentException('QPACK profile sample indices must be non-negative.');
+        }
+        $value = $values[$offset];
         $encoded = VarIntCodec::encode($value);
         $offset = 0;
         if (VarIntCodec::decode($encoded, $offset) !== $value || $offset !== strlen($encoded)) {

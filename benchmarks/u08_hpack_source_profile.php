@@ -21,8 +21,7 @@ use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 $arguments = $_SERVER['argv'] ?? null;
 if (!is_array($arguments) || count($arguments) < 3 || count($arguments) > 4
     || !is_string($arguments[1] ?? null)
-    || !is_string($arguments[2] ?? null)
-    || (isset($arguments[3]) && !is_string($arguments[3]))) {
+    || !is_string($arguments[2] ?? null)) {
     throw new InvalidArgumentException('Expected source directory, immutable SHA and optional iterations.');
 }
 $source = realpath($arguments[1]);
@@ -111,7 +110,7 @@ function runwireHpackMicroprofileMeasure(callable $operation, int $iterations): 
     $variance = array_sum(array_map(
         static fn(float $ns): float => ($ns - $average) ** 2.0,
         $samples,
-    )) / count($samples);
+    )) / (float) count($samples);
 
     return [
         'iterations' => $iterations,

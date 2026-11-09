@@ -66,9 +66,7 @@ function runwireFileProfileProcessTree(int $root): array
 
 $args = $_SERVER['argv'] ?? null;
 if (!is_array($args) || count($args) > 4
-    || (isset($args[1]) && !is_string($args[1]))
-    || (isset($args[2]) && !is_string($args[2]))
-    || (isset($args[3]) && !is_string($args[3]))) {
+) {
     throw new InvalidArgumentException('Invalid filesystem profile arguments.');
 }
 $operations = isset($args[1]) ? filter_var($args[1], FILTER_VALIDATE_INT) : 32;
@@ -89,7 +87,9 @@ $executor = new ProcessExecutor($loop, $workers, 128);
 $filesystem = new AsyncFileSystem($executor, $directory);
 $payload = substr(str_repeat('runwire-fs-profile/', intdiv($bytes, 19) + 1), 0, $bytes);
 $paths = [];
-$remaining = $operations;
+$remaining = new class($operations) {
+    public function __construct(public int $value) {}
+};
 $completed = 0;
 $failure = null;
 $heartbeats = 0;
@@ -122,7 +122,7 @@ $tick = static function () use (
     &$lastTick,
     &$maxTickGapNanoseconds,
     $treeAvailable,
-    &$remaining,
+    $remaining,
     &$failure,
     $loop,
     $executor,
@@ -145,7 +145,7 @@ $tick = static function () use (
     $active = $executor->diagnostics()['active'];
     $maxBusyWorkers = max($maxBusyWorkers, $active);
     $activeSampleSum += $active;
-    if ($remaining > 0 && $failure === null) {
+    if ($remaining->value > 0 && $failure === null) {
         $heartbeatTimer = $loop->delay(0.002, $tick);
     }
 };
@@ -168,7 +168,7 @@ try {
                 $bytes,
                 $fail,
                 &$completed,
-                &$remaining,
+                $remaining,
                 $loop,
             ): void {
                 if ($error !== null || $written !== $bytes) {
@@ -185,7 +185,7 @@ try {
                         $payload,
                         $fail,
                         &$completed,
-                        &$remaining,
+                        $remaining,
                         $loop,
                     ): void {
                         if ($error !== null || $data !== $payload) {
@@ -198,7 +198,7 @@ try {
                             static function (bool $removed, ?Throwable $error) use (
                                 $fail,
                                 &$completed,
-                                &$remaining,
+                                $remaining,
                                 $loop,
                             ): void {
                                 if ($error !== null || !$removed) {
@@ -207,8 +207,8 @@ try {
                                     return;
                                 }
                                 ++$completed;
-                                --$remaining;
-                                if ($remaining === 0) {
+                                --$remaining->value;
+                                if ($remaining->value === 0) {
                                     $loop->stop();
                                 }
                             },
@@ -228,9 +228,11 @@ try {
     $elapsed = max(1, hrtime(true) - $start);
     $diagnostics = $executor->diagnostics();
     $usage = getrusage();
-    $rss = is_array($usage)
-        ? ($usage['ru_maxrss'] ?? 0) * (PHP_OS_FAMILY === 'Linux' ? 1024 : 1)
-        : 0;
+    $rssKb = $usage['ru_maxrss'] ?? null;
+    if (!is_int($rssKb) || $rssKb < 0) {
+        throw new RuntimeException('Filesystem profile RSS metric is unavailable.');
+    }
+    $rss = $rssKb * (PHP_OS_FAMILY === 'Linux' ? 1024 : 1);
     $report = [
         'schemaVersion' => 1,
         'scope' => 'development-only-real-filesystem-worker-profile',

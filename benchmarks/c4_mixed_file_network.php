@@ -10,6 +10,21 @@ use Infocyph\Runwire\Network\Dialer;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+/** @param array<string, mixed> $usage */
+function c4CpuMicroseconds(array $usage): int
+{
+    $userSeconds = $usage['ru_utime.tv_sec'] ?? null;
+    $userMicros = $usage['ru_utime.tv_usec'] ?? null;
+    $systemSeconds = $usage['ru_stime.tv_sec'] ?? null;
+    $systemMicros = $usage['ru_stime.tv_usec'] ?? null;
+    if (!is_int($userSeconds) || !is_int($userMicros)
+        || !is_int($systemSeconds) || !is_int($systemMicros)) {
+        throw new RuntimeException('C4 benchmark CPU metrics are unavailable.');
+    }
+
+    return ($userSeconds + $systemSeconds) * 1_000_000 + $userMicros + $systemMicros;
+}
+
 $listener = stream_socket_server('tcp://127.0.0.1:0', $code, $error);
 if (!is_resource($listener)) {
     throw new RuntimeException('Real C4 network origin failed: ' . $error);
@@ -25,22 +40,25 @@ $files = new AsyncFileSystem($executor);
 $dialer = new Dialer($loop, 64);
 $paths = [];
 $networkAttempted = 48;
-$networkConnected = 0;
-$networkAccepted = 0;
-$fileCompleted = 0;
+$progress = new class {
+    public int $progress->networkConnected = 0;
+    public int $progress->networkAccepted = 0;
+    public int $progress->fileCompleted = 0;
+    public bool $progress->sleepFinished = false;
+};
 $errors = [];
 $timerTicks = 0;
 $maxGapMs = 0.0;
 $lastTick = hrtime(true);
 $maxFdCount = 0;
-$sleepFinished = false;
 $start = hrtime(true);
-$cpuStart = getrusage() ?: [];
+$cpuStart = c4CpuMicroseconds(getrusage());
 $networkLatency = [];
-$listenerWatcher = $loop->onReadable($listener, static function () use ($listener, &$networkAccepted): void {
+$runtimeBuild = getenv('RUNWIRE_RUNTIME_BUILD');
+$listenerWatcher = $loop->onReadable($listener, static function () use ($listener, $progress): void {
     $accepted = stream_socket_accept($listener, 0);
     if (is_resource($accepted)) {
-        ++$networkAccepted;
+        ++$progress->networkAccepted;
         fclose($accepted);
     }
 });
@@ -58,15 +76,12 @@ $pulseWatcher = $loop->repeat(0.002, static function () use (
     $maxFdCount = max($maxFdCount, is_array($fd) ? count($fd) : 0);
 });
 $doneWatcher = $loop->repeat(0.005, static function () use (
-    &$fileCompleted,
-    &$networkConnected,
-    &$networkAccepted,
-    &$sleepFinished,
+    $progress,
     $networkAttempted,
     $loop,
 ): void {
-    if ($fileCompleted === 48 && $networkConnected === $networkAttempted
-        && $networkAccepted === $networkAttempted && $sleepFinished) {
+    if ($progress->fileCompleted === 48 && $progress->networkConnected === $networkAttempted
+        && $progress->networkAccepted === $networkAttempted && $progress->sleepFinished) {
         $loop->stop();
     }
 });
@@ -78,11 +93,11 @@ $payload = str_repeat("file-data\0", 4096);
 
 try {
     $executor->submit('sleep', ['milliseconds' => 85], static function (mixed $value, ?Throwable $error) use (
-        &$sleepFinished,
+        $progress,
         &$errors,
     ): void {
-        $sleepFinished = $error === null && $value !== false;
-        if (!$sleepFinished) {
+        $progress->sleepFinished = $error === null && $value !== false;
+        if (!$progress->sleepFinished) {
             $errors[] = 'off-loop sleep failed';
         }
     });
@@ -94,12 +109,12 @@ try {
             $files,
             $path,
             $payload,
-            &$fileCompleted,
+            $progress,
             &$errors,
         ): void {
             if ($error !== null || $count !== strlen($payload)) {
                 $errors[] = 'failed file write';
-                ++$fileCompleted;
+                ++$progress->fileCompleted;
 
                 return;
             }
@@ -107,20 +122,20 @@ try {
                 $files,
                 $path,
                 $payload,
-                &$fileCompleted,
+                $progress,
                 &$errors,
             ): void {
                 if ($error !== null || $read !== $payload) {
                     $errors[] = 'failed file read';
                 }
                 $files->unlink($path, static function (bool $removed, ?Throwable $error) use (
-                    &$fileCompleted,
+                    $progress,
                     &$errors,
                 ): void {
                     if (!$removed || $error !== null) {
                         $errors[] = 'failed file unlink';
                     }
-                    ++$fileCompleted;
+                    ++$progress->fileCompleted;
                 });
             });
         });
@@ -129,7 +144,7 @@ try {
     for ($i = 0; $i < $networkAttempted; ++$i) {
         $started = hrtime(true);
         $dialer->connect('tcp://' . $address, static function (?Connection $connection, ?Throwable $error) use (
-            &$networkConnected,
+            $progress,
             &$networkLatency,
             &$errors,
             $started,
@@ -138,7 +153,7 @@ try {
             if ($error !== null || $connection === null) {
                 $errors[] = 'failed TCP connection';
             } else {
-                ++$networkConnected;
+                ++$progress->networkConnected;
             }
             $connection?->abort();
         });
@@ -148,26 +163,23 @@ try {
     $diag = $executor->diagnostics();
     $loopDiag = $loop->diagnostics();
     $elapsed = (hrtime(true) - $start) / 1_000_000_000;
-    $cpuEnd = getrusage() ?: [];
+    $cpuEnd = c4CpuMicroseconds(getrusage());
     sort($networkLatency, SORT_NUMERIC);
-    $cpuSeconds = (float) ((int) ($cpuEnd['ru_utime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_sec'] ?? 0))
-        + ((int) ($cpuEnd['ru_utime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_utime.tv_usec'] ?? 0)) / 1_000_000.0
-        + (float) ((int) ($cpuEnd['ru_stime.tv_sec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_sec'] ?? 0))
-        + ((int) ($cpuEnd['ru_stime.tv_usec'] ?? 0) - (int) ($cpuStart['ru_stime.tv_usec'] ?? 0)) / 1_000_000.0;
+    $cpuSeconds = ($cpuEnd - $cpuStart) / 1_000_000.0;
     $rss = (int) ((getrusage() ?: [])['ru_maxrss'] ?? 0) * 1024;
-    $passed = $errors === [] && $networkConnected === $networkAttempted
-        && $networkAccepted === $networkAttempted && $fileCompleted === 48
-        && $timerTicks >= 4 && $maxGapMs < 150 && $sleepFinished
+    $passed = $errors === [] && $progress->networkConnected === $networkAttempted
+        && $progress->networkAccepted === $networkAttempted && $progress->fileCompleted === 48
+        && $timerTicks >= 4 && $maxGapMs < 150 && $progress->sleepFinished
         && $maxFdCount > 0 && $maxFdCount < 256 && $rss > 0
         && $diag['queued'] === 0 && $dialer->pendingCount() === 0;
     $record = [
         'schema' => 1,
         'real_same_reactor_tcp_and_offloop_file_io' => true,
-        'source_sha' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
+        'source_sha' => ($runtimeBuild === false || $runtimeBuild === '' || $runtimeBuild === '0' ? 'unknown' : $runtimeBuild),
         'network_attempted' => $networkAttempted,
-        'network_accepted' => $networkAccepted,
-        'network_connected' => $networkConnected,
-        'completed_binary_file_roundtrips' => $fileCompleted,
+        'network_accepted' => $progress->networkAccepted,
+        'network_connected' => $progress->networkConnected,
+        'completed_binary_file_roundtrips' => $progress->fileCompleted,
         'loop_ticks' => $timerTicks,
         'peak_timer_tick_gap_ms' => round($maxGapMs, 3),
         'network_p99_ms' => $networkLatency === [] ? null
