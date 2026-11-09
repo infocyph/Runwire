@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 150 — isolate intermittent ControlServer watchdog cause
+
+- Parent `822c543d3bbb13a7c3d16d39e541e5b33c6d69d7`, Security & Standards `42685418981`. Psalm PHP 8.5 **50 blocking issues**: 32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep, 1 UnresolvableInclude. PHPStan **PASS**. Strict QA PHP 8.4 stable and PHP 8.5 stable/lowest PASS, but PHP 8.4 prefer-lowest **fails only** on `tests/ControlServerTest.php:167` after 20 seconds (one failure, 1,218 other tests passing). Independent Source Audit, hosted/native, Swoole, HTTP/2, docs, benchmarks pass; HTTP/3+QUIC PHP 8.4 passes.
+- **Batch 150 submitted — test-side failure ownership:** Retain the *exact same* 20-second watchdog, control protocol, 0.5s worker readiness, 0.3s shutdown timeout, and all previous status, stop and worker assertions. Use a test-owned SelectLoop and one 50ms testing-only timer to report an actual failed control client request from the existing JSON error result immediately. This distinguishes early client failure (otherwise leaves the supervisor waiting forever) from an accepted-stop supervisor hang, still caught by SIGALRM. Cancel the watch in a finally block. One test PHP file plus tracker; no production runtime behavior or CI/analyzer thresholds change.
+- **Verification:** exact-head PHPForge QA four variants and Psalm/PHPStan both PHP versions, plus protocol, native/hosted, Source Audit, benchmarks, documentation. If the test reports a concrete client transport failure, fix that root cause next; do not weaken watchdog. Remaining taint findings require explicit security boundary design; no forbidden `@psalm-taint-escape` or `@psalm-flow`, baselines, scope reductions or suppressions. PR remains open/draft/unmerged and untagged.
+
+
+
 ## Batch 149 — validated local HTTP/3, QUIC and lifecycle evidence paths
 
 - Parent `8f599ef85c9d262dfa82ac50d66ef5501488cdc0`, Security & Standards `42684345925`. PHP 8.4 Psalm **51 blocking findings** (49 taint, 1 dynamic include, 1 exception contract); PHPStan PASS. All four strict PHPForge QA variants PASS on parent; both benchmark jobs PASS, HTTP/3 PHP 8.4 PASS, PHP 8.5 protocol still in progress at preparation. The same Psalm count should be independently verified on PHP 8.5.

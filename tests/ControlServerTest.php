@@ -11,6 +11,7 @@ require_once __DIR__ . '/Support/ProcessFixture.php';
 use Closure;
 use Infocyph\Runwire\Control\ControlOptions;
 use Infocyph\Runwire\Internal\MonotonicTime;
+use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\Internal\ChildReaper;
 use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\WorkerContext;
@@ -137,7 +138,8 @@ it('serves bounded runtime control over a protected unix socket', function (int 
     }
 
     try {
-        $supervisor = (new Supervisor())
+        $loop = new SelectLoop();
+        $supervisor = (new Supervisor($loop))
             ->control(new ControlOptions($socket, permissions: 0600, maxRequestBytes: 512));
         $supervisor->group(WorkerGroup::callbacks(
             name: 'workers',
@@ -157,6 +159,21 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             readyTimeoutSeconds: 0.5,
             shutdownTimeoutSeconds: 0.3,
         ));
+        // Distinguish client-side request failures from a supervisor that
+        // accepted a stop request but failed to shut down. An early client
+        // error would otherwise leave the parent running until SIGALRM.
+        $clientFailureWatcher = $loop->repeat(0.05, static function () use ($resultFile): void {
+            $contents = file_get_contents($resultFile);
+            if (!is_string($contents) || $contents === '') {
+                return;
+            }
+            $result = json_decode($contents, true, 32);
+            $message = is_array($result) ? ($result['error'] ?? null) : null;
+            if (is_string($message)) {
+                throw new RuntimeException('Control client request failed: ' . $message);
+            }
+        });
+
         // A failing control client must never leave the supervisor
         // running until the entire CI quality task times out.
         // Keep this watchdog scoped to the parent process and restore the
@@ -170,6 +187,7 @@ it('serves bounded runtime control over a protected unix socket', function (int 
         try {
             $supervisor->run();
         } finally {
+            $loop->cancel($clientFailureWatcher);
             pcntl_alarm(0);
             \Infocyph\Runwire\Tests\Support\restoreSignalHandler(SIGALRM, $priorAlarmHandler);
             pcntl_async_signals($priorAsyncSignals);
