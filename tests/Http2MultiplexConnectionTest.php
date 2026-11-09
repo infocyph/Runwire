@@ -97,8 +97,11 @@ it('routes two live H2 streams over one callback-owned established connection', 
         $owner->start();
         $loop->run();
         expect($ready)->toBe(1)
-            ->and($finished)->toHaveCount(2)
-            ->and($finished['one'])->toBeNull()
+            ->and($finished)->toHaveCount(2);
+        if (!array_key_exists('one', $finished) || !array_key_exists('two', $finished)) {
+            throw new RuntimeException('Both multiplexed HTTP/2 requests must finish.');
+        }
+        expect($finished['one'])->toBeNull()
             ->and($finished['two'])->toBeNull()
             ->and($codes)->toBe(['two' => 200, 'one' => 200])
             ->and($bodies)->toBe(['two' => 'second', 'one' => 'first'])
@@ -181,8 +184,11 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
         $owner->start();
         $loop->run();
         expect($resetSeen)->toBeTrue()
-            ->and($errors)->toHaveCount(2)
-            ->and($errors['first'])->toBeInstanceOf(RuntimeException::class)
+            ->and($errors)->toHaveCount(2);
+        if (!array_key_exists('first', $errors) || !array_key_exists('second', $errors)) {
+            throw new RuntimeException('Both HTTP/2 cancel and sibling responses must finish.');
+        }
+        expect($errors['first'])->toBeInstanceOf(RuntimeException::class)
             ->and($errors['second'])->toBeNull()
             ->and($body)->toBe('alive')
             ->and($owner->activeCount())->toBe(0);

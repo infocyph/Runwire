@@ -41,8 +41,12 @@ function persistentRuntimeRequest(string $target): HttpRequest
 function persistentRuntimeWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (int $status, Headers $headers): void {
+            unset($status, $headers);
+        },
+        static function (string $chunk): void {
+            unset($chunk);
+        },
         static function (): void {},
         1_024,
     );
@@ -111,7 +115,10 @@ it('isolates consecutive FrankenPHP worker requests and recycles at the generic 
     $driver = new FrankenPhpDriver(
         new FrankenPhpOptions(mode: FrankenPhpMode::WORKER),
         static function () use (&$targets, &$requestIndex): HttpRequest {
-            return persistentRuntimeRequest($targets[$requestIndex++]);
+            $target = $targets[$requestIndex] ?? throw new RuntimeException('Unexpected FrankenPHP worker request count.');
+            ++$requestIndex;
+
+            return persistentRuntimeRequest($target);
         },
         static fn(string $method): ResponseWriterInterface => $method === 'GET'
             ? persistentRuntimeWriter()
