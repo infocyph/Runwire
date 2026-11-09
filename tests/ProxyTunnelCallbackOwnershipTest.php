@@ -18,6 +18,14 @@ use stdClass;
 use Throwable;
 
 it('exposes an owner-specific callback query without revealing or changing other owners', function (): void {
+    runwireOwnedProxyTunnelCallbackOwnershipTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedProxyTunnelCallbackOwnershipTestCase01(): void
+{
     $ownership = new ConnectionCallbackOwnership();
     $first = new stdClass();
     $other = new stdClass();
@@ -28,9 +36,17 @@ it('exposes an owner-specific callback query without revealing or changing other
         ->and(fn() => $ownership->release($other))->toThrow(LogicException::class);
     $ownership->release($first);
     expect($ownership->unclaimed())->toBeTrue();
-});
+}
 
 it('never releases or aborts another owner when either proxy cannot claim callbacks', function (): void {
+    runwireOwnedProxyTunnelCallbackOwnershipTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedProxyTunnelCallbackOwnershipTestCase02(): void
+{
     foreach (['http', 'socks5'] as $protocol) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         expect($pair)->toBeArray();
@@ -85,10 +101,18 @@ it('never releases or aborts another owner when either proxy cannot claim callba
         expect($loop->diagnostics()->readWatchers)->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0);
     }
-});
+}
 
 
 it('preserves an existing unclaimed direct data callback when proxy tunnel claim is refused', function (): void {
+    runwireOwnedProxyTunnelCallbackOwnershipTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedProxyTunnelCallbackOwnershipTestCase03(): void
+{
     foreach (['http', 'socks5'] as $protocol) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
         expect($pair)->toBeArray();
@@ -127,10 +151,18 @@ it('preserves an existing unclaimed direct data callback when proxy tunnel claim
         }
         expect($loop->diagnostics()->readWatchers)->toBe(0);
     }
-});
+}
 
 
 it('releases a callback owner and allows a later owner without preserving stale identities', function (): void {
+    runwireOwnedProxyTunnelCallbackOwnershipTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedProxyTunnelCallbackOwnershipTestCase04(): void
+{
     $ownership = new ConnectionCallbackOwnership();
     $first = new stdClass();
     $second = new stdClass();
@@ -144,4 +176,4 @@ it('releases a callback owner and allows a later owner without preserving stale 
         ->and($ownership->ownedBy($first))->toBeFalse();
     $ownership->release($second);
     expect($ownership->unclaimed())->toBeTrue();
-});
+}

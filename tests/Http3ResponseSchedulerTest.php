@@ -24,6 +24,14 @@ use Infocyph\Runwire\Tests\Fixtures\Http3SchedulerTransport;
 
 
 it('frames and finishes HTTP/3 responses without transport coupling', function (): void {
+    runwireOwnedHttp3ResponseSchedulerTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ResponseSchedulerTestCase01(): void
+{
     $limits = new Http3Limits();
     $transport = new Http3SchedulerTransport();
     $scheduler = new ResponseScheduler(new ConnectionState($limits), $limits, $transport);
@@ -39,9 +47,17 @@ it('frames and finishes HTTP/3 responses without transport coupling', function (
         ->and($frames[1]->knownType())->toBe(FrameType::DATA)
         ->and($frames[1]->payload)->toBe('ok')
         ->and($transport->finished)->toBe([0]);
-});
+}
 
 it('closes retained response writers when their HTTP/3 stream is discarded', function (): void {
+    runwireOwnedHttp3ResponseSchedulerTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ResponseSchedulerTestCase02(): void
+{
     $limits = new Http3Limits();
     $scheduler = new ResponseScheduler(new ConnectionState($limits), $limits, new Http3SchedulerTransport());
     $writer = $scheduler->writer(0, 'GET', static function (): void {});
@@ -51,9 +67,17 @@ it('closes retained response writers when their HTTP/3 stream is discarded', fun
 
     expect($result->state)->toBe(WriteState::CLOSED)
         ->and($scheduler->responsePending(0))->toBeFalse();
-});
+}
 
 it('retains exact unsent bytes across partial QUIC writes', function (): void {
+    runwireOwnedHttp3ResponseSchedulerTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ResponseSchedulerTestCase03(): void
+{
     $limits = new Http3Limits(
         maxPendingResponseBytesPerStream: 256,
         responseLowWatermarkBytes: 16,
@@ -82,9 +106,17 @@ it('retains exact unsent bytes across partial QUIC writes', function (): void {
     expect($data)->toHaveCount(1)
         ->and($data[0]->payload)->toBe('abcdef')
         ->and($transport->finished)->toBe([0]);
-});
+}
 
 it('signals drain only after HTTP/3 response pressure is relieved', function (): void {
+    runwireOwnedHttp3ResponseSchedulerTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ResponseSchedulerTestCase04(): void
+{
     $limits = new Http3Limits(
         maxPendingResponseBytesPerStream: 256,
         responseLowWatermarkBytes: 16,
@@ -110,9 +142,17 @@ it('signals drain only after HTTP/3 response pressure is relieved', function ():
     $scheduler->flush();
 
     expect($drains)->toBe(1);
-});
+}
 
 it('rejects response writes before exceeding the configured pending ceiling', function (): void {
+    runwireOwnedHttp3ResponseSchedulerTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ResponseSchedulerTestCase05(): void
+{
     $limits = new Http3Limits(
         maxPendingResponseBytesPerStream: 96,
         responseLowWatermarkBytes: 16,
@@ -130,9 +170,17 @@ it('rejects response writes before exceeding the configured pending ceiling', fu
     $result = $writer->write(str_repeat('x', 96));
 
     expect($result->state)->toBe(WriteState::REJECTED_LIMIT);
-});
+}
 
 it('queues response QPACK encoder instructions when peer settings allow dynamic state', function (): void {
+    runwireOwnedHttp3ResponseSchedulerTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ResponseSchedulerTestCase06(): void
+{
     $limits = new Http3Limits(qpackMaxTableCapacity: 220, qpackMaxBlockedStreams: 1);
     $state = new ConnectionState($limits);
     $settings = new Settings([
@@ -153,10 +201,18 @@ it('queues response QPACK encoder instructions when peer settings allow dynamic 
     expect($result->accepted())->toBeTrue()
         ->and($transport->qpackBytes)->not->toBe('')
         ->and($transport->requestBytes[0] ?? '')->not->toBe('');
-});
+}
 
 
 it('promotes sustained HTTP3 response backlog to throughput scheduling', function (): void {
+    runwireOwnedHttp3ResponseSchedulerTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ResponseSchedulerTestCase07(): void
+{
     $limits = new Http3Limits(
         maxPendingResponseBytesPerStream: 524_288,
         responseLowWatermarkBytes: 131_072,
@@ -181,4 +237,4 @@ it('promotes sustained HTTP3 response backlog to throughput scheduling', functio
 
     expect($scheduler->pendingBytes())->toBeGreaterThan(262_144)
         ->and($scheduler->adaptiveState())->toBe(AdaptiveLoadState::THROUGHPUT);
-});
+}

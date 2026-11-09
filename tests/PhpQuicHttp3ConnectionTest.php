@@ -171,6 +171,14 @@ function fakeHttp3ConnectionRaw(array $localStreams, array $acceptedStreams, str
 }
 
 it('pumps a client request through the shared HTTP contract and flushes the HTTP/3 response', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase01(): void
+{
     $encoder = new Encoder(0, 0);
     $headerBlock = $encoder->encode([
         [':method', 'GET'],
@@ -210,9 +218,17 @@ it('pumps a client request through the shared HTTP contract and flushes the HTTP
         ->and($controlRaw->written)->not->toBe('')
         ->and($encoderRaw->written)->not->toBe('')
         ->and($decoderRaw->written)->not->toBe('');
-});
+}
 
 it('builds an injectable QUIC poll set and handles only ready request streams', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase02(): void
+{
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $encoder = new Encoder(0, 0);
     $requestRaw = fakeHttp3ConnectionStream(0, true, [
@@ -254,9 +270,17 @@ it('builds an injectable QUIC poll set and handles only ready request streams', 
         ->and($requests[0]->target)->toBe('/ready')
         ->and($requestRaw->ended)->toBeTrue()
         ->and($connection->activeRequestStreams())->toBe(0);
-});
+}
 
 it('cancels request state when the peer resets a QUIC request stream', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase03(): void
+{
     $requestRaw = fakeHttp3ConnectionStream(0, true, [null]);
     $requestRaw->peerResetCode = 0x10c;
     $connectionRaw = fakeHttp3ConnectionRaw(
@@ -276,9 +300,17 @@ it('cancels request state when the peer resets a QUIC request stream', function 
 
     expect($connection->activeRequestStreams())->toBe(0)
         ->and($connection->closed())->toBeFalse();
-});
+}
 
 it('discards STOP_SENDING responses before native writes and preserves healthy siblings', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase04(): void
+{
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $encoder = new Encoder(0, 0);
     $header = new Frame(FrameType::HEADERS->value, $encoder->encode([
@@ -322,9 +354,17 @@ it('discards STOP_SENDING responses before native writes and preserves healthy s
         ->and($connection->closed())->toBeFalse()
         ->and($raw->closed)->toBe([])
         ->and($healthy->ended)->toBeTrue();
-});
+}
 
 it('treats connection poll errors as transport closure without sending a second close', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase05(): void
+{
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $connectionRaw = fakeHttp3ConnectionRaw(
         [
@@ -340,9 +380,17 @@ it('treats connection poll errors as transport closure without sending a second 
 
     expect($connection->closed())->toBeTrue()
         ->and($connectionRaw->closed)->toBe([]);
-});
+}
 
 it('treats native peer closure before or during GOAWAY flush as an idempotent drain', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase06(): void
+{
     $control = fakeHttp3ConnectionStream(3, false);
     $connectionRaw = fakeHttp3ConnectionRaw(
         [
@@ -392,9 +440,17 @@ it('treats native peer closure before or during GOAWAY flush as an idempotent dr
     $connection->beginDrain();
 
     expect($connection->closed())->toBeTrue();
-});
+}
 
 it('keeps unrelated HTTP3 drain write failures visible', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase07(): void
+{
     $control = fakeHttp3ConnectionStream(3, false);
     $connectionRaw = fakeHttp3ConnectionRaw(
         [
@@ -409,9 +465,17 @@ it('keeps unrelated HTTP3 drain write failures visible', function (): void {
 
     expect(fn() => $connection->beginDrain())->toThrow(RuntimeException::class)
         ->and($connection->closed())->toBeFalse();
-});
+}
 
 it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase08(): void
+{
     $invalidPeer = fakeHttp3ConnectionStream(1, true);
     $connectionRaw = fakeHttp3ConnectionRaw(
         [
@@ -429,9 +493,17 @@ it('rejects invalid peer stream origin before it enters HTTP/3 protocol state', 
     expect(fn() => $connection->pump())->toThrow(Http3Exception::class)
         ->and($connection->closed())->toBeTrue()
         ->and($connectionRaw->closed)->toHaveCount(1);
-});
+}
 
 it('sends one bounded GOAWAY and rejects request streams at the drain boundary', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase09(): void
+{
     $encoder = new Encoder(0, 0);
     $active = fakeHttp3ConnectionStream(0, true, [
         (new Frame(FrameType::HEADERS->value, $encoder->encode([
@@ -482,10 +554,18 @@ it('sends one bounded GOAWAY and rejects request streams at the drain boundary',
         ->and($rejected->peerResetCode)->toBe(ErrorCode::REQUEST_REJECTED->value)
         ->and($connection->activeRequestStreams())->toBe(1)
         ->and($connection->closed())->toBeFalse();
-});
+}
 
 
 it('enforces the HTTP3 aggregate control-stream byte budget per pump', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase10();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase10(): void
+{
     $peerControl = fakeHttp3ConnectionStream(2, false, [str_repeat("\x21", 128)]);
     $connectionRaw = fakeHttp3ConnectionRaw(
         [
@@ -508,10 +588,18 @@ it('enforces the HTTP3 aggregate control-stream byte budget per pump', function 
 
     expect($peerControl->readBytes)->toBe(16)
         ->and($connection->closed())->toBeFalse();
-});
+}
 
 
 it('rotates scan-based HTTP3 reads so reserved streams cannot starve requests', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase11();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase11(): void
+{
     $encoder = new Encoder(0, 0);
     $reservedRaw = fakeHttp3ConnectionStream(2, false, ["\x21", '', '', '', '']);
     $requestRaw = fakeHttp3ConnectionStream(0, true, [
@@ -553,9 +641,17 @@ it('rotates scan-based HTTP3 reads so reserved streams cannot starve requests', 
     expect($requests)->toHaveCount(1)
         ->and($requests[0]->target)->toBe('/fair-scan')
         ->and($connection->closed())->toBeFalse();
-});
+}
 
 it('rotates readiness-based HTTP3 reads so reserved streams cannot starve requests', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase12();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase12(): void
+{
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $encoder = new Encoder(0, 0);
     $reservedRaw = fakeHttp3ConnectionStream(2, false, ["\x21", '', '', '']);
@@ -598,10 +694,18 @@ it('rotates readiness-based HTTP3 reads so reserved streams cannot starve reques
 
     expect($requestRaw->readBytes)->toBeGreaterThan(0)
         ->and($connection->closed())->toBeFalse();
-});
+}
 
 
 it('keeps accepted HTTP3 headers admissible through application draining', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase13();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase13(): void
+{
     $block = (new Encoder(0, 0))->encode([
         [':method', 'GET'], [':scheme', 'https'], [':authority', 'example.com'], [':path', '/accepted'],
     ], 0)->block;
@@ -662,9 +766,17 @@ it('keeps accepted HTTP3 headers admissible through application draining', funct
         $handle->close();
         $context->close();
     }
-});
+}
 
 it('does not replay QUIC FIN on a QPACK-blocked request before encoder instructions arrive', function (): void {
+    runwireOwnedPhpQuicHttp3ConnectionTestCase14();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPhpQuicHttp3ConnectionTestCase14(): void
+{
     $encoder = new Encoder(220, 1, dynamicTableCapacity: 220);
     $initialInstructions = $encoder->takeEncoderInstructions();
     $block = $encoder->encode([
@@ -716,4 +828,4 @@ it('does not replay QUIC FIN on a QPACK-blocked request before encoder instructi
         ->and($request->ended)->toBeTrue()
         ->and($connection->closed())->toBeFalse()
         ->and($connection->activeRequestStreams())->toBe(0);
-});
+}

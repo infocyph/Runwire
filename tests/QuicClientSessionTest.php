@@ -18,6 +18,14 @@ use Throwable;
 
 
 it('rejects stream commands before a verified worker session and after disposal', function (): void {
+    runwireOwnedQuicClientSessionTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicClientSessionTestCase01(): void
+{
     $loop = new SelectLoop();
     $session = new QuicClientSession($loop, 2);
     try {
@@ -31,9 +39,17 @@ it('rejects stream commands before a verified worker session and after disposal'
     } finally {
         $session->dispose();
     }
-});
+}
 
 it('fails closed on unreachable off-loop QUIC session handshake without orphaning the loop', function (): void {
+    runwireOwnedQuicClientSessionTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicClientSessionTestCase02(): void
+{
     $loop = new SelectLoop();
     $session = new QuicClientSession($loop, 2);
     $seen = [];
@@ -57,9 +73,17 @@ it('fails closed on unreachable off-loop QUIC session handshake without orphanin
     } finally {
         $session->dispose();
     }
-});
+}
 
 it('cancels a pending native session without retaining any worker-owned stream', function (): void {
+    runwireOwnedQuicClientSessionTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicClientSessionTestCase03(): void
+{
     $loop = new SelectLoop();
     $session = new QuicClientSession($loop, 1);
     $source = new CancellationSource();
@@ -87,13 +111,21 @@ it('cancels a pending native session without retaining any worker-owned stream',
         $session->dispose();
         $source->dispose();
     }
-});
+}
 
 it('rejects missing or stale native worker epochs and unsafe direct native configuration', function (): void {
+    runwireOwnedQuicClientSessionTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicClientSessionTestCase04(): void
+{
     $worker = new QuicWorkerSession();
     expect(fn() => $worker->execute(['epoch' => 1, 'command' => '{"id":1}' . "\n"]))
         ->toThrow(RuntimeException::class, 'different epoch')
         ->and(fn() => $worker->execute(['action' => 'connect', 'host' => '127.0.0.1', 'port' => 443,
             'options' => ['verify_peer' => false], 'maxStreams' => 4]))
         ->toThrow(InvalidArgumentException::class, 'requires verified TLS 1.3 configuration');
-});
+}

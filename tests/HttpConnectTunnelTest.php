@@ -16,6 +16,14 @@ use Throwable;
 
 
 it('establishes a bounded real nonblocking CONNECT and preserves the first tunnel bytes', function (): void {
+    runwireOwnedHttpConnectTunnelTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase01(): void
+{
     [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
@@ -60,9 +68,17 @@ it('establishes a bounded real nonblocking CONNECT and preserves the first tunne
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('aborts a failed CONNECT response without handing out the connection', function (): void {
+    runwireOwnedHttpConnectTunnelTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase02(): void
+{
     [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
@@ -91,9 +107,17 @@ it('aborts a failed CONNECT response without handing out the connection', functi
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('cancels a pending CONNECT once and releases all callback owners', function (): void {
+    runwireOwnedHttpConnectTunnelTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase03(): void
+{
     [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
@@ -122,9 +146,17 @@ it('cancels a pending CONNECT once and releases all callback owners', function (
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('refuses to disclose CONNECT credentials on a plaintext socket with a claimed proxy name', function (): void {
+    runwireOwnedHttpConnectTunnelTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase04(): void
+{
     [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
@@ -146,4 +178,4 @@ it('refuses to disclose CONNECT credentials on a plaintext socket with a claimed
         $connection->abort();
         fclose($peer);
     }
-});
+}

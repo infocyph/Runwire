@@ -133,6 +133,14 @@ function runwireClientTlsAttempt(
 }
 
 it('establishes a verified nonblocking TLS client connection with explicit trusted root', function (): void {
+    runwireOwnedTlsClientDialerTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase01(): void
+{
     $identity = runwireClientTlsIdentity();
     try {
         [$connection, $error, $accepted] = runwireClientTlsAttempt($identity, 'localhost', $identity[1]);
@@ -145,9 +153,17 @@ it('establishes a verified nonblocking TLS client connection with explicit trust
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
-});
+}
 
 it('fails closed on wrong hostname without handing an unverified connection to callers', function (): void {
+    runwireOwnedTlsClientDialerTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase02(): void
+{
     $identity = runwireClientTlsIdentity();
     try {
         [$connection, $error] = runwireClientTlsAttempt($identity, 'wrong.invalid', $identity[1]);
@@ -156,9 +172,17 @@ it('fails closed on wrong hostname without handing an unverified connection to c
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
-});
+}
 
 it('fails closed on untrusted self-signed TLS server identity', function (): void {
+    runwireOwnedTlsClientDialerTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase03(): void
+{
     $identity = runwireClientTlsIdentity();
     try {
         [$connection, $error] = runwireClientTlsAttempt($identity, 'localhost', null);
@@ -167,9 +191,17 @@ it('fails closed on untrusted self-signed TLS server identity', function (): voi
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
-});
+}
 
 it('rejects TLS policy on Unix sockets before opening any outgoing socket', function (): void {
+    runwireOwnedTlsClientDialerTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase04(): void
+{
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);
     expect(fn() => $dialer->connect(
@@ -178,10 +210,18 @@ it('rejects TLS policy on Unix sockets before opening any outgoing socket', func
         new DialOptions(tls: new TlsClientOptions('localhost')),
     ))->toThrow(InvalidArgumentException::class)
         ->and($dialer->pendingCount())->toBe(0);
-});
+}
 
 
 it('negotiates both TLS 1.2 and TLS 1.3 with explicit client verification and ALPN', function (): void {
+    runwireOwnedTlsClientDialerTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase05(): void
+{
     $identity = runwireClientTlsIdentity();
     try {
         foreach ([STREAM_CRYPTO_METHOD_TLSv1_2_SERVER, STREAM_CRYPTO_METHOD_TLSv1_3_SERVER] as $version) {
@@ -202,9 +242,17 @@ it('negotiates both TLS 1.2 and TLS 1.3 with explicit client verification and AL
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
-});
+}
 
 it('times out a silent TCP peer during client TLS negotiation and releases every watcher', function (): void {
+    runwireOwnedTlsClientDialerTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase06(): void
+{
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
     expect($server)->toBeResource();
     $address = stream_socket_get_name($server, false);
@@ -237,10 +285,18 @@ it('times out a silent TCP peer during client TLS negotiation and releases every
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+}
 
 
 it('accepts a trusted mutual TLS client identity using the server trust configuration', function (): void {
+    runwireOwnedTlsClientDialerTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase07(): void
+{
     $identity = runwireClientTlsIdentity();
     try {
         $serverContext = [
@@ -273,9 +329,17 @@ it('accepts a trusted mutual TLS client identity using the server trust configur
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
-});
+}
 
 it('never accepts an unauthenticated client into the mutual TLS server application', function (): void {
+    runwireOwnedTlsClientDialerTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedTlsClientDialerTestCase08(): void
+{
     $identity = runwireClientTlsIdentity();
     try {
         // A missing client identity produces this expected OpenSSL warning.
@@ -316,4 +380,4 @@ it('never accepts an unauthenticated client into the mutual TLS server applicati
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
-});
+}

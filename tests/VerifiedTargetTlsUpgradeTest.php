@@ -15,6 +15,14 @@ use Throwable;
 
 
 it('fails a closed post-tunnel TLS stream without starting an asynchronous handshake', function (): void {
+    runwireOwnedVerifiedTargetTlsUpgradeTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedVerifiedTargetTlsUpgradeTestCase01(): void
+{
     $stream = fopen('php://temp', 'w+');
     if (!is_resource($stream)) {
         throw new RuntimeException('Unable to open the closed TLS-stream fixture.');
@@ -42,4 +50,4 @@ it('fails a closed post-tunnel TLS stream without starting an asynchronous hands
     expect($calls)->toBe(1)
         ->and($connection)->toBeNull()
         ->and($error)->toBeInstanceOf(LogicException::class);
-});
+}

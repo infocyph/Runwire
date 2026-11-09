@@ -198,7 +198,15 @@ it('serves bounded runtime control over a protected unix socket', function (int 
 })->with(['immediate publication' => 0, 'delayed publication' => 50_000]);
 
 it('rejects unsafe control options', function (): void {
+    runwireOwnedControlServerTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedControlServerTestCase01(): void
+{
     expect(fn () => new ControlOptions('relative.sock'))->toThrow(InvalidArgumentException::class)
         ->and(fn () => new ControlOptions('/tmp/runwire.sock', permissions: 0666))->toThrow(InvalidArgumentException::class)
         ->and(fn () => new ControlOptions('/tmp/runwire.sock', maxRequestBytes: 128))->toThrow(InvalidArgumentException::class);
-});
+}

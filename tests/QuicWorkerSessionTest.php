@@ -92,6 +92,14 @@ function runwireNativeQuicWorkerFixture(int $limit = 2, bool $partialWrites = fa
 }
 
 it('preserves worker-owned bidirectional QUIC payloads across independent IPC commands', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase01(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture();
     $open = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
     expect($open)->toBe(['stream' => 1, 'bidirectional' => true]);
@@ -107,9 +115,17 @@ it('preserves worker-owned bidirectional QUIC payloads across independent IPC co
         ->and($eof['eof'])->toBeTrue()
         ->and($closed)->toBe(['closed' => true])
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('fails closed if a client-initiated unidirectional QUIC stream is read from', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase02(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture();
     $open = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_uni')]);
     expect($open)->toBe(['stream' => 1, 'bidirectional' => false])
@@ -120,17 +136,33 @@ it('fails closed if a client-initiated unidirectional QUIC stream is read from',
     expect(fn() => $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(3, 'read', 1)]))
         ->toThrow(InvalidArgumentException::class, 'unidirectional stream')
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('limits total native QUIC stream admissions and terminates the owning connection on overflow', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase03(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1);
     $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
     expect(fn() => $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]))
         ->toThrow(RuntimeException::class, 'admission limit exceeded')
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('rejects stale logical streams and never accepts commands from a previous native epoch', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase04(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture();
     expect(fn() => $worker->execute(['epoch' => 2, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]))
         ->toThrow(RuntimeException::class, 'different epoch')
@@ -141,9 +173,17 @@ it('rejects stale logical streams and never accepts commands from a previous nat
     expect(fn() => $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'write', 1, 'stale')]))
         ->toThrow(RuntimeException::class, 'Unknown or released')
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('fails closed when a FIN-marked native QUIC write reports a partial send', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase05(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(partialWrites: true);
     $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
 
@@ -152,9 +192,17 @@ it('fails closed when a FIN-marked native QUIC write reports a partial send', fu
         'command' => QuicWorkerCommand::encode(2, 'write', 1, 'complete-payload', true),
     ]))->toThrow(RuntimeException::class, 'invalid write length')
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('rejects duplicate and out-of-order native QUIC worker commands without reusing stream state', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase06(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture();
     $opened = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'open_bidi')]);
     expect($opened['stream'])->toBe(1);
@@ -164,9 +212,17 @@ it('rejects duplicate and out-of-order native QUIC worker commands without reusi
         'command' => QuicWorkerCommand::encode(4, 'read', 1),
     ]))->toThrow(RuntimeException::class, 'replayed')
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('allows command sequence gaps from canceled queued jobs while preserving worker ownership', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase07(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture();
     $opened = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]);
     $written = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'write', 1, 'payload', true)]);
@@ -176,9 +232,17 @@ it('allows command sequence gaps from canceled queued jobs while preserving work
         ->and($written)->toBe(['written' => 7])
         ->and(base64_decode($received['data'], true))->toBe('payload')
         ->and($native->closed)->toBeFalse();
-});
+}
 
 it('releases a finished native stream slot while maintaining monotonically increasing stream IDs', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase08(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1);
     expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]))
         ->toBe(['stream' => 1, 'bidirectional' => true]);
@@ -189,9 +253,17 @@ it('releases a finished native stream slot while maintaining monotonically incre
         ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'open_bidi')]))
         ->toBe(['stream' => 2, 'bidirectional' => true])
         ->and($native->closed)->toBeFalse();
-});
+}
 
 it('resets one of two active QUIC streams without aborting its sibling', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase09(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2);
     $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
     $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]);
@@ -205,10 +277,18 @@ it('resets one of two active QUIC streams without aborting its sibling', functio
         ->and($native->closed)->toBeFalse()
         ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(6, 'open_bidi')]))
         ->toBe(['stream' => 3, 'bidirectional' => true]);
-});
+}
 
 
 it('bounds native QUIC stream churn across 64 resets with an active sibling', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase10();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase10(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2);
     $nextCommand = 1;
     $first = $worker->execute([
@@ -255,9 +335,17 @@ it('bounds native QUIC stream churn across 64 resets with an active sibling', fu
         'command' => QuicWorkerCommand::encode($nextCommand, 'close'),
     ]))->toBe(['closed' => true])
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('preserves two native QUIC siblings under non-FIN partial writes followed by full FIN chunks', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase11();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase11(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2, partialWrites: true);
     $streamA = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')])['stream'];
     $streamB = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')])['stream'];
@@ -296,9 +384,17 @@ it('preserves two native QUIC siblings under non-FIN partial writes followed by 
             'epoch' => 1, 'command' => QuicWorkerCommand::encode(10, 'read', $streamB),
         ])['eof'])->toBeTrue()
         ->and($native->closed)->toBeFalse();
-});
+}
 
 it('reuses four native QUIC slots through 24 concurrent partial-write and complete-FIN cycles', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase12();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase12(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 4, partialWrites: true);
     $commandId = 1;
     for ($cycle = 0; $cycle < 24; ++$cycle) {
@@ -343,9 +439,17 @@ it('reuses four native QUIC slots through 24 concurrent partial-write and comple
         'epoch' => 1, 'command' => QuicWorkerCommand::encode($commandId, 'close'),
     ]))->toBe(['closed' => true])
         ->and($native->closed)->toBeTrue();
-});
+}
 
 it('supports an empty FIN and then safely reclaims the stream slot after EOF', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase13();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase13(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1, partialWrites: true);
     $opened = $worker->execute([
         'epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi'),
@@ -360,11 +464,19 @@ it('supports an empty FIN and then safely reclaims the stream slot after EOF', f
             'epoch' => 1, 'command' => QuicWorkerCommand::encode(4, 'open_bidi'),
         ])['stream'])->toBe(2)
         ->and($native->closed)->toBeFalse();
-});
+}
 
 
 
 it('accepts peer QUIC unidirectional streams without confusing local send-only ownership', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase14();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase14(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2);
     $pending = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'accept')]);
     expect($pending)->toBe(['pending' => true])
@@ -408,9 +520,17 @@ it('accepts peer QUIC unidirectional streams without confusing local send-only o
         ->and($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(5, 'open_bidi')]))
         ->toBe(['stream' => 2, 'bidirectional' => true])
         ->and($native->closed)->toBeFalse();
-});
+}
 
 it('rejects writes to peer-created receive-only streams and invalid accept commands', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase15();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase15(): void
+{
     expect(fn() => QuicWorkerCommand::encode(1, 'accept', 5))
         ->toThrow(InvalidArgumentException::class, 'Invalid or excessive');
 
@@ -439,10 +559,18 @@ it('rejects writes to peer-created receive-only streams and invalid accept comma
             'epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'write', 1, 'forbidden'),
         ]))->toThrow(InvalidArgumentException::class, 'receive-only')
         ->and($native->closed)->toBeTrue();
-});
+}
 
 
 it('preserves a stream and its sibling during bounded partial writes before FIN', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase16();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase16(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2, partialWrites: true);
     $first = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'open_bidi')]);
     $second = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(2, 'open_bidi')]);
@@ -474,10 +602,18 @@ it('preserves a stream and its sibling during bounded partial writes before FIN'
         $received .= base64_decode($result['data'], true);
     } while (!$result['eof']);
     expect($received)->toBe($payload)->and($native->closed)->toBeFalse();
-});
+}
 
 
 it('records native poll/read/write costs only after explicit QUIC worker profiling', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase17();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase17(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 2, partialWrites: true);
     $first = $worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'profile_read')]);
     expect($first['profiling'])->toBeFalse()
@@ -527,9 +663,17 @@ it('records native poll/read/write costs only after explicit QUIC worker profili
     expect($reset['write_calls'])->toBe(0)
         ->and($reset['poll_calls'])->toBe(0)
         ->and($reset['peak_streams'])->toBe(1);
-});
+}
 
 it('drives native QUIC retransmission on a bounded idle poll without allocating streams', function (): void {
+    runwireOwnedQuicWorkerSessionTestCase18();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedQuicWorkerSessionTestCase18(): void
+{
     [$worker, $native] = runwireNativeQuicWorkerFixture(limit: 1);
     expect($worker->execute(['epoch' => 1, 'command' => QuicWorkerCommand::encode(1, 'poll')]))
         ->toBe(['polled' => true])
@@ -541,4 +685,4 @@ it('drives native QUIC retransmission on a bounded idle poll without allocating 
         ->toBe(['polled' => true])
         ->and($native->pollCalls)->toBe(2)
         ->and($native->closed)->toBeFalse();
-});
+}

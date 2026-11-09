@@ -12,6 +12,14 @@ use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use ReflectionProperty;
 
 it('streams a fragmented H3 response and finishes exactly once', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase01(): void
+{
     $headers = [];
     $body = '';
     $stream = new Http3ClientResponseStream(4,
@@ -35,18 +43,34 @@ it('streams a fragmented H3 response and finishes exactly once', function (): vo
     expect($headers)->toBe([[200, '5']])
         ->and($body)->toBe('hello')
         ->and(fn() => $stream->finish())->toThrow(Http3Exception::class, 'ended without complete');
-});
+}
 
 it('rejects DATA before HEADERS and partial frames at FIN', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase02(): void
+{
     $stream = new Http3ClientResponseStream(4, static function (): void {}, static function (): void {});
     expect(fn() => $stream->push(new Frame(FrameType::DATA->value, 'oops')->encode()))
         ->toThrow(Http3Exception::class, 'must start');
     $truncated = new Http3ClientResponseStream(4, static function (): void {}, static function (): void {});
     $truncated->push("\x01\x80");
     expect(fn() => $truncated->finish())->toThrow(Http3Exception::class, 'ended without complete');
-});
+}
 
 it('rejects conflicting or incorrect response Content-Length', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase03(): void
+{
     $codec = new Encoder(0, 0);
     $bad = new Http3ClientResponseStream(4, static function (): void {}, static function (): void {});
     $duplicate = $codec->encode([
@@ -59,9 +83,17 @@ it('rejects conflicting or incorrect response Content-Length', function (): void
     $valid = $codec->encode([[':status', '200'], ['content-length', '3']], 4)->block;
     $missing->push(new Frame(FrameType::HEADERS->value, $valid)->encode());
     expect(fn() => $missing->finish())->toThrow(Http3Exception::class, 'Content-Length mismatch');
-});
+}
 
 it('enforces response byte budgets and rejects forbidden frames', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase04(): void
+{
     $codec = new Encoder(0, 0);
     $block = $codec->encode([[':status', '200']], 4)->block;
     $stream = new Http3ClientResponseStream(4, static function (): void {}, static function (): void {}, 4);
@@ -72,10 +104,18 @@ it('enforces response byte budgets and rejects forbidden frames', function (): v
     $illegal->push(new Frame(FrameType::HEADERS->value, $block)->encode());
     expect(fn() => $illegal->push(new Frame(FrameType::SETTINGS->value)->encode()))
         ->toThrow(Http3Exception::class, 'Forbidden');
-});
+}
 
 
 it('emits bounded static-QPACK response trailers and rejects DATA after trailers', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase05(): void
+{
     $encoder = new Encoder(0, 0);
     $seen = [];
     $body = '';
@@ -106,9 +146,17 @@ it('emits bounded static-QPACK response trailers and rejects DATA after trailers
         ->toThrow(Http3Exception::class, 'after response trailers')
         ->and(fn() => $invalid->push($last->encode()))
         ->toThrow(Http3Exception::class, 'Duplicate');
-});
+}
 
 it('rejects HTTP/3 response trailers with pseudo, routing and length fields', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase06(): void
+{
     $encoder = new Encoder(0, 0);
     $initial = new Frame(FrameType::HEADERS->value, $encoder->encode([[':status', '200']], 4)->block);
     foreach ([
@@ -121,9 +169,17 @@ it('rejects HTTP/3 response trailers with pseudo, routing and length fields', fu
         $trailer = new Frame(FrameType::HEADERS->value, $encoder->encode($fields, 4)->block);
         expect(fn() => $stream->push($trailer->encode()))->toThrow(Http3Exception::class);
     }
-});
+}
 
 it('shares the connection-owned QPACK decoder with the peer instruction stream', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase07(): void
+{
     $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec();
     $codec->receivePeerEncoderInstructions("\\x20");
     $seen = [];
@@ -139,9 +195,17 @@ it('shares the connection-owned QPACK decoder with the peer instruction stream',
     expect($seen)->toBe([200]);
     $owner = new ReflectionProperty($stream, 'codec');
     expect($owner->getValue($stream))->toBe($codec);
-});
+}
 
 it('retains blocked dynamic QPACK headers and replays queued DATA only after matching encoder inserts', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase08(): void
+{
     $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(
         decoderCapacity: 256,
         maxBlocked: 2,
@@ -170,9 +234,17 @@ it('retains blocked dynamic QPACK headers and replays queued DATA only after mat
         ->and($body)->toBe('sibling-safe')
         ->and($stream->isFinished())->toBeTrue()
         ->and($codec->takeDecoderInstructions())->not->toBe('');
-});
+}
 
 it('isolates QPACK-blocked sibling stream sections until each required insertion arrives', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase09(): void
+{
     $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(
         decoderCapacity: 512,
         maxBlocked: 2,
@@ -204,9 +276,17 @@ it('isolates QPACK-blocked sibling stream sections until each required insertion
     expect($readySecond)->toHaveCount(1)->and($readySecond[0]->streamId)->toBe(8);
     $two->resumeQpack($readySecond[0]);
     expect($seen)->toBe(['one-200', 'two-201'])->and($two->isFinished())->toBeTrue();
-});
+}
 
 it('cancels one QPACK-blocked stream without releasing its canceled headers', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase10();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase10(): void
+{
     $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(
         decoderCapacity: 256,
         maxBlocked: 2,
@@ -219,7 +299,7 @@ it('cancels one QPACK-blocked stream without releasing its canceled headers', fu
     $codec->cancelResponseStream(4);
     expect($codec->takeDecoderInstructions())->not->toBe('');
     expect($codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions()))->toBe([]);
-});
+}
 
 it('accepts bodyless H3 metadata without requiring or budgeting its declared content', function (bool $head, int $status): void {
     $body = '';
@@ -247,6 +327,14 @@ it('rejects forbidden H3 response content before body callbacks', function (bool
 })->with([[true, 200], [false, 204], [false, 205], [false, 304]]);
 
 it('preserves H3 HEAD and sibling semantics when QPACK unblocks after FIN', function (): void {
+    runwireOwnedHttp3ClientResponseStreamTestCase11();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientResponseStreamTestCase11(): void
+{
     $codec = new \Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec(decoderCapacity: 512, maxBlocked: 2);
     $encoder = new Encoder(512, 2, dynamicTableCapacity: 512);
     $codec->receivePeerEncoderInstructions($encoder->takeEncoderInstructions());
@@ -273,4 +361,4 @@ it('preserves H3 HEAD and sibling semantics when QPACK unblocks after FIN', func
         $sibling->resumeQpack($ready);
     }
     expect($sibling->isFinished())->toBeTrue()->and($body)->toBe('ok');
-});
+}
