@@ -57,8 +57,6 @@ try {
             $fileRoundtrip = false;
             $socketRoundtrip = false;
             $poolRoundtrip = false;
-            $poolClosed = false;
-            $poolWatchersClean = false;
             $pool = null;
             $poolConnection = null;
             $poolPair = null;

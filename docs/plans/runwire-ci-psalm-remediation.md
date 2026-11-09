@@ -9,6 +9,8 @@
 - **Outstanding independent work:** review the 49 taint diagnostics against genuine CLI, file, networking and process trust boundaries, without suppressions or permission broadening; investigate the intermittent PHP 8.5 prefer-stable `ControlServerTest.php:167` 20-second supervisor-shutdown watchdog failure (all other PHPForge QA variants pass on parent); confirm the include and unused-variable diagnostics. No claim of fully green CI while those remain.
 - **Engineering check:** PHPForge `CORE-01` / `COMPAT-04` / `FLOW-02` / `EXEC-01..03`: preserve runtime/exception behavior and precise docs, leave detector strictness untouched; assess QA and Source Audit on the resulting SHA. Keep PR open/draft/unmerged, with no release tag.
 
+**Batch 140 Source Audit follow-up:** The first post-commit audit reported previously undispositioned public symbols `Settings` and `SettingsCodec` after exception-contract comments changed their source hash. Record both as test-backed, documentation-only migrations using `tests/Http3ControlStreamTest.php`; do not loosen `tools/c4-migration-behavior-audit.php`. Also remove two confirmed unused RoadRunner fixture variables. This is a small corrective follow-up, not another 100-file remediation batch. Re-run exact-head QA, analyzers, Source Audit and protocol tests.
+
 ## Historical dual-analyzer checkpoint — Batch 137 exact HEAD
 
 - Exact source SHA: `ab1c344c66d55d0d2c80060faf4a34775b475124`; Security & Standards run `42557158756`.

@@ -736,6 +736,22 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\Settings",
+      "executableTest": "tests/Http3ControlStreamTest.php",
+      "behavior": "HTTP/3 settings validation, server defaults and identifier limits",
+      "migration": "Settings validation and server-default behavior remain unchanged in the tested HTTP/3 control-stream roundtrips; the updated source only documents exceptions already thrown by existing validation.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
+      "symbol": "Infocyph\\Runwire\\Http\\Http3\\SettingsCodec",
+      "executableTest": "tests/Http3ControlStreamTest.php",
+      "behavior": "HTTP/3 settings codec roundtrips and malformed-frame rejection",
+      "migration": "Codec encoding, decoding, duplicate-setting rejection and malformed control-stream behavior remain test-backed and unchanged; added exception tags clarify preexisting thrown-exception contracts.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Http\\Http3\\VarIntCodec",
       "executableTest": "tests/Http3FrameTest.php",
       "behavior": "Existing test-backed validation, protocol and lifecycle semantics for VarIntCodec",
