@@ -670,8 +670,8 @@ final class Supervisor
         };
     }
 
-    /** @param list<int> $signals */
     /**
+     * @param list<int> $signals
      * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     private function processSignals(array $signals): void
@@ -850,7 +850,7 @@ final class Supervisor
     private function startDevelopmentWatcher(): void
     {
         $policy = $this->developmentWatchPolicy;
-        if ($policy === null || !$policy->enabled) {
+        if ($policy?->enabled !== true) {
             return;
         }
 

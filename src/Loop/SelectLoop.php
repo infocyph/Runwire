@@ -187,11 +187,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
      * Callback-driven stop() can change running within a tick.
      * @throws \LogicException
      * @throws \RuntimeException
-     */
-    #[\Override]
-    /**
      * @throws \Throwable
      */
+    #[\Override]
     public function run(): void
     {
         if ($this->running) {

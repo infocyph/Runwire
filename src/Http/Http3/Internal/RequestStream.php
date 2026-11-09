@@ -161,6 +161,8 @@ final class RequestStream
      * Mark transport FIN received and complete the request when unblocked.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function finish(): void
     {
@@ -230,6 +232,7 @@ final class RequestStream
      * Resume a request whose QPACK field section has become decodable.
      * @throws \LogicException
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \OverflowException
      */
     public function resume(DecodedFieldSection $section): void
     {
@@ -430,6 +433,7 @@ final class RequestStream
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function drainBufferedFrames(): void
     {
@@ -492,6 +496,7 @@ final class RequestStream
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @throws \OverflowException
      */
     private function drainParsedFrames(): void
     {

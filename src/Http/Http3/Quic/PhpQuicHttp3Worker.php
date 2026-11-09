@@ -161,6 +161,7 @@ final class PhpQuicHttp3Worker
      * @throws \Infocyph\Runwire\Exception\ListenerException
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
+     * @throws \LogicException
      */
     public function tick(?float $timeoutSeconds = self::DEFAULT_POLL_TIMEOUT_SECONDS): void
     {

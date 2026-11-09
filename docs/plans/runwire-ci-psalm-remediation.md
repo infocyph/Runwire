@@ -1,11 +1,16 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
-## Current dual-analyzer checkpoint — Batch 141, SHA 40b0930fc58f
+## Current dual-analyzer checkpoint — Batch 142, SHA b371964eec34
 
 - Exact source SHA: `40b0930fc58fa3def3a6a0375b63f53e993d377c`; Security & Standards `42673791199`, PHP 8.4 analysis job `129351375885`. **Psalm: 82 blocking errors** across 29 unique PHP files, consisting of 32 missing exception docs, 49 security taint (32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep), and one dynamic unresolved include. **PHPStan: one error**, `complexity.classLike` for Supervisor (81 vs 80 limit). PHP 8.5 analysis not yet independently verified for this SHA.
 - PHP 8.5 prefer-lowest QA job `129351377208`: Pint reports **one `ordered_class_elements` issue** for Supervisor; Pest, PHP lint, duplicate and reference checks passed. Avoid claiming QA fully green.
 - Multiple independent workflow runs failed before scheduling any jobs, despite other suites running normally; retrying source-audit run `42673790665` returned `403 This workflow run cannot be retried`. GitHub previously reported a November 9 Actions/Webhooks incident, but it was already resolved by these run timestamps, so a common root cause is **not verified**.
 - **Batch 142:** resolve the 32 reported `MissingThrowsDocblock` diagnostics by documenting propagated exceptions at 14 affected PHP file/method owners without changing runtime logic; fix supervisor PER class-property ordering and replace shutdown-only timer `??=` with assignment because `stop()` already prevents subsequent timer creation through `$this->stopping`, reducing one complexity operation without changing shutdown behavior. One coherent commit, 14 actual affected PHP files plus this tracker; do not pad to 100 when only 29 files have current verified findings. Security-taint and dynamic source-loading boundary audit remains, with no blanket suppression, scope reduction, dependency change, merge or release tag. Full exact-head CI verification **PENDING**.
+
+
+**Batch 142 exact-head QA observation (SHA `b371964eec34d92ea4c87ac407697d8c3f08ce82`):** Psalm PHP 8.4 dropped from 82 to **61** blocking findings; 49 security-taint findings and one dynamic include persist, with 11 newly propagated exception-contract errors. PHPStan has **2 findings** in `src/Supervisor/Supervisor.php`: class cognitive complexity remains 81/80, and a stacked docblock conceals `list<int>` parameter type. PHP 8.5 prefer-lowest PHPForge QA **passes**. Source Audit, release, docs, hosted, portable-native, HTTP/2 and benchmarks passed or ran as observed, but exact final full CI green is NOT established.
+
+**Batch 143 submitted — follow-on exception propagation and strict analyzer contracts:** Add the 11 required propagated `@throws` declarations at six actual affected PHP files; correct the event loop's second PHPDoc after `#[\\Override]` by consolidating to the original block, and consolidate `Supervisor::processSignals` generic list and `@throws` into one block. Replace the `startDevelopmentWatcher` nullable boolean OR with an equivalent nullsafe bool check in Supervisor to remove one cognitive branch without altering enabled behavior, shutdown, or API. Exactly **7 confirmed affected PHP files** plus this plan, one commit. No suppressions, analyzer thresholds, CI changes, security trust relaxation, merge or tag. New exact-HEAD analyzers and QA **PENDING**.
 
 ## Historical checkpoint — Batch 140 committed for validation
 

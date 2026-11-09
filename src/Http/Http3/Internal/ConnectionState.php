@@ -189,6 +189,8 @@ final class ConnectionState
      * Feed bytes into a request stream and return its state object.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function pushRequestStream(int $streamId, string $bytes): RequestStream
     {

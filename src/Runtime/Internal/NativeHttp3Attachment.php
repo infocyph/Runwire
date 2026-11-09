@@ -193,6 +193,7 @@ final class NativeHttp3Attachment
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \UnexpectedValueException
+     * @throws \Throwable
      */
     private function poll(): void
     {

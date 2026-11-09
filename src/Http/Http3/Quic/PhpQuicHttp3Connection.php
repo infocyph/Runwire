@@ -443,6 +443,7 @@ final class PhpQuicHttp3Connection
      * @throws \InvalidArgumentException
      * @throws \LogicException
      * @throws \UnexpectedValueException
+     * @throws \OverflowException
      */
     private function drainStream(int $streamId, int $readBudget, int $byteBudget, int $controlBudget): array
     {
