@@ -52,20 +52,18 @@ function runwireAuthenticatedProxyInterop(
         throw new RuntimeException('Cannot prepare isolated proxy TLS fixtures.');
     }
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    expect($key)->not->toBeFalse();
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Proxy Authenticated Tls Interop Test private key.');
     }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    expect($csr)->not->toBeFalse();
     if ($csr === false) {
         throw new \RuntimeException('Unable to create Proxy Authenticated Tls Interop Test certificate request.');
     }
     $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($cert)->not->toBeFalse();
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Proxy Authenticated Tls Interop Test certificate.');
     }
+    expect(openssl_x509_parse($cert))->toBeArray();
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
     $caFile = $dir . '/cert.pem';

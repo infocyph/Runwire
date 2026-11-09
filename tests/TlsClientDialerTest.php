@@ -29,20 +29,18 @@ function runwireClientTlsIdentity(): array
         throw new RuntimeException('Cannot create TLS identity fixture directory.');
     }
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    expect($key)->not->toBeFalse();
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Tls Client Dialer Test private key.');
     }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    expect($csr)->not->toBeFalse();
     if ($csr === false) {
         throw new \RuntimeException('Unable to create Tls Client Dialer Test certificate request.');
     }
     $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($cert)->not->toBeFalse();
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Tls Client Dialer Test certificate.');
     }
+    expect(openssl_x509_parse($cert))->toBeArray();
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
     $certificate = $directory . '/cert.pem';

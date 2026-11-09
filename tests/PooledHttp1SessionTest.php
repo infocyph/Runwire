@@ -326,20 +326,18 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
     $privateKey = $directory . '/key.pem';
     file_put_contents($config, "[req]\ndistinguished_name=dn\n[dn]\n[v3]\nsubjectAltName=IP:::1\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,digitalSignature,keyEncipherment,keyCertSign\n");
     $key = openssl_pkey_new(['private_key_bits' => 2048]);
-    expect($key)->not->toBeFalse();
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Pooled Http1Session Test private key.');
     }
     $csr = openssl_csr_new(['commonName' => 'unrelated.example'], $key, ['config' => $config]);
-    expect($csr)->not->toBeFalse();
     if ($csr === false) {
         throw new \RuntimeException('Unable to create Pooled Http1Session Test certificate request.');
     }
     $cert = openssl_csr_sign($csr, null, $key, 1, ['config' => $config, 'x509_extensions' => 'v3']);
-    expect($cert)->not->toBeFalse();
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Pooled Http1Session Test certificate.');
     }
+    expect(openssl_x509_parse($cert))->toBeArray();
     openssl_x509_export($cert, $pem);
     openssl_pkey_export($key, $keyPem);
     file_put_contents($certificate, $pem);

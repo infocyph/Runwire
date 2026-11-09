@@ -39,7 +39,6 @@ function runwireOwnedWebSocketOutboundTlsTestCase01(): void
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     $configFile = $directory . '/openssl.cnf';
     file_put_contents($configFile, "[req]\ndistinguished_name=req_dn\nreq_extensions=v3_req\n[req_dn]\n[v3_req]\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n");
-    expect($key)->not->toBeFalse();
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Web Socket Outbound Tls Test private key.');
     }
@@ -48,7 +47,6 @@ function runwireOwnedWebSocketOutboundTlsTestCase01(): void
         $key,
         ['config' => $configFile, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
-    expect($csr)->not->toBeFalse();
     if ($csr === false) {
         throw new \RuntimeException('Unable to create Web Socket Outbound Tls Test certificate request.');
     }
@@ -59,10 +57,10 @@ function runwireOwnedWebSocketOutboundTlsTestCase01(): void
         1,
         ['config' => $configFile, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
-    expect($cert)->not->toBeFalse();
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Web Socket Outbound Tls Test certificate.');
     }
+    expect(openssl_x509_parse($cert))->toBeArray();
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
     file_put_contents($certFile, $certPem);
