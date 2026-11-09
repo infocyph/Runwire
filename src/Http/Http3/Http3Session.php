@@ -69,7 +69,8 @@ final class Http3Session
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \OverflowException
-     */
+     * @throws \LogicException
+    */
     public function finishRequestStream(int $streamId): void
     {
         $this->state->finishRequestStream($streamId);
@@ -99,8 +100,8 @@ final class Http3Session
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \OverflowException
-          * @throws \LogicException
-*/
+     * @throws \LogicException
+     */
     public function pushRequestStream(int $streamId, string $bytes): void
     {
         $this->state->pushRequestStream($streamId, $bytes);

@@ -82,8 +82,13 @@ $loop = new class($actual) implements LoopInterface {
 $context = new WorkerContext('cleanup-fault', 0, 1, posix_getpid(), posix_getpid());
 $executor = new ProcessExecutor($loop, 1, 2);
 $context->attachLoop($loop);
-$context->every('first', 20, static function (): void {});
-$context->every('second', 20, static function (): void {});
+try {
+    $context->every('first', 20, static function (): void {});
+    $context->every('second', 20, static function (): void {});
+} catch (Throwable $error) {
+    fwrite(STDERR, $error->getMessage() . PHP_EOL);
+    exit(1);
+}
 $context->ownExecutor($executor);
 $loop->injectCancelFailure = true;
 

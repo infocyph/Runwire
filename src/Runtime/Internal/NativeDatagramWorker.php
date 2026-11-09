@@ -80,8 +80,8 @@ final class NativeDatagramWorker
      * @throws \LogicException
      * @throws \OverflowException
      * @throws \RuntimeException
-          * @throws \Throwable
-*/
+     * @throws \Throwable
+     */
     public static function run(
         WorkerContext $context,
         BoundDatagramServer $bound,

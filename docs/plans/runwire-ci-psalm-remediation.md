@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 145 — restore PHPForge format and propagated exception boundaries
+
+- Parent `e0a9b4e8db0b3faad95d9188bb7a80cf3a08132f`; exact-head Security & Standards `42680666090` analysis jobs `129374251394` and `129374251663`: **55 Psalm blocking issues each (61→55, net −6)**, **PHPStan passes PHP 8.4 and 8.5**, 49 taint diagnostics unchanged, 1 dynamic include, and 5 exception contracts (4 propagated, 1 top-level smoke script). Four PHPForge QA variants FAIL exclusively due 7 `phpdoc_align` errors introduced in Batch 144: this is a true QA regression, not acceptable release readiness. Source Audit, hosted, portable native, documentation, Swoole and HTTP/2 PASS, benchmarks PASS.
+- **Batch 145 submitted:** Correct the PHPDoc alignment from Batch 144 in 7 PHP files; record 4 newly exposed exception propagations at owning methods, and fail closed with a clear STDERR/exit failure if the native cleanup smoke fixture cannot register a periodic timer. Existing normal fixture behavior and test expectations are preserved. All changes are in 8 actual PHP files + tracker. One coherent corrective commit, no arbitrary padding, public API change, analyzer relaxations, suppression or quality gate skips.
+- **Next required steps:** exact-head QA and both analyzer counts; if PHPForge/Psalm expose further exceptions, resolve before declaring complete. Continue independent security-taint boundary audit on 49 diagnostic sites and dynamic CLI include in following batches.
+- PHPForge CORE-01 / FLOW-02 / EXEC-03: no runtime or protocol behavior change outside explicit fail-closed smoke failure, no weaker checks, strict CI verification **PENDING**. Keep PR draft/open/unmerged; no tag or release.
+
+
+
 ## Batch 144 — exact-head reconciliation and remaining exception contracts
 
 - Parent: `5a4e41f31360cab8eca158abfe6886d244ae02f3`; Security & Standards run `42676537249`, PHP 8.4 and 8.5 analyzer jobs `129359372287` / `129359372351`. Each has **61 Psalm blocking issues in 25 unique PHP files** (not 122 independent issues); PHPStan **PASS (0)** on both, Composer audit **PASS**. All four PHPForge QA variants, both benchmark lanes, both HTTP/3+QUIC, Swoole, hosted, portable native, Source Audit, HTTP/2 reference, release candidate and Sphinx passed on that parent.

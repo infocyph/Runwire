@@ -128,8 +128,8 @@ final class R2MixedProgress
  * @throws \LogicException
  * @throws \OverflowException
  * @throws \RuntimeException
-      * @throws \Throwable
-*/
+ * @throws \Throwable
+ */
 function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
 {
     if ($cpuBurst < 1 || $cpuBurst > 192 || $durationSeconds < 0.1
@@ -214,7 +214,8 @@ function r2MixedPressureTier(int $cpuBurst, float $durationSeconds): array
  * @throws \LogicException
  * @throws \OverflowException
  * @throws \RuntimeException
- */
+ * @throws \Throwable
+*/
 function runwireR2MixedSchedulerSoak(float $durationSeconds = 2.0): array
 {
     $tiers = [];
