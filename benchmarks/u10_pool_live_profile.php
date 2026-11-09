@@ -17,6 +17,7 @@ use stdClass;
 use Throwable;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
+require_once __DIR__ . '/process_usage.php';
 
 /** Independent real TCP requests through new sockets versus actual retained pooled sockets. */
 final class U10PoolNetworkTrial
@@ -44,7 +45,7 @@ final class U10PoolNetworkTrial
 
     private int $maxRss = 0;
 
-    /** @var array<int, array{started:int, lease:?int, connection:?Connection, owner:?object, received:string}> */
+    /** @var array<int, array{started:int|float, lease:?int, connection:?Connection, owner:?object, received:string}> */
     private array $requests = [];
 
     /**
@@ -74,7 +75,7 @@ final class U10PoolNetworkTrial
     }
 
     /**
-     * @return array<string,int|float|bool>
+     * @return array{successful_requests:int,real_network_io:bool,concurrency:int,rps:float,p99_ms:float,cpu_parent_ms:float,rss_bytes:int,peak_open_fds:int,reuse_hits:int,fresh_dials:int,reuse_hit_rate:float}
      * @throws \Throwable
      */
     public function run(): array
@@ -94,7 +95,7 @@ final class U10PoolNetworkTrial
             if ($this->completed !== $this->count || $this->requests !== []) {
                 throw new RuntimeException('U10 real socket workload did not finish all requests.');
             }
-            $elapsed = max(0.000001, (hrtime(true) - $started) / 1_000_000_000);
+            $elapsed = max(0.000001, (float) (hrtime(true) - $started) / 1_000_000_000.0);
             $this->sampleResources();
             sort($this->latencies);
             $latencyIndex = max(0, (int) ceil((float) count($this->latencies) * 0.99) - 1);
@@ -130,15 +131,15 @@ final class U10PoolNetworkTrial
         }
     }
 
+    /**
+ * @throws \RuntimeException
+   * @throws \ValueError
+ */
     private static function cpuMs(): float
     {
-        $usage = getrusage();
+        $usage = runwireBenchmarkUsage();
 
-        return 1000.0 * (
-            ($usage['ru_utime.tv_sec'] ?? 0) + ($usage['ru_stime.tv_sec'] ?? 0)
-        ) + (
-            ($usage['ru_utime.tv_usec'] ?? 0) + ($usage['ru_stime.tv_usec'] ?? 0)
-        ) / 1000.0;
+        return (float) runwireBenchmarkCpuMicroseconds($usage) / 1_000.0;
     }
 
     /** @throws \Throwable */
@@ -205,24 +206,30 @@ final class U10PoolNetworkTrial
                 $this->pool->acquire(
                     $key,
                     function (int $lease, ?Connection $connection, ?Throwable $error) use ($id): void {
-                        $this->requests[$id]['lease'] = $lease;
-                        if ($error !== null) {
-                            $this->fail($error);
-
-                            return;
-                        }
-                        if ($connection !== null) {
-                            $this->connected($id, $connection, null);
-
-                            return;
-                        }
-                        $this->open($id);
+                        $this->leased($id, $lease, $connection, $error);
                     },
                 );
             } else {
                 $this->open($id);
             }
         }
+    }
+
+    /** @throws Throwable */
+    private function leased(int $id, int $lease, ?Connection $connection, ?Throwable $error): void
+    {
+        $this->requests[$id]['lease'] = $lease;
+        if ($error !== null) {
+            $this->fail($error);
+
+            return;
+        }
+        if ($connection !== null) {
+            $this->connected($id, $connection, null);
+
+            return;
+        }
+        $this->open($id);
     }
 
     /** @throws \Throwable */
@@ -265,7 +272,7 @@ final class U10PoolNetworkTrial
         } else {
             $connection->abort();
         }
-        $this->latencies[] = max(0.0, (hrtime(true) - $request['started']) / 1_000_000);
+        $this->latencies[] = max(0.0, ((float) hrtime(true) - (float) $request['started']) / 1_000_000.0);
         unset($this->requests[$id]);
         ++$this->completed;
         --$this->active;
@@ -302,6 +309,9 @@ function u10Median(array $values): float
         : $values[intdiv($count, 2)];
 }
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 3 || filter_var($argv[1], FILTER_VALIDATE_INT) === false
     || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
     throw new InvalidArgumentException('Usage: php u10_pool_live_profile.php <requests 32..1024> <concurrency 4..32>');
@@ -351,14 +361,8 @@ try {
     }
     $summary = [];
     foreach ($results as $mode => $rows) {
-        if ($rows === []) {
-            throw new RuntimeException('Independent pool benchmark requires measurements for every mode.');
-        }
         $rssValues = array_column($rows, 'rss_bytes');
         $fdValues = array_column($rows, 'peak_open_fds');
-        if ($rssValues === [] || $fdValues === []) {
-            throw new RuntimeException('Independent pool benchmark did not sample resource metrics.');
-        }
         $summary[$mode] = [
             'successful_requests' => array_sum(array_column($rows, 'successful_requests')),
             'rps' => round(u10Median(array_column($rows, 'rps')), 3),

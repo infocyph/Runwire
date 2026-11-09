@@ -13,7 +13,8 @@ use Infocyph\Runwire\WebSocket\WebSocketSession;
 
 it('bounds outgoing WebSocket messages behind a stalled peer and resumes under drain pressure', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
 

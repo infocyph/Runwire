@@ -4,28 +4,15 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicStream;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicTransport;
+use Infocyph\Runwire\Tests\Fixtures\QuicTransportState;
 
-function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT_MAX): object
+function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT_MAX): QuicTransportState
 {
-    return new class($id, $bidirectional, $maxWrite) {
-        public bool $ended = false;
-
-        public bool $failEnd = false;
-
-        public bool $failWrite = false;
-
-        public ?int $resetCode = null;
-
-        public string $written = '';
-
-        public function __construct(
-            private readonly int $id,
-            private readonly bool $bidirectional,
-            private readonly int $maxWrite,
-        ) {}
+    return new class ($id, $bidirectional, $maxWrite) extends QuicTransportState {
+        public function __construct(private readonly int $id, private readonly bool $bidirectional, private readonly int $maxWrite) {}
 
         /**
-         * @throws \RuntimeException
+         * @throws RuntimeException
          */
         public function end(): void
         {
@@ -61,14 +48,13 @@ function fakePhpQuicStream(int $id, bool $bidirectional, int $maxWrite = PHP_INT
         }
 
         /**
-         * @throws \RuntimeException
+         * @throws RuntimeException
          */
         public function write(string $data, bool $fin = false): int
         {
             if ($this->failWrite) {
                 throw new RuntimeException('Native QUIC stream reset while writing.');
             }
-
             $written = min(strlen($data), $this->maxWrite);
             $this->written .= substr($data, 0, $written);
             if ($fin) {
@@ -91,11 +77,11 @@ it('validates and exposes the php-quic stream contract without requiring the ext
         ->and($stream->read(1))->toBe('')
         ->and($stream->resetCode())->toBeNull();
 
-    $stream->reset(0x10c);
+    $stream->reset(0x10C);
     $stream->end();
 
-    expect($raw->resetCode)->toBe(0x10c)
-        ->and($stream->resetCode())->toBe(0x10c)
+    expect($raw->resetCode)->toBe(0x10C)
+        ->and($stream->resetCode())->toBe(0x10C)
         ->and($raw->ended)->toBeTrue();
 });
 
@@ -155,7 +141,7 @@ it('isolates peer STOP_SENDING during native FIN and write without hiding other 
     $transport->registerRequestStream(new PhpQuicStream($resetRaw));
     $transport->registerRequestStream(new PhpQuicStream($healthyRaw));
 
-    $resetRaw->resetCode = 0x10c;
+    $resetRaw->resetCode = 0x10C;
     $resetRaw->failEnd = true;
     $transport->finishRequestStream(0);
 

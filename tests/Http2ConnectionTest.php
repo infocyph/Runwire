@@ -40,7 +40,9 @@ function runwireOwnedHttp2ConnectionTestCase01(): void
                 $request->headers->first('host'),
                 $request->version->value,
             ];
-            $request->body->onEnd(static fn () => $writer->end('hello-h2'));
+            $request->body->onEnd(static function () use ($writer): void {
+                $writer->end('hello-h2');
+            });
         },
     );
 
@@ -116,7 +118,9 @@ function runwireOwnedHttp2ConnectionTestCase03(): void
         $request->body->onData(static function ($body) use (&$seen): void {
             $seen += strlen($body->read());
         });
-        $request->body->onEnd(static fn () => $writer->end('ok'));
+        $request->body->onEnd(static function () use ($writer): void {
+            $writer->end('ok');
+        });
     });
 
     $updates = [];
@@ -154,11 +158,15 @@ function runwireOwnedHttp2ConnectionTestCase04(): void
     $seen = false;
     new Http2Connection($loop, $connection, new Http2Limits(), static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$seen): void {
         $seen = $request->target === '/fragmented';
-        $request->body->onEnd(static fn () => $writer->end('ok'));
+        $request->body->onEnd(static function () use ($writer): void {
+            $writer->end('ok');
+        });
     });
 
     fwrite($client, runwireH2ClientPrelude() . runwireH2Headers(1, '/fragmented'));
-    $loop->delay(0.8, static fn () => $loop->stop());
+    $loop->delay(0.8, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     fclose($client);
 
@@ -303,7 +311,7 @@ function runwireOwnedHttp2ConnectionTestCase08(): void
 
         /** @var array{last: int, error: int}|false $decoded */
         $decoded = unpack('Nlast/Nerror', substr($frame->payload, 0, 8));
-        expect($decoded)->toBeArray();
+        \PHPUnit\Framework\Assert::assertIsArray($decoded);
         $goAway[] = [
             'last' => $decoded['last'] & 0x7FFF_FFFF,
             'error' => $decoded['error'],
@@ -352,6 +360,7 @@ function runwireOwnedHttp2ConnectionTestCase09(): void
 
     $property = new ReflectionProperty(Http2Connection::class, 'output');
     $scheduler = $property->getValue($http2);
+    \PHPUnit\Framework\Assert::assertInstanceOf(\Infocyph\Runwire\Http\Http2\Internal\ResponseScheduler::class, $scheduler);
 
     $ended = 0;
     foreach (runwireH2Frames($response) as $frame) {
@@ -381,7 +390,9 @@ function runwireOwnedHttp2ConnectionTestCase10(): void
     $requests = [];
     $http2 = new Http2Connection($loop, $connection, new Http2Limits(), static function (HttpRequest $request, ResponseWriterInterface $writer) use ($loop, &$requests): void {
         $requests[] = $request->target;
-        $loop->delay(0.02, static fn() => $writer->end('accepted-h2'));
+        $loop->delay(0.02, static function () use ($writer): void {
+    $writer->end('accepted-h2');
+});
     });
     $block = (new Encoder())->encode([
         [':method', 'GET'], [':scheme', 'https'], [':authority', 'example.test'], [':path', '/first'],
@@ -389,11 +400,15 @@ function runwireOwnedHttp2ConnectionTestCase10(): void
 
     try {
         fwrite($client, runwireH2ClientPrelude() . FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x1, 1, substr($block, 0, 1))));
-        $loop->delay(0.01, static fn() => $http2->drain());
+        $loop->delay(0.01, static function () use ($http2): void {
+    $http2->drain();
+});
         $loop->delay(0.02, static function () use ($client, $block): void {
             fwrite($client, FrameWriter::encode(new Frame(FrameType::CONTINUATION->value, 0x4, 1, substr($block, 1))) . runwireH2Headers(3, '/later'));
         });
-        $loop->delay(0.08, static fn() => $loop->stop());
+        $loop->delay(0.08, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         stream_set_blocking($client, false);
         $wire = stream_get_contents($client);
@@ -409,10 +424,10 @@ function runwireOwnedHttp2ConnectionTestCase10(): void
                 $data .= $frame->payload;
             }
             if ($frame->knownType() === FrameType::GOAWAY) {
-                $boundary = unpack('N', substr($frame->payload, 0, 4))[1];
+                $boundary = runwireH2ConnectionInteger(substr($frame->payload, 0, 4));
             }
             if ($frame->knownType() === FrameType::RST_STREAM && $frame->streamId === 3) {
-                $refused = unpack('N', $frame->payload)[1];
+                $refused = runwireH2ConnectionInteger($frame->payload);
             }
         }
 
@@ -437,4 +452,18 @@ function runwireHttp2ConnectionTestSocketPair(): array
     }
 
     return [$pair[0], $pair[1]];
+}
+
+/**
+ *
+ * @throws \PHPUnit\Framework\Exception
+  * @throws \PHPUnit\Framework\ExpectationFailedException
+ */
+function runwireH2ConnectionInteger(string $payload): int
+{
+    $decoded = unpack('Nvalue', $payload);
+    \PHPUnit\Framework\Assert::assertIsArray($decoded);
+    \PHPUnit\Framework\Assert::assertIsInt($decoded['value']);
+
+    return $decoded['value'];
 }

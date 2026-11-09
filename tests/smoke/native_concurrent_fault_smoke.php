@@ -56,22 +56,24 @@ $supervisor->autoscale(
 
 $spawned = [];
 $reloads = 0;
-$reloadFailed = false;
+$observations = new class {
+    public ?int $killedPid = null;
+    public bool $reloadFailed = false;
+    public bool $invalidOwnership = false;
+};
 $restarts = 0;
-$killedPid = null;
-$invalidOwnership = false;
 $counts = [];
-$supervisor->onEvent(static function ($event) use (&$spawned, &$reloads, &$reloadFailed, &$restarts): void {
+$supervisor->onEvent(static function ($event) use (&$spawned, &$reloads, $observations, &$restarts): void {
     match ($event->type) {
         SupervisorEventType::WORKER_SPAWNED => $spawned[] = $event->pid,
         SupervisorEventType::RELOAD_COMPLETED => ++$reloads,
-        SupervisorEventType::RELOAD_FAILED => $reloadFailed = true,
+        SupervisorEventType::RELOAD_FAILED => $observations->reloadFailed = true,
         SupervisorEventType::WORKER_RESTART_SCHEDULED => ++$restarts,
         default => null,
     };
 });
 
-$observer = $loop->repeat(0.15, static function () use ($supervisor, &$counts, &$invalidOwnership): void {
+$observer = $loop->repeat(0.15, static function () use ($supervisor, &$counts, $observations): void {
     $status = $supervisor->status();
     $counts[] = $status->currentWorkerCount;
     $owners = [];
@@ -80,17 +82,17 @@ $observer = $loop->repeat(0.15, static function () use ($supervisor, &$counts, &
             continue;
         }
         if (isset($owners[$worker->slot])) {
-            $invalidOwnership = true;
+            $observations->invalidOwnership = true;
         }
         $owners[$worker->slot] = $worker->pid;
     }
 });
 
-$loop->delay(3.8, static function () use ($supervisor, &$killedPid): void {
+$loop->delay(3.8, static function () use ($supervisor, $observations): void {
     foreach ($supervisor->status()->workers as $worker) {
         if ($worker->current) {
-            $killedPid = $worker->pid;
-            if (!posix_kill($killedPid, SIGKILL)) {
+            $observations->killedPid = $worker->pid;
+            if (!posix_kill($observations->killedPid, SIGKILL)) {
                 throw new RuntimeException('Unable to inject a real SIGKILL during native worker autoscaling.');
             }
 
@@ -99,12 +101,16 @@ $loop->delay(3.8, static function () use ($supervisor, &$killedPid): void {
     }
     throw new RuntimeException('No current worker was available for concurrent SIGKILL.');
 });
-$loop->delay(6.4, static fn() => $supervisor->reload());
+$loop->delay(6.4, static function () use ($supervisor): void {
+    $supervisor->reload();
+});
 $loop->delay(13.2, static function () use ($supervisor): void {
     // A graceful manual recycle can coincide with scale-in or finish during it.
     $supervisor->recycle('smoke-concurrent-fault', 0);
 });
-$loop->delay(18.5, static fn() => $supervisor->stop());
+$loop->delay(18.5, static function () use ($supervisor): void {
+    $supervisor->stop();
+});
 
 $supervisor->run();
 $loop->cancel($observer);
@@ -113,19 +119,19 @@ $record = [
     'php' => PHP_VERSION,
     'samples' => $samples,
     'spawnCount' => count($spawned),
-    'killedPid' => $killedPid,
+    'killedPid' => $observations->killedPid,
     'restartEvents' => $restarts,
     'completedReloads' => $reloads,
-    'reloadFailed' => $reloadFailed,
+    'reloadFailed' => $observations->reloadFailed,
     'scaleInSeen' => in_array(1, $counts, true),
     'scaleOutSeen' => in_array(2, $counts, true),
-    'duplicateCurrentSlotOwners' => $invalidOwnership,
+    'duplicateCurrentSlotOwners' => $observations->invalidOwnership,
     'remainingWorkers' => $final->workerCount,
 ];
 fwrite(STDOUT, json_encode($record, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
 
-if ($killedPid === null || $restarts < 1 || $reloads < 1 || $reloadFailed
-    || count(array_unique($spawned)) < 3 || $invalidOwnership
+if ($observations->killedPid === null || $restarts < 1 || $reloads < 1 || $observations->reloadFailed
+    || count(array_unique($spawned)) < 3 || $observations->invalidOwnership
     || !in_array(1, $counts, true) || !in_array(2, $counts, true)
     || $final->workerCount !== 0 || $final->pendingRestartCount !== 0) {
     throw new RuntimeException('Native concurrent autoscale, crash, reload, recycle and teardown invariants failed.');

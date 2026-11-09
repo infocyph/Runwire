@@ -97,7 +97,8 @@ it('denies special-use direct and resolved candidates without acquiring socket o
             expect(fn() => $numeric->connect('tcp://' . $host . ':443', static function (): void {}, $options))
                 ->toThrow(RuntimeException::class);
             $racer->connectResolved([$ip], 443, static function ($connection, $error) use (&$completed): void {
-                expect($connection)->toBeNull()->and($error)->toBeInstanceOf(RuntimeException::class);
+                \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
+                expect($connection)->toBeNull();
                 ++$completed;
             }, $options);
         }

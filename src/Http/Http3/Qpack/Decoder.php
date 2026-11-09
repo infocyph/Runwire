@@ -18,8 +18,6 @@ final class Decoder
 
     private readonly FieldSectionDecoder $fieldDecoder;
 
-    private readonly DynamicTable $table;
-
     /** @var array<int, list<string>> */
     private array $blocked = [];
 
@@ -42,10 +40,10 @@ final class Decoder
             throw new \InvalidArgumentException('QPACK decoder blocked-stream limits cannot be negative.');
         }
 
-        $this->table = new DynamicTable($maxTableCapacity);
-        $this->encoderStream = new EncoderStreamDecoder($this->table, $maxFieldSectionBytes);
+        $table = new DynamicTable($maxTableCapacity);
+        $this->encoderStream = new EncoderStreamDecoder($table, $maxFieldSectionBytes);
         $this->decoderStream = new DecoderStreamEncoder();
-        $this->fieldDecoder = new FieldSectionDecoder($this->table, $maxFieldSectionBytes, $maxHeaderFields);
+        $this->fieldDecoder = new FieldSectionDecoder($table, $maxFieldSectionBytes, $maxHeaderFields);
     }
 
     /**

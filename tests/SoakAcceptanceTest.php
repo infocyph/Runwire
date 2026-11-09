@@ -106,7 +106,9 @@ function runwireSoakHttp1(int $requests): array
         if ($written !== strlen($wire)) {
             throw new RuntimeException('HTTP/1.1 soak client could not write its bounded request batch.');
         }
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
     }
 
@@ -251,18 +253,18 @@ it('keeps protocol and request-scope state bounded under deterministic churn', f
     $http3 = runwireSoakHttp3State(256);
     $qpack = runwireSoakQpack(192);
 
-    $requestState = null;
+    $requestState = new class { public ?string $target = null; };
     $cleanups = 0;
     $application = new RuntimeApplication(
-        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$requestState): void {
-            if ($requestState !== null) {
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($requestState): void {
+            if ($requestState->target !== null) {
                 throw new RuntimeException('Persistent request state leaked across soak iterations.');
             }
-            $requestState = $request->target;
+            $requestState->target = $request->target;
             $writer->end('ok');
         },
-        static function () use (&$requestState, &$cleanups): void {
-            $requestState = null;
+        static function () use ($requestState, &$cleanups): void {
+            $requestState->target = null;
             ++$cleanups;
         },
     );
@@ -282,7 +284,7 @@ it('keeps protocol and request-scope state bounded under deterministic churn', f
         ->and($qpack['sections'])->toBe(192)
         ->and($qpack['knownReceived'])->toBeGreaterThan(0)
         ->and($cleanups)->toBe(512)
-        ->and($requestState)->toBeNull()
+        ->and($requestState->target)->toBeNull()
         ->and($after['resources'] - $before['resources'])->toBeLessThanOrEqual(4)
         ->and($after['memory'] - $before['memory'])->toBeLessThanOrEqual(16 * 1_024 * 1_024);
 });

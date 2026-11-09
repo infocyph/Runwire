@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+
 namespace Infocyph\Runwire\Tests;
+
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 
 use Infocyph\Runwire\Http\Http1\Http1Connection;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
@@ -30,7 +34,7 @@ function http1BudgetPair(): array
         throw new RuntimeException('Unable to create HTTP/1 worker-budget socket pair.');
     }
 
-    return $pair;
+    return [$pair[0], $pair[1]];
 }
 
 /**
@@ -147,9 +151,7 @@ function assertHttp1RetainedBodiesRespectBudget(LoopInterface $loop): void
             $connection->abort();
         }
         foreach ($clients as $client) {
-            if (is_resource($client)) {
-                fclose($client);
-            }
+            \Infocyph\Runwire\Tests\Support\closeSocket($client);
         }
     }
 
@@ -224,7 +226,9 @@ it('releases shared HTTP1 budget after body consumption and normal close', funct
             $request->body->onData(static function ($body) use (&$received): void {
                 $received .= $body->read();
             });
-            $request->body->onEnd(static fn() => $writer->end('ok'));
+            $request->body->onEnd(static function () use ($writer): void {
+                $writer->end('ok');
+            });
         },
     );
 

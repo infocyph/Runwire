@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+
 namespace Infocyph\Runwire\Tests;
+
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
@@ -16,7 +20,6 @@ use Infocyph\Runwire\Network\TlsOptions;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
-
 
 /**
  * @return array{string, string, string}
@@ -33,14 +36,14 @@ function runwireClientTlsIdentity(): array
         throw new \RuntimeException('Unable to generate Tls Client Dialer Test private key.');
     }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    if ($csr === false) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
         throw new \RuntimeException('Unable to create Tls Client Dialer Test certificate request.');
     }
     $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Tls Client Dialer Test certificate.');
     }
-    expect(openssl_x509_parse($cert))->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
     $certificate = $directory . '/cert.pem';
@@ -81,8 +84,7 @@ function runwireClientTlsAttempt(
     ?array $serverExtraContext = null,
     ?TlsClientOptions $clientOptions = null,
     bool $serverRequiresClientCertificate = false,
-): array
-{
+): array {
     [, $certificate, $private] = $identity;
     $loop = new SelectLoop();
     $listener = TcpListener::bind(
@@ -100,10 +102,12 @@ function runwireClientTlsAttempt(
         ),
     );
     $accepted = false;
-    $clientResolved = false;
-    $listener->start($loop, static function (Connection $connection) use (&$accepted, &$clientResolved, $loop): void {
+    $clientState = new class {
+        public bool $resolved = false;
+    };
+    $listener->start($loop, static function (Connection $connection) use (&$accepted, $clientState, $loop): void {
         $accepted = $connection->isEncrypted();
-        if ($clientResolved) {
+        if ($clientState->resolved) {
             $loop->stop();
         }
     });
@@ -116,13 +120,13 @@ function runwireClientTlsAttempt(
     $dialer->connect('tcp://' . $listener->address(), function (?Connection $ready, ?Throwable $error) use (
         &$connection,
         &$failure,
-        &$clientResolved,
+        $clientState,
         &$accepted,
         $loop,
     ): void {
         $connection = $ready;
         $failure = $error;
-        $clientResolved = true;
+        $clientState->resolved = true;
         if ($error !== null || $accepted) {
             $loop->stop();
         }
@@ -151,10 +155,11 @@ it('establishes a verified nonblocking TLS client connection with explicit trust
 function runwireOwnedTlsClientDialerTestCase01(): void
 {
     $identity = runwireClientTlsIdentity();
+
     try {
         [$connection, $error, $accepted] = runwireClientTlsAttempt($identity, 'localhost', $identity[1]);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $connection);
         expect($error)->toBeNull()
-            ->and($connection)->toBeInstanceOf(Connection::class)
             ->and($connection->isEncrypted())->toBeTrue()
             ->and(\Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers::peerName($connection))->toBe('localhost')
             ->and($accepted)->toBeTrue();
@@ -174,10 +179,11 @@ it('fails closed on wrong hostname without handing an unverified connection to c
 function runwireOwnedTlsClientDialerTestCase02(): void
 {
     $identity = runwireClientTlsIdentity();
+
     try {
         [$connection, $error] = runwireClientTlsAttempt($identity, 'wrong.invalid', $identity[1]);
-        expect($connection)->toBeNull()
-            ->and($error)->toBeInstanceOf(Throwable::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
+        expect($connection)->toBeNull();
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
@@ -193,10 +199,11 @@ it('fails closed on untrusted self-signed TLS server identity', function (): voi
 function runwireOwnedTlsClientDialerTestCase03(): void
 {
     $identity = runwireClientTlsIdentity();
+
     try {
         [$connection, $error] = runwireClientTlsAttempt($identity, 'localhost', null);
-        expect($connection)->toBeNull()
-            ->and($error)->toBeInstanceOf(Throwable::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
+        expect($connection)->toBeNull();
     } finally {
         runwireRemoveClientTlsIdentity($identity);
     }
@@ -221,7 +228,6 @@ function runwireOwnedTlsClientDialerTestCase04(): void
         ->and($dialer->pendingCount())->toBe(0);
 }
 
-
 it('negotiates both TLS 1.2 and TLS 1.3 with explicit client verification and ALPN', function (): void {
     runwireOwnedTlsClientDialerTestCase05();
 });
@@ -232,6 +238,7 @@ it('negotiates both TLS 1.2 and TLS 1.3 with explicit client verification and AL
 function runwireOwnedTlsClientDialerTestCase05(): void
 {
     $identity = runwireClientTlsIdentity();
+
     try {
         foreach ([STREAM_CRYPTO_METHOD_TLSv1_2_SERVER, STREAM_CRYPTO_METHOD_TLSv1_3_SERVER] as $version) {
             [$connection, $error, $accepted] = runwireClientTlsAttempt(
@@ -241,8 +248,8 @@ function runwireOwnedTlsClientDialerTestCase05(): void
                 $version,
                 ['h2', 'http/1.1'],
             );
+            \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $connection);
             expect($error)->toBeNull()
-                ->and($connection)->toBeInstanceOf(Connection::class)
                 ->and($connection->isEncrypted())->toBeTrue()
                 ->and($connection->negotiatedProtocol())->toBe('h2')
                 ->and($accepted)->toBeTrue();
@@ -263,15 +270,16 @@ it('times out a silent TCP peer during client TLS negotiation and releases every
 function runwireOwnedTlsClientDialerTestCase06(): void
 {
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
-    expect($server)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($server);
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);
     $accepted = null;
-    $serverWatcher = $loop->onReadable($server, function () use (&$accepted, $server, $loop, &$serverWatcher): void {
-        $accepted = stream_socket_accept($server, 0.0);
-        $loop->cancel($serverWatcher);
+    $loop->onReadable($server, function (mixed $_readyStream, int $watcherId) use (&$accepted, $loop): void {
+        $_readyStream = \Infocyph\Runwire\Tests\Support\socketHandle($_readyStream);
+        $accepted = stream_socket_accept($_readyStream, 0.0);
+        $loop->cancel($watcherId);
     });
     $failures = [];
     $dialer->connect('tcp://' . $address, function ($connection, $failure) use (&$failures, $loop): void {
@@ -296,7 +304,6 @@ function runwireOwnedTlsClientDialerTestCase06(): void
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 }
 
-
 it('accepts a trusted mutual TLS client identity using the server trust configuration', function (): void {
     runwireOwnedTlsClientDialerTestCase07();
 });
@@ -307,6 +314,7 @@ it('accepts a trusted mutual TLS client identity using the server trust configur
 function runwireOwnedTlsClientDialerTestCase07(): void
 {
     $identity = runwireClientTlsIdentity();
+
     try {
         $serverContext = [
             'verify_peer' => true,
@@ -330,8 +338,8 @@ function runwireOwnedTlsClientDialerTestCase07(): void
             ),
             true,
         );
+        \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $connection);
         expect($error)->toBeNull()
-            ->and($connection)->toBeInstanceOf(Connection::class)
             ->and($connection->isEncrypted())->toBeTrue()
             ->and($accepted)->toBeTrue();
         $connection->abort();
@@ -350,6 +358,7 @@ it('never accepts an unauthenticated client into the mutual TLS server applicati
 function runwireOwnedTlsClientDialerTestCase08(): void
 {
     $identity = runwireClientTlsIdentity();
+
     try {
         // A missing client identity produces this expected OpenSSL warning.
         // Do not mask unrelated TLS warnings or relax server verification.
@@ -381,7 +390,7 @@ function runwireOwnedTlsClientDialerTestCase08(): void
         // The security boundary is server-side verified application admission.
         expect($accepted)->toBeFalse();
         if ($connection === null) {
-            expect($error)->toBeInstanceOf(Throwable::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
         } else {
             expect($error)->toBeNull()
                 ->and($connection->isEncrypted())->toBeTrue();

@@ -314,6 +314,9 @@ final class FiberScheduler
     }
 
     /**
+     * @template TResult
+     * @return Task<TResult>
+     * @param callable(): TResult $callback
      * @internal
      * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      * @throws \OverflowException

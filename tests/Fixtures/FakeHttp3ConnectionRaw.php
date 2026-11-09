@@ -35,6 +35,7 @@ final class FakeHttp3ConnectionRaw
         $this->closed[] = [$errorCode, $reason, $rapid];
     }
 
+    /** @return array{error_code:int,frame_type:int,reason:string,local:bool,transport:bool}|null */
     public function getCloseInfo(): ?array
     {
         return $this->closeInfo;

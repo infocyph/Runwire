@@ -16,16 +16,19 @@ use Infocyph\Runwire\Runtime\RuntimeSelection;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Server;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require dirname(__DIR__, 2).'/vendor/autoload.php';
+require_once dirname(__DIR__).'/Support/SocketFixture.php';
+require_once dirname(__DIR__).'/Support/ProcessFixture.php';
 
 $fail = static function (string $message): never {
     throw new RuntimeException($message);
 };
 
 $assert = static function (bool $condition, string $message) use ($fail): void {
-    if (!$condition) {
-        $fail($message);
+    if ($condition) {
+        return;
     }
+    $fail($message);
 };
 
 $unlink = static function (string $path): void {
@@ -36,8 +39,12 @@ $unlink = static function (string $path): void {
 
 if (($argv[1] ?? null) === 'client') {
     $address = $argv[2] ?? '';
-    if ($address === '') {
-        $fail('Portable TLS client did not receive a listener address.');
+    if (preg_match('/^127\.0\.0\.1:([0-9]+)$/D', $address, $parts) !== 1) {
+        $fail('Portable TLS client did not receive a loopback listener address.');
+    }
+    $port = filter_var($parts[1], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+    if (! is_int($port)) {
+        $fail('Portable TLS client did not receive a valid TCP port.');
     }
 
     $context = stream_context_create(['ssl' => [
@@ -48,14 +55,14 @@ if (($argv[1] ?? null) === 'client') {
     $errno = 0;
     $error = '';
     $client = stream_socket_client(
-        'tcp://' . $address,
+        'tcp://127.0.0.1:'.$port,
         $errno,
         $error,
         2.0,
         STREAM_CLIENT_CONNECT,
         $context,
     );
-    if (!is_resource($client)) {
+    if (! is_resource($client)) {
         $fail(sprintf('Portable TLS client connection failed: %s (%d).', $error, $errno));
     }
     stream_set_timeout($client, 2);
@@ -67,7 +74,7 @@ if (($argv[1] ?? null) === 'client') {
     fwrite($client, "GET /portable-tls HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
     $response = stream_get_contents($client);
     fclose($client);
-    if (!is_string($response) || !str_contains($response, 'HTTP/1.1 200') || !str_contains($response, 'portable-tls-ok')) {
+    if (! is_string($response) || ! str_contains($response, 'HTTP/1.1 200') || ! str_contains($response, 'portable-tls-ok')) {
         $fail('Portable TLS client received an invalid response.');
     }
 
@@ -76,9 +83,9 @@ if (($argv[1] ?? null) === 'client') {
     return;
 }
 
-$environment = (new RuntimeEnvironmentProbe())->probe();
-$assert(!function_exists('pcntl_fork'), 'PCNTL must be unavailable in portable optional-protocol acceptance.');
-$capabilities = (new RuntimeCapabilityResolver())->resolve(RuntimeDriver::NATIVE, $environment);
+$environment = (new RuntimeEnvironmentProbe)->probe();
+$assert(! \Infocyph\Runwire\Tests\Support\functionAvailable('pcntl_fork'), 'PCNTL must be unavailable in portable optional-protocol acceptance.');
+$capabilities = (new RuntimeCapabilityResolver)->resolve(RuntimeDriver::NATIVE, $environment);
 $assert($capabilities->supportsHttp1, 'Portable native must retain HTTP/1.1 support.');
 $assert($capabilities->supportsHttp2, 'Portable native must retain HTTP/2 support.');
 $assert($capabilities->supportsHttp3 === $environment->supportsQuic, 'Portable HTTP/3 capability must follow QUIC availability.');
@@ -99,9 +106,9 @@ if (($argv[1] ?? null) === 'unavailable') {
     file_put_contents($keyPath, "placeholder\n");
     $unavailablePassed = false;
     try {
-        $assert(!function_exists('stream_socket_enable_crypto'), 'TLS-unavailable acceptance requires stream_socket_enable_crypto() to be disabled.');
-        $assert(!$environment->supportsOpenSsl, 'Environment must not advertise usable native OpenSSL when TLS crypto is unavailable.');
-        $assert(!$capabilities->supportsTlsAlpn, 'Portable native must not advertise TLS/ALPN when TLS crypto is unavailable.');
+        $assert(! \Infocyph\Runwire\Tests\Support\functionAvailable('stream_socket_enable_crypto'), 'TLS-unavailable acceptance requires stream_socket_enable_crypto() to be disabled.');
+        $assert(! $environment->supportsOpenSsl, 'Environment must not advertise usable native OpenSSL when TLS crypto is unavailable.');
+        $assert(! $capabilities->supportsTlsAlpn, 'Portable native must not advertise TLS/ALPN when TLS crypto is unavailable.');
 
         try {
             TcpListener::bind(
@@ -125,7 +132,7 @@ if (($argv[1] ?? null) === 'unavailable') {
 }
 
 $assert(extension_loaded('openssl'), 'Portable TLS success acceptance requires the OpenSSL extension.');
-$assert(function_exists('stream_socket_enable_crypto'), 'Portable TLS success acceptance requires stream_socket_enable_crypto().');
+$assert(\Infocyph\Runwire\Tests\Support\functionAvailable('stream_socket_enable_crypto'), 'Portable TLS success acceptance requires stream_socket_enable_crypto().');
 $assert($environment->supportsOpenSsl, 'Environment must advertise usable OpenSSL for portable TLS success acceptance.');
 $assert($capabilities->supportsTlsAlpn, 'Portable native must advertise TLS/ALPN when OpenSSL is usable.');
 
@@ -134,28 +141,33 @@ if ($key === false) {
     $fail('Unable to create portable TLS private key.');
 }
 $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-if ($csr === false) {
+if (! $csr instanceof OpenSSLCertificateSigningRequest || ! $key instanceof OpenSSLAsymmetricKey) {
     $fail('Unable to create portable TLS certificate request.');
 }
 $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
 if ($certificate === false) {
     $fail('Unable to create portable TLS certificate.');
 }
-if (!openssl_x509_export($certificate, $certificatePem) || !openssl_pkey_export($key, $keyPem)) {
+$certificatePem = '';
+$keyPem = '';
+if (! openssl_x509_export($certificate, $certificatePem) || ! openssl_pkey_export($key, $keyPem)) {
     $fail('Unable to export portable TLS credentials.');
 }
 file_put_contents($certificatePath, $certificatePem);
 file_put_contents($keyPath, $keyPem);
 
-$portable = null;
+$owner = new class
+{
+    public ?PortableNativeRuntime $runtime = null;
+};
 $server = Server::http(
     '127.0.0.1:0',
-    static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$portable): void {
+    static function (HttpRequest $request, ResponseWriterInterface $writer) use ($owner): void {
         if ($request->target !== '/portable-tls') {
             throw new RuntimeException('Unexpected portable TLS request target.');
         }
         $writer->end('portable-tls-ok');
-        $portable?->stop();
+        $owner->runtime?->stop();
     },
     'tls',
 )->withTls(new TlsOptions(
@@ -167,7 +179,7 @@ $server = Server::http(
 $listener = TcpListener::bind($server->address, $server->listener, $server->connection, $server->tls);
 $bound = ['tls' => new BoundServer($server, $listener)];
 $selection = new RuntimeSelection(RuntimeDriver::NATIVE, $capabilities);
-$portable = new PortableNativeRuntime(
+$portable = $owner->runtime = new PortableNativeRuntime(
     $bound,
     $selection,
     new RuntimeOptions(driver: RuntimeDriver::NATIVE),
@@ -184,7 +196,7 @@ $process = proc_open(
     $pipes,
     options: ['bypass_shell' => true],
 );
-if (!is_resource($process)) {
+if (! is_resource($process)) {
     $listener->close();
     $unlink($certificatePath);
     $unlink($keyPath);
@@ -203,13 +215,9 @@ try {
     $assert($exitCode === 0, sprintf('Portable TLS client failed (%d): %s', $exitCode, trim((string) $stderr)));
     $assert(str_contains((string) $stdout, 'portable-tls-client-ok'), 'Portable TLS client success marker missing.');
 } finally {
-    if (is_resource($pipes[1] ?? null)) {
-        fclose($pipes[1]);
-    }
-    if (is_resource($pipes[2] ?? null)) {
-        fclose($pipes[2]);
-    }
-    if (is_resource($process)) {
+    \Infocyph\Runwire\Tests\Support\closeSocket($pipes[1] ?? null);
+    \Infocyph\Runwire\Tests\Support\closeSocket($pipes[2] ?? null);
+    if (get_resource_type($process) !== 'Unknown') {
         proc_terminate($process);
         proc_close($process);
     }

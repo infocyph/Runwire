@@ -40,13 +40,15 @@ it('supports worker lifecycle bookkeeping without a supervisor signal channel', 
 });
 
 it('serves HTTP through the single-process native fallback without prefork capabilities', function (): void {
-    $portable = null;
+    $owner = new class {
+        public ?PortableNativeRuntime $runtime = null;
+    };
     $server = Server::http(
         '127.0.0.1:0',
-        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$portable): void {
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($owner): void {
             expect($request->target)->toBe('/portable');
             $writer->end('runwire-portable-ok');
-            $portable?->stop();
+            $owner->runtime?->stop();
         },
     )->withWorkers(1);
     $listener = TcpListener::bind(
@@ -61,7 +63,7 @@ it('serves HTTP through the single-process native fallback without prefork capab
     );
     $capabilities = (new RuntimeCapabilityResolver())->resolve(RuntimeDriver::NATIVE, $environment);
     $selection = new RuntimeSelection(RuntimeDriver::NATIVE, $capabilities);
-    $portable = new PortableNativeRuntime(
+    $portable = $owner->runtime = new PortableNativeRuntime(
         ['web' => new BoundServer($server, $listener)],
         $selection,
         new RuntimeOptions(driver: RuntimeDriver::NATIVE),

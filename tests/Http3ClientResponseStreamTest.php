@@ -302,28 +302,11 @@ function runwireOwnedHttp3ClientResponseStreamTestCase10(): void
 }
 
 it('accepts bodyless H3 metadata without requiring or budgeting its declared content', function (bool $head, int $status): void {
-    $body = '';
-    $stream = new Http3ClientResponseStream(4, static function (): void {},
-        static function (string $bytes) use (&$body): void { $body .= $bytes; },
-        maxBodyBytes: 1, headRequest: $head,
-    );
-    $block = (new Encoder(0, 0))->encode([
-        [':status', (string) $status], ['content-length', '99999999'],
-    ], 4)->block;
-    $stream->push(new Frame(FrameType::HEADERS->value, $block)->encode());
-    $stream->finish();
-    expect($stream->isFinished())->toBeTrue()->and($body)->toBe('');
+    runwireBodylessH3Metadata($head, $status);
 })->with([[true, 200], [false, 304]]);
 
 it('rejects forbidden H3 response content before body callbacks', function (bool $head, int $status): void {
-    $body = '';
-    $stream = new Http3ClientResponseStream(4, static function (): void {},
-        static function (string $bytes) use (&$body): void { $body .= $bytes; }, headRequest: $head,
-    );
-    $block = (new Encoder(0, 0))->encode([[ ':status', (string) $status ]], 4)->block;
-    $stream->push(new Frame(FrameType::HEADERS->value, $block)->encode());
-    expect(fn() => $stream->push(new Frame(FrameType::DATA->value, 'bad')->encode()))->toThrow(Http3Exception::class);
-    expect($body)->toBe('')->and($stream->isFinished())->toBeFalse();
+    runwireForbiddenH3Content($head, $status);
 })->with([[true, 200], [false, 204], [false, 205], [false, 304]]);
 
 it('preserves H3 HEAD and sibling semantics when QPACK unblocks after FIN', function (): void {
@@ -361,4 +344,31 @@ function runwireOwnedHttp3ClientResponseStreamTestCase11(): void
         $sibling->resumeQpack($ready);
     }
     expect($sibling->isFinished())->toBeTrue()->and($body)->toBe('ok');
+}
+
+/** @throws \Throwable */
+function runwireBodylessH3Metadata(bool $head, int $status): void
+{
+    $body = '';
+    $stream = new Http3ClientResponseStream(4, static function (): void {
+    }, static function (string $bytes) use (&$body): void {
+        $body .= $bytes;
+    }, maxBodyBytes: 1, headRequest: $head);
+    $block = (new Encoder(0, 0))->encode([[':status', (string) $status], ['content-length', '99999999']], 4)->block;
+    $stream->push((new Frame(FrameType::HEADERS->value, $block))->encode());
+    $stream->finish();
+    expect($stream->isFinished())->toBeTrue()->and($body)->toBe('');
+}
+/** @throws \Throwable */
+function runwireForbiddenH3Content(bool $head, int $status): void
+{
+    $body = '';
+    $stream = new Http3ClientResponseStream(4, static function (): void {
+    }, static function (string $bytes) use (&$body): void {
+        $body .= $bytes;
+    }, headRequest: $head);
+    $block = (new Encoder(0, 0))->encode([[':status', (string) $status]], 4)->block;
+    $stream->push((new Frame(FrameType::HEADERS->value, $block))->encode());
+    expect(fn() => $stream->push((new Frame(FrameType::DATA->value, 'bad'))->encode()))->toThrow(Http3Exception::class);
+    expect($body)->toBe('')->and($stream->isFinished())->toBeFalse();
 }

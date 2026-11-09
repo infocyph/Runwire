@@ -140,9 +140,13 @@ final class CoroutineScope
     }
 
     /**
-     * @internal @param callable(self): mixed $callback
+     * @template TResult
+     * @return TResult
+     * @internal
+     * @param callable(self): TResult $callback
      * @throws \Infocyph\Runwire\Exception\CancelledException
      * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
      */
     public function execute(callable $callback): mixed
     {
@@ -186,9 +190,12 @@ final class CoroutineScope
     }
 
     /**
-     * @param callable(self): mixed $callback
+     * @template TResult
+     * @return TResult
+     * @param callable(self): TResult $callback
      * @throws \LogicException
      * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
      */
     public function group(
         callable $callback,
@@ -202,7 +209,7 @@ final class CoroutineScope
 
         try {
             $task = $this->spawnOwned(
-                static fn(): mixed => $group->execute($closure),
+                static fn() => $group->execute($closure),
                 $source,
             );
 
@@ -356,7 +363,9 @@ final class CoroutineScope
     }
 
     /**
-     * @param callable(): mixed $callback
+     * @template TResult
+     * @return Task<TResult>
+     * @param callable(): TResult $callback
      * @throws \LogicException
      * @throws \Throwable
      */
@@ -396,9 +405,12 @@ final class CoroutineScope
     }
 
     /**
-     * @param callable(self): mixed $callback
+     * @template TResult
+     * @return TResult
+     * @param callable(self): TResult $callback
      * @throws \LogicException
      * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
      */
     public function withDeadline(
         RequestDeadline $deadline,
@@ -618,7 +630,9 @@ final class CoroutineScope
     }
 
     /**
-     * @param callable(): mixed $callback
+     * @template TResult
+     * @return Task<TResult>
+     * @param callable(): TResult $callback
      * @throws \Throwable
      */
     private function spawnOwned(callable $callback, CancellationSource $source): Task

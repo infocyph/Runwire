@@ -43,12 +43,14 @@ function sustainedCoefficientOfVariation(array $values): float
     return sqrt($sumSquares / (float) ($count - 1)) / $mean * 100.0;
 }
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 $paths = array_slice($argv, 1);
 if (count($paths) < 5) {
     throw new RuntimeException('Sustained evidence requires at least five repeated trials.');
 }
 
-/** @var list<array<string, mixed>> $records */
 $records = array_map(loadEvidence(...), $paths);
 assertComparable($records);
 

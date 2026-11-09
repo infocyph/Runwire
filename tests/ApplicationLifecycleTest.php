@@ -45,25 +45,26 @@ function lifecycleWriter(?callable $end = null): ResponseWriterInterface
 }
 
 it('runs boot warmup handle reset drain and shutdown in lifecycle order', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
     /** @var ArrayObject<int|string, mixed> $events */
     $events = new ArrayObject();
     $hooks = new ApplicationLifecycleHooks(
-        boot: static function (RuntimeContext $context) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class);
+        boot: static function (mixed $context) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
             $events->append('boot');
         },
-        warmup: static function (RuntimeContext $context) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class);
+        warmup: static function (mixed $context) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
             $events->append('warmup');
         },
-        drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class)
-                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+        drain: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
             $events->append('drain');
         },
-        shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class)
-                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+        shutdown: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
             $events->append('shutdown');
         },
         resetters: [new class($events) implements RequestResetterInterface {
@@ -90,7 +91,7 @@ it('runs boot warmup handle reset drain and shutdown in lifecycle order', functi
             $request->context->setAttribute('marker', 'request');
             $writer->end();
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: $hooks,
     );
 
@@ -232,13 +233,14 @@ it('resets request state when automatic response completion fails', function ():
 });
 
 it('lets active work finish after drain and rejects new work', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
     /** @var ArrayObject<int|string, mixed> $events */
     $events = new ArrayObject();
     $lifecycle = null;
     $hooks = new ApplicationLifecycleHooks(
-        drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class)
-                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+        drain: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
             $events->append('drain');
         },
         resetters: [new class($events) implements RequestResetterInterface {
@@ -264,7 +266,7 @@ it('lets active work finish after drain and rejects new work', function (): void
             $events->append('handle-after-drain');
             $writer->end();
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: $hooks,
     );
 
@@ -281,6 +283,7 @@ it('lets active work finish after drain and rejects new work', function (): void
 });
 
 it('propagates an explicit worker shutdown reason to drain and shutdown hooks', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
     /** @var ArrayObject<int|string, mixed> $reasons */
     $reasons = new ArrayObject();
     $lifecycle = new ApplicationLifecycle(
@@ -288,14 +291,14 @@ it('propagates an explicit worker shutdown reason to drain and shutdown hooks', 
             expect($request->context->completed())->toBeFalse();
             $writer->end();
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: new ApplicationLifecycleHooks(
-            drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($reasons): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
+            drain: static function (mixed $context, ShutdownReason $reason) use ($reasons, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
                 $reasons->append('drain:' . $reason->value);
             },
-            shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($reasons): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
+            shutdown: static function (mixed $context, ShutdownReason $reason) use ($reasons, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
                 $reasons->append('shutdown:' . $reason->value);
             },
         ),
@@ -312,6 +315,7 @@ it('propagates an explicit worker shutdown reason to drain and shutdown hooks', 
 });
 
 it('runs shutdown cleanup after warmup failure without accepting request work', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
     /** @var ArrayObject<int|string, mixed> $events */
     $events = new ArrayObject();
     $lifecycle = new ApplicationLifecycle(
@@ -320,25 +324,25 @@ it('runs shutdown cleanup after warmup failure without accepting request work', 
             expect($writer->isEnded())->toBeFalse();
             $events->append('handle');
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: new ApplicationLifecycleHooks(
-            boot: static function (RuntimeContext $context) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
+            boot: static function (mixed $context) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
                 $events->append('boot');
             },
-            warmup: static function (RuntimeContext $context) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
+            warmup: static function (mixed $context) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
                 $events->append('warmup');
                 throw new RuntimeException('warmup failed');
             },
-            drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class)
-                    ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+            drain: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
                 $events->append('drain');
             },
-            shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class)
-                    ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+            shutdown: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
                 $events->append('shutdown');
             },
         ),
@@ -380,9 +384,9 @@ it('runs and retains every failing shutdown operation', function (): void {
         $failure = $error;
     }
 
-    expect(iterator_to_array($events))->toBe(['drain', 'shutdown', 'legacy'])
-        ->and($failure)->toBeInstanceOf(ApplicationShutdownException::class)
-        ->and($failure?->shutdownFailures)->toHaveCount(3)
+    expect(iterator_to_array($events))->toBe(['drain', 'shutdown', 'legacy']);
+    \PHPUnit\Framework\Assert::assertInstanceOf(ApplicationShutdownException::class, $failure);
+    expect($failure->shutdownFailures)->toHaveCount(3)
         ->and(array_map(
             static fn(Throwable $error): string => $error->getMessage(),
             $failure->shutdownFailures,

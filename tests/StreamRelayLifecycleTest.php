@@ -15,8 +15,9 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 it('cancels both relay directions exactly once without leaked cancellation subscriptions', function (): void {
     $leftPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $rightPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($leftPair)->toBeArray()->toHaveCount(2)
-        ->and($rightPair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($leftPair);
+    \PHPUnit\Framework\Assert::assertIsArray($rightPair);
+    expect($leftPair)->toHaveCount(2)->toHaveCount(2);
     [$leftSocket, $leftPeer] = $leftPair;
     [$rightSocket, $rightPeer] = $rightPair;
     $loop = new SelectLoop();
@@ -47,8 +48,9 @@ it('cancels both relay directions exactly once without leaked cancellation subsc
 it('aborts a relay on its monotonic deadline without leaving reactor timers', function (): void {
     $leftPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $rightPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($leftPair)->toBeArray()->toHaveCount(2)
-        ->and($rightPair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($leftPair);
+    \PHPUnit\Framework\Assert::assertIsArray($rightPair);
+    expect($leftPair)->toHaveCount(2)->toHaveCount(2);
     [$leftSocket, $leftPeer] = $leftPair;
     [$rightSocket, $rightPeer] = $rightPair;
     $loop = new SelectLoop();

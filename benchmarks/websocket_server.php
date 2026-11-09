@@ -15,6 +15,9 @@ use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 2) {
     throw new InvalidArgumentException('Usage: php websocket_server.php <port>');
 }

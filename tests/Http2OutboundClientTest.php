@@ -76,7 +76,7 @@ it('runs one real verified TLS h2 GET against a separate reference frame-speakin
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, [
         'config' => $config, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256',
     ]);
-    if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
         throw new RuntimeException('Unable to construct independent HTTP/2 signing request.');
     }
     $cert = openssl_csr_sign($csr, null, $key, 1, [

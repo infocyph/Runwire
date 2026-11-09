@@ -6,7 +6,6 @@ namespace Infocyph\Runwire\Benchmarks;
 
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
-use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\RequestContext;
 use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
@@ -49,7 +48,7 @@ final class CoroutineRuntimeBench
             $consumer = $scope->spawn(static function () use ($channel): int {
                 $sum = 0;
                 for ($index = 0; $index < 8; ++$index) {
-                    $sum += (int) $channel->receive();
+                    $sum += self::integerResult($channel->receive());
                 }
 
                 return $sum;
@@ -57,7 +56,7 @@ final class CoroutineRuntimeBench
 
             $producer->await();
 
-            return (int) $consumer->await();
+            return $consumer->await();
         });
     }
 
@@ -73,7 +72,7 @@ final class CoroutineRuntimeBench
                 $deferred->resolve(1);
             });
 
-            return (int) $waiter->await();
+            return self::integerResult($waiter->await());
         });
     }
 
@@ -98,7 +97,7 @@ final class CoroutineRuntimeBench
         $context = RequestContext::standalone();
 
         try {
-            return (int) $this->runtime->runRequest(
+            return $this->runtime->runRequest(
                 $context,
                 static function (CoroutineScope $scope): int {
                     unset($scope);
@@ -147,7 +146,7 @@ final class CoroutineRuntimeBench
     public function benchTaskCreateStartComplete(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
-            return (int) $scope->spawn(static fn(): int => 1)->await();
+            return $scope->spawn(static fn(): int => 1)->await();
         });
     }
 
@@ -157,14 +156,14 @@ final class CoroutineRuntimeBench
     public function benchTaskGroupSpawnJoin(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
-            return (int) $scope->group(static function (CoroutineScope $group): int {
+            return $scope->group(static function (CoroutineScope $group): int {
                 $tasks = [];
                 for ($index = 0; $index < 4; ++$index) {
                     $tasks[] = $group->spawn(static fn(): int => 1);
                 }
 
                 return array_sum(array_map(
-                    static fn(Task $task): int => (int) $task->await(),
+                    static fn($task): int => $task->await(),
                     $tasks,
                 ));
             });
@@ -186,7 +185,7 @@ final class CoroutineRuntimeBench
             $consumer = $scope->spawn(static function () use ($channel): int {
                 $sum = 0;
                 for ($index = 0; $index < 8; ++$index) {
-                    $sum += (int) $channel->receive();
+                    $sum += self::integerResult($channel->receive());
                 }
 
                 return $sum;
@@ -194,7 +193,17 @@ final class CoroutineRuntimeBench
 
             $producer->await();
 
-            return (int) $consumer->await();
+            return $consumer->await();
         });
+    }
+
+    /** @throws \LogicException */
+    private static function integerResult(mixed $value): int
+    {
+        if (!is_int($value)) {
+            throw new \LogicException('Coroutine benchmark expected an integer result.');
+        }
+
+        return $value;
     }
 }

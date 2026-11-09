@@ -69,11 +69,11 @@ it('notifies terminal response ownership once under a reentrant double-close', f
     $terminalCalls = 0;
     $writer = new CallbackResponseWriter(
         static function (): void {},
-        static function (string $chunk): void { strlen($chunk); },
+        static function (string $chunk): void { expect($chunk)->toBe('ok'); },
         static function () use (&$endCalls): void { ++$endCalls; },
         1_024,
     );
-    $writer->onTerminal(static function (CallbackResponseWriter $terminal) use (&$terminalCalls): void {
+    $writer->onTerminal(static function (\Infocyph\Runwire\Http\ResponseWriterInterface $terminal) use (&$terminalCalls): void {
         ++$terminalCalls;
         expect($terminal->end()->state)->toBe(WriteState::CLOSED);
     });
@@ -84,7 +84,7 @@ it('notifies terminal response ownership once under a reentrant double-close', f
         ->and($endCalls)->toBe(1)
         ->and($terminalCalls)->toBe(1);
 
-    $writer->onTerminal(static function (CallbackResponseWriter $terminal) use (&$terminalCalls): void {
+    $writer->onTerminal(static function (\Infocyph\Runwire\Http\ResponseWriterInterface $terminal) use (&$terminalCalls): void {
         ++$terminalCalls;
         expect($terminal->isEnded())->toBeTrue();
     });

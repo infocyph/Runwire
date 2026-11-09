@@ -19,6 +19,9 @@ use Throwable;
 
 /**
  * Represents a scheduler-owned coroutine task and its completion state.
+ *
+ * Completion is written only from the constructor callback return value.
+ * @template-covariant TResult = mixed
  */
 final class Task
 {
@@ -36,7 +39,10 @@ final class Task
 
     private ?Throwable $terminalError = null;
 
-    /** @internal */
+    /**
+     * @internal
+     * @param callable(): TResult $callback
+     */
     public function __construct(
         private readonly int $id,
         FiberScheduler $scheduler,
@@ -58,6 +64,7 @@ final class Task
 
     /**
      * Wait for task completion and return its result.
+     * @return TResult
      * @throws \LogicException
      * @throws \Throwable
      */
@@ -65,11 +72,16 @@ final class Task
     {
         $this->markObserved();
 
-        return $this->completion->future()->await();
+        // The task alone completes this future, using its callback result.
+        /** @var TResult $result */
+        $result = $this->completion->future()->await();
+
+        return $result;
     }
 
     /**
      * @internal
+     * @return TResult
      * @throws \LogicException
      * @throws \Throwable
      */
@@ -77,7 +89,11 @@ final class Task
     {
         $this->markObserved();
 
-        return $this->completion->future()->awaitForCleanup();
+        // The task alone completes this future, using its callback result.
+        /** @var TResult $result */
+        $result = $this->completion->future()->awaitForCleanup();
+
+        return $result;
     }
 
     /**
@@ -191,6 +207,7 @@ final class Task
 
     /**
      * Return the completed task result or throw its terminal failure.
+     * @return TResult
      * @throws \LogicException
      * @throws \Throwable
      */
@@ -198,7 +215,11 @@ final class Task
     {
         $this->markObserved();
 
-        return $this->completion->future()->result();
+        // The task alone completes this future, using its callback result.
+        /** @var TResult $result */
+        $result = $this->completion->future()->result();
+
+        return $result;
     }
 
     /**

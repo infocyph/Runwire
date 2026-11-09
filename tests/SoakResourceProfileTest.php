@@ -41,7 +41,12 @@ it('rejects growing RSS and persistent descriptors', function (): void {
 it('rejects truncated, nonmonotonic and incomplete samples', function (): void {
     $short = soakAnalyzeSamples(array_slice(soakResourceTestSamples(), 0, 20));
     $bad = soakResourceTestSamples();
-    $bad[20]['elapsed'] = 10.0;
+    foreach ($bad as $index => &$sample) {
+        if ($index === 20) {
+            $sample['elapsed'] = 10.0;
+        }
+    }
+    unset($sample);
     expect($short['passed'])->toBeFalse()
         ->and($short['status'])->toBe('insufficient_evidence')
         ->and(fn() => soakAnalyzeSamples($bad))->toThrow(RuntimeException::class);

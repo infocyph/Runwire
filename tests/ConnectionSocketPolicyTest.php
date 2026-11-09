@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Tests;
 
+
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
@@ -15,7 +18,7 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
     foreach ([true, false] as $policy) {
         $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $message);
         if (!is_resource($listener)) {
-            throw new RuntimeException($message);
+            throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'TCP fixture could not connect.');
         }
         $address = stream_socket_get_name($listener, false);
         if (!is_string($address)) {
@@ -25,7 +28,7 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
         $outbound = stream_socket_client('tcp://' . $address, $errno, $message, 1.0);
         if (!is_resource($outbound)) {
             fclose($listener);
-            throw new RuntimeException($message);
+            throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'TCP fixture could not connect.');
         }
         $incoming = stream_socket_accept($listener, 1.0);
         if (!is_resource($incoming)) {
@@ -50,7 +53,7 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
                 tcpNoDelayOverride: $policy,
             ))->toThrow(RuntimeException::class);
             expect($attempt->phase())->toBe(DialAttemptPhase::FAILED);
-            expect(is_resource($outbound))->toBeFalse();
+            expect(get_resource_type($outbound))->toBe('Unknown');
             fclose($incoming);
         } else {
             $dialed = ConnectionFactory::dialed(
@@ -90,8 +93,7 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
 
 it('does not treat Unix-domain streams as TCP sockets for optional tuning', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if (!is_array($pair) || !isset($pair[0], $pair[1])
-        || !is_resource($pair[0]) || !is_resource($pair[1])) {
+    if (!is_array($pair) || !isset($pair[0], $pair[1])) {
         throw new RuntimeException('Unable to establish Unix socket pair.');
     }
     [$stream, $peer] = $pair;

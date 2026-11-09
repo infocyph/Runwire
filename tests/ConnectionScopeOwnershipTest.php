@@ -22,8 +22,8 @@ use RuntimeException;
 function runwireConnectionScopePair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    if ($pair === false || !isset($pair[0], $pair[1])) {
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
         throw new RuntimeException('Unable to create a complete connection-scope socket pair.');
     }
 
@@ -202,7 +202,9 @@ it('does not accumulate close observers across repeated pooled-owner transfers',
     $source = new CancellationSource();
     $connection->bindOwner($source->token());
     $callbackSlot = new ReflectionProperty($connection, 'closeCallbacks');
-    $originalCallbacks = count($callbackSlot->getValue($connection));
+    $original = $callbackSlot->getValue($connection);
+    \PHPUnit\Framework\Assert::assertIsArray($original);
+    $originalCallbacks = count($original);
 
     try {
         for ($i = 0; $i < 64; ++$i) {
@@ -212,7 +214,9 @@ it('does not accumulate close observers across repeated pooled-owner transfers',
             $source->dispose();
             $source = $next;
         }
-        expect(count($callbackSlot->getValue($connection)))->toBe($originalCallbacks)
+        $remaining = $callbackSlot->getValue($connection);
+        \PHPUnit\Framework\Assert::assertIsArray($remaining);
+        expect(count($remaining))->toBe($originalCallbacks)
             ->and($connection->state())->toBe(ConnectionState::OPEN)
             ->and($source->token()->subscriptionCount())->toBe(1);
 
@@ -240,9 +244,9 @@ it('unregisters close observers without losing remaining listeners or terminal d
         $keep = $connection->registerCloseObserver(static function () use (&$seen): void {
             $seen[] = 'kept';
         });
-        expect($remove)->toBeInt()
-            ->and($keep)->toBeInt()
-            ->and($connection->unregisterCloseObserver($remove))->toBeTrue()
+        \PHPUnit\Framework\Assert::assertIsInt($remove);
+        \PHPUnit\Framework\Assert::assertIsInt($keep);
+        expect($connection->unregisterCloseObserver($remove))->toBeTrue()
             ->and($connection->unregisterCloseObserver($remove))->toBeFalse();
 
         $connection->abort();

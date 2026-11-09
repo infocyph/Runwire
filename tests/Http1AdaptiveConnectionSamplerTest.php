@@ -21,10 +21,9 @@ use Infocyph\Runwire\Network\Connection;
 function adaptiveSamplerConnection(): array
 {
     $streams = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($streams === false || count($streams) !== 2) {
-        throw new \RuntimeException('Adaptive sampler requires a complete socket pair.');
-    }
-    expect($streams)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($streams);
+    \PHPUnit\Framework\Assert::assertCount(2, $streams);
+    expect($streams)->toHaveCount(2);
 
     $loop = new SelectLoop();
     $connection = new Connection($loop, $streams[0]);

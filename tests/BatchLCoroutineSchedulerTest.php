@@ -180,12 +180,14 @@ it('enforces the configured live task bound including the root task', function (
         maxReadyBacklog: 2,
     ));
 
-    expect(fn() : mixed => $runtime->run(function (CoroutineScope $scope): void {
-        $scope->spawn(function () use ($scope): void {
-            $scope->yieldNow();
+    expect(function () use ($runtime): void {
+        $runtime->run(function (CoroutineScope $scope): void {
+            $scope->spawn(function () use ($scope): void {
+                $scope->yieldNow();
+            });
+            $scope->spawn(static function (): void {});
         });
-        $scope->spawn(static function (): void {});
-    }))->toThrow(CoroutineOverflowException::class);
+    })->toThrow(CoroutineOverflowException::class);
 });
 
 it('does not start a nested event loop on the same coroutine runtime', function (): void {
@@ -210,9 +212,9 @@ it('exposes terminal task state without retaining it in the scheduler registry',
         $task = $scope->spawn(static fn(): int => 42);
         expect($task->await())->toBe(42);
     });
+    \PHPUnit\Framework\Assert::assertNotNull($task);
 
-    expect($task)->not->toBeNull()
-        ->and($task->state())->toBe(TaskState::COMPLETED)
+    expect($task->state())->toBe(TaskState::COMPLETED)
         ->and($task->result())->toBe(42);
 });
 
@@ -445,6 +447,7 @@ it('keeps request state and admission until attached coroutine root and children
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
             new class($state) implements RequestResetterInterface {
+                /** @param ArrayObject<string,int> $state */
                 public function __construct(private readonly ArrayObject $state) {}
 
                 #[\Override]
@@ -530,6 +533,7 @@ it('records attached coroutine failure after response output before final cleanu
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
             new class($state) implements RequestResetterInterface {
+                /** @param ArrayObject<string,int> $state */
                 public function __construct(private readonly ArrayObject $state) {}
 
                 #[\Override]

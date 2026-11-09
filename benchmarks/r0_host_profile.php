@@ -12,11 +12,45 @@ use Infocyph\Runwire\RuntimeContext;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
+function r0ProfilePeakRss(): ?int
+{
+    $peakRss = null;
+    if (is_readable('/proc/self/status')) {
+        $status = file_get_contents('/proc/self/status');
+        if (is_string($status) && preg_match('/^VmHWM:\s*(\d+)\s+kB/m', $status, $match) === 1) {
+            $peakRss = (int) $match[1] * 1_024;
+        }
+    }
+
+    return $peakRss;
+}
+
+/** @throws RuntimeException */
+function r0ProfileAssertResponse(?int $status, string $body, int $endCalls, ResponseWriterInterface $writer, HttpRequest $request): void
+{
+    if ($status !== 200 || $body !== 'ok' || $endCalls !== 1
+        || !$writer->isEnded() || !$request->context->completed()) {
+        throw new RuntimeException('R0 host profile detected incomplete or incorrect response ownership.');
+    }
+}
+
+/** @throws \Throwable */
+function r0ProfileHandle(HttpRequest $request, ResponseWriterInterface $writer): void
+{
+
+    if ($request->headers->first('x-trace-id') !== 'r0-profile') {
+        throw new RuntimeException('R0 profile lost the normalized request trace header.');
+    }
+    $writer->start(200, Headers::fromArray(['content-type' => 'text/plain']));
+    $writer->end('ok');
+
+}
+
 /**
  * Profiling-only hosted request path. Intentionally excludes the host network
  * reactor and does not instrument production request dispatch.
  *
- * @return array<string, mixed>
+ * @return array{schema:int,profile:string,runtime_build:string,php_version:string,iterations:int,warmup_iterations:int,completed:int,correctness_passed:bool,host_network_included:bool,phases:array<string,array{p50_us:float,p95_us:float,p99_us:float,mean_us:float}>,elapsed_seconds:float,php_allocation_delta_bytes:int,php_peak_bytes:int,process_peak_rss_bytes:?int}
  * @throws \InvalidArgumentException
  */
 function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): array
@@ -37,11 +71,7 @@ function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): arr
     ];
     $factory = new HostRequestFactory();
     $application = new RuntimeApplication(
-        static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-            $request->headers->first('x-trace-id');
-            $writer->start(200, Headers::fromArray(['content-type' => 'text/plain']));
-            $writer->end('ok');
-        },
+        r0ProfileHandle(...),
         runtimeContext: RuntimeContext::standalone(),
     );
     $samples = [
@@ -80,10 +110,8 @@ function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): arr
         $application->handle($request, $writer, completeResponse: true);
         $handled = hrtime(true);
 
-        if ($status !== 200 || $body !== 'ok' || $endCalls !== 1
-            || !$writer->isEnded() || !$request->context->completed()) {
-            throw new RuntimeException('R0 host profile detected incomplete or incorrect response ownership.');
-        }
+        r0ProfileAssertResponse($status, $body, $endCalls, $writer, $request);
+
         if ($i < 0) {
             continue;
         }
@@ -107,13 +135,7 @@ function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): arr
         ];
     }
 
-    $peakRss = null;
-    if (is_readable('/proc/self/status')) {
-        $status = file_get_contents('/proc/self/status');
-        if (is_string($status) && preg_match('/^VmHWM:\s*(\d+)\s+kB/m', $status, $match) === 1) {
-            $peakRss = (int) $match[1] * 1_024;
-        }
-    }
+    $peakRss = r0ProfilePeakRss();
 
     return [
         'schema' => 1,
@@ -133,7 +155,8 @@ function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): arr
     ];
 }
 
-if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+$scriptFilename = $_SERVER['SCRIPT_FILENAME'] ?? null;
+if (is_string($scriptFilename) && realpath($scriptFilename) === __FILE__) {
     $iterations = (int) ($argv[1] ?? 5_000);
     $warmup = (int) ($argv[2] ?? 1_000);
     fwrite(STDOUT, json_encode(

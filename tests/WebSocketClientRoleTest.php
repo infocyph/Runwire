@@ -23,7 +23,8 @@ it('reuses one session lifecycle with correct masking when a verified client rol
 function runwireOwnedWebSocketClientRoleTestCase01(): void
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
 
@@ -37,8 +38,8 @@ function runwireOwnedWebSocketClientRoleTestCase01(): void
     );
     $received = [];
     $wire = '';
-    $session->onMessage(static function (WebSocketSession $session, $message) use (&$received): void {
-        expect($session)->toBeInstanceOf(WebSocketSession::class);
+    $session->onMessage(static function (WebSocketSession $owner, $message) use (&$received, $session): void {
+        \PHPUnit\Framework\Assert::assertSame($session, $owner);
         $received[] = $message->data;
     });
     $watcher = $loop->onReadable($peer, static function ($stream) use (&$wire): void {

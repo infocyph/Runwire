@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 3) {
     throw new InvalidArgumentException('Usage: php regression_compare.php <baseline-summary.json> <candidate-summary.json>');
 }
@@ -20,6 +23,47 @@ function regressionSummaryMetric(array $summary, string $field): float
     }
 
     return (float) $value;
+}
+
+/**
+ * @param array<string,mixed> $summary
+ * @throws RuntimeException
+ */
+function regressionValidateFields(array $summary, string $path): void
+{
+    foreach ([
+        'protocol', 'workload', 'php_version', 'hardware_id', 'host_os', 'host_cpu',
+        'instrumentation', 'tls', 'opcache', 'connection_reuse',
+        'runtime_build',
+    ] as $field) {
+        if (!isset($summary[$field]) || !is_string($summary[$field]) || $summary[$field] === '') {
+            throw new RuntimeException(sprintf('Summary "%s" requires string "%s".', $path, $field));
+        }
+    }
+    foreach ([
+        'trials', 'duration_seconds_per_trial', 'workers', 'concurrency',
+        'median_successful_rps', 'median_successful_rpm', 'rps_cv_percent',
+        'median_p99_ms', 'peak_rss_bytes',
+    ] as $field) {
+        regressionSummaryMetric($summary, $field);
+    }
+}
+
+/**
+ * @param array<string,mixed> $summary
+ * @throws RuntimeException
+ */
+function regressionValidateExtensions(array $summary, string $path): void
+{
+    if (!isset($summary['extension_versions']) || !is_array($summary['extension_versions'])) {
+        throw new RuntimeException(sprintf('Summary "%s" is missing extension version provenance.', $path));
+    }
+    foreach ($summary['extension_versions'] as $name => $version) {
+        if (!is_string($name) || $name === '' || !is_string($version) || $version === '') {
+            throw new RuntimeException(sprintf('Summary "%s" has invalid extension version provenance.', $path));
+        }
+    }
+
 }
 
 /**
@@ -45,22 +89,8 @@ function loadSummary(string $path): array
         $summary[$name] = $value;
     }
 
-    foreach ([
-        'protocol', 'workload', 'php_version', 'hardware_id', 'host_os', 'host_cpu',
-        'instrumentation', 'tls', 'opcache', 'connection_reuse',
-        'runtime_build',
-    ] as $field) {
-        if (!isset($summary[$field]) || !is_string($summary[$field]) || $summary[$field] === '') {
-            throw new RuntimeException(sprintf('Summary "%s" requires string "%s".', $path, $field));
-        }
-    }
-    foreach ([
-        'trials', 'duration_seconds_per_trial', 'workers', 'concurrency',
-        'median_successful_rps', 'median_successful_rpm', 'rps_cv_percent',
-        'median_p99_ms', 'peak_rss_bytes',
-    ] as $field) {
-        regressionSummaryMetric($summary, $field);
-    }
+    regressionValidateFields($summary, $path);
+
     if ((regressionSummaryMetric($summary, 'trials') < 5) || regressionSummaryMetric($summary, 'duration_seconds_per_trial') < 180
         || regressionSummaryMetric($summary, 'workers') <= 0 || regressionSummaryMetric($summary, 'concurrency') <= 0
         || regressionSummaryMetric($summary, 'median_successful_rps') <= 0 || regressionSummaryMetric($summary, 'median_successful_rpm') <= 0
@@ -71,14 +101,7 @@ function loadSummary(string $path): array
     if (($summary['correctness_passed'] ?? null) !== true) {
         throw new RuntimeException(sprintf('Summary "%s" did not pass correctness.', $path));
     }
-    if (!isset($summary['extension_versions']) || !is_array($summary['extension_versions'])) {
-        throw new RuntimeException(sprintf('Summary "%s" is missing extension version provenance.', $path));
-    }
-    foreach ($summary['extension_versions'] as $name => $version) {
-        if (!is_string($name) || $name === '' || !is_string($version) || $version === '') {
-            throw new RuntimeException(sprintf('Summary "%s" has invalid extension version provenance.', $path));
-        }
-    }
+    regressionValidateExtensions($summary, $path);
 
     return $summary;
 }

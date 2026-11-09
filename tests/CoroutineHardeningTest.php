@@ -140,7 +140,10 @@ it('enforces one channel waiter per primitive without leaking the accepted suspe
         expect(fn() : mixed => $channel->receive())->toThrow(CoroutineOverflowException::class);
         $channel->send('accepted');
 
-        return $child->await();
+        $result = $child->await();
+        \PHPUnit\Framework\Assert::assertIsString($result);
+
+        return $result;
     });
 
     expect($result)->toBe('accepted')

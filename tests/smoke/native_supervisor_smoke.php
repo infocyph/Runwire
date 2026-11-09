@@ -56,31 +56,35 @@ $supervisor->autoscale(
 
 $seenOne = false;
 $seenTwo = false;
-$duplicateSlot = false;
-$observer = $loop->repeat(0.1, static function () use ($supervisor, &$seenOne, &$seenTwo, &$duplicateSlot): void {
+$observations = new class {
+    public bool $duplicateSlot = false;
+};
+$observer = $loop->repeat(0.1, static function () use ($supervisor, &$seenOne, &$seenTwo, $observations): void {
     $status = $supervisor->status();
     $seenOne = $seenOne || $status->currentWorkerCount === 1;
     $seenTwo = $seenTwo || $status->currentWorkerCount === 2;
     $slots = [];
     foreach ($status->workers as $worker) {
         if (isset($slots[$worker->slot])) {
-            $duplicateSlot = true;
+            $observations->duplicateSlot = true;
         }
         $slots[$worker->slot] = true;
     }
 });
-$loop->delay(10.5, static fn() => $supervisor->stop());
+$loop->delay(10.5, static function () use ($supervisor): void {
+    $supervisor->stop();
+});
 
 try {
     $supervisor->run();
     $loop->cancel($observer);
     $status = $supervisor->status();
-    if (!$seenOne || !$seenTwo || $duplicateSlot || $status->workerCount !== 0 || $samples < 7) {
+    if (!$seenOne || !$seenTwo || $observations->duplicateSlot || $status->workerCount !== 0 || $samples < 7) {
         throw new RuntimeException(sprintf(
             'Native native autoscale smoke failed: min=%d max=%d duplicate=%d remaining=%d samples=%d.',
             (int) $seenOne,
             (int) $seenTwo,
-            (int) $duplicateSlot,
+            (int) $observations->duplicateSlot,
             $status->workerCount,
             $samples,
         ));

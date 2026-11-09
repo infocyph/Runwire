@@ -21,10 +21,9 @@ use Throwable;
 
 it('delivers an H2 response over a separately adopted stream and releases every owner', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$clientStream, $server] = $pair;
     stream_set_blocking($server, false);
     $loop = new SelectLoop();
@@ -41,7 +40,7 @@ it('delivers an H2 response over a separately adopted stream and releases every 
     $returned = null;
     $peerFrames = new FrameParser();
     $serverWatcher = $loop->onReadable($server, static function ($peer) use (
-        $loop, $server, &$wire, &$receivedRequest, &$sentSettings, $peerFrames,
+        $server, &$wire, &$receivedRequest, &$sentSettings, $peerFrames,
     ): void {
         $chunk = fread($peer, 8_192);
         if (is_string($chunk)) {
@@ -105,10 +104,9 @@ it('delivers an H2 response over a separately adopted stream and releases every 
 
 it('rejects H2 on an unencrypted socket without publishing any unverified request', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$clientStream, $server] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $clientStream, negotiatedProtocol: 'h2', encrypted: false);

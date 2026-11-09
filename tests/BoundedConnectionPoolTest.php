@@ -11,7 +11,8 @@ use Infocyph\Runwire\Network\PoolIsolationKey;
 
 it('serializes active leases through a bounded FIFO queue and safely reuses a real idle socket', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }
@@ -99,7 +100,8 @@ it('expires queued leases once while retaining an active lease until the caller 
 
 it('rejects stale idle traffic and does not hand a tenant socket to another scope', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/process_usage.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
@@ -38,14 +40,58 @@ function u03ResidentBytes(): int
 }
 
 /**
- * @return array<string, float|int|bool>
+ * @param list<float> $elapsed
+ * @throws Throwable
+ */
+function u03Launch(Dialer $dialer, string $address, SelectLoop $loop, array &$elapsed, int &$finished, int &$failed, int $count, bool $overlap): void
+{
+    $began = hrtime(true);
+    $dialer->connect('tcp://' . $address, static function (?Connection $connection, ?Throwable $error) use (
+        $loop,
+        &$elapsed,
+        &$finished,
+        &$failed,
+        $began,
+        $count,
+        $overlap,
+    ): void {
+        if ($error !== null || $connection === null) {
+            ++$failed;
+        }
+        $connection?->abort();
+        $elapsed[] = (float) (hrtime(true) - $began) / 1_000_000.0;
+        ++$finished;
+        if (!$overlap || $finished === $count) {
+            $loop->stop();
+        }
+    });
+}
+
+/** @param resource $listener */
+function u03Accept(mixed $listener, int $count): int
+{
+    $accepted = 0;
+    for ($i = 0; $i < $count; ++$i) {
+        $peer = stream_socket_accept($listener, 1.0);
+        if (!is_resource($peer)) {
+            break;
+        }
+        ++$accepted;
+        fclose($peer);
+    }
+
+    return $accepted;
+}
+
+/**
+ * @return array{submitted:int,completed:int,failed:int,accepted:int,elapsed_s:float,successful_connects_per_s:float,p99_ms:float,cpu_parent_ms:float,rss_bytes:int,watchers_after:int,timers_after:int,pending_after:int,correctness_passed:bool}
  * @throws \Throwable
  */
 function u03DialTrial(bool $overlap, int $count): array
 {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
     if (!is_resource($listener)) {
-        throw new RuntimeException($error);
+        u03SocketFailure($error);
     }
     $address = stream_socket_get_name($listener, false);
     if (!is_string($address)) {
@@ -59,32 +105,10 @@ function u03DialTrial(bool $overlap, int $count): array
     $elapsed = [];
     $finished = 0;
     $failed = 0;
-    $startCpu = getrusage();
-    if (!isset($startCpu['ru_utime.tv_sec'], $startCpu['ru_stime.tv_sec'])) {
-        throw new RuntimeException('CPU usage is unavailable or incomplete.');
-    }
+    $startCpu = runwireBenchmarkUsage();
     $start = hrtime(true);
     $launch = static function () use ($dialer, $address, $loop, &$elapsed, &$finished, &$failed, $count, $overlap): void {
-        $began = hrtime(true);
-        $dialer->connect('tcp://' . $address, static function (?Connection $connection, ?Throwable $error) use (
-            $loop,
-            &$elapsed,
-            &$finished,
-            &$failed,
-            $began,
-            $count,
-            $overlap,
-        ): void {
-            if ($error !== null || $connection === null) {
-                ++$failed;
-            }
-            $connection?->abort();
-            $elapsed[] = (hrtime(true) - $began) / 1_000_000;
-            ++$finished;
-            if (!$overlap || $finished === $count) {
-                $loop->stop();
-            }
-        });
+        u03Launch($dialer, $address, $loop, $elapsed, $finished, $failed, $count, $overlap);
     };
 
     if ($overlap) {
@@ -99,24 +123,13 @@ function u03DialTrial(bool $overlap, int $count): array
         }
     }
 
-    $accepted = 0;
-    for ($i = 0; $i < $count; ++$i) {
-        $peer = stream_socket_accept($listener, 1.0);
-        if (!is_resource($peer)) {
-            break;
-        }
-        ++$accepted;
-        fclose($peer);
-    }
+    $accepted = u03Accept($listener, $count);
     fclose($listener);
     $dialer->close();
-    $endCpu = getrusage();
-    if (!isset($endCpu['ru_utime.tv_sec'], $endCpu['ru_stime.tv_sec'])) {
-        throw new RuntimeException('Could not read complete final CPU usage.');
-    }
+    $endCpu = runwireBenchmarkUsage();
 
     sort($elapsed, SORT_NUMERIC);
-    $seconds = (hrtime(true) - $start) / 1_000_000_000;
+    $seconds = (float) (hrtime(true) - $start) / 1_000_000_000.0;
     $diagnostics = $loop->diagnostics();
 
     return [
@@ -156,4 +169,10 @@ if (fwrite(STDOUT, json_encode($profile, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT
 }
 if (!$profile['correctness_passed']) {
     throw new RuntimeException('U03 dial profiling reported a failed connection or leaked resource.');
+}
+
+/** @throws RuntimeException */
+function u03SocketFailure(?string $error): never
+{
+    throw new RuntimeException($error ?? 'Socket operation failed.');
 }

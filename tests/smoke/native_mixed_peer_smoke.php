@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/Support/SocketFixture.php';
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Infocyph\\Runwire\\';
     if (!str_starts_with($class, $prefix)) {
@@ -59,7 +61,7 @@ $supervisor->group(WorkerGroup::callbacks(
                 } elseif ($socket === $udp) {
                     $remote = null;
                     if (stream_socket_recvfrom($udp, 1024, 0, $remote) === 'ping') {
-                        stream_socket_sendto($udp, 'pong', 0, $remote);
+                        \Infocyph\Runwire\Tests\Support\sendDatagramReply($udp, 'pong', $remote);
                     }
                 } else {
                     $client = stream_socket_accept($socket, 0);
@@ -147,13 +149,17 @@ $supervisor->onEvent(static function ($event) use (
             throw new RuntimeException('Native recycle unexpectedly refused.');
         }
     } elseif ($state->rounds === 3) {
-        $loop->delay(0.05, static fn() => $supervisor->reload());
+        $loop->delay(0.05, static function () use ($supervisor): void {
+    $supervisor->reload();
+});
     } elseif ($state->rounds === 4 && $state->reloadCompleted) {
         $supervisor->stop();
     }
 });
 
-$loop->delay(7.0, static fn() => $supervisor->stop(true));
+$loop->delay(7.0, static function () use ($supervisor): void {
+    $supervisor->stop(true);
+});
 try {
     $supervisor->run();
     if ($state->rounds !== 4 || !$state->reloadCompleted

@@ -7,7 +7,11 @@ use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicClientSession;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__) . '/Support/NativeReply.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 4 || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
     throw new InvalidArgumentException('Expected host, UDP port, and trusted certificate.');
 }
@@ -27,11 +31,13 @@ $timeout = $loop->delay(8.0, static function () use ($stop): void {
 });
 
 try {
-    $read = null;
     $read = static function (int $stream) use (&$read, $session, $loop, $stop, $timeout, &$payload, &$complete): void {
         $session->command('read', $stream, '', false,
             static function (mixed $response, ?Throwable $error) use (&$read, $session, $loop, $stop, $timeout, $stream, &$payload, &$complete): void {
-                if ($error !== null || !is_array($response) || !is_string($response['data'] ?? null)) {
+            if ($error === null) {
+                $response = \Infocyph\Runwire\Tests\Support\nativeReply($response);
+            }
+                if ($error !== null || !is_string($response['data'] ?? null)) {
                     $stop($error ?? new RuntimeException('Invalid peer QUIC worker read.'));
 
                     return;
@@ -44,7 +50,9 @@ try {
                 }
                 $payload .= $data;
                 if (($response['eof'] ?? null) !== true) {
-                    $loop->delay(0.01, static fn() : mixed => $read($stream));
+                    $loop->delay(0.01, static function () use ($read, $stream): void {
+    $read($stream);
+});
 
                     return;
                 }
@@ -55,6 +63,9 @@ try {
                 }
                 $session->command('close', 0, '', false,
                     static function (mixed $response, ?Throwable $error) use ($stop, $loop, $timeout, &$complete): void {
+            if ($error === null) {
+                $response = \Infocyph\Runwire\Tests\Support\nativeReply($response);
+            }
                         if ($error !== null || ($response['closed'] ?? null) !== true) {
                             $stop($error ?? new RuntimeException('QUIC close after peer EOF failed.'));
 
@@ -68,12 +79,14 @@ try {
         );
     };
 
-    $accept = null;
     $accept = static function () use (&$accept, $session, $loop, $stop, $read): void {
         $session->command('accept', 0, '', false,
-            static function (mixed $response, ?Throwable $error) use (&$accept, $session, $loop, $stop, $read): void {
-                if ($error !== null || !is_array($response)) {
-                    $stop($error ?? new RuntimeException('Native worker failed to accept peer stream.'));
+            static function (mixed $response, ?Throwable $error) use (&$accept, $loop, $stop, $read): void {
+            if ($error === null) {
+                $response = \Infocyph\Runwire\Tests\Support\nativeReply($response);
+            }
+                if ($error !== null) {
+                    $stop($error);
 
                     return;
                 }
@@ -99,6 +112,9 @@ try {
         new QuicClientOptions('localhost', alpnProtocols: ['runwire-echo'], caFile: $argv[3],
             connectTimeoutMilliseconds: 4_000, maxOpenStreams: 4),
         static function (mixed $connection, ?Throwable $error) use ($session, $stop, $accept): void {
+            if ($error === null) {
+                $connection = \Infocyph\Runwire\Tests\Support\nativeReply($connection);
+            }
             if ($error !== null || ($connection['verified'] ?? null) !== true
                 || ($connection['alpn'] ?? null) !== 'runwire-echo' || !$session->active()) {
                 $stop($error ?? new RuntimeException('Independent QUIC TLS/ALPN verification failed.'));

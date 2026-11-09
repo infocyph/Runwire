@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 it('keeps privilege dropping before readiness and application bootstrap', function (): void {
     $source = file_get_contents(__DIR__ . '/../src/Supervisor/Internal/WorkerChildRuntime.php');
-    expect($source)->toBeString();
-    if (!is_string($source)) {
-        throw new \RuntimeException('Privilege ordering source could not be read.');
-    }
+    \PHPUnit\Framework\Assert::assertIsString($source);
 
     $drop = strpos($source, '$group->privilegeDropPolicy->apply();');
     $ready = strpos($source, '$context->ready();');

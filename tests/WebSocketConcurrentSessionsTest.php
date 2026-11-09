@@ -43,7 +43,8 @@ function runwireOwnedWebSocketConcurrentSessionsTestCase01(): void
     try {
         for ($i = 0; $i < $count; ++$i) {
             $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-            expect($pair)->toBeArray()->toHaveCount(2);
+            \PHPUnit\Framework\Assert::assertIsArray($pair);
+            expect($pair)->toHaveCount(2);
             [$socket, $peer] = $pair;
             $peers[] = $peer;
             stream_set_blocking($peer, false);
@@ -80,7 +81,8 @@ function runwireOwnedWebSocketConcurrentSessionsTestCase01(): void
         // Verify that all 128 independent peers received its own pong.
         foreach ($peers as $peer) {
             $wire = stream_get_contents($peer);
-            expect($wire)->toBeString()
+            \PHPUnit\Framework\Assert::assertIsString($wire);
+            expect($wire)
                 ->toContain(WebSocketWireCodec::frame(0xA, 'heartbeat'));
         }
     } finally {

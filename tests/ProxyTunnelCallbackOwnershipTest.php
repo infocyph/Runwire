@@ -49,10 +49,8 @@ function runwireOwnedProxyTunnelCallbackOwnershipTestCase02(): void
 {
     foreach (['http', 'socks5'] as $protocol) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-        if ($pair === false || count($pair) !== 2) {
-            throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-        }
-        expect($pair)->toBeArray();
+        \PHPUnit\Framework\Assert::assertIsArray($pair);
+        \PHPUnit\Framework\Assert::assertCount(2, $pair);
         [$stream, $peer] = $pair;
         $loop = new SelectLoop();
         $connection = ConnectionFactory::accepted($loop, $stream);
@@ -118,10 +116,8 @@ function runwireOwnedProxyTunnelCallbackOwnershipTestCase03(): void
 {
     foreach (['http', 'socks5'] as $protocol) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-        if ($pair === false || count($pair) !== 2) {
-            throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-        }
-        expect($pair)->toBeArray();
+        \PHPUnit\Framework\Assert::assertIsArray($pair);
+        \PHPUnit\Framework\Assert::assertCount(2, $pair);
         [$stream, $peer] = $pair;
         $loop = new SelectLoop();
         $connection = ConnectionFactory::accepted($loop, $stream);

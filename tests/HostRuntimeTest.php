@@ -202,11 +202,12 @@ it('preserves a primary host failure when application shutdown also fails', func
     } catch (ApplicationShutdownException $error) {
         $failure = $error;
     }
+    \PHPUnit\Framework\Assert::assertInstanceOf(ApplicationShutdownException::class, $failure);
 
-    expect($failure)->toBeInstanceOf(ApplicationShutdownException::class)
-        ->and($failure?->primaryFailure?->getMessage())->toBe('handler failed')
-        ->and($failure?->shutdownFailures)->toHaveCount(1)
-        ->and($failure?->shutdownFailures[0]->getMessage())->toBe('shutdown failed');
+    \PHPUnit\Framework\Assert::assertNotNull($failure->primaryFailure);
+    expect($failure->primaryFailure->getMessage())->toBe('handler failed')
+        ->and($failure->shutdownFailures)->toHaveCount(1)
+        ->and($failure->shutdownFailures[0]->getMessage())->toBe('shutdown failed');
 });
 
 it('runs FrankenPHP classic mode as one request', function (): void {

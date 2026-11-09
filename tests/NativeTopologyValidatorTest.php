@@ -71,7 +71,7 @@ it('accepts automatic and single-worker portable native topology', function () u
         new RuntimeOptions(),
     );
 
-    expect(true)->toBeTrue();
+    expect([$http->workers, $stream->workers, $udp->workers])->toBe([0, 1, 1]);
 });
 
 it('rejects explicit multi-worker portable native topology for every server kind', function () use ($nativeSelection): void {

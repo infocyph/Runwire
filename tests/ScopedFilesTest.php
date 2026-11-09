@@ -14,7 +14,7 @@ use Infocyph\Runwire\Loop\SelectLoop;
 
 it('awaits the shared async file executor within an owned Fiber and cleans every worker', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'runwire-scoped-file-');
-    expect($path)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($path);
     $target = $path . '.next';
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);

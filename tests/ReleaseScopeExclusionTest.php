@@ -22,6 +22,7 @@ it('contains no WebTransport implementation or protocol placeholders in Runwire 
     $count = 0;
 
     foreach ($files as $file) {
+        \PHPUnit\Framework\Assert::assertInstanceOf(SplFileInfo::class, $file);
         if (!$file->isFile() || $file->getExtension() !== 'php') {
             continue;
         }

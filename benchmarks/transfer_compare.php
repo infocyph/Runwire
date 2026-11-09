@@ -147,6 +147,51 @@ function transferBenchmarkSource(int $bytes): mixed
 }
 
 /**
+ * @param resource $source
+ * @param positive-int $chunkBytes
+ * @throws RuntimeException
+ */
+function manualRead(CoroutineScope $scope, mixed $source, int $chunkBytes): ?string
+{
+    while (true) {
+        $scope->cancellation()->throwIfCancelled();
+        $chunk = fread($source, $chunkBytes);
+        if ($chunk === false) {
+            throw new RuntimeException('Unable to read manual benchmark source.');
+        }
+        if ($chunk !== '') {
+            return $chunk;
+        }
+        if (feof($source)) {
+            return null;
+        }
+        $scope->waitReadable($source);
+    }
+}
+
+/** @throws \Throwable */
+function manualAwaitDrain(CoroutineScope $scope, ResponseWriterInterface $writer): void
+{
+    $deferred = $scope->deferred();
+    $writer->onDrain(static function () use ($deferred): void {
+        if (!$deferred->future()->isComplete()) {
+            $deferred->resolve(null);
+        }
+    });
+    $deferred->future()->await();
+}
+
+/** @throws RuntimeException */
+function manualEnd(ResponseWriterInterface $writer): void
+{
+    if (!$writer->end()->accepted()) {
+        throw new RuntimeException('Manual benchmark failed to end response.');
+    }
+}
+
+/**
+ * @param resource $source
+ * @param positive-int $chunkBytes
  * @throws \RuntimeException
  */
 function manualTransfer(
@@ -166,23 +211,11 @@ function manualTransfer(
     try {
         while (true) {
             $scope->cancellation()->throwIfCancelled();
-            $chunk = fread($source, $chunkBytes);
-            if ($chunk === false) {
-                throw new RuntimeException('Unable to read manual benchmark source.');
-            }
-            if ($chunk === '') {
-                if (feof($source)) {
-                    $result = $writer->end();
-                    if (!$result->accepted()) {
-                        throw new RuntimeException('Manual benchmark failed to end response.');
-                    }
+            $chunk = manualRead($scope, $source, $chunkBytes);
+            if ($chunk === null) {
+                manualEnd($writer);
 
-                    return $transferred;
-                }
-
-                $scope->waitReadable($source);
-
-                continue;
+                return $transferred;
             }
 
             $result = $writer->write($chunk);
@@ -192,13 +225,7 @@ function manualTransfer(
             $transferred += strlen($chunk);
 
             if ($result->pressured()) {
-                $deferred = $scope->deferred();
-                $writer->onDrain(static function () use ($deferred): void {
-                    if (!$deferred->future()->isComplete()) {
-                        $deferred->resolve(null);
-                    }
-                });
-                $deferred->future()->await();
+                manualAwaitDrain($scope, $writer);
                 $chunksThisTurn = 0;
 
                 continue;
@@ -211,9 +238,7 @@ function manualTransfer(
             }
         }
     } finally {
-        if (is_resource($source)) {
-            fclose($source);
-        }
+        fclose($source);
     }
 }
 
@@ -267,7 +292,7 @@ function transferTrial(bool $helper, int $bytes): float
             : manualTransfer($scope, $source, $writer, 65_536, 8);
     });
 
-    $elapsed = (hrtime(true) - $started) / 1_000_000_000;
+    $elapsed = (float) (hrtime(true) - $started) / 1_000_000_000.0;
     if ($transferred !== $bytes || $writer->bytes !== $bytes || !$writer->isEnded()) {
         throw new RuntimeException('Response-transfer benchmark produced incorrect byte accounting.');
     }

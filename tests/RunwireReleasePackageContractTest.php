@@ -30,6 +30,8 @@ it('keeps portable package runtime requirements free of hard optional extensions
         32,
         JSON_THROW_ON_ERROR,
     );
+    \PHPUnit\Framework\Assert::assertIsArray($package);
+    \PHPUnit\Framework\Assert::assertIsArray($package['autoload']);
     expect($package['name'])->toBe('infocyph/runwire')
         ->and($package['type'])->toBe('library')
         ->and($package['require'])->toHaveKeys(['php', 'php-64bit'])
@@ -64,10 +66,7 @@ it('excludes local data and development payloads from an actual Composer archive
             $pipes,
             $directory,
         );
-        expect(is_resource($process))->toBeTrue();
-        if (!is_resource($process)) {
-            throw new RuntimeException('Composer archive subprocess did not start.');
-        }
+        \PHPUnit\Framework\Assert::assertIsResource($process);
         fclose($pipes[0]);
         $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);
@@ -89,6 +88,7 @@ it('excludes local data and development payloads from an actual Composer archive
             RecursiveIteratorIterator::CHILD_FIRST,
         );
         foreach ($entries as $entry) {
+            \PHPUnit\Framework\Assert::assertInstanceOf(SplFileInfo::class, $entry);
             $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
         }
         rmdir($directory);

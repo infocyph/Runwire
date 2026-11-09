@@ -63,13 +63,13 @@ it('round-trips the versioned bounded metrics snapshot contract', function (): v
     $decoded = RuntimeMetricsSnapshot::fromArray($array);
     $unknown = $array;
     $unknown['schema_version'] = 99;
+    \PHPUnit\Framework\Assert::assertNotNull($decoded);
 
-    expect($decoded)->not->toBeNull()
-        ->and($decoded?->protocol[ProtocolMetric::HPACK_TABLE_BYTES->value])->toBe(512)
-        ->and($decoded?->queuedBytesCurrent)->toBe(1_024)
-        ->and($decoded?->queuedBytesPeak)->toBe(1_024)
-        ->and($decoded?->queuedBytesLimit)->toBe(67_108_864)
-        ->and($decoded?->errors[ApplicationErrorClass::PROTOCOL_ERROR->value])->toBe(1)
+    expect($decoded->protocol[ProtocolMetric::HPACK_TABLE_BYTES->value])->toBe(512)
+        ->and($decoded->queuedBytesCurrent)->toBe(1_024)
+        ->and($decoded->queuedBytesPeak)->toBe(1_024)
+        ->and($decoded->queuedBytesLimit)->toBe(67_108_864)
+        ->and($decoded->errors[ApplicationErrorClass::PROTOCOL_ERROR->value])->toBe(1)
         ->and(array_keys($decoded->protocol))->toHaveCount(count(ProtocolMetric::cases()))
         ->and(array_keys($decoded->errors))->toHaveCount(count(ApplicationErrorClass::cases()))
         ->and(RuntimeMetricsSnapshot::fromArray($unknown))->toBeNull();

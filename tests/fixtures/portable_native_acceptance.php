@@ -32,21 +32,24 @@ use Infocyph\Runwire\StreamServer;
 use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require dirname(__DIR__, 2).'/vendor/autoload.php';
+require_once dirname(__DIR__).'/Support/SocketFixture.php';
+require_once dirname(__DIR__).'/Support/ProcessFixture.php';
 
 $fail = static function (string $message): never {
     throw new RuntimeException($message);
 };
 $assert = static function (bool $condition, string $message) use ($fail): void {
-    if (!$condition) {
-        $fail($message);
+    if ($condition) {
+        return;
     }
+    $fail($message);
 };
 $expectUnavailable = static function (callable $operation, string $needle) use ($fail): void {
     try {
         $operation();
     } catch (RuntimeUnavailableException $error) {
-        if (!str_contains($error->getMessage(), $needle)) {
+        if (! str_contains($error->getMessage(), $needle)) {
             $fail(sprintf('Unexpected portable rejection: %s', $error->getMessage()));
         }
 
@@ -56,16 +59,16 @@ $expectUnavailable = static function (callable $operation, string $needle) use (
     $fail(sprintf('Expected portable rejection containing "%s".', $needle));
 };
 
-$environment = (new RuntimeEnvironmentProbe())->probe();
-$assert(!function_exists('pcntl_fork'), 'PCNTL must be genuinely unavailable in portable acceptance.');
-$assert(!$environment->supportsFork, 'Environment incorrectly reports fork support.');
+$environment = (new RuntimeEnvironmentProbe)->probe();
+$assert(! \Infocyph\Runwire\Tests\Support\functionAvailable('pcntl_fork'), 'PCNTL must be genuinely unavailable in portable acceptance.');
+$assert(! $environment->supportsFork, 'Environment incorrectly reports fork support.');
 
-$capabilities = (new RuntimeCapabilityResolver())->resolve(RuntimeDriver::NATIVE, $environment);
+$capabilities = (new RuntimeCapabilityResolver)->resolve(RuntimeDriver::NATIVE, $environment);
 $selection = new RuntimeSelection(RuntimeDriver::NATIVE, $capabilities);
-$assert(!$capabilities->ownsWorkerPool, 'Portable native must not own a worker pool.');
-$assert(!$capabilities->supportsGracefulReload, 'Portable native must not advertise graceful reload.');
-$assert(!$capabilities->supportsWorkerRecycle, 'Portable native must not advertise worker recycling.');
-$assert(!$capabilities->supportsFork, 'Portable native capabilities must report supportsFork=false.');
+$assert(! $capabilities->ownsWorkerPool, 'Portable native must not own a worker pool.');
+$assert(! $capabilities->supportsGracefulReload, 'Portable native must not advertise graceful reload.');
+$assert(! $capabilities->supportsWorkerRecycle, 'Portable native must not advertise worker recycling.');
+$assert(! $capabilities->supportsFork, 'Portable native capabilities must report supportsFork=false.');
 
 $noopHttp = static function (HttpRequest $request, ResponseWriterInterface $writer): void {
     unset($request);
@@ -84,7 +87,7 @@ NativeTopologyValidator::assertSupported(
 );
 
 $expectUnavailable(
-    static fn() => NativeTopologyValidator::assertSupported(
+    static fn () => NativeTopologyValidator::assertSupported(
         ['http' => Server::http('127.0.0.1:0', $noopHttp, 'many')->withWorkers(2)],
         $selection,
         new RuntimeOptions(driver: RuntimeDriver::NATIVE),
@@ -92,7 +95,7 @@ $expectUnavailable(
     'supports only one process',
 );
 $expectUnavailable(
-    static fn() => NativeTopologyValidator::assertSupported(
+    static fn () => NativeTopologyValidator::assertSupported(
         ['http' => Server::http('127.0.0.1:0', $noopHttp, 'recycle')],
         $selection,
         new RuntimeOptions(
@@ -114,11 +117,11 @@ try {
         address: '127.0.0.1:0',
         handler: $noopHttp,
         tls: new TlsOptions($certificate),
-        http3: new Http3Options(),
+        http3: new Http3Options,
     );
-    if (!$capabilities->supportsQuic) {
+    if (! $capabilities->supportsQuic) {
         $expectUnavailable(
-            static fn() => NativeTopologyValidator::assertSupported(
+            static fn () => NativeTopologyValidator::assertSupported(
                 ['http3' => $http3],
                 $selection,
                 new RuntimeOptions(driver: RuntimeDriver::NATIVE),
@@ -139,23 +142,23 @@ $runtimeFailure = static function (callable $configure, string $needle, ?Runtime
     $runtime = Runtime::create($options ?? new RuntimeOptions(driver: RuntimeDriver::NATIVE));
     $runtime->listen(Server::http('127.0.0.1:0', $noopHttp, 'guard'));
     $configure($runtime);
-    $expectUnavailable(static fn() => $runtime->run(), $needle);
+    $expectUnavailable(static fn () => $runtime->run(), $needle);
 };
 
 $runtimeFailure(
-    static fn(Runtime $runtime) => $runtime->control(new ControlOptions(sys_get_temp_dir() . '/runwire-portable-control.sock')),
+    static fn (Runtime $runtime) => $runtime->control(new ControlOptions(sys_get_temp_dir().'/runwire-portable-control.sock')),
     'control endpoint requires',
 );
 $runtimeFailure(
-    static fn(Runtime $runtime) => $runtime->watch(new DevelopmentWatchPolicy(enabled: true, paths: [__DIR__])),
+    static fn (Runtime $runtime) => $runtime->watch(new DevelopmentWatchPolicy(enabled: true, paths: [__DIR__])),
     'Development worker watching requires',
 );
 $runtimeFailure(
-    static fn(Runtime $runtime) => $runtime->onEvent(static function (): void {}),
+    static fn (Runtime $runtime) => $runtime->onEvent(static function (): void {}),
     'Supervisor lifecycle events require',
 );
 $runtimeFailure(
-    static fn(Runtime $runtime) => $runtime,
+    static fn (Runtime $runtime) => $runtime,
     'Worker UID/GID changes were requested',
     new RuntimeOptions(
         driver: RuntimeDriver::NATIVE,
@@ -163,21 +166,28 @@ $runtimeFailure(
     ),
 );
 
-$portable = null;
+$owner = new class
+{
+    public ?PortableNativeRuntime $runtime = null;
+};
 $handled = 0;
 $bound = [];
 $clients = [];
-$unixPath = sys_get_temp_dir() . '/runwire-portable-' . getmypid() . '.sock';
+$pid = getmypid();
+if ($pid === false) {
+    throw new RuntimeException('Unable to identify the portable runtime fixture.');
+}
+$unixPath = sys_get_temp_dir().'/runwire-portable-'.$pid.'.sock';
 
 $expected = 3;
 $includeUnix = $capabilities->supportsUnixSockets;
 if ($includeUnix) {
-    ++$expected;
+    $expected++;
 }
-$markHandled = static function () use (&$handled, $expected, &$portable): void {
-    ++$handled;
+$markHandled = static function () use (&$handled, $expected, $owner): void {
+    $handled++;
     if ($handled === $expected) {
-        $portable?->stop();
+        $owner->runtime?->stop();
     }
 };
 
@@ -197,7 +207,7 @@ $bound['http'] = new BoundServer($http, $httpListener);
 
 $tcp = StreamServer::tcp(
     '127.0.0.1:0',
-    static fn(): LineCodec => new LineCodec(),
+    static fn (): LineCodec => new LineCodec,
     static function (string $frame, FramedConnection $connection) use ($markHandled): void {
         if ($frame !== 'portable-tcp') {
             throw new RuntimeException('Unexpected portable TCP frame.');
@@ -229,7 +239,7 @@ $unixListener = null;
 if ($includeUnix) {
     $unix = StreamServer::unix(
         $unixPath,
-        static fn(): LineCodec => new LineCodec(),
+        static fn (): LineCodec => new LineCodec,
         static function (string $frame, FramedConnection $connection) use ($markHandled): void {
             if ($frame !== 'portable-unix') {
                 throw new RuntimeException('Unexpected portable Unix frame.');
@@ -248,7 +258,7 @@ $connect = static function (string $uri) use ($fail): mixed {
     $errno = 0;
     $error = '';
     $client = stream_socket_client($uri, $errno, $error, 2.0);
-    if (!is_resource($client)) {
+    if (! is_resource($client)) {
         $fail(sprintf('Unable to connect portable acceptance client %s: %s (%d).', $uri, $error, $errno));
     }
     stream_set_timeout($client, 2);
@@ -257,21 +267,21 @@ $connect = static function (string $uri) use ($fail): mixed {
 };
 
 try {
-    $clients['http'] = $connect('tcp://' . $httpListener->address());
+    $clients['http'] = $connect('tcp://'.$httpListener->address());
     fwrite($clients['http'], "GET /portable HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
 
-    $clients['tcp'] = $connect('tcp://' . $tcpListener->address());
+    $clients['tcp'] = $connect('tcp://'.$tcpListener->address());
     fwrite($clients['tcp'], "portable-tcp\n");
 
-    $clients['udp'] = $connect('udp://' . $udpListener->address());
+    $clients['udp'] = $connect('udp://'.$udpListener->address());
     fwrite($clients['udp'], 'portable-udp');
 
     if ($includeUnix) {
-        $clients['unix'] = $connect('unix://' . $unixPath);
+        $clients['unix'] = $connect('unix://'.$unixPath);
         fwrite($clients['unix'], "portable-unix\n");
     }
 
-    $portable = new PortableNativeRuntime(
+    $portable = $owner->runtime = new PortableNativeRuntime(
         $bound,
         $selection,
         new RuntimeOptions(driver: RuntimeDriver::NATIVE),
@@ -280,6 +290,9 @@ try {
 
     $httpResponse = stream_get_contents($clients['http']);
     $assert(is_string($httpResponse) && str_contains($httpResponse, 'HTTP/1.1 200'), 'Portable HTTP response status missing.');
+    if (! is_string($httpResponse)) {
+        throw new RuntimeException('Unable to read the portable HTTP response.');
+    }
     $assert(str_contains($httpResponse, 'portable-http-ok'), 'Portable HTTP response body missing.');
 
     $tcpResponse = fgets($clients['tcp']);
@@ -289,16 +302,15 @@ try {
     $assert($udpResponse === 'portable-udp-ok', 'Portable UDP response mismatch.');
 
     if ($includeUnix) {
-        $unixResponse = fgets($clients['unix']);
+        $unix = \Infocyph\Runwire\Tests\Support\socketAt($clients, 'unix');
+        $unixResponse = fgets($unix);
         $assert(trim((string) $unixResponse) === 'portable-unix-ok', 'Portable Unix response mismatch.');
     }
 
     $assert($handled === $expected, 'Portable runtime did not handle every expected transport.');
 } finally {
     foreach ($clients as $client) {
-        if (is_resource($client)) {
-            fclose($client);
-        }
+        fclose($client);
     }
     $httpListener->close();
     $tcpListener->close();

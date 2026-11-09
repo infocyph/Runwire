@@ -27,10 +27,8 @@ function runwireProxyAdversarialReply(
 ): void
 {
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($sockets === false || count($sockets) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($sockets)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($sockets);
+    \PHPUnit\Framework\Assert::assertCount(2, $sockets);
     [$socket, $peer] = $sockets;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
@@ -39,20 +37,7 @@ function runwireProxyAdversarialReply(
     $timer = null;
     $methodTimer = null;
     $watchdog = null;
-    $complete = static function (?Connection $ready, ?Throwable $error) use (
-        &$errors,
-        &$successes,
-        $loop,
-    ): void {
-        if ($error !== null) {
-            $errors[] = $error;
-        } elseif ($ready !== null) {
-            ++$successes;
-        } else {
-            $errors[] = new RuntimeException('A proxy returned an invalid empty success result.');
-        }
-        $loop->stop();
-    };
+    $complete = runwireAdversarialProxyCompletion($errors, $successes, $loop);
     $tunnel = $protocol === 'http'
         ? new HttpConnectTunnel(
             $loop, $connection, new HttpConnectHandshake(), 'example.com', 443,
@@ -135,3 +120,26 @@ it('times out incomplete method, CONNECT, and HTTP headers instead of inventing 
     runwireProxyAdversarialReply('http', "HTTP/1.1 200 OK\r\nX-Proxy: pending", incompleteReply: true);
 });
 
+
+
+/**
+ * @param list<Throwable> $errors
+ * @return \Closure(?Connection,?Throwable):void
+ */
+function runwireAdversarialProxyCompletion(array &$errors, int &$successes, SelectLoop $loop): \Closure
+{
+    return static function (?Connection $ready, ?Throwable $error) use (
+        &$errors,
+        &$successes,
+        $loop,
+    ): void {
+        if ($error !== null) {
+            $errors[] = $error;
+        } elseif ($ready !== null) {
+            ++$successes;
+        } else {
+            $errors[] = new RuntimeException('A proxy returned an invalid empty success result.');
+        }
+        $loop->stop();
+    };
+}

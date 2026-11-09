@@ -11,8 +11,14 @@ use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function maskedWebSocketFrame(int $opcode, string $payload, bool $fin = true): string
 {
+    if ($opcode < 0 || $opcode > 15) {
+        throw new \InvalidArgumentException('WebSocket fixture opcodes must fit four bits.');
+    }
     $mask = "\x11\x22\x33\x44";
     $length = strlen($payload);
     $first = ($fin ? 0x80 : 0x00) | $opcode;

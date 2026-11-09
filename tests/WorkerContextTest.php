@@ -84,7 +84,7 @@ it('observes supervisor stop control through the attached worker loop', function
 
 it('coalesces sustained worker request activity without saturating the lifecycle channel', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
     if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }
@@ -130,7 +130,7 @@ it('coalesces sustained worker request activity without saturating the lifecycle
 
 it('retains immediate busy and idle state when a worker has no attached loop', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
     if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }

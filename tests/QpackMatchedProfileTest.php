@@ -17,6 +17,8 @@ it('profiles equivalent QPACK and QUIC varint source workloads without release c
     exec($command . ' 2>&1', $output, $status);
     expect($status)->toBe(0, implode("\n", $output));
     $profile = json_decode(implode("\n", $output), true, 32, JSON_THROW_ON_ERROR);
+    \PHPUnit\Framework\Assert::assertIsArray($profile);
+    \PHPUnit\Framework\Assert::assertIsArray($profile['workloads']);
     expect($profile['schemaVersion'])->toBe(1)
         ->and($profile['sourceRevision'])->toBe($revision)
         ->and($profile['releaseCertified'])->toBeFalse()
@@ -27,6 +29,7 @@ it('profiles equivalent QPACK and QUIC varint source workloads without release c
             'qpack_dynamic_block_unblock',
         ]);
     foreach ($profile['workloads'] as $sample) {
+        \PHPUnit\Framework\Assert::assertIsArray($sample);
         expect($sample['trials'])->toBe(5)
             ->and($sample['iterations'])->toBe(16)
             ->and($sample['median_nanoseconds_per_op'])->toBeGreaterThan(0)

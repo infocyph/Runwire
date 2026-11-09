@@ -82,15 +82,15 @@ it('normalizes RoadRunner host requests into the common HTTP contract', function
     };
 
     $request = new RoadRunnerSession($worker, $httpWorker)->waitRequest(1_024);
+    \PHPUnit\Framework\Assert::assertNotNull($request);
 
-    expect($request)->not->toBeNull()
-        ->and($request?->method)->toBe('POST')
-        ->and($request?->target)->toBe('/rr?q=1')
-        ->and($request?->version)->toBe(ProtocolVersion::HTTP_3)
-        ->and($request?->headers->all('x-trace-id'))->toBe(['one', 'two'])
-        ->and($request?->body->read())->toBe('{"ok":true}')
-        ->and($request?->peerAddress)->toBe('203.0.113.7:44321')
-        ->and($request?->encrypted)->toBeTrue();
+    expect($request->method)->toBe('POST')
+        ->and($request->target)->toBe('/rr?q=1')
+        ->and($request->version)->toBe(ProtocolVersion::HTTP_3)
+        ->and($request->headers->all('x-trace-id'))->toBe(['one', 'two'])
+        ->and($request->body->read())->toBe('{"ok":true}')
+        ->and($request->peerAddress)->toBe('203.0.113.7:44321')
+        ->and($request->encrypted)->toBeTrue();
 });
 
 it('streams RoadRunner response frames and recycles after the generic request budget', function (): void {
@@ -266,6 +266,7 @@ it('reports RoadRunner host protocols without claiming Runwire wire ownership', 
 
 it('enforces declared Content-Length in RoadRunner response writers', function (): void {
     $session = new class implements RoadRunnerSessionInterface {
+        /** @var list<array{int,string,array<string,list<string>>,bool}> */
         public array $responses = [];
 
         #[\Override]

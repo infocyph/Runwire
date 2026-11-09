@@ -91,12 +91,9 @@ it('rejects overlapping HTTP requests without crashing the worker lifecycle', fu
     $lifecycle->handle(batchFRequest('/first'), batchFWriter($primary));
 
     $headers = $overload['headers'] ?? null;
+    \PHPUnit\Framework\Assert::assertInstanceOf(Headers::class, $headers);
     expect($overload['status'] ?? null)->toBe(503)
-        ->and($overload['ended'] ?? false)->toBeTrue()
-        ->and($headers)->toBeInstanceOf(Headers::class);
-    if (!$headers instanceof Headers) {
-        throw new LogicException('Overload response omitted HTTP headers.');
-    }
+        ->and($overload['ended'] ?? false)->toBeTrue();
     expect($headers->first('retry-after'))->toBe('2')
         ->and($headers->first('connection'))->toBe('close')
         ->and($runtime->snapshot()->rejectedRequestsTotal)->toBe(1);
@@ -130,11 +127,8 @@ it('keeps HTTP3 overload rejection request-local', function (): void {
     );
 
     $headers = $overload['headers'] ?? null;
-    expect($overload['status'] ?? null)->toBe(503)
-        ->and($headers)->toBeInstanceOf(Headers::class);
-    if (!$headers instanceof Headers) {
-        throw new LogicException('HTTP/3 overload response omitted headers.');
-    }
+    \PHPUnit\Framework\Assert::assertInstanceOf(Headers::class, $headers);
+    expect($overload['status'] ?? null)->toBe(503);
     expect($headers->has('connection'))->toBeFalse()
         ->and($runtime->snapshot()->rejectedRequestsTotal)->toBe(1);
 });
@@ -219,9 +213,9 @@ it('reports native resource and socket capabilities explicitly', function (): vo
         resources: $resources,
     );
     $capabilities = (new RuntimeCapabilityResolver())->resolve(RuntimeDriver::NATIVE, $environment);
+    \PHPUnit\Framework\Assert::assertSame(RuntimeDriver::NATIVE, $capabilities->driver);
 
-    expect($capabilities)->toBeInstanceOf(RuntimeCapabilities::class)
-        ->and($capabilities->toArray())->toMatchArray([
+    expect($capabilities->toArray())->toMatchArray([
             'supports_fork' => true,
             'supports_signals' => true,
             'supports_reuse_port' => true,
@@ -253,7 +247,15 @@ it('keeps reuse port default-off and forwards it to HTTP3 only when explicit', f
         }
     }
 
-    expect(SocketCapabilityProbe::supportsReusePort())->toBeBool();
+    $listener = \Infocyph\Runwire\Network\TcpListener::bind(
+        '127.0.0.1:0',
+        new ListenerOptions(reusePort: SocketCapabilityProbe::supportsReusePort()),
+    );
+    try {
+        expect($listener->address())->toStartWith('127.0.0.1:');
+    } finally {
+        $listener->close();
+    }
 });
 
 

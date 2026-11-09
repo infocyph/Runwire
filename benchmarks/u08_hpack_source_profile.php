@@ -103,10 +103,10 @@ function runwireHpackMicroprofileMeasure(callable $operation, int $iterations): 
         if (!is_int($duration) || $duration <= 0 || $checksum <= 0) {
             throw new RuntimeException('HPACK microprofile produced invalid results.');
         }
-        $samples[] = $duration / $iterations;
+        $samples[] = (float) $duration / (float) $iterations;
     }
     sort($samples, SORT_NUMERIC);
-    $average = (float) array_sum($samples) / (float) count($samples);
+    $average = array_sum($samples) / (float) count($samples);
     $variance = array_sum(array_map(
         static fn(float $ns): float => ($ns - $average) ** 2.0,
         $samples,

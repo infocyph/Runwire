@@ -92,7 +92,7 @@ it('interoperates with an independent real TCP peer for binary chunked H1 reques
         }
         $received = '';
         while (strlen($received) < strlen($expected)) {
-            $chunk = fread($peer, strlen($expected) - strlen($received));
+            $chunk = fread($peer, max(1, strlen($expected) - strlen($received)));
             if (!is_string($chunk) || $chunk === '') {
                 throw new RuntimeException('Independent HTTP/1 peer returned an incomplete request.');
             }
@@ -128,14 +128,11 @@ it('interoperates with an independent real TCP peer for binary chunked H1 reques
             $frame .= $bytes;
             $parser->push($bytes, $head, $onBody, $complete);
         }
-        if (!$trailers instanceof Headers) {
-            throw new RuntimeException('Independent HTTP/1 response is missing required trailers.');
-        }
+        \PHPUnit\Framework\Assert::assertInstanceOf(Headers::class, $trailers);
         expect($status)->toBe(201)
             ->and($response)->toBe('ok!')
             ->and($parser->done())->toBeTrue()
             ->and($parser->keepAlive())->toBeFalse()
-            ->and($trailers)->toBeInstanceOf(Headers::class)
             ->and($trailers->first('x-server'))->toBe('yes');
     } finally {
         if (is_resource($peer)) {

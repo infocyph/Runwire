@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/SocketFixture.php';
+
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
@@ -11,14 +14,14 @@ use Infocyph\Runwire\Network\Internal\DialAttemptLifecycle;
 it('adopts real connected TCP streams through the one established connection engine', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
     if (!is_resource($listener)) {
-        throw new RuntimeException($errorMessage);
+        throw \Infocyph\Runwire\Tests\Support\socketFailure($errorMessage, 'Socket operation failed.');
     }
     $address = stream_socket_get_name($listener, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $client = stream_socket_client('tcp://' . $address, $errorCode, $errorMessage, 1.0);
     if (!is_resource($client)) {
         fclose($listener);
-        throw new RuntimeException($errorMessage);
+        throw \Infocyph\Runwire\Tests\Support\socketFailure($errorMessage, 'Socket operation failed.');
     }
     $accepted = stream_socket_accept($listener, 1.0);
     if (!is_resource($accepted)) {
@@ -47,10 +50,8 @@ it('adopts real connected TCP streams through the one established connection eng
 
 it('requires a verified dial attempt and transfers established stream ownership only once', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
     [$outbound, $peer] = $pair;
     $loop = new SelectLoop();
     $attempt = new DialAttemptLifecycle();
@@ -78,10 +79,8 @@ it('requires a verified dial attempt and transfers established stream ownership 
 
 it('preserves verified metadata overrides and rejects invalid established resources', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
     [$connected, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted(
@@ -97,5 +96,7 @@ it('preserves verified metadata overrides and rejects invalid established resour
         ->and($connection->tlsPeerFingerprint())->toBeNull();
     $connection->abort();
     fclose($peer);
-    expect(fn() => ConnectionFactory::accepted($loop, null))->toThrow(InvalidArgumentException::class);
+    expect(function () use ($loop): void {
+        (new ReflectionMethod(ConnectionFactory::class, 'accepted'))->invoke(null, $loop, null);
+    })->toThrow(InvalidArgumentException::class);
 });

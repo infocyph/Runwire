@@ -39,8 +39,8 @@ it('bounds off-loop DNS admission and cancellation even under repeated resolver 
         expect($seen)->toHaveCount(18)
             ->and($executor->diagnostics()['cancelled'])->toBe(18);
         foreach ($seen as [$addresses, $error]) {
-            expect($addresses)->toBe([])
-                ->and($error)->toBeInstanceOf(Throwable::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
+            expect($addresses)->toBe([]);
         }
     } finally {
         $executor->close();

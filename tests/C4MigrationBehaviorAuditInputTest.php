@@ -13,13 +13,15 @@ it('audits complete source behavior evidence over bounded stdin without opening 
         64,
         JSON_THROW_ON_ERROR,
     );
-    if (!is_array($ledger) || !is_string($ledger['publishedRevision'] ?? null)
-        || !is_array($ledger['entries'] ?? null)) {
+    \PHPUnit\Framework\Assert::assertIsArray($ledger);
+    if (!is_string($ledger['publishedRevision'] ?? null)) {
         throw new RuntimeException('C4 migration ledger fixture has an invalid envelope.');
     }
     $entries = [];
+    \PHPUnit\Framework\Assert::assertIsArray($ledger['entries']);
     foreach ($ledger['entries'] as $entry) {
-        if (!is_array($entry) || !is_string($entry['symbol'] ?? null)) {
+        \PHPUnit\Framework\Assert::assertIsArray($entry);
+        if (!is_string($entry['symbol'] ?? null)) {
             throw new RuntimeException('C4 migration ledger fixture contains an invalid symbol.');
         }
         $entries[] = $entry;
@@ -50,9 +52,7 @@ it('audits complete source behavior evidence over bounded stdin without opening 
         exec($command . ' 2>&1', $lines, $exitCode);
         expect($exitCode)->toBe(0, implode("\n", $lines));
         $result = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
-        if (!is_array($result)) {
-            throw new RuntimeException('C4 audit returned a non-object JSON payload.');
-        }
+        \PHPUnit\Framework\Assert::assertIsArray($result);
         expect($result['allChangedSymbolsDispositioned'])->toBeTrue()
             ->and($result['testBackedDispositionCount'])->toBe(count($entries));
 

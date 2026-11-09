@@ -84,6 +84,7 @@ it('does bounded file reads and stat in a subprocess and enforces deadlines', fu
         });
         $executor->submit('stat', ['path' => $file], function ($value, $error) use (&$values, $executor): void {
             expect($error)->toBeNull();
+            \PHPUnit\Framework\Assert::assertIsArray($value);
             $values['size'] = $value['size'];
             $executor->close();
         });
@@ -107,10 +108,7 @@ it('does bounded file reads and stat in a subprocess and enforces deadlines', fu
         deadline: RequestDeadline::afterSeconds(0.03, hrtime(true)),
     );
     $loop->run();
-    expect($error)->toBeInstanceOf(RuntimeException::class);
-    if (!$error instanceof RuntimeException) {
-        throw new LogicException('Deadline callback did not produce a runtime failure.');
-    }
+    \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
     expect($error->getMessage())->toContain('deadline');
 });
 
@@ -214,10 +212,7 @@ it('honors the earliest inherited token deadline instead of extending the operat
     $loop->run();
     expect($errors)->toHaveCount(1);
     $deadlineError = $errors[0] ?? null;
-    expect($deadlineError)->toBeInstanceOf(CancelledException::class);
-    if (!$deadlineError instanceof CancelledException) {
-        throw new LogicException('Inherited deadline did not cancel the worker.');
-    }
+    \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $deadlineError);
     expect($deadlineError->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
         ->and($executor->diagnostics()['active'])->toBe(0);
     $source->dispose();
@@ -252,11 +247,8 @@ it('cancels a queued filesystem read at the inherited token deadline before its 
         expect($completed)->toHaveCount(1);
         $completion = $completed[0] ?? throw new RuntimeException('Missing inherited-deadline callback.');
         $deadlineError = $completion[1];
-        expect($completion[0])->toBeNull()
-            ->and($deadlineError)->toBeInstanceOf(CancelledException::class);
-        if (!$deadlineError instanceof CancelledException) {
-            throw new LogicException('Queued worker did not report the inherited deadline.');
-        }
+        \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $deadlineError);
+        expect($completion[0])->toBeNull();
         expect($deadlineError->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
             ->and($source->token()->subscriptionCount())->toBe(0)
             ->and($executor->diagnostics()['active'])->toBe(0)
@@ -337,7 +329,9 @@ it('compacts cancelled queue tombstones under repeated bounded admission', funct
             expect($executor->cancel($queued))->toBeTrue();
         }
 
-        expect($pending->getValue($executor)->count())->toBeLessThanOrEqual(36)
+        $queue = $pending->getValue($executor);
+        \PHPUnit\Framework\Assert::assertInstanceOf(\Countable::class, $queue);
+        expect($queue->count())->toBeLessThanOrEqual(36)
             ->and($executor->diagnostics()['queued'])->toBe(1)
             ->and($executor->diagnostics()['submitted'])->toBe(513)
             ->and($resultCount)->toBe(512);
@@ -380,7 +374,7 @@ it('decodes executor results by the top-level operation, never nested JSON argum
 
 it('binds every subprocess file operation to a validated path and rejects wrappers', function (): void {
     $file = tempnam(sys_get_temp_dir(), 'runwire-worker-path-');
-    expect($file)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($file);
     file_put_contents($file, 'guarded-file');
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);
@@ -418,7 +412,7 @@ it('binds every subprocess file operation to a validated path and rejects wrappe
 
 it('does not execute unsigned or incorrectly signed subprocess requests', function (): void {
     $fixture = tempnam(sys_get_temp_dir(), 'runwire-ipc-protected-');
-    expect($fixture)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($fixture);
     file_put_contents($fixture, 'protected');
     $key = str_repeat('a', 64);
 
@@ -433,10 +427,7 @@ it('does not execute unsigned or incorrectly signed subprocess requests', functi
                 ['RUNWIRE_EXECUTOR_IPC_KEY' => $key],
                 ['bypass_shell' => true],
             );
-            expect(is_resource($process))->toBeTrue();
-            if (!is_resource($process)) {
-                throw new RuntimeException('Unable to launch signed worker protocol fixture.');
-            }
+            \PHPUnit\Framework\Assert::assertIsResource($process);
             $payload = json_encode([
                 'id' => 1,
                 'op' => 'write',

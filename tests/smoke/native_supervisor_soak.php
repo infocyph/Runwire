@@ -52,26 +52,22 @@ $supervisor->autoscale(
 $counts = [];
 $delays = [];
 $baselineRss = memory_get_usage(true);
-$durationSeconds = (float) (getenv('RUNWIRE_C3_SOAK_SECONDS') ?: '23.5');
+$duration = getenv('RUNWIRE_C3_SOAK_SECONDS');
+$durationSeconds = (float) ($duration === false || $duration === '' || $duration === '0' ? '23.5' : $duration);
 if (!is_finite($durationSeconds) || $durationSeconds < 20.0 || $durationSeconds > 600.0) {
     throw new RuntimeException('Native autoscale soak duration must be between 20 and 600 seconds.');
 }
-$cpuStart = getrusage();
+require_once dirname(__DIR__, 2) . '/benchmarks/process_usage.php';
+$cpuStart = runwireBenchmarkUsage();
 $peakChildRssBytes = 0;
-$duplicateOwners = false;
+$observations = new class {
+    public bool $duplicateOwners = false;
+};
 $maximumFds = 0;
 $nextSampleAt = microtime(true) + 0.2;
-$loop->repeat(0.2, static function () use (
-    $supervisor,
-    &$counts,
-    &$delays,
-    &$peakChildRssBytes,
-    &$duplicateOwners,
-    &$maximumFds,
-    &$nextSampleAt,
-): void {
+$loop->repeat(0.2, static function () use ($supervisor, &$counts, &$delays, &$peakChildRssBytes, $observations, &$maximumFds, &$nextSampleAt): void {
     $now = microtime(true);
-    $delays[] = max(0, ($now - $nextSampleAt) * 1000);
+    $delays[] = max(0.0, ($now - $nextSampleAt) * 1000.0);
     $nextSampleAt = $now + 0.2;
 
     $status = $supervisor->status();
@@ -79,7 +75,7 @@ $loop->repeat(0.2, static function () use (
     $slots = [];
     foreach ($status->workers as $worker) {
         if (isset($slots[$worker->slot])) {
-            $duplicateOwners = true;
+            $observations->duplicateOwners = true;
         }
         $slots[$worker->slot] = true;
         $path = '/proc/' . $worker->pid . '/status';
@@ -104,32 +100,26 @@ $loop->repeat(0.2, static function () use (
     $maximumFds = max($maximumFds, is_array($fds) ? count($fds) : 0);
 });
 
-$loop->delay($durationSeconds, static fn() => $supervisor->stop());
+$loop->delay($durationSeconds, static function () use ($supervisor): void {
+    $supervisor->stop();
+});
 $started = microtime(true);
 
 try {
     $supervisor->run();
     sort($delays);
-    $p99 = $delays[min(count($delays) - 1, (int) floor(0.99 * count($delays)))] ?? INF;
+    $p99 = $delays[min(count($delays) - 1, (int) floor(0.99 * (float) count($delays)))] ?? INF;
     $changes = 0;
     for ($i = 1, $count = count($counts); $i < $count; ++$i) {
         if ($counts[$i] !== $counts[$i - 1]) {
             ++$changes;
         }
     }
-    $cpuEnd = getrusage();
-    $childCpu = getrusage(1);
+    $cpuEnd = runwireBenchmarkUsage();
+    $childCpu = runwireBenchmarkUsage(1);
     $elapsed = microtime(true) - $started;
-    $parentCpuSeconds = (
-        ($cpuEnd['ru_utime.tv_sec'] ?? 0) - ($cpuStart['ru_utime.tv_sec'] ?? 0)
-        + (($cpuEnd['ru_utime.tv_usec'] ?? 0) - ($cpuStart['ru_utime.tv_usec'] ?? 0)) / 1_000_000
-        + ($cpuEnd['ru_stime.tv_sec'] ?? 0) - ($cpuStart['ru_stime.tv_sec'] ?? 0)
-        + (($cpuEnd['ru_stime.tv_usec'] ?? 0) - ($cpuStart['ru_stime.tv_usec'] ?? 0)) / 1_000_000
-    );
-    $childrenCpuSeconds = ($childCpu['ru_utime.tv_sec'] ?? 0)
-        + ($childCpu['ru_utime.tv_usec'] ?? 0) / 1_000_000
-        + ($childCpu['ru_stime.tv_sec'] ?? 0)
-        + ($childCpu['ru_stime.tv_usec'] ?? 0) / 1_000_000;
+    $parentCpuSeconds = (float) (runwireBenchmarkCpuMicroseconds($cpuEnd) - runwireBenchmarkCpuMicroseconds($cpuStart)) / 1_000_000.0;
+    $childrenCpuSeconds = (float) runwireBenchmarkCpuMicroseconds($childCpu) / 1_000_000.0;
     $record = [
         'runtime' => PHP_VERSION,
         'configuredSoakSeconds' => $durationSeconds,
@@ -149,7 +139,7 @@ try {
     fwrite(STDOUT, json_encode($record, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
 
     $minimumSamples = max(19, (int) floor($durationSeconds * 0.8));
-    if ($duplicateOwners || $changes < 3 || $samples < $minimumSamples
+    if ($observations->duplicateOwners || $changes < 3 || $samples < $minimumSamples
         || $parentCpuSeconds < 0 || $parentCpuSeconds / max(0.001, $elapsed) > 1.25
         || $childrenCpuSeconds < 0 || $childrenCpuSeconds / max(0.001, $elapsed) > 2.5
         || !in_array(1, $counts, true)

@@ -101,11 +101,11 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase02(): void
     }
     $reset = (new FrameParser())->push($session->cancel(1));
     $firstFailure = $failures['a'][0] ?? throw new RuntimeException('HTTP/2 client cancellation callback was not delivered.');
+    \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $firstFailure);
     expect($reset)->toHaveCount(1)
         ->and($reset[0]->knownType())->toBe(FrameType::RST_STREAM)
         ->and($reset[0]->streamId)->toBe(1)
-        ->and($session->activeCount())->toBe(1)
-        ->and($firstFailure)->toBeInstanceOf(RuntimeException::class);
+        ->and($session->activeCount())->toBe(1);
     $lateCredit = (new FrameParser())->push($session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'late')));
     expect($lateCredit)->toHaveCount(1)->and($lateCredit[0]->streamId)->toBe(0);
     expect(fn() => $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, 'x')))
@@ -113,11 +113,11 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase02(): void
 
     $session->receive(new Frame(FrameType::RST_STREAM->value, 0, 3, pack('N', ErrorCode::CANCEL->value)));
     $secondFailure = $failures['b'][0] ?? throw new RuntimeException('HTTP/2 peer reset callback was not delivered.');
-    expect($session->activeCount())->toBe(0)
-        ->and($secondFailure)->toBeInstanceOf(RuntimeException::class);
+    expect($session->activeCount())->toBe(0);
+    \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $secondFailure);
     $session->close();
-    $firstCompletions = $failures['a'] ?? throw new RuntimeException('HTTP/2 cancellation result was not recorded.');
-    $secondCompletions = $failures['b'] ?? throw new RuntimeException('HTTP/2 reset result was not recorded.');
+    $firstCompletions = runwireH2Completions($failures, 'a');
+    $secondCompletions = runwireH2Completions($failures, 'b');
     expect($firstCompletions)->toHaveCount(1)
         ->and($secondCompletions)->toHaveCount(1);
 }
@@ -224,7 +224,7 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase06(): void
             static function (): void {},
             static function (): void {},
             static function (?Throwable $error) use (&$completed): void {
-                expect($error)->toBeInstanceOf(RuntimeException::class);
+                \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
                 ++$completed;
             },
         );
@@ -264,7 +264,7 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase07(): void
             static function (): void {},
             static function (): void {},
             static function (?Throwable $error) use (&$settled): void {
-                expect($error)->toBeInstanceOf(RuntimeException::class);
+                \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
                 ++$settled;
             },
         );
@@ -275,7 +275,7 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase07(): void
         static function (): void {},
         static function (): void {},
         static function (?Throwable $error) use (&$settled): void {
-            expect($error)->toBeInstanceOf(RuntimeException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
             ++$settled;
         },
     );
@@ -305,7 +305,7 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase08(): void
         static function (): void {},
         static function (): void {},
         static function (?Throwable $error) use (&$first): void {
-            expect($error)->toBeInstanceOf(RuntimeException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
             ++$first;
             throw new RuntimeException('application callback failure');
         },
@@ -315,7 +315,7 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase08(): void
         static function (): void {},
         static function (): void {},
         static function (?Throwable $error) use (&$second): void {
-            expect($error)->toBeInstanceOf(RuntimeException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
             ++$second;
         },
     );
@@ -391,4 +391,14 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase10(): void
     $session->receive(new Frame(FrameType::DATA->value, 0x1, 3, 'ok'));
     expect($completed)->toBe(['HEAD' => null, 'GET' => null])
         ->and($body)->toBe('ok')->and($session->activeCount())->toBe(0);
+}
+
+/**
+ * @param array<string,list<?Throwable>> $completions
+ * @return list<?Throwable>
+ * @throws RuntimeException
+ */
+function runwireH2Completions(array $completions, string $key): array
+{
+    return $completions[$key] ?? throw new RuntimeException('HTTP/2 completion was not recorded: ' . $key);
 }

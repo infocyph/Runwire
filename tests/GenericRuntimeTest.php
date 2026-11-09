@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\DatagramServer;
 use Infocyph\Runwire\Network\Datagram;
 use Infocyph\Runwire\Network\DatagramListener;
@@ -57,7 +59,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
             'dgram',
         ));
         $runtime->run();
-        exit(0);
+        \Infocyph\Runwire\Tests\Support\finishForkedChild();
     }
 
     $tcp = false;
@@ -107,6 +109,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
     $deadline = microtime(true) + 4.0;
     while (microtime(true) < $deadline) {
         $reaped = pcntl_waitpid($pid, $status, WNOHANG);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         if ($reaped === $pid) {
             break;
         }
@@ -115,6 +118,7 @@ it('serves framed TCP and UDP workloads through prefork native workers', functio
     if ($reaped !== $pid) {
         posix_kill($pid, SIGKILL);
         $reaped = pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
     }
 
     expect($reaped)->toBe($pid)
@@ -144,7 +148,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
         Runtime::create(new RuntimeOptions(RuntimeDriver::NATIVE))
             ->listen($server)
             ->run();
-        exit(0);
+        \Infocyph\Runwire\Tests\Support\finishForkedChild();
     }
 
     $client = false;
@@ -184,6 +188,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
     $deadline = microtime(true) + 4.0;
     while (microtime(true) < $deadline) {
         $reaped = pcntl_waitpid($pid, $status, WNOHANG);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         if ($reaped === $pid) {
             break;
         }
@@ -192,6 +197,7 @@ it('keeps a prefork Unix socket path master-owned until runtime shutdown', funct
     if ($reaped !== $pid) {
         posix_kill($pid, SIGKILL);
         $reaped = pcntl_waitpid($pid, $status);
+        \Infocyph\Runwire\Tests\Support\waitStatus($status);
     }
 
     expect($reaped)->toBe($pid)->and(file_exists($path))->toBeFalse();

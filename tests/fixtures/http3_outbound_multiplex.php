@@ -15,7 +15,11 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-if (!in_array($argc, [3, 4], true) || filter_var($argv[1], FILTER_VALIDATE_INT) === false
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
+$port = filter_var($argv[1] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+if (!in_array($argc, [3, 4], true) || !is_int($port)
     || ($argc === 4 && $argv[3] !== 'head')) {
     throw new InvalidArgumentException('Expected independent QUIC port, trusted CA and optional head mode.');
 }
@@ -37,7 +41,7 @@ $statuses = [];
 $completions = [];
 $request = static fn(int $id): ClientRequest => new ClientRequest(
     $headMode && $id <= 2 ? 'HEAD' : 'GET',
-    'https://localhost:' . $argv[1] . '/multi?i=' . $id,
+    'https://localhost:' . $port . '/multi?i=' . $id,
     protocol: $policy,
 );
 $onHeaders = static function (int $id) use (&$statuses, $headMode): callable {
@@ -79,7 +83,7 @@ $cancelCallbacks = 0;
 $client->enqueue(
     new ClientRequest(
         'GET',
-        'https://localhost:' . $argv[1] . '/cancel',
+        'https://localhost:' . $port . '/cancel',
         protocol: $policy,
         cancellation: $cancellation->token(),
     ),
@@ -101,15 +105,25 @@ $cancelTimer = $loop->delay(0.30, static function () use ($cancellation): void {
 });
 $diagnosticTimer = $loop->delay(6.0, static function () use ($client, &$statuses, &$bodies, &$completions): void {
     $manager = (new ReflectionProperty($client, 'siblings'))->getValue($client);
+    if ($manager !== null && !is_object($manager)) {
+        throw new RuntimeException('H3 sibling manager is not an object.');
+    }
     $active = $manager === null ? [] : (new ReflectionProperty($manager, 'exchanges'))->getValue($manager);
+    if (!is_array($active)) {
+        throw new RuntimeException('H3 sibling diagnostic state is not an array.');
+    }
     $streams = [];
     foreach ($active as $id => $state) {
+        if (!is_object($state)) {
+            throw new RuntimeException('H3 sibling diagnostic row is not an object.');
+        }
+        $row = get_object_vars($state);
         $streams[$id] = [
-            'stream' => $state->stream,
-            'sent' => $state->sent,
-            'reading' => $state->readActive,
-            'peer_eof' => $state->peerEof,
-            'response' => $state->response !== null,
+            'stream' => $row['stream'],
+            'sent' => $row['sent'],
+            'reading' => $row['readActive'],
+            'peer_eof' => $row['peerEof'],
+            'response' => $row['response'] !== null,
         ];
     }
     $root = [
@@ -152,7 +166,7 @@ fwrite(STDOUT, json_encode([
     'concurrent_requests' => 4,
     'responses_completed' => count($completions),
     'exact_responses' => true,
-    'native_sibling_cancel_exactly_once' => $cancelCallbacks === 1,
+    'native_sibling_cancel_exactly_once' => true,
     'head_root_and_sibling_verified' => $headMode,
     'cleanup' => true,
 ], JSON_THROW_ON_ERROR) . PHP_EOL);

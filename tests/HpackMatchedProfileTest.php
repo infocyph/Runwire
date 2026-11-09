@@ -18,7 +18,8 @@ it('emits bounded HPACK source-only comparable microprofiles without claiming ce
     expect($status)->toBe(0, implode("\n", $output));
 
     $profile = json_decode(implode("\n", $output), true, 32, JSON_THROW_ON_ERROR);
-    if (!is_array($profile) || !is_array($profile['workloads'] ?? null)) {
+    \PHPUnit\Framework\Assert::assertIsArray($profile);
+    if (!is_array($profile['workloads'] ?? null)) {
         throw new RuntimeException('HPACK microprofile must contain a workloads object.');
     }
     expect($profile['schemaVersion'])->toBe(1)
@@ -31,9 +32,7 @@ it('emits bounded HPACK source-only comparable microprofiles without claiming ce
             'header_frame_write_churn',
         ]);
     foreach ($profile['workloads'] as $case) {
-        if (!is_array($case)) {
-            throw new RuntimeException('HPACK workload must be a JSON object.');
-        }
+        \PHPUnit\Framework\Assert::assertIsArray($case);
         expect($case['iterations'])->toBe(16)
             ->and($case['trials'])->toBe(5)
             ->and($case['median_nanoseconds_per_op'])->toBeGreaterThan(0)

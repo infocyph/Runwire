@@ -36,13 +36,13 @@ $supervisor->group(WorkerGroup::callbacks(
         stream_set_blocking($http, false);
         $stop = $context->stopStream();
         $context->ready();
-        $interruptedPoll = false;
-        set_error_handler(static function (int $severity, string $message) use (&$interruptedPoll): bool {
+        $poll = new class { public bool $interrupted = false; public function wasInterrupted(): bool { return $this->interrupted; } };
+        set_error_handler(static function (int $severity, string $message) use ($poll): bool {
             if ($severity !== E_WARNING) {
                 return false;
             }
             if (str_starts_with($message, 'stream_select(): Unable to select [4]: Interrupted system call')) {
-                $interruptedPoll = true;
+                $poll->interrupted = true;
 
                 return true;
             }
@@ -56,9 +56,9 @@ $supervisor->group(WorkerGroup::callbacks(
                 $read = [$http, $stop];
                 $write = [];
                 $except = [];
-                $interruptedPoll = false;
+                $poll->interrupted = false;
                 if (stream_select($read, $write, $except, 0, 50_000) === false) {
-                    if ($interruptedPoll) {
+                    if ($poll->wasInterrupted()) {
                         // SIGCHLD is recoverable: never suppress other poll failures.
                         continue;
                     }
@@ -105,18 +105,18 @@ $supervisor->autoscale(
 
 $success = 0;
 $attempted = 0;
-$failures = [];
+$observations = new class {
+    /** @var list<string> */
+    public array $failures = [];
+    public bool $overlap = false;
+    public bool $oscillation = false;
+};
 $latencies = [];
 $counts = [];
-$overlap = false;
-$oscillation = false;
 $transitions = 0;
 $lastWorkerCount = null;
 $lastTransitionAt = null;
-$loop->repeat(0.15, static function () use (
-    $supervisor, $address, &$success, &$attempted, &$failures, &$latencies, &$counts, &$overlap,
-    &$oscillation, &$transitions, &$lastWorkerCount, &$lastTransitionAt,
-): void {
+$loop->repeat(0.15, static function () use ($supervisor, $address, &$success, &$attempted, $observations, &$latencies, &$counts, &$transitions, &$lastWorkerCount, &$lastTransitionAt): void {
     $snapshot = $supervisor->status();
     if ($snapshot->readyWorkerCount === 0) {
         return;
@@ -126,7 +126,7 @@ $loop->repeat(0.15, static function () use (
     if ($lastWorkerCount !== null && $count !== $lastWorkerCount) {
         $observedAt = microtime(true);
         if ($lastTransitionAt !== null && $observedAt - $lastTransitionAt < 1.0) {
-            $oscillation = true;
+            $observations->oscillation = true;
         }
         $lastTransitionAt = $observedAt;
         ++$transitions;
@@ -135,7 +135,7 @@ $loop->repeat(0.15, static function () use (
     $seen = [];
     foreach ($snapshot->workers as $worker) {
         if (isset($seen[$worker->slot])) {
-            $overlap = true;
+            $observations->overlap = true;
         }
         $seen[$worker->slot] = true;
     }
@@ -151,17 +151,17 @@ $loop->repeat(0.15, static function () use (
         restore_error_handler();
     }
     if (!is_resource($stream)) {
-        $failures[] = 'connect';
+        $observations->failures[] = 'connect';
         return;
     }
     try {
         stream_set_timeout($stream, 1);
         fwrite($stream, "GET /alive HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
         $response = stream_get_contents($stream);
-        $latencies[] = (hrtime(true) - $start) / 1_000_000;
+        $latencies[] = (float) (hrtime(true) - $start) / 1_000_000.0;
         if (!is_string($response) || !str_contains($response, '200 OK')
             || !str_ends_with($response, "\r\n\r\nok")) {
-            $failures[] = 'response';
+            $observations->failures[] = 'response';
             return;
         }
         ++$success;
@@ -171,29 +171,31 @@ $loop->repeat(0.15, static function () use (
 });
 
 $started = microtime(true);
-$loop->delay(20.5, static fn() => $supervisor->stop());
+$loop->delay(20.5, static function () use ($supervisor): void {
+    $supervisor->stop();
+});
 try {
     $supervisor->run();
     sort($latencies);
-    $p99 = $latencies[min(count($latencies) - 1, (int) floor(0.99 * count($latencies)))] ?? INF;
+    $p99 = $latencies[min(count($latencies) - 1, (int) floor(0.99 * (float) count($latencies)))] ?? INF;
     $elapsed = microtime(true) - $started;
     $results = [
         'runtime' => PHP_VERSION,
         'success' => $success,
         'attemptedWhileReady' => $attempted,
-        'failures' => count($failures),
+        'failures' => count($observations->failures),
         'transitions' => $transitions,
-        'oscillationBelowCooldown' => $oscillation,
-        'successfulRPM' => round($success * 60 / $elapsed, 1),
+        'oscillationBelowCooldown' => $observations->oscillation,
+        'successfulRPM' => round((float) $success * 60.0 / $elapsed, 1),
         'p99Ms' => round($p99, 3),
         'scaleInObserved' => in_array(1, $counts, true),
         'scaleOutObserved' => in_array(2, $counts, true),
-        'duplicateSlots' => $overlap,
+        'duplicateSlots' => $observations->overlap,
         'remainingWorkers' => $supervisor->status()->workerCount,
     ];
     fwrite(STDOUT, json_encode($results, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
-    if ($success < 60 || $success !== $attempted || $failures !== [] || $p99 > 1_000.0
-        || $overlap || $oscillation || $transitions < 2
+    if ($success < 60 || $success !== $attempted || $observations->failures !== [] || $p99 > 1_000.0
+        || $observations->overlap || $observations->oscillation || $transitions < 2
         || !in_array(1, $counts, true) || !in_array(2, $counts, true)
         || $supervisor->status()->workerCount !== 0) {
         throw new RuntimeException('Live autoscale lost correct admitted HTTP responses or violated latency/slot bounds.');

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 it('requires every frozen-source performance, soak, consumer and security job before readiness', function (): void {
     $workflow = file_get_contents(dirname(__DIR__) . '/.github/workflows/release-certification.yml');
-    expect($workflow)->toBeString()
+    \PHPUnit\Framework\Assert::assertIsString($workflow);
+    expect($workflow)
         ->toContain('release-evidence-gate:', 'if: always()', 'needs:')
         ->toContain('      - matched-performance', '      - candidate-soak')
         ->toContain('      - consumer-app', '      - release-guard')

@@ -35,6 +35,7 @@ function http3SessionWriter(int $streamId, string $method): ResponseWriterInterf
     );
 }
 
+/** @throws RuntimeException */
 function http3SessionDispatchedCount(Http3Session $session): int
 {
     $property = new ReflectionProperty($session, 'dispatchedRequestStreams');

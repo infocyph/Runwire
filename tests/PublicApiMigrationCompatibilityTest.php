@@ -39,13 +39,16 @@ it('keeps inherited published 2.1.2 Connection callbacks and write as public met
 it('pins every reviewed source-only migration anomaly to approved immutable fingerprints', function (): void {
     $path = dirname(__DIR__) . '/qa/release-baseline/u16-reviewed-api-delta.json';
     $json = file_get_contents($path);
-    expect($json)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($json);
     $policy = json_decode($json, true, 16, JSON_THROW_ON_ERROR);
+    \PHPUnit\Framework\Assert::assertIsArray($policy);
     expect($policy['schemaVersion'])->toBe(1)
         ->and($policy['publishedRevision'])->toBe('7e9bf20ad0737a187dfed77b723791b141b36378')
         ->and($policy['sourceMethodRelocations'])->toHaveCount(2)
         ->and($policy['reviewedSignatureChanges'])->toHaveCount(6);
+    \PHPUnit\Framework\Assert::assertIsArray($policy['reviewedSignatureChanges']);
     foreach ($policy['reviewedSignatureChanges'] as $change) {
+        \PHPUnit\Framework\Assert::assertIsArray($change);
         expect($change['symbol'])->toBeString()
             ->and($change['beforeSha256'])->toMatch('/^[a-f0-9]{64}$/')
             ->and($change['afterSha256'])->toMatch('/^[a-f0-9]{64}$/')

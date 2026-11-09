@@ -68,7 +68,8 @@ it('rejects credentials, injected request target, wrong response, extensions and
 
 it('round-trips the upgrade challenge with an independent real Unix socket peer', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$client, $peer] = $pair;
 
     try {
@@ -92,4 +93,3 @@ it('round-trips the upgrade challenge with an independent real Unix socket peer'
         fclose($peer);
     }
 });
-

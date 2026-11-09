@@ -139,7 +139,7 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
     {
         $this->resumed = false;
 
-        for ($iterations = 0; !$this->resumed && $iterations < 1_000; ++$iterations) {
+        for ($iterations = 0; !$this->wasResumed() && $iterations < 1_000; ++$iterations) {
             if ($this->deferred !== []) {
                 $callback = array_shift($this->deferred);
                 $callback();
@@ -159,7 +159,7 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
             ($timer['callback'])();
         }
 
-        if (!$this->resumed) {
+        if (!$this->wasResumed()) {
             throw new RuntimeException('Fake Swoole reactor exceeded its bounded dispatch budget.');
         }
     }
@@ -168,5 +168,9 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
     public function writeFlag(): int
     {
         return 2;
+    }
+    private function wasResumed(): bool
+    {
+        return $this->resumed;
     }
 }

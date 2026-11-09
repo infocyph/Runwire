@@ -30,7 +30,8 @@ it('cleans read, write, and deadline watches when a handshake is cancelled', fun
 function runwireOwnedTlsHandshakeReadinessTestCase01(): void
 {
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($sockets)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($sockets);
+    expect($sockets)->toHaveCount(2);
     $loop = new SelectLoop();
     $owner = new TlsHandshakeReadiness($loop);
     $owner->start($sockets[0], 1.0, static function (): void {}, static function (): void {}, true);
@@ -56,7 +57,8 @@ it('keeps the server read-only handshake on a common bounded timer', function ()
 function runwireOwnedTlsHandshakeReadinessTestCase02(): void
 {
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($sockets)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($sockets);
+    expect($sockets)->toHaveCount(2);
     $loop = new SelectLoop();
     $owner = new TlsHandshakeReadiness($loop);
     $timeouts = 0;
@@ -90,7 +92,8 @@ function runwireOwnedTlsHandshakeReadinessTestCase03(): void
 
     for ($index = 0; $index < 32; ++$index) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-        expect($pair)->toBeArray()->toHaveCount(2);
+        \PHPUnit\Framework\Assert::assertIsArray($pair);
+        expect($pair)->toHaveCount(2);
         $owner = new TlsHandshakeReadiness($loop);
         $owner->start($pair[0], 0.1, static function (): void {}, static function (): void {}, true);
         expect($loop->diagnostics()->readWatchers)->toBe(1)

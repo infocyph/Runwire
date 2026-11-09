@@ -22,15 +22,32 @@ use Infocyph\Runwire\Supervisor\SupervisorEvent;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 7) {
     throw new InvalidArgumentException(
         'Usage: mixed_native_runtime.php <tls-port> <tcp-port> <udp-port> <cert> <key> <event-log>',
     );
 }
 
-$tlsPort = $argv[1] ?? throw new InvalidArgumentException('Missing TLS listener port.');
-$tcpPort = $argv[2] ?? throw new InvalidArgumentException('Missing TCP listener port.');
-$udpPort = $argv[3] ?? throw new InvalidArgumentException('Missing UDP listener port.');
+/** @throws InvalidArgumentException */
+function mixedNativePort(string $value): int
+{
+    if (!ctype_digit($value) || strlen($value) > 5) {
+        throw new InvalidArgumentException('Listener ports must be decimal integers.');
+    }
+    $port = (int) $value;
+    if ($port < 1 || $port > 65_535) {
+        throw new InvalidArgumentException('Listener ports must be between 1 and 65535.');
+    }
+
+    return $port;
+}
+
+$tlsPort = mixedNativePort($argv[1]);
+$tcpPort = mixedNativePort($argv[2]);
+$udpPort = mixedNativePort($argv[3]);
 $certificate = $argv[4] ?? throw new InvalidArgumentException('Missing certificate path.');
 $key = $argv[5] ?? throw new InvalidArgumentException('Missing private key path.');
 $eventLog = $argv[6] ?? throw new InvalidArgumentException('Missing event log path.');

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/process_usage.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 
@@ -23,35 +25,35 @@ function u01CpuMilliseconds(array $usage, string $prefix): float
 $loop = new SelectLoop();
 $executor = new ProcessExecutor($loop, 2, 32);
 $jobs = 32;
-$completed = 0;
-$failed = 0;
-$ticks = 0;
+$progress = new class {
+    public int $completed = 0;
+
+    public int $failed = 0;
+
+    public int $ticks = 0;
+};
 $latency = [];
 $starts = [];
-$beforeCpu = getrusage();
-if (!isset($beforeCpu['ru_utime.tv_sec'], $beforeCpu['ru_stime.tv_sec'])) {
-    throw new RuntimeException('U01 profiling requires complete PHP getrusage() CPU counters.');
-}
+$beforeCpu = runwireBenchmarkUsage();
 $begin = hrtime(true);
 
-$ticker = $loop->repeat(0.003, static function () use (&$ticks): void {
-    ++$ticks;
+$ticker = $loop->repeat(0.003, static function () use ($progress): void {
+    ++$progress->ticks;
 });
 for ($job = 0; $job < $jobs; ++$job) {
     $starts[$job] = hrtime(true);
     $executor->submit('sleep', ['milliseconds' => 12], static function ($value, $error) use (
-        &$completed,
-        &$failed,
         &$latency,
         $starts,
         $job,
+        $progress,
     ): void {
         if ($error !== null || $value !== 12) {
-            ++$failed;
+            ++$progress->failed;
 
             return;
         }
-        ++$completed;
+        ++$progress->completed;
         $latency[] = (hrtime(true) - $starts[$job]) / 1_000_000;
     });
 }
@@ -61,10 +63,7 @@ $executor->onDrained(static function () use ($executor, $loop, $ticker): void {
 });
 $loop->run();
 $elapsedSeconds = (hrtime(true) - $begin) / 1_000_000_000;
-$afterCpu = getrusage();
-if (!isset($afterCpu['ru_utime.tv_sec'], $afterCpu['ru_stime.tv_sec'])) {
-    throw new RuntimeException('U01 profiling could not capture complete final CPU usage.');
-}
+$afterCpu = runwireBenchmarkUsage();
 sort($latency, SORT_NUMERIC);
 $stats = $executor->diagnostics();
 $profile = [
@@ -74,13 +73,13 @@ $profile = [
     'method' => 'end-to-end bounded off-loop PHP subprocess IPC fixture',
     'real_network_included' => false,
     'jobs_submitted' => $jobs,
-    'jobs_completed' => $completed,
-    'jobs_failed' => $failed,
+    'jobs_completed' => $progress->completed,
+    'jobs_failed' => $progress->failed,
     'pending_after' => $stats['active'] + $stats['queued'],
     'worker_count_after' => $stats['workers'],
-    'loop_ticks' => $ticks,
+    'loop_ticks' => $progress->ticks,
     'elapsed_seconds' => round($elapsedSeconds, 4),
-    'operations_per_second' => round((float) $completed / max(0.000001, $elapsedSeconds), 2),
+    'operations_per_second' => round((float) $progress->completed / max(0.000001, (float) $elapsedSeconds), 2),
     'latency' => [
         'p50_ms' => $latency !== [] ? u01Percentile($latency, 0.50) : 0.0,
         'p95_ms' => $latency !== [] ? u01Percentile($latency, 0.95) : 0.0,
@@ -95,9 +94,9 @@ $profile = [
         'parent_peak_allocated_bytes' => memory_get_peak_usage(true),
         'includes_child_processes' => false,
     ],
-    'correctness_passed' => $completed === $jobs && $failed === 0
+    'correctness_passed' => $progress->completed === $jobs && $progress->failed === 0
         && $stats['active'] === 0 && $stats['queued'] === 0
-        && $stats['workers'] === 0 && $ticks > 0,
+        && $stats['workers'] === 0 && $progress->ticks > 0,
 ];
 $json = json_encode($profile, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
 if (fwrite(STDOUT, $json . "\n") === false) {

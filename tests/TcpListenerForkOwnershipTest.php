@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\TcpListener;
 
@@ -30,6 +32,7 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
     try {
         $observed = stream_get_contents($reader);
         pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($observed)->toBe('1');
@@ -66,6 +69,7 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
             throw new RuntimeException('Unable to replace forked QA child process.');
         }
         pcntl_waitpid($second, $secondStatus);
+        $secondStatus = \Infocyph\Runwire\Tests\Support\waitStatus($secondStatus);
         expect(pcntl_wifexited($secondStatus))->toBeTrue()
             ->and(pcntl_wexitstatus($secondStatus))->toBe(0);
         $listener->close();

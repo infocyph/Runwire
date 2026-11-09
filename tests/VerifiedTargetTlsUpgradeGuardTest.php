@@ -28,7 +28,7 @@ it('closes an encrypted proxy connection rather than exposing it as verified ori
         ))->toThrow(LogicException::class, 'TLS-over-TLS proxy nesting is unavailable');
 
         expect($proxy->state())->toBe(ConnectionState::CLOSED)
-            ->and(is_resource($stream))->toBeFalse()
+            ->and(get_resource_type($stream))->toBe('Unknown')
             ->and($completed)->toBe(0)
             ->and($loop->diagnostics()->readWatchers)->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0)
@@ -57,7 +57,7 @@ it('refuses an unowned TLS upgrade while another consumer owns the tunnel', func
         ))->toThrow(LogicException::class, 'unowned, quiescent cleartext tunnel');
 
         expect($tunnel->state())->not->toBe(ConnectionState::CLOSED)
-            ->and(is_resource($stream))->toBeTrue();
+            ->and(get_resource_type($stream))->toBe('stream');
     } finally {
         $tunnel->abort();
         fclose($peer);

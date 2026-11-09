@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
@@ -68,9 +70,7 @@ it('reports worker activity and receives a shutdown reason over lifecycle IPC', 
             ->and($context->shutdownReason())->toBe(ShutdownReason::DEPLOYMENT_RELOAD);
     } finally {
         $context->close();
-        if (is_resource($master)) {
-            fclose($master);
-        }
+        \Infocyph\Runwire\Tests\Support\closeSocket($master);
     }
 });
 
@@ -126,16 +126,20 @@ it('caps reload surge and marks the completed generation ready', function (): vo
         shutdownTimeoutSeconds: 0.1,
     ));
 
-    $loop->delay(0.02, static fn() => $supervisor->reload());
-    $loop->delay(1.0, static fn() => $supervisor->stop());
+    $loop->delay(0.02, static function () use ($supervisor): void {
+    $supervisor->reload();
+});
+    $loop->delay(1.0, static function () use ($supervisor): void {
+    $supervisor->stop();
+});
     $supervisor->run();
+    \PHPUnit\Framework\Assert::assertInstanceOf(SupervisorStatus::class, $snapshot);
 
     expect($spawnsBeforeFirstReady)->toBe(1)
         ->and($generationTwoSpawns)->toBe(3)
-        ->and($snapshot)->toBeInstanceOf(SupervisorStatus::class)
-        ->and($snapshot?->generation)->toBe(2)
-        ->and($snapshot?->generationReady)->toBeTrue()
-        ->and($snapshot?->reloading)->toBeFalse();
+        ->and($snapshot->generation)->toBe(2)
+        ->and($snapshot->generationReady)->toBeTrue()
+        ->and($snapshot->reloading)->toBeFalse();
 });
 
 it('does not reload groups marked non reloadable', function (): void {
@@ -168,8 +172,12 @@ it('does not reload groups marked non reloadable', function (): void {
             reloadable: false,
         ));
 
-        $loop->delay(0.03, static fn() => $supervisor->reload());
-        $loop->delay(0.12, static fn() => $supervisor->stop());
+        $loop->delay(0.03, static function () use ($supervisor): void {
+    $supervisor->reload();
+});
+        $loop->delay(0.12, static function () use ($supervisor): void {
+    $supervisor->stop();
+});
         $supervisor->run();
 
         expect(file($appLog, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES))->toBe(['1', '2'])
@@ -220,17 +228,21 @@ it('aborts a failed rollout while preserving healthy old capacity', function ():
         shutdownTimeoutSeconds: 0.05,
     ));
 
-    $loop->delay(0.02, static fn() => $supervisor->reload());
-    $loop->delay(0.5, static fn() => $supervisor->stop());
+    $loop->delay(0.02, static function () use ($supervisor): void {
+    $supervisor->reload();
+});
+    $loop->delay(0.5, static function () use ($supervisor): void {
+    $supervisor->stop();
+});
     $supervisor->run();
+    \PHPUnit\Framework\Assert::assertInstanceOf(SupervisorStatus::class, $snapshot);
 
-    expect($snapshot)->toBeInstanceOf(SupervisorStatus::class)
-        ->and($snapshot?->reloadFailed)->toBeTrue()
-        ->and($snapshot?->reloading)->toBeFalse()
-        ->and($snapshot?->currentWorkerCount)->toBe(1)
-        ->and($snapshot?->workers)->toHaveCount(1)
-        ->and($snapshot?->workers[0]->generation)->toBe(1)
-        ->and($snapshot?->workers[0]->state->serving())->toBeTrue()
-        ->and($snapshot?->restartReasonCounts['restart_budget_exhausted'])->toBe(1)
+    expect($snapshot->reloadFailed)->toBeTrue()
+        ->and($snapshot->reloading)->toBeFalse()
+        ->and($snapshot->currentWorkerCount)->toBe(1)
+        ->and($snapshot->workers)->toHaveCount(1)
+        ->and($snapshot->workers[0]->generation)->toBe(1)
+        ->and($snapshot->workers[0]->state->serving())->toBeTrue()
+        ->and($snapshot->restartReasonCounts['restart_budget_exhausted'])->toBe(1)
         ->and($reloadFailedEvents)->toBe(1);
 });

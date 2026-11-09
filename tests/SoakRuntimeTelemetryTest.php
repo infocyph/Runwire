@@ -56,7 +56,12 @@ it('fails worker internal heap, GC root, and OPcache growth separately', functio
 it('rejects incomplete worker telemetry and reset GC counters', function (): void {
     $short = soakAnalyzeRuntimeSnapshots(array_slice(soakInternalFixture(), 0, 30));
     $reset = soakInternalFixture();
-    $reset[40]['gc_runs'] = 0;
+    foreach ($reset as $index => &$sample) {
+        if ($index === 40) {
+            $sample['gc_runs'] = 0;
+        }
+    }
+    unset($sample);
 
     expect($short['status'])->toBe('insufficient_or_invalid_evidence')
         ->and($reset)->toHaveCount(121)

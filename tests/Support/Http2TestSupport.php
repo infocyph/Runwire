@@ -33,6 +33,7 @@ function runwireH2Headers(int $streamId, string $path = '/', bool $endStream = t
 }
 
 /**
+ * @param array<int,int> $settings
  * @throws \InvalidArgumentException
  */
 function runwireH2ClientPrelude(array $settings = []): string
@@ -60,7 +61,9 @@ function runwireH2Exchange(string $wire, callable $handler, ?Http2Limits $limits
     $http2 = new Http2Connection($loop, $connection, $limits ?? new Http2Limits(), $handler);
 
     fwrite($client, $wire);
-    $loop->delay(0.2, static fn () => $loop->stop());
+    $loop->delay(0.2, static function () use ($loop): void {
+        $loop->stop();
+    });
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);

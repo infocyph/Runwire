@@ -116,12 +116,9 @@ it('cancels an off-loop QUIC probe exactly once and releases its token subscript
         $loop->run();
 
         $cancelled = $seen[0][1] ?? throw new RuntimeException('QUIC cancellation result was not delivered.');
+        \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $cancelled);
         expect($seen)->toHaveCount(1)
-            ->and($seen[0][0])->toBeNull()
-            ->and($cancelled)->toBeInstanceOf(CancelledException::class);
-        if (!$cancelled instanceof CancelledException) {
-            throw new RuntimeException('QUIC probe returned an unexpected cancellation result.');
-        }
+            ->and($seen[0][0])->toBeNull();
         expect($cancelled->reason)->toBe(CancellationReason::HOST_CANCELLED)
             ->and($source->token()->subscriptionCount())->toBe(0)
             ->and($executor->diagnostics()['active'])->toBe(0)
@@ -158,12 +155,9 @@ it('applies the earlier caller deadline to a blocked native QUIC probe', functio
         $loop->run();
 
         $cancelled = $seen[0][1] ?? throw new RuntimeException('QUIC cancellation result was not delivered.');
+        \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $cancelled);
         expect($seen)->toHaveCount(1)
-            ->and($seen[0][0])->toBeNull()
-            ->and($cancelled)->toBeInstanceOf(CancelledException::class);
-        if (!$cancelled instanceof CancelledException) {
-            throw new RuntimeException('QUIC probe returned an unexpected cancellation result.');
-        }
+            ->and($seen[0][0])->toBeNull();
         expect($cancelled->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
             ->and($executor->diagnostics()['workers'])->toBe(0)
             ->and($loop->diagnostics()->timersActive)->toBe(0)

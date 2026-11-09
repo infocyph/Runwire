@@ -11,7 +11,7 @@ use Infocyph\Runwire\Process\ProcessPolicy;
 use Infocyph\Runwire\Process\ProcessRunner;
 
 /**
- * @param array<string, mixed> $policy
+ * @param array{allowedExecutables?:list<string>|null,allowedEnvironmentKeys?:list<string>,allowedCwdRoots?:list<string>,maxArgumentCount?:int,maxArgumentBytes?:int,maxArgvBytes?:int,maxEnvironmentCount?:int,maxEnvironmentValueBytes?:int,maxEnvironmentBytes?:int,maxStdinBytes?:int,maxOutputBytes?:int,maxTimeoutSeconds?:float,maxTerminationGraceSeconds?:float,postExitDrainSeconds?:float,postKillWaitSeconds?:float} $policy
  * @throws \InvalidArgumentException
  */
 function processRunner(array $policy = []): ProcessRunner
@@ -99,7 +99,9 @@ it('enforces executable environment cwd and command resource policy', function (
         ->environment(['RUNWIRE_TEST' => 'yes'])
         ->cwd($root)
         ->terminationGrace(0.5);
-    expect($runner->run($command)->stdout)->toBe('yes|' . realpath($root));
+    $canonicalRoot = realpath($root);
+    \PHPUnit\Framework\Assert::assertIsString($canonicalRoot);
+    expect($runner->run($command)->stdout)->toBe('yes|' . $canonicalRoot);
     expect(fn () => $runner->run($command->environment(['DENIED' => 'x'])))->toThrow(ProcessStartException::class)
         ->and(fn () => $runner->run($command->terminationGrace(1.0)))->toThrow(ProcessStartException::class);
 });

@@ -16,6 +16,9 @@ use Infocyph\Runwire\Server;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 5 && $argc !== 7) {
     throw new InvalidArgumentException(
         'Usage: php adaptive_http_server.php <http1|h2> <port> <auto|fixed|latency|throughput> <payload-bytes> [certificate private-key]',

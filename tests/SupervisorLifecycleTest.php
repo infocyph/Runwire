@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\RestartPolicy;
@@ -16,9 +18,9 @@ it('recycles one worker after replacement readiness and restores normal restart 
     $events = [];
     $readyPids = [];
     $recycleResults = [];
-    $statusDuring = null;
+    $statusCapture = new class { public ?\Infocyph\Runwire\Supervisor\SupervisorStatus $status = null; };
 
-    $supervisor->onEvent(static function (SupervisorEvent $event) use (&$events, &$readyPids, &$recycleResults, &$statusDuring, $supervisor, $loop): void {
+    $supervisor->onEvent(static function (SupervisorEvent $event) use (&$events, &$readyPids, &$recycleResults, $statusCapture, $supervisor, $loop): void {
         $events[] = $event->type;
         if ($event->type !== SupervisorEventType::WORKER_READY || $event->pid === null) {
             return;
@@ -26,8 +28,8 @@ it('recycles one worker after replacement readiness and restores normal restart 
         $readyPids[] = $event->pid;
         $readyCount = count($readyPids);
         if ($readyCount === 1) {
-            $loop->defer(static function () use (&$recycleResults, &$statusDuring, $supervisor): void {
-                $statusDuring = $supervisor->status();
+            $loop->defer(static function () use (&$recycleResults, $statusCapture, $supervisor): void {
+                $statusCapture->status = $supervisor->status();
                 $recycleResults[] = $supervisor->recycle('workers', 0);
                 $recycleResults[] = $supervisor->recycle('workers', 0);
             });
@@ -61,17 +63,17 @@ it('recycles one worker after replacement readiness and restores normal restart 
     ));
     $loop->delay(1.0, static function () use ($supervisor): void { $supervisor->stop(true); });
     $supervisor->run();
+    \PHPUnit\Framework\Assert::assertNotNull($statusCapture->status);
 
     expect($recycleResults)->toBe([true, false])
         ->and(count(array_unique($readyPids)))->toBeGreaterThanOrEqual(3)
         ->and($events)->toContain(SupervisorEventType::WORKER_RECYCLE_STARTED)
         ->toContain(SupervisorEventType::WORKER_STOP_REQUESTED)
         ->toContain(SupervisorEventType::WORKER_RESTART_SCHEDULED)
-        ->and($statusDuring)->not->toBeNull()
-        ->and($statusDuring->masterPid)->toBe(posix_getpid())
-        ->and($statusDuring->workerCount)->toBe(1)
-        ->and($statusDuring->currentWorkerCount)->toBe(1)
-        ->and($statusDuring->readyWorkerCount)->toBe(1)
+        ->and($statusCapture->status->masterPid)->toBe(posix_getpid())
+        ->and($statusCapture->status->workerCount)->toBe(1)
+        ->and($statusCapture->status->currentWorkerCount)->toBe(1)
+        ->and($statusCapture->status->readyWorkerCount)->toBe(1)
         ->and($supervisor->status()->workers)->toBe([]);
 });
 
@@ -165,8 +167,8 @@ it('keeps live HTTP1 TCP and UDP responsive across crash recycle and rolling rel
                     } elseif ($socket === $udp) {
                         $remote = null;
                         $message = stream_socket_recvfrom($udp, 1_024, 0, $remote);
-                        if ($message === 'ping' && is_string($remote)) {
-                            stream_socket_sendto($udp, 'pong', 0, $remote);
+                        if ($message === 'ping') {
+                            \Infocyph\Runwire\Tests\Support\sendDatagramReply($udp, 'pong', $remote);
                         }
                     } else {
                         $connection = stream_socket_accept($socket, 0);

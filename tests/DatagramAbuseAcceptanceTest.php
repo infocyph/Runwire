@@ -8,6 +8,7 @@ use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\DatagramOptions;
 
 /**
+ * @return resource
  * @throws \RuntimeException
  */
 function abuseUdpClient(string $address)
@@ -33,7 +34,9 @@ it('rejects oversized inbound datagrams without dispatching application work', f
     $client = abuseUdpClient($listener->address());
     fwrite($client, '12345');
     fwrite($client, 'ok');
-    $loop->delay(0.05, static fn() => $loop->stop());
+    $loop->delay(0.05, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     fclose($client);
 
@@ -62,7 +65,9 @@ it('bounds receive work per event-loop callback during bursts', function (): voi
     for ($i = 0; $i < 6; ++$i) {
         fwrite($client, 'd' . $i);
     }
-    $loop->delay(0.2, static fn() => $loop->stop());
+    $loop->delay(0.2, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     fclose($client);
 

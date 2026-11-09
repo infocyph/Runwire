@@ -46,8 +46,8 @@ function runwireOwnedVerifiedTargetTlsUpgradeTestCase01(): void
             $error = $failure;
         },
     );
+    \PHPUnit\Framework\Assert::assertInstanceOf(LogicException::class, $error);
 
     expect($calls)->toBe(1)
-        ->and($connection)->toBeNull()
-        ->and($error)->toBeInstanceOf(LogicException::class);
+        ->and($connection)->toBeNull();
 }

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/process_usage.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Filesystem\AsyncFileSystem;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -58,10 +60,7 @@ $maxGapMs = 0.0;
 $lastTick = hrtime(true);
 $maxFdCount = 0;
 $start = hrtime(true);
-$usageBefore = getrusage();
-if ($usageBefore === false) {
-    throw new RuntimeException('C4 benchmark could not read initial CPU usage.');
-}
+$usageBefore = runwireBenchmarkUsage();
 $cpuStart = c4CpuMicroseconds($usageBefore);
 $networkLatency = [];
 $runtimeBuild = getenv('RUNWIRE_RUNTIME_BUILD');
@@ -172,15 +171,12 @@ try {
     $loop->run();
     $diag = $executor->diagnostics();
     $loopDiag = $loop->diagnostics();
-    $elapsed = (hrtime(true) - $start) / 1_000_000_000;
-    $usageAfter = getrusage();
-    if ($usageAfter === false) {
-        throw new RuntimeException('C4 benchmark could not read final CPU usage.');
-    }
+    $elapsed = (float) (hrtime(true) - $start) / 1_000_000_000.0;
+    $usageAfter = runwireBenchmarkUsage();
     $cpuEnd = c4CpuMicroseconds($usageAfter);
     sort($networkLatency, SORT_NUMERIC);
     $cpuSeconds = (float) ($cpuEnd - $cpuStart) / 1_000_000.0;
-    $rss = (int) ($usageAfter['ru_maxrss'] ?? 0) * 1024;
+    $rss = ($usageAfter['ru_maxrss'] ?? 0) * 1024;
     $passed = $errors === [] && $progress->networkConnected === $networkAttempted
         && $progress->networkAccepted === $networkAttempted && $progress->fileCompleted === 48
         && $timerTicks >= 4 && $maxGapMs < 150 && $progress->sleepFinished

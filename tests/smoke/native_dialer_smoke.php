@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/Support/ProcessFixture.php';
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Infocyph\\Runwire\\';
     if (!str_starts_with($class, $prefix)) {
@@ -52,7 +54,11 @@ if ($pid === 0) {
 fclose($writer);
 $childResult = stream_get_contents($reader);
 fclose($reader);
-pcntl_waitpid($pid, $status);
+$waited = pcntl_waitpid($pid, $status);
+$status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
+if ($waited !== $pid) {
+    throw new RuntimeException('Unable to reap the expected smoke child.');
+}
 if (!pcntl_wifexited($status) || pcntl_wexitstatus($status) !== 0 || $childResult !== '4') {
     throw new RuntimeException('Inherited dial ownership was not rejected by forked child.');
 }

@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+
 namespace Infocyph\Runwire\Tests;
+
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 
 use Closure;
 use Infocyph\Runwire\Control\ControlOptions;
@@ -73,9 +77,7 @@ it('serves bounded runtime control over a protected unix socket', function (int 
                 throw new RuntimeException('Missing control response.');
             }
             $decoded = json_decode(trim($line), true, 32, JSON_THROW_ON_ERROR);
-            if (!is_array($decoded)) {
-                throw new RuntimeException('Invalid control response.');
-            }
+            \PHPUnit\Framework\Assert::assertIsArray($decoded);
 
             return $decoded;
         };
@@ -169,10 +171,7 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             $supervisor->run();
         } finally {
             pcntl_alarm(0);
-            if (!is_int($priorAlarmHandler) && !is_callable($priorAlarmHandler)) {
-                throw new RuntimeException('Cannot restore an unsupported prior SIGALRM handler.');
-            }
-            pcntl_signal(SIGALRM, $priorAlarmHandler);
+            \Infocyph\Runwire\Tests\Support\restoreSignalHandler(SIGALRM, $priorAlarmHandler);
             pcntl_async_signals($priorAsyncSignals);
         }
 
@@ -184,9 +183,12 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             throw new RuntimeException('Control client did not write a result.');
         }
         $result = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
-        if (!is_array($result)) {
-            throw new RuntimeException('Invalid control result.');
-        }
+        \PHPUnit\Framework\Assert::assertIsArray($result);
+        \PHPUnit\Framework\Assert::assertIsArray($result['status']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stale']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stale']['error']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stop']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stop']['data']);
 
         expect($result)->not->toHaveKey('error')
             ->and($result['mode'])->toBe(0600)

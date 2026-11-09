@@ -85,6 +85,8 @@ it('removes cancelled channel waiters before the next committed handoff', functi
         $result = $channel->receive();
         $sender->await();
 
+        \PHPUnit\Framework\Assert::assertIsString($result);
+
         return $result;
     });
 
@@ -232,7 +234,12 @@ it('skips cancelled mutex waiters and transfers ownership to the next live task'
             $mutex->lock();
             $mutex->unlock();
         });
-        $winner = $scope->spawn(fn(): string => $mutex->synchronized(static fn(): string => 'locked'));
+        $winner = $scope->spawn(function () use ($mutex): string {
+            $value = $mutex->synchronized(static fn(): string => 'locked');
+            \PHPUnit\Framework\Assert::assertIsString($value);
+
+            return $value;
+        });
         $scope->yieldNow();
         $cancelled->cancel();
         $mutex->unlock();

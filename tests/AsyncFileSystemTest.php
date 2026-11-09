@@ -18,7 +18,7 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 it('persists binary offset writes and reads and renames through one bounded worker', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'runwire-async-file-');
-    expect($path)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($path);
     file_put_contents($path, '012345');
     $to = $path . '.moved';
     $loop = new SelectLoop();
@@ -80,7 +80,7 @@ it('persists binary offset writes and reads and renames through one bounded work
 
 it('keeps timer heartbeat alive during queued off-loop file operations and retires canceled jobs exactly once', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'runwire-async-file-');
-    expect($path)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($path);
     file_put_contents($path, 'fixture');
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);
@@ -140,7 +140,7 @@ it('rejects unbounded and malformed file operations before any worker dispatch',
 
 it('preserves a full 1 MiB binary file with SHA-256 parity through bounded offset worker writes and reads', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'runwire-async-binary-');
-    expect($path)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($path);
     $binary = str_repeat("A\0\xff", 349_525) . 'A';
     expect(strlen($binary))->toBe(AsyncFileSystem::MAX_OPERATION_BYTES);
     $loop = new SelectLoop();
@@ -188,7 +188,7 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
     expect(function_exists('posix_mkfifo'))->toBeTrue();
 
     $path = tempnam(sys_get_temp_dir(), 'runwire-fifo-job-');
-    expect($path)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($path);
     unlink($path);
     expect(posix_mkfifo($path, 0600))->toBeTrue();
 
@@ -304,4 +304,3 @@ it('exposes host rename replacement and failed target path without pretending cr
         rmdir($directory);
     }
 });
-

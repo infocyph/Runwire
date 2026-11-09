@@ -29,8 +29,8 @@ use RuntimeException;
 function runwireAsyncConnectionPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    if ($pair === false || !isset($pair[0], $pair[1])) {
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
         throw new \RuntimeException('Unable to create a complete test socket pair.');
     }
 
@@ -84,7 +84,7 @@ it('awaits connection data and preserves unread bytes across peer EOF', function
         if ($connection->state() !== ConnectionState::CLOSED) {
             $connection->abort();
         }
-        if (is_resource($peer)) {
+        if (get_resource_type($peer) !== 'Unknown') {
             fclose($peer);
         }
     }
@@ -149,7 +149,7 @@ it('awaits write-pressure drain without changing the core backpressure metric', 
         if ($connection->state() !== ConnectionState::CLOSED) {
             $connection->abort();
         }
-        if (is_resource($peer)) {
+        if (get_resource_type($peer) !== 'Unknown') {
             fclose($peer);
         }
     }
@@ -163,22 +163,24 @@ it('cancels a pending receive with request cancellation and releases connection 
     $context = RequestContext::standalone();
 
     try {
-        expect(static fn() : mixed => $runtime->runRequest(
-            $context,
-            function (CoroutineScope $scope) use ($connection, $context, $loop): void {
-                $connection = new AsyncConnection($connection, $scope);
-                $loop->defer(static function (int $id) use ($context): void {
-                    unset($id);
-                    $context->cancel(CancellationReason::HOST_CANCELLED);
-                });
+        expect(static function () use ($runtime, $context, $connection, $loop): void {
+            $runtime->runRequest(
+                $context,
+                function (CoroutineScope $scope) use ($connection, $context, $loop): void {
+                    $connection = new AsyncConnection($connection, $scope);
+                    $loop->defer(static function (int $id) use ($context): void {
+                        unset($id);
+                        $context->cancel(CancellationReason::HOST_CANCELLED);
+                    });
 
-                try {
-                    $connection->receive();
-                } finally {
-                    $connection->abort();
-                }
-            },
-        ))->toThrow(CancelledException::class);
+                    try {
+                        $connection->receive();
+                    } finally {
+                        $connection->abort();
+                    }
+                },
+            );
+        })->toThrow(CancelledException::class);
 
         expect($connection->state())->toBe(ConnectionState::CLOSED)
             ->and($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
@@ -295,7 +297,7 @@ it('rejects a pending coroutine receive on unverified TLS EOF instead of returni
             ->and($loop->diagnostics()->writeWatchers)->toBe(0);
     } finally {
         $core->abort();
-        if (is_resource($peer)) {
+        if (get_resource_type($peer) !== 'Unknown') {
             fclose($peer);
         }
     }
@@ -330,7 +332,7 @@ it('delivers observed TLS bytes but refuses to represent truncated ciphertext as
             ->and($loop->diagnostics()->writeWatchers)->toBe(0);
     } finally {
         $core->abort();
-        if (is_resource($peer)) {
+        if (get_resource_type($peer) !== 'Unknown') {
             fclose($peer);
         }
     }
@@ -347,8 +349,8 @@ it('releases scope-owned established connections on normal coroutine completion'
         $adapter = $runtime->run(static function (CoroutineScope $scope) use ($core): AsyncConnection {
             return new AsyncConnection($core, $scope);
         });
-        expect($adapter)->toBeInstanceOf(AsyncConnection::class)
-            ->and($core->state())->toBe(ConnectionState::CLOSED)
+        \PHPUnit\Framework\Assert::assertSame($core->state(), $adapter->state());
+        expect($core->state())->toBe(ConnectionState::CLOSED)
             ->and($core->closeReason())->toBe(CloseReason::LOCAL_ABORT)
             ->and($runtime->activeTaskCount())->toBe(0)
             ->and($loop->diagnostics()->readWatchers)->toBe(0)
@@ -676,15 +678,19 @@ it('cancels a suspended socket receive at its nested coroutine deadline', functi
     $connection = new Connection($loop, $stream);
 
     try {
-        expect(fn() : mixed => $runtime->run(
-            static fn(CoroutineScope $scope) : mixed => $scope->withDeadline(
-                RequestDeadline::afterSeconds(0.08, hrtime(true)),
-                static function (CoroutineScope $child) use ($connection): void {
-                    $adapter = new AsyncConnection($connection, $child);
-                    $adapter->receive();
+        expect(function () use ($runtime, $connection): void {
+            $runtime->run(
+                static function (CoroutineScope $scope) use ($connection): void {
+                    $scope->withDeadline(
+                        RequestDeadline::afterSeconds(0.08, hrtime(true)),
+                        static function (CoroutineScope $child) use ($connection): void {
+                            $adapter = new AsyncConnection($connection, $child);
+                            $adapter->receive();
+                        },
+                    );
                 },
-            ),
-        ))->toThrow(CancelledException::class);
+            );
+        })->toThrow(CancelledException::class);
 
         // The scope token and connection lifetime timer carry the same
         // inherited monotonic deadline. Either cancellation callback can

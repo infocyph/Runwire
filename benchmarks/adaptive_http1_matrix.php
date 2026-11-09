@@ -47,6 +47,9 @@ function adaptiveHttp1Phase(array $run): array
     ];
 }
 
+if (!isset($argc, $argv)) {
+    throw new RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 5) {
     throw new InvalidArgumentException(
         'Usage: php adaptive_http1_matrix.php <port> <server-pid> <auto|fixed> <phase-seconds>',

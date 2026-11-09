@@ -130,6 +130,17 @@ final class AsyncConnection
     }
 
     /**
+     * @internal Return remaining capacity in the borrowed transport's send queue.
+     * @throws \LogicException
+     */
+    public function availableWriteBytes(): int
+    {
+        $this->assertUsable();
+
+        return $this->connection->availableWriteBytes();
+    }
+
+    /**
      * Gracefully close the connection and wait for its close reason.
      * @throws \LogicException
      * @throws \Throwable

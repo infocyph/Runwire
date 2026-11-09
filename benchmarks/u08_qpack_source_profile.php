@@ -60,10 +60,10 @@ function runwireQpackMicroprofileMeasure(callable $operation, int $iterations): 
         if (!is_int($elapsed) || $elapsed <= 0 || $checksum <= 0) {
             throw new RuntimeException('QPACK profile produced an invalid sample.');
         }
-        $samples[] = $elapsed / $iterations;
+        $samples[] = (float) $elapsed / (float) $iterations;
     }
     sort($samples, SORT_NUMERIC);
-    $mean = (float) array_sum($samples) / (float) count($samples);
+    $mean = array_sum($samples) / (float) count($samples);
     $variance = array_sum(array_map(
         static fn(float $value): float => ($value - $mean) ** 2.0,
         $samples,

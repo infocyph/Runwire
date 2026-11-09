@@ -11,7 +11,7 @@ it('rejects worker-side symlink traversal and off-root paths without blocking th
     expect(mkdir($root, 0700))->toBeTrue();
     $inside = $root . '/payload';
     $outside = tempnam(sys_get_temp_dir(), 'runwire-outside-');
-    expect($outside)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($outside);
     file_put_contents($inside, 'protected');
     file_put_contents($outside, 'unchanged');
     $denied = $root . '/permission-denied';

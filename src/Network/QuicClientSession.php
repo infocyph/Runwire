@@ -52,6 +52,7 @@ final class QuicClientSession
 
     /**
      * Whether this session still has a valid dedicated native worker.
+     * @phpstan-impure
      * @throws \LogicException
      */
     public function active(): bool

@@ -22,7 +22,7 @@ it('enforces peer chain and hostname verification for every client TLS context',
 
 it('preserves explicit CA roots and independent ALPN policies without disabling verification', function (): void {
     $caFile = tempnam(sys_get_temp_dir(), 'runwire-client-ca-');
-    expect($caFile)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($caFile);
     try {
         $policy = new TlsClientOptions('localhost', $caFile, null, ['http/1.1']);
         $context = $policy->context();
@@ -53,7 +53,8 @@ it('rejects empty identities, invalid trust roots and unsafe TLS timeout/ALPN se
 it('configures optional outbound client certificate and private-key identity without weakening peer verification', function (): void {
     $certificate = tempnam(sys_get_temp_dir(), 'runwire-mtls-cert-');
     $key = tempnam(sys_get_temp_dir(), 'runwire-mtls-key-');
-    expect($certificate)->toBeString()->and($key)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($certificate);
+    \PHPUnit\Framework\Assert::assertIsString($key);
     try {
         $policy = new TlsClientOptions(
             'localhost',

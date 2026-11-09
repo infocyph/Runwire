@@ -32,7 +32,8 @@ it('rejects short diagnostic trials as matched release certification', function 
 
     $baseline = tempnam(sys_get_temp_dir(), 'runwire-baseline-');
     $candidate = tempnam(sys_get_temp_dir(), 'runwire-candidate-');
-    expect($baseline)->toBeString()->and($candidate)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($baseline);
+    \PHPUnit\Framework\Assert::assertIsString($candidate);
     try {
         file_put_contents($baseline, json_encode($summary, JSON_THROW_ON_ERROR));
         $summary['runtime_build'] = str_repeat('b', 40);

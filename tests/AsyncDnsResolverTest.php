@@ -53,8 +53,8 @@ it('validates DNS names and settles cancellations only once', function (): void 
     $count = 0;
     $executor->submit('sleep', ['milliseconds' => 60], static function (): void {});
     $id = $resolver->resolve('localhost', function (array $addresses, ?Throwable $error) use (&$count): void {
-        expect($addresses)->toBe([])
-            ->and($error)->toBeInstanceOf(Throwable::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
+        expect($addresses)->toBe([]);
         ++$count;
     }, $source->token());
     $source->cancel(CancellationReason::HOST_CANCELLED);

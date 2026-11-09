@@ -171,7 +171,8 @@ it('closes all DNS callers and upstream groups when a close callback throws', fu
     foreach (['one.example', 'two.example'] as $index => $host) {
         $resolver->resolve($host, static function ($addresses, $error) use ($index, &$seen): void {
             $seen[] = $index;
-            expect($addresses)->toBe([])->and($error)->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class, $error);
+            expect($addresses)->toBe([]);
             if ($index === 0) {
                 throw new RuntimeException('close consumer failed');
             }
@@ -199,7 +200,8 @@ it('preserves reentrant DNS lookups and cancellation while an older fanout fails
         throw new RuntimeException('first consumer failed');
     });
     $second = $resolver->resolve('example.org', static function ($ips, $error) use (&$cancelled): void {
-        expect($ips)->toBe([])->and($error)->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class, $error);
+        expect($ips)->toBe([]);
         ++$cancelled;
     });
     expect($second)->toBeGreaterThan(0);

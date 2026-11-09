@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Tests;
 
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -21,7 +23,6 @@ use InvalidArgumentException;
 use OverflowException;
 use RuntimeException;
 use Throwable;
-
 
 it('cancels a queued DNS race before a late worker answer and invokes completion once', function (): void {
     $loop = new SelectLoop();
@@ -96,26 +97,26 @@ it('bounds queued DNS races and address fan-out without accepting extra sockets'
 it('provides a scoped Fiber awaiting adapter without duplicating the connector', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $message);
     if (!is_resource($server)) {
-        throw new RuntimeException($message);
+        throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'Socket operation failed.');
     }
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);
     $dialer = new Dialer($loop);
     $racer = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
     $runtime = new CoroutineRuntime($loop);
-    $visited = $runtime->run(function (CoroutineScope $scope) use ($racer, $address): bool {
+    $visited = $runtime->run(function (CoroutineScope $scope) use ($racer, $address): \Infocyph\Runwire\Network\Enum\ConnectionState {
         $connection = (new AsyncDialer($racer, $scope))->connect('tcp://' . $address);
         $connection->abort();
 
-        return true;
+        return $connection->state();
     });
-    expect($visited)->toBeTrue()
+    expect($visited)->toBe(\Infocyph\Runwire\Network\Enum\ConnectionState::CLOSED)
         ->and($racer->pendingCount())->toBe(0)
         ->and($dialer->pendingCount())->toBe(0);
     $peer = stream_socket_accept($server, 1.0);
-    expect($peer)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($peer);
     fclose($peer);
     fclose($server);
     $executor->close();
@@ -134,7 +135,7 @@ it('honors an already-cancelled per-call token without registering dial work', f
     $runtime = new CoroutineRuntime($loop);
 
     try {
-        expect(fn() : mixed => $runtime->run(
+        expect(fn(): mixed => $runtime->run(
             static fn(CoroutineScope $scope) => (new AsyncDialer($racer, $scope))->connect(
                 'tcp://localhost:44444',
                 new DialOptions(cancellation: $caller->token()),
@@ -166,7 +167,7 @@ it('cancels an in-flight scoped hostname dial on caller cancellation without lea
     });
 
     try {
-        expect(fn() : mixed => $runtime->run(
+        expect(fn(): mixed => $runtime->run(
             static fn(CoroutineScope $scope) => (new AsyncDialer($racer, $scope))->connect(
                 'tcp://localhost:44444',
                 new DialOptions(cancellation: $caller->token()),
@@ -186,7 +187,6 @@ it('cancels an in-flight scoped hostname dial on caller cancellation without lea
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
-
 it('keeps an external cancellation subscription while honoring request scope shutdown', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 8);
@@ -202,7 +202,7 @@ it('keeps an external cancellation subscription while honoring request scope shu
     });
 
     try {
-        expect(fn() : mixed => $runtime->runRequest(
+        expect(fn(): mixed => $runtime->runRequest(
             $context,
             static fn(CoroutineScope $scope) => (new AsyncDialer($racer, $scope))->connect(
                 'tcp://localhost:44444',
@@ -223,14 +223,13 @@ it('keeps an external cancellation subscription while honoring request scope shu
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
-
 it('closes a successfully dialed connection when its coroutine owner exits normally', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $message);
     if (!is_resource($server)) {
-        throw new RuntimeException($message);
+        throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'Socket operation failed.');
     }
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);
     $dialer = new Dialer($loop);
@@ -246,7 +245,7 @@ it('closes a successfully dialed connection when its coroutine owner exits norma
             ->and($racer->pendingCount())->toBe(0)
             ->and($dialer->pendingCount())->toBe(0);
         $peer = stream_socket_accept($server, 1.0);
-        expect($peer)->toBeResource();
+        \PHPUnit\Framework\Assert::assertIsResource($peer);
         fclose($peer);
     } finally {
         $executor->close();
@@ -256,7 +255,6 @@ it('closes a successfully dialed connection when its coroutine owner exits norma
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
-
 
 it('enforces the inner scope deadline while DNS is queued behind an external worker', function (): void {
     $loop = new SelectLoop();
@@ -276,7 +274,7 @@ it('enforces the inner scope deadline while DNS is queued behind an external wor
 
         try {
             $runtime->run(
-                static fn(CoroutineScope $scope) : mixed => $scope->withDeadline(
+                static fn(CoroutineScope $scope): mixed => $scope->withDeadline(
                     \Infocyph\Runwire\RequestDeadline::afterSeconds(0.02, hrtime(true)),
                     static fn(CoroutineScope $inner) => (new AsyncDialer($racer, $inner))->connect(
                         'tcp://localhost:44444',
@@ -288,12 +286,12 @@ it('enforces the inner scope deadline while DNS is queued behind an external wor
             $failure = $caught;
         }
 
-        expect($failure)->toBeInstanceOf(Throwable::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $failure);
         if ($failure instanceof \Infocyph\Runwire\Exception\CancelledException) {
             expect($failure->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED);
         } else {
-            expect($failure)->toBeInstanceOf(RuntimeException::class)
-                ->and($failure->getMessage())->toContain('deadline');
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $failure);
+            expect($failure->getMessage())->toContain('deadline');
         }
         expect($racer->pendingCount())->toBe(0)
             ->and($dialer->pendingCount())->toBe(0)
@@ -308,7 +306,6 @@ it('enforces the inner scope deadline while DNS is queued behind an external wor
         ->and($loop->diagnostics()->timersActive)->toBe(0)
         ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
 });
-
 
 it('rejects excess hostname races without enqueuing another DNS job', function (): void {
     $loop = new SelectLoop();
@@ -349,7 +346,6 @@ it('rejects excess hostname races without enqueuing another DNS job', function (
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
-
 it('cancels pending child DNS dialing when its structured parent fails', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 8);
@@ -362,13 +358,16 @@ it('cancels pending child DNS dialing when its structured parent fails', functio
     });
 
     try {
-        expect(fn() : mixed => $runtime->run(static function (CoroutineScope $scope) use ($racer): void {
-            $scope->spawn(static function () use ($racer, $scope): void {
-                (new AsyncDialer($racer, $scope))->connect('tcp://localhost:44444');
+        expect(function () use ($runtime, $racer): void {
+            $runtime->run(static function (CoroutineScope $scope) use ($racer): void {
+                $scope->spawn(static function () use ($racer, $scope): void {
+                    (new AsyncDialer($racer, $scope))->connect('tcp://localhost:44444');
+                });
+                $scope->yieldNow();
+
+                throw new RuntimeException('synthetic scope failure');
             });
-            $scope->yieldNow();
-            throw new RuntimeException('synthetic scope failure');
-        }))->toThrow(RuntimeException::class, 'synthetic scope failure');
+        })->toThrow(RuntimeException::class, 'synthetic scope failure');
 
         expect($runtime->activeTaskCount())->toBe(0)
             ->and($racer->pendingCount())->toBe(0)
@@ -383,12 +382,11 @@ it('cancels pending child DNS dialing when its structured parent fails', functio
         ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
 });
 
-
 it('enforces a nested coroutine deadline through a stalled TLS client handshake', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
-    expect($server)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($server);
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
 
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
@@ -396,23 +394,26 @@ it('enforces a nested coroutine deadline through a stalled TLS client handshake'
     $racer = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
     $runtime = new CoroutineRuntime($loop);
     $accepted = null;
-    $watcher = $loop->onReadable($server, static function () use ($server, $loop, &$watcher, &$accepted): void {
-        $accepted = stream_socket_accept($server, 0.0);
-        $loop->cancel($watcher);
+    $watcher = $loop->onReadable($server, static function (mixed $_readyStream, int $watcherId) use ($loop, &$accepted): void {
+        $_readyStream = \Infocyph\Runwire\Tests\Support\socketHandle($_readyStream);
+        $accepted = stream_socket_accept($_readyStream, 0.0);
+        $loop->cancel($watcherId);
     });
 
     try {
-        expect(fn() : mixed => $runtime->run(static function (CoroutineScope $scope) use ($racer, $address): void {
-            $scope->withDeadline(
-                RequestDeadline::afterSeconds(0.08, hrtime(true)),
-                static function (CoroutineScope $child) use ($racer, $address): void {
-                    (new AsyncDialer($racer, $child))->connect('tcp://' . $address, new DialOptions(
-                        connectTimeoutSeconds: 1.0,
-                        tls: new TlsClientOptions('localhost', handshakeTimeoutSeconds: 1.0),
-                    ));
-                },
-            );
-        }))->toThrow(\Infocyph\Runwire\Exception\CancelledException::class);
+        expect(function () use ($runtime, $racer, $address): void {
+            $runtime->run(static function (CoroutineScope $scope) use ($racer, $address): void {
+                $scope->withDeadline(
+                    RequestDeadline::afterSeconds(0.08, hrtime(true)),
+                    static function (CoroutineScope $child) use ($racer, $address): void {
+                        (new AsyncDialer($racer, $child))->connect('tcp://' . $address, new DialOptions(
+                            connectTimeoutSeconds: 1.0,
+                            tls: new TlsClientOptions('localhost', handshakeTimeoutSeconds: 1.0),
+                        ));
+                    },
+                );
+            });
+        })->toThrow(\Infocyph\Runwire\Exception\CancelledException::class);
 
         expect($racer->pendingCount())->toBe(0)
             ->and($dialer->pendingCount())->toBe(0)

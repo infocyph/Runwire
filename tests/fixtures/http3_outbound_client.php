@@ -11,7 +11,11 @@ use Infocyph\Runwire\Network\QuicClientOptions;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-if ($argc !== 3 || filter_var($argv[1], FILTER_VALIDATE_INT) === false) {
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
+$port = filter_var($argv[1] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+if ($argc !== 3 || !is_int($port)) {
     throw new InvalidArgumentException('Expected independent QUIC port and trusted CA.');
 }
 
@@ -22,7 +26,7 @@ $finishCalls = 0;
 $error = null;
 $request = new ClientRequest(
     'GET',
-    'https://localhost:' . $argv[1] . '/interop?q=1',
+    'https://localhost:' . $port . '/interop?q=1',
     protocol: new ClientProtocolPolicy(
         preferred: ProtocolVersion::HTTP_3,
         allowedVersions: [ProtocolVersion::HTTP_3],

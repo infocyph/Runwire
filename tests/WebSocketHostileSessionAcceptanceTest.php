@@ -84,16 +84,8 @@ function runwireOwnedWebSocketHostileSessionAcceptanceTestCase01(): void
         foreach ($sessions as $index => $session) {
             $mode = $index % 4;
             $response = stream_get_contents($peers[$index]);
-            if ($mode === 0) {
-                expect($delivered[$index])->toBeTrue()
-                    ->and($response)->toContain(WebSocketWireCodec::frame(0xA, 'hb'));
-            } elseif ($mode === 1) {
-                expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1002) . 'WebSocket control frames must be final and at most 125 bytes.'));
-            } elseif ($mode === 2) {
-                expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1009) . 'Fragmented WebSocket message exceeds the configured ceiling.'));
-            } else {
-                expect($delivered)->not->toHaveKey($index);
-            }
+            \PHPUnit\Framework\Assert::assertIsString($response);
+            runwireHostileWebSocketReply($mode, $index, $delivered, $response);
             expect($budgets[$index]->used())->toBeLessThanOrEqual(256);
             $sockets[$index]->abort();
             expect($session->isClosed())->toBeTrue()
@@ -129,4 +121,22 @@ function runwireWebSocketHostileSessionAcceptanceTestSocketPair(): array
     }
 
     return [$pair[0], $pair[1]];
+}
+
+/**
+ * @param array<int,bool> $delivered
+ * @throws \Throwable
+ */
+function runwireHostileWebSocketReply(int $mode, int $index, array $delivered, string $response): void
+{
+    if ($mode === 0) {
+        expect($delivered[$index])->toBeTrue()
+            ->and($response)->toContain(WebSocketWireCodec::frame(0xA, 'hb'));
+    } elseif ($mode === 1) {
+        expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1002) . 'WebSocket control frames must be final and at most 125 bytes.'));
+    } elseif ($mode === 2) {
+        expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1009) . 'Fragmented WebSocket message exceeds the configured ceiling.'));
+    } else {
+        expect($delivered)->not->toHaveKey($index);
+    }
 }

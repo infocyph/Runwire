@@ -46,6 +46,7 @@ it('fails closed on unreviewed public API migration changes and malformed invent
         [$status, $output] = $run($diff, $policy);
         expect($status)->toBe(0);
         $accepted = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
+        \PHPUnit\Framework\Assert::assertIsArray($accepted);
         expect($accepted['reviewed'])->toBeTrue()
             ->and($accepted['behavioralCompatibilityCertified'])->toBeFalse()
             ->and($accepted['traitRelocations'])->toBe(0);

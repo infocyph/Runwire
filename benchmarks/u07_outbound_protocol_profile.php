@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/process_usage.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -20,6 +22,9 @@ use Infocyph\Runwire\Network\TlsClientOptions;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 6 || !in_array($argv[1], ['h1', 'h2', 'h3'], true)
     || !ctype_digit($argv[2]) || !ctype_digit($argv[3])
     || !ctype_digit($argv[5]) || !is_file($argv[4])) {
@@ -43,8 +48,8 @@ $request = new ClientRequest(
 );
 $latencies = [];
 $warmups = 4;
-$before = getrusage();
-$childrenBefore = getrusage(1);
+$before = runwireBenchmarkUsage();
+$childrenBefore = runwireBenchmarkUsage(1);
 for ($index = -$warmups; $index < $count; ++$index) {
     $loop = new SelectLoop();
     $status = 0;
@@ -61,8 +66,8 @@ for ($index = -$warmups; $index < $count; ++$index) {
         $received .= $part;
     };
     if ($index === 0) {
-        $before = getrusage();
-        $childrenBefore = getrusage(1);
+        $before = runwireBenchmarkUsage();
+        $childrenBefore = runwireBenchmarkUsage(1);
     }
     $start = hrtime(true);
     if ($kind === 'h3') {
@@ -128,23 +133,17 @@ for ($index = -$warmups; $index < $count; ++$index) {
         $latencies[] = $elapsed;
     }
 }
-$after = getrusage();
-$childrenAfter = getrusage(1);
+$after = runwireBenchmarkUsage();
+$childrenAfter = runwireBenchmarkUsage(1);
 foreach ([$before, $after, $childrenBefore, $childrenAfter] as $snapshot) {
-    if (!isset($snapshot['ru_utime.tv_sec'], $snapshot['ru_utime.tv_usec'], $snapshot['ru_stime.tv_sec'], $snapshot['ru_stime.tv_usec'], $snapshot['ru_maxrss'])) {
+    if (!isset($snapshot['ru_maxrss'])) {
         throw new RuntimeException('Process CPU and RSS profiling data is incomplete.');
     }
 }
-$usage = static function (array $v): int {
-    return (int) $v['ru_utime.tv_sec'] * 1_000_000
-        + (int) $v['ru_utime.tv_usec']
-        + (int) $v['ru_stime.tv_sec'] * 1_000_000
-        + (int) $v['ru_stime.tv_usec'];
-};
-$parentCpuUs = max(0, $usage($after) - $usage($before));
-$childCpuUs = max(0, $usage($childrenAfter) - $usage($childrenBefore));
-$parentRssBytes = (int) ($after['ru_maxrss'] ?? 0) * 1024;
-$childrenRssBytes = (int) ($childrenAfter['ru_maxrss'] ?? 0) * 1024;
+$parentCpuUs = max(0, runwireBenchmarkCpuMicroseconds($after) - runwireBenchmarkCpuMicroseconds($before));
+$childCpuUs = max(0, runwireBenchmarkCpuMicroseconds($childrenAfter) - runwireBenchmarkCpuMicroseconds($childrenBefore));
+$parentRssBytes = ($after['ru_maxrss'] ?? 0) * 1024;
+$childrenRssBytes = ($childrenAfter['ru_maxrss'] ?? 0) * 1024;
 sort($latencies, SORT_NUMERIC);
 $seconds = array_sum($latencies) / 1_000.0;
 if ($seconds <= 0.0 || count($latencies) !== $count) {

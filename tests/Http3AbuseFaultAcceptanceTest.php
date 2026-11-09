@@ -49,7 +49,7 @@ it('rejects an oversized frame from its declared length before payload allocatio
     $wire = VarIntCodec::encode(FrameType::DATA->value) . VarIntCodec::encode(9);
 
     expectHttp3Fault(
-        static fn() => $parser->push($wire),
+        static function () use ($parser, $wire): void { $parser->push($wire); },
         ErrorCode::EXCESSIVE_LOAD,
     );
     expect($parser->bufferedBytes())->toBeLessThanOrEqual(16);
@@ -160,10 +160,12 @@ it('bounds request-stream churn after completed state is released', function ():
     }
 
     expectHttp3Fault(
-        static fn() => $state->pushRequestStream(8, (new Frame(
-            FrameType::HEADERS->value,
-            abuseRequestHeaders($encoder, 8),
-        ))->encode()),
+        static function () use ($state, $encoder): void {
+            $state->pushRequestStream(8, (new Frame(
+                FrameType::HEADERS->value,
+                abuseRequestHeaders($encoder, 8),
+            ))->encode());
+        },
         ErrorCode::EXCESSIVE_LOAD,
     );
 });

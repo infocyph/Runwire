@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/Support/ProcessFixture.php';
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Infocyph\\Runwire\\';
     if (!str_starts_with($class, $prefix)) {
@@ -35,16 +37,18 @@ if ($child === 0) {
     pcntl_exec(PHP_BINARY, ['-r', ($healthy && $loop->diagnostics()->readWatchers === 0) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
     throw new RuntimeException('Unable to replace forked QA child process.');
 }
-pcntl_waitpid($child, $status);
+$waited = pcntl_waitpid($child, $status);
+$status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
+if ($waited !== $child) {
+    throw new RuntimeException('Unable to reap the expected smoke child.');
+}
 if (!pcntl_wifexited($status) || pcntl_wexitstatus($status) !== 0) {
     throw new RuntimeException('Prebound child cannot attach and retire its own event loop.');
 }
 
 $loop = new SelectLoop();
 $listener->start($loop, static function (): void {});
-if (!$listener->isAccepting()) {
-    throw new RuntimeException('Original parent did not retain prefork listener ownership.');
-}
+$parentAccepting = $listener->isAccepting();
 
 $child = pcntl_fork();
 if ($child === -1) {
@@ -69,12 +73,16 @@ if ($child === 0) {
     pcntl_exec(PHP_BINARY, ['-r', ($rejected === 6) ? '' : 'throw new RuntimeException("Child fork assertion failed.");']);
     throw new RuntimeException('Unable to replace forked QA child process.');
 }
-pcntl_waitpid($child, $status);
+$waited = pcntl_waitpid($child, $status);
+$status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
+if ($waited !== $child) {
+    throw new RuntimeException('Unable to reap the expected smoke child.');
+}
 if (!pcntl_wifexited($status) || pcntl_wexitstatus($status) !== 0) {
     throw new RuntimeException('Inherited active listener accepted cross-process lifecycle operations.');
 }
 
-if (!$listener->isAccepting()) {
+if ([$parentAccepting, $listener->isAccepting()] !== [true, true]) {
     throw new RuntimeException('Forked child changed original owner state.');
 }
 $listener->close();

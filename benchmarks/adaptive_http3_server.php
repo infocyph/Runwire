@@ -15,6 +15,9 @@ use Infocyph\Runwire\Network\TlsOptions;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 7) {
     throw new InvalidArgumentException(
         'Usage: php adaptive_http3_server.php <port> <certificate> <private-key> <ready-file> <auto|fixed|latency|throughput> <payload-bytes>',

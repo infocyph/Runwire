@@ -94,7 +94,9 @@ it('counts native completion and recycles only after the coroutine and its child
 
     try {
         nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop)($request, $writer);
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         $request->context->complete();
         $writer->end();
@@ -135,7 +137,9 @@ it('retires native workers when deferred coroutine cleanup fails after response 
 
     try {
         nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop)($request, nativeCompletionWriter());
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
 
         expect($application->healthy())->toBeFalse()
@@ -166,8 +170,10 @@ it('keeps native work active through coroutine cancellation cleanup', function (
 
     try {
         nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop)($request, nativeCompletionWriter());
-        $loop->delay(0.005, static fn() => $request->context->cancel(CancellationReason::TRANSPORT_CANCELLED));
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.005, static function () use ($request): void { $request->context->cancel(CancellationReason::TRANSPORT_CANCELLED); });
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
 
         expect($events)->toBe([[false, 0, false]])
@@ -249,7 +255,9 @@ it('drains an attached native TCP worker after a late coroutine reset failure', 
 
     try {
         fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         stream_set_blocking($client, false);
 
@@ -288,12 +296,16 @@ it('finishes the first accepted HTTP request when recycling precedes header comp
         if ($prefix !== '') {
             fwrite($client, $prefix);
         }
-        $loop->delay(0.01, static fn() => $worker->requestRecycle());
+        $loop->delay(0.01, static function () use ($worker): void {
+    $worker->requestRecycle();
+});
         $loop->delay(0.02, static function () use ($client, $prefix): void {
             $request = "GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n";
             fwrite($client, substr($request, strlen($prefix)) . "GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n");
         });
-        $loop->delay(0.12, static fn() => $loop->stop());
+        $loop->delay(0.12, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         stream_set_blocking($client, false);
         $response = stream_get_contents($client);
@@ -332,11 +344,15 @@ it('bounds accepted idle connections by the recycling grace period', function ()
     }
 
     try {
-        $loop->delay(0.01, static fn() => $worker->requestRecycle());
+        $loop->delay(0.01, static function () use ($worker): void {
+    $worker->requestRecycle();
+});
         $loop->delay(0.06, static function () use ($handle, &$drains): void {
             expect($handle->drained())->toBeTrue()->and($drains)->toBe(1);
         });
-        $loop->delay(0.08, static fn() => $loop->stop());
+        $loop->delay(0.08, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         expect($worker->requestsTotal())->toBe(0);
     } finally {

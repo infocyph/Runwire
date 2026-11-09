@@ -9,7 +9,83 @@ const ADAPTIVE_PROMOTION_PROTOCOLS = ['http1', 'h2', 'h3'];
 const ADAPTIVE_PROMOTION_PHASES = ['low_before', 'medium', 'transition_up', 'high', 'transition_down', 'low_after'];
 
 /**
- * @return list<array<string, mixed>>
+ * @param array<array-key, mixed> $case
+ * @throws RuntimeException
+ */
+function adaptivePromotionCaseString(array $case, string $field): string
+{
+    $value = $case[$field] ?? null;
+    if (!is_string($value) || $value === '') {
+        throw new RuntimeException('Adaptive case requires a nonempty string: ' . $field);
+    }
+
+    return $value;
+}
+
+/**
+ * @param array<array-key, mixed> $case
+ * @throws RuntimeException
+ */
+function adaptivePromotionCaseInt(array $case, string $field): int
+{
+    $value = $case[$field] ?? null;
+    if (!is_int($value) || $value < 0) {
+        throw new RuntimeException('Adaptive case requires a nonnegative integer: ' . $field);
+    }
+
+    return $value;
+}
+
+/**
+ * @phpstan-assert array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $value
+ * @psalm-assert array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $value
+ * @throws RuntimeException
+ */
+function adaptivePromotionValidateCase(mixed $value): void
+{
+    if (!is_array($value)) {
+        throw new RuntimeException('Adaptive case must be an object.');
+    }
+    $case = [
+        'id' => adaptivePromotionCaseString($value, 'id'),
+        'protocol' => adaptivePromotionCaseString($value, 'protocol'),
+        'payload_bytes' => adaptivePromotionCaseInt($value, 'payload_bytes'),
+        'scenario' => adaptivePromotionCaseString($value, 'scenario'),
+        'low' => adaptivePromotionCaseInt($value, 'low'),
+        'medium' => adaptivePromotionCaseInt($value, 'medium'),
+        'high' => adaptivePromotionCaseInt($value, 'high'),
+    ];
+    if (preg_match('/^[a-zA-Z0-9_-]+$/D', $case['id']) !== 1
+        || !in_array($case['protocol'], ADAPTIVE_PROMOTION_PROTOCOLS, true)) {
+        throw new RuntimeException('Adaptive case has an invalid identity or protocol.');
+    }
+    foreach (['keepalive', 'upload_bytes'] as $field) {
+        if (array_key_exists($field, $value)) {
+            $case[$field] = adaptivePromotionCaseInt($value, $field);
+        }
+    }
+    if (array_key_exists('tls', $value)) {
+        if (!is_bool($value['tls'])) {
+            throw new RuntimeException('Adaptive case TLS flag must be boolean.');
+        }
+        $case['tls'] = $value['tls'];
+    }
+
+}
+
+/**
+ * @return array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>}
+ * @throws RuntimeException
+ */
+function adaptivePromotionCase(mixed $value): array
+{
+    adaptivePromotionValidateCase($value);
+
+    return $value;
+}
+
+/**
+ * @return list<array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>}>
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
  */
@@ -28,9 +104,11 @@ function adaptivePromotionCases(string $protocol): array
         throw new RuntimeException('Adaptive promotion case manifest must decode to an array.');
     }
 
+    $validated = array_map(adaptivePromotionCase(...), $cases);
+
     return array_values(array_filter(
-        $cases,
-        static fn(mixed $case): bool => is_array($case) && ($case['protocol'] ?? null) === $protocol,
+        $validated,
+        static fn(array $case): bool => $case['protocol'] === $protocol,
     ));
 }
 
@@ -40,20 +118,7 @@ function adaptivePromotionCases(string $protocol): array
  */
 function adaptivePromotionLoadJson(string $path): array
 {
-    if (!is_file($path) || !is_readable($path)) {
-        throw new RuntimeException('Unable to read adaptive promotion JSON: ' . $path);
-    }
-
-    $contents = file_get_contents($path);
-    if (!is_string($contents)) {
-        throw new RuntimeException('Unable to read adaptive promotion JSON: ' . $path);
-    }
-    $value = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-    if (!is_array($value)) {
-        throw new RuntimeException('Adaptive promotion JSON must decode to an object.');
-    }
-
-    return $value;
+    return adaptiveMatrixLoad($path);
 }
 
 /**
@@ -150,8 +215,7 @@ function adaptivePromotionPython(string $protocol): string
     $fallback = match ($protocol) {
         'http1' => '/usr/bin/python3',
         'h2' => '/tmp/runwire-h2/bin/python',
-        'h3' => '/tmp/runwire-aioquic/bin/python',
-        default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
+        default => '/tmp/runwire-aioquic/bin/python',
     };
     $configured = getenv($variable);
 
@@ -159,10 +223,9 @@ function adaptivePromotionPython(string $protocol): string
 }
 
 /**
- * @return array<string, mixed>
- * @throws \RuntimeException
+ * @throws RuntimeException
  */
-function adaptivePromotionEnvironment(string $protocol): array
+function adaptivePromotionAssertEnvironment(string $protocol): void
 {
     $required = ['event', 'pcntl', 'posix', 'openssl'];
     if ($protocol === 'h3') {
@@ -179,7 +242,14 @@ function adaptivePromotionEnvironment(string $protocol): array
     if (!function_exists('opcache_get_status') || opcache_get_status(false) === false) {
         throw new RuntimeException('Adaptive promotion environment requires CLI OPcache.');
     }
+}
 
+/**
+ * @return array<string,string>
+ * @throws RuntimeException
+ */
+function adaptivePromotionExtensions(): array
+{
     $extensions = [];
     foreach (get_loaded_extensions() as $extension) {
         $version = phpversion($extension);
@@ -187,6 +257,15 @@ function adaptivePromotionEnvironment(string $protocol): array
     }
     ksort($extensions, SORT_STRING);
 
+    return $extensions;
+}
+
+/**
+ * @return array<string,string>
+ * @throws RuntimeException
+ */
+function adaptivePromotionClientIdentity(string $protocol): array
+{
     $python = adaptivePromotionPython($protocol);
     if (!is_executable($python)) {
         throw new RuntimeException('Adaptive promotion Python client is unavailable: ' . $python);
@@ -213,21 +292,44 @@ function adaptivePromotionEnvironment(string $protocol): array
         $client[$name] = $version;
     }
 
+    return $client;
+}
+
+/**
+ * @return list<string>
+ * @throws RuntimeException
+ */
+function adaptivePromotionCpuIdentity(): array
+{
     $cpu = [];
     $lines = is_readable('/proc/cpuinfo') ? file('/proc/cpuinfo', FILE_IGNORE_NEW_LINES) : false;
     if (is_array($lines)) {
         foreach ($lines as $line) {
             if (preg_match('/^(vendor_id|model name|cpu family|cpu cores|microcode)\s*:/', $line) === 1) {
-                $cpu[$line] = true;
+                $cpu[] = $line;
             }
         }
     }
+
+    return array_values(array_unique($cpu));
+}
+
+/**
+ * @return array{host:string,system:string,cpu:list<string>,runtime:array<string,mixed>,client:array<string,string>,build:string,environment_id:string}
+ * @throws \RuntimeException
+ */
+function adaptivePromotionEnvironment(string $protocol): array
+{
+    adaptivePromotionAssertEnvironment($protocol);
+    $extensions = adaptivePromotionExtensions();
+    $client = adaptivePromotionClientIdentity($protocol);
+    $cpu = adaptivePromotionCpuIdentity();
 
     $hostname = gethostname();
     $environment = [
         'host' => $hostname !== false && $hostname !== '' && $hostname !== '0' ? $hostname : 'unknown',
         'system' => php_uname(),
-        'cpu' => array_keys($cpu),
+        'cpu' => $cpu,
         'runtime' => [
             'php' => PHP_VERSION,
             'extensions' => $extensions,
@@ -246,18 +348,13 @@ function adaptivePromotionEnvironment(string $protocol): array
 }
 
 /**
- * @param array<string, mixed> $record
- * @param array<string, mixed> $case
- * @param array<string, mixed> $identity
- * @throws \RuntimeException
+ * @param array<string,mixed> $record
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @throws RuntimeException
  */
-function adaptivePromotionValidateRecord(
-    array $record,
-    array $case,
-    string $mode,
-    int $trial,
-    array $identity,
-): void {
+function adaptivePromotionValidateIdentity(array $record, array $case, string $mode, int $trial, array $identity): void
+{
     $protocol = match ($case['protocol']) {
         'http1' => 'http/1.1',
         'h2' => 'h2',
@@ -279,50 +376,161 @@ function adaptivePromotionValidateRecord(
             throw new RuntimeException('Trial identity, workload, mode or environment mismatch: ' . $key);
         }
     }
-    if (($record['run_id'] ?? '') === ''
-        || ($record['correctness_passed'] ?? false) !== true
-        || array_keys($record['phases'] ?? []) !== ADAPTIVE_PROMOTION_PHASES) {
-        throw new RuntimeException('Trial is missing identity, correct responses or mandatory phases.');
-    }
-
-    foreach ($record['phases'] as $name => $phase) {
-        if (!is_array($phase)) {
-            throw new RuntimeException('Adaptive promotion phase must be an object.');
-        }
-        $target = $name === 'medium'
-            ? (int) $case['medium']
-            : (in_array($name, ['high', 'transition_up'], true) ? (int) $case['high'] : (int) $case['low']);
-        if (($phase['concurrency'] ?? null) !== $target || ($phase['correctness_passed'] ?? false) !== true) {
-            throw new RuntimeException('Phase did not exercise its declared concurrency correctly.');
-        }
-        $observed = is_array($phase['observed'] ?? null) ? $phase['observed'] : [];
-        $required = match ($case['scenario'] ?? '') {
-            'pressure' => 'delayed_reads',
-            'flow' => 'constrained_flow_bytes',
-            'qpack' => 'qpack_delayed_headers',
-            default => null,
-        };
-        if ($required !== null && (int) ($observed[$required] ?? 0) <= 0) {
-            throw new RuntimeException('Case did not exercise ' . $required . '.');
-        }
-        $upload = (int) ($case['upload_bytes'] ?? 0);
-        if ($upload > 0 && (int) ($observed['upload_bytes'] ?? -1) !== (int) ($phase['requests'] ?? 0) * $upload) {
-            throw new RuntimeException('Upload workload was not completed and validated.');
-        }
-        if (($case['scenario'] ?? '') === 'churn'
-            && (int) ($observed['connections'] ?? 0) < (int) ceil(((int) ($phase['requests'] ?? 0)) / 8)) {
-            throw new RuntimeException('Churn workload did not rotate connections.');
-        }
-        $clientCpu = $phase['client_cpu_percent'] ?? null;
-        if ((!is_int($clientCpu) && !is_float($clientCpu)) || !is_finite((float) $clientCpu) || $clientCpu < 0) {
-            throw new RuntimeException('Missing valid generator CPU measurement.');
-        }
-    }
 }
 
 /**
- * @param array<string, array<string, mixed>> $caseResults
- * @return array<string, mixed>
+ * @param array<string,mixed> $record
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @return array{run_id:non-empty-string,...<string,mixed>}
+ * @throws RuntimeException
+ */
+function adaptivePromotionValidateRecord(array $record, array $case, string $mode, int $trial, array $identity): array
+{
+    adaptivePromotionValidateIdentity($record, $case, $mode, $trial, $identity);
+    $phases = $record['phases'] ?? null;
+    $runId = $record['run_id'] ?? null;
+    if (!is_string($runId) || $runId === ''
+        || ($record['correctness_passed'] ?? false) !== true
+        || !is_array($phases) || array_keys($phases) !== ADAPTIVE_PROMOTION_PHASES) {
+        throw new RuntimeException('Trial is missing identity, correct responses or mandatory phases.');
+    }
+
+    foreach ($phases as $name => $value) {
+        $phase = adaptiveMatrixPhase($value, $name);
+        $target = match ($name) {
+            'medium' => $case['medium'],
+            'high', 'transition_up' => $case['high'],
+            default => $case['low'],
+        };
+        if (($phase['concurrency'] ?? null) !== $target || ($phase['correctness_passed'] ?? false) !== true) {
+            throw new RuntimeException('Phase did not exercise its declared concurrency correctly.');
+        }
+        adaptivePromotionValidateObserved($phase, $case);
+        adaptiveMatrixMetric($phase, 'client_cpu_percent');
+    }
+
+    $record['run_id'] = $runId;
+
+    return $record;
+}
+
+/**
+ * @param array<string,mixed> $phase
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @throws RuntimeException
+ */
+function adaptivePromotionValidateObserved(array $phase, array $case): void
+{
+    $observed = adaptiveMatrixPhase($phase['observed'] ?? [], 'observed');
+    $required = match ($case['scenario']) {
+        'pressure' => 'delayed_reads',
+        'flow' => 'constrained_flow_bytes',
+        'qpack' => 'qpack_delayed_headers',
+        default => null,
+    };
+    if ($required !== null && adaptivePromotionCaseInt($observed, $required) <= 0) {
+        throw new RuntimeException('Case did not exercise ' . $required . '.');
+    }
+    adaptivePromotionValidateTraffic($phase, $observed, $case);
+}
+
+/**
+ * @param array<string,mixed> $phase
+ * @param array<string,mixed> $observed
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @throws RuntimeException
+ */
+function adaptivePromotionValidateTraffic(array $phase, array $observed, array $case): void
+{
+    $upload = $case['upload_bytes'] ?? 0;
+    if ($upload > 0
+        && adaptivePromotionCaseInt($observed, 'upload_bytes') !== adaptivePromotionCaseInt($phase, 'requests') * $upload) {
+        throw new RuntimeException('Upload workload was not completed and validated.');
+    }
+    if ($case['scenario'] === 'churn'
+        && adaptivePromotionCaseInt($observed, 'connections') < (int) ceil(adaptivePromotionCaseInt($phase, 'requests') / 8)) {
+        throw new RuntimeException('Churn workload did not rotate connections.');
+    }
+}
+
+/** Treat invalid delta metrics as failed evidence instead of coercing them into passing values. */
+function adaptivePromotionDelta(mixed $value, float $fallback): float
+{
+    if ((!is_int($value) && !is_float($value)) || !is_finite((float) $value)) {
+        return $fallback;
+    }
+
+    return (float) $value;
+}
+
+/**
+ * @param array<array-key,mixed> $fixed
+ * @return list<string>
+ */
+function adaptivePromotionTransitionFailures(string $name, array $fixed): array
+{
+    $failures = [];
+    foreach (['transition_up', 'transition_down'] as $phase) {
+        $delta = is_array($fixed[$phase] ?? null) ? $fixed[$phase] : [];
+        if (adaptivePromotionDelta($delta['throughput_ratio'] ?? null, 0.0) < 0.99
+            || adaptivePromotionDelta($delta['p95_absolute_delta_ms'] ?? null, INF) > 0.1
+            || adaptivePromotionDelta($delta['p99_absolute_delta_ms'] ?? null, INF) > 0.1) {
+            $failures[] = $name . '/' . $phase . ': transition overhead exceeds 1% throughput or 0.1 ms latency';
+        }
+    }
+
+    return $failures;
+}
+
+/**
+ * @param array<array-key,mixed> $fixed
+ * @return list<string>
+ */
+function adaptivePromotionMaterialGains(string $name, array $fixed): array
+{
+    $gains = [];
+    foreach (['low_before', 'medium', 'high', 'low_after'] as $phase) {
+        $delta = is_array($fixed[$phase] ?? null) ? $fixed[$phase] : [];
+        $ratio = adaptivePromotionDelta($delta['throughput_ratio'] ?? null, 0.0);
+        $noise = adaptivePromotionDelta($delta['combined_rps_cv_percent'] ?? null, INF) * 2.0;
+        if ($ratio >= 1.05 && ($ratio - 1.0) * 100.0 > $noise) {
+            $gains[] = $name . '/' . $phase;
+        }
+    }
+
+    return $gains;
+}
+
+/** @return array{failures:list<string>,gains:list<string>} */
+function adaptivePromotionEvaluateCase(string $name, mixed $result): array
+{
+    if (!is_array($result) || ($result['valid'] ?? false) !== true) {
+        return ['failures' => [$name . ': missing or invalid trial evidence'], 'gains' => []];
+    }
+    $failures = [];
+    $comparisons = is_array($result['comparisons'] ?? null) ? $result['comparisons'] : [];
+    foreach (array_slice(ADAPTIVE_PROMOTION_MODES, 0, 3) as $baseline) {
+        $comparison = $comparisons[$baseline] ?? null;
+        if (!is_array($comparison)
+            || ($comparison['passed'] ?? false) !== true
+            || ($comparison['measurement_qualified'] ?? false) !== true) {
+            $failures[] = $name . ': ' . $baseline . ' regression or measurement gate failed';
+        }
+    }
+    $fixedComparison = $comparisons['fixed'] ?? null;
+    $phases = is_array($fixedComparison) ? ($fixedComparison['phases'] ?? null) : null;
+    $fixed = is_array($phases) ? $phases : [];
+
+    return [
+        'failures' => array_merge($failures, adaptivePromotionTransitionFailures($name, $fixed)),
+        'gains' => adaptivePromotionMaterialGains($name, $fixed),
+    ];
+}
+
+/**
+ * @param array<string,array<string,mixed>> $caseResults
+ * @return array{protocol:string,required_cases:int,material_gain_cases:list<string>,failures:list<string>,performance_gate_passed:bool,decision:string,promotion_certified:bool}
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
  */
@@ -332,38 +540,9 @@ function adaptivePromotionEvaluateProtocol(array $caseResults, string $protocol)
     $failures = [];
     $gains = [];
     foreach ($required as $name) {
-        $result = $caseResults[$name] ?? null;
-        if (!is_array($result) || ($result['valid'] ?? false) !== true) {
-            $failures[] = $name . ': missing or invalid trial evidence';
-
-            continue;
-        }
-        $comparisons = is_array($result['comparisons'] ?? null) ? $result['comparisons'] : [];
-        foreach (array_slice(ADAPTIVE_PROMOTION_MODES, 0, 3) as $baseline) {
-            $comparison = $comparisons[$baseline] ?? null;
-            if (!is_array($comparison)
-                || ($comparison['passed'] ?? false) !== true
-                || ($comparison['measurement_qualified'] ?? false) !== true) {
-                $failures[] = $name . ': ' . $baseline . ' regression or measurement gate failed';
-            }
-        }
-        $fixed = $comparisons['fixed']['phases'] ?? [];
-        foreach (['transition_up', 'transition_down'] as $phase) {
-            $delta = is_array($fixed[$phase] ?? null) ? $fixed[$phase] : [];
-            if ((float) ($delta['throughput_ratio'] ?? 0) < 0.99
-                || (float) ($delta['p95_absolute_delta_ms'] ?? INF) > 0.1
-                || (float) ($delta['p99_absolute_delta_ms'] ?? INF) > 0.1) {
-                $failures[] = $name . '/' . $phase . ': transition overhead exceeds 1% throughput or 0.1 ms latency';
-            }
-        }
-        foreach (['low_before', 'medium', 'high', 'low_after'] as $phase) {
-            $delta = is_array($fixed[$phase] ?? null) ? $fixed[$phase] : [];
-            $ratio = (float) ($delta['throughput_ratio'] ?? 0);
-            $noise = (float) ($delta['combined_rps_cv_percent'] ?? INF) * 2.0;
-            if ($ratio >= 1.05 && ($ratio - 1.0) * 100.0 > $noise) {
-                $gains[] = $name . '/' . $phase;
-            }
-        }
+        $case = adaptivePromotionEvaluateCase($name, $caseResults[$name] ?? null);
+        array_push($failures, ...$case['failures']);
+        array_push($gains, ...$case['gains']);
     }
     if ($gains === []) {
         $failures[] = 'No steady workload demonstrated the preregistered 5% material throughput gain';
@@ -381,8 +560,39 @@ function adaptivePromotionEvaluateProtocol(array $caseResults, string $protocol)
 }
 
 /**
- * @param array<string, mixed> $identity
- * @return array<string, mixed>
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @param array<string,true> $runIds
+ * @return array<string,mixed>
+ * @throws RuntimeException
+ * @throws InvalidArgumentException
+ */
+function adaptivePromotionSummarizeMode(string $directory, array $case, string $mode, array $identity, array &$runIds): array
+{
+    $records = [];
+    for ($trial = 1; $trial <= 5; ++$trial) {
+        $path = sprintf('%s/%s-%d.json', $directory, $mode, $trial);
+        if (is_file(sprintf('%s/%s-%d-failure.json', $directory, $mode, $trial))) {
+            throw new RuntimeException('Recorded failed trial cannot certify a matrix cell.');
+        }
+        $record = adaptivePromotionLoadJson($path);
+        $record = adaptivePromotionValidateRecord($record, $case, $mode, $trial, $identity);
+        $runId = $record['run_id'];
+        if (isset($runIds[$runId])) {
+            throw new RuntimeException('Duplicate trial run ID.');
+        }
+        $runIds[$runId] = true;
+        $records[] = $record;
+    }
+    $summary = adaptiveMatrixSummarize($records);
+    adaptivePromotionWriteJson($directory . '/' . $mode . '-summary.json', $summary);
+
+    return $summary;
+}
+
+/**
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @return array{protocol:string,required_cases:int,material_gain_cases:list<string>,failures:list<string>,performance_gate_passed:bool,decision:string,promotion_certified:bool,build:string,environment:string,cases:array<string,array{valid:bool,comparisons:array<string,array{protocol:mixed,baseline_mode:string,workload:mixed,scope:string,diagnostic:bool,promotion_certified:bool,evidence_failures:list<string>,measurement_qualified:bool,trials:int,budgets:array<string,int|float|string>,phases:array<string,array<string,int|float>>,failures:list<string>,passed:bool}>,error?:string}>}
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
  */
@@ -397,23 +607,7 @@ function adaptivePromotionEvaluate(string $output, string $protocol, array $iden
         try {
             $summaries = [];
             foreach (ADAPTIVE_PROMOTION_MODES as $mode) {
-                $records = [];
-                for ($trial = 1; $trial <= 5; ++$trial) {
-                    $path = sprintf('%s/%s-%d.json', $directory, $mode, $trial);
-                    if (is_file(sprintf('%s/%s-%d-failure.json', $directory, $mode, $trial))) {
-                        throw new RuntimeException('Recorded failed trial cannot certify a matrix cell.');
-                    }
-                    $record = adaptivePromotionLoadJson($path);
-                    adaptivePromotionValidateRecord($record, $case, $mode, $trial, $identity);
-                    $runId = (string) $record['run_id'];
-                    if (isset($runIds[$runId])) {
-                        throw new RuntimeException('Duplicate trial run ID.');
-                    }
-                    $runIds[$runId] = true;
-                    $records[] = $record;
-                }
-                $summaries[$mode] = adaptiveMatrixSummarize($records);
-                adaptivePromotionWriteJson($directory . '/' . $mode . '-summary.json', $summaries[$mode]);
+                $summaries[$mode] = adaptivePromotionSummarizeMode($directory, $case, $mode, $identity, $runIds);
             }
             foreach (array_slice(ADAPTIVE_PROMOTION_MODES, 0, 3) as $mode) {
                 $comparison = adaptiveMatrixCompare($summaries['auto'], $summaries[$mode], false, $mode);
@@ -424,7 +618,7 @@ function adaptivePromotionEvaluate(string $output, string $protocol, array $iden
         } catch (Throwable $error) {
             $result['error'] = $error->getMessage();
         }
-        $results[(string) $case['id']] = $result;
+        $results[$case['id']] = $result;
     }
 
     $report = adaptivePromotionEvaluateProtocol($results, $protocol) + [
@@ -515,15 +709,15 @@ function adaptivePromotionStart(array $command, string $stdout, string $stderr, 
 /** @param resource $process */
 function adaptivePromotionStop($process, int $pid): void
 {
-    $status = proc_get_status($process);
-    if ($status['running']) {
+    $running = adaptivePromotionRunning($process);
+    if ($running) {
         posix_kill(-$pid, SIGTERM);
         $deadline = microtime(true) + 10.0;
         do {
             usleep(50_000);
-            $status = proc_get_status($process);
-        } while ($status['running'] && microtime(true) < $deadline);
-        if ($status['running']) {
+            $running = adaptivePromotionRunning($process);
+        } while ($running && microtime(true) < $deadline);
+        if ($running) {
             posix_kill(-$pid, SIGKILL);
         }
     }
@@ -558,37 +752,12 @@ function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog
     throw new RuntimeException('Adaptive promotion process timed out. ' . $details);
 }
 
-/**
- * @param array<string, mixed> $case
- * @param array<string, mixed> $identity
- * @throws \RuntimeException
+/** @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @return list<string>
  */
-function adaptivePromotionRunTrial(
-    string $output,
-    array $case,
-    string $mode,
-    int $trial,
-    float $seconds,
-    float $warmup,
-    array $identity,
-    string $temporary,
-): void {
-    $protocol = (string) $case['protocol'];
-    $directory = $output . '/' . $case['id'];
-    if (!is_dir($directory) && !mkdir($directory, 0o777, true) && !is_dir($directory)) {
-        throw new RuntimeException('Unable to create adaptive trial directory.');
-    }
-    $port = adaptivePromotionPickPort($protocol === 'h3');
-    $ready = $temporary . '/ready';
-    if (is_file($ready)) {
-        unlink($ready);
-    }
-    $certificate = $temporary . '/cert.pem';
-    $privateKey = $temporary . '/key.pem';
-    $serverLog = sprintf('%s/%s-%d-server.log', $directory, $mode, $trial);
-    $clientLog = sprintf('%s/%s-%d-client.log', $directory, $mode, $trial);
-    $resultPath = sprintf('%s/%s-%d.json', $directory, $mode, $trial);
-
+function adaptivePromotionServerCommand(array $case, string $mode, int $port, string $certificate, string $privateKey, string $ready): array
+{
+    $protocol = $case['protocol'];
     $server = [PHP_BINARY, '-d', 'opcache.enable_cli=1'];
     if ($protocol === 'h3') {
         array_push(
@@ -615,42 +784,94 @@ function adaptivePromotionRunTrial(
         }
     }
 
+    return $server;
+}
+
+/**
+ * @param resource $process
+ * @throws RuntimeException
+ */
+function adaptivePromotionWaitReady($process, string $protocol, int $port, string $ready): void
+{
+    $deadline = microtime(true) + 10.0;
+    while (true) {
+        $status = proc_get_status($process);
+        if (!$status['running']) {
+            throw new RuntimeException('Benchmark server exited before readiness.');
+        }
+        $readyNow = $protocol === 'h3' ? is_file($ready) : adaptivePromotionCanConnect($port);
+        if ($readyNow) {
+            break;
+        }
+        if (microtime(true) >= $deadline) {
+            throw new RuntimeException('Benchmark server failed readiness.');
+        }
+        usleep(50_000);
+    }
+
+}
+
+/**
+ * @return list<string>
+ * @throws InvalidArgumentException
+ * @throws RuntimeException
+ */
+function adaptivePromotionClientCommand(string $protocol, int $port, int $pid, string $mode, float $seconds, int $payloadBytes): array
+{
+    return match ($protocol) {
+        'http1' => [adaptivePromotionPython('http1'), 'benchmarks/http1_adaptive_matrix.py', (string) $port, (string) $pid, $mode, (string) $seconds],
+        'h2' => [adaptivePromotionPython('h2'), 'benchmarks/h2_adaptive_matrix.py', (string) $port, (string) $pid, $mode, (string) $seconds, (string) $payloadBytes],
+        'h3' => [adaptivePromotionPython('h3'), 'benchmarks/http3_adaptive_matrix.py', (string) $port, (string) $pid, $mode, (string) $seconds, (string) $payloadBytes],
+        default => throw new InvalidArgumentException('Unknown adaptive protocol.'),
+    };
+}
+
+/**
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @throws \RuntimeException
+   * @throws \InvalidArgumentException
+ */
+function adaptivePromotionRunTrial(
+    string $output,
+    array $case,
+    string $mode,
+    int $trial,
+    float $seconds,
+    float $warmup,
+    array $identity,
+    string $temporary,
+): void {
+    $protocol = $case['protocol'];
+    $directory = $output . '/' . $case['id'];
+    if (!is_dir($directory) && !mkdir($directory, 0o777, true) && !is_dir($directory)) {
+        throw new RuntimeException('Unable to create adaptive trial directory.');
+    }
+    $port = adaptivePromotionPickPort($protocol === 'h3');
+    $ready = $temporary . '/ready';
+    if (is_file($ready)) {
+        unlink($ready);
+    }
+    $certificate = $temporary . '/cert.pem';
+    $privateKey = $temporary . '/key.pem';
+    $serverLog = sprintf('%s/%s-%d-server.log', $directory, $mode, $trial);
+    $clientLog = sprintf('%s/%s-%d-client.log', $directory, $mode, $trial);
+    $resultPath = sprintf('%s/%s-%d.json', $directory, $mode, $trial);
+
+    $server = adaptivePromotionServerCommand($case, $mode, $port, $certificate, $privateKey, $ready);
+
     $environment = [
         'RUNWIRE_ADAPTIVE_CASE' => json_encode($case, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
         'RUNWIRE_ADAPTIVE_TRIAL' => (string) $trial,
-        'RUNWIRE_ADAPTIVE_BUILD' => (string) $identity['build'],
-        'RUNWIRE_ADAPTIVE_ENVIRONMENT' => (string) $identity['environment_id'],
+        'RUNWIRE_ADAPTIVE_BUILD' => $identity['build'],
+        'RUNWIRE_ADAPTIVE_ENVIRONMENT' => $identity['environment_id'],
         'RUNWIRE_ADAPTIVE_WARMUP_SECONDS' => (string) $warmup,
     ];
     $started = adaptivePromotionStart($server, $serverLog, $serverLog, $environment);
 
     try {
-        $deadline = microtime(true) + 10.0;
-        while (true) {
-            $status = proc_get_status($started['process']);
-            if (($status['running'] ?? false) !== true) {
-                throw new RuntimeException('Benchmark server exited before readiness.');
-            }
-            if ($protocol === 'h3') {
-                if (is_file($ready)) {
-                    break;
-                }
-            } else {
-                if (adaptivePromotionCanConnect($port)) {
-                    break;
-                }
-            }
-            if (microtime(true) >= $deadline) {
-                throw new RuntimeException('Benchmark server failed readiness.');
-            }
-            usleep(50_000);
-        }
-
-        $client = match ($protocol) {
-            'http1' => [adaptivePromotionPython('http1'), 'benchmarks/http1_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds],
-            'h2' => [adaptivePromotionPython('h2'), 'benchmarks/h2_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds, (string) $case['payload_bytes']],
-            'h3' => [adaptivePromotionPython('h3'), 'benchmarks/http3_adaptive_matrix.py', (string) $port, (string) $started['pid'], $mode, (string) $seconds, (string) $case['payload_bytes']],
-        };
+        adaptivePromotionWaitReady($started['process'], $protocol, $port, $ready);
+        $client = adaptivePromotionClientCommand($protocol, $port, $started['pid'], $mode, $seconds, $case['payload_bytes']);
         $clientRun = adaptivePromotionStart($client, $resultPath . '.raw', $clientLog, $environment);
         $timeout = $warmup + (4.0 * $seconds) + 90.0;
         $code = adaptivePromotionWait($clientRun['process'], $timeout, $clientLog);
@@ -662,7 +883,7 @@ function adaptivePromotionRunTrial(
             unlink($resultPath . '.raw');
         }
         $record['run_id'] = bin2hex(random_bytes(16));
-        adaptivePromotionValidateRecord($record, $case, $mode, $trial, $identity);
+        $record = adaptivePromotionValidateRecord($record, $case, $mode, $trial, $identity);
     } finally {
         adaptivePromotionStop($started['process'], $started['pid']);
     }
@@ -674,6 +895,7 @@ function adaptivePromotionRunTrial(
 }
 
 /**
+ * @param list<string> $argv
  * @return array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool}
  * @throws \InvalidArgumentException
  */
@@ -721,6 +943,166 @@ function adaptivePromotionArguments(array $argv): array
 }
 
 /**
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @param array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool} $options
+ * @throws RuntimeException
+   * @throws \Throwable
+ */
+function adaptivePromotionRunCell(string $output, array $case, string $mode, int $trial, array $identity, array $options, string $temporary): void
+{
+    $directory = $output . '/' . $case['id'];
+    $recordPath = sprintf('%s/%s-%d.json', $directory, $mode, $trial);
+    $failurePath = sprintf('%s/%s-%d-failure.json', $directory, $mode, $trial);
+    if (is_file($failurePath)) {
+        throw new RuntimeException('A failed trial cannot be silently retried; use a fresh output directory.');
+    }
+    if (is_file($recordPath) && $options['resume']) {
+        adaptivePromotionValidateRecord(
+            adaptivePromotionLoadJson($recordPath),
+            $case,
+            $mode,
+            $trial,
+            $identity,
+        );
+
+        return;
+    }
+    fwrite(STDOUT, sprintf("%s %s trial %d/5\n", $case['id'], $mode, $trial));
+
+    try {
+        adaptivePromotionRunTrial(
+            $output,
+            $case,
+            $mode,
+            $trial,
+            $options['seconds'],
+            $options['warmup'],
+            $identity,
+            $temporary,
+        );
+    } catch (Throwable $error) {
+        adaptivePromotionWriteJson($failurePath, [
+            'error' => $error->getMessage(),
+            'build' => $identity['build'],
+            'mode' => $mode,
+            'trial' => $trial,
+        ]);
+
+        throw $error;
+    }
+}
+
+/**
+ * @param list<array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>}> $selected
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @param array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool} $options
+ * @throws RuntimeException
+ */
+function adaptivePromotionSchedule(string $output, array $selected, array $identity, array $options, string $temporary): void
+{
+    foreach ($selected as $case) {
+        for ($trial = 1; $trial <= 5; ++$trial) {
+            $offset = ($trial - 1) % 4;
+            $order = $trial < 5
+                ? array_merge(
+                    array_slice(ADAPTIVE_PROMOTION_MODES, $offset),
+                    array_slice(ADAPTIVE_PROMOTION_MODES, 0, $offset),
+                )
+                : array_reverse(ADAPTIVE_PROMOTION_MODES);
+            foreach ($order as $mode) {
+                adaptivePromotionRunCell($output, $case, $mode, $trial, $identity, $options, $temporary);
+            }
+        }
+    }
+}
+
+/**
+ * @param list<array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>}> $selected
+ * @param array{build:string,environment_id:string,...<string,mixed>} $identity
+ * @param array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool} $options
+ * @throws RuntimeException
+ */
+function adaptivePromotionRunSelected(string $output, array $selected, array $identity, array $options): void
+{
+    $temporary = sys_get_temp_dir() . '/runwire-j10-' . bin2hex(random_bytes(8));
+    if (!mkdir($temporary, 0o700, true) && !is_dir($temporary)) {
+        throw new RuntimeException('Unable to create adaptive promotion temporary directory.');
+    }
+
+    try {
+        $openssl = [
+            'openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '7',
+            '-subj', '/CN=localhost', '-keyout', $temporary . '/key.pem', '-out', $temporary . '/cert.pem',
+        ];
+        adaptivePromotionCommandOutput($openssl);
+
+        adaptivePromotionSchedule($output, $selected, $identity, $options, $temporary);
+    } finally {
+        $temporaryFiles = glob($temporary . '/*');
+        if (is_array($temporaryFiles)) {
+            foreach ($temporaryFiles as $path) {
+                if (is_file($path)) {
+                    unlink($path);
+                }
+            }
+        }
+        if (is_dir($temporary)) {
+            rmdir($temporary);
+        }
+    }
+
+}
+
+/**
+ * @return array{build:string,environment_id:string}
+ * @throws RuntimeException
+ */
+function adaptivePromotionSavedIdentity(string $path): array
+{
+    $identity = adaptivePromotionLoadJson($path);
+    if (!is_string($identity['build'] ?? null) || !is_string($identity['environment_id'] ?? null)) {
+        throw new RuntimeException('Adaptive promotion environment identity is malformed.');
+    }
+
+    return ['build' => $identity['build'], 'environment_id' => $identity['environment_id']];
+}
+
+/**
+ * @throws InvalidArgumentException
+ */
+function adaptivePromotionValidateDurations(float $seconds, float $warmup, bool $diagnostic): void
+{
+    if (!is_finite($seconds)
+        || !is_finite($warmup)
+        || $seconds < 1
+        || $warmup < 1) {
+        throw new InvalidArgumentException('Durations must be finite and at least one second.');
+    }
+    if (!$diagnostic && ($seconds < 180 || $warmup < 30)) {
+        throw new InvalidArgumentException('Sustained runs require --seconds >= 180 and --warmup >= 30.');
+    }
+
+}
+
+/**
+ * @param array<string,mixed> $identity
+ * @throws RuntimeException
+ */
+function adaptivePromotionPrepareEvidence(string $environmentPath, array $identity, bool $resume): void
+{
+    if (is_file($environmentPath)) {
+        if (!$resume || adaptivePromotionLoadJson($environmentPath) !== $identity) {
+            throw new RuntimeException('Use a fresh output directory or --resume with exactly matching build/environment.');
+        }
+    } else {
+        adaptivePromotionWriteJson($environmentPath, $identity);
+    }
+
+}
+
+/**
+ * @param list<string> $argv
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
  */
@@ -746,114 +1128,23 @@ function adaptivePromotionMain(array $argv): int
         $report = adaptivePromotionEvaluate(
             $output,
             $options['protocol'],
-            adaptivePromotionLoadJson($environmentPath),
+            adaptivePromotionSavedIdentity($environmentPath),
         );
         $summary = array_diff_key($report, ['cases' => true]);
         fwrite(STDOUT, json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 
-        return ($report['performance_gate_passed'] ?? false) === true ? 0 : 1;
+        return $report['performance_gate_passed'] ? 0 : 1;
     }
 
-    if (!is_finite($options['seconds'])
-        || !is_finite($options['warmup'])
-        || $options['seconds'] < 1
-        || $options['warmup'] < 1) {
-        throw new InvalidArgumentException('Durations must be finite and at least one second.');
-    }
-    if (!$options['diagnostic'] && ($options['seconds'] < 180 || $options['warmup'] < 30)) {
-        throw new InvalidArgumentException('Sustained runs require --seconds >= 180 and --warmup >= 30.');
-    }
+    adaptivePromotionValidateDurations($options['seconds'], $options['warmup'], $options['diagnostic']);
 
     $identity = adaptivePromotionEnvironment($options['protocol']);
     if (!is_dir($output) && !mkdir($output, 0o777, true) && !is_dir($output)) {
         throw new RuntimeException('Unable to create adaptive promotion output directory.');
     }
-    if (is_file($environmentPath)) {
-        if (!$options['resume'] || adaptivePromotionLoadJson($environmentPath) !== $identity) {
-            throw new RuntimeException('Use a fresh output directory or --resume with exactly matching build/environment.');
-        }
-    } else {
-        adaptivePromotionWriteJson($environmentPath, $identity);
-    }
+    adaptivePromotionPrepareEvidence($environmentPath, $identity, $options['resume']);
 
-    $temporary = sys_get_temp_dir() . '/runwire-j10-' . bin2hex(random_bytes(8));
-    if (!mkdir($temporary, 0o700, true) && !is_dir($temporary)) {
-        throw new RuntimeException('Unable to create adaptive promotion temporary directory.');
-    }
-
-    try {
-        $openssl = [
-            'openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '7',
-            '-subj', '/CN=localhost', '-keyout', $temporary . '/key.pem', '-out', $temporary . '/cert.pem',
-        ];
-        adaptivePromotionCommandOutput($openssl);
-
-        foreach ($selected as $case) {
-            for ($trial = 1; $trial <= 5; ++$trial) {
-                $offset = ($trial - 1) % 4;
-                $order = $trial < 5
-                    ? array_merge(
-                        array_slice(ADAPTIVE_PROMOTION_MODES, $offset),
-                        array_slice(ADAPTIVE_PROMOTION_MODES, 0, $offset),
-                    )
-                    : array_reverse(ADAPTIVE_PROMOTION_MODES);
-                foreach ($order as $mode) {
-                    $directory = $output . '/' . $case['id'];
-                    $recordPath = sprintf('%s/%s-%d.json', $directory, $mode, $trial);
-                    $failurePath = sprintf('%s/%s-%d-failure.json', $directory, $mode, $trial);
-                    if (is_file($failurePath)) {
-                        throw new RuntimeException('A failed trial cannot be silently retried; use a fresh output directory.');
-                    }
-                    if (is_file($recordPath) && $options['resume']) {
-                        adaptivePromotionValidateRecord(
-                            adaptivePromotionLoadJson($recordPath),
-                            $case,
-                            $mode,
-                            $trial,
-                            $identity,
-                        );
-
-                        continue;
-                    }
-                    fwrite(STDOUT, sprintf("%s %s trial %d/5\n", $case['id'], $mode, $trial));
-
-                    try {
-                        adaptivePromotionRunTrial(
-                            $output,
-                            $case,
-                            $mode,
-                            $trial,
-                            $options['seconds'],
-                            $options['warmup'],
-                            $identity,
-                            $temporary,
-                        );
-                    } catch (Throwable $error) {
-                        adaptivePromotionWriteJson($failurePath, [
-                            'error' => $error->getMessage(),
-                            'build' => $identity['build'],
-                            'mode' => $mode,
-                            'trial' => $trial,
-                        ]);
-
-                        throw $error;
-                    }
-                }
-            }
-        }
-    } finally {
-        $temporaryFiles = glob($temporary . '/*');
-        if (is_array($temporaryFiles)) {
-            foreach ($temporaryFiles as $path) {
-                if (is_file($path)) {
-                    unlink($path);
-                }
-            }
-        }
-        if (is_dir($temporary)) {
-            rmdir($temporary);
-        }
-    }
+    adaptivePromotionRunSelected($output, $selected, $identity, $options);
 
     $report = adaptivePromotionEvaluate($output, $options['protocol'], $identity);
     fwrite(
@@ -866,12 +1157,21 @@ function adaptivePromotionMain(array $argv): int
         ),
     );
 
-    return ($report['performance_gate_passed'] ?? false) === true ? 0 : 1;
+    return $report['performance_gate_passed'] ? 0 : 1;
 }
 
 if (realpath($argv[0] ?? '') === __FILE__) {
+    if (!isset($argc, $argv)) {
+        throw new \RuntimeException('CLI arguments are unavailable.');
+    }
     $status = adaptivePromotionMain($argv);
     if ($status !== 0) {
         throw new RuntimeException('Adaptive promotion matrix did not satisfy its gate.');
     }
+}
+
+/** @param resource $process */
+function adaptivePromotionRunning(mixed $process): bool
+{
+    return proc_get_status($process)['running'];
 }

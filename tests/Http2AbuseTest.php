@@ -29,7 +29,7 @@ function runwireH2GoAwayError(string $wire, ?Http2Limits $limits = null, ?callab
     foreach (array_reverse(runwireH2Frames($response)) as $frame) {
         if ($frame->knownType() === FrameType::GOAWAY && strlen($frame->payload) >= 8) {
             $code = unpack('N', substr($frame->payload, 4, 4));
-            return is_array($code) && isset($code[1]) ? $code[1] : null;
+            return is_array($code) && is_int($code[1] ?? null) ? $code[1] : null;
         }
     }
 
@@ -49,7 +49,7 @@ function runwireH2ResetError(string $wire, int $streamId, callable $handler, ?Ht
     foreach (runwireH2Frames($response) as $frame) {
         if ($frame->knownType() === FrameType::RST_STREAM && $frame->streamId === $streamId) {
             $code = unpack('N', $frame->payload);
-            return is_array($code) && isset($code[1]) ? $code[1] : null;
+            return is_array($code) && is_int($code[1] ?? null) ? $code[1] : null;
         }
     }
 

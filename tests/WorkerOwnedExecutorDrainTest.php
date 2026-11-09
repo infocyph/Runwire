@@ -29,7 +29,7 @@ it('cancels owned queued file jobs once when the worker stops and rejects late o
 
         expect($callbacks)->toHaveCount(2);
         foreach ($callbacks as $error) {
-            expect($error)->toBeInstanceOf(CancelledException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $error);
         }
 
         expect($executor->diagnostics()['workers'])->toBe(0)

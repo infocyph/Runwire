@@ -18,10 +18,9 @@ use Throwable;
 
 it('reclaims an idle H2 request socket and cancellation observer on explicit host cancellation', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$outbound, $silentPeer] = $pair;
     $loop = new SelectLoop();
     $source = new CancellationSource();
@@ -48,8 +47,8 @@ it('reclaims an idle H2 request socket and cancellation observer on explicit hos
         $exchange->start();
         $loop->run();
         $exchange->close();
+        \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $error);
         expect($calls)->toBe(1)
-            ->and($error)->toBeInstanceOf(CancelledException::class)
             ->and($source->token()->subscriptionCount())->toBe(0)
             ->and($connection->isPoolIdleSafe())->toBeFalse();
     } finally {
@@ -66,10 +65,9 @@ it('reclaims an idle H2 request socket and cancellation observer on explicit hos
 
 it('enforces a monotonic response deadline against a silent H2 peer without orphaned watchers', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$outbound, $silentPeer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $outbound, negotiatedProtocol: 'h2', encrypted: true);
@@ -95,8 +93,8 @@ it('enforces a monotonic response deadline against a silent H2 peer without orph
     try {
         $exchange->start();
         $loop->run();
+        \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
         expect($calls)->toBe(1)
-            ->and($error)->toBeInstanceOf(RuntimeException::class)
             ->and($error->getMessage())->toContain('deadline expired');
     } finally {
         $exchange->close();

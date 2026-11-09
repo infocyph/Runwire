@@ -41,10 +41,10 @@ it('exposes a single strict H1/H2/H3 dispatch policy without launching a forbidd
 
 it('streams one real independent plaintext HTTP peer with owned completion and no socket leak', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $code, $error);
-    expect($listener)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($listener);
     stream_set_blocking($listener, false);
     $address = stream_socket_get_name($listener, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
     $numeric = new Dialer($loop);
@@ -68,7 +68,9 @@ it('streams one real independent plaintext HTTP peer with owned completion and n
             }
         });
     });
-    $watchdog = $loop->delay(2.0, static fn() => $loop->stop());
+    $watchdog = $loop->delay(2.0, static function () use ($loop): void {
+    $loop->stop();
+});
     try {
         $handle = $dispatcher->send(
             new ClientRequest('GET', 'http://' . $address . '/test',
@@ -135,10 +137,9 @@ it('uses an explicitly injected same-origin H1 pool and keeps forbidden origins 
 
 it('reuses a verified H2 multiplex session for two independent dispatcher requests', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
     $loop = new SelectLoop();
@@ -227,7 +228,9 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
         maxConcurrentStreams: 2,
     );
     $dispatchState->dispatcher = new HttpOutboundDispatcher($loop, $dialer, h2Session: $owner);
-    $watchdog = $loop->delay(3.0, static fn() => $loop->stop());
+    $watchdog = $loop->delay(3.0, static function () use ($loop): void {
+    $loop->stop();
+});
     try {
         $owner->start();
         $loop->run();

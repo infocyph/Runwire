@@ -37,8 +37,11 @@ function http1SustainedCpuModel(): string
         : false;
     if (is_array($lines)) {
         foreach ($lines as $line) {
-            if (str_starts_with(strtolower($line), 'model name') && str_contains($line, ':')) {
-                return trim(explode(':', $line, 2)[1] ?? '');
+            if (str_starts_with(strtolower($line), 'model name')) {
+                $parts = explode(':', $line, 2);
+                if (count($parts) === 2) {
+                    return trim($parts[1]);
+                }
             }
         }
     }
@@ -130,24 +133,38 @@ function http1SustainedTreeTicks(int $root): int
 }
 
 /** @return array{syscr:int,syscw:int,rchar:int,wchar:int} */
+function http1SustainedProcessIoCounters(int $pid): array
+{
+    $totals = ['syscr' => 0, 'syscw' => 0, 'rchar' => 0, 'wchar' => 0];
+    $lines = is_readable('/proc/' . $pid . '/io')
+        ? file('/proc/' . $pid . '/io', FILE_IGNORE_NEW_LINES)
+        : false;
+    if (!is_array($lines)) {
+        return $totals;
+    }
+    foreach ($lines as $line) {
+        $parts = explode(':', $line, 2);
+        if (count($parts) !== 2) {
+            continue;
+        }
+        $key = $parts[0];
+        $raw = $parts[1];
+        if (in_array($key, ['syscr', 'syscw', 'rchar', 'wchar'], true) && preg_match('/^\\d+$/D', trim($raw)) === 1) {
+            $totals[$key] = $totals[$key] + max(0, (int) trim($raw));
+        }
+    }
+
+    return $totals;
+}
+
+/** @return array{syscr:int,syscw:int,rchar:int,wchar:int} */
 function http1SustainedTreeIoCounters(int $root): array
 {
     $totals = ['syscr' => 0, 'syscw' => 0, 'rchar' => 0, 'wchar' => 0];
     foreach (http1SustainedProcessTree($root) as $pid) {
-        $lines = is_readable('/proc/' . $pid . '/io')
-            ? file('/proc/' . $pid . '/io', FILE_IGNORE_NEW_LINES)
-            : false;
-        if (!is_array($lines)) {
-            continue;
-        }
-        foreach ($lines as $line) {
-            if (!str_contains($line, ':')) {
-                continue;
-            }
-            [$key, $raw] = explode(':', $line, 2);
-            if (in_array($key, ['syscr', 'syscw', 'rchar', 'wchar'], true) && preg_match('/^\\d+$/D', trim($raw)) === 1) {
-                $totals[$key] = ($totals[$key] ?? 0) + max(0, (int) trim($raw));
-            }
+        $usage = http1SustainedProcessIoCounters($pid);
+        foreach (['syscr', 'syscw', 'rchar', 'wchar'] as $key) {
+            $totals[$key] += $usage[$key];
         }
     }
 
@@ -157,6 +174,20 @@ function http1SustainedTreeIoCounters(int $root): array
 function http1SustainedTreeRss(int $root): int
 {
     return array_sum(array_map(http1SustainedProcessRss(...), http1SustainedProcessTree($root)));
+}
+
+/** @throws Http1SustainedProtocolError */
+function http1SustainedContentLength(string $value, ?int $previous): int
+{
+    if ($value === '' || preg_match('/^\d+$/', $value) !== 1) {
+        throw new Http1SustainedProtocolError('Response has an invalid Content-Length.');
+    }
+    $parsed = (int) $value;
+    if ($previous !== null && $parsed !== $previous) {
+        throw new Http1SustainedProtocolError('Response has conflicting Content-Length fields.');
+    }
+
+    return $parsed;
 }
 
 /**
@@ -174,22 +205,15 @@ function http1SustainedParseHead(string $head): array
     $length = null;
     $close = false;
     foreach ($lines as $line) {
-        if (!str_contains($line, ':')) {
+        $parts = explode(':', $line, 2);
+        if (count($parts) !== 2) {
             continue;
         }
-        $parts = explode(':', $line, 2);
         $name = strtolower(trim($parts[0]));
-        $value = $parts[1] ?? throw new Http1SustainedProtocolError('Response header has no value separator.');
+        $value = $parts[1];
         $value = trim($value);
         if ($name === 'content-length') {
-            if ($value === '' || preg_match('/^\d+$/', $value) !== 1) {
-                throw new Http1SustainedProtocolError('Response has an invalid Content-Length.');
-            }
-            $parsed = (int) $value;
-            if ($length !== null && $parsed !== $length) {
-                throw new Http1SustainedProtocolError('Response has conflicting Content-Length fields.');
-            }
-            $length = $parsed;
+            $length = http1SustainedContentLength($value, $length);
         } elseif ($name === 'connection') {
             $tokens = array_map(static fn(string $token): string => strtolower(trim($token)), explode(',', $value));
             $close = $close || in_array('close', $tokens, true);
@@ -204,6 +228,31 @@ function http1SustainedParseHead(string $head): array
 
 /**
  * @return resource
+ * @throws RuntimeException
+ */
+function http1SustainedContext(bool $tls)
+{
+    if (!$tls) {
+        return stream_context_create();
+    }
+    $caFile = getenv('RUNWIRE_BENCH_TLS_CA');
+    if (!is_string($caFile) || $caFile === '' || !is_file($caFile)) {
+        throw new RuntimeException('TLS certification requires an existing trusted CA file.');
+    }
+
+    return stream_context_create(['ssl' => [
+        'verify_peer' => true,
+        'verify_peer_name' => true,
+        'peer_name' => 'localhost',
+        'SNI_enabled' => true,
+        'allow_self_signed' => false,
+        'cafile' => $caFile,
+        'crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+    ]]);
+}
+
+/**
+ * @return resource
  * @throws \Http1SustainedTimeout
  * @throws \RuntimeException
  */
@@ -212,19 +261,7 @@ function http1SustainedConnect(string $host, int $port)
     $errno = 0;
     $error = '';
     $tls = getenv('RUNWIRE_BENCH_TLS') === '1';
-    $caFile = getenv('RUNWIRE_BENCH_TLS_CA');
-    if ($tls && (!is_string($caFile) || $caFile === '' || !is_file($caFile))) {
-        throw new RuntimeException('TLS certification requires an existing trusted CA file.');
-    }
-    $context = $tls ? stream_context_create(['ssl' => [
-        'verify_peer' => true,
-        'verify_peer_name' => true,
-        'peer_name' => 'localhost',
-        'SNI_enabled' => true,
-        'allow_self_signed' => false,
-        'cafile' => $caFile,
-        'crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
-    ]]) : stream_context_create();
+    $context = http1SustainedContext($tls);
     $socket = stream_socket_client(
         sprintf('%s://%s:%d', $tls ? 'tls' : 'tcp', $host, $port),
         $errno,
@@ -234,11 +271,7 @@ function http1SustainedConnect(string $host, int $port)
         $context,
     );
     if (!is_resource($socket)) {
-        if ($errno === 110 || str_contains(strtolower($error), 'timed out')) {
-            throw new Http1SustainedTimeout($error !== '' ? $error : 'Connection timed out.');
-        }
-
-        throw new RuntimeException($error !== '' ? $error : 'Unable to connect to benchmark server.');
+        http1SustainedConnectFailure($errno, $error);
     }
     stream_set_blocking($socket, false);
     stream_set_write_buffer($socket, 0);
@@ -247,8 +280,21 @@ function http1SustainedConnect(string $host, int $port)
 }
 
 /**
+ * @throws Http1SustainedTimeout
+ * @throws RuntimeException
+ */
+function http1SustainedConnectFailure(?int $errno, ?string $error): never
+{
+    if ($errno === 110 || str_contains(strtolower($error ?? ''), 'timed out')) {
+        throw new Http1SustainedTimeout($error !== null && $error !== '' ? $error : 'Connection timed out.');
+    }
+
+    throw new RuntimeException($error !== null && $error !== '' ? $error : 'Unable to connect to benchmark server.');
+}
+
+/**
  * @param array<string, int> $counter
- * @return array<string, mixed>|null
+ * @return array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}|null
  */
 function http1SustainedOpenClient(string $host, int $port, array &$counter): ?array
 {
@@ -267,6 +313,15 @@ function http1SustainedOpenClient(string $host, int $port, array &$counter): ?ar
         return null;
     }
 
+    return http1SustainedClient($stream);
+}
+
+/**
+ * @param resource $stream
+ * @return array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}
+ */
+function http1SustainedClient(mixed $stream): array
+{
     return [
         'stream' => $stream,
         'write_offset' => 0,
@@ -279,7 +334,7 @@ function http1SustainedOpenClient(string $host, int $port, array &$counter): ?ar
 }
 
 /**
- * @param array<string, mixed> $client
+ * @param array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool} $client
  * @param array<string, int> $counter
  */
 function http1SustainedPrepareRequest(array &$client, array &$counter): void
@@ -295,25 +350,25 @@ function http1SustainedPrepareRequest(array &$client, array &$counter): void
     $client['request_deadline'] = 0.0;
 }
 
-/** @param array<string, mixed> $client */
+/** @param array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool} $client */
 function http1SustainedCloseClient(array &$client): void
 {
-    if (isset($client['stream']) && is_resource($client['stream'])) {
+    if (is_resource($client['stream'])) {
         fclose($client['stream']);
     }
     $client['active'] = false;
 }
 
 /** @param array<int, int> $histogram */
-function http1SustainedRecordLatency(array &$histogram, int $started): void
+function http1SustainedRecordLatency(array &$histogram, int|float $started): void
 {
-    $micros = max(1, (int) round((hrtime(true) - $started) / 1_000));
+    $micros = max(1, (int) round(((float) hrtime(true) - (float) $started) / 1_000.0));
     $bucket = max(1, intdiv($micros, 10) * 10);
     $histogram[$bucket] = ($histogram[$bucket] ?? 0) + 1;
 }
 
 /**
- * @param array<int, array<string, mixed>> $clients
+ * @param array<int, array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}> $clients
  * @param array<string, int> $counter
  */
 function http1SustainedReconnect(array &$clients, int $id, string $host, int $port, float $deadline, array &$counter): void
@@ -332,14 +387,30 @@ function http1SustainedReconnect(array &$clients, int $id, string $host, int $po
 }
 
 /**
- * @param array<string, mixed> $client
+ * @param array{stream:resource|closed-resource,...<array-key,mixed>} $client
+ * @return resource
+ * @throws RuntimeException
+ */
+function http1SustainedClientStream(array $client)
+{
+    $stream = $client['stream'];
+    if (!is_resource($stream)) {
+        throw new RuntimeException('The active benchmark client has no live stream.');
+    }
+
+    return $stream;
+}
+/**
+ * @param array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool} $client
  * @param array<string, int> $counter
  * @throws \Http1SustainedProtocolError
+ * @throws \RuntimeException
  */
 function http1SustainedReadChunk(array &$client, array &$counter): void
 {
+    $stream = http1SustainedClientStream($client);
     ++$counter['socket_read_calls'];
-    $chunk = fread($client['stream'], 8192);
+    $chunk = fread($stream, 8192);
     if (is_string($chunk)) {
         $counter['socket_read_bytes'] += strlen($chunk);
     }
@@ -347,7 +418,7 @@ function http1SustainedReadChunk(array &$client, array &$counter): void
         throw new Http1SustainedProtocolError('Response read failed.');
     }
     if ($chunk === '') {
-        if (feof($client['stream'])) {
+        if (feof($stream)) {
             throw new Http1SustainedProtocolError('Response ended before completion.');
         }
 
@@ -360,7 +431,7 @@ function http1SustainedReadChunk(array &$client, array &$counter): void
 }
 
 /**
- * @param array<string, mixed> $client
+ * @param array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool} $client
  * @return array{status:int, body:string, close:bool}|null
  * @throws \Http1SustainedProtocolError
  */
@@ -379,7 +450,7 @@ function http1SustainedTryCompleteResponse(array &$client): ?array
         $client['buffer'] = substr($client['buffer'], $separator + 4);
     }
 
-    $length = (int) $client['head']['length'];
+    $length = $client['head']['length'];
     $received = strlen($client['buffer']);
     if ($received < $length) {
         return null;
@@ -389,14 +460,14 @@ function http1SustainedTryCompleteResponse(array &$client): ?array
     }
 
     return [
-        'status' => (int) $client['head']['status'],
+        'status' => $client['head']['status'],
         'body' => $client['buffer'],
-        'close' => (bool) $client['head']['close'],
+        'close' => $client['head']['close'],
     ];
 }
 
 /**
- * @param array<int, array<string, mixed>> $clients
+ * @param array<int, array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}> $clients
  * @param array<string, int> $counter
  * @param array<int, int> $histogram
  * @param array<int, int> $slotCompleted
@@ -425,7 +496,7 @@ function http1SustainedCompleteResponse(
         ++$counter['validation_failures'];
     }
     if ($collectLatency) {
-        http1SustainedRecordLatency($histogram, (int) $client['request_started']);
+        http1SustainedRecordLatency($histogram, $client['request_started']);
     }
     if ($response['close'] || $closeRequested) {
         http1SustainedReconnect($clients, $id, $host, $port, $deadline, $counter);
@@ -437,7 +508,7 @@ function http1SustainedCompleteResponse(
 }
 
 /**
- * @param array<int, array<string, mixed>> $clients
+ * @param array<int, array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}> $clients
  * @param array<string, int> $counter
  * @param array<int, int> $histogram
  * @param array<int, int> $slotCompleted
@@ -485,7 +556,7 @@ function http1SustainedHandleReadable(
 }
 
 /**
- * @param array<int, array<string, mixed>> $clients
+ * @param array<int, array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}> $clients
  * @param array<string, int> $counter
  * @return array{read:list<resource>, write:list<resource>, map:array<int,int>}
  */
@@ -496,18 +567,18 @@ function http1SustainedSelectSets(array &$clients, array &$counter, int $request
     $map = [];
     $now = microtime(true);
     foreach ($clients as $id => &$client) {
-        if (!($client['active'] ?? false)) {
+        if (!($client['active'])) {
             continue;
         }
-        if ((float) $client['request_deadline'] > 0.0 && $now >= (float) $client['request_deadline']) {
+        if ($client['request_deadline'] > 0.0 && $now >= $client['request_deadline']) {
             ++$counter['timeouts_total'];
             http1SustainedCloseClient($client);
 
             continue;
         }
-        $stream = $client['stream'];
+        $stream = http1SustainedClientStream($client);
         $map[(int) $stream] = $id;
-        if ((int) $client['write_offset'] < $requestLength) {
+        if ($client['write_offset'] < $requestLength) {
             $write[] = $stream;
         } else {
             $read[] = $stream;
@@ -518,16 +589,21 @@ function http1SustainedSelectSets(array &$clients, array &$counter, int $request
     return ['read' => $read, 'write' => $write, 'map' => $map];
 }
 
-/** @param list<resource> $write @param array<int,int> $map @param array<int,array<string,mixed>> $clients @param array<string,int> $counter */
+/**
+ * @param array<array-key,resource> $write
+ * @param array<int,int> $map
+ * @param array<int,array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}> $clients
+ * @param array<string,int> $counter
+ */
 function http1SustainedWriteReady(array $write, array $map, array &$clients, array &$counter, string $request): void
 {
     foreach ($write as $stream) {
         $id = $map[(int) $stream] ?? null;
-        if (!is_int($id) || !($clients[$id]['active'] ?? false)) {
+        if (!is_int($id) || !($clients[$id]['active'])) {
             continue;
         }
-        $remaining = substr($request, (int) $clients[$id]['write_offset']);
-        if ((float) $clients[$id]['request_deadline'] === 0.0) {
+        $remaining = substr($request, $clients[$id]['write_offset']);
+        if ($clients[$id]['request_deadline'] === 0.0) {
             $clients[$id]['request_started'] = hrtime(true);
             $clients[$id]['request_deadline'] = microtime(true) + 2.0;
         }
@@ -554,6 +630,35 @@ function http1SustainedWriteReady(array $write, array $map, array &$clients, arr
 }
 
 /**
+ * @param array<string,int> $counter
+ * @return array<int,array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}>
+ */
+function http1SustainedAdmitClients(string $host, int $port, int $concurrency, array &$counter): array
+{
+    $clients = [];
+    for ($id = 0; $id < $concurrency; ++$id) {
+        $client = http1SustainedOpenClient($host, $port, $counter);
+        if ($client !== null) {
+            http1SustainedPrepareRequest($client, $counter);
+            $clients[$id] = $client;
+        }
+    }
+
+    return $clients;
+}
+
+/** @param array<int,array{stream:resource|closed-resource,write_offset:int,buffer:string,head:array{status:int,length:int,close:bool}|null,request_started:int|float,request_deadline:float,active:bool}> $clients */
+function http1SustainedCloseClients(array &$clients): void
+{
+    foreach ($clients as &$client) {
+        if ($client['active']) {
+            http1SustainedCloseClient($client);
+        }
+    }
+    unset($client);
+}
+
+/**
  * @return array{counter:array<string,int>, histogram:array<int,int>, slot_completed:array<int,int>, elapsed:float, peak_rss:int, start_ticks:int, end_ticks:int, io_start:array<string,int>, io_end:array<string,int>}
  * @throws \InvalidArgumentException
  */
@@ -568,7 +673,6 @@ function http1SustainedRun(
     $counter = http1SustainedCounters();
     $histogram = [];
     $slotCompleted = array_fill(0, $concurrency, 0);
-    $clients = [];
     $request = http1BenchRequest();
     $expectedBody = http1BenchResponseBody();
     $closeRequested = http1BenchConnectionMode() === 'close';
@@ -578,59 +682,49 @@ function http1SustainedRun(
     $startIo = http1SustainedTreeIoCounters($serverPid);
     $peakRss = http1SustainedTreeRss($serverPid);
 
-    for ($id = 0; $id < $concurrency; ++$id) {
-        $client = http1SustainedOpenClient($host, $port, $counter);
-        if ($client !== null) {
-            http1SustainedPrepareRequest($client, $counter);
-            $clients[$id] = $client;
-        }
-    }
+    $clients = http1SustainedAdmitClients($host, $port, $concurrency, $counter);
 
-    while (true) {
+    try {
         $sets = http1SustainedSelectSets($clients, $counter, strlen($request));
         $peakRss = max($peakRss, http1SustainedTreeRss($serverPid));
-        if ($sets['read'] === [] && $sets['write'] === []) {
-            break;
-        }
-        $except = [];
-        $read = $sets['read'];
-        $write = $sets['write'];
-        if (stream_select($read, $write, $except, 0, 50_000) === false) {
-            throw new RuntimeException('stream_select() failed in sustained benchmark client.');
-        }
-        http1SustainedWriteReady(array_values($write), $sets['map'], $clients, $counter, $request);
-        foreach ($read as $stream) {
-            $id = $sets['map'][(int) $stream] ?? null;
-            if (is_int($id) && ($clients[$id]['active'] ?? false)) {
-                http1SustainedHandleReadable(
-                    $clients,
-                    $id,
-                    $host,
-                    $port,
-                    $deadline,
-                    $counter,
-                    $histogram,
-                    $slotCompleted,
-                    $collectLatency,
-                    $expectedBody,
-                    $closeRequested,
-                );
+        while ($sets['read'] !== [] || $sets['write'] !== []) {
+            $except = [];
+            $read = $sets['read'];
+            $write = $sets['write'];
+            if (stream_select($read, $write, $except, 0, 50_000) === false) {
+                throw new RuntimeException('stream_select() failed in sustained benchmark client.');
             }
+            http1SustainedWriteReady($write, $sets['map'], $clients, $counter, $request);
+            foreach ($read as $stream) {
+                $id = $sets['map'][(int) $stream] ?? null;
+                if (is_int($id) && ($clients[$id]['active'])) {
+                    http1SustainedHandleReadable(
+                        $clients,
+                        $id,
+                        $host,
+                        $port,
+                        $deadline,
+                        $counter,
+                        $histogram,
+                        $slotCompleted,
+                        $collectLatency,
+                        $expectedBody,
+                        $closeRequested,
+                    );
+                }
+            }
+            $sets = http1SustainedSelectSets($clients, $counter, strlen($request));
+            $peakRss = max($peakRss, http1SustainedTreeRss($serverPid));
         }
+    } finally {
+        http1SustainedCloseClients($clients);
     }
-
-    foreach ($clients as &$client) {
-        if ($client['active'] ?? false) {
-            http1SustainedCloseClient($client);
-        }
-    }
-    unset($client);
 
     return [
         'counter' => $counter,
         'histogram' => $histogram,
         'slot_completed' => $slotCompleted,
-        'elapsed' => (hrtime(true) - $started) / 1_000_000_000,
+        'elapsed' => ((float) hrtime(true) - (float) $started) / 1_000_000_000.0,
         'peak_rss' => max($peakRss, http1SustainedTreeRss($serverPid)),
         'start_ticks' => $startTicks,
         'end_ticks' => http1SustainedTreeTicks($serverPid),
@@ -663,12 +757,12 @@ function http1SustainedExtensionVersions(): array
 {
     $versions = [];
     foreach (explode(',', (string) getenv('RUNWIRE_EXTENSION_VERSIONS')) as $entry) {
-        if (!str_contains($entry, '=')) {
+        $parts = explode('=', $entry, 2);
+        if (count($parts) !== 2) {
             continue;
         }
-        $parts = explode('=', $entry, 2);
         $name = $parts[0];
-        $version = $parts[1] ?? '';
+        $version = $parts[1];
         if ($name !== '' && $version !== '') {
             $versions[$name] = $version;
         }
@@ -707,11 +801,11 @@ function http1SustainedEnvironment(string $name, string $fallback): string
 }
 
 /**
- * @param list<string> $argv @return array<string, mixed>
- * @throws \InvalidArgumentException
- * @throws \RuntimeException
+ * @param list<string> $argv
+ * @return array{port:int,concurrency:int,warmup:float,duration:float,server_pid:int}
+ * @throws InvalidArgumentException
  */
-function http1SustainedMain(array $argv): array
+function http1SustainedArguments(array $argv): array
 {
     if (count($argv) !== 6) {
         throw new InvalidArgumentException('Usage: php http1_sustained_bench.php <port> <concurrency> <warmup-seconds> <duration-seconds> <server-pid>');
@@ -722,12 +816,72 @@ function http1SustainedMain(array $argv): array
     $warmup = (float) $argv[3];
     $duration = (float) $argv[4];
     $serverPid = (int) $argv[5];
-    if ($port < 1 || $port > 65_535 || $concurrency < 1 || $concurrency > 1024 || $warmup < 0 || $duration <= 0) {
+    if ($port < 1 || $port > 65_535 || $concurrency < 1 || $concurrency > 1024 || $warmup < 0 || $duration <= 0 || !is_finite($warmup) || !is_finite($duration)) {
         throw new InvalidArgumentException('Invalid sustained benchmark arguments.');
     }
     if ($serverPid < 2 || !is_dir('/proc/' . $serverPid)) {
         throw new InvalidArgumentException('server-pid must identify a running process.');
     }
+
+    return ['port' => $port, 'concurrency' => $concurrency, 'warmup' => $warmup, 'duration' => $duration, 'server_pid' => $serverPid];
+}
+
+/** @param array{elapsed:float,start_ticks:int,end_ticks:int,...<string,mixed>} $measured */
+function http1SustainedCpuPercent(array $measured): float
+{
+    $ticks = function_exists('posix_sysconf') && defined('POSIX_SC_CLK_TCK')
+        ? posix_sysconf(POSIX_SC_CLK_TCK)
+        : false;
+    $ticksPerSecond = is_int($ticks) && $ticks > 0 ? $ticks : 100;
+
+    return $measured['elapsed'] > 0
+        ? max(0.0, (float) ($measured['end_ticks'] - $measured['start_ticks']) / (float) $ticksPerSecond / $measured['elapsed'] * 100.0)
+        : 0.0;
+}
+
+/**
+ * @param array<string,int> $counter
+ * @return array{request_size_bytes:int,write_calls:int,write_bytes:int,write_would_block:int,read_calls:int,read_bytes:int,write_bytes_per_request:float,read_bytes_per_request:float,write_calls_per_request:float,read_calls_per_request:float}
+ * @throws InvalidArgumentException
+ */
+function http1SustainedSocketIo(array $counter, int $requests): array
+{
+    return [
+        'request_size_bytes' => strlen(http1BenchRequest()),
+        'write_calls' => $counter['socket_write_calls'],
+        'write_bytes' => $counter['socket_write_bytes'],
+        'write_would_block' => $counter['write_would_block'],
+        'read_calls' => $counter['socket_read_calls'],
+        'read_bytes' => $counter['socket_read_bytes'],
+        'write_bytes_per_request' => $requests > 0
+            ? round($counter['socket_write_bytes'] / $requests, 3)
+            : 0.0,
+        'read_bytes_per_request' => $requests > 0
+            ? round($counter['socket_read_bytes'] / $requests, 3)
+            : 0.0,
+        'write_calls_per_request' => $requests > 0
+            ? round($counter['socket_write_calls'] / $requests, 6)
+            : 0.0,
+        'read_calls_per_request' => $requests > 0
+            ? round($counter['socket_read_calls'] / $requests, 6)
+            : 0.0,
+    ];
+}
+
+/**
+ * @param list<string> $argv
+ * @return array{runtime:string,runtime_version:string,runtime_build:string,protocol:string,workload:string,hardware_id:string,host_os:string,host_cpu:string,php_version:string,instrumentation:string,tls:string,opcache:string,connection_reuse:string,response_body_bytes:int,workers:int,concurrency:int,requests_total:int,completed_requests:int,successful_requests:int,errors_total:int,timeouts_total:int,validation_failures:int,reconnects_total:int,rss_peak_bytes:int,duration_seconds:float,actual_duration_seconds:float,throughput_rps:float,error_rate:float,cpu_percent:float,extension_versions:array<string,string>,continuous_duration_passed:bool,correctness_passed:bool,latency_ms:array{p50:float,p95:float,p99:float},error_breakdown:array{connect:int,response_read:int,write:int},server_process_io:array{linux_procfs:bool,read_syscalls_delta:int,write_syscalls_delta:int,rchar_delta:int,wchar_delta:int,scope:string},socket_io:array{request_size_bytes:int,write_calls:int,write_bytes:int,write_would_block:int,read_calls:int,read_bytes:int,write_bytes_per_request:float,read_bytes_per_request:float,write_calls_per_request:float,read_calls_per_request:float}}
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
+function http1SustainedMain(array $argv): array
+{
+    $settings = http1SustainedArguments($argv);
+    $port = $settings['port'];
+    $concurrency = $settings['concurrency'];
+    $warmup = $settings['warmup'];
+    $duration = $settings['duration'];
+    $serverPid = $settings['server_pid'];
 
     if ($warmup > 0) {
         $warm = http1SustainedRun('127.0.0.1', $port, $concurrency, $warmup, $serverPid, false);
@@ -738,13 +892,7 @@ function http1SustainedMain(array $argv): array
     $counter = $measured['counter'];
     $failures = $counter['errors_total'] + $counter['timeouts_total'] + $counter['validation_failures'];
     $requests = $counter['requests_total'];
-    $ticks = function_exists('posix_sysconf') && defined('POSIX_SC_CLK_TCK')
-        ? posix_sysconf(POSIX_SC_CLK_TCK)
-        : false;
-    $ticksPerSecond = is_int($ticks) && $ticks > 0 ? $ticks : 100;
-    $cpu = $measured['elapsed'] > 0
-        ? max(0.0, (float) ($measured['end_ticks'] - $measured['start_ticks']) / (float) $ticksPerSecond / $measured['elapsed'] * 100.0)
-        : 0.0;
+    $cpu = http1SustainedCpuPercent($measured);
 
     // Keep the requested contract separate from the measured wall time.
     // An early exit (e.g. every client disconnected) cannot be a valid soak.
@@ -799,26 +947,7 @@ function http1SustainedMain(array $argv): array
             'wchar_delta' => max(0, $measured['io_end']['wchar'] - $measured['io_start']['wchar']),
             'scope' => 'whole-server-process-tree-not-socket-only',
         ],
-        'socket_io' => [
-            'request_size_bytes' => strlen(http1BenchRequest()),
-            'write_calls' => $counter['socket_write_calls'],
-            'write_bytes' => $counter['socket_write_bytes'],
-            'write_would_block' => $counter['write_would_block'],
-            'read_calls' => $counter['socket_read_calls'],
-            'read_bytes' => $counter['socket_read_bytes'],
-            'write_bytes_per_request' => $requests > 0
-                ? round($counter['socket_write_bytes'] / $requests, 3)
-                : 0.0,
-            'read_bytes_per_request' => $requests > 0
-                ? round($counter['socket_read_bytes'] / $requests, 3)
-                : 0.0,
-            'write_calls_per_request' => $requests > 0
-                ? round($counter['socket_write_calls'] / $requests, 6)
-                : 0.0,
-            'read_calls_per_request' => $requests > 0
-                ? round($counter['socket_read_calls'] / $requests, 6)
-                : 0.0,
-        ],
+        'socket_io' => http1SustainedSocketIo($counter, $requests),
         'correctness_passed' => $continuousDurationPassed
             && $requests > 0
             && $counter['completed_requests'] === $requests
@@ -829,7 +958,11 @@ function http1SustainedMain(array $argv): array
     return $result;
 }
 
-if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+$scriptFilename = $_SERVER['SCRIPT_FILENAME'] ?? null;
+if (is_string($scriptFilename) && realpath($scriptFilename) === __FILE__) {
+    if (!isset($argc, $argv)) {
+        throw new \RuntimeException('CLI arguments are unavailable.');
+    }
     $result = http1SustainedMain($argv);
     fwrite(STDOUT, json_encode($result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 }

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Closure;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -21,6 +23,7 @@ use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 
 /**
+ * @return array{string,string,string}
  * @throws \RuntimeException
  */
 function responseTransferTlsFiles(): array
@@ -36,7 +39,7 @@ function responseTransferTlsFiles(): array
         throw new \RuntimeException('Unable to generate Response Transfer Tls Test private key.');
     }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    if ($csr === false) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
         throw new \RuntimeException('Unable to create Response Transfer Tls Test certificate request.');
     }
     $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
@@ -205,6 +208,7 @@ it('streams through real TLS HTTP1 backpressure to a slow reader', function (): 
         });
         $loop->run();
         pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
 
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0);

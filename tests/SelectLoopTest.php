@@ -54,19 +54,21 @@ it('bounds a large deferred queue to the current tick without admitting callback
 it('skips a deferred callback cancelled by a prior callback within the same tick', function (): void {
     $loop = new SelectLoop();
     $seen = [];
-    $cancelled = (object) ['id' => null];
+    /** @var \ArrayObject<string,?int> $cancelled */
+    $cancelled = new \ArrayObject(['id' => null]);
 
     $loop->defer(function () use ($loop, $cancelled, &$seen): void {
         $seen[] = 'first';
-        if (!is_int($cancelled->id)) {
+        $watcherId = $cancelled['id'];
+        if (!is_int($watcherId)) {
             throw new \RuntimeException('Deferred cancellation watcher has not been registered.');
         }
-        expect($loop->cancel($cancelled->id))->toBeTrue();
+        expect($loop->cancel($watcherId))->toBeTrue();
     });
     $loop->defer(static function () use (&$seen): void {
         $seen[] = 'second';
     });
-    $cancelled->id = $loop->defer(static function () use (&$seen): void {
+    $cancelled['id'] = $loop->defer(static function () use (&$seen): void {
         $seen[] = 'cancelled';
     });
 
@@ -267,7 +269,7 @@ it('can stop while idle watchers remain registered', function (): void {
     fclose($reader);
     fclose($writer);
 
-    expect(true)->toBeTrue();
+    expect($loop->diagnostics()->readWatchers)->toBe(1);
 });
 
 it('rejects duplicate directional watchers on one stream', function (): void {
@@ -353,7 +355,8 @@ it('fails fast on permanent select failures while retaining recoverable cases', 
 
 it('prunes a writable watcher after its underlying resource is closed', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
 
     $loop = new SelectLoop();
     $called = false;

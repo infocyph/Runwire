@@ -7,6 +7,7 @@ use Infocyph\Runwire\Http\Headers;
 
 it('decodes fragmented fixed length HTTP/1.1 responses without retaining body bytes', function (): void {
     $parser = new Http1ClientResponseParser();
+    expect($parser->status())->toBeNull();
     $head = null;
     $body = [];
     $end = [];
@@ -25,6 +26,7 @@ it('decodes fragmented fixed length HTTP/1.1 responses without retaining body by
     expect($head)->toBe([200, '5'])
         ->and(implode('', $body))->toBe('hello')
         ->and($parser->done())->toBeTrue()
+        ->and($parser->status())->toBe(200)
         ->and($parser->keepAlive())->toBeTrue()
         ->and($end)->toBe([null]);
 });
@@ -48,12 +50,9 @@ it('handles chunked binary responses with split chunk framing and trailers', fun
     ] as $fragment) {
         $parser->push($fragment, $head, $data, $end);
     }
-    if (!$trailers instanceof Headers) {
-        throw new \RuntimeException('HTTP/1 response parser did not deliver its expected trailers.');
-    }
+    \PHPUnit\Framework\Assert::assertInstanceOf(Headers::class, $trailers);
     expect($body)->toBe("ab\0cd")
         ->and($parser->done())->toBeTrue()
-        ->and($trailers)->toBeInstanceOf(Headers::class)
         ->and($trailers->first('x-end'))->toBe('yes');
 });
 
@@ -125,4 +124,3 @@ it('honors tokenized Connection close and rejects malformed chunk extension cont
         static function (): void {},
     ))->toThrow(RuntimeException::class, 'chunk extension');
 });
-

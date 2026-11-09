@@ -59,10 +59,7 @@ function runwireOwnedHttp3ClientControlTestCase02(): void
     }
 
     $peerSettings = $client->peerSettings();
-    expect($peerSettings)->not->toBeNull();
-    if ($peerSettings === null) {
-        throw new \RuntimeException('HTTP/3 control stream did not retain SETTINGS.');
-    }
+    \PHPUnit\Framework\Assert::assertNotNull($peerSettings);
     expect($peerSettings->qpackMaxTableCapacity())->toBe(0);
     $wrong = new Http3ClientControl();
     $wrong->start();

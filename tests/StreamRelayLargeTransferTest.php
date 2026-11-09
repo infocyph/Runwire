@@ -10,11 +10,10 @@ use Infocyph\Runwire\Network\StreamRelay;
 it('preserves a one-megabyte stream through bounded relay queues while the downstream peer stalls', function (): void {
     $upstreamPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $downstreamPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($upstreamPair === false || $downstreamPair === false || count($upstreamPair) !== 2 || count($downstreamPair) !== 2) {
-        throw new \RuntimeException('Large-relay test requires two complete socket pairs.');
-    }
-    expect($upstreamPair)->toBeArray()->toHaveCount(2)
-        ->and($downstreamPair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($upstreamPair);
+    \PHPUnit\Framework\Assert::assertIsArray($downstreamPair);
+    \PHPUnit\Framework\Assert::assertCount(2, $upstreamPair);
+    \PHPUnit\Framework\Assert::assertCount(2, $downstreamPair);
     [$upstreamSocket, $upstreamPeer] = $upstreamPair;
     [$downstreamSocket, $downstreamPeer] = $downstreamPair;
     stream_set_blocking($upstreamPeer, false);
@@ -51,13 +50,15 @@ it('preserves a one-megabyte stream through bounded relay queues while the downs
 
     try {
         $relay->start();
-        $writer = (object) ['id' => null];
-        $writer->id = $loop->onWritable($upstreamPeer, static function ($stream) use (&$offset, $total, $payload, $loop, $writer): void {
+        /** @var \ArrayObject<string,?int> $writer */
+    $writer = new \ArrayObject(['id' => null]);
+        $writer['id'] = $loop->onWritable($upstreamPeer, static function ($stream) use (&$offset, $total, $payload, $loop, $writer): void {
             if ($offset >= $total) {
-                if (!is_int($writer->id)) {
+                $watcherId = $writer['id'];
+                if (!is_int($watcherId)) {
                     throw new \RuntimeException('Relay writable watcher was never registered.');
                 }
-                $loop->cancel($writer->id);
+                $loop->cancel($watcherId);
 
                 return;
             }
@@ -66,13 +67,14 @@ it('preserves a one-megabyte stream through bounded relay queues while the downs
                 $offset += $written;
             }
             if ($offset === $total) {
-                if (!is_int($writer->id)) {
+                $watcherId = $writer['id'];
+                if (!is_int($watcherId)) {
                     throw new \RuntimeException('Relay writable watcher was never registered.');
                 }
-                $loop->cancel($writer->id);
+                $loop->cancel($watcherId);
             }
         });
-        $watchers[] = $writer->id;
+        $watchers[] = $writer->offsetGet('id') ?? throw new \RuntimeException('Relay writable watcher was never registered.');
         $timer = $loop->repeat(0.01, static function () use ($downstream, &$maxQueued): void {
             $maxQueued = max($maxQueued, $downstream->pendingWriteBytes());
         });

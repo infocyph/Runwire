@@ -45,9 +45,13 @@ PHP);
             ->and(implode("\n", $wrapperMessages))->toContain('Usage: php tools/public-api-manifest.php');
 
         $json = file_get_contents($manifest);
-        expect($json)->toBeString();
+        \PHPUnit\Framework\Assert::assertIsString($json);
         $decoded = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+        \PHPUnit\Framework\Assert::assertIsArray($decoded);
+        \PHPUnit\Framework\Assert::assertIsArray($decoded['symbols']);
+        \PHPUnit\Framework\Assert::assertIsArray($decoded['symbols']['Example\\Fixture']);
         $fields = $decoded['symbols']['Example\\Fixture']['publicProperties'];
+        \PHPUnit\Framework\Assert::assertIsArray($fields);
         expect(array_keys($fields))->toBe(['label', 'name'])
             ->and($fields['label'])->toContain('public readonly string $label')
             ->and($fields['name'])->toContain('public string $name')

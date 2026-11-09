@@ -11,9 +11,7 @@ it('profiles real process-backed file operations without certification claims', 
     expect($status)->toBe(0, implode("\n", $lines));
 
     $report = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
-    if (!is_array($report)) {
-        throw new RuntimeException('Worker profile must produce a JSON object.');
-    }
+    \PHPUnit\Framework\Assert::assertIsArray($report);
     expect($report['schemaVersion'])->toBe(1)
         ->and($report['releaseCertified'])->toBeFalse()
         ->and($report['correctnessPassed'])->toBeTrue()
@@ -62,9 +60,7 @@ it('profiles identical verified bytes under one and two worker processes', funct
         );
         expect($status)->toBe(0, implode("\n", $lines));
         $report = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
-        if (!is_array($report)) {
-            throw new RuntimeException('Worker-count profile must produce a JSON object.');
-        }
+        \PHPUnit\Framework\Assert::assertIsArray($report);
         $runs[$workerCount] = $report;
         expect($runs[$workerCount]['configuredWorkers'])->toBe($workerCount)
             ->and($runs[$workerCount]['verifiedRoundTrips'])->toBe(8)

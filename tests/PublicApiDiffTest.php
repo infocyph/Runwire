@@ -7,7 +7,7 @@ it('diffs immutable PHP source API signatures deterministically without requirin
     expect(is_file($path))->toBeTrue();
 
     $packet = tempnam(sys_get_temp_dir(), 'runwire-api-diff-');
-    expect($packet)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($packet);
 
     $base = [
         'schemaVersion' => 1,
@@ -75,6 +75,7 @@ it('diffs immutable PHP source API signatures deterministically without requirin
         exec($command . ' 2>&1', $lines, $status);
         expect($status)->toBe(0, implode("\n", $lines));
         $diff = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
+        \PHPUnit\Framework\Assert::assertIsArray($diff);
 
         expect($diff['baselineRevision'])->toBe(str_repeat('a', 40))
             ->and($diff['candidateRevision'])->toBe(str_repeat('b', 40))
@@ -85,6 +86,7 @@ it('diffs immutable PHP source API signatures deterministically without requirin
             ->and($diff['added'])->toContain(['type' => 'added_type', 'symbol' => 'Example\\Added'])
             ->and($diff['breaking'])->toContain(['type' => 'removed_property', 'symbol' => 'Example\\Legacy::$oldFlag'])
             ->and($diff['propertyInventoryCompared'])->toBeFalse();
+        \PHPUnit\Framework\Assert::assertIsArray($diff['changed']);
         expect(array_column($diff['changed'], 'type'))->toContain(
             'method_signature',
             'removed_or_changed_constant',
@@ -104,7 +106,7 @@ it('diffs immutable PHP source API signatures deterministically without requirin
         expect($status)->not->toBe(0)
             ->and(implode("\n", $rejected))->toContain('JSON document envelope');
     } finally {
-        if (is_string($packet) && is_file($packet)) {
+        if (is_file($packet)) {
             unlink($packet);
         }
     }

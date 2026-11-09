@@ -29,7 +29,8 @@ it('requires the bounded off-loop executor instead of silently selecting synchro
         ->not->toContain('stream_get_contents(');
 
     $manual = file_get_contents(__DIR__ . '/../docs/async-file-io-3.0.rst');
-    expect($manual)->toBeString()
+    \PHPUnit\Framework\Assert::assertIsString($manual);
+    expect($manual)
         ->toContain('No native filesystem accelerator is currently qualified')
         ->toContain('only supported implementation');
 });

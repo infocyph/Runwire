@@ -82,15 +82,15 @@ function persistentRuntimeApplication(
 }
 
 it('always runs request cleanup when an application handler fails', function (): void {
-    $state = null;
+    $state = new class { public ?string $value = null; };
     $cleanups = 0;
     $application = new RuntimeApplication(
-        static function () use (&$state): void {
-            $state = 'dirty';
+        static function () use ($state): void {
+            $state->value = 'dirty';
             throw new RuntimeException('handler failed');
         },
-        static function () use (&$state, &$cleanups): void {
-            $state = null;
+        static function () use ($state, &$cleanups): void {
+            $state->value = null;
             ++$cleanups;
         },
     );
@@ -99,7 +99,7 @@ it('always runs request cleanup when an application handler fails', function ():
         persistentRuntimeRequest('/failure'),
         persistentRuntimeWriter(),
     ))->toThrow(RuntimeException::class, 'handler failed')
-        ->and($state)->toBeNull()
+        ->and($state->value)->toBeNull()
         ->and($cleanups)->toBe(1);
 });
 
@@ -238,6 +238,7 @@ it('isolates consecutive Swoole requests while native host request recycling use
             private readonly array $responses,
         ) {}
 
+        /** @param callable(object,object):void $handler */
         public function on(string $event, callable $handler): bool
         {
             if (strtolower($event) !== 'request') {
@@ -264,12 +265,13 @@ it('isolates consecutive Swoole requests while native host request recycling use
 
         public function start(): bool
         {
-            if ($this->requestHandler === null) {
+            $requestHandler = $this->requestHandler;
+            if ($requestHandler === null) {
                 return false;
             }
 
             foreach ($this->requests as $index => $request) {
-                ($this->requestHandler)($request, $this->responses[$index]);
+                $requestHandler($request, $this->responses[$index]);
             }
 
             return true;

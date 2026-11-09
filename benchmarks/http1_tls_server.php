@@ -13,6 +13,9 @@ use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Server;
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 5) {
     throw new InvalidArgumentException('Usage: tls_server.php <root> <port> <certificate> <key>');
 }

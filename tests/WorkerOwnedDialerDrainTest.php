@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
@@ -45,6 +47,7 @@ it('rejects inherited outbound dial state but keeps the original process owner v
     try {
         $child = stream_get_contents($reader);
         pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($child)->toBe('6')
@@ -60,9 +63,9 @@ it('rejects inherited outbound dial state but keeps the original process owner v
 
 it('closes real pending dial sockets through worker ownership once', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $code, $error);
-    expect($server)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($server);
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
 
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);

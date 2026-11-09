@@ -12,10 +12,9 @@ use stdClass;
 
 it('refuses pool reuse of streams owned by callbacks scopes or close observers', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);
@@ -24,8 +23,8 @@ it('refuses pool reuse of streams owned by callbacks scopes or close observers',
     try {
         expect($connection->isPoolIdleSafe())->toBeTrue();
         $observer = $connection->registerCloseObserver(static function (): void {});
-        expect($observer)->toBeInt()
-            ->and($connection->isPoolIdleSafe())->toBeFalse();
+        \PHPUnit\Framework\Assert::assertIsInt($observer);
+        expect($connection->isPoolIdleSafe())->toBeFalse();
         $connection->unregisterCloseObserver($observer);
         expect($connection->isPoolIdleSafe())->toBeTrue();
 
@@ -58,10 +57,9 @@ it('refuses pool reuse of streams owned by callbacks scopes or close observers',
 
 it('rejects pool reuse when there are unread bytes or configured protocol callbacks', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);

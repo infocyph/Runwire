@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-/** @return array<string, int|bool> */
+/**
+ * @return array<string, int|bool>
+ * @throws \RuntimeException
+ */
 function soakRuntimeSnapshot(): array
 {
     $gc = gc_status();
@@ -28,18 +31,37 @@ function soakRuntimeSnapshot(): array
     ];
 }
 
-/**
- * @param list<array<string, int|float|bool>> $samples
- * @return array<string, int|float|bool|string>
- * @throws \InvalidArgumentException
- */
-function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSeconds = 1_740.0): array
+/** @param list<array<string,int|float|bool>> $rows */
+function soakRuntimeMedian(array $rows, string $key): float
 {
-    if ($minimumDurationSeconds <= 0 || !is_finite($minimumDurationSeconds)) {
-        throw new InvalidArgumentException('Internal soak minimum duration must be positive and finite.');
+    if ($rows === []) {
+        return 0.0;
     }
+    $values = array_map(static fn(array $row): int => (int) $row[$key], $rows);
+    sort($values, SORT_NUMERIC);
+    $at = intdiv(count($values), 2);
 
-    $duration = $samples === [] ? 0.0 : (float) $samples[count($samples) - 1]['elapsed_seconds'];
+    return count($values) % 2 === 0
+        ? ($values[$at - 1] + $values[$at]) / 2
+        : (float) $values[$at];
+}
+
+/** @param array<string,int|float|bool> $sample */
+function soakRuntimeSampleValid(array $sample, float $elapsed, float $previousElapsed, int $allocated, int $used, int $gcRoots, int $gcRuns, int $previousGcRuns, int $gcCollected, int $previousGcCollected): bool
+{
+    return !(!is_finite($elapsed) || $elapsed <= $previousElapsed
+            || $allocated <= 0 || $used < 0 || $gcRoots < 0 || $gcRuns < $previousGcRuns
+            || $gcCollected < $previousGcCollected
+            || ($sample['gc_enabled'] ?? false) !== true
+            || ($sample['opcache_enabled'] ?? false) !== true);
+}
+
+/**
+ * @param list<array<string,int|float|bool>> $samples
+ * @return array{early:list<array<string,int|float|bool>>,late:list<array<string,int|float|bool>>,valid:bool}
+ */
+function soakRuntimeWindows(array $samples, float $duration): array
+{
     $early = [];
     $late = [];
     $previousElapsed = -1.0;
@@ -55,11 +77,7 @@ function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSecon
         $gcRuns = (int) ($sample['gc_runs'] ?? -1);
         $gcCollected = (int) ($sample['gc_collected'] ?? -1);
 
-        if (!is_finite($elapsed) || $elapsed <= $previousElapsed
-            || $allocated <= 0 || $used < 0 || $gcRoots < 0 || $gcRuns < $previousGcRuns
-            || $gcCollected < $previousGcCollected
-            || ($sample['gc_enabled'] ?? false) !== true
-            || ($sample['opcache_enabled'] ?? false) !== true) {
+        if (!soakRuntimeSampleValid($sample, $elapsed, $previousElapsed, $allocated, $used, $gcRoots, $gcRuns, $previousGcRuns, $gcCollected, $previousGcCollected)) {
             $valid = false;
 
             break;
@@ -76,27 +94,32 @@ function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSecon
         }
     }
 
+    return compact('early', 'late', 'valid');
+}
+
+/**
+ * @param list<array<string, int|float|bool>> $samples
+ * @return array<string, int|float|bool|string>
+ * @throws \InvalidArgumentException
+ */
+function soakAnalyzeRuntimeSnapshots(array $samples, float $minimumDurationSeconds = 1_740.0): array
+{
+    if ($minimumDurationSeconds <= 0 || !is_finite($minimumDurationSeconds)) {
+        throw new InvalidArgumentException('Internal soak minimum duration must be positive and finite.');
+    }
+
+    $duration = $samples === [] ? 0.0 : (float) $samples[count($samples) - 1]['elapsed_seconds'];
+    ['early' => $early, 'late' => $late, 'valid' => $valid] = soakRuntimeWindows($samples, $duration);
+
     $enough = $valid && $duration >= $minimumDurationSeconds
         && count($samples) >= 100 && count($early) >= 8 && count($late) >= 8;
-    $median = static function (array $rows, string $key): float {
-        if ($rows === []) {
-            return 0.0;
-        }
-        $values = array_map(static fn(array $row): int => (int) $row[$key], $rows);
-        sort($values, SORT_NUMERIC);
-        $at = intdiv(count($values), 2);
 
-        return count($values) % 2 === 0
-            ? ($values[$at - 1] + $values[$at]) / 2
-            : (float) $values[$at];
-    };
-
-    $earlyHeap = $median($early, 'allocated_bytes');
-    $lateHeap = $median($late, 'allocated_bytes');
-    $earlyRoots = $median($early, 'gc_roots');
-    $lateRoots = $median($late, 'gc_roots');
-    $earlyCache = $median($early, 'opcache_used_bytes');
-    $lateCache = $median($late, 'opcache_used_bytes');
+    $earlyHeap = soakRuntimeMedian($early, 'allocated_bytes');
+    $lateHeap = soakRuntimeMedian($late, 'allocated_bytes');
+    $earlyRoots = soakRuntimeMedian($early, 'gc_roots');
+    $lateRoots = soakRuntimeMedian($late, 'gc_roots');
+    $earlyCache = soakRuntimeMedian($early, 'opcache_used_bytes');
+    $lateCache = soakRuntimeMedian($late, 'opcache_used_bytes');
     $passed = $enough
         && $lateHeap <= $earlyHeap * 1.15 + 16_777_216.0
         && $lateRoots <= $earlyRoots + 2_048.0
@@ -197,7 +220,11 @@ function soakSampleRuntimeHttp(int $port, int $rootPid, string $path, int $inter
     }
 }
 
-if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+$scriptFilename = $_SERVER['SCRIPT_FILENAME'] ?? null;
+if (is_string($scriptFilename) && realpath($scriptFilename) === __FILE__) {
+    if (!isset($argc, $argv)) {
+        throw new \RuntimeException('CLI arguments are unavailable.');
+    }
     if ($argc === 6 && $argv[1] === 'sample') {
         soakSampleRuntimeHttp((int) $argv[2], (int) $argv[3], $argv[4], (int) $argv[5]);
     } elseif ($argc === 4 && $argv[1] === 'analyze') {

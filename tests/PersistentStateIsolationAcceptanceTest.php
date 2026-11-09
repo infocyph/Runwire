@@ -9,6 +9,7 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -55,7 +56,7 @@ it('does not leak mutable request state across a long-lived application process'
     $requests = 30;
     $policy = new RequestExecutionPolicy(maxExecutionSeconds: 0.001);
     $application = new RuntimeApplication(
-        static function (HttpRequest $request, CallbackResponseWriter $writer) use ($state, &$seenClean): void {
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($state, &$seenClean): void {
             expect($state->clean())->toBeTrue();
             ++$seenClean;
 

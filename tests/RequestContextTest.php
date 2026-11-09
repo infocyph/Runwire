@@ -130,7 +130,7 @@ it('cancels once and isolates observer failures', function (): void {
     $called = 0;
 
     $token->onCancel(static function (CancellationToken $token): void {
-        throw new LogicException($token->reason()?->value ?? 'missing');
+        throw new LogicException($token->reason()->value ?? 'missing');
     });
     $token->onCancel(static function (CancellationToken $token) use (&$called): void {
         if ($token->isCancelled()) {

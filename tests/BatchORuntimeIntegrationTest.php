@@ -55,6 +55,7 @@ function batchOWriter(): ResponseWriterInterface
 }
 
 it('drains request-owned coroutine work before resetters and request completion', function (): void {
+    /** @var ArrayObject<int,string> $events */
     $events = new ArrayObject();
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
@@ -82,6 +83,7 @@ it('drains request-owned coroutine work before resetters and request completion'
         requestExecution: new RequestExecutionPolicy(maxExecutionSeconds: 5.0),
         lifecycle: new ApplicationLifecycleHooks(resetters: [
             new class($events, $runtime) implements RequestResetterInterface {
+                /** @param ArrayObject<int,string> $events */
                 public function __construct(
                     private readonly ArrayObject $events,
                     private readonly CoroutineRuntime $runtime,
@@ -150,6 +152,7 @@ it('isolates task-local state across consecutive requests on one persistent coro
 });
 
 it('propagates request cancellation through suspended coroutine children before reset', function (): void {
+    /** @var ArrayObject<int,string> $events */
     $events = new ArrayObject();
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
@@ -182,6 +185,7 @@ it('propagates request cancellation through suspended coroutine children before 
         $handler,
         lifecycle: new ApplicationLifecycleHooks(resetters: [
             new class($events, $runtime) implements RequestResetterInterface {
+                /** @param ArrayObject<int,string> $events */
                 public function __construct(
                     private readonly ArrayObject $events,
                     private readonly CoroutineRuntime $runtime,

@@ -35,9 +35,6 @@ final class Http2Connection
 
     private readonly FlowController $flow;
 
-    /** @var Closure(HttpRequest, Http2ResponseWriter): void */
-    private readonly Closure $handler;
-
     private readonly ResponseScheduler $output;
 
     private readonly FrameParser $parser;
@@ -80,7 +77,6 @@ final class Http2Connection
         callable $handler,
     ) {
         $handlerClosure = Closure::fromCallable($handler);
-        $this->handler = $handlerClosure;
         $this->parser = new FrameParser($limits->maxInboundFrameSize, $connection->bufferBudget());
         $this->peerSettings = new PeerSettings();
         $this->encoder = new Encoder($limits->maxDynamicTableBytes);
@@ -107,7 +103,7 @@ final class Http2Connection
             peerSettings: $this->peerSettings,
             flow: $this->flow,
             output: $this->output,
-            handler: $this->handler,
+            handler: $handlerClosure,
             connectionFailure: fn(ErrorCode $code, string $message) => $this->failConnection($code, $message),
             rotationRequested: fn() => $this->drain(),
             streamFailure: fn(StreamError $error) => $this->handleStreamError($error),

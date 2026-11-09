@@ -14,10 +14,9 @@ use Infocyph\Runwire\Network\PoolIsolationKey;
 
 it('reuses one verified H1 socket for two sequential framed responses without body bleed', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if ($pair === false || count($pair) !== 2) {
-        throw new \RuntimeException('Socket pair fixture did not return two connected streams.');
-    }
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $server] = $pair;
     stream_set_blocking($server, false);
     $loop = new SelectLoop();
@@ -36,8 +35,7 @@ it('reuses one verified H1 socket for two sequential framed responses without bo
             $seenWire .= $bytes;
         }
 
-        while (str_contains($seenWire, "\r\n\r\n") && $requests < 2) {
-            $end = strpos($seenWire, "\r\n\r\n");
+        while (($end = strpos($seenWire, "\r\n\r\n")) !== false && $requests < 2) {
             $head = substr($seenWire, 0, $end + 4);
             $seenWire = substr($seenWire, $end + 4);
             ++$requests;
@@ -52,12 +50,11 @@ it('reuses one verified H1 socket for two sequential framed responses without bo
         $loop->stop();
     });
 
-    $send = null;
     $send = static function (string $path) use (
         $loop, $pool, $key, $policy, &$send, &$status, &$bodies, &$lastError,
     ): void {
         $candidate = $pool->take($key);
-        expect($candidate)->toBeInstanceOf(Connection::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $candidate);
         $index = count($status);
         $bodies[$index] = '';
         $exchange = new Http1ConnectedExchange(

@@ -79,6 +79,7 @@ final class IdleConnectionPool
      * Retain an already verified stream only when its previous protocol owner
      * has released every callback/byte. Failure closes the offered socket.
      * @throws \Throwable
+     * @phpstan-impure
      */
     public function store(PoolIsolationKey $key, Connection $connection): bool
     {
@@ -163,6 +164,7 @@ final class IdleConnectionPool
      * Borrow one healthy, identity-matched connection; never hand back stale
      * or unverified buffer state even when the peer wrote during idle time.
      * @throws \LogicException
+     * @phpstan-impure
      */
     public function take(PoolIsolationKey $key): ?Connection
     {
