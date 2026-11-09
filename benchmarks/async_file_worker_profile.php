@@ -28,7 +28,7 @@ function runwireFileProfileProcessTree(int $root): array
     $processes = 0;
     while ($queue !== [] && count($seen) < 64) {
         $pid = array_shift($queue);
-        if (!is_int($pid) || $pid < 1 || isset($seen[$pid])) {
+        if ($pid < 1 || isset($seen[$pid])) {
             continue;
         }
         $seen[$pid] = true;
@@ -109,7 +109,6 @@ $fail = static function (Throwable $error) use (&$failure, $loop): void {
     $failure ??= $error;
     $loop->stop();
 };
-$tick = null;
 $tick = static function () use (
     &$tick,
     &$heartbeatTimer,
@@ -134,7 +133,11 @@ $tick = static function () use (
     $lastTick = $now;
     if ($treeAvailable && ($heartbeats === 1 || $heartbeats % 5 === 0)) {
         ++$treeSamples;
-        $snapshot = runwireFileProfileProcessTree(getmypid());
+        $pid = getmypid();
+        if ($pid === false) {
+            throw new RuntimeException('Unable to sample the filesystem profile worker PID.');
+        }
+        $snapshot = runwireFileProfileProcessTree($pid);
         $treePeakRssBytes = max($treePeakRssBytes, $snapshot['rssBytes']);
         $treePeakCpuTicks = max($treePeakCpuTicks, $snapshot['cpuTicks']);
         $treePeakProcessCount = max($treePeakProcessCount, $snapshot['processes']);

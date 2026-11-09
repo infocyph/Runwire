@@ -7,6 +7,22 @@ if ($argc !== 3) {
 }
 
 /**
+ * Validate a benchmark metric before using it in numerical comparisons.
+ *
+ * @param array<string, mixed> $summary
+ * @throws \RuntimeException
+ */
+function regressionSummaryMetric(array $summary, string $field): float
+{
+    $value = $summary[$field] ?? null;
+    if ((!is_int($value) && !is_float($value)) || !is_finite((float) $value)) {
+        throw new RuntimeException(sprintf('Benchmark summary requires finite numeric "%s".', $field));
+    }
+
+    return (float) $value;
+}
+
+/**
  * @return array<string, mixed>
  * @throws \RuntimeException
  */
@@ -35,16 +51,13 @@ function loadSummary(string $path): array
         'median_successful_rps', 'median_successful_rpm', 'rps_cv_percent',
         'median_p99_ms', 'peak_rss_bytes',
     ] as $field) {
-        if (!isset($decoded[$field]) || (!is_int($decoded[$field]) && !is_float($decoded[$field]))
-            || !is_finite((float) $decoded[$field])) {
-            throw new RuntimeException(sprintf('Summary "%s" requires finite numeric "%s".', $path, $field));
-        }
+        regressionSummaryMetric($decoded, $field);
     }
-    if (($decoded['trials'] < 5) || $decoded['duration_seconds_per_trial'] < 180
-        || $decoded['workers'] <= 0 || $decoded['concurrency'] <= 0
-        || $decoded['median_successful_rps'] <= 0 || $decoded['median_successful_rpm'] <= 0
-        || $decoded['rps_cv_percent'] < 0 || $decoded['median_p99_ms'] < 0
-        || $decoded['peak_rss_bytes'] < 0) {
+    if ((regressionSummaryMetric($decoded, 'trials') < 5) || regressionSummaryMetric($decoded, 'duration_seconds_per_trial') < 180
+        || regressionSummaryMetric($decoded, 'workers') <= 0 || regressionSummaryMetric($decoded, 'concurrency') <= 0
+        || regressionSummaryMetric($decoded, 'median_successful_rps') <= 0 || regressionSummaryMetric($decoded, 'median_successful_rpm') <= 0
+        || regressionSummaryMetric($decoded, 'rps_cv_percent') < 0 || regressionSummaryMetric($decoded, 'median_p99_ms') < 0
+        || regressionSummaryMetric($decoded, 'peak_rss_bytes') < 0) {
         throw new RuntimeException(sprintf('Summary "%s" has invalid measurement ranges.', $path));
     }
     if (($decoded['correctness_passed'] ?? null) !== true) {
@@ -75,19 +88,19 @@ foreach ([
     }
 }
 
-$baselineRps = (float) $baseline['median_successful_rps'];
-$candidateRps = (float) $candidate['median_successful_rps'];
-$baselineCv = (float) $baseline['rps_cv_percent'];
-$candidateCv = (float) $candidate['rps_cv_percent'];
+$baselineRps = regressionSummaryMetric($baseline, 'median_successful_rps');
+$candidateRps = regressionSummaryMetric($candidate, 'median_successful_rps');
+$baselineCv = regressionSummaryMetric($baseline, 'rps_cv_percent');
+$candidateCv = regressionSummaryMetric($candidate, 'rps_cv_percent');
 $maxCv = max($baselineCv, $candidateCv);
 $regressionPercent = (($candidateRps - $baselineRps) / $baselineRps) * 100.0;
 $budgetPercent = 5.0;
 $varianceCeilingPercent = 2.5;
 $enforced = $maxCv < $varianceCeilingPercent;
-$baselineP99 = (float) $baseline['median_p99_ms'];
-$candidateP99 = (float) $candidate['median_p99_ms'];
-$baselineRss = (float) $baseline['peak_rss_bytes'];
-$candidateRss = (float) $candidate['peak_rss_bytes'];
+$baselineP99 = regressionSummaryMetric($baseline, 'median_p99_ms');
+$candidateP99 = regressionSummaryMetric($candidate, 'median_p99_ms');
+$baselineRss = regressionSummaryMetric($baseline, 'peak_rss_bytes');
+$candidateRss = regressionSummaryMetric($candidate, 'peak_rss_bytes');
 
 // Reuse Runwire's already-established adaptive-promotion safety margins:
 // a p99 regression must exceed BOTH 15% and 0.5 ms; RSS must exceed 110% + 4 MiB.
@@ -95,7 +108,7 @@ $candidateRss = (float) $candidate['peak_rss_bytes'];
 $p99RelativeCeiling = 1.15;
 $p99AbsoluteToleranceMs = 0.5;
 $rssRelativeCeiling = 1.10;
-$rssAbsoluteToleranceBytes = 4_194_304;
+$rssAbsoluteToleranceBytes = 4_194_304.0;
 $p99Passed = $candidateP99 <= $baselineP99 * $p99RelativeCeiling
     || $candidateP99 - $baselineP99 <= $p99AbsoluteToleranceMs;
 $rssLimitBytes = $baselineRss * $rssRelativeCeiling + $rssAbsoluteToleranceBytes;
