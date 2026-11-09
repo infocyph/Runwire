@@ -737,7 +737,7 @@ function adaptivePromotionMain(array $argv): int
         return 0;
     }
 
-    $output = rtrim((string) $options['output'], '/');
+    $output = rtrim($options['output'], '/');
     $environmentPath = $output . '/' . $options['protocol'] . '-environment.json';
     if ($options['action'] === 'evaluate') {
         $report = adaptivePromotionEvaluate(

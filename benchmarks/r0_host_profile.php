@@ -103,7 +103,7 @@ function runwireR0HostProfile(int $iterations = 5_000, int $warmup = 1_000): arr
             'p50_us' => round($durations[(int) floor((float) ($length - 1) * 0.50)], 3),
             'p95_us' => round($durations[(int) floor((float) ($length - 1) * 0.95)], 3),
             'p99_us' => round($durations[(int) floor((float) ($length - 1) * 0.99)], 3),
-            'mean_us' => round((float) array_sum($durations) / (float) $length, 3),
+            'mean_us' => round(array_sum($durations) / (float) $length, 3),
         ];
     }
 

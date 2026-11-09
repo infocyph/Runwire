@@ -144,7 +144,7 @@ $childCpuUs = max(0, $usage($childrenAfter) - $usage($childrenBefore));
 $parentRssBytes = (int) ($after['ru_maxrss'] ?? 0) * 1024;
 $childrenRssBytes = (int) ($childrenAfter['ru_maxrss'] ?? 0) * 1024;
 sort($latencies, SORT_NUMERIC);
-$seconds = (float) array_sum($latencies) / 1_000.0;
+$seconds = array_sum($latencies) / 1_000.0;
 if ($seconds <= 0.0 || count($latencies) !== $count) {
     throw new RuntimeException('Insufficient complete protocol samples.');
 }

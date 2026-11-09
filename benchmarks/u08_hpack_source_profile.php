@@ -107,7 +107,7 @@ function runwireHpackMicroprofileMeasure(callable $operation, int $iterations): 
         $samples[] = $duration / $iterations;
     }
     sort($samples, SORT_NUMERIC);
-    $average = (float) array_sum($samples) / (float) count($samples);
+    $average = array_sum($samples) / (float) count($samples);
     $variance = array_sum(array_map(
         static fn(float $ns): float => ($ns - $average) ** 2.0,
         $samples,

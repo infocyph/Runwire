@@ -19,7 +19,7 @@ function adaptiveHttp1Phase(array $run): array
         : 100;
     $ticksPerSecond = max(1, $ticksPerSecond);
     $cpu = $run['elapsed'] > 0
-        ? max(0.0, (float) ($run['end_ticks'] - $run['start_ticks']) / (float) $ticksPerSecond / (float) $run['elapsed'] * 100.0)
+        ? max(0.0, (float) ($run['end_ticks'] - $run['start_ticks']) / (float) $ticksPerSecond / $run['elapsed'] * 100.0)
         : 0.0;
     $p50 = http1SustainedPercentile($run['histogram'], 0.50);
     $p95 = http1SustainedPercentile($run['histogram'], 0.95);
@@ -36,7 +36,7 @@ function adaptiveHttp1Phase(array $run): array
         'requests' => $requests,
         'errors' => 0,
         'duration_seconds' => $run['elapsed'],
-        'throughput_rps' => $run['elapsed'] > 0 ? round((float) $requests / (float) $run['elapsed'], 3) : 0.0,
+        'throughput_rps' => $run['elapsed'] > 0 ? round((float) $requests / $run['elapsed'], 3) : 0.0,
         'p50_ms' => $p50,
         'p95_ms' => $p95,
         'p99_ms' => $p99,
