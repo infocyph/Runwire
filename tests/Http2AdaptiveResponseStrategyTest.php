@@ -10,6 +10,14 @@ use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use InvalidArgumentException;
 
 it('adapts HTTP2 initial-response wire intent from sustained protocol load', function (): void {
+    runwireOwnedHttp2AdaptiveResponseStrategyTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2AdaptiveResponseStrategyTestCase01(): void
+{
     $strategy = new AdaptiveResponseStrategy();
     $low = new AdaptiveLoadSample(false, 0, 0);
 
@@ -32,12 +40,20 @@ it('adapts HTTP2 initial-response wire intent from sustained protocol load', fun
 
     expect($throughputStrategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
         ->and($limit)->toBe(256);
-});
+}
 
 it('keeps HTTP2 adaptive budgets ordered and bounded', function (): void {
+    runwireOwnedHttp2AdaptiveResponseStrategyTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2AdaptiveResponseStrategyTestCase02(): void
+{
     expect(fn() => new AdaptiveResponseStrategy(
         latencyWireBytes: 512,
         balancedWireBytes: 768,
         throughputWireBytes: 256,
     ))->toThrow(InvalidArgumentException::class);
-});
+}

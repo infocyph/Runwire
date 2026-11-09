@@ -11,6 +11,14 @@ use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 
 it('preserves binary data and releases the worker budget across all RFC6455 length thresholds', function (): void {
+    runwireOwnedWebSocketAdversarialFrameTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketAdversarialFrameTestCase01(): void
+{
     $options = new WebSocketOptions(
         maxFramePayloadBytes: 65_536,
         maxMessageBytes: 131_072,
@@ -35,9 +43,17 @@ it('preserves binary data and releases the worker budget across all RFC6455 leng
             ->and($parser->bufferedBytes())->toBe(0)
             ->and($budget->used())->toBe(0);
     }
-});
+}
 
 it('rejects reserved flags and opcodes on both WebSocket masking roles', function (): void {
+    runwireOwnedWebSocketAdversarialFrameTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketAdversarialFrameTestCase02(): void
+{
     $options = new WebSocketOptions();
     foreach ([0xC1, 0xA1, 0x91, 0xF1, 0x83, 0x8B, 0x8F] as $first) {
         $parser = new WebSocketFrameParser($options);
@@ -55,9 +71,17 @@ it('rejects reserved flags and opcodes on both WebSocket masking roles', functio
     $maskedServer->append(WebSocketWireCodec::clientFrame(0x1, 'bad'));
     expect(static fn() => $maskedServer->parse(1))
         ->toThrow(WebSocketProtocolException::class, 'must not be masked');
-});
+}
 
 it('fails closed on nonminimal lengths and the reserved 64-bit high bit', function (): void {
+    runwireOwnedWebSocketAdversarialFrameTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketAdversarialFrameTestCase03(): void
+{
     $options = new WebSocketOptions();
     foreach ([
         "\x82\xFE\x00\x7D",
@@ -69,13 +93,21 @@ it('fails closed on nonminimal lengths and the reserved 64-bit high bit', functi
         expect(static fn() => $parser->parse(1))
             ->toThrow(WebSocketProtocolException::class);
     }
-});
+}
 
 it('rejects malformed close codes and invalid UTF-8 close reasons', function (): void {
+    runwireOwnedWebSocketAdversarialFrameTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketAdversarialFrameTestCase04(): void
+{
     foreach ([1005, 1006, 1015, 2999] as $code) {
         expect(static fn() => WebSocketWireCodec::parseClosePayload(pack('n', $code)))
             ->toThrow(WebSocketProtocolException::class);
     }
     expect(static fn() => WebSocketWireCodec::parseClosePayload("\x03\xE8\xFF"))
         ->toThrow(WebSocketProtocolException::class, 'UTF-8');
-});
+}

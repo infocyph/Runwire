@@ -30,6 +30,14 @@ function h3TestPolicy(): ClientProtocolPolicy
 }
 
 it('builds QPACK-unblocked HTTPS GET with exact origin pseudo-headers', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase01(): void
+{
     $codec = new Http3ClientWireCodec();
     $request = new ClientRequest('GET', 'https://example.com:8443/search?q=one',
         Headers::fromArray(['accept' => 'application/json']), protocol: h3TestPolicy());
@@ -46,9 +54,17 @@ it('builds QPACK-unblocked HTTPS GET with exact origin pseudo-headers', function
             [':path', '/search?q=one'],
             ['accept', 'application/json'],
         );
-});
+}
 
 it('decodes bounded static QPACK responses with validated status and headers', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase02(): void
+{
     $codec = new Http3ClientWireCodec();
     $encoder = new Encoder(0, 0);
     $block = $encoder->encode([
@@ -58,18 +74,34 @@ it('decodes bounded static QPACK responses with validated status and headers', f
     $result = $codec->decodeResponseHeaders($block, 1);
     expect($result['status'])->toBe(200)
         ->and($result['headers']->first('content-type'))->toBe('application/json');
-});
+}
 
 it('rejects malformed pseudo-header order and missing response status', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase03(): void
+{
     $codec = new Http3ClientWireCodec();
     $encoder = new Encoder(0, 0);
     $wrong = $encoder->encode([['content-type', 'text/plain'], [':status', '200']], 1)->block;
     $missing = $encoder->encode([['content-type', 'text/plain']], 2)->block;
     expect(fn() => $codec->decodeResponseHeaders($wrong, 1))->toThrow(Http3Exception::class, 'pseudo-header')
         ->and(fn() => $codec->decodeResponseHeaders($missing, 2))->toThrow(Http3Exception::class, 'no valid :status');
-});
+}
 
 it('fails closed on HTTP3 downgrade and unsafe request headers before writing', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase04(): void
+{
     $codec = new Http3ClientWireCodec();
     $h2 = new ClientRequest('GET', 'https://example.com/');
     $hop = new ClientRequest('GET', 'https://example.com/',
@@ -80,16 +112,32 @@ it('fails closed on HTTP3 downgrade and unsafe request headers before writing', 
     expect(fn() => $codec->encodeRequestHeaders($h2, 1))->toThrow(RuntimeUnavailableException::class)
         ->and(fn() => $codec->encodeRequestHeaders($hop, 1))->toThrow(InvalidArgumentException::class, 'prohibited')
         ->and(fn() => $codec->encodeRequestHeaders($forgedHost, 1))->toThrow(InvalidArgumentException::class, 'prohibited');
-});
+}
 
 it('enforces field-section size without retaining invalid outstanding dynamic references', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase05(): void
+{
     $codec = new Http3ClientWireCodec(160);
     $request = new ClientRequest('GET', 'https://example.com/',
         Headers::fromArray(['x-large-field' => str_repeat('a', 128)]), protocol: h3TestPolicy());
     expect(fn() => $codec->encodeRequestHeaders($request, 1))->toThrow(InvalidArgumentException::class, 'configured limit');
-});
+}
 
 it('refuses CONNECT pseudo-header misuse and hop-by-hop response metadata', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase06(): void
+{
     $codec = new Http3ClientWireCodec();
     $request = new ClientRequest('CONNECT', 'https://example.com:443/', protocol: h3TestPolicy());
     $encoder = new Encoder(0, 0);
@@ -99,10 +147,18 @@ it('refuses CONNECT pseudo-header misuse and hop-by-hop response metadata', func
         ->toThrow(RuntimeUnavailableException::class, 'CONNECT needs')
         ->and(fn() => $codec->decodeResponseHeaders($response, 7))
         ->toThrow(Http3Exception::class, 'hop-by-hop');
-});
+}
 
 
 it('permits bounded H3 upload headers but rejects ambiguous length and proxy credentials', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase07(): void
+{
     $body = new class implements \Infocyph\Runwire\Http\Client\ClientBodySourceInterface {
         #[\Override]
         public function eof(): bool { return true; }
@@ -134,9 +190,17 @@ it('permits bounded H3 upload headers but rejects ambiguous length and proxy cre
         ->toThrow(InvalidArgumentException::class, 'prohibited')
         ->and(fn() => $codec->encodeRequestHeaders($proxySecret, 3))
         ->toThrow(InvalidArgumentException::class, 'prohibited');
-});
+}
 
 it('encodes static QPACK trailers but rejects framing and hop-by-hop fields', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase08(): void
+{
     $codec = new Http3ClientWireCodec();
     $bytes = $codec->encodeRequestTrailers(Headers::fromArray(['x-upload-finished' => 'yes']), 3);
     $frames = (new FrameParser())->push($bytes);
@@ -148,16 +212,32 @@ it('encodes static QPACK trailers but rejects framing and hop-by-hop fields', fu
         ->toThrow(InvalidArgumentException::class, 'prohibited')
         ->and(fn() => $codec->encodeRequestTrailers(Headers::fromArray(['connection' => 'close']), 3))
         ->toThrow(InvalidArgumentException::class, 'prohibited');
-});
+}
 
 it('accepts capacity-zero peer QPACK encoder stream instructions without enabling dynamic blocking', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase09(): void
+{
     $codec = new Http3ClientWireCodec();
     $codec->receivePeerEncoderInstructions("\x20");
     $codec->receivePeerEncoderInstructions('');
     expect(fn() => $codec->receivePeerEncoderInstructions("\x21"))->toThrow(Http3Exception::class);
-});
+}
 
 it('rejects unsolicited peer QPACK acknowledgements with no outstanding dynamic sections', function (): void {
+    runwireOwnedHttp3ClientWireCodecTestCase10();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientWireCodecTestCase10(): void
+{
     $codec = new Http3ClientWireCodec();
     expect(fn() => $codec->receivePeerDecoderInstructions("\x80"))->toThrow(Http3Exception::class);
-});
+}

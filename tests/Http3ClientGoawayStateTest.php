@@ -11,6 +11,14 @@ use Infocyph\Runwire\Http\Client\Internal\Http3ClientSiblingExchange;
 use RuntimeException;
 
 it('drains only refused H3 IDs, preserves admitted predecessors and rejects late opens', function (): void {
+    runwireOwnedHttp3ClientGoawayStateTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientGoawayStateTestCase01(): void
+{
     $admission = new Http3ClientAdmissionGate(2, 3);
     $admission->enqueue(1);
     $admission->enqueue(2);
@@ -45,4 +53,4 @@ it('drains only refused H3 IDs, preserves admitted predecessors and rejects late
         ->and($cutoff->refuses(8))->toBeTrue()
         ->and($cutoff->refuses(12))->toBeTrue()
         ->and(fn() => $admission->enqueue(4))->toThrow(RuntimeException::class);
-});
+}

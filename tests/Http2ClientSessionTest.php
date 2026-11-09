@@ -18,6 +18,14 @@ use InvalidArgumentException;
 use RuntimeException;
 
 it('sends a single verified H2 request after peer SETTINGS and returns bounded DATA credit', function (): void {
+    runwireOwnedHttp2ClientSessionTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientSessionTestCase01(): void
+{
     $responses = [];
     $body = '';
     $session = new Http2ClientSession(
@@ -58,9 +66,17 @@ it('sends a single verified H2 request after peer SETTINGS and returns bounded D
         ->and($body)->toBe('hellodone');
     expect(fn() => $session->receive(FrameWriter::settings()))
         ->toThrow(RuntimeException::class, 'not accepting');
-});
+}
 
 it('fails closed on pre-SETTINGS response, GOAWAY, non-H2 request and custom headers', function (): void {
+    runwireOwnedHttp2ClientSessionTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientSessionTestCase02(): void
+{
     $onHeaders = static function (): void {};
     $onBody = static function (): void {};
     expect(fn() => new Http2ClientSession(
@@ -99,9 +115,17 @@ it('fails closed on pre-SETTINGS response, GOAWAY, non-H2 request and custom hea
         ->toThrow(RuntimeException::class, 'unexpected stream');
     expect(fn() => $session->receive(FrameWriter::goAway(1, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR)))
         ->toThrow(RuntimeException::class, 'before END_STREAM');
-});
+}
 
 it('never publishes HEAD response DATA bytes even with a valid H2 HEADERS block', function (): void {
+    runwireOwnedHttp2ClientSessionTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientSessionTestCase03(): void
+{
     $seen = [];
     $body = '';
     $session = new Http2ClientSession(
@@ -121,9 +145,17 @@ it('never publishes HEAD response DATA bytes even with a valid H2 HEADERS block'
         ->toThrow(RuntimeException::class, 'HEAD response must not contain body bytes')
         ->and($body)->toBe('')
         ->and($seen)->toBe([200]);
-});
+}
 
 it('keeps H2 HEAD Content-Length metadata independent from body receipt', function (): void {
+    runwireOwnedHttp2ClientSessionTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientSessionTestCase04(): void
+{
     $headers = [];
     $session = new Http2ClientSession(new ClientRequest('HEAD', 'https://example.test/metadata'),
         static function ($status, $fields) use (&$headers): void {
@@ -137,4 +169,4 @@ it('keeps H2 HEAD Content-Length metadata independent from body receipt', functi
     $block = (new Encoder())->encode([[':status', '200'], ['content-length', '123']]);
     $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
     expect($session->done())->toBeTrue()->and($headers)->toBe(['123']);
-});
+}

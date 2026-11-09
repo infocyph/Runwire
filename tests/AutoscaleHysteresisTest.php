@@ -8,6 +8,14 @@ use Infocyph\Runwire\Supervisor\Internal\AutoscaleHysteresis;
 use InvalidArgumentException;
 
 it('scales out after sustained saturation and respects monotonic cooldown without oscillating', function (): void {
+    runwireOwnedAutoscaleHysteresisTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAutoscaleHysteresisTestCase01(): void
+{
     $policy = new AutoscaleHysteresis(
         minWorkers: 2,
         maxWorkers: 4,
@@ -26,9 +34,17 @@ it('scales out after sustained saturation and respects monotonic cooldown withou
         ->and($policy->propose(3, 3, 2, 2_150_000_000))->toBe(3)
         ->and($policy->propose(3, 3, 2, 2_200_000_000))->toBe(4);
     expect($policy->propose(4, 4, 5, 5_000_000_000))->toBe(4);
-});
+}
 
 it('requires prolonged idle signals, refuses scale-in with backlog, and never drops below the minimum', function (): void {
+    runwireOwnedAutoscaleHysteresisTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAutoscaleHysteresisTestCase02(): void
+{
     $policy = new AutoscaleHysteresis(
         minWorkers: 1,
         maxWorkers: 5,
@@ -46,9 +62,17 @@ it('requires prolonged idle signals, refuses scale-in with backlog, and never dr
     for ($i = 0; $i < 200; ++$i) {
         expect($policy->propose(1, 0, 0, 1_000 + $i))->toBe(1);
     }
-});
+}
 
 it('validates bounds and clears stale hysteresis observations across a supervisor reload', function (): void {
+    runwireOwnedAutoscaleHysteresisTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAutoscaleHysteresisTestCase03(): void
+{
     expect(fn() => new AutoscaleHysteresis(0, 4))->toThrow(InvalidArgumentException::class)
         ->and(fn() => new AutoscaleHysteresis(4, 2))->toThrow(InvalidArgumentException::class)
         ->and(fn() => new AutoscaleHysteresis(1, 1, scaleOutRatio: 0.5, scaleInRatio: 0.5))
@@ -61,4 +85,4 @@ it('validates bounds and clears stale hysteresis observations across a superviso
         ->and($policy->propose(1, 1, 0, 300))->toBe(2);
     expect(fn() => $policy->propose(2, 3, 0, 400))->toThrow(InvalidArgumentException::class);
     expect(fn() => $policy->propose(2, 0, -1, 400))->toThrow(InvalidArgumentException::class);
-});
+}

@@ -9,6 +9,14 @@ use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
 
 it('routes nonminimal two-byte control type without confusing it with unknown streams', function (): void {
+    runwireOwnedHttp3ClientPeerStreamTypeTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientPeerStreamTypeTestCase01(): void
+{
     $reader = new Http3ClientPeerStreamType();
     expect($reader->push("\x40"))->toBeNull();
     expect($reader->push("\x00\x04\x00"))->toBe([
@@ -16,9 +24,17 @@ it('routes nonminimal two-byte control type without confusing it with unknown st
         'payload' => "\x04\x00",
         'wire' => "\x40\x00\x04\x00",
     ]);
-});
+}
 
 it('classifies peer QPACK encoder and decoder critical streams across fragmented type bytes', function (): void {
+    runwireOwnedHttp3ClientPeerStreamTypeTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientPeerStreamTypeTestCase02(): void
+{
     foreach ([2, 3] as $type) {
         $reader = new Http3ClientPeerStreamType();
         $wire = VarIntCodec::encode(16_384 + $type);
@@ -31,18 +47,34 @@ it('classifies peer QPACK encoder and decoder critical streams across fragmented
             'wire' => $wire . "\x20",
         ]);
     }
-});
+}
 
 it('preserves the entire first read after a single-byte stream type', function (): void {
+    runwireOwnedHttp3ClientPeerStreamTypeTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientPeerStreamTypeTestCase03(): void
+{
     $reader = new Http3ClientPeerStreamType();
     expect($reader->push("\x02\x20\x00"))->toBe([
         'type' => 2,
         'payload' => "\x20\x00",
         'wire' => "\x02\x20\x00",
     ]);
-});
+}
 
 it('does not infer a stream type from an empty read', function (): void {
+    runwireOwnedHttp3ClientPeerStreamTypeTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientPeerStreamTypeTestCase04(): void
+{
     $reader = new Http3ClientPeerStreamType();
     expect($reader->push(''))->toBeNull()
         ->and($reader->push("\x00"))->toBe([
@@ -50,4 +82,4 @@ it('does not infer a stream type from an empty read', function (): void {
             'payload' => '',
             'wire' => "\x00",
         ]);
-});
+}

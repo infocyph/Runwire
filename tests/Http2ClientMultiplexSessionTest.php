@@ -18,6 +18,14 @@ use RuntimeException;
 use Throwable;
 
 it('shares one H2 preface and HPACK decoder across simultaneously live response streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase01(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     expect(str_starts_with($session->start(), Http2Connection::CLIENT_PREFACE))->toBeTrue()
         ->and(fn() => $session->request(
@@ -68,9 +76,17 @@ it('shares one H2 preface and HPACK decoder across simultaneously live response 
         ->and($bodies)->toBe(['one' => 'partone', 'three' => 'three'])
         ->and($completions['one'])->toBe([null])
         ->and($completions['three'])->toBe([null]);
-});
+}
 
 it('isolates peer RST and client cancellation while rejecting unsafe late frames', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase02(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -100,9 +116,17 @@ it('isolates peer RST and client cancellation while rejecting unsafe late frames
     $session->close();
     expect($failures['a'])->toHaveCount(1)
         ->and($failures['b'])->toHaveCount(1);
-});
+}
 
 it('rejects cross-origin requests, invalid continuation interleaving and unaccepted GOAWAY streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase03(): void
+{
     $session = new Http2ClientMultiplexSession(3);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -130,14 +154,30 @@ it('rejects cross-origin requests, invalid continuation interleaving and unaccep
         ->toThrow(RuntimeException::class, 'admission');
     $session->receive(new Frame(FrameType::DATA->value, 0x1, 1));
     expect($session->activeCount())->toBe(0);
-});
+}
 
 it('bounds H2 stream admission before state allocation', function (): void {
-    expect(fn() => new Http2ClientMultiplexSession(0))->toThrow(InvalidArgumentException::class)
-        ->and(fn() => new Http2ClientMultiplexSession(33))->toThrow(InvalidArgumentException::class);
+    runwireOwnedHttp2ClientMultiplexSessionTestCase04();
 });
 
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase04(): void
+{
+    expect(fn() => new Http2ClientMultiplexSession(0))->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new Http2ClientMultiplexSession(33))->toThrow(InvalidArgumentException::class);
+}
+
 it('honors an independent peer SETTINGS concurrency limit across sequential streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase05(): void
+{
     $session = new Http2ClientMultiplexSession(4);
     $session->start();
     $session->receive(FrameWriter::settings([\Infocyph\Runwire\Http\Http2\PeerSettings::MAX_CONCURRENT_STREAMS => 1]));
@@ -159,9 +199,17 @@ it('honors an independent peer SETTINGS concurrency limit across sequential stre
     ));
     expect($session->activeCount())->toBe(0)
         ->and($request()['stream'])->toBe(3);
-});
+}
 
 it('drains 64 canceled H2 streams and peer resets without orphaning live requests', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase06(): void
+{
     $session = new Http2ClientMultiplexSession(1);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -191,9 +239,17 @@ it('drains 64 canceled H2 streams and peer resets without orphaning live request
         ->and($session->activeCount())->toBe(0);
     $session->close();
     expect($completed)->toBe(64);
-});
+}
 
 it('fails closed when a peer withholds H2 reset acknowledgments beyond the bounded tombstone budget', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase07(): void
+{
     $session = new Http2ClientMultiplexSession(1);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -224,9 +280,17 @@ it('fails closed when a peer withholds H2 reset acknowledgments beyond the bound
     $session->close();
     expect($settled)->toBe(5)
         ->and($session->activeCount())->toBe(0);
-});
+}
 
 it('terminates every pending H2 sibling even when one application completion observer throws', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase08(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -257,9 +321,17 @@ it('terminates every pending H2 sibling even when one application completion obs
         ->and($session->activeCount())->toBe(0);
     $session->close();
     expect($first)->toBe(1)->and($second)->toBe(1);
-});
+}
 
 it('validates peer RST and DATA framing even after a local H2 stream cancellation', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase09(): void
+{
     $session = new Http2ClientMultiplexSession(1);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -281,9 +353,17 @@ it('validates peer RST and DATA framing even after a local H2 stream cancellatio
         ->toBe('');
     $session->close();
     expect($session->activeCount())->toBe(0);
-});
+}
 
 it('keeps valid HEAD metadata and ordinary body lengths distinct on multiplexed H2 streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase10();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase10(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -307,4 +387,4 @@ it('keeps valid HEAD metadata and ordinary body lengths distinct on multiplexed 
     $session->receive(new Frame(FrameType::DATA->value, 0x1, 3, 'ok'));
     expect($completed)->toBe(['HEAD' => null, 'GET' => null])
         ->and($body)->toBe('ok')->and($session->activeCount())->toBe(0);
-});
+}

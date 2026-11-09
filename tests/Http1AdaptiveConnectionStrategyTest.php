@@ -11,6 +11,14 @@ use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 
 it('keeps NODELAY for normal H1 load and disables it after sustained worker pressure', function (): void {
+    runwireOwnedHttp1AdaptiveConnectionStrategyTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp1AdaptiveConnectionStrategyTestCase01(): void
+{
     $strategy = new AdaptiveConnectionStrategy();
     $low = new AdaptiveLoadSample(false, 0, 0);
 
@@ -28,9 +36,17 @@ it('keeps NODELAY for normal H1 load and disables it after sustained worker pres
 
     expect($high->state())->toBe(AdaptiveLoadState::THROUGHPUT)
         ->and($result)->toBeFalse();
-});
+}
 
 it('treats sustained H1 write backlog as a throughput signal before connection count saturates', function (): void {
+    runwireOwnedHttp1AdaptiveConnectionStrategyTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp1AdaptiveConnectionStrategyTestCase02(): void
+{
     $strategy = new AdaptiveConnectionStrategy();
     $backlogged = AdaptiveLoadSample::fromCounters(
         pressured: false,
@@ -46,14 +62,22 @@ it('treats sustained H1 write backlog as a throughput signal before connection c
 
     expect($strategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
         ->and($result)->toBeFalse();
-});
+}
 
 
 it('keeps HTTP1 production default fixed with NODELAY enabled', function (): void {
+    runwireOwnedHttp1AdaptiveConnectionStrategyTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp1AdaptiveConnectionStrategyTestCase03(): void
+{
     $limits = new Http1Limits();
     $strategy = new AdaptiveConnectionStrategy(policy: $limits->adaptive);
 
     expect($limits->adaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
         ->and($strategy->requiresLoadSample())->toBeFalse()
         ->and($strategy->tcpNoDelay())->toBeTrue();
-});
+}

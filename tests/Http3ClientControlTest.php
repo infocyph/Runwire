@@ -16,6 +16,14 @@ use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use LogicException;
 
 it('emits one outbound HTTP3 control preamble with zero QPACK blocking', function (): void {
+    runwireOwnedHttp3ClientControlTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase01(): void
+{
     $client = new Http3ClientControl();
     $preamble = $client->start();
     $frames = (new FrameParser())->push(substr($preamble, 1));
@@ -28,9 +36,17 @@ it('emits one outbound HTTP3 control preamble with zero QPACK blocking', functio
     expect($settings->qpackMaxTableCapacity())->toBe(0)
         ->and($settings->qpackBlockedStreams())->toBe(0)
         ->and($settings->maxFieldSectionSize())->toBe(65_536);
-});
+}
 
 it('parses fragmented peer SETTINGS after a valid control type and rejects wrong stream types', function (): void {
+    runwireOwnedHttp3ClientControlTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase02(): void
+{
     $client = new Http3ClientControl();
     expect(fn() => $client->receivePeerControl("\x00"))->toThrow(LogicException::class, 'must start');
     $client->start();
@@ -47,9 +63,17 @@ it('parses fragmented peer SETTINGS after a valid control type and rejects wrong
     $wrong = new Http3ClientControl();
     $wrong->start();
     expect(fn() => $wrong->receivePeerControl("\x01"))->toThrow(Http3Exception::class, 'wrong stream type');
-});
+}
 
 it('rejects DATA before SETTINGS, repeated SETTINGS and early critical control closure', function (): void {
+    runwireOwnedHttp3ClientControlTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase03(): void
+{
     $client = new Http3ClientControl();
     $client->start();
     expect(fn() => $client->receivePeerControl("\x00" . (new Frame(FrameType::DATA->value, 'x'))->encode()))
@@ -61,17 +85,33 @@ it('rejects DATA before SETTINGS, repeated SETTINGS and early critical control c
     $peer->receivePeerControl("\x00" . $frame);
     expect(fn() => $peer->receivePeerControl($frame))->toThrow(Http3Exception::class, 'only once')
         ->and(fn() => $peer->closePeerControl())->toThrow(Http3Exception::class, 'was closed');
-});
+}
 
 it('buffers fragmented nonminimal or multibyte type identifiers without treating them as SETTINGS', function (): void {
+    runwireOwnedHttp3ClientControlTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase04(): void
+{
     $client = new Http3ClientControl();
     $client->start();
     $type = VarIntCodec::encode(16_384);
     expect($client->receivePeerControl(substr($type, 0, 1)))->toBe([])
         ->and(fn() => $client->receivePeerControl(substr($type, 1)))->toThrow(Http3Exception::class, 'wrong stream type');
-});
+}
 
 it('accepts a fragmented two-byte zero control stream type without treating it as non-control', function (): void {
+    runwireOwnedHttp3ClientControlTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase05(): void
+{
     $client = new Http3ClientControl();
     $client->start();
     $frame = (new Frame(FrameType::SETTINGS->value))->encode();
@@ -80,9 +120,17 @@ it('accepts a fragmented two-byte zero control stream type without treating it a
         $client->receivePeerControl($byte);
     }
     expect($client->peerSettings())->not->toBeNull();
-});
+}
 
 it('announces one local encoder and decoder QPACK critical stream only after SETTINGS', function (): void {
+    runwireOwnedHttp3ClientControlTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase06(): void
+{
     $control = new Http3ClientControl();
     expect(fn() => $control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::QPACK_ENCODER))
         ->toThrow(LogicException::class, 'must start');
@@ -93,9 +141,17 @@ it('announces one local encoder and decoder QPACK critical stream only after SET
         ->toBe(chr(3))
         ->and(fn() => $control->localQpackPreamble(\Infocyph\Runwire\Http\Http3\Enum\StreamType::CONTROL))
         ->toThrow(LogicException::class, 'Only HTTP/3 QPACK');
-});
+}
 
 it('validates monotonic peer GOAWAY request IDs on the same critical control stream', function (): void {
+    runwireOwnedHttp3ClientControlTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase07(): void
+{
     $peer = new Http3ClientControl();
     $peer->start();
     $peer->receivePeerControl("\x00" . (new Frame(FrameType::SETTINGS->value))->encode());
@@ -104,9 +160,17 @@ it('validates monotonic peer GOAWAY request IDs on the same critical control str
     expect($peer->peerGoaway())->toBe(8);
     expect(fn() => $peer->receivePeerControl(new Frame(FrameType::GOAWAY->value, VarIntCodec::encode(16))->encode()))
         ->toThrow(Http3Exception::class, 'invalid or increasing');
-});
+}
 
 it('rejects malformed HTTP/3 peer GOAWAY stream identities and trailing payload bytes', function (): void {
+    runwireOwnedHttp3ClientControlTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase08(): void
+{
     foreach ([VarIntCodec::encode(1), "\x40", VarIntCodec::encode(8) . "\x00"] as $invalid) {
         $peer = new Http3ClientControl();
         $peer->start();
@@ -114,9 +178,17 @@ it('rejects malformed HTTP/3 peer GOAWAY stream identities and trailing payload 
         expect(fn() => $peer->receivePeerControl(new Frame(FrameType::GOAWAY->value, $invalid)->encode()))
             ->toThrow(Http3Exception::class, 'invalid or increasing');
     }
-});
+}
 
 it('applies a peer HTTP/3 GOAWAY cutoff to the root without aborting a completed response', function (): void {
+    runwireOwnedHttp3ClientControlTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientControlTestCase09(): void
+{
     $control = new Http3ClientControl();
     $control->start();
     $control->receivePeerControl("\x00" . (new Frame(FrameType::SETTINGS->value))->encode());
@@ -132,4 +204,4 @@ it('applies a peer HTTP/3 GOAWAY cutoff to the root without aborting a completed
     expect($control->refusesRoot(0, true, false))->toBeTrue()
         ->and($control->refusesRoot(0, false, false))->toBeFalse()
         ->and($control->refusesRoot(0, true, true))->toBeFalse();
-});
+}
