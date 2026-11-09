@@ -31,6 +31,7 @@ final class ChildReaper
      *
      * @param array<int, ChildRecord> $children
      * @return list<int>
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function forceKillAndWait(array $children, int $deadlineNanoseconds): array
     {

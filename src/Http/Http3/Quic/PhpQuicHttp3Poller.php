@@ -97,6 +97,7 @@ final readonly class PhpQuicHttp3Poller
      * @param list<PhpQuicHttp3Connection> $connections
      * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, array{0: object, 1: int}>
+     * @throws \LogicException
      */
     private function buildPollItems(
         ?PhpQuicListener $listener,

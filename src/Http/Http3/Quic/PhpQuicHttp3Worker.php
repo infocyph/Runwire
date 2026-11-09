@@ -118,6 +118,7 @@ final class PhpQuicHttp3Worker
 
     /**
      * Force-close all pending and active HTTP/3 connections.
+     * @throws \Throwable
      */
     public function forceClose(): void
     {

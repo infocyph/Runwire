@@ -52,6 +52,7 @@ final class DecoderStreamDecoder
     /**
      * @return array{0: DecoderInstruction, 1: int}|null
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     private function decode(int $offset, int $prefixBits, DecoderInstructionType $type): ?array
     {

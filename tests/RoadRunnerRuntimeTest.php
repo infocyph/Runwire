@@ -21,6 +21,7 @@ use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 /**
  * @throws \OverflowException
+ * @throws \InvalidArgumentException
  */
 function roadRunnerRuntimeRequest(string $target): HttpRequest
 {

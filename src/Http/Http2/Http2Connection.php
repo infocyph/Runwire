@@ -453,6 +453,7 @@ final class Http2Connection
     /**
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \Throwable
      */
     private function handleWindowUpdate(Frame $frame): void
     {

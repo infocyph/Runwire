@@ -52,7 +52,10 @@ final class Channel
         return $this->capacity;
     }
 
-    /** Closes the channel and wakes blocked senders and receivers. */
+    /**
+     * Closes the channel and wakes blocked senders and receivers.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     public function close(): bool
     {
         if ($this->closed) {

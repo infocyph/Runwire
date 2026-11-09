@@ -503,6 +503,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function runTick(): void
     {
         $tickStart = MonotonicTime::nowNanoseconds();

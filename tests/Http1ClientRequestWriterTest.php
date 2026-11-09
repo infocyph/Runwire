@@ -48,6 +48,9 @@ it('streams chunked binary uploads and validates final trailers', function (): v
             return $result;
         }
 
+        /**
+         * @throws \InvalidArgumentException
+         */
         #[\Override]
         public function trailers(): Headers
         {

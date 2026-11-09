@@ -123,6 +123,7 @@ function http1BudgetRetainedBodies(LoopInterface $loop): array
 
 /**
  * @throws \InvalidArgumentException
+ * @throws \Throwable
  */
 function assertHttp1RetainedBodiesRespectBudget(LoopInterface $loop): void
 {

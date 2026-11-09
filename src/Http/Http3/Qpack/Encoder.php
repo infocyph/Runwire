@@ -377,6 +377,9 @@ final class Encoder
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function releaseSection(SectionReference $section): void
     {
         $this->releaseReferences($section->entries);

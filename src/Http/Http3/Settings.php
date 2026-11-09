@@ -41,6 +41,7 @@ final readonly class Settings
 
     /**
      * Build the server SETTINGS advertised from configured HTTP/3 limits.
+     * @throws \InvalidArgumentException
      */
     public static function serverDefaults(Http3Limits $limits): self
     {

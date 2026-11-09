@@ -22,6 +22,7 @@ final readonly class Http1ClientResponseHeadParser
     /**
      * @return array{code:int, headers:Headers, http11:bool, close:bool, chunked:bool, length:?int}
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public static function parse(string $wireHead, int $maxBodyBytes): array
     {
@@ -49,6 +50,7 @@ final readonly class Http1ClientResponseHeadParser
      *
      * @return array{trailers:Headers, used:int}|null
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public static function parseTrailers(string $buffer, int $maxHeaderBytes): ?array
     {

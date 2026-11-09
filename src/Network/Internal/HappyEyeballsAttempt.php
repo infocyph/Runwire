@@ -69,7 +69,10 @@ final class HappyEyeballsAttempt
         }
     }
 
-    /** Cancel this logical attempt and all candidates exactly once. */
+    /**
+     * Cancel this logical attempt and all candidates exactly once.
+     * @throws \LogicException
+     */
     public function cancel(): void
     {
         $this->finish(null, new CancelledException(CancellationReason::HOST_CANCELLED));
@@ -285,6 +288,9 @@ final class HappyEyeballsAttempt
         $this->scheduleNext();
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function onCandidate(int $childId, ?Connection $connection, ?Throwable $error): void
     {
         unset($this->children[$childId]);
@@ -309,6 +315,9 @@ final class HappyEyeballsAttempt
         $this->launchCandidate();
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function scheduleNext(): void
     {
         if ($this->completed) {
@@ -331,7 +340,11 @@ final class HappyEyeballsAttempt
         }
     }
 
-    /** @param list<string> $addresses */
+    /**
+     * @param list<string> $addresses
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function setCandidates(array $addresses): void
     {
         $this->candidates = self::orderAddresses($addresses, $this->port);

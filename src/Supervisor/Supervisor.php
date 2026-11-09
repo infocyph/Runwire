@@ -668,6 +668,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function reapChildren(): void
     {
         ChildReaper::reap(

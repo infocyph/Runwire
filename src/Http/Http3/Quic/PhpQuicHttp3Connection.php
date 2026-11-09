@@ -195,6 +195,7 @@ final class PhpQuicHttp3Connection
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
+     * @throws \LogicException
      */
     public function handleReady(array $ready, PhpQuicEventMasks $events): void
     {
@@ -268,6 +269,7 @@ final class PhpQuicHttp3Connection
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
      * @throws \UnexpectedValueException
+     * @throws \LogicException
      */
     public function pump(): void
     {
@@ -293,6 +295,7 @@ final class PhpQuicHttp3Connection
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function abort(Http3Exception $exception): void
     {
@@ -473,6 +476,9 @@ final class PhpQuicHttp3Connection
     /**
      * @param array<int, int>|null $ready
      * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     private function drainStreams(?array $ready = null, ?PhpQuicEventMasks $events = null): void
     {
@@ -555,6 +561,7 @@ final class PhpQuicHttp3Connection
     /**
      * @throws \UnexpectedValueException
      * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function flush(): void
     {

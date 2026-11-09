@@ -535,6 +535,7 @@ final class ResponseScheduler
 
     /**
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function queueData(Http2Stream $stream, string $data, bool $end): WriteResult
     {

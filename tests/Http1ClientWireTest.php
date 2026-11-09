@@ -53,6 +53,9 @@ it('interoperates with an independent real TCP peer for binary chunked H1 reques
                 return $chunk;
             }
 
+            /**
+             * @throws \InvalidArgumentException
+             */
             #[\Override]
             public function trailers(): Headers
             {

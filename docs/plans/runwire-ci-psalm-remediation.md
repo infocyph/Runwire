@@ -11,6 +11,8 @@
 
 **Batch 140 Source Audit follow-up:** The first post-commit audit reported previously undispositioned public symbols `Settings` and `SettingsCodec` after exception-contract comments changed their source hash. Record both as test-backed, documentation-only migrations using `tests/Http3ControlStreamTest.php`; do not loosen `tools/c4-migration-behavior-audit.php`. Also remove two confirmed unused RoadRunner fixture variables. This is a small corrective follow-up, not another 100-file remediation batch. Re-run exact-head QA, analyzers, Source Audit and protocol tests.
 
+**Batch 141 — propagated exception contracts:** Against Batch 140 SHA `b62ed1f2c52678afe8b0e600bd96b4fd2147f8cb`, the PHP 8.5 analyzer confirmed 124 blocking Psalm errors (72 additional `MissingThrowsDocblock` after exception propagation, 49 security taint, one unresolved include, two unused variables), down from 310 on the parent; PHPStan remains passing. The intervening audit-ledger correction SHA `21dfc99d8c5c8e475444b9d8a619da853e8680cc` removes the two unused fixture assignments. Batch 141 records all 72 newly exposed exception propagation findings in **37 actual affected PHP files**, retaining implementation behavior; rerun strict analyzers, Source Audit, QA, benchmarks and protocols on the new SHA before calling a reduction verified. The 49 taint and include findings remain a separate trust-boundary audit. No merge or tag.
+
 ## Historical dual-analyzer checkpoint — Batch 137 exact HEAD
 
 - Exact source SHA: `ab1c344c66d55d0d2c80060faf4a34775b475124`; Security & Standards run `42557158756`.

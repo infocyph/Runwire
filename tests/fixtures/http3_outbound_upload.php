@@ -44,6 +44,9 @@ $body = new class implements ClientBodySourceInterface {
         return $chunk;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     #[\Override]
     public function trailers(): Headers
     {

@@ -284,6 +284,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function acceptBodyData(Http2Stream $stream, string $data, int $flowBytes, int $protocolConsumed): void
     {
@@ -312,6 +313,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
      * @throws \OverflowException
+     * @throws \Throwable
      */
     private function acceptData(Http2Stream $stream, Frame $frame): void
     {
@@ -473,6 +475,7 @@ final class RequestStreamProcessor
      * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     private function creditBodyBytes(int $streamId, int $bytes): void
     {

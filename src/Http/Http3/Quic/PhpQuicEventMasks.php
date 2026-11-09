@@ -45,6 +45,7 @@ final readonly class PhpQuicEventMasks
      * Load event masks from the available native QUIC extension.
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public static function native(): self
     {

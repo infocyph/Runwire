@@ -114,6 +114,7 @@ final class Http2ClientResponseParser
     /**
      * @param callable(int,Headers):void $onHeaders
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function completeHeaders(callable $onHeaders): void
     {

@@ -72,6 +72,9 @@ final class NativeHttp3Attachment
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function beginDrain(): void
     {
         $this->context->consumeStopWake();

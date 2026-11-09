@@ -153,6 +153,10 @@ final class ProtocolCoreBench
         return strlen($frames[0]->payload);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp2HpackDecode(): int
     {
         return count($this->hpackDecoder->decode($this->hpackWire));

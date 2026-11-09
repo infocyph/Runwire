@@ -602,6 +602,8 @@ final class Http1Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function parseChunkSizeLine(): bool
     {
@@ -660,6 +662,8 @@ final class Http1Connection
 
     /**
      * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     private function parseRequestLine(): bool
     {

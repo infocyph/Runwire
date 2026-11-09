@@ -189,6 +189,8 @@ final class Http3ClientSiblingManager
     /**
      * Release a QPACK-blocked sibling after matching peer encoder instructions.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function unblock(ReadyFieldSection $ready): bool
     {

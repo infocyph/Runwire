@@ -33,6 +33,7 @@ final readonly class ApplicationLifecycleHooks
      * @param callable(RuntimeContext, ShutdownReason): void|null $drain
      * @param callable(RuntimeContext, ShutdownReason): void|null $shutdown
      * @param iterable<RequestResetterInterface> $resetters
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?callable $boot = null,

@@ -39,6 +39,7 @@ final class SignalBridge
 
     /**
      * Restore prior signal handlers and release wake-channel resources.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function close(): void
     {

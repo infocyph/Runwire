@@ -60,7 +60,10 @@ final readonly class Http3ClientWireCodec
         return self::parseHeaders($section);
     }
 
-    /** Decode one QPACK-unblocked response trailer section. */
+    /**
+     * Decode one QPACK-unblocked response trailer section.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function decodeReadyTrailers(DecodedFieldSection $section): Headers
     {
         return self::parseTrailers($section);

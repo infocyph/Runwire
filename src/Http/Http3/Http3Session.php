@@ -68,6 +68,7 @@ final class Http3Session
      * Mark a request stream as finished and dispatch newly ready requests.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function finishRequestStream(int $streamId): void
     {
@@ -85,6 +86,7 @@ final class Http3Session
      * Feed bytes from a peer unidirectional stream into connection state.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \LogicException
+     * @throws \OverflowException
      */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {
@@ -96,6 +98,7 @@ final class Http3Session
      * Feed bytes from a request stream and dispatch requests when their heads are ready.
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function pushRequestStream(int $streamId, string $bytes): void
     {

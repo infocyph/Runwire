@@ -297,6 +297,7 @@ final class RequestStream
 
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \OverflowException
      */
     private function acceptData(string $payload): void
     {
@@ -459,6 +460,8 @@ final class RequestStream
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     private function drainFrames(): void
     {

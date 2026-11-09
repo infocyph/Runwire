@@ -445,6 +445,8 @@ final class ResponseScheduler
 
     /**
      * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     private function queueData(ResponseStream $stream, string $data, bool $end): WriteResult
     {
