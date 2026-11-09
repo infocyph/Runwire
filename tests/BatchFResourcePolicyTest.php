@@ -10,8 +10,6 @@ use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
-use Infocyph\Runwire\Network\Datagram;
-use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
@@ -28,7 +26,6 @@ use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Server;
 use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
-use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
 /**
@@ -57,7 +54,11 @@ function batchFWriter(ArrayObject $state): ResponseWriterInterface
             $state['headers'] = $headers;
         },
         static function (string $chunk) use ($state): void {
-            $state['body'] = ($state['body'] ?? '') . $chunk;
+            $body = $state['body'] ?? '';
+            if (!is_string($body)) {
+                throw new LogicException('Invalid response-body fixture state.');
+            }
+            $state['body'] = $body . $chunk;
         },
         static function () use ($state): void {
             $state['ended'] = true;
@@ -68,6 +69,7 @@ function batchFWriter(ArrayObject $state): ResponseWriterInterface
 
 it('rejects overlapping HTTP requests without crashing the worker lifecycle', function (): void {
     $runtime = RuntimeContext::standalone();
+    /** @var ArrayObject<string, mixed> $overload */
     $overload = new ArrayObject();
     $lifecycle = null;
     $lifecycle = new ApplicationLifecycle(
@@ -84,20 +86,25 @@ it('rejects overlapping HTTP requests without crashing the worker lifecycle', fu
         admission: new AdmissionPolicy(maxActiveRequests: 1, retryAfterSeconds: 2),
     );
 
+    /** @var ArrayObject<string, mixed> $primary */
     $primary = new ArrayObject();
     $lifecycle->handle(batchFRequest('/first'), batchFWriter($primary));
 
     $headers = $overload['headers'] ?? null;
     expect($overload['status'] ?? null)->toBe(503)
         ->and($overload['ended'] ?? false)->toBeTrue()
-        ->and($headers)->toBeInstanceOf(Headers::class)
-        ->and($headers->first('retry-after'))->toBe('2')
+        ->and($headers)->toBeInstanceOf(Headers::class);
+    if (!$headers instanceof Headers) {
+        throw new LogicException('Overload response omitted HTTP headers.');
+    }
+    expect($headers->first('retry-after'))->toBe('2')
         ->and($headers->first('connection'))->toBe('close')
         ->and($runtime->snapshot()->rejectedRequestsTotal)->toBe(1);
 });
 
 it('keeps HTTP3 overload rejection request-local', function (): void {
     $runtime = RuntimeContext::standalone();
+    /** @var ArrayObject<string, mixed> $overload */
     $overload = new ArrayObject();
     $lifecycle = null;
     $lifecycle = new ApplicationLifecycle(
@@ -124,8 +131,11 @@ it('keeps HTTP3 overload rejection request-local', function (): void {
 
     $headers = $overload['headers'] ?? null;
     expect($overload['status'] ?? null)->toBe(503)
-        ->and($headers)->toBeInstanceOf(Headers::class)
-        ->and($headers->has('connection'))->toBeFalse()
+        ->and($headers)->toBeInstanceOf(Headers::class);
+    if (!$headers instanceof Headers) {
+        throw new LogicException('HTTP/3 overload response omitted headers.');
+    }
+    expect($headers->has('connection'))->toBeFalse()
         ->and($runtime->snapshot()->rejectedRequestsTotal)->toBe(1);
 });
 
@@ -152,13 +162,13 @@ it('allows native server definitions to opt into automatic worker sizing', funct
     $server = new Server(
         'web',
         '127.0.0.1:0',
-        static function (HttpRequest $request, ResponseWriterInterface $writer): void {},
+        static function (): void {},
         workers: 0,
     );
     $datagram = new DatagramServer(
         'udp',
         '127.0.0.1:0',
-        static function (Datagram $datagram, DatagramListener $listener): void {},
+        static function (): void {},
         workers: 0,
     );
 
@@ -170,13 +180,13 @@ it('keeps admission and identity policy independently configurable per worker gr
     $first = WorkerGroup::callbacks(
         'first',
         1,
-        static function (WorkerContext $context): void {},
+        static function (): void {},
         admissionPolicy: new AdmissionPolicy(maxActiveRequests: 2),
     );
     $second = WorkerGroup::callbacks(
         'second',
         1,
-        static function (WorkerContext $context): void {},
+        static function (): void {},
         admissionPolicy: new AdmissionPolicy(maxActiveRequests: 7),
     );
 

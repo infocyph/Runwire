@@ -99,7 +99,7 @@ it('does bounded file reads and stat in a subprocess and enforces deadlines', fu
         'sleep',
         ['milliseconds' => 400],
         function ($value, $failure) use (&$error, $executor): void {
-            unset($value);
+            expect($value)->toBeNull();
             $error = $failure;
             $executor->close();
         },
@@ -388,9 +388,12 @@ it('binds every subprocess file operation to a validated path and rejects wrappe
         });
         $loop->run();
 
-        expect($results['wrapper-read'][1])->toBeInstanceOf(RuntimeException::class)
-            ->and($results['wrapper-stat'][1])->toBeInstanceOf(RuntimeException::class)
-            ->and($results['safe-read'])->toBe(['guarded', null]);
+        $wrapperRead = $results['wrapper-read'] ?? throw new RuntimeException('Missing wrapper read completion.');
+        $wrapperStat = $results['wrapper-stat'] ?? throw new RuntimeException('Missing wrapper stat completion.');
+        $safeRead = $results['safe-read'] ?? throw new RuntimeException('Missing guarded read completion.');
+        expect($wrapperRead[1])->toBeInstanceOf(RuntimeException::class)
+            ->and($wrapperStat[1])->toBeInstanceOf(RuntimeException::class)
+            ->and($safeRead)->toBe(['guarded', null]);
     } finally {
         $executor->close();
         unlink($file);
@@ -415,6 +418,9 @@ it('does not execute unsigned or incorrectly signed subprocess requests', functi
                 ['bypass_shell' => true],
             );
             expect(is_resource($process))->toBeTrue();
+            if (!is_resource($process)) {
+                throw new RuntimeException('Unable to launch signed worker protocol fixture.');
+            }
             $payload = json_encode([
                 'id' => 1,
                 'op' => 'write',

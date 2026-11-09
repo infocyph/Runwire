@@ -65,16 +65,26 @@ it('rejects worker-side symlink traversal and off-root paths without blocking th
         });
         $loop->run();
 
-        expect($results)->toHaveCount(9)
-            ->and($results['allowed'])->toBe(['protected', null])
-            ->and($results['permission-read'][1])->toBeInstanceOf(Throwable::class)
-            ->and($results['permission-write'][1])->toBeInstanceOf(Throwable::class)
-            ->and($results['symlink'][1])->toBeInstanceOf(Throwable::class)
-            ->and($results['outside'][1])->toBeInstanceOf(Throwable::class)
-            ->and($results['traversal'][1])->toBeInstanceOf(Throwable::class)
-            ->and($results['rename'][1])->toBeInstanceOf(Throwable::class)
-            ->and($results['unlink'][1])->toBeInstanceOf(Throwable::class)
-            ->and($results['nested'][1])->toBeInstanceOf(Throwable::class)
+        expect($results)->toHaveCount(9);
+        $result0 = $results['allowed'] ?? throw new RuntimeException('Missing asynchronous allowed result.');
+        $result1 = $results['permission-read'] ?? throw new RuntimeException('Missing asynchronous permission-read result.');
+        $result2 = $results['permission-write'] ?? throw new RuntimeException('Missing asynchronous permission-write result.');
+        $result3 = $results['symlink'] ?? throw new RuntimeException('Missing asynchronous symlink result.');
+        $result4 = $results['outside'] ?? throw new RuntimeException('Missing asynchronous outside result.');
+        $result5 = $results['traversal'] ?? throw new RuntimeException('Missing asynchronous traversal result.');
+        $result6 = $results['rename'] ?? throw new RuntimeException('Missing asynchronous rename result.');
+        $result7 = $results['unlink'] ?? throw new RuntimeException('Missing asynchronous unlink result.');
+        $result8 = $results['nested'] ?? throw new RuntimeException('Missing asynchronous nested result.');
+
+        expect($result0)->toBe(['protected', null])
+            ->and($result1[1])->toBeInstanceOf(Throwable::class)
+            ->and($result2[1])->toBeInstanceOf(Throwable::class)
+            ->and($result3[1])->toBeInstanceOf(Throwable::class)
+            ->and($result4[1])->toBeInstanceOf(Throwable::class)
+            ->and($result5[1])->toBeInstanceOf(Throwable::class)
+            ->and($result6[1])->toBeInstanceOf(Throwable::class)
+            ->and($result7[1])->toBeInstanceOf(Throwable::class)
+            ->and($result8[1])->toBeInstanceOf(Throwable::class)
             ->and(file_get_contents($inside))->toBe('protected')
             ->and(file_get_contents($outside))->toBe('unchanged')
             ->and(is_link($link))->toBeTrue()

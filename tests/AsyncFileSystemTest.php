@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\ProcessExecutor;
@@ -41,12 +47,21 @@ it('persists binary offset writes and reads and renames through one bounded work
         });
         $loop->run();
 
-        expect($results['write'])->toBe([5, null])
-            ->and($results['read'])->toBe(["01ab\0cd", null])
-            ->and($results['stat'][0]['size'])->toBe(7)
-            ->and($results['stat'][1])->toBeNull()
-            ->and($results['rename'])->toBe([true, null])
-            ->and($results['unlink'])->toBe([true, null])
+        $result0 = $results['write'] ?? throw new RuntimeException('Missing write worker completion.');
+        $result1 = $results['read'] ?? throw new RuntimeException('Missing read worker completion.');
+        $result2 = $results['stat'] ?? throw new RuntimeException('Missing stat worker completion.');
+        $result3 = $results['rename'] ?? throw new RuntimeException('Missing rename worker completion.');
+        $result4 = $results['unlink'] ?? throw new RuntimeException('Missing unlink worker completion.');
+        if (!is_int($result2[0]['size'] ?? null)) {
+            throw new RuntimeException('Worker stat result did not include a numeric size.');
+        }
+
+        expect($result0)->toBe([5, null])
+            ->and($result1)->toBe(["01ab\0cd", null])
+            ->and($result2[0]['size'])->toBe(7)
+            ->and($result2[1])->toBeNull()
+            ->and($result3)->toBe([true, null])
+            ->and($result4)->toBe([true, null])
             ->and(file_exists($path))->toBeFalse()
             ->and(file_exists($to))->toBeFalse()
             ->and($executor->diagnostics()['workers'])->toBe(0)
@@ -153,8 +168,10 @@ it('preserves a full 1 MiB binary file with SHA-256 parity through bounded offse
         });
         $loop->run();
 
-        expect($checksums['write'])->toBe([strlen($binary), null])
-            ->and($checksums['read'])->toBe([hash('sha256', $binary), strlen($binary), null])
+        $writeChecksum = $checksums['write'] ?? throw new RuntimeException('Missing full-buffer write result.');
+        $readChecksum = $checksums['read'] ?? throw new RuntimeException('Missing full-buffer read result.');
+        expect($writeChecksum)->toBe([strlen($binary), null])
+            ->and($readChecksum)->toBe([hash('sha256', $binary), strlen($binary), null])
             ->and($executor->diagnostics()['workers'])->toBe(0)
             ->and($loop->diagnostics()->readWatchers)->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0);
@@ -266,11 +283,13 @@ it('exposes host rename replacement and failed target path without pretending cr
         });
         $loop->run();
 
-        expect($results['replace'])->toBe([true, null])
+        $replaced = $results['replace'] ?? throw new RuntimeException('Missing replacement completion.');
+        $invalid = $results['invalid'] ?? throw new RuntimeException('Missing rejected rename completion.');
+        expect($replaced)->toBe([true, null])
             ->and(file_exists($from))->toBeFalse()
             ->and(file_get_contents($to))->toBe("replacement\0bytes")
-            ->and($results['invalid'][0])->toBeFalse()
-            ->and($results['invalid'][1])->toBeInstanceOf(RuntimeException::class)
+            ->and($invalid[0])->toBeFalse()
+            ->and($invalid[1])->toBeInstanceOf(RuntimeException::class)
             ->and($executor->diagnostics()['workers'])->toBe(0)
             ->and($loop->diagnostics()->readWatchers)->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0);
